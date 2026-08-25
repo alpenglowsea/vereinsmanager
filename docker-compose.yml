@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  vereinsmanager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vereinsmanager_app
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      - NODE_ENV=production
+      # Optional: Supabase EU Cloud backend keys (falls im Cloud-Modus betrieben)
+      # - VITE_SUPABASE_URL=https://your-project.supabase.co
+      # - VITE_SUPABASE_ANON_KEY=your-anon-key
+      # - VITE_DEPLOYMENT_MODE=cloud
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+# Für lokale Selbsthoster ohne externe Cloud:
+# Der VereinsManager speichert die Daten persistent und verschlüsselt
+# in der Browser-IndexedDB der Benutzer bzw. synchronisiert bei Bedarf mit Supabase.

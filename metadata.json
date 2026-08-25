@@ -1,0 +1,6 @@
+{
+  "name": "VereinsManager Lokal",
+  "description": "DSGVO-konforme Vereinsverwaltung für Mitglieder, SEPA-Lastschriften, Finanzen/GuV, Geld- & Sachzuwendungsbestätigungen nach amtlichem BMF-Muster, Inventar und Dokumentenverwaltung/Archiv mit frei erstellbaren Ordnern und Unterordnern sowie 3 wählbaren Betriebsmodi (Lokal/IndexedDB, Cloud mit Supabase EU/IONOS und Docker-Selbsthosting).",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
