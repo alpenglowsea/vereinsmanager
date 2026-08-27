@@ -197,9 +197,9 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
               Steuerliche Sphärenrechnung & DATEV Standardkontenrahmen für Vereine
             </span>
           </div>
-          <h2 className="text-lg font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
             Einnahmen-Überschuss-Rechnung (EÜR / GuV)
-          </h2>
+          </h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Automatische Gliederung nach SKR 42 Haupt- und Nebenkategorien für Vorstand, Finanzamt & Mitgliederversammlung
           </p>
@@ -240,37 +240,37 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
           ? 'bg-rose-50/80 border-rose-300'
           : isWarningLimit
           ? 'bg-amber-50/80 border-amber-300'
-          : 'bg-gradient-to-br from-slate-900 to-slate-800 text-white border-slate-700'
+          : 'bg-white text-slate-900 border-slate-200'
       }`}>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div className="space-y-2 max-w-xl">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
                 isOverLimit
                   ? 'bg-rose-600 text-white'
                   : isWarningLimit
                   ? 'bg-amber-500 text-white'
-                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
               }`}>
                 § 64 Abs. 3 AO Besteuerungsgrenze / Kleinunternehmerregelung
               </span>
-              <span className={`text-xs font-semibold ${isOverLimit ? 'text-rose-900' : isWarningLimit ? 'text-amber-900' : 'text-slate-300'}`}>
+              <span className={`text-xs font-semibold ${isOverLimit ? 'text-rose-900' : isWarningLimit ? 'text-amber-900' : 'text-slate-500'}`}>
                 Wirtschaftlicher Geschäftsbetrieb ({selectedYear})
               </span>
             </div>
 
             <div className="flex items-baseline gap-3">
               <h3 className={`text-2xl font-black font-mono tracking-tight ${
-                isOverLimit ? 'text-rose-900' : isWarningLimit ? 'text-amber-950' : 'text-white'
+                isOverLimit ? 'text-rose-900' : isWarningLimit ? 'text-amber-950' : 'text-slate-900'
               }`}>
                 {wgbIncome.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
               </h3>
-              <span className={`text-sm font-semibold ${isOverLimit ? 'text-rose-700' : isWarningLimit ? 'text-amber-800' : 'text-slate-400'}`}>
+              <span className={`text-sm font-semibold ${isOverLimit ? 'text-rose-700' : isWarningLimit ? 'text-amber-800' : 'text-slate-500'}`}>
                 von 45.000,00 € Freigrenze
               </span>
             </div>
 
-            <p className={`text-xs leading-relaxed ${isOverLimit ? 'text-rose-800' : isWarningLimit ? 'text-amber-900' : 'text-slate-300'}`}>
+            <p className={`text-xs leading-relaxed ${isOverLimit ? 'text-rose-800' : isWarningLimit ? 'text-amber-900' : 'text-slate-600'}`}>
               Einnahmen (inkl. USt) aus wirtschaftlichen Geschäftsbetrieben (Kiosk, Sponsoring, Feste) bleiben bis zu <strong>45.000 € im Kalenderjahr</strong> körperschaft- und gewerbesteuerfrei.
             </p>
           </div>
@@ -281,11 +281,11 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
               ? 'bg-white/80 border border-rose-200'
               : isWarningLimit
               ? 'bg-white/80 border border-amber-200'
-              : 'bg-slate-800/80 border border-slate-700'
+              : 'bg-slate-50 border border-slate-200'
           }`}>
             <div className="flex items-center justify-between mb-2 text-xs">
-              <span className={`font-semibold flex items-center gap-1.5 ${isOverLimit ? 'text-rose-900' : isWarningLimit ? 'text-amber-900' : 'text-slate-200'}`}>
-                <Percent className="w-3.5 h-3.5 text-blue-400" />
+              <span className={`font-semibold flex items-center gap-1.5 ${isOverLimit ? 'text-rose-900' : isWarningLimit ? 'text-amber-900' : 'text-slate-700'}`}>
+                <Percent className="w-3.5 h-3.5 text-blue-600" />
                 Erreicht: <strong>{wgbExactPercent.toFixed(1)} %</strong>
               </span>
               <span className={`font-mono font-bold ${
@@ -293,34 +293,40 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
                   ? 'text-rose-700'
                   : isWarningLimit
                   ? 'text-amber-800'
-                  : 'text-emerald-400'
+                  : 'text-emerald-700'
               }`}>
                 {isOverLimit ? 'Grenze überschritten!' : `Puffer: ${wgbBuffer.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`}
               </span>
             </div>
 
             {/* Visual Progress Bar */}
-            <div className="w-full h-3.5 rounded-full bg-slate-700/40 overflow-hidden p-0.5 border border-slate-600/30">
+            <div className="w-full h-3.5 rounded-full bg-slate-200 overflow-hidden p-0.5 border border-slate-300">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
                   isOverLimit
                     ? 'bg-rose-500'
                     : isWarningLimit
                     ? 'bg-amber-400'
-                    : 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                    : 'bg-gradient-to-r from-emerald-500 to-teal-500'
                 }`}
                 style={{ width: `${Math.min(100, Math.max(2, wgbPercent))}%` }}
               />
             </div>
 
             <div className="flex items-center justify-between mt-2 text-[11px]">
-              <span className={isOverLimit ? 'text-rose-700' : isWarningLimit ? 'text-amber-800' : 'text-slate-400'}>
+              <span className={isOverLimit ? 'text-rose-700' : isWarningLimit ? 'text-amber-800' : 'text-slate-500'}>
                 0 € (Start)
               </span>
-              <span className="font-semibold text-center px-2 py-0.5 rounded text-[10px] bg-slate-700/20 text-slate-300">
+              <span className={`font-semibold text-center px-2 py-0.5 rounded text-[10px] ${
+                isOverLimit
+                  ? 'bg-rose-100 text-rose-800'
+                  : isWarningLimit
+                  ? 'bg-amber-100 text-amber-800'
+                  : 'bg-emerald-100 text-emerald-800'
+              }`}>
                 {isOverLimit ? 'Steuerpflicht greift' : isWarningLimit ? 'Vorstandswarnung beachten' : 'Gemeinnützigkeit sicher'}
               </span>
-              <span className={isOverLimit ? 'text-rose-700' : isWarningLimit ? 'text-amber-800' : 'text-slate-400'}>
+              <span className={isOverLimit ? 'text-rose-700' : isWarningLimit ? 'text-amber-800' : 'text-slate-500'}>
                 45.000 € (Grenze)
               </span>
             </div>

@@ -184,14 +184,42 @@ export const MembersView: React.FC<MembersViewProps> = ({
   const activeCount = members.filter(m => m.status === 'active').length;
   const activePct = members.length > 0 ? Math.round((activeCount / members.length) * 100) : 0;
   const youthCount = members.filter(m => m.membershipType === 'youth').length;
-  const totalYearlyFee = members.reduce((sum, m) => {
-    if (m.status === 'terminated') return sum;
-    let mult = 1;
-    if (m.feePeriod === 'monthly') mult = 12;
-    else if (m.feePeriod === 'quarterly') mult = 4;
-    else if (m.feePeriod === 'half_yearly') mult = 2;
-    return sum + (m.feeAmount * mult);
-  }, 0);
+  const passiveCount = members.filter(m => m.status === 'passive').length;
+
+  // Department / Sparte statistics
+  const departmentStats = useMemo(() => {
+    const map = new Map<string, number>();
+
+    // Pre-populate with all configured departments from club settings
+    (settings.departments || []).forEach(dept => {
+      if (dept && dept.trim()) {
+        map.set(dept.trim(), 0);
+      }
+    });
+
+    let unassignedCount = 0;
+    members.forEach(m => {
+      if (m.status === 'terminated') return; // only active/passive current members count
+      const d = m.department?.trim();
+      if (d) {
+        map.set(d, (map.get(d) || 0) + 1);
+      } else {
+        unassignedCount++;
+      }
+    });
+
+    if (unassignedCount > 0) {
+      map.set('Ohne Sparte', unassignedCount);
+    }
+
+    const currentTotal = members.filter(m => m.status !== 'terminated').length || members.length;
+    const list = Array.from(map.entries()).map(([department, count]) => {
+      const percentage = currentTotal > 0 ? Math.round((count / currentTotal) * 100) : 0;
+      return { department, count, percentage };
+    });
+
+    return list.sort((a, b) => b.count - a.count);
+  }, [members, settings.departments]);
 
   const handleExportCSV = () => {
     ExportService.exportMembersCSV(filteredMembers, `mitglieder_${settings.clubName.replace(/\s/g, '_')}.csv`);
@@ -218,49 +246,169 @@ export const MembersView: React.FC<MembersViewProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150 relative pb-16">
-      {/* 4 KPI Metric Cards */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-            Mitglieder Gesamt
-          </p>
-          <h3 className="text-3xl font-bold font-mono text-slate-900">{members.length}</h3>
-          <p className="text-emerald-600 text-[11px] mt-2 font-medium flex items-center gap-1">
-            {activeCount} aktiv ({activePct}%)
-          </p>
-        </div>
-
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-            Beitragsaufkommen p.a.
-          </p>
-          <h3 className="text-3xl font-bold font-mono text-slate-900">
-            €{totalYearlyFee.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </h3>
-          <p className="text-slate-400 text-[11px] mt-2">
-            Aus {activeCount} Beitragszahlern
-          </p>
-        </div>
-
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-            Sparten & Jugend
-          </p>
-          <h3 className="text-3xl font-bold font-mono text-slate-900">{settings.departments.length}</h3>
-          <p className="text-slate-500 text-[11px] mt-2 font-medium">
-            {youthCount} Jugendliche & Kinder
-          </p>
-        </div>
-
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-            Systemstatus
-          </p>
-          <div className="flex items-center gap-2 mt-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-sm font-semibold text-slate-800">Verschlüsselung aktiv</span>
+      {/* Metric Cards: Mitglieder Gesamt & Mitglieder je Sparte */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Kachel 1: Mitglieder Gesamt */}
+        <div className="lg:col-span-4 bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Mitglieder Gesamt
+              </p>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700">
+                {activePct}% Aktiv
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <h3 className="text-3xl font-bold font-mono text-slate-900">{members.length}</h3>
+              {(statusFilter !== 'all' || typeFilter !== 'all') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter('all');
+                    setTypeFilter('all');
+                  }}
+                  className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-lg transition-colors flex items-center gap-1"
+                  title="Filter für Status/Typ aufheben"
+                >
+                  <span>Filter aufheben</span>
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
           </div>
-          <p className="text-slate-400 text-[11px] mt-1">100% Offline IndexedDB</p>
+
+          <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
+            {/* Aktiv Filter Button */}
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === 'active' ? 'all' : 'active')}
+              className={`p-2 rounded-xl text-center border transition-all cursor-pointer flex flex-col items-center justify-center group ${
+                statusFilter === 'active'
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-400/40'
+                  : 'bg-emerald-50/70 hover:bg-emerald-100 border-emerald-200 text-slate-800'
+              }`}
+              title={statusFilter === 'active' ? 'Klicken, um Filter aufzuheben' : 'Klicken, um nach aktiven Mitgliedern zu filtern'}
+            >
+              <p className={`text-[10px] uppercase font-bold tracking-wider ${statusFilter === 'active' ? 'text-emerald-100' : 'text-emerald-700'}`}>
+                Aktiv
+              </p>
+              <p className={`text-sm font-bold font-mono ${statusFilter === 'active' ? 'text-white' : 'text-emerald-900'}`}>
+                {activeCount}
+              </p>
+            </button>
+
+            {/* Passiv Filter Button */}
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === 'passive' ? 'all' : 'passive')}
+              className={`p-2 rounded-xl text-center border transition-all cursor-pointer flex flex-col items-center justify-center group ${
+                statusFilter === 'passive'
+                  ? 'bg-slate-700 text-white border-slate-700 shadow-xs ring-2 ring-slate-400/40'
+                  : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800'
+              }`}
+              title={statusFilter === 'passive' ? 'Klicken, um Filter aufzuheben' : 'Klicken, um nach passiven Mitgliedern zu filtern'}
+            >
+              <p className={`text-[10px] uppercase font-bold tracking-wider ${statusFilter === 'passive' ? 'text-slate-200' : 'text-slate-600'}`}>
+                Passiv
+              </p>
+              <p className={`text-sm font-bold font-mono ${statusFilter === 'passive' ? 'text-white' : 'text-slate-800'}`}>
+                {passiveCount}
+              </p>
+            </button>
+
+            {/* Jugend Filter Button */}
+            <button
+              type="button"
+              onClick={() => setTypeFilter(typeFilter === 'youth' ? 'all' : 'youth')}
+              className={`p-2 rounded-xl text-center border transition-all cursor-pointer flex flex-col items-center justify-center group ${
+                typeFilter === 'youth'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-400/40'
+                  : 'bg-blue-50/70 hover:bg-blue-100 border-blue-200 text-slate-800'
+              }`}
+              title={typeFilter === 'youth' ? 'Klicken, um Filter aufzuheben' : 'Klicken, um nach Jugend/Kindern zu filtern'}
+            >
+              <p className={`text-[10px] uppercase font-bold tracking-wider ${typeFilter === 'youth' ? 'text-blue-100' : 'text-blue-700'}`}>
+                Jugend
+              </p>
+              <p className={`text-sm font-bold font-mono ${typeFilter === 'youth' ? 'text-white' : 'text-blue-900'}`}>
+                {youthCount}
+              </p>
+            </button>
+          </div>
+        </div>
+
+        {/* Kachel 2: Mitglieder je Sparte */}
+        <div className="lg:col-span-8 bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+                <Building2 className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Mitglieder je Sparte
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  {departmentStats.length} Sparte{departmentStats.length === 1 ? '' : 'n'} im Verein
+                </p>
+              </div>
+            </div>
+            {deptFilter !== 'all' && (
+              <button
+                type="button"
+                onClick={() => setDeptFilter('all')}
+                className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1"
+              >
+                <span>Filter &bdquo;{deptFilter}&ldquo; aufheben</span>
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          {departmentStats.length === 0 ? (
+            <p className="text-xs text-slate-400 py-3">Keine Sparten hinterlegt</p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-48 overflow-y-auto pr-1">
+              {departmentStats.map((item) => {
+                const isFiltered = deptFilter === item.department;
+                return (
+                  <button
+                    key={item.department}
+                    type="button"
+                    onClick={() => setDeptFilter(deptFilter === item.department ? 'all' : item.department)}
+                    className={`p-2.5 rounded-xl text-left border transition-all flex flex-col justify-between group cursor-pointer ${
+                      isFiltered
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                        : 'bg-slate-50 hover:bg-indigo-50/50 hover:border-indigo-200 border-slate-200 text-slate-800'
+                    }`}
+                    title={`Klicken, um Tabelle nach Sparte „${item.department}“ zu filtern`}
+                  >
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className={`text-xs font-bold truncate ${isFiltered ? 'text-white' : 'text-slate-800 group-hover:text-indigo-900'}`}>
+                        {item.department}
+                      </span>
+                      <span
+                        className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-semibold shrink-0 ${
+                          isFiltered ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600'
+                        }`}
+                      >
+                        {item.percentage}%
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className={`text-lg font-bold font-mono ${isFiltered ? 'text-white' : 'text-slate-900'}`}>
+                        {item.count}
+                      </span>
+                      <span className={`text-[10px] ${isFiltered ? 'text-indigo-200' : 'text-slate-400'}`}>
+                        Mitglieder
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
 

@@ -114,18 +114,17 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Banner / Header */}
-      <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="bg-white rounded-2xl p-6 text-slate-900 border border-slate-200 shadow-2xs relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-emerald-300 text-xs font-semibold uppercase tracking-wider mb-1">
-              <ShieldCheck className="w-4 h-4" />
+            <div className="flex items-center gap-2 text-emerald-700 text-xs font-semibold uppercase tracking-wider mb-1">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <span>Amtliche Spendenverwaltung (BMF-Muster)</span>
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
               Geld- & Sachzuwendungen
             </h1>
-            <p className="text-slate-300 text-xs mt-1 max-w-2xl">
+            <p className="text-slate-500 text-xs mt-1 max-w-2xl">
               Erstellung, Verwaltung und revisionssichere Archivierung rechtskonformer Zuwendungsbestätigungen nach den amtlichen Mustern des Bundesministeriums der Finanzen (§ 50 Abs. 1 EStDV).
             </p>
           </div>
@@ -133,7 +132,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
           <div className="flex items-center gap-3">
             <button
               onClick={onOpenCreateModal}
-              className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl transition-all shadow-md flex items-center gap-2 text-xs"
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-2xs flex items-center gap-2 text-xs cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Neue Zuwendungsbestätigung</span>

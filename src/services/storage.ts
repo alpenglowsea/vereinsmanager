@@ -11,20 +11,40 @@ import {
   ClubDocument,
   DocumentCategory,
   DocumentFolder,
-  DonationReceipt
+  DonationReceipt,
+  CalendarEvent,
+  CalendarEventCategory,
+  OnlineMembershipApplication,
+  ApplicationTemplateSettings
 } from '../types';
 import { DEFAULT_DEPARTMENTS } from '../data/taxSpheres';
 import { INITIAL_INVENTORY } from '../data/initialInventory';
 import { getInitialDocuments } from '../data/initialDocuments';
 import { getInitialFolders } from '../data/initialFolders';
+import { DEFAULT_CALENDAR_CATEGORIES, INITIAL_CALENDAR_EVENTS } from '../data/initialEvents';
 import { getStoredSupabaseConfig, getSupabaseClient } from './supabaseClient';
 import { CloudStorageService } from './cloudStorage';
 import { getDonationPdfDataUrl } from './donationService';
+import { getMembershipApplicationPdfDataUrl } from './membershipPdfService';
+import { AuthService } from './authService';
 
 const STORAGE_KEY_MODE = 'vm_deployment_mode';
 
-const DB_NAME = 'VereinsManager_LocalDB_v1';
-const DB_VERSION = 6;
+const LIVE_DB_NAME = 'VereinsManager_LiveDB_v1';
+const DEMO_DB_NAME = 'VereinsManager_DemoDB_v1';
+const DB_VERSION = 8;
+
+function isDemoModeActive(): boolean {
+  return AuthService.isDemoMode();
+}
+
+function getActiveDBName(): string {
+  return isDemoModeActive() ? DEMO_DB_NAME : LIVE_DB_NAME;
+}
+
+function getStorePrefix(): string {
+  return isDemoModeActive() ? 'vm_demo_' : 'vm_live_';
+}
 
 const STORES = {
   MEMBERS: 'members',
@@ -36,7 +56,11 @@ const STORES = {
   SEPA_RUNS: 'sepa_runs',
   DOCUMENTS: 'documents',
   DONATIONS: 'donations',
-  FOLDERS: 'folders'
+  FOLDERS: 'folders',
+  CALENDAR_EVENTS: 'calendar_events',
+  CALENDAR_CATEGORIES: 'calendar_categories',
+  ONLINE_APPLICATIONS: 'online_applications',
+  APPLICATION_SETTINGS: 'application_settings'
 };
 
 const DEFAULT_SETTINGS: ClubSettings = {
@@ -57,6 +81,121 @@ const DEFAULT_SETTINGS: ClubSettings = {
   email: 'vorstand@tsv-musterstadt1890.de',
   departments: DEFAULT_DEPARTMENTS
 };
+
+const DEFAULT_APPLICATION_SETTINGS: ApplicationTemplateSettings = {
+  headerText: 'Herzlich willkommen beim TSV Musterstadt 1890 e.V.! Füllen Sie den Online-Aufnahmeantrag bitte vollständig aus.',
+  notificationEmail: 'vorstand@tsv-musterstadt1890.de',
+  defaultFeeRules: {
+    full: 18.0,
+    reduced: 12.0,
+    youth: 10.0,
+    family: 30.0,
+    supporting: 25.0
+  },
+  requirePhotoConsent: true,
+  requireHealthConfirmation: true
+};
+
+const SAMPLE_SIG_PNG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60" viewBox="0 0 200 60"><path d="M 20 40 Q 50 10, 80 35 T 140 30 T 180 35" fill="none" stroke="%230f172a" stroke-width="3" stroke-linecap="round"/></svg>';
+
+const INITIAL_APPLICATIONS: OnlineMembershipApplication[] = [
+  {
+    id: 'app-demo-1',
+    applicationNumber: 'ANTRAG-2026-001',
+    submittedAt: '2026-03-01T14:20:00.000Z',
+    status: 'pending',
+    firstName: 'Felix',
+    lastName: 'Bauer',
+    gender: 'm',
+    birthDate: '2012-06-18', // 13-14 Jahre (Minderjährig)
+    nationality: 'Deutsch',
+    phone: '0176 9988776',
+    email: 'familie.bauer@example.de',
+    address: {
+      street: 'Kastanienallee',
+      houseNumber: '17',
+      zip: '12345',
+      city: 'Musterstadt',
+      country: 'Deutschland'
+    },
+    department: 'Fußball',
+    membershipType: 'youth',
+    feeAmount: 10.00,
+    feePeriod: 'monthly',
+    entryDate: '2026-03-15',
+    notes: 'Jugend D-Jugend Training. Bisher vereinslos.',
+    previousClub: '',
+    isMinor: true,
+    guardianName: 'Martina Bauer',
+    guardianRelation: 'Mutter',
+    guardianPhone: '0176 9988776',
+    guardianEmail: 'familie.bauer@example.de',
+    paymentMethod: 'sepa',
+    bankDetails: {
+      iban: 'DE44370501980011223344',
+      bic: 'SPKDMUSTXXX',
+      bankName: 'Sparkasse Musterstadt',
+      accountHolder: 'Martina Bauer',
+      mandateDate: '2026-03-01',
+      mandateReference: 'MANDAT-ANTRAG-2026-001',
+      monthlyDueDay: 1
+    },
+    dataPrivacyConsent: true,
+    statuteConsent: true,
+    photoConsent: true,
+    healthConfirmation: true,
+    applicantSignature: SAMPLE_SIG_PNG,
+    applicantSignatureDate: '2026-03-01T14:18:00.000Z',
+    guardianSignature: SAMPLE_SIG_PNG,
+    guardianSignatureDate: '2026-03-01T14:19:00.000Z'
+  },
+  {
+    id: 'app-demo-2',
+    applicationNumber: 'ANTRAG-2026-002',
+    submittedAt: '2026-02-28T09:45:00.000Z',
+    status: 'pending',
+    firstName: 'Sophia',
+    lastName: 'Wagner',
+    gender: 'w',
+    birthDate: '1996-09-12', // Erwachsen
+    nationality: 'Deutsch',
+    phone: '0151 4455667',
+    email: 'sophia.wagner@example.de',
+    address: {
+      street: 'Lindenweg',
+      houseNumber: '8b',
+      zip: '12345',
+      city: 'Musterstadt',
+      country: 'Deutschland'
+    },
+    department: 'Tennis',
+    membershipType: 'full',
+    feeAmount: 18.00,
+    feePeriod: 'monthly',
+    entryDate: '2026-04-01',
+    notes: 'Interesse an Sommer-Medenspielen Damen.',
+    previousClub: 'TC Blau-Weiß 1920 e.V.',
+    isMinor: false,
+    paymentMethod: 'sepa',
+    bankDetails: {
+      iban: 'DE89370601900055667788',
+      bic: 'GENODEM1MST',
+      bankName: 'Volksbank Musterstadt',
+      accountHolder: 'Sophia Wagner',
+      mandateDate: '2026-02-28',
+      mandateReference: 'MANDAT-ANTRAG-2026-002',
+      monthlyDueDay: 1
+    },
+    dataPrivacyConsent: true,
+    statuteConsent: true,
+    photoConsent: true,
+    healthConfirmation: true,
+    applicantSignature: SAMPLE_SIG_PNG,
+    applicantSignatureDate: '2026-02-28T09:44:00.000Z',
+    sepaSignature: SAMPLE_SIG_PNG,
+    sepaSignatureDate: '2026-02-28T09:44:00.000Z'
+  }
+];
 
 const INITIAL_DONATIONS: DonationReceipt[] = [
   {
@@ -685,8 +824,9 @@ const INITIAL_AUDIT_LOGS: MemberAuditLog[] = [
 
 // IndexedDB Helper
 function openDB(): Promise<IDBDatabase> {
+  const currentDB = getActiveDBName();
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const request = indexedDB.open(currentDB, DB_VERSION);
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
       Object.values(STORES).forEach(storeName => {
@@ -697,12 +837,12 @@ function openDB(): Promise<IDBDatabase> {
     };
     request.onsuccess = () => {
       const db = request.result;
-      // Defensive check in case DB was created earlier without newer stores (e.g. INVENTORY or SEPA_RUNS)
+      // Defensive check in case DB was created earlier without newer stores
       const missingStores = Object.values(STORES).filter(s => !db.objectStoreNames.contains(s));
       if (missingStores.length > 0) {
         db.close();
         const nextVersion = Math.max(db.version + 1, DB_VERSION + 1);
-        const upgradeReq = indexedDB.open(DB_NAME, nextVersion);
+        const upgradeReq = indexedDB.open(currentDB, nextVersion);
         upgradeReq.onupgradeneeded = (e) => {
           const upDb = (e.target as IDBOpenDBRequest).result;
           Object.values(STORES).forEach(storeName => {
@@ -722,10 +862,11 @@ function openDB(): Promise<IDBDatabase> {
 }
 
 async function getAllFromStore<T>(storeName: string): Promise<T[]> {
+  const prefix = getStorePrefix();
   try {
     const db = await openDB();
     if (!db.objectStoreNames.contains(storeName)) {
-      const local = localStorage.getItem(`vm_${storeName}`);
+      const local = localStorage.getItem(`${prefix}${storeName}`);
       return local ? JSON.parse(local) : [];
     }
     return new Promise((resolve, reject) => {
@@ -737,16 +878,17 @@ async function getAllFromStore<T>(storeName: string): Promise<T[]> {
     });
   } catch (err) {
     // Fallback to localStorage
-    const local = localStorage.getItem(`vm_${storeName}`);
+    const local = localStorage.getItem(`${prefix}${storeName}`);
     return local ? JSON.parse(local) : [];
   }
 }
 
 async function saveAllToStore<T extends { id: string }>(storeName: string, items: T[]): Promise<void> {
+  const prefix = getStorePrefix();
   try {
     const db = await openDB();
     if (!db.objectStoreNames.contains(storeName)) {
-      localStorage.setItem(`vm_${storeName}`, JSON.stringify(items));
+      localStorage.setItem(`${prefix}${storeName}`, JSON.stringify(items));
       return;
     }
     return new Promise((resolve, reject) => {
@@ -757,9 +899,8 @@ async function saveAllToStore<T extends { id: string }>(storeName: string, items
       tx.oncomplete = () => {
         // Also mirror in localStorage for redundancy if small
         try {
-          // Avoid storing large base64 attachments in localStorage
           if (storeName !== STORES.TRANSACTIONS && storeName !== STORES.DOCUMENTS) {
-            localStorage.setItem(`vm_${storeName}`, JSON.stringify(items));
+            localStorage.setItem(`${prefix}${storeName}`, JSON.stringify(items));
           }
         } catch (_) {}
         resolve();
@@ -767,11 +908,12 @@ async function saveAllToStore<T extends { id: string }>(storeName: string, items
       tx.onerror = () => reject(tx.error);
     });
   } catch (err) {
-    localStorage.setItem(`vm_${storeName}`, JSON.stringify(items));
+    localStorage.setItem(`${prefix}${storeName}`, JSON.stringify(items));
   }
 }
 
 async function getItemFromStore<T>(storeName: string, id: string): Promise<T | null> {
+  const prefix = getStorePrefix();
   try {
     const db = await openDB();
     if (!db.objectStoreNames.contains(storeName)) {
@@ -856,6 +998,8 @@ export const StorageService = {
   },
 
   isCloudActive(): boolean {
+    // Isolated Demo Sandbox NEVER communicates with or alters live Supabase tables
+    if (isDemoModeActive()) return false;
     return this.getDeploymentMode() === 'cloud' && getStoredSupabaseConfig().isConfigured && Boolean(getSupabaseClient());
   },
 
@@ -927,45 +1071,135 @@ export const StorageService = {
   },
 
   async init(): Promise<void> {
-    const initialized = localStorage.getItem('vm_initialized');
+    const isDemo = isDemoModeActive();
+    const initKey = isDemo ? 'vm_demo_initialized' : 'vm_live_initialized';
+    const initialized = localStorage.getItem(initKey);
+
     if (!initialized) {
-      await saveAllToStore(STORES.ACCOUNTS, INITIAL_ACCOUNTS);
-      await saveAllToStore(STORES.MEMBERS, INITIAL_MEMBERS);
-      await saveAllToStore(STORES.TRANSACTIONS, INITIAL_TRANSACTIONS);
-      await saveAllToStore(STORES.AUDIT_LOGS, INITIAL_AUDIT_LOGS);
-      await saveAllToStore(STORES.INVENTORY, INITIAL_INVENTORY);
-      await saveAllToStore(STORES.FOLDERS, getInitialFolders());
-      await saveAllToStore(STORES.DOCUMENTS, getInitialDocuments());
-      await saveAllToStore(STORES.DONATIONS, INITIAL_DONATIONS);
-      await putItemToStore(STORES.SETTINGS, { id: 'main', ...DEFAULT_SETTINGS });
-      await this.syncReceiptsToDocuments();
-      await this.syncDonationsToDocuments();
-      localStorage.setItem('vm_initialized', 'true');
+      if (isDemo) {
+        // Load complete isolated Demo Sample Sandbox for TSV Musterstadt 1890 e.V.
+        await saveAllToStore(STORES.ACCOUNTS, INITIAL_ACCOUNTS);
+        await saveAllToStore(STORES.MEMBERS, INITIAL_MEMBERS);
+        await saveAllToStore(STORES.TRANSACTIONS, INITIAL_TRANSACTIONS);
+        await saveAllToStore(STORES.AUDIT_LOGS, INITIAL_AUDIT_LOGS);
+        await saveAllToStore(STORES.INVENTORY, INITIAL_INVENTORY);
+        await saveAllToStore(STORES.FOLDERS, getInitialFolders());
+        await saveAllToStore(STORES.DOCUMENTS, getInitialDocuments());
+        await saveAllToStore(STORES.DONATIONS, INITIAL_DONATIONS);
+        await saveAllToStore(STORES.CALENDAR_CATEGORIES, DEFAULT_CALENDAR_CATEGORIES);
+        await saveAllToStore(STORES.CALENDAR_EVENTS, INITIAL_CALENDAR_EVENTS);
+        await putItemToStore(STORES.SETTINGS, { id: 'main', ...DEFAULT_SETTINGS });
+        await this.syncReceiptsToDocuments();
+        await this.syncDonationsToDocuments();
+      } else {
+        // LIVE Mode Initialization for real club
+        try {
+          const starterAccounts: FinancialAccount[] = [
+            {
+              id: 'acc-main',
+              name: 'Girokonto (Hauptkonto)',
+              accountType: 'bank',
+              iban: '',
+              bic: '',
+              initialBalance: 0.00,
+              color: 'emerald',
+              description: 'Hauptkonto für Beitrags- und Rechnungswesen',
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: 'acc-cash',
+              name: 'Vereinskasse (Bargeld)',
+              accountType: 'cash',
+              initialBalance: 0.00,
+              color: 'amber',
+              description: 'Handkasse für Veranstaltungen und Barbelege',
+              createdAt: new Date().toISOString()
+            }
+          ];
+
+          await saveAllToStore(STORES.ACCOUNTS, starterAccounts);
+          await saveAllToStore(STORES.MEMBERS, []);
+          await saveAllToStore(STORES.TRANSACTIONS, []);
+          await saveAllToStore(STORES.AUDIT_LOGS, []);
+          await saveAllToStore(STORES.INVENTORY, []);
+          await saveAllToStore(STORES.FOLDERS, getInitialFolders());
+          await saveAllToStore(STORES.DOCUMENTS, []);
+          await saveAllToStore(STORES.DONATIONS, []);
+          await saveAllToStore(STORES.CALENDAR_CATEGORIES, DEFAULT_CALENDAR_CATEGORIES);
+          await saveAllToStore(STORES.CALENDAR_EVENTS, []);
+
+          const currentSettings = await getItemFromStore<ClubSettings>(STORES.SETTINGS, 'main');
+          if (!currentSettings) {
+            await putItemToStore(STORES.SETTINGS, {
+              id: 'main',
+              clubName: 'Mein Sportverein e.V.',
+              associationNumber: '',
+              taxNumber: '',
+              taxOffice: '',
+              taxExemptionDate: '',
+              taxAssessmentPeriod: '',
+              promotedPurposes: 'Förderung des Sports',
+              creditorId: '',
+              creditorIban: '',
+              creditorBic: '',
+              creditorAccountId: 'acc-main',
+              address: '',
+              chairman: '',
+              treasurer: '',
+              email: '',
+              departments: DEFAULT_DEPARTMENTS
+            });
+          }
+        } catch (err) {
+          console.warn('Initialisierung Live-DB:', err);
+        }
+      }
+      localStorage.setItem(initKey, 'true');
     } else {
-      // Seed folders if existing user upgrades and folders store is empty
+      // Refresh checks
       const existingFolders = await getAllFromStore<DocumentFolder>(STORES.FOLDERS);
       if (!existingFolders || existingFolders.length === 0) {
         await saveAllToStore(STORES.FOLDERS, getInitialFolders());
       }
-      // Seed inventory if existing user upgrades and inventory store is empty
-      const existingInventory = await getAllFromStore<InventoryItem>(STORES.INVENTORY);
-      if (!existingInventory || existingInventory.length === 0) {
-        await saveAllToStore(STORES.INVENTORY, INITIAL_INVENTORY);
+      if (isDemo) {
+        await this.syncReceiptsToDocuments();
+        await this.syncDonationsToDocuments();
       }
-      // Seed documents if existing user upgrades and documents store is empty
-      const existingDocs = await getAllFromStore<ClubDocument>(STORES.DOCUMENTS);
-      if (!existingDocs || existingDocs.length === 0) {
-        await saveAllToStore(STORES.DOCUMENTS, getInitialDocuments());
-      }
-      // Seed donations if existing user upgrades
-      const existingDonations = await getAllFromStore<DonationReceipt>(STORES.DONATIONS);
-      if (!existingDonations || existingDonations.length === 0) {
-        await saveAllToStore(STORES.DONATIONS, INITIAL_DONATIONS);
-      }
-      // Always sync receipts from transactions & donations into documents
-      await this.syncReceiptsToDocuments();
-      await this.syncDonationsToDocuments();
     }
+  },
+
+  /**
+   * Setzt die Demo-Sandbox vollständig auf Beispieldaten zurück
+   */
+  async resetDemoData(): Promise<void> {
+    if (!isDemoModeActive()) return;
+    await saveAllToStore(STORES.ACCOUNTS, INITIAL_ACCOUNTS);
+    await saveAllToStore(STORES.MEMBERS, INITIAL_MEMBERS);
+    await saveAllToStore(STORES.TRANSACTIONS, INITIAL_TRANSACTIONS);
+    await saveAllToStore(STORES.AUDIT_LOGS, INITIAL_AUDIT_LOGS);
+    await saveAllToStore(STORES.INVENTORY, INITIAL_INVENTORY);
+    await saveAllToStore(STORES.FOLDERS, getInitialFolders());
+    await saveAllToStore(STORES.DOCUMENTS, getInitialDocuments());
+    await saveAllToStore(STORES.DONATIONS, INITIAL_DONATIONS);
+    await putItemToStore(STORES.SETTINGS, { id: 'main', ...DEFAULT_SETTINGS });
+    await this.syncReceiptsToDocuments();
+    await this.syncDonationsToDocuments();
+  },
+
+  /**
+   * Richtet den Live-Verein bei einer Registrierung ein
+   */
+  async initLiveClub(clubName: string, chairmanName: string, email: string): Promise<void> {
+    const current = await this.getSettings();
+    const updated: ClubSettings = {
+      ...current,
+      id: 'main',
+      clubName: clubName.trim(),
+      chairman: chairmanName.trim(),
+      email: email.trim(),
+      departments: current?.departments?.length ? current.departments : DEFAULT_DEPARTMENTS
+    };
+    await this.saveSettings(updated);
   },
 
   // Members
@@ -2087,9 +2321,266 @@ export const StorageService = {
     return synced;
   },
 
+  // =========================================================================
+  // TERMIN- & VERANSTALTUNGSKALENDER
+  // =========================================================================
+
+  async getCalendarEvents(): Promise<CalendarEvent[]> {
+    const events = await getAllFromStore<CalendarEvent>(STORES.CALENDAR_EVENTS);
+    if (events.length === 0 && isDemoModeActive()) {
+      await saveAllToStore(STORES.CALENDAR_EVENTS, INITIAL_CALENDAR_EVENTS);
+      return INITIAL_CALENDAR_EVENTS;
+    }
+    return events;
+  },
+
+  async saveCalendarEvent(event: CalendarEvent): Promise<CalendarEvent> {
+    const now = new Date().toISOString();
+    const toSave: CalendarEvent = {
+      ...event,
+      updatedAt: now,
+      createdAt: event.createdAt || now
+    };
+    await putItemToStore(STORES.CALENDAR_EVENTS, toSave);
+    return toSave;
+  },
+
+  async deleteCalendarEvent(id: string): Promise<void> {
+    await deleteItemFromStore(STORES.CALENDAR_EVENTS, id);
+  },
+
+  async batchSaveCalendarEvents(events: CalendarEvent[]): Promise<void> {
+    for (const evt of events) {
+      await putItemToStore(STORES.CALENDAR_EVENTS, evt);
+    }
+  },
+
+  async getCalendarCategories(): Promise<CalendarEventCategory[]> {
+    const categories = await getAllFromStore<CalendarEventCategory>(STORES.CALENDAR_CATEGORIES);
+    if (categories.length === 0) {
+      await saveAllToStore(STORES.CALENDAR_CATEGORIES, DEFAULT_CALENDAR_CATEGORIES);
+      return DEFAULT_CALENDAR_CATEGORIES;
+    }
+    return categories;
+  },
+
+  async saveCalendarCategory(category: CalendarEventCategory): Promise<CalendarEventCategory> {
+    await putItemToStore(STORES.CALENDAR_CATEGORIES, category);
+    return category;
+  },
+
+  async deleteCalendarCategory(id: string): Promise<void> {
+    await deleteItemFromStore(STORES.CALENDAR_CATEGORIES, id);
+  },
+
+  // =========================================================================
+  // ONLINE-MITGLIEDSANTRÄGE & DIGITALES AUFNAHMEWESEN
+  // =========================================================================
+
+  async getOnlineApplications(): Promise<OnlineMembershipApplication[]> {
+    const apps = await getAllFromStore<OnlineMembershipApplication>(STORES.ONLINE_APPLICATIONS);
+    if (apps.length === 0 && isDemoModeActive()) {
+      await saveAllToStore(STORES.ONLINE_APPLICATIONS, INITIAL_APPLICATIONS);
+      return INITIAL_APPLICATIONS;
+    }
+    return apps;
+  },
+
+  async saveOnlineApplication(app: OnlineMembershipApplication): Promise<OnlineMembershipApplication> {
+    await putItemToStore(STORES.ONLINE_APPLICATIONS, app);
+    return app;
+  },
+
+  async deleteOnlineApplication(id: string): Promise<void> {
+    await deleteItemFromStore(STORES.ONLINE_APPLICATIONS, id);
+  },
+
+  async getApplicationTemplateSettings(): Promise<ApplicationTemplateSettings> {
+    const stored = await getItemFromStore<ApplicationTemplateSettings & { id: string }>(
+      STORES.APPLICATION_SETTINGS,
+      'main'
+    );
+    if (!stored) {
+      return DEFAULT_APPLICATION_SETTINGS;
+    }
+    return stored;
+  },
+
+  async saveApplicationTemplateSettings(settings: ApplicationTemplateSettings): Promise<ApplicationTemplateSettings> {
+    await putItemToStore(STORES.APPLICATION_SETTINGS, { id: 'main', ...settings });
+    return settings;
+  },
+
+  /**
+   * Bestätigt einen Online-Aufnahmeantrag:
+   * 1. Legt das neue Mitglied mit allen Feldern in der Mitgliedertabelle an.
+   * 2. Erzeugt das offizielle Aufnahmeantrags-PDF inkl. digitaler Signaturen.
+   * 3. Archiviert das Dokument automatisch im Dokumentenarchiv unter 'Mitglieder / Aufnahmeanträge'.
+   * 4. Erstellt einen Audit-Log-Eintrag.
+   * 5. Setzt den Antragsstatus auf 'approved'.
+   */
+  async approveOnlineApplication(
+    appId: string,
+    memberOverrides: Partial<Member>,
+    author: string = 'Vorstand'
+  ): Promise<{ member: Member; documentId: string }> {
+    const apps = await this.getOnlineApplications();
+    const app = apps.find(a => a.id === appId);
+    if (!app) {
+      throw new Error(`Aufnahmeantrag mit ID ${appId} nicht gefunden.`);
+    }
+
+    const clubSettings = await this.getSettings();
+    const now = new Date().toISOString();
+    const newMemberId = `mem-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const memberNum = memberOverrides.memberNumber || `MG-${Math.floor(100 + Math.random() * 900)}`;
+
+    // 1. Neues Mitgliedsobjekt zusammenstellen
+    const newMember: Member = {
+      id: newMemberId,
+      memberNumber: memberNum,
+      firstName: app.firstName,
+      lastName: app.lastName,
+      gender: app.gender,
+      birthDate: app.birthDate,
+      address: app.address,
+      phone: app.phone,
+      email: app.email,
+      entryDate: memberOverrides.entryDate || app.entryDate || now.slice(0, 10),
+      status: 'active',
+      department: memberOverrides.department || app.department,
+      membershipType: memberOverrides.membershipType || app.membershipType,
+      feeAmount: memberOverrides.feeAmount !== undefined ? memberOverrides.feeAmount : (app.feeAmount || 18.0),
+      feePeriod: memberOverrides.feePeriod || app.feePeriod,
+      paymentMethod: app.paymentMethod,
+      bankDetails: {
+        iban: app.bankDetails.iban,
+        bic: app.bankDetails.bic,
+        bankName: app.bankDetails.bankName,
+        accountHolder: app.bankDetails.accountHolder || `${app.firstName} ${app.lastName}`,
+        mandateDate: app.bankDetails.mandateDate || now.slice(0, 10),
+        mandateReference: app.bankDetails.mandateReference || `MANDAT-${memberNum}`,
+        monthlyDueDay: app.bankDetails.monthlyDueDay || 1
+      },
+      notes: [memberOverrides.notes, app.notes, app.previousClub ? `Vorverein: ${app.previousClub}` : '']
+        .filter(Boolean)
+        .join(' | ') || `Digitaler Aufnahmeantrag ${app.applicationNumber}`,
+      dataPrivacyConsent: app.dataPrivacyConsent,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    // Mitglied speichern
+    await this.saveMember(newMember);
+
+    // 2. Aufnahmeantrag PDF erzeugen & im Dokumentenarchiv ablegen (bevorzugt Original-PDF falls vorhanden)
+    let documentId = `doc-app-${app.id}`;
+    try {
+      const pdfDataUrl = app.pdfDataUrl || getMembershipApplicationPdfDataUrl(app, clubSettings);
+      const isOriginalUploadedPdf = Boolean(app.pdfDataUrl);
+      const doc: ClubDocument = {
+        id: documentId,
+        title: `Aufnahmeantrag: ${newMember.lastName}, ${newMember.firstName} (${memberNum})`,
+        fileName: isOriginalUploadedPdf ? `Aufnahmeantrag_Original_${newMember.lastName}_${newMember.firstName}_${memberNum}.pdf` : `Aufnahmeantrag_${newMember.lastName}_${newMember.firstName}_${memberNum}.pdf`,
+        fileType: 'application/pdf',
+        fileSize: Math.round(pdfDataUrl.length * 0.75),
+        dataUrl: pdfDataUrl,
+        category: 'mitglieder',
+        folderId: 'folder-aufnahmeantraege',
+        date: app.submittedAt ? app.submittedAt.slice(0, 10) : now.slice(0, 10),
+        uploadDate: now,
+        tags: ['Aufnahmeantrag', isOriginalUploadedPdf ? 'PDF-Scan' : 'Online', 'Beitrittserklärung', memberNum, app.department, 'SEPA-Mandat'],
+        notes: isOriginalUploadedPdf 
+          ? `Handschriftlich ausgefüllter & eingescannter Aufnahmeantrag (${app.applicationNumber}) für ${newMember.firstName} ${newMember.lastName}. Automatisch per KI ausgelesen und archiviert.`
+          : `Vollständig ausgefüllter und digital signierter Aufnahmeantrag (${app.applicationNumber}) für ${newMember.firstName} ${newMember.lastName}. Beitragsgruppe: ${app.membershipType}, Sparte: ${app.department}.`,
+        memberId: newMember.id,
+        memberName: `${newMember.firstName} ${newMember.lastName}`,
+        isReceipt: false,
+        createdAt: now,
+        updatedAt: now
+      };
+      await this.saveDocument(doc);
+    } catch (err) {
+      console.warn('PDF generation for document archive failed:', err);
+    }
+
+    // 3. Audit Log für neues Mitglied erstellen
+    try {
+      const auditLog: MemberAuditLog = {
+        id: `log-app-${Date.now()}`,
+        memberId: newMember.id,
+        memberNumber: newMember.memberNumber,
+        memberName: `${newMember.firstName} ${newMember.lastName}`,
+        timestamp: now,
+        author,
+        action: 'create',
+        summary: `Neues Mitglied über Online-Aufnahmeantrag (${app.applicationNumber}) aufgenommen`,
+        changes: [
+          { field: 'status', label: 'Status', oldValue: '–', newValue: 'Aktiv' },
+          { field: 'department', label: 'Abteilung', oldValue: '–', newValue: newMember.department },
+          { field: 'membershipType', label: 'Mitgliedsart', oldValue: '–', newValue: newMember.membershipType },
+          { field: 'feeAmount', label: 'Beitrag', oldValue: '–', newValue: `${newMember.feeAmount.toFixed(2)} € (${newMember.feePeriod})` }
+        ]
+      };
+      await this.saveAuditLog(auditLog);
+    } catch (e) {
+      console.warn('Audit log creation error:', e);
+    }
+
+    // 4. Antragsstatus auf 'approved' aktualisieren
+    const updatedApp: OnlineMembershipApplication = {
+      ...app,
+      status: 'approved',
+      reviewedAt: now,
+      reviewedBy: author,
+      createdMemberId: newMember.id,
+      createdMemberNumber: newMember.memberNumber,
+      generatedDocumentId: documentId
+    };
+    await this.saveOnlineApplication(updatedApp);
+
+    return { member: newMember, documentId };
+  },
+
+  async rejectOnlineApplication(
+    appId: string,
+    rejectionReason: string,
+    author: string = 'Vorstand'
+  ): Promise<void> {
+    const apps = await this.getOnlineApplications();
+    const app = apps.find(a => a.id === appId);
+    if (!app) {
+      throw new Error(`Aufnahmeantrag mit ID ${appId} nicht gefunden.`);
+    }
+
+    const now = new Date().toISOString();
+    const updatedApp: OnlineMembershipApplication = {
+      ...app,
+      status: 'rejected',
+      reviewedAt: now,
+      reviewedBy: author,
+      rejectionReason
+    };
+    await this.saveOnlineApplication(updatedApp);
+  },
+
   // Full Database Backup & Restore
   async exportFullBackup(): Promise<string> {
-    const [members, transactions, accounts, auditLogs, inventory, sepaRuns, documents, donations, settings] = await Promise.all([
+    const [
+      members,
+      transactions,
+      accounts,
+      auditLogs,
+      inventory,
+      sepaRuns,
+      documents,
+      donations,
+      calendarEvents,
+      calendarCategories,
+      onlineApplications,
+      applicationSettings,
+      settings
+    ] = await Promise.all([
       this.getMembers(),
       this.getTransactions(),
       this.getAccounts(),
@@ -2098,6 +2589,10 @@ export const StorageService = {
       this.getSepaRuns(),
       this.getDocuments(),
       this.getDonations(),
+      this.getCalendarEvents(),
+      this.getCalendarCategories(),
+      this.getOnlineApplications(),
+      this.getApplicationTemplateSettings(),
       this.getSettings()
     ]);
 
@@ -2114,6 +2609,10 @@ export const StorageService = {
         sepaRuns,
         documents,
         donations,
+        calendarEvents,
+        calendarCategories,
+        onlineApplications,
+        applicationSettings,
         settings
       }
     };
@@ -2121,12 +2620,26 @@ export const StorageService = {
     return JSON.stringify(backup, null, 2);
   },
 
-  async importFullBackup(jsonString: string): Promise<{ membersCount: number; transactionsCount: number; inventoryCount: number; documentsCount: number; donationsCount: number }> {
+  async importFullBackup(jsonString: string): Promise<{ membersCount: number; transactionsCount: number; inventoryCount: number; documentsCount: number; donationsCount: number; calendarEventsCount: number }> {
     const parsed = JSON.parse(jsonString);
     if (!parsed.data) {
       throw new Error('Ungültiges Sicherungsformat');
     }
-    const { members = [], transactions = [], accounts = [], auditLogs = [], inventory = [], sepaRuns = [], documents = [], donations = [], settings } = parsed.data;
+    const {
+      members = [],
+      transactions = [],
+      accounts = [],
+      auditLogs = [],
+      inventory = [],
+      sepaRuns = [],
+      documents = [],
+      donations = [],
+      calendarEvents = [],
+      calendarCategories = [],
+      onlineApplications = [],
+      applicationSettings,
+      settings
+    } = parsed.data;
 
     await saveAllToStore(STORES.MEMBERS, members);
     await saveAllToStore(STORES.TRANSACTIONS, transactions);
@@ -2136,6 +2649,17 @@ export const StorageService = {
     await saveAllToStore(STORES.SEPA_RUNS, sepaRuns);
     await saveAllToStore(STORES.DOCUMENTS, documents);
     await saveAllToStore(STORES.DONATIONS, donations);
+    if (calendarCategories.length > 0) {
+      await saveAllToStore(STORES.CALENDAR_CATEGORIES, calendarCategories);
+    }
+    await saveAllToStore(STORES.CALENDAR_EVENTS, calendarEvents);
+    if (onlineApplications.length > 0) {
+      await saveAllToStore(STORES.ONLINE_APPLICATIONS, onlineApplications);
+    }
+    if (applicationSettings) {
+      await putItemToStore(STORES.APPLICATION_SETTINGS, { id: 'main', ...applicationSettings });
+    }
+
     if (settings) {
       await putItemToStore(STORES.SETTINGS, { id: 'main', ...settings });
     }
@@ -2153,7 +2677,8 @@ export const StorageService = {
       transactionsCount: transactions.length,
       inventoryCount: inventory.length,
       documentsCount: documents.length,
-      donationsCount: donations.length
+      donationsCount: donations.length,
+      calendarEventsCount: calendarEvents.length
     };
   },
 
@@ -2166,6 +2691,10 @@ export const StorageService = {
     await saveAllToStore(STORES.SEPA_RUNS, []);
     await saveAllToStore(STORES.DOCUMENTS, getInitialDocuments());
     await saveAllToStore(STORES.DONATIONS, INITIAL_DONATIONS);
+    await saveAllToStore(STORES.CALENDAR_CATEGORIES, DEFAULT_CALENDAR_CATEGORIES);
+    await saveAllToStore(STORES.CALENDAR_EVENTS, INITIAL_CALENDAR_EVENTS);
+    await saveAllToStore(STORES.ONLINE_APPLICATIONS, INITIAL_APPLICATIONS);
+    await putItemToStore(STORES.APPLICATION_SETTINGS, { id: 'main', ...DEFAULT_APPLICATION_SETTINGS });
     await putItemToStore(STORES.SETTINGS, { id: 'main', ...DEFAULT_SETTINGS });
     await this.syncReceiptsToDocuments();
     await this.syncDonationsToDocuments();
@@ -2180,6 +2709,9 @@ export const StorageService = {
     await saveAllToStore(STORES.SEPA_RUNS, []);
     await saveAllToStore(STORES.DOCUMENTS, []);
     await saveAllToStore(STORES.DONATIONS, []);
+    await saveAllToStore(STORES.CALENDAR_CATEGORIES, DEFAULT_CALENDAR_CATEGORIES);
+    await saveAllToStore(STORES.CALENDAR_EVENTS, []);
+    await saveAllToStore(STORES.ONLINE_APPLICATIONS, []);
   }
 };
 

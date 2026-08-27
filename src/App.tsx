@@ -15,9 +15,15 @@ import {
   ClubDocument,
   DocumentCategory,
   DocumentFolder,
-  DonationReceipt
+  DonationReceipt,
+  CalendarEvent,
+  CalendarEventCategory,
+  OnlineMembershipApplication,
+  ApplicationTemplateSettings
 } from './types';
 import { StorageService } from './services/storage';
+import { AuthService } from './services/authService';
+import { AppUser, UserAuthSession } from './types';
 
 // Views
 import { DashboardView } from './components/DashboardView';
@@ -30,6 +36,9 @@ import { DonationsView } from './components/DonationsView';
 import { InventoryView } from './components/InventoryView';
 import { SepaRunView } from './components/SepaRunView';
 import { DocumentsView } from './components/DocumentsView';
+import { CalendarView } from './components/CalendarView';
+import { OnlineApplicationsView } from './components/OnlineApplicationsView';
+import { PublicApplicationForm } from './components/PublicApplicationForm';
 
 // Modals & Drawers
 import { MemberFormModal } from './components/MemberFormModal';
@@ -49,6 +58,9 @@ import { DocumentUploadModal } from './components/DocumentUploadModal';
 import { DocumentEditModal } from './components/DocumentEditModal';
 import { NewDocumentChoiceModal } from './components/NewDocumentChoiceModal';
 import { DonationFormModal } from './components/DonationFormModal';
+import { CalendarEventModal } from './components/CalendarEventModal';
+import { LoginScreen } from './components/LoginScreen';
+import { UserManageModal } from './components/UserManageModal';
 
 // Icons
 import {
@@ -80,10 +92,33 @@ import {
   FileText,
   Camera,
   Upload,
-  HeartHandshake
+  HeartHandshake,
+  UserCheck,
+  LogOut,
+  ShieldAlert,
+  UserCog,
+  KeyRound,
+  Shield,
+  Calendar as CalendarIcon,
+  CalendarDays,
+  FileSignature,
+  Inbox,
+  FileCheck
 } from 'lucide-react';
 
-type ActiveTab = 'dashboard' | 'members' | 'member_analytics' | 'sepa' | 'finance' | 'guv' | 'finance_analytics' | 'donations' | 'inventory' | 'documents';
+type ActiveTab =
+  | 'dashboard'
+  | 'calendar'
+  | 'members'
+  | 'online_applications'
+  | 'member_analytics'
+  | 'sepa'
+  | 'finance'
+  | 'guv'
+  | 'finance_analytics'
+  | 'donations'
+  | 'inventory'
+  | 'documents';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
@@ -92,6 +127,11 @@ export default function App() {
   const [deploymentMode, setDeploymentMode] = useState<import('./types').DeploymentMode>(StorageService.getDeploymentMode());
   const [deploymentHubOpen, setDeploymentHubOpen] = useState(false);
 
+  // Authentication & RBAC State
+  const [authSession, setAuthSession] = useState<UserAuthSession>(() => AuthService.getSession());
+  const [userManageOpen, setUserManageOpen] = useState(false);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+
   // Core App State
   const [members, setMembers] = useState<Member[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -99,6 +139,17 @@ export default function App() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [documents, setDocuments] = useState<ClubDocument[]>([]);
   const [donations, setDonations] = useState<DonationReceipt[]>([]);
+  const [onlineApplications, setOnlineApplications] = useState<OnlineMembershipApplication[]>([]);
+  const [applicationSettings, setApplicationSettings] = useState<ApplicationTemplateSettings>({
+    headerText: 'Herzlich willkommen beim TSV Musterstadt 1890 e.V.! Füllen Sie den Online-Aufnahmeantrag bitte vollständig aus.',
+    notificationEmail: 'vorstand@tsv-musterstadt1890.de',
+    defaultFeeRules: { full: 18.0, reduced: 12.0, youth: 10.0, family: 30.0, supporting: 25.0 },
+    requirePhotoConsent: true,
+    requireHealthConfirmation: true
+  });
+  const [isPublicFormMode, setIsPublicFormMode] = useState<boolean>(() => {
+    return window.location.search.includes('antrag') || window.location.search.includes('form');
+  });
   const [settings, setSettings] = useState<ClubSettings>({
     clubName: 'TSV Musterstadt 1890 e.V.',
     associationNumber: 'VR 48219 Amtsgericht Musterstadt',
@@ -134,6 +185,10 @@ export default function App() {
   const [accountManageOpen, setAccountManageOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  // Calendar Event Modal State
+  const [calendarEventModalOpen, setCalendarEventModalOpen] = useState(false);
+  const [calendarCategories, setCalendarCategories] = useState<CalendarEventCategory[]>([]);
+
   // Document Management States
   const [newDocChoiceOpen, setNewDocChoiceOpen] = useState(false);
   const [docUploadOpen, setDocUploadOpen] = useState(false);
@@ -167,7 +222,9 @@ export default function App() {
         loadedSettings,
         loadedDocuments,
         loadedDonations,
-        loadedFolders
+        loadedFolders,
+        loadedApplications,
+        loadedTemplateSettings
       ] = await Promise.all([
         StorageService.getMembers(),
         StorageService.getTransactions(),
@@ -176,7 +233,9 @@ export default function App() {
         StorageService.getSettings(),
         StorageService.getDocuments(),
         StorageService.getDonations(),
-        StorageService.getFolders()
+        StorageService.getFolders(),
+        StorageService.getOnlineApplications(),
+        StorageService.getApplicationTemplateSettings()
       ]);
 
       setMembers(loadedMembers);
@@ -187,6 +246,10 @@ export default function App() {
       setDocuments(loadedDocuments);
       setDonations(loadedDonations);
       setFolders(loadedFolders);
+      setOnlineApplications(loadedApplications);
+      if (loadedTemplateSettings) {
+        setApplicationSettings(loadedTemplateSettings);
+      }
     } catch (err) {
       console.error('Failed to load local data:', err);
     } finally {
@@ -195,7 +258,30 @@ export default function App() {
   };
 
   useEffect(() => {
+    AuthService.init().then(session => {
+      setAuthSession(session);
+    });
+
+    const unsubscribe = AuthService.onAuthStateChanged(session => {
+      setAuthSession(session);
+    });
+
+    const handleUserActivity = () => {
+      AuthService.recordActivity();
+    };
+
+    window.addEventListener('mousemove', handleUserActivity);
+    window.addEventListener('keydown', handleUserActivity);
+    window.addEventListener('click', handleUserActivity);
+
     loadData();
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('mousemove', handleUserActivity);
+      window.removeEventListener('keydown', handleUserActivity);
+      window.removeEventListener('click', handleUserActivity);
+    };
   }, []);
 
   // Compute Next Member Number & Next Doc Number
@@ -484,6 +570,22 @@ export default function App() {
     setDonationFormOpen(true);
   };
 
+  // Calendar Event Quick Action Handlers
+  const handleOpenCreateCalendarEvent = async () => {
+    try {
+      const cats = await StorageService.getCalendarCategories();
+      setCalendarCategories(cats);
+    } catch (e) {
+      console.error('Error fetching calendar categories:', e);
+    }
+    setCalendarEventModalOpen(true);
+  };
+
+  const handleSaveCalendarEvent = async (eventData: CalendarEvent) => {
+    await StorageService.saveCalendarEvent(eventData);
+    setCalendarEventModalOpen(false);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -497,6 +599,60 @@ export default function App() {
       </div>
     );
   }
+
+  // Auth Gate: If user is not authenticated, show Login Screen
+  if (!authSession.isAuthenticated) {
+    return (
+      <>
+        <LoginScreen
+          settings={settings}
+          deploymentMode={deploymentMode}
+          onLoginSuccess={(user) => {
+            setAuthSession({ user, isAuthenticated: true, loginTime: new Date().toISOString() });
+            loadData();
+          }}
+          onOpenDeploymentHub={() => setDeploymentHubOpen(true)}
+        />
+        {deploymentHubOpen && (
+          <DeploymentHubModal
+            currentMode={deploymentMode}
+            onModeChange={async (newMode) => {
+              setDeploymentMode(newMode);
+              await loadData();
+            }}
+            onDataReload={loadData}
+            onClose={() => setDeploymentHubOpen(false)}
+          />
+        )}
+      </>
+    );
+  }
+
+  const currentUser = authSession.user;
+  const userPermissions = currentUser?.permissions || {
+    canViewMembers: true,
+    canEditMembers: true,
+    canViewFinances: true,
+    canEditFinances: true,
+    canExecuteSepa: true,
+    canManageDonations: true,
+    canManageDocuments: true,
+    canManageInventory: true,
+    canManageSettings: true,
+    canManageUsers: true
+  };
+
+  const canViewFinances = Boolean(userPermissions.canViewFinances);
+  const canEditFinances = Boolean(userPermissions.canEditFinances);
+  const canExecuteSepa = Boolean(userPermissions.canExecuteSepa);
+  const canManageDonations = Boolean(userPermissions.canManageDonations);
+  const canViewMembers = Boolean(userPermissions.canViewMembers);
+  const canEditMembers = Boolean(userPermissions.canEditMembers);
+  const canManageDocuments = Boolean(userPermissions.canManageDocuments);
+  const canManageInventory = Boolean(userPermissions.canManageInventory);
+  const canManageUsers = Boolean(userPermissions.canManageUsers);
+  const canManageSettings = Boolean(userPermissions.canManageSettings);
+  const isReadOnly = !canEditFinances && !canEditMembers;
 
   return (
     <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
@@ -553,18 +709,18 @@ export default function App() {
               setActiveTab('dashboard');
               setMobileMenuOpen(false);
             }}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+            className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
               activeTab === 'dashboard'
-                ? 'bg-blue-600 text-white shadow-xs font-semibold'
-                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                ? 'bg-blue-600 text-white shadow-xs font-bold'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
             }`}
           >
-            <div className="flex items-center gap-3">
-              <LayoutDashboard className="w-5 h-5 text-blue-400" />
+            <div className="flex items-center gap-2">
+              <LayoutDashboard className="w-4 h-4 text-blue-400" />
               <span>Dashboard</span>
             </div>
             <span
-              className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
+              className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded ${
                 activeTab === 'dashboard'
                   ? 'bg-blue-500 text-white'
                   : 'bg-slate-800 text-slate-400'
@@ -624,6 +780,39 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => {
+                    setActiveTab('online_applications');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    activeTab === 'online_applications'
+                      ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <FileSignature className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Mitgliedsanträge</span>
+                  </div>
+                  {onlineApplications.filter(a => a.status === 'pending').length > 0 ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500 text-white animate-pulse">
+                      {onlineApplications.filter(a => a.status === 'pending').length} neu
+                    </span>
+                  ) : (
+                    <span
+                      className={`text-[11px] px-1.5 py-0.5 rounded font-mono ${
+                        activeTab === 'online_applications'
+                          ? 'bg-blue-500/80 text-white'
+                          : 'bg-slate-800 text-slate-400'
+                      }`}
+                    >
+                      {onlineApplications.length}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
                     setActiveTab('member_analytics');
                     setMobileMenuOpen(false);
                   }}
@@ -640,7 +829,7 @@ export default function App() {
             )}
           </div>
 
-          {/* 3. Finanzen & Kassen (Group with Sub-items: Buchungen, Beitragslauf, EÜR / GuV, Auswertungen) */}
+          {/* 3. Finanzen (Group with Sub-items: Buchungen, Beitragslauf, EÜR / GuV, Auswertungen) */}
           <div className="pt-2">
             <button
               type="button"
@@ -649,7 +838,7 @@ export default function App() {
             >
               <div className="flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-emerald-400" />
-                <span>Finanzen & Kassen</span>
+                <span>Finanzen</span>
               </div>
               {financeMenuOpen ? (
                 <ChevronDown className="w-3.5 h-3.5" />
@@ -716,7 +905,7 @@ export default function App() {
                   </span>
                 </button>
 
-                {/* 3c. EÜR / GuV (strictly without "(4 Sphären)") */}
+                {/* 3c. EÜR / GuV */}
                 <button
                   type="button"
                   onClick={() => {
@@ -782,7 +971,29 @@ export default function App() {
             )}
           </div>
 
-          {/* 4. Inventar & Material */}
+          {/* 4. Kalender */}
+          <div className="pt-2">
+            <button
+              id="nav-btn-calendar"
+              type="button"
+              onClick={() => {
+                setActiveTab('calendar');
+                setMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                activeTab === 'calendar'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <CalendarDays className="w-4 h-4 text-indigo-400" />
+                <span>Kalender</span>
+              </div>
+            </button>
+          </div>
+
+          {/* 5. Inventar */}
           <div className="pt-2">
             <button
               type="button"
@@ -790,18 +1001,18 @@ export default function App() {
                 setActiveTab('inventory');
                 setMobileMenuOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
                 activeTab === 'inventory'
-                  ? 'bg-blue-600 text-white shadow-xs font-semibold'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <Package className="w-5 h-5 text-purple-400" />
-                <span>Inventar & Material</span>
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4 text-purple-400" />
+                <span>Inventar</span>
               </div>
               <span
-                className={`text-xs px-2 py-0.5 rounded font-semibold font-mono ${
+                className={`text-[11px] px-1.5 py-0.5 rounded font-mono ${
                   activeTab === 'inventory'
                     ? 'bg-blue-500 text-white'
                     : 'bg-slate-800 text-slate-400'
@@ -812,7 +1023,7 @@ export default function App() {
             </button>
           </div>
 
-          {/* 5. Dokumentenverwaltung & Archiv */}
+          {/* 6. Dokumente */}
           <div className="pt-2">
             <button
               id="nav-btn-documents"
@@ -821,18 +1032,18 @@ export default function App() {
                 setActiveTab('documents');
                 setMobileMenuOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
                 activeTab === 'documents'
-                  ? 'bg-blue-600 text-white shadow-xs font-semibold'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <FolderArchive className="w-5 h-5 text-amber-400" />
-                <span>Dokumente & Archiv</span>
+              <div className="flex items-center gap-2">
+                <FolderArchive className="w-4 h-4 text-amber-400" />
+                <span>Dokumente</span>
               </div>
               <span
-                className={`text-xs px-2 py-0.5 rounded font-semibold font-mono ${
+                className={`text-[11px] px-1.5 py-0.5 rounded font-mono ${
                   activeTab === 'documents'
                     ? 'bg-blue-500 text-white'
                     : 'bg-slate-800 text-slate-400'
@@ -911,9 +1122,47 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50">
+        {/* Demo Mode Sandbox Notice */}
+        {AuthService.isDemoMode() && (
+          <div className="bg-amber-500/10 border-b border-amber-300/50 px-4 py-2 flex items-center justify-between text-xs text-amber-950 font-medium shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+              </span>
+              <span className="font-bold text-amber-900">Demo-Modus aktiv:</span>
+              <span className="hidden md:inline text-amber-800">
+                Fiktive Beispieldaten (TSV Musterstadt 1890 e.V.). Ihre echten Vereinsdaten sind strikt getrennt & geschützt.
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (window.confirm('Demo-Daten wirklich auf die Beispieldaten zurücksetzen?')) {
+                    await StorageService.resetDemoData();
+                    await loadData();
+                  }
+                }}
+                className="px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-2xs font-semibold transition-colors cursor-pointer"
+                title="Demo-Beispieldaten auf Standard zurücksetzen"
+              >
+                Musterdaten resetten
+              </button>
+              <button
+                type="button"
+                onClick={() => AuthService.logout()}
+                className="px-2.5 py-1 bg-amber-700 hover:bg-amber-800 text-white rounded-lg text-2xs font-bold transition-colors cursor-pointer"
+              >
+                Demo beenden
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Top Header Bar */}
-        <header className="h-16 bg-white border-b border-slate-200 px-6 sm:px-8 flex items-center justify-between shrink-0 z-20">
-          <div className="flex items-center gap-4 flex-1">
+        <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-8 flex items-center justify-between shrink-0 z-20 gap-3">
+          <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
@@ -923,23 +1172,125 @@ export default function App() {
               <Menu className="w-5 h-5" />
             </button>
 
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-800 leading-tight">
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-slate-800 leading-tight truncate">
                 {activeTab === 'dashboard' && 'Vereins-Dashboard'}
                 {activeTab === 'members' && 'Mitgliederverwaltung'}
+                {activeTab === 'online_applications' && 'Mitgliedsanträge & Digitales Aufnahmewesen'}
                 {activeTab === 'member_analytics' && 'Mitglieder-Statistiken & Demografie'}
                 {activeTab === 'sepa' && 'Beitragslauf (SEPA-Lastschriften)'}
                 {activeTab === 'finance' && 'Finanz- & Kassenverwaltung'}
                 {activeTab === 'guv' && 'Einnahmen-Überschuss-Rechnung (EÜR / GuV)'}
                 {activeTab === 'finance_analytics' && 'Finanzanalysen & Cashflow'}
                 {activeTab === 'donations' && 'Geld- & Sachzuwendungen (BMF-Zuwendungsbestätigungen)'}
+                {activeTab === 'calendar' && 'Kalender & Termine'}
                 {activeTab === 'inventory' && 'Inventar- & Materialverwaltung'}
                 {activeTab === 'documents' && 'Dokumentenverwaltung & Archiv'}
               </h2>
-              <p className="text-2xs text-slate-400 font-medium hidden sm:block">
+              <p className="text-2xs text-slate-400 font-medium hidden sm:block truncate">
                 {settings.clubName}
               </p>
             </div>
+          </div>
+
+          {/* Right Header User & Actions */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            {/* Read-Only Badge for Auditor */}
+            {isReadOnly && (
+              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-medium">
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+                <span>Kassenprüfer (Nur Leserecht)</span>
+              </div>
+            )}
+
+            {/* User Profile & Session Dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                className="flex items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all"
+              >
+                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                  {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <div className="text-left hidden sm:block">
+                  <div className="text-xs font-bold text-slate-800 truncate max-w-[120px] leading-tight">
+                    {currentUser?.name || 'Benutzer'}
+                  </div>
+                  <div className="text-[10px] text-slate-500 flex items-center gap-1">
+                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${canManageUsers ? 'bg-rose-500' : canEditFinances ? 'bg-emerald-500' : 'bg-blue-500'}`} />
+                    <span>{currentUser?.customRoleName || (canManageUsers ? 'Administrator' : 'Benutzer')}</span>
+                  </div>
+                </div>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              </button>
+
+              {userDropdownOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setUserDropdownOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-40 space-y-1 animate-in fade-in zoom-in-95 duration-100 text-xs">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 mb-2">
+                      <div className="font-bold text-slate-900 truncate">{currentUser?.name}</div>
+                      <div className="text-[11px] text-slate-500 font-mono truncate">Login: {currentUser?.username}</div>
+                      <div className="mt-2 inline-block px-2 py-0.5 rounded text-[10px] font-semibold border bg-blue-50 text-blue-800 border-blue-200">
+                        {currentUser?.customRoleName || (canManageUsers ? 'Administrator' : 'Benutzer')}
+                      </div>
+                    </div>
+
+                    {canManageUsers && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserDropdownOpen(false);
+                          setUserManageOpen(true);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg text-left transition-colors"
+                      >
+                        <UserCog className="w-4 h-4 text-blue-600" />
+                        <span>Benutzerverwaltung & Rechte</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserDropdownOpen(false);
+                        AuthService.lockSession();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg text-left transition-colors"
+                    >
+                      <Lock className="w-4 h-4 text-amber-600" />
+                      <span>Sitzung jetzt sperren</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserDropdownOpen(false);
+                        AuthService.logout();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-lg text-left transition-colors"
+                    >
+                      <LogOut className="w-4 h-4 text-rose-600" />
+                      <span>Abmelden / Benutzer wechseln</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Quick Lock Button */}
+            <button
+              type="button"
+              onClick={() => AuthService.lockSession()}
+              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors border border-transparent hover:border-slate-200"
+              title="Sitzung sofort sperren"
+            >
+              <Lock className="w-4 h-4 text-slate-600" />
+            </button>
           </div>
         </header>
 
@@ -954,6 +1305,7 @@ export default function App() {
                 accounts={accounts}
                 inventory={inventory}
                 settings={settings}
+                pendingApplicationsCount={onlineApplications.filter(a => a.status === 'pending').length}
                 onNavigate={(tab) => setActiveTab(tab)}
                 onOpenCreateMember={() => {
                   setEditingMember(null);
@@ -963,6 +1315,7 @@ export default function App() {
                   setEditingTx(null);
                   setTxFormOpen(true);
                 }}
+                onOpenCreateEvent={handleOpenCreateCalendarEvent}
                 onOpenCreateInventory={() => {
                   setEditingInventoryItem(null);
                   setInventoryFormOpen(true);
@@ -992,9 +1345,45 @@ export default function App() {
               />
             )}
 
+            {/* Tab: Online Membership Applications */}
+            {activeTab === 'online_applications' && (
+              <OnlineApplicationsView
+                applications={onlineApplications}
+                members={members}
+                settings={settings}
+                templateSettings={applicationSettings}
+                currentUser={currentUser?.name || 'Vorstand'}
+                onApproveApplication={async (appId, overrides, author) => {
+                  const res = await StorageService.approveOnlineApplication(appId, overrides, author || currentUser?.name || 'Vorstand');
+                  await loadData();
+                  return res;
+                }}
+                onRejectApplication={async (appId, reason, author) => {
+                  await StorageService.rejectOnlineApplication(appId, reason, author || currentUser?.name || 'Vorstand');
+                  await loadData();
+                }}
+                onDeleteApplication={async (id) => {
+                  await StorageService.deleteOnlineApplication(id);
+                  await loadData();
+                }}
+                onSaveTemplateSettings={async (newSettings) => {
+                  await StorageService.saveApplicationTemplateSettings(newSettings);
+                  await loadData();
+                }}
+                onSubmitNewApplication={async (newApp) => {
+                  await StorageService.saveOnlineApplication(newApp);
+                  await loadData();
+                }}
+                onViewDocument={(doc) => setDocViewerItem(doc)}
+                onOpenPublicForm={() => setIsPublicFormMode(true)}
+                onNavigateToMembers={() => setActiveTab('members')}
+                onNavigateToDocuments={() => setActiveTab('documents')}
+              />
+            )}
+
             {/* Tab 2: Member Analytics */}
             {activeTab === 'member_analytics' && (
-              <MemberAnalyticsView members={members} />
+              <MemberAnalyticsView members={members} settings={settings} />
             )}
 
             {/* Tab: SEPA Direct Debit & Contribution Run */}
@@ -1083,6 +1472,15 @@ export default function App() {
                   setInventoryFormOpen(true);
                 }}
                 onDeleteItem={handleDeleteInventoryItem}
+              />
+            )}
+
+            {/* Tab: Calendar & Events */}
+            {activeTab === 'calendar' && (
+              <CalendarView
+                members={members}
+                settings={settings}
+                userPermissions={userPermissions}
               />
             )}
 
@@ -1348,6 +1746,7 @@ export default function App() {
           onSaveSettings={handleSaveSettings}
           onDataReload={loadData}
           onOpenDeploymentHub={() => setDeploymentHubOpen(true)}
+          onOpenUserManage={() => setUserManageOpen(true)}
           onClose={() => setSettingsOpen(false)}
         />
       )}
@@ -1360,6 +1759,76 @@ export default function App() {
           onDataReload={loadData}
           onClose={() => setDeploymentHubOpen(false)}
         />
+      )}
+
+      {/* User & Role Management Modal (Admin only) */}
+      {userManageOpen && (
+        <UserManageModal
+          currentUserId={currentUser?.id || ''}
+          onClose={() => setUserManageOpen(false)}
+          onUserChanged={() => {
+            // Refresh session if active user was edited
+            const updatedSession = AuthService.getSession();
+            setAuthSession(updatedSession);
+          }}
+        />
+      )}
+
+      {/* Calendar Event Modal (Quick Action) */}
+      {calendarEventModalOpen && (
+        <CalendarEventModal
+          isOpen={calendarEventModalOpen}
+          onClose={() => setCalendarEventModalOpen(false)}
+          event={null}
+          categories={calendarCategories}
+          members={members}
+          departments={settings.departments}
+          onSave={handleSaveCalendarEvent}
+          clubSettingsAddress={settings.address}
+        />
+      )}
+
+      {/* Public Online Membership Application Modal / Standalone Mode */}
+      {isPublicFormMode && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-200">
+          <div className="bg-slate-50 w-full max-w-4xl min-h-screen sm:min-h-0 sm:rounded-3xl shadow-2xl overflow-hidden my-auto flex flex-col border border-slate-700">
+            <div className="bg-slate-900 text-white px-5 sm:px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-blue-600/30 text-blue-400 rounded-lg border border-blue-500/30">
+                  <FileSignature className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-white">
+                    Öffentliches Antragsformular — Live-Vorschau
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Dieser Dialog simuliert das Antragsformular für Interessenten am Smartphone oder PC
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPublicFormMode(false)}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border border-slate-700"
+              >
+                <X className="w-4 h-4" />
+                <span>Schließen</span>
+              </button>
+            </div>
+            <div className="p-3 sm:p-6 overflow-y-auto flex-1 bg-slate-100">
+              <PublicApplicationForm
+                clubSettings={settings}
+                templateSettings={applicationSettings}
+                onSubmit={async (app) => {
+                  await StorageService.saveOnlineApplication(app);
+                  await loadData();
+                  setIsPublicFormMode(false);
+                }}
+                onCancel={() => setIsPublicFormMode(false)}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

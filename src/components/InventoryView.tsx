@@ -230,7 +230,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               <Package className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
                 Inventar- & Materialverwaltung
               </h1>
               <p className="text-xs text-slate-500">
@@ -269,8 +269,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             <Package className="w-3.5 h-3.5 text-blue-600" />
             <span>Inventarpositionen</span>
           </div>
-          <div className="text-2xl font-bold text-slate-900">
-            {stats.totalItems} <span className="text-xs font-normal text-slate-500">({stats.totalCount} Einheiten)</span>
+          <div className="text-2xl font-bold font-mono text-slate-900">
+            {stats.totalItems} <span className="text-xs font-normal text-slate-500 font-sans">({stats.totalCount} Einheiten)</span>
           </div>
         </div>
 
@@ -279,7 +279,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
             <span>Geschätzter Zeitwert</span>
           </div>
-          <div className="text-2xl font-bold text-emerald-700">
+          <div className="text-2xl font-bold font-mono text-emerald-700">
             {stats.totalCurrentValue.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
           </div>
         </div>
@@ -289,8 +289,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             <Layers className="w-3.5 h-3.5 text-indigo-600" />
             <span>Sparten & Abteilungen</span>
           </div>
-          <div className="text-2xl font-bold text-slate-800">
-            {allDepartments.length} <span className="text-xs font-normal text-slate-500">Bereiche</span>
+          <div className="text-2xl font-bold font-mono text-slate-800">
+            {allDepartments.length} <span className="text-xs font-normal text-slate-500 font-sans">Bereiche</span>
           </div>
         </div>
 
@@ -303,7 +303,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           </div>
           <div className="text-2xl font-bold text-slate-800">
             {stats.damagedCount + stats.overdueCount > 0 ? (
-              <span className="text-amber-700 font-bold">
+              <span className="text-amber-700 font-bold font-mono">
                 {stats.damagedCount} Reparatur{stats.overdueCount > 0 ? ` • ${stats.overdueCount} fällig` : ''}
               </span>
             ) : (

@@ -392,9 +392,9 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-slate-900">
+              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
                 SEPA-Lastschrift & Beitragslauf
-              </h2>
+              </h1>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
                 pain.008.001.02 Standard
               </span>

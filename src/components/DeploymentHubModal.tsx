@@ -41,7 +41,7 @@ import {
 interface DeploymentHubModalProps {
   currentMode: DeploymentMode;
   onModeChange: (mode: DeploymentMode) => void;
-  onDataReload: () => void;
+  onDataReload?: () => void;
   onClose: () => void;
 }
 
@@ -96,7 +96,7 @@ export const DeploymentHubModal: React.FC<DeploymentHubModalProps> = ({
       StorageService.setDeploymentMode('cloud');
       setSelectedMode('cloud');
       onModeChange('cloud');
-      onDataReload();
+      onDataReload?.();
     }
   };
 
@@ -116,7 +116,7 @@ export const DeploymentHubModal: React.FC<DeploymentHubModalProps> = ({
     setSelectedMode(mode);
     StorageService.setDeploymentMode(mode);
     onModeChange(mode);
-    onDataReload();
+    onDataReload?.();
   };
 
   const handleMigrateToCloud = async () => {
@@ -133,7 +133,7 @@ export const DeploymentHubModal: React.FC<DeploymentHubModalProps> = ({
         message: `Erfolgreich übertragen: ${res.members} Mitglieder, ${res.transactions} Buchungen, ${res.accounts} Konten, ${res.inventory} Inventargegenstände.`
       });
       onModeChange('cloud');
-      onDataReload();
+      onDataReload?.();
     } catch (err: any) {
       setMigrationStatus({
         loading: false,
@@ -168,7 +168,7 @@ export const DeploymentHubModal: React.FC<DeploymentHubModalProps> = ({
       if (res.success) {
         setAuthStatus({ loading: false, success: 'Erfolgreich angemeldet!' });
         await loadAuth();
-        onDataReload();
+        onDataReload?.();
       } else {
         setAuthStatus({ loading: false, error: res.error || 'Anmeldung fehlgeschlagen' });
       }
@@ -197,7 +197,7 @@ export const DeploymentHubModal: React.FC<DeploymentHubModalProps> = ({
     await signOutUser();
     await loadAuth();
     setAuthStatus({ loading: false, success: 'Erfolgreich abgemeldet.' });
-    onDataReload();
+    onDataReload?.();
   };
 
   return (

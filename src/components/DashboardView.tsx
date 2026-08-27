@@ -37,9 +37,11 @@ interface DashboardViewProps {
   accounts: FinancialAccount[];
   inventory: InventoryItem[];
   settings: ClubSettings;
+  pendingApplicationsCount?: number;
   onNavigate: (tab: any) => void;
   onOpenCreateMember: () => void;
   onOpenCreateTx: () => void;
+  onOpenCreateEvent?: () => void;
   onOpenCreateInventory: () => void;
   onOpenNewDocument?: () => void;
 }
@@ -50,9 +52,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   accounts,
   inventory,
   settings,
+  pendingApplicationsCount = 0,
   onNavigate,
   onOpenCreateMember,
   onOpenCreateTx,
+  onOpenCreateEvent,
   onOpenCreateInventory,
   onOpenNewDocument
 }) => {
@@ -156,6 +160,35 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
   }, [members]);
 
+  // 7. Payment Methods Breakdown & Percentages
+  const paymentMethodsBreakdown = useMemo(() => {
+    let sepa = 0;
+    let transfer = 0;
+    let cash = 0;
+    let other = 0;
+    const total = activeMembers.length || 1;
+
+    activeMembers.forEach(m => {
+      const method = (m.paymentMethod || '').toLowerCase();
+      if (method === 'sepa' || method === 'lastschrift' || method === 'direct_debit') {
+        sepa++;
+      } else if (method === 'transfer' || method === 'ueberweisung' || method === 'bank_transfer') {
+        transfer++;
+      } else if (method === 'cash' || method === 'bar') {
+        cash++;
+      } else {
+        other++;
+      }
+    });
+
+    return [
+      { label: 'SEPA-Lastschrift', count: sepa, pct: (sepa / total) * 100, barColor: 'bg-emerald-500', textColor: 'text-emerald-700', bgBadge: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
+      { label: 'Banküberweisung', count: transfer, pct: (transfer / total) * 100, barColor: 'bg-blue-500', textColor: 'text-blue-700', bgBadge: 'bg-blue-50 text-blue-800 border-blue-200' },
+      { label: 'Barzahlung', count: cash, pct: (cash / total) * 100, barColor: 'bg-amber-500', textColor: 'text-amber-700', bgBadge: 'bg-amber-50 text-amber-800 border-amber-200' },
+      ...(other > 0 ? [{ label: 'Sonstige / Befreit', count: other, pct: (other / total) * 100, barColor: 'bg-purple-500', textColor: 'text-purple-700', bgBadge: 'bg-purple-50 text-purple-800 border-purple-200' }] : [])
+    ];
+  }, [activeMembers]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* 1. TOP HEADER & QUICK ACTIONS */}
@@ -164,9 +197,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-full text-2xs font-bold uppercase tracking-wider">
               {settings.associationNumber || 'Eingetragener Verein (e.V.)'}
-            </span>
-            <span className="text-xs text-slate-500 font-medium">
-              Geschäftsjahr {currentYear} • SKR 42 Rechnungslegung
             </span>
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
@@ -178,32 +208,44 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            id="dashboard-btn-create-tx"
-            type="button"
-            onClick={onOpenCreateTx}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Neue Buchung</span>
-          </button>
-
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
           <button
             id="dashboard-btn-create-member"
             type="button"
             onClick={onOpenCreateMember}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all hover:shadow-sm cursor-pointer active:scale-98"
           >
             <Plus className="w-4 h-4" />
             <span>Neues Mitglied</span>
           </button>
 
           <button
+            id="dashboard-btn-create-tx"
+            type="button"
+            onClick={onOpenCreateTx}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all hover:shadow-sm cursor-pointer active:scale-98"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Neue Buchung</span>
+          </button>
+
+          {onOpenCreateEvent && (
+            <button
+              id="dashboard-btn-create-event"
+              type="button"
+              onClick={onOpenCreateEvent}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all hover:shadow-sm cursor-pointer active:scale-98"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Neuer Termin</span>
+            </button>
+          )}
+
+          <button
             id="dashboard-btn-create-inventory"
             type="button"
             onClick={onOpenCreateInventory}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all hover:shadow-sm cursor-pointer active:scale-98"
           >
             <Plus className="w-4 h-4" />
             <span>Neues Material</span>
@@ -214,7 +256,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               id="dashboard-btn-new-document"
               type="button"
               onClick={onOpenNewDocument}
-              className="inline-flex items-center gap-2 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all hover:shadow-sm cursor-pointer active:scale-98"
             >
               <Plus className="w-4 h-4" />
               <span>Neues Dokument</span>
@@ -222,6 +264,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* Pending Membership Applications Notification Banner */}
+      {pendingApplicationsCount > 0 && (
+        <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/5 border border-amber-300/80 p-4 sm:p-5 rounded-2xl shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="p-2.5 bg-amber-500 text-white rounded-xl shadow-xs shrink-0 animate-pulse">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-amber-950">
+                  {pendingApplicationsCount} {pendingApplicationsCount === 1 ? 'neuer Online-Mitgliedsantrag' : 'neue Online-Mitgliedsanträge'} eingegangen!
+                </h2>
+                <span className="px-2 py-0.5 bg-amber-600 text-white text-[10px] font-bold rounded-full uppercase tracking-wider">
+                  Zur Prüfung
+                </span>
+              </div>
+              <p className="text-xs text-amber-800 mt-0.5">
+                Vollständig ausgefüllte und digital signierte Beitrittsanträge warten auf Ihre Bestätigung zur automatischen Mitgliederübernahme.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate('online_applications')}
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all hover:shadow-sm cursor-pointer whitespace-nowrap"
+          >
+            <span>Anträge jetzt prüfen</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* 2. TOP METRIC TILES GRID */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -236,7 +310,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <Users className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-black text-slate-900">
+          <div className="text-3xl font-black font-mono text-slate-900">
             {members.length}
           </div>
           <div className="flex items-center justify-between mt-3 text-xs text-slate-500 pt-2 border-t border-slate-100">
@@ -427,6 +501,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <span className="text-slate-600">Gläubiger-ID:</span>
                 <span className="font-mono text-slate-800 font-semibold">{settings.creditorId || 'Nicht hinterlegt'}</span>
               </div>
+              
+              {/* Payment methods distribution bar */}
+              <div className="pt-2 border-t border-slate-200 space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Zahlungsarten Verteilung</span>
+                <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden flex">
+                  {paymentMethodsBreakdown.map((pm, i) => (
+                    <div
+                      key={i}
+                      className={`${pm.barColor} h-full transition-all`}
+                      style={{ width: `${pm.pct}%` }}
+                      title={`${pm.label}: ${pm.count} (${pm.pct.toFixed(0)}%)`}
+                    />
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-1.5 text-[10px] pt-1">
+                  {paymentMethodsBreakdown.map((pm, i) => (
+                    <span key={i} className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${pm.bgBadge}`}>
+                      {pm.label}: <strong className="font-mono">{pm.count}</strong>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
               {missingSepaMandates.length > 0 && (
                 <div className="pt-2 border-t border-slate-200 flex items-center gap-2 text-amber-700 font-semibold text-2xs">
                   <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />

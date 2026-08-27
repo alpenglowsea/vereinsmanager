@@ -117,10 +117,26 @@ export async function getAuthSession(): Promise<UserAuthSession> {
     return {
       user: {
         id: session.user.id,
+        username: session.user.email?.split('@')[0] || 'clouduser',
         email: session.user.email || '',
-        role: session.user.user_metadata?.role || 'Vorstandsmitglied',
-        clubName: session.user.user_metadata?.club_name || '',
-        lastSignIn: session.user.last_sign_in_at
+        name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Cloud-Benutzer',
+        password: '',
+        customRoleName: session.user.user_metadata?.role || 'Cloud-Benutzer',
+        permissions: {
+          canViewMembers: true,
+          canEditMembers: true,
+          canViewFinances: true,
+          canEditFinances: true,
+          canExecuteSepa: true,
+          canManageDonations: true,
+          canManageDocuments: true,
+          canManageInventory: true,
+          canManageSettings: true,
+          canManageUsers: true
+        },
+        isActive: true,
+        createdAt: session.user.created_at || new Date().toISOString(),
+        lastLogin: session.user.last_sign_in_at
       },
       isAuthenticated: true
     };

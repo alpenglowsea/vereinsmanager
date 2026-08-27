@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { ClubSettings } from '../types';
+import { ClubSettings, AppUser, UserPermissions } from '../types';
 import { StorageService } from '../services/storage';
+import { AuthService } from '../services/authService';
+import { FULL_PERMISSIONS } from '../data/roles';
 import {
   X,
   ShieldCheck,
@@ -18,28 +20,348 @@ import {
   Cloud,
   Server,
   Globe,
-  ArrowRight
+  ArrowRight,
+  Users,
+  Shield,
+  UserPlus,
+  Edit3,
+  User as UserIcon,
+  Eye,
+  EyeOff,
+  Check,
+  UserCheck,
+  UserX,
+  Sparkles
 } from 'lucide-react';
 
 interface SettingsPrivacyModalProps {
   settings: ClubSettings;
   onSaveSettings: (settings: ClubSettings) => void;
-  onDataReload: () => void;
+  onDataReload?: () => void;
   onOpenDeploymentHub?: () => void;
+  onOpenUserManage?: () => void;
   onClose: () => void;
 }
+
+interface PermissionItem {
+  key: keyof UserPermissions;
+  label: string;
+  category: 'Mitglieder' | 'Finanzen & SEPA' | 'Dokumente & Inventar' | 'System & Verwaltung';
+  description: string;
+}
+
+const PERMISSION_ITEMS: PermissionItem[] = [
+  // Mitglieder
+  {
+    key: 'canViewMembers',
+    label: 'Mitglieder einsehen',
+    category: 'Mitglieder',
+    description: 'Zugriff auf Mitgliederliste, Kontaktdaten und Jubiläen'
+  },
+  {
+    key: 'canEditMembers',
+    label: 'Mitglieder anlegen & bearbeiten',
+    category: 'Mitglieder',
+    description: 'Neueintritte erfassen, Daten ändern und Kündigungen verarbeiten'
+  },
+
+  // Finanzen
+  {
+    key: 'canViewFinances',
+    label: 'Finanzen & Kassenbuch einsehen',
+    category: 'Finanzen & SEPA',
+    description: 'Einsicht in Buchungsjournal, Kontenstände und EÜR/GuV'
+  },
+  {
+    key: 'canEditFinances',
+    label: 'Buchungen erfassen & ändern',
+    category: 'Finanzen & SEPA',
+    description: 'Neue Einnahmen/Ausgaben anlegen, Belege zuordnen und stornieren'
+  },
+  {
+    key: 'canExecuteSepa',
+    label: 'SEPA-Beitragslauf ausführen',
+    category: 'Finanzen & SEPA',
+    description: 'SEPA-Lastschrift-XML generieren und Buchungen erzeugen'
+  },
+  {
+    key: 'canManageDonations',
+    label: 'Spendenbescheinigungen ausstellen',
+    category: 'Finanzen & SEPA',
+    description: 'Geld- und Sachzuwendungsbestätigungen nach BMF-Muster erstellen'
+  },
+
+  // Dokumente & Inventar
+  {
+    key: 'canManageDocuments',
+    label: 'Dokumentenarchiv & Belege verwalten',
+    category: 'Dokumente & Inventar',
+    description: 'Dateien hochladen, Ordner erstellen und Belege archivieren'
+  },
+  {
+    key: 'canManageInventory',
+    label: 'Inventar & Material verwalten',
+    category: 'Dokumente & Inventar',
+    description: 'Vereinsausstattung, Geräte und Wartungsintervalle pflegen'
+  },
+
+  // System
+  {
+    key: 'canManageSettings',
+    label: 'Vereinseinstellungen ändern',
+    category: 'System & Verwaltung',
+    description: 'Stammdaten, Bankkonten, Beitragsstaffeln und Datenschutz verwalten'
+  },
+  {
+    key: 'canManageUsers',
+    label: 'Benutzerkonten & Rechte verwalten',
+    category: 'System & Verwaltung',
+    description: 'Benutzer anlegen, Passwörter vergeben und Berechtigungen festlegen'
+  }
+];
+
+const DEFAULT_BLANK_PERMISSIONS: UserPermissions = {
+  canViewMembers: true,
+  canEditMembers: false,
+  canViewFinances: false,
+  canEditFinances: false,
+  canExecuteSepa: false,
+  canManageDonations: false,
+  canManageDocuments: false,
+  canManageInventory: false,
+  canManageSettings: false,
+  canManageUsers: false
+};
 
 export const SettingsPrivacyModal: React.FC<SettingsPrivacyModalProps> = ({
   settings,
   onSaveSettings,
   onDataReload,
   onOpenDeploymentHub,
+  onOpenUserManage,
   onClose
 }) => {
-  const [activeTab, setActiveTab] = useState<'privacy' | 'club' | 'backup' | 'deployment'>('privacy');
+  const [activeTab, setActiveTab] = useState<'privacy' | 'club' | 'backup' | 'deployment' | 'users'>('privacy');
   const [formData, setFormData] = useState<ClubSettings>({ ...settings });
   const [newDepartment, setNewDepartment] = useState('');
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [usersList, setUsersList] = useState<AppUser[]>(() => AuthService.getUsers());
+
+  // User In-Place Editing State
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [userFormUsername, setUserFormUsername] = useState('');
+  const [userFormName, setUserFormName] = useState('');
+  const [userFormEmail, setUserFormEmail] = useState('');
+  const [userFormRole, setUserFormRole] = useState('');
+  const [userFormPassword, setUserFormPassword] = useState('');
+  const [userFormPermissions, setUserFormPermissions] = useState<UserPermissions>({ ...DEFAULT_BLANK_PERMISSIONS });
+  const [userFormIsActive, setUserFormIsActive] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [userMsg, setUserMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const startEditUser = (user: AppUser) => {
+    setEditingUserId(user.id);
+    setIsCreatingUser(false);
+    setUserFormUsername(user.username);
+    setUserFormName(user.name);
+    setUserFormEmail(user.email || '');
+    setUserFormRole(user.customRoleName || '');
+    setUserFormPassword('');
+    setUserFormPermissions({ ...user.permissions });
+    setUserFormIsActive(user.isActive !== false);
+    setShowPassword(false);
+    setUserMsg(null);
+  };
+
+  const startCreateUser = () => {
+    setEditingUserId(null);
+    setIsCreatingUser(true);
+    setUserFormUsername('');
+    setUserFormName('');
+    setUserFormEmail('');
+    setUserFormRole('');
+    setUserFormPassword('');
+    setUserFormPermissions({ ...DEFAULT_BLANK_PERMISSIONS });
+    setUserFormIsActive(true);
+    setShowPassword(false);
+    setUserMsg(null);
+  };
+
+  const cancelEditUser = () => {
+    setEditingUserId(null);
+    setIsCreatingUser(false);
+    setUserMsg(null);
+  };
+
+  const toggleUserPermission = (key: keyof UserPermissions) => {
+    setUserFormPermissions(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const applyPreset = (preset: 'all' | 'finance' | 'read_only' | 'members' | 'none') => {
+    switch (preset) {
+      case 'all':
+        setUserFormPermissions({ ...FULL_PERMISSIONS });
+        break;
+      case 'finance':
+        setUserFormPermissions({
+          canViewMembers: true,
+          canEditMembers: false,
+          canViewFinances: true,
+          canEditFinances: true,
+          canExecuteSepa: true,
+          canManageDonations: true,
+          canManageDocuments: true,
+          canManageInventory: true,
+          canManageSettings: false,
+          canManageUsers: false
+        });
+        break;
+      case 'read_only':
+        setUserFormPermissions({
+          canViewMembers: true,
+          canEditMembers: false,
+          canViewFinances: true,
+          canEditFinances: false,
+          canExecuteSepa: false,
+          canManageDonations: false,
+          canManageDocuments: true,
+          canManageInventory: true,
+          canManageSettings: false,
+          canManageUsers: false
+        });
+        break;
+      case 'members':
+        setUserFormPermissions({
+          canViewMembers: true,
+          canEditMembers: true,
+          canViewFinances: false,
+          canEditFinances: false,
+          canExecuteSepa: false,
+          canManageDonations: false,
+          canManageDocuments: true,
+          canManageInventory: false,
+          canManageSettings: false,
+          canManageUsers: false
+        });
+        break;
+      case 'none':
+        setUserFormPermissions({
+          canViewMembers: false,
+          canEditMembers: false,
+          canViewFinances: false,
+          canEditFinances: false,
+          canExecuteSepa: false,
+          canManageDonations: false,
+          canManageDocuments: false,
+          canManageInventory: false,
+          canManageSettings: false,
+          canManageUsers: false
+        });
+        break;
+    }
+  };
+
+  const handleSaveUserForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanUsername = userFormUsername.trim().toLowerCase();
+    const cleanName = userFormName.trim();
+
+    if (!cleanUsername || !cleanName) {
+      setUserMsg({ type: 'error', text: 'Bitte Benutzername und Namen ausfüllen.' });
+      return;
+    }
+
+    // Check username uniqueness
+    const duplicate = usersList.find(u => u.username.toLowerCase() === cleanUsername && u.id !== editingUserId);
+    if (duplicate) {
+      setUserMsg({ type: 'error', text: `Der Benutzername "${cleanUsername}" ist bereits vergeben.` });
+      return;
+    }
+
+    if (isCreatingUser && !userFormPassword.trim()) {
+      setUserMsg({ type: 'error', text: 'Bitte vergeben Sie ein Passwort für den neuen Benutzer.' });
+      return;
+    }
+
+    if (isCreatingUser) {
+      const newUser: AppUser = {
+        id: `user-${Date.now()}`,
+        username: cleanUsername,
+        name: cleanName,
+        email: userFormEmail.trim() || undefined,
+        customRoleName: userFormRole.trim() || undefined,
+        password: userFormPassword.trim(),
+        permissions: { ...userFormPermissions },
+        isActive: userFormIsActive,
+        createdAt: new Date().toISOString()
+      };
+
+      AuthService.saveUser(newUser);
+    } else if (editingUserId) {
+      const existing = usersList.find(u => u.id === editingUserId);
+      if (!existing) return;
+
+      const updated: AppUser = {
+        ...existing,
+        username: cleanUsername,
+        name: cleanName,
+        email: userFormEmail.trim() || undefined,
+        customRoleName: userFormRole.trim() || undefined,
+        password: userFormPassword.trim() || existing.password,
+        permissions: { ...userFormPermissions },
+        isActive: userFormIsActive,
+        updatedAt: new Date().toISOString()
+      };
+
+      AuthService.saveUser(updated);
+    }
+
+    const refreshed = AuthService.getUsers();
+    setUsersList(refreshed);
+    setEditingUserId(null);
+    setIsCreatingUser(false);
+    setUserMsg({ type: 'success', text: 'Benutzer & Berechtigungen wurden erfolgreich gespeichert.' });
+    setTimeout(() => setUserMsg(null), 3500);
+    onDataReload?.();
+  };
+
+  const handleToggleUserActive = (user: AppUser) => {
+    const currentSession = AuthService.getSession();
+    if (currentSession?.user.id === user.id && user.isActive) {
+      alert('Sie können Ihr eigenes aktives Administratorkonto nicht deaktivieren.');
+      return;
+    }
+    const updated = { ...user, isActive: !user.isActive };
+    AuthService.saveUser(updated);
+    setUsersList(AuthService.getUsers());
+    onDataReload?.();
+  };
+
+  const handleDeleteUser = (user: AppUser) => {
+    const currentSession = AuthService.getSession();
+    if (currentSession?.user.id === user.id) {
+      alert('Sie können Ihr eigenes Konto nicht löschen.');
+      return;
+    }
+    if (usersList.length <= 1) {
+      alert('Der letzte verbleibende Administrator kann nicht gelöscht werden.');
+      return;
+    }
+    if (window.confirm(`Benutzerkonto "${user.name}" (${user.username}) wirklich unwiderruflich löschen?`)) {
+      AuthService.deleteUser(user.id);
+      setUsersList(AuthService.getUsers());
+      if (editingUserId === user.id) {
+        setEditingUserId(null);
+      }
+      setUserMsg({ type: 'success', text: `Benutzer "${user.name}" wurde gelöscht.` });
+      setTimeout(() => setUserMsg(null), 3000);
+      onDataReload?.();
+    }
+  };
 
   const handleSaveClub = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,7 +423,7 @@ export const SettingsPrivacyModal: React.FC<SettingsPrivacyModalProps> = ({
     try {
       const text = await file.text();
       const result = await StorageService.importFullBackup(text);
-      onDataReload();
+      onDataReload?.();
       setStatusMsg({
         type: 'success',
         text: `Sicherung erfolgreich wiederhergestellt (${result.membersCount} Mitglieder, ${result.transactionsCount} Buchungen).`
@@ -116,7 +438,7 @@ export const SettingsPrivacyModal: React.FC<SettingsPrivacyModalProps> = ({
   const handleResetToDemo = async () => {
     if (window.confirm('Möchten Sie die Datenbank wirklich auf die Muster-Vereinsdaten zurücksetzen?')) {
       await StorageService.resetToDemoData();
-      onDataReload();
+      onDataReload?.();
       setStatusMsg({ type: 'success', text: 'Muster-Vereinsdaten wurden erfolgreich geladen.' });
       setTimeout(() => setStatusMsg(null), 3000);
     }
@@ -126,7 +448,7 @@ export const SettingsPrivacyModal: React.FC<SettingsPrivacyModalProps> = ({
   const handleWipeAll = async () => {
     if (window.confirm('ACHTUNG: Möchten Sie wirklich ALLE Mitglieder, Buchungen und Konten löschen? Diese Aktion kann nicht rückgängig gemacht werden!')) {
       await StorageService.clearAllData();
-      onDataReload();
+      onDataReload?.();
       setStatusMsg({ type: 'success', text: 'Alle lokalen Daten wurden gelöscht.' });
       setTimeout(() => setStatusMsg(null), 3000);
     }
@@ -201,6 +523,19 @@ export const SettingsPrivacyModal: React.FC<SettingsPrivacyModalProps> = ({
             <Globe className="w-4 h-4" />
             Cloud & Betriebsmodi
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setUsersList(AuthService.getUsers());
+              setActiveTab('users');
+            }}
+            className={`pb-3 border-b-2 flex items-center gap-1.5 transition-colors ${
+              activeTab === 'users' ? 'border-blue-600 text-blue-700' : 'border-transparent hover:text-slate-900'
+            }`}
+          >
+            <Shield className="w-4 h-4" />
+            Benutzer & Rechte
+          </button>
         </div>
 
         {/* Notifications */}
@@ -240,6 +575,31 @@ export const SettingsPrivacyModal: React.FC<SettingsPrivacyModalProps> = ({
                     </p>
                   </div>
                 </div>
+              </div>
+
+              <div className="border border-slate-200 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-blue-600" />
+                    Zugriffsschutz & Benutzerverwaltung
+                  </h3>
+                  {onOpenUserManage && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenUserManage();
+                      }}
+                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold"
+                    >
+                      <span>Benutzer verwalten</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Steuern Sie über Rollen (Admin, Kassenwart, Schriftführer, Kassenprüfer), wer Zugriff auf Finanzen, Mitgliederdaten und SEPA-Lastschriften hat.
+                </p>
               </div>
 
               <div className="border border-slate-200 rounded-2xl p-4 space-y-3">
@@ -588,6 +948,478 @@ export const SettingsPrivacyModal: React.FC<SettingsPrivacyModalProps> = ({
                     <span>Hub öffnen</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 5. USERS & PERMISSIONS TAB */}
+          {activeTab === 'users' && (
+            <div className="space-y-4 animate-in fade-in duration-100">
+              {/* Feedback Alert if present */}
+              {userMsg && (
+                <div
+                  className={`p-3.5 rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in ${
+                    userMsg.type === 'success'
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                      : 'bg-rose-50 text-rose-800 border border-rose-200'
+                  }`}
+                >
+                  {userMsg.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  )}
+                  <span>{userMsg.text}</span>
+                </div>
+              )}
+
+              {/* In-Place User Editor (When creating or editing a user) */}
+              {(isCreatingUser || editingUserId) ? (
+                <form
+                  onSubmit={handleSaveUserForm}
+                  className="bg-slate-50 border border-blue-200 rounded-2xl p-4 sm:p-5 space-y-5 shadow-xs"
+                >
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-blue-600 text-white rounded-xl shadow-2xs">
+                        <UserIcon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">
+                          {isCreatingUser
+                            ? 'Neues Vereinskonto anlegen'
+                            : `Rechte & Daten bearbeiten: ${userFormName || userFormUsername}`}
+                        </h3>
+                        <p className="text-2xs text-slate-500">
+                          Passen Sie Zugriffsrechte und Login-Informationen für dieses Mitglied an.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={cancelEditUser}
+                      className="text-xs text-slate-500 hover:text-slate-800 font-semibold px-2.5 py-1 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
+                    >
+                      Abbrechen
+                    </button>
+                  </div>
+
+                  {/* Basic User Data Fields */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Vollständiger Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={userFormName}
+                        onChange={(e) => setUserFormName(e.target.value)}
+                        placeholder="z. B. Sabine Weber"
+                        required
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Benutzername (Login) *
+                      </label>
+                      <input
+                        type="text"
+                        value={userFormUsername}
+                        onChange={(e) => setUserFormUsername(e.target.value)}
+                        placeholder="z. B. s.weber oder schatzmeister"
+                        required
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Funktion / Rollenbezeichnung
+                      </label>
+                      <input
+                        type="text"
+                        value={userFormRole}
+                        onChange={(e) => setUserFormRole(e.target.value)}
+                        placeholder="z. B. Schatzmeisterin, Kassenprüfer, Geschäftsstelle"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        {isCreatingUser ? 'Passwort *' : 'Neues Passwort (leer lassen = unverändert)'}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={userFormPassword}
+                          onChange={(e) => setUserFormPassword(e.target.value)}
+                          placeholder={isCreatingUser ? 'Sicheres Passwort vergeben...' : 'Nur ausfüllen bei Änderung'}
+                          required={isCreatingUser}
+                          className="w-full px-3 py-2 pr-9 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600"
+                          tabIndex={-1}
+                        >
+                          {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        E-Mail-Adresse (optional)
+                      </label>
+                      <input
+                        type="email"
+                        value={userFormEmail}
+                        onChange={(e) => setUserFormEmail(e.target.value)}
+                        placeholder="kontakt@verein.de"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      />
+                    </div>
+
+                    <div className="flex items-end pb-0.5">
+                      <label className="flex items-center gap-2.5 cursor-pointer bg-white px-3 py-2 border border-slate-200 rounded-xl w-full hover:bg-slate-50 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={userFormIsActive}
+                          onChange={(e) => setUserFormIsActive(e.target.checked)}
+                          className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                        />
+                        <div className="text-xs">
+                          <span className="font-bold text-slate-800 block">Konto aktiv</span>
+                          <span className="text-2xs text-slate-500">Benutzer kann sich anmelden</span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Granular Permissions Section */}
+                  <div className="space-y-3 pt-3 border-t border-slate-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                          <ShieldCheck className="w-4 h-4 text-blue-600" />
+                          Individuelle Zugriffsrechte für diesen Benutzer
+                        </h4>
+                        <p className="text-2xs text-slate-500">
+                          Wählen Sie genau die Module, die dieser Benutzer sehen oder bearbeiten darf.
+                        </p>
+                      </div>
+
+                      {/* Quick Presets */}
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <span className="text-2xs text-slate-400 font-bold mr-1">Vorlagen:</span>
+                        <button
+                          type="button"
+                          onClick={() => applyPreset('all')}
+                          className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-2xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                        >
+                          Vollzugriff
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyPreset('finance')}
+                          className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-2xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                        >
+                          Finanzen & Kasse
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyPreset('read_only')}
+                          className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-2xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                        >
+                          Kassenprüfer
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyPreset('members')}
+                          className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-2xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                        >
+                          Mitglieder
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyPreset('none')}
+                          className="px-2 py-1 bg-white hover:bg-rose-50 text-rose-600 border border-slate-200 rounded-lg text-2xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                        >
+                          Alle abwählen
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Permissions Grid Grouped by Category */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                      {(['Mitglieder', 'Finanzen & SEPA', 'Dokumente & Inventar', 'System & Verwaltung'] as const).map((cat) => {
+                        const items = PERMISSION_ITEMS.filter((p) => p.category === cat);
+                        return (
+                          <div
+                            key={cat}
+                            className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-2 shadow-2xs"
+                          >
+                            <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">
+                              {cat}
+                            </div>
+                            <div className="space-y-1.5">
+                              {items.map((item) => {
+                                const isChecked = Boolean(userFormPermissions[item.key]);
+                                return (
+                                  <label
+                                    key={item.key}
+                                    className={`flex items-start gap-2.5 p-2 rounded-lg cursor-pointer transition-colors ${
+                                      isChecked
+                                        ? 'bg-blue-50/70 border border-blue-200'
+                                        : 'hover:bg-slate-50 border border-transparent'
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => toggleUserPermission(item.key)}
+                                      className="mt-0.5 rounded text-blue-600 focus:ring-blue-500 w-4 h-4 shrink-0 cursor-pointer"
+                                    />
+                                    <div className="min-w-0">
+                                      <div className="text-xs font-bold text-slate-800 leading-tight">
+                                        {item.label}
+                                      </div>
+                                      <div className="text-2xs text-slate-500 mt-0.5 leading-snug">
+                                        {item.description}
+                                      </div>
+                                    </div>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-200">
+                    <div>
+                      {editingUserId && usersList.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const u = usersList.find((x) => x.id === editingUserId);
+                            if (u) handleDeleteUser(u);
+                          }}
+                          className="px-3 py-1.5 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Benutzer löschen</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={cancelEditUser}
+                        className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        Abbrechen
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>{isCreatingUser ? 'Benutzer erstellen' : 'Rechte speichern'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              ) : (
+                /* User Overview List */
+                <div className="space-y-4">
+                  <div className="p-4 bg-blue-50/80 border border-blue-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 text-sm font-bold text-blue-950">
+                        <Shield className="w-5 h-5 text-blue-600" />
+                        Benutzerkonten & individuelle Rechteverwaltung
+                      </div>
+                      <p className="text-xs text-blue-900 mt-1 leading-relaxed">
+                        Klicken Sie auf einen Benutzer oder auf „Rechte anpassen“, um individuelle Berechtigungen (Finanzen, Mitglieder, Kassenprüfung, Spenden) sofort zu vergeben.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={startCreateUser}
+                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer shrink-0"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Neuen Benutzer anlegen</span>
+                    </button>
+                  </div>
+
+                  {/* Registered Users List */}
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        Registrierte Benutzerkonten ({usersList.length})
+                      </h4>
+                      <span className="text-2xs text-slate-500">
+                        Klick auf Zeile öffnet die Rechteverwaltung
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {usersList.map((user) => {
+                        const permCount = Object.values(user.permissions || {}).filter(Boolean).length;
+                        const isCurrentSession = AuthService.getSession()?.user.id === user.id;
+
+                        return (
+                          <div
+                            key={user.id}
+                            onClick={() => startEditUser(user)}
+                            className={`p-4 rounded-2xl border transition-all cursor-pointer group ${
+                              user.isActive !== false
+                                ? 'bg-white border-slate-200 hover:border-blue-400 hover:shadow-md'
+                                : 'bg-slate-50 border-slate-200 opacity-60'
+                            }`}
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              {/* Left User Avatar & Details */}
+                              <div className="flex items-start gap-3">
+                                <div
+                                  className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs group-hover:scale-105 transition-transform ${
+                                    user.permissions.canManageUsers
+                                      ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                                      : user.permissions.canEditFinances
+                                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                      : 'bg-blue-100 text-blue-700 border border-blue-200'
+                                  }`}
+                                >
+                                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                                </div>
+
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                                      {user.name}
+                                    </span>
+                                    {user.customRoleName && (
+                                      <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-2xs font-semibold border border-slate-200">
+                                        {user.customRoleName}
+                                      </span>
+                                    )}
+                                    {isCurrentSession && (
+                                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-md text-2xs font-bold">
+                                        Sie (Aktuell)
+                                      </span>
+                                    )}
+                                    {user.isActive === false && (
+                                      <span className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded-md text-2xs font-bold">
+                                        Deaktiviert
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="text-xs text-slate-500 font-mono mt-0.5 flex items-center gap-3">
+                                    <span>
+                                      Login: <strong className="text-slate-700">{user.username}</strong>
+                                    </span>
+                                    {user.email && (
+                                      <span className="hidden sm:inline text-slate-400 font-sans">
+                                        • {user.email}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Permission Chips Preview */}
+                                  <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                                    <span className="text-2xs text-slate-400 font-medium mr-1">
+                                      Rechte ({permCount}/10):
+                                    </span>
+                                    {user.permissions.canManageUsers && (
+                                      <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded text-2xs font-semibold">
+                                        Admin
+                                      </span>
+                                    )}
+                                    {user.permissions.canEditFinances && (
+                                      <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-2xs font-semibold">
+                                        Kassenbuch & Buchungen
+                                      </span>
+                                    )}
+                                    {user.permissions.canExecuteSepa && (
+                                      <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-2xs font-semibold">
+                                        SEPA
+                                      </span>
+                                    )}
+                                    {user.permissions.canEditMembers && (
+                                      <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-2xs font-semibold">
+                                        Mitglieder
+                                      </span>
+                                    )}
+                                    {user.permissions.canManageDonations && (
+                                      <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded text-2xs font-semibold">
+                                        Spenden
+                                      </span>
+                                    )}
+                                    {!user.permissions.canEditFinances && user.permissions.canViewFinances && (
+                                      <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-2xs font-semibold">
+                                        Kassenprüfung (Lesen)
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Right Action Buttons */}
+                              <div
+                                className="flex items-center gap-2 self-end sm:self-center shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => startEditUser(user)}
+                                  className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 border border-blue-200 cursor-pointer shadow-2xs"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  <span>Rechte anpassen</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleUserActive(user)}
+                                  disabled={isCurrentSession && user.isActive}
+                                  className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-colors border cursor-pointer ${
+                                    user.isActive !== false
+                                      ? 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'
+                                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                                  } disabled:opacity-30`}
+                                  title={user.isActive !== false ? 'Konto deaktivieren' : 'Konto reaktivieren'}
+                                >
+                                  {user.isActive !== false ? 'Sperren' : 'Aktivieren'}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteUser(user)}
+                                  disabled={isCurrentSession || usersList.length <= 1}
+                                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border border-transparent hover:border-rose-200 disabled:opacity-20 cursor-pointer"
+                                  title="Benutzer löschen"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

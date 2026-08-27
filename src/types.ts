@@ -327,6 +327,40 @@ export interface ClubDocument {
 // Betriebsmodi & Deployment
 export type DeploymentMode = 'local' | 'cloud' | 'selfhosted';
 
+// Benutzer & Rechteverwaltung
+export interface UserPermissions {
+  canViewMembers: boolean;
+  canEditMembers: boolean;
+  canViewFinances: boolean;
+  canEditFinances: boolean;
+  canExecuteSepa: boolean;
+  canManageDonations: boolean;
+  canManageDocuments: boolean;
+  canManageInventory: boolean;
+  canManageSettings: boolean;
+  canManageUsers: boolean;
+  canManageCalendar?: boolean;
+}
+
+export interface AppUser {
+  id: string;
+  username: string; // e.g. "admin", "schatzmeister", "kassenpruefer"
+  email: string;
+  name: string;
+  password: string; // Plaintext or hashed password
+  customRoleName?: string; // Optional descriptive title e.g. "1. Vorsitzender", "Kassenwart"
+  permissions: UserPermissions;
+  isActive: boolean;
+  lastLogin?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface SecuritySettings {
+  authRequired: boolean;
+  autoLockMinutes: number; // 0 = never, 5, 15, 30, 60
+}
+
 export interface SupabaseConfig {
   url: string;
   anonKey: string;
@@ -334,14 +368,10 @@ export interface SupabaseConfig {
 }
 
 export interface UserAuthSession {
-  user: {
-    id: string;
-    email: string;
-    role?: string;
-    clubName?: string;
-    lastSignIn?: string;
-  } | null;
+  user: AppUser | null;
   isAuthenticated: boolean;
+  loginMethod?: 'user' | 'demo' | 'supabase';
+  loginTime?: string;
 }
 
 // Spenden & Zuwendungsbestätigungen (BMF Muster)
@@ -379,5 +409,177 @@ export interface DonationReceipt {
   createdAt: string;
   updatedAt: string;
 }
+
+// ----------------------------------------------------
+// TERMIN- & VERANSTALTUNGSKALENDER
+// ----------------------------------------------------
+
+export interface CalendarEventCategory {
+  id: string;
+  name: string;
+  color: string; // Hex color (e.g. '#3b82f6')
+  badgeBg: string; // Tailwind class (e.g. 'bg-blue-100')
+  badgeText: string; // Tailwind class (e.g. 'text-blue-800')
+  badgeBorder: string; // Tailwind class (e.g. 'border-blue-300')
+  icon?: string; // Lucide icon name or emoji
+  description?: string;
+  isSystem?: boolean;
+}
+
+export type RecurrenceFrequency = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly';
+
+export interface EventRecurrence {
+  frequency: RecurrenceFrequency;
+  interval: number; // e.g. every 1 week, every 2 weeks
+  daysOfWeek?: number[]; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday (for weekly recurrence)
+  endType: 'never' | 'until_date' | 'count';
+  untilDate?: string; // YYYY-MM-DD
+  count?: number; // Total number of occurrences
+}
+
+export type ParticipantRole = 'participant' | 'organizer' | 'helper' | 'trainer' | 'referee';
+export type ParticipantStatus = 'invited' | 'confirmed' | 'declined' | 'attended';
+
+export interface EventParticipant {
+  memberId: string;
+  memberName: string;
+  memberEmail?: string;
+  memberPhone?: string;
+  memberDepartment?: string;
+  role: ParticipantRole;
+  status: ParticipantStatus;
+  notes?: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description?: string;
+  categoryId: string;
+  department?: string; // Specific department or 'all'
+  startDate: string; // YYYY-MM-DD
+  startTime?: string; // HH:MM (e.g. '18:30')
+  endDate: string; // YYYY-MM-DD
+  endTime?: string; // HH:MM (e.g. '20:00')
+  isAllDay: boolean;
+  location?: string; // Address or facility name
+  locationLat?: number; // GPS Latitude for OpenStreetMap
+  locationLng?: number; // GPS Longitude for OpenStreetMap
+  recurrence?: EventRecurrence;
+  participants: EventParticipant[];
+  maxParticipants?: number;
+  color?: string; // Optional custom hex color override
+  createdById?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CalendarViewMode = 'month' | 'week' | 'day' | 'agenda';
+
+export interface SpecialCalendarItem {
+  id: string;
+  type: 'birthday' | 'anniversary';
+  title: string;
+  date: string; // YYYY-MM-DD
+  memberId: string;
+  memberName: string;
+  memberDepartment?: string;
+  years: number; // Age or years of membership
+  isMilestone: boolean; // e.g. 18, 30, 40, 50, 60, 70, 75, 80... or 10, 25, 40, 50 years membership
+  details: string;
+}
+
+// ----------------------------------------------------
+// ONLINE-MITGLIEDSANTRAG & DIGITALES AUFNAHMEWESEN
+// ----------------------------------------------------
+
+export type ApplicationStatus = 'pending' | 'approved' | 'rejected';
+
+export interface OnlineMembershipApplication {
+  id: string;
+  applicationNumber: string; // z.B. 'ANTRAG-2026-001'
+  submittedAt: string; // ISO datetime
+  status: ApplicationStatus;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  rejectionReason?: string;
+  createdMemberId?: string;
+  createdMemberNumber?: string;
+  generatedDocumentId?: string;
+
+  // Persönliche Daten des Antragstellers
+  firstName: string;
+  lastName: string;
+  gender: Gender;
+  birthDate: string; // YYYY-MM-DD
+  nationality?: string;
+  phone: string;
+  email: string;
+
+  // Anschrift
+  address: Address;
+
+  // Mitgliedschaft & Sparte
+  department: string;
+  membershipType: MembershipType;
+  feeAmount?: number;
+  feePeriod: FeePeriod;
+  entryDate: string; // YYYY-MM-DD
+  notes?: string;
+  previousClub?: string;
+
+  // Gesetzlicher Vertreter (bei Minderjährigen / unter 18 Jahren)
+  isMinor: boolean;
+  guardianName?: string;
+  guardianPhone?: string;
+  guardianEmail?: string;
+  guardianAddress?: Address;
+  guardianRelation?: string; // z.B. 'Mutter', 'Vater', 'Gesetzlicher Vormund'
+
+  // Zahlungsweise & SEPA-Lastschrift
+  paymentMethod: PaymentMethod;
+  bankDetails: BankDetails;
+
+  // Rechtliche Zustimmungen & Einwilligungen
+  dataPrivacyConsent: boolean;
+  statuteConsent: boolean; // Satzung & Ordnungen anerkannt
+  photoConsent: boolean; // Einwilligung für Vereinsfotos/Medien
+  healthConfirmation: boolean; // Sporttauglichkeit / Gesundheitliche Eignung
+
+  // Digitale Unterschriften (Base64 PNG Data URLs)
+  applicantSignature?: string;
+  applicantSignatureDate?: string;
+  guardianSignature?: string;
+  guardianSignatureDate?: string;
+  sepaSignature?: string;
+  sepaSignatureDate?: string;
+
+  // PDF & Vorlagen
+  pdfDataUrl?: string; // Zuletzt generierte Antrags-PDF
+  customTemplateUsed?: boolean;
+}
+
+export interface ApplicationTemplateSettings {
+  clubLogoUrl?: string;
+  headerText?: string;
+  customPdfTemplateDataUrl?: string; // Eigene hochgeladene PDF-Vorlage des Vereins
+  customPdfTemplateFileName?: string;
+  customPdfTemplateUploadedAt?: string;
+  introductoryText?: string;
+  dataPrivacyText?: string;
+  statuteText?: string;
+  defaultFeeRules?: {
+    full: number;
+    reduced: number;
+    youth: number;
+    family: number;
+    supporting: number;
+  };
+  requirePhotoConsent?: boolean;
+  requireHealthConfirmation?: boolean;
+  contactEmail?: string;
+  notificationEmail?: string;
+}
+
 
 

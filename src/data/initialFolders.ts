@@ -138,7 +138,28 @@ export function getInitialFolders(): DocumentFolder[] {
       updatedAt: now
     },
 
-    // 6. Veranstaltungen & Projekte
+    // 6. Mitglieder & Beitritte
+    {
+      id: 'folder-mitglieder',
+      name: 'Mitglieder & Beitrittswesen',
+      category: 'mitglieder',
+      color: '#0284c7', // Sky Blue
+      description: 'Mitgliederakten, Eintrittserklärungen & SEPA-Mandate',
+      createdAt: now,
+      updatedAt: now
+    },
+    {
+      id: 'folder-aufnahmeantraege',
+      name: 'Digitale Aufnahmeanträge',
+      parentId: 'folder-mitglieder',
+      category: 'mitglieder',
+      color: '#0369a1',
+      description: 'Vollständig digital erfasste und signierte Mitgliedsanträge',
+      createdAt: now,
+      updatedAt: now
+    },
+
+    // 7. Veranstaltungen & Projekte
     {
       id: 'folder-events',
       name: 'Projekte & Vereinsfeste',
