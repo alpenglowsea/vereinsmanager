@@ -1,0 +1,79 @@
+name: "VereinsManager Desktop Release"
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release Version (z. B. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'
+            args: '--target universal-apple-darwin'
+          - platform: 'ubuntu-22.04'
+            args: ''
+          - platform: 'windows-latest'
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install Linux System Dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+
+      - name: Build Desktop Application (Tauri Action)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name || github.event.inputs.version }}
+          releaseName: 'VereinsManager ${{ github.ref_name || github.event.inputs.version }}'
+          releaseBody: |
+            ## VereinsManager Desktop-Release
+            
+            Offizielles Standalone-Paket für alle Betriebssysteme – 100% offline & lokal revisionssicher.
+            
+            ### Downloads:
+            - **Windows**: `.exe` (Installer / Standalone) oder `.msi`
+            - **macOS**: `.dmg` (Universal für Intel & Apple Silicon M1/M2/M3/M4)
+            - **Linux**: `.AppImage` oder `.deb`
+            
+            *Keine Installation von Node.js oder Webservern erforderlich. Einfach herunterladen und per Doppelklick starten.*
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}

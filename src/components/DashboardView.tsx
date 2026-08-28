@@ -272,19 +272,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="p-2.5 bg-amber-500 text-white rounded-xl shadow-xs shrink-0 animate-pulse">
               <Sparkles className="w-5 h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+              <div>
                 <h2 className="text-sm font-bold text-amber-950">
                   {pendingApplicationsCount} {pendingApplicationsCount === 1 ? 'neuer Online-Mitgliedsantrag' : 'neue Online-Mitgliedsanträge'} eingegangen!
                 </h2>
-                <span className="px-2 py-0.5 bg-amber-600 text-white text-[10px] font-bold rounded-full uppercase tracking-wider">
-                  Zur Prüfung
-                </span>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  Vollständig ausgefüllte und digital signierte Beitrittsanträge warten auf Ihre Bestätigung zur automatischen Mitgliederübernahme.
+                </p>
               </div>
-              <p className="text-xs text-amber-800 mt-0.5">
-                Vollständig ausgefüllte und digital signierte Beitrittsanträge warten auf Ihre Bestätigung zur automatischen Mitgliederübernahme.
-              </p>
-            </div>
           </div>
           <button
             type="button"

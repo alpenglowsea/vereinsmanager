@@ -178,8 +178,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
             <div className="absolute -left-8 -top-8 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
 
-            <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl shadow-lg mb-3 ring-4 ring-white/10">
-              <Building2 className="w-6 h-6 text-white" />
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-white rounded-2xl shadow-lg mb-3 ring-4 ring-white/10 p-1.5 overflow-hidden">
+              <img
+                src={settings?.clubLogoUrl || '/logo_transparent.png'}
+                alt={clubName}
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  if (e.currentTarget.src !== window.location.origin + '/logo_transparent.png') {
+                    e.currentTarget.src = '/logo_transparent.png';
+                  }
+                }}
+              />
             </div>
 
             <h1 className="text-xl font-extrabold text-white tracking-tight leading-tight">

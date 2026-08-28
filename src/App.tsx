@@ -50,7 +50,7 @@ import { BankImportModal } from './components/BankImportModal';
 import { AccountManageModal } from './components/AccountManageModal';
 import { ReceiptViewerModal } from './components/ReceiptViewerModal';
 import { ReceiptCameraScannerModal } from './components/ReceiptCameraScannerModal';
-import { SettingsPrivacyModal } from './components/SettingsPrivacyModal';
+import { SettingsView } from './components/SettingsView';
 import { InventoryFormModal } from './components/InventoryFormModal';
 import { DeploymentHubModal } from './components/DeploymentHubModal';
 import { DocumentViewerModal } from './components/DocumentViewerModal';
@@ -118,7 +118,8 @@ type ActiveTab =
   | 'finance_analytics'
   | 'donations'
   | 'inventory'
-  | 'documents';
+  | 'documents'
+  | 'settings';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
@@ -126,6 +127,40 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [deploymentMode, setDeploymentMode] = useState<import('./types').DeploymentMode>(StorageService.getDeploymentMode());
   const [deploymentHubOpen, setDeploymentHubOpen] = useState(false);
+
+  // Theme Management (Light, Dark, System)
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
+    const saved = localStorage.getItem('vereinsmanager_theme');
+    if (saved === 'light' || saved === 'dark' || saved === 'system') return saved;
+    return 'light';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('vereinsmanager_theme', theme);
+    const root = document.documentElement;
+    const applyTheme = () => {
+      if (theme === 'dark') {
+        root.classList.add('dark');
+      } else if (theme === 'light') {
+        root.classList.remove('dark');
+      } else {
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (isDark) {
+          root.classList.add('dark');
+        } else {
+          root.classList.remove('dark');
+        }
+      }
+    };
+    applyTheme();
+
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const listener = () => applyTheme();
+      mediaQuery.addEventListener('change', listener);
+      return () => mediaQuery.removeEventListener('change', listener);
+    }
+  }, [theme]);
 
   // Authentication & RBAC State
   const [authSession, setAuthSession] = useState<UserAuthSession>(() => AuthService.getSession());
@@ -183,7 +218,6 @@ export default function App() {
   const [bankImportOpen, setBankImportOpen] = useState(false);
   const [transactionImportOpen, setTransactionImportOpen] = useState(false);
   const [accountManageOpen, setAccountManageOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Calendar Event Modal State
   const [calendarEventModalOpen, setCalendarEventModalOpen] = useState(false);
@@ -673,11 +707,20 @@ export default function App() {
         {/* Sidebar Brand Header */}
         <div className="p-6 border-b border-slate-800">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-md shadow-blue-600/30 border border-blue-400/30 shrink-0">
-                <ShieldCheck className="w-5 h-5 text-white" />
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center overflow-hidden shadow-md border border-slate-700/50 shrink-0">
+                <img
+                  src={settings.clubLogoUrl || '/logo_transparent.png'}
+                  alt={settings.clubName || 'VereinsManager Logo'}
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    if (e.currentTarget.src !== window.location.origin + '/logo_transparent.png') {
+                      e.currentTarget.src = '/logo_transparent.png';
+                    }
+                  }}
+                />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h1 className="text-lg font-bold tracking-tight text-white leading-none">
                   VereinsManager
                 </h1>
@@ -1106,32 +1149,45 @@ export default function App() {
             </span>
           </button>
 
+          {/* Settings Nav Button (Dedicated Full Page) */}
           <button
+            id="nav-btn-settings"
             type="button"
             onClick={() => {
-              setSettingsOpen(true);
+              setActiveTab('settings');
               setMobileMenuOpen(false);
             }}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-semibold transition-colors border border-slate-700/60 shadow-2xs"
+            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'settings'
+                ? 'bg-blue-600 text-white shadow-xs font-bold'
+                : 'text-slate-300 bg-slate-800/90 hover:bg-slate-800 hover:text-white border border-slate-700/60'
+            }`}
           >
-            <Settings className="w-3.5 h-3.5 text-slate-400" />
-            <span>Einstellungen & Sicherung</span>
+            <div className="flex items-center gap-2">
+              <Settings className={`w-4 h-4 ${activeTab === 'settings' ? 'text-white' : 'text-slate-400'}`} />
+              <span className="font-bold text-xs">Einstellungen</span>
+            </div>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+              activeTab === 'settings' ? 'bg-blue-500 text-white' : 'bg-slate-700 text-slate-300'
+            }`}>
+              System
+            </span>
           </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 dark:bg-slate-950">
         {/* Demo Mode Sandbox Notice */}
         {AuthService.isDemoMode() && (
-          <div className="bg-amber-500/10 border-b border-amber-300/50 px-4 py-2 flex items-center justify-between text-xs text-amber-950 font-medium shrink-0">
+          <div className="bg-amber-500/10 border-b border-amber-300/50 dark:border-amber-700/50 px-4 py-2 flex items-center justify-between text-xs text-amber-950 dark:text-amber-200 font-medium shrink-0">
             <div className="flex items-center gap-2">
               <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
               </span>
-              <span className="font-bold text-amber-900">Demo-Modus aktiv:</span>
-              <span className="hidden md:inline text-amber-800">
+              <span className="font-bold text-amber-900 dark:text-amber-300">Demo-Modus aktiv:</span>
+              <span className="hidden md:inline text-amber-800 dark:text-amber-200">
                 Fiktive Beispieldaten (TSV Musterstadt 1890 e.V.). Ihre echten Vereinsdaten sind strikt getrennt & geschützt.
               </span>
             </div>
@@ -1144,7 +1200,7 @@ export default function App() {
                     await loadData();
                   }
                 }}
-                className="px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-2xs font-semibold transition-colors cursor-pointer"
+                className="px-2.5 py-1 bg-white dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-slate-700 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 rounded-lg text-2xs font-semibold transition-colors cursor-pointer"
                 title="Demo-Beispieldaten auf Standard zurücksetzen"
               >
                 Musterdaten resetten
@@ -1161,19 +1217,33 @@ export default function App() {
         )}
 
         {/* Top Header Bar */}
-        <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-8 flex items-center justify-between shrink-0 z-20 gap-3">
+        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-8 flex items-center justify-between shrink-0 z-20 gap-3">
           <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg lg:hidden"
+              className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg lg:hidden"
               aria-label="Menü öffnen"
             >
               <Menu className="w-5 h-5" />
             </button>
 
+            {/* Mobile Header Logo */}
+            <div className="w-8 h-8 rounded-lg bg-white p-0.5 flex items-center justify-center overflow-hidden shadow-xs border border-slate-200 dark:border-slate-700 shrink-0 lg:hidden">
+              <img
+                src={settings.clubLogoUrl || '/logo_transparent.png'}
+                alt={settings.clubName || 'VereinsManager Logo'}
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  if (e.currentTarget.src !== window.location.origin + '/logo_transparent.png') {
+                    e.currentTarget.src = '/logo_transparent.png';
+                  }
+                }}
+              />
+            </div>
+
             <div className="min-w-0">
-              <h2 className="text-base sm:text-lg font-bold text-slate-800 leading-tight truncate">
+              <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white leading-tight truncate">
                 {activeTab === 'dashboard' && 'Vereins-Dashboard'}
                 {activeTab === 'members' && 'Mitgliederverwaltung'}
                 {activeTab === 'online_applications' && 'Mitgliedsanträge & Digitales Aufnahmewesen'}
@@ -1186,8 +1256,9 @@ export default function App() {
                 {activeTab === 'calendar' && 'Kalender & Termine'}
                 {activeTab === 'inventory' && 'Inventar- & Materialverwaltung'}
                 {activeTab === 'documents' && 'Dokumentenverwaltung & Archiv'}
+                {activeTab === 'settings' && 'System- & Vereinseinstellungen'}
               </h2>
-              <p className="text-2xs text-slate-400 font-medium hidden sm:block truncate">
+              <p className="text-2xs text-slate-400 dark:text-slate-500 font-medium hidden sm:block truncate">
                 {settings.clubName}
               </p>
             </div>
@@ -1197,8 +1268,8 @@ export default function App() {
           <div className="flex items-center gap-2.5 shrink-0">
             {/* Read-Only Badge for Auditor */}
             {isReadOnly && (
-              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-medium">
-                <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-full text-xs font-medium">
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                 <span>Kassenprüfer (Nur Leserecht)</span>
               </div>
             )}
@@ -1208,16 +1279,16 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                className="flex items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all"
+                className="flex items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl transition-all cursor-pointer"
               >
                 <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
                   {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
                 </div>
                 <div className="text-left hidden sm:block">
-                  <div className="text-xs font-bold text-slate-800 truncate max-w-[120px] leading-tight">
+                  <div className="text-xs font-bold text-slate-800 dark:text-white truncate max-w-[120px] leading-tight">
                     {currentUser?.name || 'Benutzer'}
                   </div>
-                  <div className="text-[10px] text-slate-500 flex items-center gap-1">
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
                     <span className={`inline-block w-1.5 h-1.5 rounded-full ${canManageUsers ? 'bg-rose-500' : canEditFinances ? 'bg-emerald-500' : 'bg-blue-500'}`} />
                     <span>{currentUser?.customRoleName || (canManageUsers ? 'Administrator' : 'Benutzer')}</span>
                   </div>
@@ -1231,14 +1302,26 @@ export default function App() {
                     className="fixed inset-0 z-30"
                     onClick={() => setUserDropdownOpen(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-40 space-y-1 animate-in fade-in zoom-in-95 duration-100 text-xs">
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 mb-2">
-                      <div className="font-bold text-slate-900 truncate">{currentUser?.name}</div>
-                      <div className="text-[11px] text-slate-500 font-mono truncate">Login: {currentUser?.username}</div>
-                      <div className="mt-2 inline-block px-2 py-0.5 rounded text-[10px] font-semibold border bg-blue-50 text-blue-800 border-blue-200">
+                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-2 z-40 space-y-1 animate-in fade-in zoom-in-95 duration-100 text-xs">
+                    <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-100 dark:border-slate-700 mb-2">
+                      <div className="font-bold text-slate-900 dark:text-white truncate">{currentUser?.name}</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate">Login: {currentUser?.username}</div>
+                      <div className="mt-2 inline-block px-2 py-0.5 rounded text-[10px] font-semibold border bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800">
                         {currentUser?.customRoleName || (canManageUsers ? 'Administrator' : 'Benutzer')}
                       </div>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserDropdownOpen(false);
+                        setActiveTab('settings');
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-left transition-colors cursor-pointer"
+                    >
+                      <Settings className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <span>Systemeinstellungen</span>
+                    </button>
 
                     {canManageUsers && (
                       <button
@@ -1247,9 +1330,9 @@ export default function App() {
                           setUserDropdownOpen(false);
                           setUserManageOpen(true);
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg text-left transition-colors"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-left transition-colors cursor-pointer"
                       >
-                        <UserCog className="w-4 h-4 text-blue-600" />
+                        <UserCog className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                         <span>Benutzerverwaltung & Rechte</span>
                       </button>
                     )}
@@ -1392,7 +1475,7 @@ export default function App() {
                 members={members}
                 settings={settings}
                 accounts={accounts}
-                onOpenSettings={() => setSettingsOpen(true)}
+                onOpenSettings={() => setActiveTab('settings')}
                 onRefreshData={loadData}
               />
             )}
@@ -1505,6 +1588,19 @@ export default function App() {
                 onSaveFolder={handleSaveFolder}
                 onDeleteFolder={handleDeleteFolder}
                 onBatchMoveToFolder={handleBatchMoveToFolder}
+              />
+            )}
+
+            {/* Tab 8: Dedicated Settings & Administration Page */}
+            {activeTab === 'settings' && (
+              <SettingsView
+                settings={settings}
+                onSaveSettings={handleSaveSettings}
+                onDataReload={loadData}
+                onOpenDeploymentHub={() => setDeploymentHubOpen(true)}
+                onOpenUserManage={() => setUserManageOpen(true)}
+                currentTheme={theme}
+                onThemeChange={(newTheme) => setTheme(newTheme)}
               />
             )}
           </div>
@@ -1736,18 +1832,6 @@ export default function App() {
             setReceiptScannerOpen(false);
             setScannerTargetTx(null);
           }}
-        />
-      )}
-
-      {/* Settings & DSGVO Privacy Modal */}
-      {settingsOpen && (
-        <SettingsPrivacyModal
-          settings={settings}
-          onSaveSettings={handleSaveSettings}
-          onDataReload={loadData}
-          onOpenDeploymentHub={() => setDeploymentHubOpen(true)}
-          onOpenUserManage={() => setUserManageOpen(true)}
-          onClose={() => setSettingsOpen(false)}
         />
       )}
 

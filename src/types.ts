@@ -161,6 +161,7 @@ export interface Transaction {
 
 export interface ClubSettings {
   clubName: string;
+  clubLogoUrl?: string; // Optional custom club logo as Base64 Data URL
   associationNumber: string; // z.B. VR 12345
   taxNumber: string; // z.B. 12/345/67890
   creditorId: string; // Gläubiger-ID für SEPA
@@ -171,7 +172,13 @@ export interface ClubSettings {
   chairman: string;
   treasurer: string;
   email: string;
+  phone?: string;
+  website?: string;
   departments: string[];
+  theme?: 'light' | 'dark' | 'system';
+  currency?: string;
+  dateFormat?: string;
+  fiscalYearStart?: string;
   taxOffice?: string; // z.B. 'Finanzamt Musterstadt'
   taxExemptionDate?: string; // z.B. '10.01.2024'
   taxAssessmentPeriod?: string; // z.B. '2021 bis 2023'
