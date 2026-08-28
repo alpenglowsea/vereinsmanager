@@ -11,6 +11,9 @@ on:
         required: true
         default: 'v1.0.0'
 
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
+
 jobs:
   release:
     permissions:
@@ -61,6 +64,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          tauriScript: 'npx tauri'
           tagName: ${{ github.ref_name || github.event.inputs.version }}
           releaseName: 'VereinsManager ${{ github.ref_name || github.event.inputs.version }}'
           releaseBody: |
