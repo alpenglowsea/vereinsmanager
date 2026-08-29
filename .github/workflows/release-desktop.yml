@@ -59,6 +59,9 @@ jobs:
       - name: Install Frontend Dependencies
         run: npm install
 
+      - name: Build Frontend
+        run: npm run build:ui
+
       - name: Build Desktop Application (Tauri Action)
         uses: tauri-apps/tauri-action@v0
         env:
