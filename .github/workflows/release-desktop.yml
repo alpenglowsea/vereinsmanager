@@ -56,9 +56,18 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
 
       - name: Install Frontend Dependencies
-        run: npm install --include=optional
+        shell: bash
+        run: |
+          rm -f package-lock.json
+          npm install
+          if [ "${{ matrix.platform }}" = "windows-latest" ]; then
+            npm install @rollup/rollup-win32-x64-msvc
+          elif [ "${{ matrix.platform }}" = "macos-latest" ]; then
+            npm install @rollup/rollup-darwin-arm64 @rollup/rollup-darwin-x64
+          fi
 
       - name: Build Frontend
+        shell: bash
         run: npm run build:ui
 
       - name: Build Desktop Application (Tauri Action)
