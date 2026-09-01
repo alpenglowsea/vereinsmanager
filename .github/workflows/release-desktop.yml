@@ -57,7 +57,8 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
 
       - name: Install Frontend Dependencies
-        run: npm ci || npm install
+        run: |
+          npm install --include=optional
 
       - name: Build Frontend
         run: npm run build:ui
