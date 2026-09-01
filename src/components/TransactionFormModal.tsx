@@ -3,7 +3,8 @@ import {
   Transaction,
   FinancialAccount,
   TaxSphere,
-  ReceiptAttachment
+  ReceiptAttachment,
+  BookingAiSuggestion
 } from '../types';
 import {
   TAX_SPHERES,
@@ -22,9 +23,17 @@ import {
   Trash2,
   Tag,
   Layers,
-  Camera
+  Camera,
+  Sparkles,
+  Wand2,
+  Key,
+  Bot,
+  Check,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { ReceiptCameraScannerModal } from './ReceiptCameraScannerModal';
+import { AiBookingService } from '../services/aiBookingService';
 
 interface TransactionFormModalProps {
   transaction: Transaction | null;
@@ -92,10 +101,108 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showSphereHelp, setShowSphereHelp] = useState(false);
 
+  // AI Categorization Assistant state
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<BookingAiSuggestion | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiCustomPrompt, setAiCustomPrompt] = useState('');
+  const [showAiPromptInput, setShowAiPromptInput] = useState(false);
+  const [aiAppliedBanner, setAiAppliedBanner] = useState(false);
+  const [showKeySetupInline, setShowKeySetupInline] = useState(false);
+  const [inlineApiKey, setInlineApiKey] = useState(AiBookingService.getStoredApiKey());
+  const [keySavedToast, setKeySavedToast] = useState(false);
+
   // Available SKR 42 categories for current sphere and type
   const activeType = formData.type === 'transfer' ? 'expense' : formData.type;
   const mainCategories = getSkr42MainCategories(formData.sphere, activeType);
   const subCategories = getSkr42SubCategories(formData.sphere, activeType, selectedMainCatId);
+
+  const handleAiCategorize = async (customText?: string) => {
+    // Determine the most specific and valid text available
+    const directText = (customText || '').trim();
+    const customPromptText = aiCustomPrompt.trim();
+    const bookingTextValue = (formData.bookingText || '').trim();
+    const partnerValue = (formData.partner || '').trim();
+
+    // Priority: direct passed parameter -> custom input prompt -> booking text -> partner
+    const textToAnalyze = directText || customPromptText || bookingTextValue || partnerValue;
+    
+    if (!textToAnalyze) {
+      setShowAiPromptInput(true);
+      setAiError('Bitte geben Sie einen Buchungstext ein oder beschreiben Sie den Vorfall kurz.');
+      return;
+    }
+
+    setAiLoading(true);
+    setAiError(null);
+    setAiAppliedBanner(false);
+
+    try {
+      const suggestion = await AiBookingService.categorizeBooking({
+        description: textToAnalyze,
+        bookingText: bookingTextValue,
+        partner: partnerValue,
+        amount: formData.amount > 0 ? formData.amount : undefined,
+        type: formData.type
+      });
+      setAiSuggestion(suggestion);
+      setShowAiPromptInput(false);
+    } catch (err: any) {
+      console.error('AI categorization error:', err);
+      const msg = err.message || 'Die KI-Kategorisierung konnte nicht durchgeführt werden.';
+      setAiError(msg);
+      if (msg.includes('API-Schlüssel')) {
+        setShowKeySetupInline(true);
+      }
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const applyAiSuggestion = (suggestion: BookingAiSuggestion) => {
+    const targetType = suggestion.type;
+    const mains = getSkr42MainCategories(suggestion.sphere, targetType);
+    
+    const matchedMain = mains.find(
+      m => m.code === suggestion.mainCategoryCode || m.id === suggestion.mainCategoryId || m.name.toLowerCase().includes(suggestion.mainCategoryName.toLowerCase())
+    ) || mains[0];
+
+    const matchedSub = matchedMain?.subCategories.find(
+      s => s.code === suggestion.subCategoryCode || s.label.includes(suggestion.subCategoryCode) || s.name.toLowerCase().includes(suggestion.subCategoryName.toLowerCase())
+    ) || matchedMain?.subCategories[0];
+
+    if (matchedMain) {
+      setSelectedMainCatId(matchedMain.id);
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      type: targetType,
+      sphere: suggestion.sphere,
+      mainCategory: matchedMain ? `${matchedMain.code} - ${matchedMain.name}` : suggestion.mainCategoryName,
+      subCategory: matchedSub?.label || suggestion.subCategoryLabel,
+      category: matchedSub?.label || suggestion.subCategoryLabel,
+      skrAccount: matchedSub?.code || suggestion.subCategoryCode,
+      vatRate: suggestion.vatRate,
+      bookingText: prev.bookingText.trim() ? prev.bookingText : (suggestion.suggestedBookingText || prev.bookingText)
+    }));
+
+    setAiAppliedBanner(true);
+    setTimeout(() => {
+      setAiAppliedBanner(false);
+    }, 4000);
+  };
+
+  const handleSaveInlineApiKey = () => {
+    if (inlineApiKey.trim()) {
+      AiBookingService.setStoredApiKey(inlineApiKey.trim());
+      setShowKeySetupInline(false);
+      setKeySavedToast(true);
+      setAiError(null);
+      setTimeout(() => setKeySavedToast(false), 3000);
+      handleAiCategorize();
+    }
+  };
 
   const handleSphereChange = (sphere: TaxSphere) => {
     const mains = getSkr42MainCategories(sphere, activeType);
@@ -387,9 +494,23 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
 
             {/* 4. Booking text */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Buchungstext / Verwendungszweck *
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Buchungstext / Verwendungszweck *
+                </label>
+                {formData.type !== 'transfer' && formData.bookingText.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => handleAiCategorize(formData.bookingText)}
+                    disabled={aiLoading}
+                    className="text-2xs text-purple-700 hover:text-purple-900 flex items-center gap-1 font-semibold cursor-pointer"
+                    title="Diesen Buchungstext direkt per KI analysieren und Sphäre/Konto vorschlagen"
+                  >
+                    <Sparkles className="w-3 h-3 text-purple-600" />
+                    <span>Diesen Text per KI kategorisieren</span>
+                  </button>
+                )}
+              </div>
               <input
                 type="text"
                 required
@@ -404,19 +525,232 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
             {/* 5. STEUERLICHE SPHÄRE & KATEGORIE (German Non-profit Law §§ 51 ff. AO) */}
             {formData.type !== 'transfer' && (
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                     Steuerliche Sphäre gem. §§ 51 ff. AO *
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowSphereHelp(!showSphereHelp)}
-                    className="text-2xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium"
-                  >
-                    <HelpCircle className="w-3.5 h-3.5" />
-                    {showSphereHelp ? 'Sphärenhilfe ausblenden' : 'Sphären-Erklärung anzeigen'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const directText = (formData.bookingText || formData.partner || '').trim();
+                        if (directText) {
+                          handleAiCategorize(directText);
+                        } else {
+                          setShowAiPromptInput(true);
+                          setAiError('Bitte geben Sie zuerst einen Buchungstext ein oder beschreiben Sie den Vorfall in der Eingabezeile.');
+                        }
+                      }}
+                      disabled={aiLoading}
+                      title="Automatische steuerliche Zuordnung per KI anhand des Buchungstextes oder einer kurzen Beschreibung"
+                      className={`px-2.5 py-1 text-2xs font-bold rounded-lg border transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer ${
+                        aiLoading
+                          ? 'bg-purple-100 text-purple-800 border-purple-300 animate-pulse'
+                          : showAiPromptInput || aiSuggestion
+                          ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                          : 'bg-white text-purple-700 border-purple-200 hover:bg-purple-50 hover:border-purple-300'
+                      }`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>{aiLoading ? 'KI analysiert...' : '✨ KI-Kategorisierung'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowSphereHelp(!showSphereHelp)}
+                      className="text-2xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium cursor-pointer"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5" />
+                      {showSphereHelp ? 'Hilfe ausblenden' : 'Sphären-Hilfe'}
+                    </button>
+                  </div>
                 </div>
+
+                {/* AI Custom Prompt Input Bar */}
+                {showAiPromptInput && !aiSuggestion && (
+                  <div className="p-3 bg-white border border-purple-200 rounded-xl shadow-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xs font-bold text-purple-900 flex items-center gap-1">
+                        <Bot className="w-3.5 h-3.5 text-purple-600" />
+                        Buchung kurz in eigenen Worten erklären:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowAiPromptInput(false)}
+                        className="text-slate-400 hover:text-slate-600 text-xs"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={aiCustomPrompt}
+                        onChange={e => setAiCustomPrompt(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAiCategorize(aiCustomPrompt);
+                          }
+                        }}
+                        placeholder="z.B. '15 Trainingsbälle für C-Jugend gekauft' oder 'Spende von Firma Müller'"
+                        className="flex-1 px-3 py-1.5 text-xs bg-purple-50/50 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:bg-white text-slate-800 placeholder-slate-400"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAiCategorize(aiCustomPrompt)}
+                        disabled={aiLoading}
+                        className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span>{aiLoading ? 'Ermittle...' : 'Vorschlag ermitteln'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* AI Loading State */}
+                {aiLoading && (
+                  <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl flex items-center gap-3 animate-pulse text-purple-900">
+                    <div className="p-2 bg-purple-200 rounded-lg">
+                      <Sparkles className="w-4 h-4 text-purple-700 animate-spin" />
+                    </div>
+                    <div className="text-2xs space-y-0.5">
+                      <div className="font-bold">Gemini KI analysiert den Geschäftsvorfall...</div>
+                      <div className="text-purple-700">Steuerliche Sphäre (§§ 51 ff. AO) und DATEV SKR 42-Konto werden ermittelt.</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* AI Suggestion Display Card */}
+                {aiSuggestion && !aiLoading && (
+                  <div className="p-3.5 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-xl shadow-xs space-y-2.5 text-slate-800">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-purple-900">
+                        <Sparkles className="w-4 h-4 text-purple-600" />
+                        <span>KI-Zuordnungsvorschlag</span>
+                        <span className="text-2xs font-normal text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded-full">
+                          {Math.round(aiSuggestion.confidence * 100)}% Sicherheit
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setAiSuggestion(null)}
+                        className="text-slate-400 hover:text-slate-600 text-xs p-1"
+                        title="Vorschlag schließen"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-2xs">
+                      <div className="p-2 bg-white/80 border border-purple-100 rounded-lg">
+                        <span className="text-slate-500 block text-3xs font-semibold uppercase">Sphäre:</span>
+                        <span className="font-bold text-purple-950 capitalize">{TAX_SPHERES[aiSuggestion.sphere]?.name.split('.')[1] || aiSuggestion.sphere}</span>
+                      </div>
+                      <div className="p-2 bg-white/80 border border-purple-100 rounded-lg sm:col-span-2">
+                        <span className="text-slate-500 block text-3xs font-semibold uppercase">SKR 42 Konto:</span>
+                        <span className="font-bold text-purple-950 truncate block" title={aiSuggestion.subCategoryLabel}>
+                          {aiSuggestion.subCategoryLabel}
+                        </span>
+                      </div>
+                    </div>
+
+                    {aiSuggestion.reasoning && (
+                      <p className="text-2xs text-slate-600 italic bg-white/60 p-2 rounded-lg border border-purple-100/50">
+                        💡 {aiSuggestion.reasoning}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setAiSuggestion(null)}
+                        className="px-2.5 py-1 text-2xs text-slate-600 hover:text-slate-800 font-medium"
+                      >
+                        Verwerfen
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          applyAiSuggestion(aiSuggestion);
+                          setAiSuggestion(null);
+                        }}
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Vorschlag übernehmen</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* AI Error & Key Setup Prompt */}
+                {aiError && !aiLoading && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-2 text-2xs text-rose-800">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>{aiError}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setAiError(null)}
+                        className="text-rose-400 hover:text-rose-600"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {showKeySetupInline && (
+                      <div className="pt-2 border-t border-rose-200/60 space-y-2">
+                        <p className="text-slate-700">
+                          Für die lokale KI-Unterstützung benötigen Sie einen kostenlosen Google Gemini API-Schlüssel:
+                        </p>
+                        <div className="flex gap-2">
+                          <input
+                            type="password"
+                            value={inlineApiKey}
+                            onChange={e => setInlineApiKey(e.target.value)}
+                            placeholder="AIzaSy..."
+                            className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSaveInlineApiKey}
+                            disabled={!inlineApiKey.trim()}
+                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer"
+                          >
+                            Speichern & Fortfahren
+                          </button>
+                        </div>
+                        <a
+                          href="https://aistudio.google.com/app/apikey"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block text-3xs text-purple-700 hover:underline font-semibold"
+                        >
+                          ➔ Kostenlosen Google Gemini API-Schlüssel erstellen (Google AI Studio)
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Toast feedback when applied */}
+                {aiAppliedBanner && (
+                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs font-bold text-emerald-800 animate-fadeIn">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Sphäre, Haupt- & Unterkonto wurden erfolgreich eingetragen!</span>
+                  </div>
+                )}
+
+                {keySavedToast && (
+                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs font-bold text-emerald-800 animate-fadeIn">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>API-Schlüssel lokal gespeichert. Analyse wird gestartet...</span>
+                  </div>
+                )}
 
                 {showSphereHelp && (
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-2xs space-y-2 text-slate-700">

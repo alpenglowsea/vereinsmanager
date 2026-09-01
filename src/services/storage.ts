@@ -17,6 +17,8 @@ import {
   OnlineMembershipApplication,
   ApplicationTemplateSettings
 } from '../types';
+import { UserDashboardConfig } from '../types/dashboard';
+import { DEFAULT_DASHBOARD_CONFIG } from '../data/defaultDashboard';
 import { DEFAULT_DEPARTMENTS } from '../data/taxSpheres';
 import { INITIAL_INVENTORY } from '../data/initialInventory';
 import { getInitialDocuments } from '../data/initialDocuments';
@@ -60,7 +62,8 @@ const STORES = {
   CALENDAR_EVENTS: 'calendar_events',
   CALENDAR_CATEGORIES: 'calendar_categories',
   ONLINE_APPLICATIONS: 'online_applications',
-  APPLICATION_SETTINGS: 'application_settings'
+  APPLICATION_SETTINGS: 'application_settings',
+  DASHBOARD_CONFIG: 'dashboard_config'
 };
 
 const DEFAULT_SETTINGS: ClubSettings = {
@@ -1004,6 +1007,55 @@ export const StorageService = {
   },
 
   /**
+   * Liefert Statistiken über die aktuell lokal auf dem Gerät gespeicherten Datensätze
+   */
+  async getLocalDataStats(): Promise<{
+    members: number;
+    transactions: number;
+    accounts: number;
+    inventory: number;
+    sepaRuns: number;
+    documents: number;
+    donations: number;
+    calendarEvents: number;
+    auditLogs: number;
+  }> {
+    const [
+      members,
+      transactions,
+      accounts,
+      inventory,
+      sepaRuns,
+      documents,
+      donations,
+      calendarEvents,
+      auditLogs
+    ] = await Promise.all([
+      getAllFromStore<Member>(STORES.MEMBERS),
+      getAllFromStore<Transaction>(STORES.TRANSACTIONS),
+      getAllFromStore<FinancialAccount>(STORES.ACCOUNTS),
+      getAllFromStore<InventoryItem>(STORES.INVENTORY),
+      getAllFromStore<SepaRunHistory>(STORES.SEPA_RUNS),
+      getAllFromStore<ClubDocument>(STORES.DOCUMENTS),
+      getAllFromStore<DonationReceipt>(STORES.DONATIONS),
+      getAllFromStore<CalendarEvent>(STORES.CALENDAR_EVENTS),
+      getAllFromStore<MemberAuditLog>(STORES.AUDIT_LOGS)
+    ]);
+
+    return {
+      members: members.length,
+      transactions: transactions.length,
+      accounts: accounts.length,
+      inventory: inventory.length,
+      sepaRuns: sepaRuns.length,
+      documents: documents.length,
+      donations: donations.length,
+      calendarEvents: calendarEvents.length,
+      auditLogs: auditLogs.length
+    };
+  },
+
+  /**
    * Überträgt alle lokalen Vereinsdaten (IndexedDB) mit einem Klick in die Supabase Cloud
    */
   async migrateLocalToCloud(): Promise<{
@@ -1012,18 +1064,28 @@ export const StorageService = {
     accounts: number;
     inventory: number;
     sepaRuns: number;
+    auditLogs: number;
     settings: boolean;
   }> {
     if (!getStoredSupabaseConfig().isConfigured) {
       throw new Error('Supabase ist noch nicht mit URL und Anon Key konfiguriert.');
     }
 
-    const [localMembers, localTransactions, localAccounts, localInventory, localSepaRuns, localSettings] = await Promise.all([
+    const [
+      localMembers,
+      localTransactions,
+      localAccounts,
+      localInventory,
+      localSepaRuns,
+      localAuditLogs,
+      localSettings
+    ] = await Promise.all([
       getAllFromStore<Member>(STORES.MEMBERS),
       getAllFromStore<Transaction>(STORES.TRANSACTIONS),
       getAllFromStore<FinancialAccount>(STORES.ACCOUNTS),
       getAllFromStore<InventoryItem>(STORES.INVENTORY),
       getAllFromStore<SepaRunHistory>(STORES.SEPA_RUNS),
+      getAllFromStore<MemberAuditLog>(STORES.AUDIT_LOGS),
       this.getSettings()
     ]);
 
@@ -1057,6 +1119,11 @@ export const StorageService = {
       await CloudStorageService.saveSepaRun(run);
     }
 
+    // 7. Audit Logs
+    for (const log of localAuditLogs) {
+      await CloudStorageService.saveAuditLog(log);
+    }
+
     // Switch mode to cloud
     this.setDeploymentMode('cloud');
 
@@ -1066,6 +1133,7 @@ export const StorageService = {
       accounts: localAccounts.length,
       inventory: localInventory.length,
       sepaRuns: localSepaRuns.length,
+      auditLogs: localAuditLogs.length,
       settings: Boolean(localSettings)
     };
   },
@@ -2680,6 +2748,22 @@ export const StorageService = {
       donationsCount: donations.length,
       calendarEventsCount: calendarEvents.length
     };
+  },
+
+  async getDashboardConfig(): Promise<UserDashboardConfig> {
+    const stored = await getItemFromStore<UserDashboardConfig & { id: string }>(
+      STORES.DASHBOARD_CONFIG,
+      'main_dashboard'
+    );
+    if (!stored || !stored.widgets || stored.widgets.length === 0) {
+      return DEFAULT_DASHBOARD_CONFIG;
+    }
+    return stored;
+  },
+
+  async saveDashboardConfig(config: UserDashboardConfig): Promise<UserDashboardConfig> {
+    await putItemToStore(STORES.DASHBOARD_CONFIG, { id: 'main_dashboard', ...config });
+    return config;
   },
 
   async resetToDemoData(): Promise<void> {

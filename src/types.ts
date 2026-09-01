@@ -183,6 +183,22 @@ export interface ClubSettings {
   taxExemptionDate?: string; // z.B. '10.01.2024'
   taxAssessmentPeriod?: string; // z.B. '2021 bis 2023'
   promotedPurposes?: string; // z.B. 'Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)'
+  geminiApiKey?: string; // Eigener Google Gemini API-Schlüssel für KI-Funktionen (Buchungsassistent, Beleg- & Antragsscan)
+}
+
+export interface BookingAiSuggestion {
+  sphere: TaxSphere;
+  mainCategoryId?: string;
+  mainCategoryName: string;
+  mainCategoryCode: string;
+  subCategoryLabel: string;
+  subCategoryCode: string;
+  subCategoryName: string;
+  vatRate: 0 | 7 | 19;
+  type: 'income' | 'expense';
+  suggestedBookingText?: string;
+  confidence: number;
+  reasoning: string;
 }
 
 // SEPA Lastschrift & Beitragslauf Typen
@@ -586,6 +602,21 @@ export interface ApplicationTemplateSettings {
   requireHealthConfirmation?: boolean;
   contactEmail?: string;
   notificationEmail?: string;
+}
+
+export interface AppUpdateInfo {
+  currentVersion: string;
+  latestVersion: string;
+  isUpdateAvailable: boolean;
+  releaseTitle?: string;
+  releaseDate?: string;
+  releaseNotes?: string[];
+  githubUrl?: string;
+  downloadUrls?: {
+    windows?: string;
+    mac?: string;
+    linux?: string;
+  };
 }
 
 

@@ -1,34 +1,52 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Member,
   Transaction,
   FinancialAccount,
   ClubSettings,
   InventoryItem,
-  TaxSphere
+  ClubDocument,
+  DonationReceipt,
+  OnlineMembershipApplication
 } from '../types';
-import { TAX_SPHERES } from '../data/taxSpheres';
+import { UserDashboardConfig, WidgetColSpan } from '../types/dashboard';
+import { AVAILABLE_DASHBOARD_WIDGETS } from '../data/defaultDashboard';
+import { WidgetWrapper } from './DashboardWidgets/WidgetWrapper';
 import {
-  Users,
-  Wallet,
-  FileSpreadsheet,
-  CreditCard,
-  TrendingUp,
-  TrendingDown,
-  ShieldCheck,
+  MembersKpiWidget,
+  OnlineApplicationsWidget,
+  DepartmentsWidget,
+  BirthdaysWidget,
+  RecentMembersWidget,
+  DemographicsWidget
+} from './DashboardWidgets/MemberWidgets';
+import {
+  LiquidityWidget,
+  AnnualBalanceWidget,
+  WgbLimitWidget,
+  TaxSpheresWidget,
+  SepaMonitorWidget,
+  RecentTransactionsWidget,
+  DonationsWidget,
+  CashflowWidget
+} from './DashboardWidgets/FinanceWidgets';
+import {
+  QuickActionsWidget,
+  ClubHeaderWidget,
+  UpcomingEventsWidget,
+  InventoryWidget,
+  DocumentsArchiveWidget
+} from './DashboardWidgets/GeneralWidgets';
+import {
+  SlidersHorizontal,
   Plus,
-  ArrowRight,
-  AlertCircle,
-  Building2,
-  Package,
-  Layers,
-  Calendar,
-  CheckCircle2,
-  PieChart,
-  Percent,
-  Clock,
+  RotateCcw,
   Sparkles,
-  Paperclip
+  LayoutDashboard,
+  CheckCircle2,
+  Settings2,
+  FileSignature,
+  ArrowRight
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -36,8 +54,13 @@ interface DashboardViewProps {
   transactions: Transaction[];
   accounts: FinancialAccount[];
   inventory: InventoryItem[];
+  documents?: ClubDocument[];
+  donations?: DonationReceipt[];
+  applications?: OnlineMembershipApplication[];
   settings: ClubSettings;
-  pendingApplicationsCount?: number;
+  dashboardConfig: UserDashboardConfig;
+  onUpdateDashboardConfig: (newConfig: UserDashboardConfig) => void;
+  onOpenDashboardConfigModal: () => void;
   onNavigate: (tab: any) => void;
   onOpenCreateMember: () => void;
   onOpenCreateTx: () => void;
@@ -51,8 +74,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   transactions,
   accounts,
   inventory,
+  documents = [],
+  donations = [],
+  applications = [],
   settings,
-  pendingApplicationsCount = 0,
+  dashboardConfig,
+  onUpdateDashboardConfig,
+  onOpenDashboardConfigModal,
   onNavigate,
   onOpenCreateMember,
   onOpenCreateTx,
@@ -60,592 +88,316 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenCreateInventory,
   onOpenNewDocument
 }) => {
-  const currentYear = new Date().getFullYear().toString();
+  // Widget definitions lookup
+  const definitionsMap = useMemo(() => {
+    const map = new Map();
+    AVAILABLE_DASHBOARD_WIDGETS.forEach((def) => map.set(def.id, def));
+    return map;
+  }, []);
 
-  // 1. Account Balances & Total Liquidity
-  const accountBalances = useMemo(() => {
-    const balances: Record<string, number> = {};
-    accounts.forEach(acc => {
-      balances[acc.id] = acc.initialBalance || 0;
-    });
+  // Pending online membership applications
+  const pendingApplications = useMemo(() => {
+    return (applications || []).filter((a) => a.status === 'pending');
+  }, [applications]);
 
-    transactions.forEach(tx => {
-      if (tx.type === 'transfer' && tx.targetAccountId) {
-        if (balances[tx.accountId] !== undefined) balances[tx.accountId] -= Math.abs(tx.amount);
-        if (balances[tx.targetAccountId] !== undefined) balances[tx.targetAccountId] += Math.abs(tx.amount);
-      } else {
-        if (balances[tx.accountId] !== undefined) balances[tx.accountId] += tx.amount;
+  // Sorted enabled widgets
+  const enabledWidgets = useMemo(() => {
+    return [...(dashboardConfig.widgets || [])]
+      .filter((w) => w.enabled)
+      .sort((a, b) => a.order - b.order);
+  }, [dashboardConfig]);
+
+  const hasClubHeader = useMemo(() => {
+    return enabledWidgets.some((w) => w.id === 'club_header');
+  }, [enabledWidgets]);
+
+  const [draggedWidgetId, setDraggedWidgetId] = useState<string | null>(null);
+  const [dragOverWidgetId, setDragOverWidgetId] = useState<string | null>(null);
+
+  // 1-Click Remove Widget
+  const handleRemoveWidget = (widgetId: string) => {
+    const updated = dashboardConfig.widgets.map((w) => {
+      if (w.id === widgetId) {
+        return { ...w, enabled: false };
       }
+      return w;
     });
+    onUpdateDashboardConfig({
+      ...dashboardConfig,
+      widgets: updated,
+      updatedAt: new Date().toISOString()
+    });
+  };
 
-    return balances;
-  }, [accounts, transactions]);
-
-  const totalLiquidity = useMemo(() => {
-    return (Object.values(accountBalances) as number[]).reduce((sum: number, b: number) => sum + b, 0);
-  }, [accountBalances]);
-
-  // 2. Members KPI
-  const activeMembers = useMemo(() => members.filter(m => m.status === 'active'), [members]);
-  const sepaMembers = useMemo(() => members.filter(m => m.paymentMethod === 'sepa' && m.status === 'active'), [members]);
-  const missingSepaMandates = useMemo(() => {
-    return members.filter(m => m.status === 'active' && m.paymentMethod === 'sepa' && (!m.bankDetails?.iban || !m.bankDetails?.mandateReference));
-  }, [members]);
-
-  // 3. Current Year Financials
-  const currentYearTxs = useMemo(() => {
-    return transactions.filter(t => t.type !== 'transfer' && t.date.startsWith(currentYear));
-  }, [transactions, currentYear]);
-
-  const { ytdIncome, ytdExpense, sphereStats, wgbIncome } = useMemo(() => {
-    let income = 0;
-    let expense = 0;
-    let wgbInc = 0;
-
-    const spheres: Record<TaxSphere, { income: number; expense: number; net: number }> = {
-      ideell: { income: 0, expense: 0, net: 0 },
-      vermoegen: { income: 0, expense: 0, net: 0 },
-      zweckbetrieb: { income: 0, expense: 0, net: 0 },
-      wirtschaftlich: { income: 0, expense: 0, net: 0 }
-    };
-
-    currentYearTxs.forEach(t => {
-      const sph = t.sphere || 'ideell';
-      if (t.amount >= 0) {
-        income += t.amount;
-        spheres[sph].income += t.amount;
-        if (sph === 'wirtschaftlich') wgbInc += t.amount;
-      } else {
-        const abs = Math.abs(t.amount);
-        expense += abs;
-        spheres[sph].expense += abs;
+  // Change ColSpan
+  const handleChangeColSpan = (widgetId: string, colSpan: WidgetColSpan) => {
+    const updated = dashboardConfig.widgets.map((w) => {
+      if (w.id === widgetId) {
+        return { ...w, colSpan };
       }
-      spheres[sph].net = spheres[sph].income - spheres[sph].expense;
+      return w;
     });
-
-    return {
-      ytdIncome: income,
-      ytdExpense: expense,
-      sphereStats: spheres,
-      wgbIncome: wgbInc
-    };
-  }, [currentYearTxs]);
-
-  const ytdNet = ytdIncome - ytdExpense;
-
-  // 45.000 € Limit WGB
-  const WGB_LIMIT = 45000.00;
-  const wgbPercent = Math.min(100, (wgbIncome / WGB_LIMIT) * 100);
-  const wgbBuffer = Math.max(0, WGB_LIMIT - wgbIncome);
-
-  // 4. Inventory Value
-  const totalInventoryValue = useMemo(() => {
-    return inventory.reduce((sum, item) => sum + (item.purchasePrice * item.quantity), 0);
-  }, [inventory]);
-
-  // 5. Recent Transactions (last 5)
-  const recentTransactions = useMemo(() => {
-    return [...transactions]
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || b.id.localeCompare(a.id))
-      .slice(0, 5);
-  }, [transactions]);
-
-  // 6. Departments breakdown
-  const departmentBreakdown = useMemo(() => {
-    const counts: Record<string, number> = {};
-    members.forEach(m => {
-      const dept = m.department || 'Allgemein';
-      counts[dept] = (counts[dept] || 0) + 1;
+    onUpdateDashboardConfig({
+      ...dashboardConfig,
+      widgets: updated,
+      updatedAt: new Date().toISOString()
     });
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [members]);
+  };
 
-  // 7. Payment Methods Breakdown & Percentages
-  const paymentMethodsBreakdown = useMemo(() => {
-    let sepa = 0;
-    let transfer = 0;
-    let cash = 0;
-    let other = 0;
-    const total = activeMembers.length || 1;
+  // Drag & Drop Reordering Handlers
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedWidgetId(id);
+  };
 
-    activeMembers.forEach(m => {
-      const method = (m.paymentMethod || '').toLowerCase();
-      if (method === 'sepa' || method === 'lastschrift' || method === 'direct_debit') {
-        sepa++;
-      } else if (method === 'transfer' || method === 'ueberweisung' || method === 'bank_transfer') {
-        transfer++;
-      } else if (method === 'cash' || method === 'bar') {
-        cash++;
-      } else {
-        other++;
+  const handleDragEnd = () => {
+    setDraggedWidgetId(null);
+    setDragOverWidgetId(null);
+  };
+
+  const handleDragEnter = (_e: React.DragEvent, id: string) => {
+    if (draggedWidgetId && draggedWidgetId !== id) {
+      setDragOverWidgetId(id);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    const sourceId = e.dataTransfer.getData('text/plain') || draggedWidgetId;
+    setDraggedWidgetId(null);
+    setDragOverWidgetId(null);
+
+    if (!sourceId || sourceId === targetId) return;
+
+    const list = [...enabledWidgets];
+    const fromIndex = list.findIndex((w) => w.id === sourceId);
+    const toIndex = list.findIndex((w) => w.id === targetId);
+    if (fromIndex === -1 || toIndex === -1) return;
+
+    const [moved] = list.splice(fromIndex, 1);
+    list.splice(toIndex, 0, moved);
+
+    // Re-assign normalized sequential order
+    const orderMap = new Map(list.map((w, idx) => [w.id, (idx + 1) * 10]));
+    const updated = dashboardConfig.widgets.map((w) => {
+      if (orderMap.has(w.id)) {
+        return { ...w, order: orderMap.get(w.id)! };
       }
+      return w;
     });
 
-    return [
-      { label: 'SEPA-Lastschrift', count: sepa, pct: (sepa / total) * 100, barColor: 'bg-emerald-500', textColor: 'text-emerald-700', bgBadge: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
-      { label: 'Banküberweisung', count: transfer, pct: (transfer / total) * 100, barColor: 'bg-blue-500', textColor: 'text-blue-700', bgBadge: 'bg-blue-50 text-blue-800 border-blue-200' },
-      { label: 'Barzahlung', count: cash, pct: (cash / total) * 100, barColor: 'bg-amber-500', textColor: 'text-amber-700', bgBadge: 'bg-amber-50 text-amber-800 border-amber-200' },
-      ...(other > 0 ? [{ label: 'Sonstige / Befreit', count: other, pct: (other / total) * 100, barColor: 'bg-purple-500', textColor: 'text-purple-700', bgBadge: 'bg-purple-50 text-purple-800 border-purple-200' }] : [])
-    ];
-  }, [activeMembers]);
+    onUpdateDashboardConfig({
+      ...dashboardConfig,
+      widgets: updated,
+      updatedAt: new Date().toISOString()
+    });
+  };
+
+  // Render individual widget component
+  const renderWidgetContent = (widgetId: string) => {
+    switch (widgetId) {
+      case 'quick_actions':
+        return (
+          <QuickActionsWidget
+            onOpenCreateMember={onOpenCreateMember}
+            onOpenCreateTx={onOpenCreateTx}
+            onOpenCreateEvent={onOpenCreateEvent}
+            onOpenCreateInventory={onOpenCreateInventory}
+            onOpenNewDocument={onOpenNewDocument}
+          />
+        );
+      case 'club_header':
+        return <ClubHeaderWidget settings={settings} onNavigate={onNavigate} />;
+      case 'members_kpi':
+        return <MembersKpiWidget members={members} onNavigate={onNavigate} />;
+      case 'online_applications_kpi':
+        return <OnlineApplicationsWidget applications={applications} onNavigate={onNavigate} />;
+      case 'departments_distribution':
+        return <DepartmentsWidget members={members} onNavigate={onNavigate} />;
+      case 'upcoming_birthdays':
+        return <BirthdaysWidget members={members} onNavigate={onNavigate} />;
+      case 'recent_members':
+        return <RecentMembersWidget members={members} onNavigate={onNavigate} />;
+      case 'demographics_distribution':
+        return <DemographicsWidget members={members} onNavigate={onNavigate} />;
+      case 'total_liquidity':
+        return <LiquidityWidget accounts={accounts} transactions={transactions} onNavigate={onNavigate} />;
+      case 'annual_balance':
+        return <AnnualBalanceWidget transactions={transactions} onNavigate={onNavigate} />;
+      case 'wgb_limit_monitor':
+        return <WgbLimitWidget transactions={transactions} onNavigate={onNavigate} />;
+      case 'tax_spheres_overview':
+        return <TaxSpheresWidget transactions={transactions} onNavigate={onNavigate} />;
+      case 'sepa_debit_monitor':
+        return <SepaMonitorWidget members={members} settings={settings} onNavigate={onNavigate} />;
+      case 'recent_journal_transactions':
+        return <RecentTransactionsWidget transactions={transactions} onNavigate={onNavigate} />;
+      case 'donations_summary':
+        return <DonationsWidget donations={donations} onNavigate={onNavigate} />;
+      case 'cashflow_chart':
+        return <CashflowWidget transactions={transactions} onNavigate={onNavigate} />;
+      case 'upcoming_events':
+        return <UpcomingEventsWidget onNavigate={onNavigate} onOpenCreateEvent={onOpenCreateEvent} />;
+      case 'inventory_overview':
+        return <InventoryWidget inventory={inventory} onNavigate={onNavigate} />;
+      case 'documents_archive_kpi':
+        return <DocumentsArchiveWidget documents={documents} onNavigate={onNavigate} />;
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* 1. TOP HEADER & QUICK ACTIONS */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-full text-2xs font-bold uppercase tracking-wider">
-              {settings.associationNumber || 'Eingetragener Verein (e.V.)'}
-            </span>
-          </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            {settings.clubName}
-          </h1>
-          <p className="text-xs text-slate-500">
-            Zentrale Übersicht für Vorstand, Kassenwart & Abteilungsleiter
-          </p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-          <button
-            id="dashboard-btn-create-member"
-            type="button"
-            onClick={onOpenCreateMember}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all hover:shadow-sm cursor-pointer active:scale-98"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Neues Mitglied</span>
-          </button>
-
-          <button
-            id="dashboard-btn-create-tx"
-            type="button"
-            onClick={onOpenCreateTx}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all hover:shadow-sm cursor-pointer active:scale-98"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Neue Buchung</span>
-          </button>
-
-          {onOpenCreateEvent && (
-            <button
-              id="dashboard-btn-create-event"
-              type="button"
-              onClick={onOpenCreateEvent}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all hover:shadow-sm cursor-pointer active:scale-98"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Neuer Termin</span>
-            </button>
-          )}
-
-          <button
-            id="dashboard-btn-create-inventory"
-            type="button"
-            onClick={onOpenCreateInventory}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all hover:shadow-sm cursor-pointer active:scale-98"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Neues Material</span>
-          </button>
-
-          {onOpenNewDocument && (
-            <button
-              id="dashboard-btn-new-document"
-              type="button"
-              onClick={onOpenNewDocument}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all hover:shadow-sm cursor-pointer active:scale-98"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Neues Dokument</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Pending Membership Applications Notification Banner */}
-      {pendingApplicationsCount > 0 && (
-        <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/5 border border-amber-300/80 p-4 sm:p-5 rounded-2xl shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start sm:items-center gap-3">
-            <div className="p-2.5 bg-amber-500 text-white rounded-xl shadow-xs shrink-0 animate-pulse">
-              <Sparkles className="w-5 h-5" />
-            </div>
-              <div>
-                <h2 className="text-sm font-bold text-amber-950">
-                  {pendingApplicationsCount} {pendingApplicationsCount === 1 ? 'neuer Online-Mitgliedsantrag' : 'neue Online-Mitgliedsanträge'} eingegangen!
-                </h2>
-                <p className="text-xs text-amber-800 mt-0.5">
-                  Vollständig ausgefüllte und digital signierte Beitrittsanträge warten auf Ihre Bestätigung zur automatischen Mitgliederübernahme.
-                </p>
+    <div className="space-y-6 pb-12 animate-in fade-in duration-200">
+      {/* Modular Widgets Grid with Dense Gap-Free Layout */}
+      {enabledWidgets.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 [grid-auto-flow:dense]">
+          {/* If club_header is not enabled, show pending applications banner at the top */}
+          {!hasClubHeader && pendingApplications.length > 0 && (
+            <div className="col-span-1 md:col-span-2 lg:col-span-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border-2 border-amber-300 dark:border-amber-700/60 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-start sm:items-center gap-4">
+                <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-xs shrink-0 animate-bounce">
+                  <FileSignature className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="px-2.5 py-0.5 rounded-full text-2xs font-black uppercase tracking-wider bg-amber-500 text-white">
+                      {pendingApplications.length === 1
+                        ? '1 neuer Aufnahmeantrag'
+                        : `${pendingApplications.length} neue Aufnahmeanträge`}
+                    </span>
+                    <h3 className="text-base sm:text-lg font-black text-amber-950 dark:text-amber-100">
+                      {pendingApplications.length === 1
+                        ? 'Neuer digitaler Mitgliedsantrag eingegangen'
+                        : 'Neue digitale Mitgliedsanträge eingegangen'}
+                    </h3>
+                  </div>
+                  <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1">
+                    Es liegen neue Online-Mitgliedsanträge zur satzungsgemäßen Prüfung und Freigabe vor:{' '}
+                    <span className="font-semibold">
+                      {pendingApplications.slice(0, 3).map((a) => `${a.firstName || (a as any).formData?.firstName || 'Antragsteller'} ${a.lastName || (a as any).formData?.lastName || ''} (${a.department || (a as any).formData?.department || 'Allgemein'})`).join(', ')}
+                      {pendingApplications.length > 3 && ` und ${pendingApplications.length - 3} weitere`}
+                    </span>
+                  </p>
+                </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => onNavigate('online_applications')}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 active:scale-98 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow-md transition-all cursor-pointer shrink-0"
+              >
+                <span>Antragsportal öffnen & prüfen ({pendingApplications.length})</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {enabledWidgets.map((widget, index) => {
+            const def = definitionsMap.get(widget.id);
+            if (!def) return null;
+
+            const isClubHeader = widget.id === 'club_header';
+
+            return (
+              <React.Fragment key={widget.id}>
+                <WidgetWrapper
+                  id={widget.id}
+                  title={def.title}
+                  categoryLabel={def.categoryLabel}
+                  colSpan={widget.colSpan}
+                  isDragging={draggedWidgetId === widget.id}
+                  isDragOver={dragOverWidgetId === widget.id}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                  onDragEnter={handleDragEnter}
+                  onDrop={handleDrop}
+                  onRemove={() => handleRemoveWidget(widget.id)}
+                  onChangeColSpan={(newSpan) => handleChangeColSpan(widget.id, newSpan)}
+                  onNavigate={() => {}}
+                >
+                  {renderWidgetContent(widget.id)}
+                </WidgetWrapper>
+
+                {/* If this is the club_header widget and there are pending applications, render full-width alert directly under it */}
+                {isClubHeader && pendingApplications.length > 0 && (
+                  <div className="col-span-1 md:col-span-2 lg:col-span-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border-2 border-amber-300 dark:border-amber-700/60 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-start sm:items-center gap-4">
+                      <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-xs shrink-0 animate-bounce">
+                        <FileSignature className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <span className="px-2.5 py-0.5 rounded-full text-2xs font-black uppercase tracking-wider bg-amber-500 text-white">
+                            {pendingApplications.length === 1
+                              ? '1 neuer Aufnahmeantrag'
+                              : `${pendingApplications.length} neue Aufnahmeanträge`}
+                          </span>
+                          <h3 className="text-base sm:text-lg font-black text-amber-950 dark:text-amber-100">
+                            {pendingApplications.length === 1
+                              ? 'Neuer digitaler Mitgliedsantrag eingegangen'
+                              : 'Neue digitale Mitgliedsanträge eingegangen'}
+                          </h3>
+                        </div>
+                        <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1">
+                          Es liegen neue Online-Mitgliedsanträge zur satzungsgemäßen Prüfung und Freigabe vor:{' '}
+                          <span className="font-semibold">
+                            {pendingApplications.slice(0, 3).map((a) => `${a.firstName || (a as any).formData?.firstName || 'Antragsteller'} ${a.lastName || (a as any).formData?.lastName || ''} (${a.department || (a as any).formData?.department || 'Allgemein'})`).join(', ')}
+                            {pendingApplications.length > 3 && ` und ${pendingApplications.length - 3} weitere`}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('online_applications')}
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 active:scale-98 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow-md transition-all cursor-pointer shrink-0"
+                    >
+                      <span>Antragsportal öffnen & prüfen ({pendingApplications.length})</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center space-y-4">
+          <div className="p-4 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-2xl w-fit mx-auto">
+            <SlidersHorizontal className="w-8 h-8" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              Noch keine Kacheln ausgewählt
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1">
+              Stellen Sie Ihr individuelles Dashboard aus Mitgliedern, Finanzen, Kalender, Inventar und Dokumenten zusammen.
+            </p>
           </div>
           <button
             type="button"
-            onClick={() => onNavigate('online_applications')}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all hover:shadow-sm cursor-pointer whitespace-nowrap"
+            onClick={onOpenDashboardConfigModal}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
           >
-            <span>Anträge jetzt prüfen</span>
-            <ArrowRight className="w-4 h-4" />
+            <Plus className="w-4 h-4" />
+            <span>Kacheln hinzufügen</span>
           </button>
         </div>
       )}
 
-      {/* 2. TOP METRIC TILES GRID */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Mitgliederbestand */}
-        <div
-          onClick={() => onNavigate('members')}
-          className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-blue-300 transition-all cursor-pointer group"
+      {/* Bottom Add Tile Bar */}
+      <div className="pt-2 flex items-center justify-center">
+        <button
+          type="button"
+          onClick={onOpenDashboardConfigModal}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold border border-slate-200 dark:border-slate-700 transition-all cursor-pointer hover:border-blue-300"
         >
-          <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Mitglieder</span>
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-3xl font-black font-mono text-slate-900">
-            {members.length}
-          </div>
-          <div className="flex items-center justify-between mt-3 text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span className="text-emerald-600 font-semibold">{activeMembers.length} aktiv</span>
-            <span>{members.length - activeMembers.length} passiv/ruhend</span>
-          </div>
-        </div>
-
-        {/* Card 2: Gesamtliquidität */}
-        <div
-          onClick={() => onNavigate('finance')}
-          className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-emerald-300 transition-all cursor-pointer group"
-        >
-          <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Liquidität</span>
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-              <Wallet className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-3xl font-black font-mono text-emerald-600">
-            {totalLiquidity.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-          </div>
-          <div className="flex items-center justify-between mt-3 text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>{accounts.length} Konten & Kassen</span>
-            <span className="text-blue-600 font-semibold group-hover:underline flex items-center gap-0.5">
-              Journal <ArrowRight className="w-3 h-3" />
-            </span>
-          </div>
-        </div>
-
-        {/* Card 3: Jahres-Saldo (EÜR YTD) */}
-        <div
-          onClick={() => onNavigate('guv')}
-          className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-blue-300 transition-all cursor-pointer group"
-        >
-          <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Jahres-Saldo ({currentYear})</span>
-            <div className="p-2 bg-slate-100 text-slate-600 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
-          </div>
-          <div className={`text-3xl font-black font-mono ${ytdNet >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-            {ytdNet >= 0 ? '+' : ''}{ytdNet.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-          </div>
-          <div className="flex items-center justify-between mt-3 text-xs text-slate-500 pt-2 border-t border-slate-100 font-mono">
-            <span className="text-emerald-600">+{ytdIncome.toLocaleString('de-DE', { maximumFractionDigits: 0 })} €</span>
-            <span className="text-rose-600">-{ytdExpense.toLocaleString('de-DE', { maximumFractionDigits: 0 })} €</span>
-          </div>
-        </div>
-
-        {/* Card 4: WGB 45.000 € Grenze */}
-        <div
-          onClick={() => onNavigate('guv')}
-          className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-rose-300 transition-all cursor-pointer group"
-        >
-          <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">§ 64 AO Grenze</span>
-            <div className="p-2 bg-rose-50 text-rose-600 rounded-xl group-hover:bg-rose-600 group-hover:text-white transition-colors">
-              <Percent className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-2xl font-black font-mono text-slate-900">
-            {wgbPercent.toFixed(1)} % <span className="text-xs font-normal text-slate-500 font-sans">erreicht</span>
-          </div>
-          <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden my-2">
-            <div
-              className={`h-full rounded-full ${wgbPercent > 90 ? 'bg-rose-500' : wgbPercent > 70 ? 'bg-amber-400' : 'bg-emerald-500'}`}
-              style={{ width: `${Math.max(3, wgbPercent)}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
-            <span className="font-mono">{wgbIncome.toLocaleString('de-DE', { maximumFractionDigits: 0 })} €</span>
-            <span className="text-emerald-600 font-semibold">{wgbBuffer.toLocaleString('de-DE', { maximumFractionDigits: 0 })} € Puffer</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. MAIN SECTION: 4 SPHÄREN & SEPA BEITRAGSLAUF MONITOR */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: 4 Sphären Übersicht (SKR 42) */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Layers className="w-5 h-5 text-blue-600" />
-              <h2 className="text-base font-bold text-slate-900">
-                Steuerliche Sphären-Übersicht (SKR 42)
-              </h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigate('guv')}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
-            >
-              Ausführlicher EÜR-Bericht <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <p className="text-xs text-slate-500">
-            Aufteilung aller Einnahmen und Ausgaben nach den gesetzlichen Sphären des Gemeinnützigkeitsrechts:
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
-            {(['ideell', 'vermoegen', 'zweckbetrieb', 'wirtschaftlich'] as TaxSphere[]).map((sph) => {
-              const info = TAX_SPHERES[sph];
-              const stat = sphereStats[sph];
-
-              let borderClr = 'border-emerald-200 bg-emerald-50/20';
-              let badgeClr = 'bg-emerald-100 text-emerald-800';
-              if (sph === 'vermoegen') {
-                borderClr = 'border-blue-200 bg-blue-50/20';
-                badgeClr = 'bg-blue-100 text-blue-800';
-              }
-              if (sph === 'zweckbetrieb') {
-                borderClr = 'border-amber-200 bg-amber-50/20';
-                badgeClr = 'bg-amber-100 text-amber-800';
-              }
-              if (sph === 'wirtschaftlich') {
-                borderClr = 'border-rose-200 bg-rose-50/20';
-                badgeClr = 'bg-rose-100 text-rose-800';
-              }
-
-              return (
-                <div
-                  key={sph}
-                  className={`p-4 rounded-xl border ${borderClr} flex flex-col justify-between space-y-2`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${badgeClr}`}>
-                        {info.name.split('.')[0]}. Sphäre
-                      </span>
-                      <h3 className="font-bold text-xs text-slate-900 mt-1">
-                        {info.name.split('.')[1] || info.name}
-                      </h3>
-                      <p className="text-2xs text-slate-500 line-clamp-1">
-                        {info.subtitle}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs font-mono">
-                    <div className="space-y-0.5">
-                      <div className="text-emerald-600 text-2xs font-semibold">
-                        +{stat.income.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                      </div>
-                      <div className="text-rose-600 text-2xs font-semibold">
-                        -{stat.expense.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[10px] text-slate-400 font-sans uppercase block">Saldo</span>
-                      <span className={`font-bold ${stat.net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                        {stat.net >= 0 ? '+' : ''}{stat.net.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Right Col: SEPA Beitragslauf & Kassen-Status */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5 flex flex-col justify-between">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-emerald-600" />
-                <h2 className="text-base font-bold text-slate-900">
-                  Beitragslauf (SEPA)
-                </h2>
-              </div>
-              <span className="text-2xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">
-                pain.008 XML
-              </span>
-            </div>
-
-            <p className="text-xs text-slate-500">
-              Automatische Lastschrift-Erzeugung für Mitgliedsbeiträge
-            </p>
-
-            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600">SEPA-Lastschriftzahler:</span>
-                <span className="font-bold text-slate-900 font-mono">{sepaMembers.length} von {activeMembers.length}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600">Gläubiger-ID:</span>
-                <span className="font-mono text-slate-800 font-semibold">{settings.creditorId || 'Nicht hinterlegt'}</span>
-              </div>
-              
-              {/* Payment methods distribution bar */}
-              <div className="pt-2 border-t border-slate-200 space-y-1.5">
-                <span className="text-[10px] uppercase font-bold text-slate-400">Zahlungsarten Verteilung</span>
-                <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden flex">
-                  {paymentMethodsBreakdown.map((pm, i) => (
-                    <div
-                      key={i}
-                      className={`${pm.barColor} h-full transition-all`}
-                      style={{ width: `${pm.pct}%` }}
-                      title={`${pm.label}: ${pm.count} (${pm.pct.toFixed(0)}%)`}
-                    />
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-1.5 text-[10px] pt-1">
-                  {paymentMethodsBreakdown.map((pm, i) => (
-                    <span key={i} className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${pm.bgBadge}`}>
-                      {pm.label}: <strong className="font-mono">{pm.count}</strong>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {missingSepaMandates.length > 0 && (
-                <div className="pt-2 border-t border-slate-200 flex items-center gap-2 text-amber-700 font-semibold text-2xs">
-                  <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                  <span>{missingSepaMandates.length} Mitglied(er) mit unvollständiger IBAN / Mandat</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => onNavigate('sepa')}
-            className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2"
-          >
-            <CreditCard className="w-4 h-4" />
-            <span>Beitragslauf & XML-Export starten</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 4. RECENT TRANSACTIONS & DEPARTMENTS SECTION */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Transactions (2 Cols) */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Wallet className="w-5 h-5 text-slate-700" />
-              <h2 className="text-base font-bold text-slate-900">
-                Letzte Buchungen im Journal
-              </h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigate('finance')}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
-            >
-              Alle Buchungen ({transactions.length}) <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
-                <tr>
-                  <th className="px-3 py-2.5">Datum</th>
-                  <th className="px-3 py-2.5">Beleg</th>
-                  <th className="px-3 py-2.5">Partner / Text</th>
-                  <th className="px-3 py-2.5">Kategorie</th>
-                  <th className="px-3 py-2.5 text-right">Betrag</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {recentTransactions.map(tx => {
-                  const isIncome = tx.amount >= 0;
-                  return (
-                    <tr key={tx.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-3 py-2.5 font-mono text-slate-500 whitespace-nowrap">
-                        {new Date(tx.date).toLocaleDateString('de-DE')}
-                      </td>
-                      <td className="px-3 py-2.5 font-mono font-bold text-slate-800">
-                        {tx.documentNumber}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <div className="font-semibold text-slate-900 truncate max-w-xs">{tx.partner}</div>
-                        <div className="text-2xs text-slate-400 truncate max-w-xs">{tx.bookingText}</div>
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-600">
-                        <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-2xs font-medium">
-                          {tx.category || tx.subCategory || 'Kategorie'}
-                        </span>
-                      </td>
-                      <td className={`px-3 py-2.5 text-right font-mono font-bold whitespace-nowrap ${isIncome ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {isIncome ? '+' : ''}{tx.amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Departments / Sports breakdown */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-blue-600" />
-              <h2 className="text-base font-bold text-slate-900">
-                Abteilungen & Sparten
-              </h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigate('member_analytics')}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-800"
-            >
-              Statistik
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {departmentBreakdown.slice(0, 5).map(([deptName, count]) => {
-              const deptPercent = members.length > 0 ? (count / members.length) * 100 : 0;
-              return (
-                <div key={deptName} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-800">{deptName}</span>
-                    <span className="font-mono text-slate-500">{count} ({deptPercent.toFixed(0)}%)</span>
-                  </div>
-                  <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-blue-600"
-                      style={{ width: `${deptPercent}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span>Inventar & Geräte:</span>
-            <span className="font-bold text-slate-800 font-mono">
-              {inventory.length} Artikel ({totalInventoryValue.toLocaleString('de-DE', { maximumFractionDigits: 0 })} €)
-            </span>
-          </div>
-        </div>
+          <Plus className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          <span>Weitere Kacheln hinzufügen oder Layout konfigurieren</span>
+        </button>
       </div>
     </div>
   );

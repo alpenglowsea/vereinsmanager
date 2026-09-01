@@ -24,6 +24,8 @@ import {
 import { StorageService } from './services/storage';
 import { AuthService } from './services/authService';
 import { AppUser, UserAuthSession } from './types';
+import { UserDashboardConfig } from './types/dashboard';
+import { DEFAULT_DASHBOARD_CONFIG } from './data/defaultDashboard';
 
 // Views
 import { DashboardView } from './components/DashboardView';
@@ -41,6 +43,7 @@ import { OnlineApplicationsView } from './components/OnlineApplicationsView';
 import { PublicApplicationForm } from './components/PublicApplicationForm';
 
 // Modals & Drawers
+import { DashboardConfigModal } from './components/DashboardConfigModal';
 import { MemberFormModal } from './components/MemberFormModal';
 import { MemberDetailsDrawer } from './components/MemberDetailsDrawer';
 import { MemberImportModal } from './components/MemberImportModal';
@@ -52,7 +55,6 @@ import { ReceiptViewerModal } from './components/ReceiptViewerModal';
 import { ReceiptCameraScannerModal } from './components/ReceiptCameraScannerModal';
 import { SettingsView } from './components/SettingsView';
 import { InventoryFormModal } from './components/InventoryFormModal';
-import { DeploymentHubModal } from './components/DeploymentHubModal';
 import { DocumentViewerModal } from './components/DocumentViewerModal';
 import { DocumentUploadModal } from './components/DocumentUploadModal';
 import { DocumentEditModal } from './components/DocumentEditModal';
@@ -61,6 +63,7 @@ import { DonationFormModal } from './components/DonationFormModal';
 import { CalendarEventModal } from './components/CalendarEventModal';
 import { LoginScreen } from './components/LoginScreen';
 import { UserManageModal } from './components/UserManageModal';
+import { AppVersionBadge } from './components/AppVersionBadge';
 
 // Icons
 import {
@@ -103,7 +106,8 @@ import {
   CalendarDays,
   FileSignature,
   Inbox,
-  FileCheck
+  FileCheck,
+  SlidersHorizontal
 } from 'lucide-react';
 
 type ActiveTab =
@@ -123,10 +127,10 @@ type ActiveTab =
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  const [settingsActiveTab, setSettingsActiveTab] = useState<'general' | 'club' | 'users' | 'backup' | 'deployment' | 'support' | 'bugreport'>('general');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [deploymentMode, setDeploymentMode] = useState<import('./types').DeploymentMode>(StorageService.getDeploymentMode());
-  const [deploymentHubOpen, setDeploymentHubOpen] = useState(false);
 
   // Theme Management (Light, Dark, System)
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
@@ -233,6 +237,10 @@ export default function App() {
   const [docEditItem, setDocEditItem] = useState<ClubDocument | null>(null);
   const [folders, setFolders] = useState<DocumentFolder[]>([]);
 
+  // Modular Dashboard Configuration State
+  const [dashboardConfig, setDashboardConfig] = useState<UserDashboardConfig>(DEFAULT_DASHBOARD_CONFIG);
+  const [isDashboardConfigOpen, setIsDashboardConfigOpen] = useState(false);
+
   // Submenu expansion states
   const [membersMenuOpen, setMembersMenuOpen] = useState(true);
   const [financeMenuOpen, setFinanceMenuOpen] = useState(true);
@@ -258,7 +266,8 @@ export default function App() {
         loadedDonations,
         loadedFolders,
         loadedApplications,
-        loadedTemplateSettings
+        loadedTemplateSettings,
+        loadedDashboardConfig
       ] = await Promise.all([
         StorageService.getMembers(),
         StorageService.getTransactions(),
@@ -269,7 +278,8 @@ export default function App() {
         StorageService.getDonations(),
         StorageService.getFolders(),
         StorageService.getOnlineApplications(),
-        StorageService.getApplicationTemplateSettings()
+        StorageService.getApplicationTemplateSettings(),
+        StorageService.getDashboardConfig()
       ]);
 
       setMembers(loadedMembers);
@@ -281,6 +291,9 @@ export default function App() {
       setDonations(loadedDonations);
       setFolders(loadedFolders);
       setOnlineApplications(loadedApplications);
+      if (loadedDashboardConfig) {
+        setDashboardConfig(loadedDashboardConfig);
+      }
       if (loadedTemplateSettings) {
         setApplicationSettings(loadedTemplateSettings);
       }
@@ -637,28 +650,14 @@ export default function App() {
   // Auth Gate: If user is not authenticated, show Login Screen
   if (!authSession.isAuthenticated) {
     return (
-      <>
-        <LoginScreen
-          settings={settings}
-          deploymentMode={deploymentMode}
-          onLoginSuccess={(user) => {
-            setAuthSession({ user, isAuthenticated: true, loginTime: new Date().toISOString() });
-            loadData();
-          }}
-          onOpenDeploymentHub={() => setDeploymentHubOpen(true)}
-        />
-        {deploymentHubOpen && (
-          <DeploymentHubModal
-            currentMode={deploymentMode}
-            onModeChange={async (newMode) => {
-              setDeploymentMode(newMode);
-              await loadData();
-            }}
-            onDataReload={loadData}
-            onClose={() => setDeploymentHubOpen(false)}
-          />
-        )}
-      </>
+      <LoginScreen
+        settings={settings}
+        deploymentMode={deploymentMode}
+        onLoginSuccess={(user) => {
+          setAuthSession({ user, isAuthenticated: true, loginTime: new Date().toISOString() });
+          loadData();
+        }}
+      />
     );
   }
 
@@ -745,14 +744,13 @@ export default function App() {
 
         {/* Sidebar Navigation */}
         <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
-          {/* 1. Dashboard (Primary first menu item) */}
-          <button
-            type="button"
+          {/* 1. Dashboard (Primary first menu item with interactive config button) */}
+          <div
             onClick={() => {
               setActiveTab('dashboard');
               setMobileMenuOpen(false);
             }}
-            className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+            className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer select-none ${
               activeTab === 'dashboard'
                 ? 'bg-blue-600 text-white shadow-xs font-bold'
                 : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
@@ -762,16 +760,24 @@ export default function App() {
               <LayoutDashboard className="w-4 h-4 text-blue-400" />
               <span>Dashboard</span>
             </div>
-            <span
-              className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded ${
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsDashboardConfigOpen(true);
+              }}
+              title="Dashboard-Kacheln und Layout anpassen"
+              aria-label="Dashboard anpassen"
+              className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all cursor-pointer hover:scale-105 active:scale-95 ${
                 activeTab === 'dashboard'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-slate-800 text-slate-400'
+                  ? 'bg-blue-500 hover:bg-blue-400 text-white shadow-2xs'
+                  : 'bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white'
               }`}
             >
-              Übersicht
-            </span>
-          </button>
+              <SlidersHorizontal className="w-2.5 h-2.5" />
+              <span>Anpassen</span>
+            </button>
+          </div>
 
           {/* 2. Mitglieder (Group with Sub-items) */}
           <div className="pt-2">
@@ -1098,62 +1104,14 @@ export default function App() {
           </div>
         </nav>
 
-        {/* Sidebar Footer (Storage / DSGVO Status & Settings button) */}
+        {/* Sidebar Footer (Settings button & App Version) */}
         <div className="p-4 border-t border-slate-800 space-y-2">
-          {/* Cloud / Mode Switcher Quick Button */}
-          <button
-            type="button"
-            onClick={() => {
-              setDeploymentHubOpen(true);
-              setMobileMenuOpen(false);
-            }}
-            className={`w-full p-2.5 rounded-xl text-left border transition-all flex items-center justify-between ${
-              deploymentMode === 'cloud'
-                ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60'
-                : deploymentMode === 'selfhosted'
-                ? 'bg-blue-950/60 border-blue-500/40 text-blue-300 hover:bg-blue-900/60'
-                : 'bg-slate-800/90 border-slate-700/60 text-slate-300 hover:bg-slate-700/90'
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <div className={`p-1.5 rounded-lg ${
-                deploymentMode === 'cloud'
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : deploymentMode === 'selfhosted'
-                  ? 'bg-blue-500/20 text-blue-400'
-                  : 'bg-amber-500/20 text-amber-400'
-              }`}>
-                {deploymentMode === 'cloud' ? (
-                  <Cloud className="w-4 h-4" />
-                ) : deploymentMode === 'selfhosted' ? (
-                  <Server className="w-4 h-4" />
-                ) : (
-                  <HardDrive className="w-4 h-4" />
-                )}
-              </div>
-              <div>
-                <div className="text-[11px] font-bold leading-tight">
-                  {deploymentMode === 'cloud'
-                    ? 'Cloud (Supabase EU)'
-                    : deploymentMode === 'selfhosted'
-                    ? 'Docker Selbsthoster'
-                    : 'Lokale IndexedDB'}
-                </div>
-                <div className="text-[9px] text-slate-400">
-                  Modus wechseln & Setup
-                </div>
-              </div>
-            </div>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">
-              Hub
-            </span>
-          </button>
-
           {/* Settings Nav Button (Dedicated Full Page) */}
           <button
             id="nav-btn-settings"
             type="button"
             onClick={() => {
+              setSettingsActiveTab('general');
               setActiveTab('settings');
               setMobileMenuOpen(false);
             }}
@@ -1173,6 +1131,15 @@ export default function App() {
               System
             </span>
           </button>
+
+          {/* App Version Tile & 1-Klick Update Popover */}
+          <AppVersionBadge
+            currentMode={deploymentMode}
+            onOpenDeploymentHub={() => {
+              setSettingsActiveTab('deployment');
+              setActiveTab('settings');
+            }}
+          />
         </div>
       </aside>
 
@@ -1315,6 +1282,7 @@ export default function App() {
                       type="button"
                       onClick={() => {
                         setUserDropdownOpen(false);
+                        setSettingsActiveTab('general');
                         setActiveTab('settings');
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-left transition-colors cursor-pointer"
@@ -1328,7 +1296,8 @@ export default function App() {
                         type="button"
                         onClick={() => {
                           setUserDropdownOpen(false);
-                          setUserManageOpen(true);
+                          setSettingsActiveTab('users');
+                          setActiveTab('settings');
                         }}
                         className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-left transition-colors cursor-pointer"
                       >
@@ -1387,8 +1356,16 @@ export default function App() {
                 transactions={transactions}
                 accounts={accounts}
                 inventory={inventory}
+                documents={documents}
+                donations={donations}
+                applications={onlineApplications}
                 settings={settings}
-                pendingApplicationsCount={onlineApplications.filter(a => a.status === 'pending').length}
+                dashboardConfig={dashboardConfig}
+                onUpdateDashboardConfig={(newConfig) => {
+                  setDashboardConfig(newConfig);
+                  StorageService.saveDashboardConfig(newConfig);
+                }}
+                onOpenDashboardConfigModal={() => setIsDashboardConfigOpen(true)}
                 onNavigate={(tab) => setActiveTab(tab)}
                 onOpenCreateMember={() => {
                   setEditingMember(null);
@@ -1597,10 +1574,16 @@ export default function App() {
                 settings={settings}
                 onSaveSettings={handleSaveSettings}
                 onDataReload={loadData}
-                onOpenDeploymentHub={() => setDeploymentHubOpen(true)}
+                onOpenDeploymentHub={() => {
+                  setSettingsActiveTab('deployment');
+                  setActiveTab('settings');
+                }}
                 onOpenUserManage={() => setUserManageOpen(true)}
                 currentTheme={theme}
                 onThemeChange={(newTheme) => setTheme(newTheme)}
+                deploymentMode={deploymentMode}
+                onDeploymentModeChange={(newMode) => setDeploymentMode(newMode)}
+                initialTab={settingsActiveTab}
               />
             )}
           </div>
@@ -1835,16 +1818,6 @@ export default function App() {
         />
       )}
 
-      {/* Deployment & Cloud Hub Modal */}
-      {deploymentHubOpen && (
-        <DeploymentHubModal
-          currentMode={deploymentMode}
-          onModeChange={(mode) => setDeploymentMode(mode)}
-          onDataReload={loadData}
-          onClose={() => setDeploymentHubOpen(false)}
-        />
-      )}
-
       {/* User & Role Management Modal (Admin only) */}
       {userManageOpen && (
         <UserManageModal
@@ -1869,6 +1842,23 @@ export default function App() {
           departments={settings.departments}
           onSave={handleSaveCalendarEvent}
           clubSettingsAddress={settings.address}
+        />
+      )}
+
+      {/* Modular Dashboard Configuration Modal */}
+      {isDashboardConfigOpen && (
+        <DashboardConfigModal
+          isOpen={isDashboardConfigOpen}
+          onClose={() => setIsDashboardConfigOpen(false)}
+          config={dashboardConfig}
+          onSaveConfig={(newConfig) => {
+            setDashboardConfig(newConfig);
+            StorageService.saveDashboardConfig(newConfig);
+          }}
+          onResetToDefault={() => {
+            setDashboardConfig(DEFAULT_DASHBOARD_CONFIG);
+            StorageService.saveDashboardConfig(DEFAULT_DASHBOARD_CONFIG);
+          }}
         />
       )}
 

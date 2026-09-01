@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { ClubSettings, AppUser, UserPermissions } from '../types';
+import { ClubSettings, AppUser, UserPermissions, DeploymentMode } from '../types';
 import { StorageService } from '../services/storage';
 import { AuthService } from '../services/authService';
+import { AiBookingService } from '../services/aiBookingService';
+import { CURRENT_APP_VERSION } from '../services/updateService';
 import { FULL_PERMISSIONS } from '../data/roles';
+import { DeploymentHubSettingsPanel } from './DeploymentHubSettingsPanel';
 import paypalQrImage from '../assets/paypal-original.jpg';
 import {
   Settings,
@@ -49,7 +52,14 @@ import {
   ZoomIn,
   X,
   Maximize2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Key,
+  Bot,
+  Bug,
+  Send,
+  MessageSquare,
+  HelpCircle,
+  Info
 } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -60,6 +70,9 @@ interface SettingsViewProps {
   onOpenUserManage?: () => void;
   currentTheme: 'light' | 'dark' | 'system';
   onThemeChange: (theme: 'light' | 'dark' | 'system') => void;
+  deploymentMode?: DeploymentMode;
+  onDeploymentModeChange?: (mode: DeploymentMode) => void;
+  initialTab?: SettingsTab;
 }
 
 interface PermissionItem {
@@ -152,7 +165,7 @@ const DEFAULT_BLANK_PERMISSIONS: UserPermissions = {
   canManageUsers: false
 };
 
-type SettingsTab = 'general' | 'club' | 'users' | 'backup' | 'deployment' | 'support';
+type SettingsTab = 'general' | 'club' | 'users' | 'backup' | 'deployment' | 'support' | 'bugreport';
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
@@ -160,8 +173,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onDataReload,
   onOpenDeploymentHub,
   currentTheme,
-  onThemeChange
+  onThemeChange,
+  deploymentMode,
+  onDeploymentModeChange,
+  initialTab
 }) => {
+  const [currentDepMode, setCurrentDepMode] = useState<DeploymentMode>(
+    deploymentMode || StorageService.getDeploymentMode()
+  );
+
+  useEffect(() => {
+    if (deploymentMode) {
+      setCurrentDepMode(deploymentMode);
+    }
+  }, [deploymentMode]);
+
+  const handleModeChange = (mode: DeploymentMode) => {
+    setCurrentDepMode(mode);
+    onDeploymentModeChange?.(mode);
+  };
   // Tab sequence:
   // 1. Allgemeine Einstellungen
   // 2. Vereinsstammdaten
@@ -169,7 +199,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // 4. Datensicherung und Import
   // 5. Betriebsmodi
   // 6. Projekt unterstützen
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || 'general');
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Form State for Club & General Settings
   const [formData, setFormData] = useState<ClubSettings>({
@@ -208,6 +244,192 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [userFormIsActive, setUserFormIsActive] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [userMsg, setUserMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Gemini API Key state for BYOK (Bring Your Own Key)
+  const [geminiApiKey, setGeminiApiKey] = useState<string>(() => settings.geminiApiKey || AiBookingService.getStoredApiKey());
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isTestingKey, setIsTestingKey] = useState(false);
+  const [keyTestResult, setKeyTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Bug Reporting State
+  const [bugSubject, setBugSubject] = useState('');
+  const [bugArea, setBugArea] = useState('Dashboard (Übersicht)');
+  const [bugDescription, setBugDescription] = useState('');
+  const [bugSeverity, setBugSeverity] = useState<'normal' | 'low' | 'high' | 'critical'>('normal');
+  const [bugContactName, setBugContactName] = useState('');
+  const [bugContactEmail, setBugContactEmail] = useState('');
+  const [bugIncludeSystemInfo, setBugIncludeSystemInfo] = useState(true);
+  const [bugCopied, setBugCopied] = useState(false);
+  const [isSubmittingBug, setIsSubmittingBug] = useState(false);
+  const [bugSuccessMessage, setBugSuccessMessage] = useState<string | null>(null);
+  const [submittedTicket, setSubmittedTicket] = useState<{ ticketId: string; timestamp: string; message: string } | null>(null);
+
+  const generateBugReportText = () => {
+    const severityLabels = {
+      low: 'Niedrig (Schönheitsfehler / Tippfehler / Kosmetisch)',
+      normal: 'Normal (Funktion fehlerhaft oder verhält sich unerwartet)',
+      high: 'Hoch (Wichtige Funktion blockiert / beeinträchtigt)',
+      critical: 'Kritisch (Datenverlust / Absturz / System blockiert)'
+    };
+
+    let report = `Hallo VereinsManager-Support-Team,\n\nich möchte folgendes Problem aus der VereinsManager-Anwendung melden:\n\n`;
+    report += `==================================================\n`;
+    report += `1. BEREICH / NAVIGATIONS-PUNKT:\n${bugArea}\n\n`;
+    report += `2. BETREFF / KURZBESCHREIBUNG:\n${bugSubject.trim()}\n\n`;
+    report += `3. SCHWEREGRAD / DRINGLICHKEIT:\n${severityLabels[bugSeverity]}\n\n`;
+    report += `4. DETAILLIERTE BESCHREIBUNG DES PROBLEMS:\n${bugDescription.trim()}\n\n`;
+    
+    if (bugContactName.trim() || bugContactEmail.trim()) {
+      report += `==================================================\n`;
+      report += `5. KONTAKTDATEN FÜR RÜCKFRAGEN:\n`;
+      if (bugContactName.trim()) report += `Name: ${bugContactName.trim()}\n`;
+      if (bugContactEmail.trim()) report += `E-Mail: ${bugContactEmail.trim()}\n`;
+      report += `\n`;
+    }
+
+    if (bugIncludeSystemInfo) {
+      report += `==================================================\n`;
+      report += `6. SYSTEM- & DIAGNOSE-DATEN:\n`;
+      report += `- App-Version: v${CURRENT_APP_VERSION}\n`;
+      report += `- Betriebsmodus: ${currentDepMode === 'cloud' ? 'Cloud-Hosting (Supabase EU)' : currentDepMode === 'selfhosted' ? 'Selbsthoster (Docker Server)' : 'Lokaler Einzelplatz (IndexedDB)'}\n`;
+      report += `- Zeitstempel: ${new Date().toLocaleString('de-DE')}\n`;
+      report += `- Browser & Plattform: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'Unbekannt'}\n`;
+      report += `- Sprache: ${typeof navigator !== 'undefined' ? navigator.language : 'de-DE'}\n`;
+      report += `- Bildschirmauflösung: ${typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight} px` : 'n/a'}\n`;
+      report += `==================================================\n`;
+    }
+
+    report += `\n(Automatisch vorbereitet über VereinsManager Bugreporting)`;
+    return report;
+  };
+
+  // Direct In-App Submission without requiring an external email program
+  const handleDirectSubmitBugReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bugSubject.trim()) {
+      setStatusMsg({ type: 'error', text: 'Bitte geben Sie eine kurze Betreffzeile für das Problem an.' });
+      return;
+    }
+    if (!bugDescription.trim()) {
+      setStatusMsg({ type: 'error', text: 'Bitte beschreiben Sie das aufgetretene Problem im Freitextfeld.' });
+      return;
+    }
+
+    setIsSubmittingBug(true);
+    setBugSuccessMessage(null);
+
+    try {
+      const clientInfo = bugIncludeSystemInfo
+        ? `App v${CURRENT_APP_VERSION} | Modus: ${currentDepMode} | UA: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'n/a'} | Screen: ${typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'n/a'}`
+        : 'Keine Diagnosedaten';
+
+      const response = await fetch('/api/submit-bugreport', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: bugSubject.trim(),
+          area: bugArea,
+          description: bugDescription.trim(),
+          severity: bugSeverity,
+          contactName: bugContactName.trim() || undefined,
+          contactEmail: bugContactEmail.trim() || undefined,
+          appVersion: `v${CURRENT_APP_VERSION}`,
+          deploymentMode: currentDepMode,
+          clientDetails: clientInfo,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setSubmittedTicket({
+          ticketId: result.ticketId || `VM-${Date.now().toString(36).toUpperCase()}`,
+          timestamp: result.timestamp || new Date().toLocaleString('de-DE'),
+          message: result.message || 'Ihr Fehlerbericht wurde direkt an vereinsmanager@ik.me übermittelt.',
+        });
+        setBugSuccessMessage(`Fehlerbericht erfolgreich direkt versendet! Ticket-Nr: #${result.ticketId || 'VM'}`);
+        setStatusMsg({
+          type: 'success',
+          text: `Fehlerbericht wurde direkt an vereinsmanager@ik.me übermittelt (Ticket #${result.ticketId})`,
+        });
+      } else {
+        throw new Error(result.error || 'Server konnte den Bericht nicht annehmen.');
+      }
+    } catch (err: any) {
+      console.error('Fehler bei direkter In-App Übermittlung:', err);
+      // Fallback: Explain and allow mailto or clipboard
+      setStatusMsg({
+        type: 'error',
+        text: `Direkter Versand fehlgeschlagen (${err?.message || 'Netzwerkfehler'}). Sie können den Bericht alternativ über das E-Mail-Programm senden.`
+      });
+    } finally {
+      setIsSubmittingBug(false);
+    }
+  };
+
+  // Fallback: Open local mail program
+  const handleOpenInMailClient = () => {
+    if (!bugSubject.trim()) {
+      setStatusMsg({ type: 'error', text: 'Bitte geben Sie eine kurze Betreffzeile an.' });
+      return;
+    }
+    if (!bugDescription.trim()) {
+      setStatusMsg({ type: 'error', text: 'Bitte beschreiben Sie das aufgetretene Problem.' });
+      return;
+    }
+
+    const emailTo = 'vereinsmanager@ik.me';
+    const mailSubject = `[Bugreport - ${bugArea}] ${bugSubject.trim()}`;
+    const mailBody = generateBugReportText();
+    const mailtoUrl = `mailto:${emailTo}?subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}`;
+    
+    window.location.href = mailtoUrl;
+    setStatusMsg({
+      type: 'success',
+      text: 'Lokales E-Mail-Programm wurde mit dem Fehlerbericht geöffnet.'
+    });
+  };
+
+  const handleCopyBugReport = async () => {
+    if (!bugSubject.trim()) {
+      setStatusMsg({ type: 'error', text: 'Bitte geben Sie mindestens eine Betreffzeile an.' });
+      return;
+    }
+    if (!bugDescription.trim()) {
+      setStatusMsg({ type: 'error', text: 'Bitte beschreiben Sie das Problem vor dem Kopieren.' });
+      return;
+    }
+
+    const emailTo = 'vereinsmanager@ik.me';
+    const mailSubject = `[Bugreport - ${bugArea}] ${bugSubject.trim()}`;
+    const fullText = `An: ${emailTo}\nBetreff: ${mailSubject}\n\n${generateBugReportText()}`;
+    
+    try {
+      await navigator.clipboard.writeText(fullText);
+      setBugCopied(true);
+      setTimeout(() => setBugCopied(false), 3500);
+      setStatusMsg({
+        type: 'success',
+        text: 'Fehlerbericht in die Zwischenablage kopiert! Sie können den Text direkt in Ihre E-Mail einfügen.'
+      });
+    } catch (err) {
+      setStatusMsg({ type: 'error', text: 'Kopieren fehlgeschlagen. Bitte markieren Sie den Text manuell.' });
+    }
+  };
+
+  const handleInsertTemplate = () => {
+    const template = `1. Was habe ich getan? (Schritt-für-Schritt):\n- \n\n2. Was ist aufgetreten? (Fehlermeldung oder unerwartetes Verhalten):\n- \n\n3. Was wurde stattdessen erwartet?:\n- `;
+    setBugDescription(prev => prev ? `${prev}\n\n${template}` : template);
+  };
+
+  const handleResetBugForm = () => {
+    setBugSubject('');
+    setBugArea('Dashboard (Übersicht)');
+    setBugDescription('');
+    setBugSeverity('normal');
+    setBugSuccessMessage(null);
+    setSubmittedTicket(null);
+  };
 
   const startEditUser = (user: AppUser) => {
     setEditingUserId(user.id);
@@ -382,9 +604,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleSaveClub = (e: React.FormEvent) => {
     e.preventDefault();
-    onSaveSettings(formData);
+    const updated = { ...formData, geminiApiKey: geminiApiKey.trim() || undefined };
+    setFormData(updated);
+    AiBookingService.setStoredApiKey(geminiApiKey.trim());
+    onSaveSettings(updated);
     setStatusMsg({ type: 'success', text: 'Einstellungen & Vereinsstammdaten wurden erfolgreich gespeichert.' });
     setTimeout(() => setStatusMsg(null), 3500);
+  };
+
+  const handleTestGeminiKey = async () => {
+    setIsTestingKey(true);
+    setKeyTestResult(null);
+    try {
+      const res = await AiBookingService.testConnection(geminiApiKey.trim());
+      setKeyTestResult(res);
+      if (res.success) {
+        AiBookingService.setStoredApiKey(geminiApiKey.trim());
+      }
+    } catch (err: any) {
+      setKeyTestResult({ success: false, message: err?.message || 'Verbindungstest fehlgeschlagen.' });
+    } finally {
+      setIsTestingKey(false);
+    }
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -642,6 +883,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <Heart className={`w-4 h-4 ${activeTab === 'support' ? 'text-rose-500 fill-rose-500' : 'text-rose-400'}`} />
             <span>6. Projekt unterstützen</span>
           </button>
+
+          {/* 7. Problem melden (Bugreporting) */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('bugreport')}
+            className={`pb-3.5 px-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'bugreport'
+                ? 'border-amber-600 text-amber-600 dark:text-amber-400 dark:border-amber-400 font-bold'
+                : 'border-transparent hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+          >
+            <Bug className="w-4 h-4 text-amber-500" />
+            <span>7. Problem melden</span>
+          </button>
         </div>
       </div>
 
@@ -793,14 +1048,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* General Preferences & Form */}
           <form onSubmit={handleSaveClub} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-5">
             <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
-              <div className="p-2 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-xl">
-                <Settings className="w-4 h-4" />
+              <div className="p-2.5 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-2xl">
+                <Settings className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
                   Regionale Anzeige & Standardeinstellungen
                 </h3>
-                <p className="text-2xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Währung, Datumsformate und Standardwerte für die tägliche Vereinsarbeit.
                 </p>
               </div>
@@ -901,15 +1156,126 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </form>
 
-          {/* System & Architecture Info */}
-          <div className="bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-3xl p-5 text-xs text-slate-600 dark:text-slate-400 space-y-2">
-            <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-200">
-              <HardDrive className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <span>Lokale Datenbank & Revisionssicherheit</span>
+          {/* KI-Buchungsassistent & Google Gemini BYOK Card */}
+          <div className="bg-white dark:bg-slate-900 border border-purple-200/80 dark:border-purple-900/40 rounded-3xl p-6 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-2xl shadow-xs">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      KI-Assistent & Buchungsanalyse (Google Gemini)
+                    </h3>
+                    <span className={`px-2 py-0.5 text-3xs font-bold rounded-full ${
+                      geminiApiKey.trim()
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
+                        : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                    }`}>
+                      {geminiApiKey.trim() ? 'Aktiviert' : 'Optional'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Automatische Ermittlung der 4 steuerlichen Sphären (§§ 51 ff. AO) und DATEV SKR 42-Kontierung per Freitext-Erklärung.
+                  </p>
+                </div>
+              </div>
             </div>
-            <p className="text-2xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              VereinsManager arbeitet standardmäßig vollkommen autark und offline-fähig in der verschlüsselten Browser-IndexedDB Ihres Rechners. Revisionssichere Änderungsprotokolle für Mitglieder und Buchungen werden lokal mitgeführt.
-            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                    Google Gemini API-Schlüssel (BYOK - Bring Your Own Key)
+                  </span>
+                  <a
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-2xs text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 font-medium"
+                  >
+                    <span>Kostenlosen Schlüssel generieren</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type={showApiKey ? 'text' : 'password'}
+                      value={geminiApiKey}
+                      onChange={e => setGeminiApiKey(e.target.value)}
+                      placeholder="AIzaSy..."
+                      className="w-full pl-3 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      title={showApiKey ? 'Schlüssel verbergen' : 'Schlüssel anzeigen'}
+                    >
+                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleTestGeminiKey}
+                      disabled={isTestingKey || !geminiApiKey.trim()}
+                      className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 disabled:opacity-40 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isTestingKey ? 'animate-spin' : ''}`} />
+                      <span>{isTestingKey ? 'Prüfe...' : 'Verbindung testen'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        AiBookingService.setStoredApiKey(geminiApiKey.trim());
+                        const updated = { ...formData, geminiApiKey: geminiApiKey.trim() || undefined };
+                        setFormData(updated);
+                        onSaveSettings(updated);
+                        setStatusMsg({ type: 'success', text: 'Gemini API-Schlüssel wurde lokal gespeichert.' });
+                        setTimeout(() => setStatusMsg(null), 3000);
+                      }}
+                      className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-xs"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Speichern</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Test Result Message */}
+              {keyTestResult && (
+                <div className={`p-3 rounded-xl border text-xs flex items-center gap-2.5 ${
+                  keyTestResult.success
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+                    : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
+                }`}>
+                  {keyTestResult.success ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                  )}
+                  <span>{keyTestResult.message}</span>
+                </div>
+              )}
+
+              {/* Information callout */}
+              <div className="bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 rounded-2xl p-4 text-2xs text-slate-600 dark:text-slate-400 space-y-2">
+                <div className="font-bold text-purple-950 dark:text-purple-200 flex items-center gap-1.5">
+                  <Bot className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <span>Funktionsweise & Datenschutz</span>
+                </div>
+                <ul className="list-disc pl-4 space-y-1 text-slate-600 dark:text-slate-400 leading-relaxed">
+                  <li><strong>Lokale Speicherung:</strong> Ihr Schlüssel wird ausschließlich lokal in Ihrem Browser bzw. Ihrer VereinsManager-Installation auf Ihrem PC gespeichert.</li>
+                  <li><strong>Kostenlos:</strong> Der Standard-Tarif in Google AI Studio ist dauerhaft kostenlos und umfasst bis zu 15 Anfragen pro Minute – ideal für die laufende Vereinsbuchhaltung.</li>
+                  <li><strong>Einsatzort:</strong> Beim Erfassen neuer Buchungen können Sie einfach per Klick auf <em>„✨ KI-Kategorisierung“</em> die steuerliche Sphäre, das passende DATEV SKR 42-Konto und den USt-Satz ermitteln lassen.</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1659,107 +2025,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       )}
 
-      {/* TAB 5: BETRIEBSMODI (cloud gestrichen) */}
+      {/* TAB 5: BETRIEBSMODI & DEPLOYMENT HUB */}
       {activeTab === 'deployment' && (
         <div className="space-y-6 animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-6">
-            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
-              <div className="p-2.5 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-2xl">
-                <Globe className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Betriebsmodi & Bereitstellung
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Wählen Sie die für Ihren Verein optimale Betriebsart für maximale Flexibilität und Datenschutz.
-                </p>
-              </div>
-            </div>
-
-            {/* 3 Modes Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Mode 1: 1-Klick Hosting */}
-              <div className="bg-slate-50 dark:bg-slate-800/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3 flex flex-col justify-between">
-                <div>
-                  <div className="p-2.5 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 rounded-xl w-fit mb-3">
-                    <Globe className="w-5 h-5" />
-                  </div>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                    1-Klick Hosting
-                  </h4>
-                  <p className="text-2xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                    Echtzeit-Synchronisation in einem EU-Rechenzentrum (Frankfurt) mit Webhosting. Mehrere Vorstände arbeiten zeitgleich am PC oder Smartphone.
-                  </p>
-                </div>
-                <div className="pt-3 border-t border-slate-200 dark:border-slate-700 text-2xs text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1.5">
-                  <CheckCheck className="w-3.5 h-3.5" />
-                  <span>DSGVO-konform (EU-Server)</span>
-                </div>
-              </div>
-
-              {/* Mode 2: Selbsthoster Docker */}
-              <div className="bg-slate-50 dark:bg-slate-800/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3 flex flex-col justify-between">
-                <div>
-                  <div className="p-2.5 bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 rounded-xl w-fit mb-3">
-                    <Server className="w-5 h-5" />
-                  </div>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Selbsthoster (Docker)
-                  </h4>
-                  <p className="text-2xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                    Betrieb im eigenen Vereinsheim auf Synology NAS, QNAP oder einem Linux-Server via Docker & docker-compose.
-                  </p>
-                </div>
-                <div className="pt-3 border-t border-slate-200 dark:border-slate-700 text-2xs text-blue-700 dark:text-blue-400 font-bold flex items-center gap-1.5">
-                  <CheckCheck className="w-3.5 h-3.5" />
-                  <span>100% eigene Infrastruktur</span>
-                </div>
-              </div>
-
-              {/* Mode 3: Lokaler Einzelplatz */}
-              <div className="bg-slate-50 dark:bg-slate-800/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3 flex flex-col justify-between">
-                <div>
-                  <div className="p-2.5 bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 rounded-xl w-fit mb-3">
-                    <HardDrive className="w-5 h-5" />
-                  </div>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Lokaler Einzelplatz
-                  </h4>
-                  <p className="text-2xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                    100% Offline in der lokalen Browser-Datenbank. Keine Server-Kosten, kein Setup und sofort einsatzbereit.
-                  </p>
-                </div>
-                <div className="pt-3 border-t border-slate-200 dark:border-slate-700 text-2xs text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1.5">
-                  <CheckCheck className="w-3.5 h-3.5" />
-                  <span>Kostenlos & Offline</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Link to Deployment Hub Modal */}
-            {onOpenDeploymentHub && (
-              <div className="p-5 bg-slate-900 text-white rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-slate-800">
-                <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-emerald-400" />
-                    <span>Deployment & Betriebsmodi-Hub konfigurieren</span>
-                  </h4>
-                  <p className="text-2xs sm:text-xs text-slate-400 mt-1">
-                    Tragen Sie Verbindungsdaten ein, generieren Sie Datenbank-Tabellen oder exportieren Sie Docker-Compose-Dateien.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={onOpenDeploymentHub}
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-2 shrink-0 cursor-pointer"
-                >
-                  <span>Hub öffnen</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-          </div>
+          <DeploymentHubSettingsPanel
+            currentMode={currentDepMode}
+            onModeChange={handleModeChange}
+            onDataReload={onDataReload}
+          />
         </div>
       )}
 
@@ -1947,6 +2220,425 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <span>•</span>
                   <span>Mit Engagement für das Vereinswesen</span>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 7: BUGREPORTING & PROBLEM MELDEN                                      */}
+      {/* ========================================================================= */}
+      {activeTab === 'bugreport' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Header Banner */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="p-3 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-2xl border border-amber-500/20 shrink-0">
+                <Bug className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                    Problem melden
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-2xs font-bold bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                    Support
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Haben Sie einen Fehler entdeckt oder funktioniert etwas nicht wie erwartet? Senden Sie Ihren Fehlerbericht direkt an das Support-Postfach.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Success Banner / Ticket Confirmation */}
+          {submittedTicket && (
+            <div className="p-5 bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700/80 rounded-3xl text-xs text-emerald-900 dark:text-emerald-200 shadow-xs space-y-3 animate-in fade-in duration-200">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-500 text-white rounded-xl shadow-xs">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-sm text-emerald-950 dark:text-emerald-100 flex items-center gap-2">
+                      <span>Fehlerbericht direkt aus der App versendet!</span>
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 text-2xs font-mono font-bold">
+                        #{submittedTicket.ticketId}
+                      </span>
+                    </div>
+                    <p className="text-2xs text-emerald-700 dark:text-emerald-300 mt-0.5">
+                      Erfolgreich übermittelt am {submittedTicket.timestamp}. Kein externes E-Mail-Programm erforderlich.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSubmittedTicket(null)}
+                  className="text-emerald-700 dark:text-emerald-400 hover:opacity-80 p-1 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="pt-1 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleResetBugForm}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-2xs font-bold transition-colors cursor-pointer"
+                >
+                  Weiteres Problem melden
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Regular Success Message if Mail Sent or Copied */}
+          {bugSuccessMessage && !submittedTicket && (
+            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl text-xs text-emerald-800 dark:text-emerald-300 flex items-start justify-between gap-3 animate-in fade-in duration-200">
+              <div className="flex items-center gap-2.5">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span className="font-medium">{bugSuccessMessage}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBugSuccessMessage(null)}
+                className="text-emerald-700 dark:text-emerald-400 hover:opacity-80 p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Main Grid: Left Form (7 cols), Right Guidelines & Diagnostics (5 cols) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left: Bug Report Form (7 cols) */}
+            <div className="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-6">
+              <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                <h4 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-amber-500" />
+                  <span>Fehlerbericht verfassen</span>
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Füllen Sie die nachfolgenden Angaben aus. Der Bericht wird direkt aus der Anwendung heraus an das Support-Postfach übertragen.
+                </p>
+              </div>
+
+              <form onSubmit={handleDirectSubmitBugReport} className="space-y-5">
+                {/* 1. Betreffzeile */}
+                <div className="space-y-1.5">
+                  <label htmlFor="bug-subject" className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    1. Betreffzeile (Kurzbeschreibung des Problems) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    id="bug-subject"
+                    type="text"
+                    required
+                    value={bugSubject}
+                    onChange={(e) => setBugSubject(e.target.value)}
+                    placeholder="z. B. SEPA-XML Export bricht bei Umlauten im Nachnamen ab"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                  />
+                </div>
+
+                {/* 2. Dropdown-Liste der Menüpunkte */}
+                <div className="space-y-1.5">
+                  <label htmlFor="bug-area" className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    2. Betroffener Bereich <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    id="bug-area"
+                    value={bugArea}
+                    onChange={(e) => setBugArea(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                  >
+                    <optgroup label="Hauptbereiche">
+                      <option value="Dashboard (Übersicht)">📊 Dashboard (Übersicht & Schnellstatistiken)</option>
+                    </optgroup>
+                    <optgroup label="Mitgliederverwaltung">
+                      <option value="Mitgliederverwaltung (Mitgliederliste)">👥 Mitgliederverwaltung (Mitgliederliste & Bearbeitung)</option>
+                      <option value="Online-Mitgliedsanträge">📝 Online-Mitgliedsanträge (Prüfung & Aufnahme)</option>
+                      <option value="Mitglieder-Statistiken">📈 Mitglieder-Statistiken & Auswertungen</option>
+                    </optgroup>
+                    <optgroup label="Finanzen & Kassenbuch">
+                      <option value="Finanzen: Buchungen & Journal">💰 Finanzen: Buchungen & Kassenjournal</option>
+                      <option value="Finanzen: Beitragslauf (SEPA)">💳 Finanzen: Beitragslauf & SEPA-XML</option>
+                      <option value="Finanzen: EÜR / GuV">📑 Finanzen: EÜR / GuV (Jahresabschluss & BWA)</option>
+                      <option value="Finanzen: Spenden">🤝 Finanzen: Spenden & Zuwendungsbestätigungen (BMF)</option>
+                      <option value="Finanzen: Finanz-Auswertungen">📊 Finanzen: Finanz-Auswertungen & Diagramme</option>
+                    </optgroup>
+                    <optgroup label="Vereinsorganisation">
+                      <option value="Kalender & Termine">📅 Kalender & Vereinstermine</option>
+                      <option value="Inventar & Ausstattung">📦 Inventar & Vereinsausstattung</option>
+                      <option value="Dokumente & Archiv">📁 Dokumente & Archiv (Dateiverwaltung)</option>
+                    </optgroup>
+                    <optgroup label="Systemeinstellungen">
+                      <option value="Einstellungen: 1. Allgemeine Einstellungen">⚙️ Einstellungen: 1. Allgemeine Einstellungen</option>
+                      <option value="Einstellungen: 2. Vereinsstammdaten">🏛️ Einstellungen: 2. Vereinsstammdaten & Logo</option>
+                      <option value="Einstellungen: 3. Benutzer & Rechte">🛡️ Einstellungen: 3. Benutzerkonten & Zugriffsrechte</option>
+                      <option value="Einstellungen: 4. Datensicherung & Import">💾 Einstellungen: 4. Datensicherung & Import</option>
+                      <option value="Einstellungen: 5. Betriebsmodi">🌐 Einstellungen: 5. Betriebsmodi & Deployment Hub</option>
+                    </optgroup>
+                    <optgroup label="Sicherheit & Allgemein">
+                      <option value="Login, Authentifizierung & Sitzung">🔒 Login, Authentifizierung & Sitzung</option>
+                      <option value="Design, Dark Mode & Druckansichten">🎨 Design, Dark Mode & Druckansichten</option>
+                      <option value="Sonstiges / Allgemeiner Fehler">❓ Sonstiges / Allgemeiner Programmfehler</option>
+                    </optgroup>
+                  </select>
+                </div>
+
+                {/* Schweregrad / Dringlichkeit */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Dringlichkeit / Schweregrad
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setBugSeverity('low')}
+                      className={`p-2.5 rounded-xl border text-2xs font-bold text-center transition-all cursor-pointer ${
+                        bugSeverity === 'low'
+                          ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-500 text-blue-700 dark:text-blue-300'
+                          : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      Niedrig (Kosmetik)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBugSeverity('normal')}
+                      className={`p-2.5 rounded-xl border text-2xs font-bold text-center transition-all cursor-pointer ${
+                        bugSeverity === 'normal'
+                          ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-500 text-amber-700 dark:text-amber-300'
+                          : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      Normal (Fehlerhaft)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBugSeverity('high')}
+                      className={`p-2.5 rounded-xl border text-2xs font-bold text-center transition-all cursor-pointer ${
+                        bugSeverity === 'high'
+                          ? 'bg-orange-50 dark:bg-orange-950/60 border-orange-500 text-orange-700 dark:text-orange-300'
+                          : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      Hoch (Blockiert)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBugSeverity('critical')}
+                      className={`p-2.5 rounded-xl border text-2xs font-bold text-center transition-all cursor-pointer ${
+                        bugSeverity === 'critical'
+                          ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-500 text-rose-700 dark:text-rose-300'
+                          : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      Kritisch (Absturz)
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Freitextfeld zur genauen Beschreibung des Problems */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="bug-description" className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      3. Genaue Beschreibung des Problems <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleInsertTemplate}
+                        className="text-2xs text-amber-600 dark:text-amber-400 hover:underline font-bold cursor-pointer"
+                      >
+                        + Vorlage einfügen
+                      </button>
+                      <span className="text-slate-300 dark:text-slate-700">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setBugDescription('')}
+                        className="text-2xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
+                      >
+                        Leeren
+                      </button>
+                    </div>
+                  </div>
+                  <textarea
+                    id="bug-description"
+                    required
+                    rows={8}
+                    value={bugDescription}
+                    onChange={(e) => setBugDescription(e.target.value)}
+                    placeholder="Bitte beschreiben Sie das Problem so genau wie möglich:&#10;&#10;1. Was haben Sie getan? (Schritte zur Nachstellung)&#10;2. Welcher Fehler oder welches Verhalten ist aufgetreten?&#10;3. Was hätten Sie stattdessen erwartet?&#10;4. Evtl. angezeigter Fehlertext oder Code"
+                    className="w-full px-3.5 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono leading-relaxed"
+                  />
+                </div>
+
+                {/* Optionale Kontaktdaten für Rückfragen */}
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <UserIcon className="w-4 h-4 text-slate-500" />
+                    <span>Kontaktdaten für Rückfragen (optional)</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      value={bugContactName}
+                      onChange={(e) => setBugContactName(e.target.value)}
+                      placeholder="Ihr Name (z. B. Max Mustermann)"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    <input
+                      type="email"
+                      value={bugContactEmail}
+                      onChange={(e) => setBugContactEmail(e.target.value)}
+                      placeholder="Ihre E-Mail-Adresse"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Systemdiagnose Checkbox */}
+                <label className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700/60 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={bugIncludeSystemInfo}
+                    onChange={(e) => setBugIncludeSystemInfo(e.target.checked)}
+                    className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
+                  />
+                  <div className="text-2xs text-slate-600 dark:text-slate-400">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">System- & Versionsdaten anhängen</span> (App-Version v{CURRENT_APP_VERSION}, Betriebsmodus, Browser & Plattform). Hilft bei der schnellen Analyse.
+                  </div>
+                </label>
+
+                {/* 4. Buttons zum Versenden des Reports */}
+                <div className="pt-2 space-y-3">
+                  {/* Primary Submit Button */}
+                  <button
+                    id="btn-send-bugreport"
+                    type="submit"
+                    disabled={isSubmittingBug}
+                    className="w-full py-3 px-5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-2xl text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isSubmittingBug ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Wird übermittelt...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        <span>Problem melden</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Clean Horizontal Sub-Action Bar for Alternatives & Reset */}
+                  <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-1.5 text-2xs text-slate-400 font-medium shrink-0">
+                        <span>Alternative:</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1 sm:max-w-md">
+                        <button
+                          type="button"
+                          onClick={handleOpenInMailClient}
+                          className="h-8 px-3 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-2xs font-semibold border border-slate-200 dark:border-slate-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                        >
+                          <Mail className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span>E-Mail-App</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleCopyBugReport}
+                          className={`h-8 px-3 rounded-xl text-2xs font-semibold border transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                            bugCopied
+                              ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                              : 'bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                          }`}
+                        >
+                          {bugCopied ? <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> : <Copy className="w-3.5 h-3.5 shrink-0" />}
+                          <span>{bugCopied ? 'Kopiert!' : 'Kopieren'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleResetBugForm}
+                          className="h-8 px-3 bg-transparent hover:bg-slate-200/70 dark:hover:bg-slate-700/70 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 rounded-xl text-2xs font-semibold border border-transparent transition-colors flex items-center justify-center cursor-pointer whitespace-nowrap"
+                        >
+                          Zurücksetzen
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            {/* Right Column: Tips & Live Diagnostics Preview (5 cols) */}
+            <div className="lg:col-span-5 space-y-6">
+              {/* Recipient & Direct Contact Card */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-3.5">
+                <div className="flex items-center gap-2.5 text-slate-900 dark:text-white font-bold text-sm">
+                  <Mail className="w-4 h-4 text-amber-500" />
+                  <span>Support-Empfänger</span>
+                </div>
+                <div className="p-4 bg-amber-50/70 dark:bg-amber-950/40 rounded-2xl border border-amber-200/80 dark:border-amber-800/60">
+                  <p className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
+                    Alle Fehlerberichte und Feedback-Meldungen gehen direkt an das Support-Postfach und werden zeitnah gesichtet.
+                  </p>
+                </div>
+              </div>
+
+              {/* Tips for a great report */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-3.5">
+                <div className="flex items-center gap-2.5 text-slate-900 dark:text-white font-bold text-sm">
+                  <HelpCircle className="w-4 h-4 text-blue-500" />
+                  <span>Tipps für einen schnellen Fix</span>
+                </div>
+                <ul className="text-2xs text-slate-600 dark:text-slate-400 space-y-2.5 leading-relaxed">
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 mt-1.5" />
+                    <span><strong>Schritte nennen:</strong> Welche Klicks oder Eingaben führen zum Fehler?</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 mt-1.5" />
+                    <span><strong>Fehlermeldungen:</strong> Wurde ein genauer Fehlertext oder ein rotes Warnfeld angezeigt?</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 mt-1.5" />
+                    <span><strong>Erwartetes Ergebnis:</strong> Was hätte die Anwendung stattdessen tun sollen?</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Live System Diagnostics Preview */}
+              <div className="bg-slate-900 text-white rounded-3xl p-6 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                    <Info className="w-4 h-4 text-amber-400" />
+                    <span>System-Diagnose-Vorschau</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono">
+                    v{CURRENT_APP_VERSION}
+                  </span>
+                </div>
+
+                <div className="p-3 bg-slate-950/80 rounded-xl font-mono text-[11px] text-slate-300 space-y-1 border border-slate-800/80">
+                  <div><span className="text-slate-500">App-Version:</span> v{CURRENT_APP_VERSION}</div>
+                  <div><span className="text-slate-500">Betriebsmodus:</span> {currentDepMode}</div>
+                  <div><span className="text-slate-500">Plattform:</span> {typeof navigator !== 'undefined' ? (navigator.userAgent.includes('Windows') ? 'Windows' : navigator.userAgent.includes('Mac') ? 'macOS' : navigator.userAgent.includes('Linux') ? 'Linux' : 'Web/Mobil') : 'Web'}</div>
+                  <div><span className="text-slate-500">Auflösung:</span> {typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'n/a'}</div>
+                  <div><span className="text-slate-500">Sprache:</span> {typeof navigator !== 'undefined' ? navigator.language : 'de-DE'}</div>
+                </div>
+
+                <p className="text-2xs text-slate-400 leading-relaxed">
+                  Diese Parameter werden dem Fehlerbericht automatisch beigefügt, um die Fehlerursache ohne langes Nachfragen direkt eingrenzen zu können.
+                </p>
               </div>
             </div>
           </div>
