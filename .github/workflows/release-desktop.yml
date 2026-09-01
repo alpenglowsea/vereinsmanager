@@ -30,6 +30,9 @@ jobs:
             args: ''
 
     runs-on: ${{ matrix.platform }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -38,7 +41,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
 
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
@@ -58,7 +60,8 @@ jobs:
 
       - name: Install Frontend Dependencies
         run: |
-          npm install --include=optional
+          rm -f package-lock.json
+          npm install --no-audit
 
       - name: Build Frontend
         run: npm run build:ui
