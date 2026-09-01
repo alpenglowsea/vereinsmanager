@@ -29,9 +29,26 @@ git push origin v1.0.0
 Nachdem GitHub Actions den Build abgeschlossen hat (dauert ca. 3–5 Minuten):
 1. Öffnen Sie Ihr Repository auf GitHub und klicken Sie rechts auf **Releases**.
 2. Dort finden Sie die fertigen Pakete zum Direkt-Download:
-   - 🪟 **Windows:** `VereinsManager_1.0.0_x64-setup.exe` oder `.msi`
+   - 🪟 **Windows:**
+     - `VereinsManager_1.0.0_x64-setup.exe` (NSIS-Installer: Installiert wahlweise für alle Benutzer in `C:\Programme\VereinsManager` oder lokal)
+     - `VereinsManager_1.0.0_x64_de-DE.msi` (Offizielles Windows MSI-Paket – besonders empfohlen für Firmen-/Schul-PCs)
    - 🍏 **macOS:** `VereinsManager_1.0.0_universal.dmg` (Intel & Apple Silicon M1/M2/M3/M4)
    - 🐧 **Linux:** `VereinsManager_1.0.0_amd64.AppImage` oder `.deb`
+
+---
+
+## 🛡️ Wichtiger Hinweis zu Windows 11 SmartScreen & Defender
+
+Wenn eine neue `.exe` frisch aus GitHub Actions heruntergeladen wird, kennt Microsoft die Datei noch nicht (da für gemeinnützige Vereine keine teuren kommerziellen Zertifikate für Hunderte Euro/Jahr gekauft werden). 
+
+Windows 11 zeigt daher beim ersten Start oft den blauen Hinweis **„Der Computer wurde durch Windows geschützt“** (SmartScreen):
+
+### So starten Anwender die App beim ersten Mal:
+1. Im blauen SmartScreen-Fenster auf **„Weitere Informationen“** klicken.
+2. Auf **„Trotzdem ausführen“** klicken.
+3. Der Installer startet sofort, richtet das Startmenü- und Desktop-Icon ein und die App ist dauerhaft startklar.
+
+> 💡 **Tipp:** Wenn Sie das **`.msi`**-Paket anstelle der `.exe` verwenden, stuft Windows das Installationspaket oft noch vertrauenswürdiger ein.
 
 ---
 

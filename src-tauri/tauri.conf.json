@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:3000",
-    "beforeBuildCommand": "",
+    "beforeBuildCommand": "npm run build:ui",
     "frontendDist": "../dist"
   },
   "app": {
@@ -36,10 +36,23 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "copyright": "Copyright © 2026 VereinsManager. Alle Rechte vorbehalten.",
+    "category": "Business",
+    "shortDescription": "Revisionssichere Vereinsverwaltung",
+    "longDescription": "Modulare, revisionssichere Vereinsverwaltung für Sportvereine mit Mitgliederverwaltung, Kassenbuch, SEPA-Lastschriften, Spendenquittungen und Dokumentenarchiv.",
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
-      "timestampUrl": ""
+      "timestampUrl": "",
+      "nsis": {
+        "installMode": "both",
+        "displayLanguageSelector": false,
+        "languages": ["de-DE"],
+        "installerIcon": "icons/icon.ico"
+      },
+      "wix": {
+        "language": ["de-DE"]
+      }
     }
   }
 }
