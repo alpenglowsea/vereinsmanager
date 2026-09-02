@@ -309,7 +309,10 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
   }, [allTimelineEvents, activeListTab, listSearchQuery]);
 
   // Overall General Statistics
-  const total = members.length;
+  const currentMembers = members.filter(
+    (m) => m.status !== 'terminated' && m.membershipType !== 'ausgetreten' && m.membershipType !== 'terminated'
+  );
+  const total = currentMembers.length;
   const activeCount = members.filter((m) => m.status === 'active').length;
   const passiveCount = members.filter((m) => m.status === 'passive').length;
 
@@ -347,7 +350,9 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
     reduced: { label: 'Ermäßigt (Student/Rentner)', count: 0, color: 'bg-amber-500' },
     family: { label: 'Familienbeitrag', count: 0, color: 'bg-indigo-500' },
     supporting: { label: 'Fördermitglied / Sponsor', count: 0, color: 'bg-purple-500' },
-    honorary: { label: 'Ehrenmitglied', count: 0, color: 'bg-rose-500' }
+    honorary: { label: 'Ehrenmitglied', count: 0, color: 'bg-emerald-600' },
+    ausgetreten: { label: 'Ausgetreten', count: 0, color: 'bg-rose-500' },
+    terminated: { label: 'Ausgetreten', count: 0, color: 'bg-rose-500' }
   };
   members.forEach((m) => {
     if (typeMap[m.membershipType]) {
@@ -376,13 +381,17 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
 
   const ageFilteredTotal = ageFilteredMembers.length;
 
-  // Age Groups distribution
+  // Age Groups distribution:
+  // Kinder: 0–13 Jahre
+  // Jugendliche: 14–17 Jahre
+  // Erwachsene: 18–59 Jahre
+  // Senioren: ab 60 Jahre
   const now = new Date();
   const ageGroups = {
-    kids: { label: 'Kinder (< 14 J.)', count: 0, color: 'bg-emerald-400' },
-    teens: { label: 'Jugend (14-18 J.)', count: 0, color: 'bg-teal-500' },
-    adults: { label: 'Erwachsene (19-59 J.)', count: 0, color: 'bg-blue-600' },
-    seniors: { label: 'Senioren (60+ J.)', count: 0, color: 'bg-amber-600' },
+    kids: { label: 'Kinder (0–13 Jahre)', count: 0, color: 'bg-emerald-400' },
+    teens: { label: 'Jugendliche (14–17 Jahre)', count: 0, color: 'bg-teal-500' },
+    adults: { label: 'Erwachsene (18–59 Jahre)', count: 0, color: 'bg-blue-600' },
+    seniors: { label: 'Senioren (ab 60 Jahre)', count: 0, color: 'bg-amber-600' },
     unknown: { label: 'Ohne Geburtsdatum', count: 0, color: 'bg-slate-400' }
   };
 
@@ -396,9 +405,9 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
     const mDiff = now.getMonth() - bdate.getMonth();
     if (mDiff < 0 || (mDiff === 0 && now.getDate() < bdate.getDate())) age--;
 
-    if (age < 14) ageGroups.kids.count++;
-    else if (age <= 18) ageGroups.teens.count++;
-    else if (age < 60) ageGroups.adults.count++;
+    if (age <= 13) ageGroups.kids.count++;
+    else if (age <= 17) ageGroups.teens.count++;
+    else if (age <= 59) ageGroups.adults.count++;
     else ageGroups.seniors.count++;
   });
 

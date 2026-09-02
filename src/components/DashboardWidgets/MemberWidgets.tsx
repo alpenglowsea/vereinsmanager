@@ -25,6 +25,10 @@ export const MembersKpiWidget: React.FC<MembersKpiWidgetProps> = ({ members, onN
   const activeMembers = useMemo(() => members.filter((m) => m.status === 'active'), [members]);
   const passiveMembers = useMemo(() => members.filter((m) => m.status === 'passive'), [members]);
   const honoraryMembers = useMemo(() => members.filter((m) => m.status === 'honorary' || m.membershipType === 'honorary'), [members]);
+  const currentMembers = useMemo(
+    () => members.filter((m) => m.status !== 'terminated' && m.membershipType !== 'ausgetreten' && m.membershipType !== 'terminated'),
+    [members]
+  );
 
   const currentYear = new Date().getFullYear().toString();
   const newThisYear = useMemo(() => {
@@ -44,7 +48,7 @@ export const MembersKpiWidget: React.FC<MembersKpiWidgetProps> = ({ members, onN
           </div>
         </div>
         <div className="text-3xl font-black font-mono text-slate-900 dark:text-white">
-          {members.length}
+          {currentMembers.length}
         </div>
       </div>
       <div className="flex items-center justify-between mt-3 text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">

@@ -2,11 +2,11 @@ export type Gender = 'm' | 'w' | 'd' | 'none';
 
 export type MembershipStatus = 'active' | 'passive' | 'honorary' | 'terminated' | 'suspended';
 
-export type MembershipType = 'full' | 'reduced' | 'youth' | 'family' | 'supporting' | 'honorary';
+export type MembershipType = 'full' | 'reduced' | 'youth' | 'family' | 'supporting' | 'honorary' | 'ausgetreten' | 'terminated';
 
 export type PaymentMethod = 'sepa' | 'transfer' | 'cash' | 'standing_order';
 
-export type FeePeriod = 'monthly' | 'quarterly' | 'half_yearly' | 'yearly';
+export type FeePeriod = 'monthly' | 'quarterly' | 'half_yearly' | 'yearly' | 'none';
 
 export interface Address {
   street: string;
@@ -168,7 +168,8 @@ export interface ClubSettings {
   creditorIban?: string; // Vereinskonto IBAN für Gutschrift
   creditorBic?: string; // Vereinsbank BIC
   creditorAccountId?: string; // Verknüpftes Finanzkonto in der Kassenführung
-  address: string;
+  address: Address | string;
+  clubAddress?: Address;
   chairman: string;
   treasurer: string;
   email: string;

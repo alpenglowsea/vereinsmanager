@@ -1584,6 +1584,7 @@ export default function App() {
                 deploymentMode={deploymentMode}
                 onDeploymentModeChange={(newMode) => setDeploymentMode(newMode)}
                 initialTab={settingsActiveTab}
+                onTabChange={(tab) => setSettingsActiveTab(tab)}
               />
             )}
           </div>
@@ -1718,6 +1719,7 @@ export default function App() {
           onDelete={handleDeleteMember}
           onSaveMember={handleSaveMember}
           onEdit={(m) => {
+            setDetailsMember(null);
             setEditingMember(m);
             setMemberFormOpen(true);
           }}

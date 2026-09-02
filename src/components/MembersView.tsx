@@ -181,10 +181,17 @@ export const MembersView: React.FC<MembersViewProps> = ({
     ExportService.exportMembersPDF(toExport, settings);
   };
 
-  const activeCount = members.filter(m => m.status === 'active').length;
-  const activePct = members.length > 0 ? Math.round((activeCount / members.length) * 100) : 0;
-  const youthCount = members.filter(m => m.membershipType === 'youth').length;
-  const passiveCount = members.filter(m => m.status === 'passive').length;
+  const activeMembers = members.filter(m => m.status === 'active');
+  const passiveMembers = members.filter(m => m.status === 'passive');
+  const youthMembers = members.filter(m => m.membershipType === 'youth' && m.status !== 'terminated');
+  // Current active/passive/honorary/suspended members (excluding terminated/ausgetreten)
+  const currentMembers = members.filter(m => m.status !== 'terminated' && m.membershipType !== 'ausgetreten' && m.membershipType !== 'terminated');
+  const currentTotalCount = currentMembers.length;
+
+  const activeCount = activeMembers.length;
+  const passiveCount = passiveMembers.length;
+  const youthCount = youthMembers.length;
+  const activePct = currentTotalCount > 0 ? Math.round((activeCount / currentTotalCount) * 100) : 0;
 
   // Department / Sparte statistics
   const departmentStats = useMemo(() => {
@@ -260,7 +267,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
               </span>
             </div>
             <div className="flex items-baseline justify-between">
-              <h3 className="text-3xl font-bold font-mono text-slate-900">{members.length}</h3>
+              <h3 className="text-3xl font-bold font-mono text-slate-900">{currentTotalCount}</h3>
               {(statusFilter !== 'all' || typeFilter !== 'all') && (
                 <button
                   type="button"

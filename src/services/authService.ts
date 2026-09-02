@@ -426,12 +426,25 @@ export class AuthService {
   public static saveUser(user: AppUser): void {
     const users = this.getUsers();
     const index = users.findIndex(u => u.id === user.id);
+    let updatedUser = user;
     if (index >= 0) {
-      users[index] = { ...user, updatedAt: new Date().toISOString() };
+      updatedUser = { ...user, updatedAt: new Date().toISOString() };
+      users[index] = updatedUser;
     } else {
-      users.push({ ...user, createdAt: new Date().toISOString() });
+      updatedUser = { ...user, createdAt: new Date().toISOString() };
+      users.push(updatedUser);
     }
     this.saveUsers(users);
+
+    // If active session user matches the modified user, update session and notify listeners immediately
+    if (this.currentSession?.user?.id === user.id) {
+      this.currentSession = {
+        ...this.currentSession,
+        user: updatedUser
+      };
+      this.persistSession(this.currentSession);
+      this.notifyListeners();
+    }
   }
 
   public static deleteUser(userId: string): boolean {
@@ -439,6 +452,11 @@ export class AuthService {
     const filtered = users.filter(u => u.id !== userId);
     if (filtered.length === users.length) return false;
     this.saveUsers(filtered);
+
+    // If current logged-in user was deleted, logout
+    if (this.currentSession?.user?.id === userId) {
+      this.logout();
+    }
     return true;
   }
 

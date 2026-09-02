@@ -82,6 +82,69 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
     updatedAt: new Date().toISOString()
   });
 
+  const handleStatusChange = (newStatus: MembershipStatus) => {
+    if (newStatus === 'terminated') {
+      setFormData(prev => ({
+        ...prev,
+        status: newStatus,
+        membershipType: 'ausgetreten',
+        feeAmount: 0,
+        feePeriod: 'none',
+        exitDate: prev.exitDate || new Date().toISOString().split('T')[0]
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        status: newStatus,
+        membershipType: prev.membershipType === 'ausgetreten' || prev.membershipType === 'terminated' ? 'full' : prev.membershipType
+      }));
+    }
+  };
+
+  const handleMembershipTypeChange = (newType: MembershipType) => {
+    if (newType === 'ausgetreten' || newType === 'terminated') {
+      setFormData(prev => ({
+        ...prev,
+        membershipType: newType,
+        status: 'terminated',
+        feeAmount: 0,
+        feePeriod: 'none',
+        exitDate: prev.exitDate || new Date().toISOString().split('T')[0]
+      }));
+    } else if (newType === 'honorary') {
+      setFormData(prev => ({
+        ...prev,
+        membershipType: newType,
+        feeAmount: 0,
+        feePeriod: 'none'
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        membershipType: newType,
+        status: prev.status === 'terminated' ? 'active' : prev.status
+      }));
+    }
+  };
+
+  const handleFeePeriodChange = (newPeriod: FeePeriod) => {
+    if (newPeriod === 'none') {
+      setFormData(prev => ({
+        ...prev,
+        feePeriod: newPeriod,
+        feeAmount: 0
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        feePeriod: newPeriod
+      }));
+    }
+  };
+
+  const isFeeLocked = formData.status === 'terminated' || formData.membershipType === 'ausgetreten' || formData.feePeriod === 'none';
+  const isPeriodLocked = formData.status === 'terminated' || formData.membershipType === 'ausgetreten';
+
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -532,7 +595,7 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
                     </label>
                     <select
                       value={formData.status}
-                      onChange={e => setFormData({ ...formData, status: e.target.value as MembershipStatus })}
+                      onChange={e => handleStatusChange(e.target.value as MembershipStatus)}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white font-medium"
                     >
                       <option value="active">🟢 Aktiv</option>
@@ -549,7 +612,7 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
                     </label>
                     <select
                       value={formData.membershipType}
-                      onChange={e => setFormData({ ...formData, membershipType: e.target.value as MembershipType })}
+                      onChange={e => handleMembershipTypeChange(e.target.value as MembershipType)}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                     >
                       <option value="full">Vollmitglied (Erwachsene)</option>
@@ -558,6 +621,7 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
                       <option value="family">Familienbeitrag</option>
                       <option value="supporting">Fördermitglied / Sponsor</option>
                       <option value="honorary">Ehrenmitglied (beitragsfrei)</option>
+                      <option value="ausgetreten">Ausgetreten</option>
                     </select>
                   </div>
                 </div>
@@ -580,7 +644,7 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                      Austrittsdatum (optional)
+                      Austrittsdatum {formData.status === 'terminated' ? '(Wirksam zum)' : '(optional)'}
                     </label>
                     <input
                       type="date"
@@ -593,32 +657,57 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100 bg-slate-50 p-4 rounded-xl">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Beitragshöhe (€)
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-slate-700">
+                        Beitragshöhe (€)
+                      </label>
+                      {isFeeLocked && (
+                        <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                          Gesperrt (0,00 €)
+                        </span>
+                      )}
+                    </div>
                     <input
                       type="number"
                       step="0.50"
                       min="0"
+                      disabled={isFeeLocked}
                       value={formData.feeAmount}
                       onChange={e => setFormData({ ...formData, feeAmount: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-semibold"
+                      className={`w-full px-3 py-2 border rounded-lg text-sm font-semibold transition-colors ${
+                        isFeeLocked
+                          ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
+                          : 'bg-white border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900'
+                      }`}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Zahlungsrhythmus
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-slate-700">
+                        Zahlungsrhythmus
+                      </label>
+                      {isPeriodLocked && (
+                        <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                          Gesperrt
+                        </span>
+                      )}
+                    </div>
                     <select
                       value={formData.feePeriod}
-                      onChange={e => setFormData({ ...formData, feePeriod: e.target.value as FeePeriod })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      disabled={isPeriodLocked}
+                      onChange={e => handleFeePeriodChange(e.target.value as FeePeriod)}
+                      className={`w-full px-3 py-2 border rounded-lg text-sm transition-colors ${
+                        isPeriodLocked
+                          ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
+                          : 'bg-white border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900'
+                      }`}
                     >
                       <option value="monthly">Monatlich</option>
                       <option value="quarterly">Vierteljährlich (Quartal)</option>
                       <option value="half_yearly">Halbjährlich</option>
                       <option value="yearly">Jährlich</option>
+                      <option value="none">Beitragsfrei (0,00 €)</option>
                     </select>
                   </div>
 

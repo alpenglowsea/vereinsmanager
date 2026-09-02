@@ -121,6 +121,10 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
       case 'family': return 'Familienbeitrag';
       case 'supporting': return 'Fördermitglied / Sponsor';
       case 'honorary': return 'Ehrenmitglied';
+      case 'ausgetreten':
+      case 'terminated':
+        return 'Ausgetreten';
+      default: return 'Mitglied';
     }
   };
 
@@ -305,7 +309,10 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => onEdit(member)}
+                onClick={() => {
+                  onClose();
+                  onEdit(member);
+                }}
                 className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                 title="Mitglied bearbeiten"
               >
@@ -667,7 +674,10 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => onEdit(member)}
+              onClick={() => {
+                onClose();
+                onEdit(member);
+              }}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs"
             >
               <Edit2 className="w-4 h-4" />

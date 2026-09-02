@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ClubSettings, AppUser, UserPermissions, DeploymentMode } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { ClubSettings, AppUser, UserPermissions, DeploymentMode, Address } from '../types';
 import { StorageService } from '../services/storage';
 import { AuthService } from '../services/authService';
 import { AiBookingService } from '../services/aiBookingService';
@@ -73,6 +73,7 @@ interface SettingsViewProps {
   deploymentMode?: DeploymentMode;
   onDeploymentModeChange?: (mode: DeploymentMode) => void;
   initialTab?: SettingsTab;
+  onTabChange?: (tab: SettingsTab) => void;
 }
 
 interface PermissionItem {
@@ -165,6 +166,50 @@ const DEFAULT_BLANK_PERMISSIONS: UserPermissions = {
   canManageUsers: false
 };
 
+export const parseClubAddress = (addr: Address | string | undefined): Address => {
+  if (!addr) return { street: '', houseNumber: '', zip: '', city: '', country: 'Deutschland' };
+  if (typeof addr === 'object' && addr !== null) {
+    return {
+      street: addr.street || '',
+      houseNumber: addr.houseNumber || '',
+      zip: addr.zip || '',
+      city: addr.city || '',
+      country: addr.country || 'Deutschland'
+    };
+  }
+  const str = String(addr).trim();
+  const parts = str.split(',').map(s => s.trim());
+  if (parts.length >= 2) {
+    const streetPart = parts[0] || '';
+    const cityPart = parts[1] || '';
+    const streetMatch = streetPart.match(/^(.*?)\s*(\d+[\w\s/-]*)$/);
+    const cityMatch = cityPart.match(/^(\d{4,5})\s+(.*)$/);
+    return {
+      street: streetMatch ? streetMatch[1] : streetPart,
+      houseNumber: streetMatch ? streetMatch[2] : '',
+      zip: cityMatch ? cityMatch[1] : '',
+      city: cityMatch ? cityMatch[2] : cityPart,
+      country: parts[2] || 'Deutschland'
+    };
+  }
+  return { street: str, houseNumber: '', zip: '', city: '', country: 'Deutschland' };
+};
+
+export const formatClubAddress = (addr: Address | string | undefined): string => {
+  if (!addr) return '';
+  if (typeof addr === 'string') return addr;
+  const parts = [
+    [addr.street, addr.houseNumber].filter(Boolean).join(' '),
+    [addr.zip, addr.city].filter(Boolean).join(' '),
+    addr.country && addr.country !== 'Deutschland' ? addr.country : ''
+  ].filter(Boolean);
+  return parts.join(', ');
+};
+
+export const formatIbanWithSpaces = (iban: string = ''): string => {
+  return iban.replace(/\s+/g, '').replace(/(.{4})/g, '$1 ').trim();
+};
+
 type SettingsTab = 'general' | 'club' | 'users' | 'backup' | 'deployment' | 'support' | 'bugreport';
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -176,7 +221,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onThemeChange,
   deploymentMode,
   onDeploymentModeChange,
-  initialTab
+  initialTab,
+  onTabChange
 }) => {
   const [currentDepMode, setCurrentDepMode] = useState<DeploymentMode>(
     deploymentMode || StorageService.getDeploymentMode()
@@ -200,12 +246,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // 5. Betriebsmodi
   // 6. Projekt unterstützen
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || 'general');
+  const prevInitialTabRef = useRef(initialTab);
+
+  const switchTab = (tab: SettingsTab) => {
+    setActiveTab(tab);
+    prevInitialTabRef.current = tab;
+    onTabChange?.(tab);
+  };
 
   useEffect(() => {
-    if (initialTab) {
+    if (initialTab && initialTab !== prevInitialTabRef.current) {
       setActiveTab(initialTab);
+      prevInitialTabRef.current = initialTab;
     }
   }, [initialTab]);
+
+  // Structured Address State for Club Settings
+  const [clubAddress, setClubAddress] = useState<Address>(() =>
+    parseClubAddress(settings.clubAddress || settings.address)
+  );
 
   // Form State for Club & General Settings
   const [formData, setFormData] = useState<ClubSettings>({
@@ -225,6 +284,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       fiscalYearStart: settings.fiscalYearStart || prev.fiscalYearStart || '01-01',
       theme: currentTheme || settings.theme || prev.theme || 'light'
     }));
+    setClubAddress(parseClubAddress(settings.clubAddress || settings.address));
   }, [settings, currentTheme]);
 
   const [newDepartment, setNewDepartment] = useState('');
@@ -604,7 +664,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleSaveClub = (e: React.FormEvent) => {
     e.preventDefault();
-    const updated = { ...formData, geminiApiKey: geminiApiKey.trim() || undefined };
+    const formattedAddress = formatClubAddress(clubAddress);
+    const updated: ClubSettings = {
+      ...formData,
+      address: formattedAddress,
+      clubAddress: clubAddress,
+      geminiApiKey: geminiApiKey.trim() || undefined
+    };
     setFormData(updated);
     AiBookingService.setStoredApiKey(geminiApiKey.trim());
     onSaveSettings(updated);
@@ -800,7 +866,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* 1. Allgemeine Einstellungen */}
           <button
             type="button"
-            onClick={() => setActiveTab('general')}
+            onClick={() => switchTab('general')}
             className={`pb-3.5 px-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'general'
                 ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400 font-bold'
@@ -814,7 +880,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* 2. Vereinsstammdaten */}
           <button
             type="button"
-            onClick={() => setActiveTab('club')}
+            onClick={() => switchTab('club')}
             className={`pb-3.5 px-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'club'
                 ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400 font-bold'
@@ -830,7 +896,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             type="button"
             onClick={() => {
               setUsersList(AuthService.getUsers());
-              setActiveTab('users');
+              switchTab('users');
             }}
             className={`pb-3.5 px-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'users'
@@ -845,7 +911,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* 4. Datensicherung und Import */}
           <button
             type="button"
-            onClick={() => setActiveTab('backup')}
+            onClick={() => switchTab('backup')}
             className={`pb-3.5 px-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'backup'
                 ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400 font-bold'
@@ -859,7 +925,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* 5. Betriebsmodi */}
           <button
             type="button"
-            onClick={() => setActiveTab('deployment')}
+            onClick={() => switchTab('deployment')}
             className={`pb-3.5 px-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'deployment'
                 ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400 font-bold'
@@ -873,7 +939,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* 6. Projekt unterstützen */}
           <button
             type="button"
-            onClick={() => setActiveTab('support')}
+            onClick={() => switchTab('support')}
             className={`pb-3.5 px-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'support'
                 ? 'border-rose-500 text-rose-600 dark:text-rose-400 dark:border-rose-400 font-bold'
@@ -887,7 +953,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* 7. Problem melden (Bugreporting) */}
           <button
             type="button"
-            onClick={() => setActiveTab('bugreport')}
+            onClick={() => switchTab('bugreport')}
             className={`pb-3.5 px-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'bugreport'
                 ? 'border-amber-600 text-amber-600 dark:text-amber-400 dark:border-amber-400 font-bold'
@@ -1460,10 +1526,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </label>
                   <input
                     type="text"
-                    value={formData.creditorIban || ''}
-                    onChange={e => setFormData({ ...formData, creditorIban: e.target.value.toUpperCase().replace(/\s/g, '') })}
-                    className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                    placeholder="DE02 1203 0000 0012 3456 78"
+                    value={formatIbanWithSpaces(formData.creditorIban || '')}
+                    onChange={e => {
+                      const clean = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                      setFormData({ ...formData, creditorIban: clean });
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 tracking-wider"
+                    placeholder="DE89 3705 0198 0000 0123 45"
                   />
                 </div>
 
@@ -1482,17 +1551,61 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
 
-            <div className="col-span-1 md:col-span-2">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Vereinsanschrift (Straße, Hausnr., PLZ, Ort)
+            {/* Structured Address: Street, House No, Zip, City */}
+            <div className="col-span-1 md:col-span-2 p-4 sm:p-5 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/80 rounded-2xl space-y-3">
+              <label className="block text-xs font-bold text-slate-900 dark:text-white">
+                Offizielle Vereinsanschrift (Geschäftsstelle / Sitz)
               </label>
-              <input
-                type="text"
-                value={formData.address}
-                onChange={e => setFormData({ ...formData, address: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                placeholder="Sportplatzweg 12, 12345 Musterstadt"
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                <div className="sm:col-span-8">
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Straße *
+                  </label>
+                  <input
+                    type="text"
+                    value={clubAddress.street}
+                    onChange={e => setClubAddress({ ...clubAddress, street: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    placeholder="z.B. Sportplatzweg"
+                  />
+                </div>
+                <div className="sm:col-span-4">
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Hausnummer *
+                  </label>
+                  <input
+                    type="text"
+                    value={clubAddress.houseNumber}
+                    onChange={e => setClubAddress({ ...clubAddress, houseNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    placeholder="z.B. 12 a"
+                  />
+                </div>
+                <div className="sm:col-span-4">
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Postleitzahl (PLZ) *
+                  </label>
+                  <input
+                    type="text"
+                    value={clubAddress.zip}
+                    onChange={e => setClubAddress({ ...clubAddress, zip: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    placeholder="z.B. 12345"
+                  />
+                </div>
+                <div className="sm:col-span-8">
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Stadt / Ort *
+                  </label>
+                  <input
+                    type="text"
+                    value={clubAddress.city}
+                    onChange={e => setClubAddress({ ...clubAddress, city: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    placeholder="z.B. Musterstadt"
+                  />
+                </div>
+              </div>
             </div>
 
             <div>

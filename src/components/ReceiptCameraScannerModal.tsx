@@ -82,6 +82,7 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
 
   // Scanned pages state
   const [pages, setPages] = useState<ScannedPage[]>([]);
+  const [uploadedPdf, setUploadedPdf] = useState<{ name: string; dataUrl: string; size: number } | null>(null);
   const [selectedPageIndex, setSelectedPageIndex] = useState<number>(0);
   const [exportFormat, setExportFormat] = useState<'pdf' | 'image'>('pdf');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -227,15 +228,34 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
       timestamp: new Date().toISOString()
     };
 
+    setUploadedPdf(null);
     setPages(prev => [...prev, newPage]);
     setSelectedPageIndex(pages.length); // select the newly captured page
     setViewMode('review');
   };
 
-  // Handle fallback file / gallery capture
+  // Handle fallback file / gallery / PDF capture
   const handleFallbackCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const rawDataUrl = reader.result as string;
+        setUploadedPdf({
+          name: file.name,
+          dataUrl: rawDataUrl,
+          size: file.size
+        });
+        setPages([]);
+        setExportFormat('pdf');
+        setViewMode('review');
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = async () => {
@@ -249,6 +269,7 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
         rotation: 0,
         timestamp: new Date().toISOString()
       };
+      setUploadedPdf(null);
       setPages(prev => [...prev, newPage]);
       setSelectedPageIndex(pages.length);
       setViewMode('review');
@@ -313,8 +334,23 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
     }
   };
 
+  const handleDeleteUploadedPdf = () => {
+    setUploadedPdf(null);
+    setViewMode('camera');
+  };
+
   // 4. Generate final ReceiptAttachment (PDF or JPEG)
   const createFinalReceiptAttachment = async (): Promise<ReceiptAttachment> => {
+    if (uploadedPdf) {
+      return {
+        name: uploadedPdf.name || `Beleg_${docNumber || 'Scan'}.pdf`,
+        type: 'application/pdf',
+        dataUrl: uploadedPdf.dataUrl,
+        size: uploadedPdf.size,
+        uploadedAt: new Date().toISOString()
+      };
+    }
+
     const metadata: ReceiptScanMetadata = {
       documentNumber: docNumber,
       partner: docPartner,
@@ -330,9 +366,11 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
     }
   };
 
+  const hasScannedContent = pages.length > 0 || uploadedPdf !== null;
+
   // 5. Completion Handlers
   const handleConfirmAttachDirect = async () => {
-    if (pages.length === 0) return;
+    if (!hasScannedContent) return;
     setIsProcessing(true);
     try {
       const receipt = await createFinalReceiptAttachment();
@@ -346,7 +384,7 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
   };
 
   const handleCreateNewTransaction = async () => {
-    if (pages.length === 0) return;
+    if (!hasScannedContent) return;
     setIsProcessing(true);
     try {
       const receipt = await createFinalReceiptAttachment();
@@ -360,7 +398,7 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
   };
 
   const handleSaveDirectToArchive = async () => {
-    if (pages.length === 0) return;
+    if (!hasScannedContent) return;
     setIsProcessing(true);
     try {
       const receipt = await createFinalReceiptAttachment();
@@ -375,8 +413,8 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
           category: 'belege',
           date: new Date().toISOString().split('T')[0],
           uploadDate: new Date().toISOString(),
-          tags: ['scan', 'digitalisiert'],
-          notes: `Eingescannt über Beleg-Kamerascanner am ${new Date().toLocaleString('de-DE')}`,
+          tags: ['scan', 'digitalisiert', uploadedPdf ? 'pdf' : 'foto'],
+          notes: `Eingescannt/Hochgeladen über Beleg-Scanner am ${new Date().toLocaleString('de-DE')}`,
           transactionDocNumber: docNumber || undefined,
           isReceipt: true,
           createdAt: new Date().toISOString(),
@@ -391,7 +429,7 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
   };
 
   const handleLinkToExisting = async (targetTxId: string) => {
-    if (pages.length === 0) return;
+    if (!hasScannedContent) return;
     setIsProcessing(true);
     try {
       const receipt = await createFinalReceiptAttachment();
@@ -627,13 +665,12 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
 
               {/* Viewfinder Bottom Toolbar with Large Shutter Button */}
               <div className="flex items-center justify-between px-4 py-2 bg-slate-900/90 rounded-2xl border border-slate-800">
-                {/* Left: Alternate File / Gallery Picker */}
+                {/* Left: Alternate File / Gallery / PDF Picker */}
                 <div>
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
-                    capture="environment"
+                    accept="image/*,application/pdf,.pdf"
                     onChange={handleFallbackCapture}
                     className="hidden"
                   />
@@ -641,10 +678,10 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 transition-colors flex items-center gap-2"
-                    title="Foto aus der Galerie auswählen oder externe Kamera öffnen"
+                    title="Foto aus der Galerie auswählen oder PDF-Beleg hochladen"
                   >
-                    <UploadCloud className="w-4 h-4 text-slate-400" />
-                    <span className="hidden sm:inline">Foto / Galerie</span>
+                    <UploadCloud className="w-4 h-4 text-emerald-400" />
+                    <span className="hidden sm:inline">Foto / PDF hochladen</span>
                   </button>
                 </div>
 
@@ -666,18 +703,18 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
 
                 {/* Right: Thumbnails of Scanned Pages & Review Button */}
                 <div>
-                  {pages.length > 0 ? (
+                  {pages.length > 0 || uploadedPdf ? (
                     <button
                       type="button"
                       onClick={() => setViewMode('review')}
                       className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2 shadow-sm"
                     >
-                      <span>Vorschau ({pages.length})</span>
+                      <span>Vorschau {uploadedPdf ? '(PDF)' : `(${pages.length})`}</span>
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   ) : (
                     <div className="w-24 text-right text-2xs text-slate-500">
-                      Noch keine Seite erfasst
+                      Noch kein Beleg erfasst
                     </div>
                   )}
                 </div>
@@ -686,171 +723,236 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
           )}
 
           {/* ================= MODE 2: SCAN REVIEW & ENHANCEMENT ================= */}
-          {viewMode === 'review' && activePage && (
+          {viewMode === 'review' && (activePage || uploadedPdf) && (
             <div className="flex-1 flex flex-col md:flex-row gap-4 p-4 min-h-[460px]">
               
-              {/* Left Side: Large Document Preview */}
+              {/* Left Side: Large Document Preview (Image or PDF) */}
               <div className="flex-1 flex flex-col bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-inner">
-                {/* Page Toolbar (Rotation, Delete, Page Indicator) */}
-                <div className="px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-200">
-                      Seite {selectedPageIndex + 1} von {pages.length}
-                    </span>
-                    <span className="text-2xs text-slate-400">
-                      ({activePage.filter.toUpperCase()})
-                    </span>
-                  </div>
+                {uploadedPdf ? (
+                  <>
+                    {/* PDF Toolbar */}
+                    <div className="px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 bg-red-500/20 text-red-400 border border-red-500/30 rounded text-2xs font-bold uppercase tracking-wider">
+                          PDF Dokument
+                        </span>
+                        <span className="font-bold text-slate-200 truncate max-w-xs">
+                          {uploadedPdf.name}
+                        </span>
+                        <span className="text-2xs text-slate-400">
+                          ({Math.round(uploadedPdf.size / 1024)} KB)
+                        </span>
+                      </div>
 
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleRotate(-90)}
-                      disabled={isProcessing}
-                      className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
-                      title="90° nach links drehen"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRotate(90)}
-                      disabled={isProcessing}
-                      className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
-                      title="90° nach rechts drehen"
-                    >
-                      <RotateCw className="w-4 h-4" />
-                    </button>
-                    <div className="h-4 w-px bg-slate-700 mx-1" />
-                    <button
-                      type="button"
-                      onClick={() => handleDeletePage(selectedPageIndex)}
-                      className="p-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 rounded-lg transition-colors"
-                      title="Diese Seite löschen"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors text-xs flex items-center gap-1"
+                          title="Andere Datei wählen"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          <span>Ersetzen</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDeleteUploadedPdf}
+                          className="p-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 rounded-lg transition-colors"
+                          title="PDF löschen"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
 
-                {/* Main Image View */}
-                <div className="flex-1 p-4 flex items-center justify-center bg-slate-950 overflow-auto min-h-[300px]">
-                  <img
-                    src={activePage.processedDataUrl}
-                    alt={`Scann Seite ${selectedPageIndex + 1}`}
-                    className="max-h-[420px] max-w-full object-contain rounded-lg shadow-xl border border-slate-800 bg-white transition-all"
-                  />
-                </div>
+                    {/* PDF Embed / iframe */}
+                    <div className="flex-1 p-2 flex items-center justify-center bg-slate-950 min-h-[380px]">
+                      <iframe
+                        src={uploadedPdf.dataUrl}
+                        title="PDF Beleg-Vorschau"
+                        className="w-full h-full min-h-[400px] rounded-lg border border-slate-800 bg-white"
+                      />
+                    </div>
+                  </>
+                ) : activePage ? (
+                  <>
+                    {/* Page Toolbar (Rotation, Delete, Page Indicator) */}
+                    <div className="px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-200">
+                          Seite {selectedPageIndex + 1} von {pages.length}
+                        </span>
+                        <span className="text-2xs text-slate-400">
+                          ({activePage.filter.toUpperCase()})
+                        </span>
+                      </div>
 
-                {/* Thumbnails strip for multi-page documents */}
-                <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center gap-2 overflow-x-auto">
-                  {pages.map((p, idx) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setSelectedPageIndex(idx)}
-                      className={`relative shrink-0 w-14 h-18 rounded-lg overflow-hidden border-2 transition-all ${
-                        idx === selectedPageIndex
-                          ? 'border-emerald-500 ring-2 ring-emerald-500/30'
-                          : 'border-slate-700 hover:border-slate-500 opacity-70'
-                      }`}
-                    >
-                      <img src={p.processedDataUrl} alt={`Seite ${idx + 1}`} className="w-full h-full object-cover" />
-                      <span className="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] font-bold text-center text-white py-0.5">
-                        S. {idx + 1}
-                      </span>
-                    </button>
-                  ))}
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleRotate(-90)}
+                          disabled={isProcessing}
+                          className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+                          title="90° nach links drehen"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRotate(90)}
+                          disabled={isProcessing}
+                          className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+                          title="90° nach rechts drehen"
+                        >
+                          <RotateCw className="w-4 h-4" />
+                        </button>
+                        <div className="h-4 w-px bg-slate-700 mx-1" />
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePage(selectedPageIndex)}
+                          className="p-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 rounded-lg transition-colors"
+                          title="Diese Seite löschen"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
 
-                  {/* Add Page Button */}
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('camera')}
-                    className="shrink-0 w-14 h-18 rounded-lg border-2 border-dashed border-slate-700 hover:border-emerald-500 hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-400 flex flex-col items-center justify-center gap-1 transition-all"
-                    title="Weitere Seite scannen"
-                  >
-                    <Plus className="w-5 h-5" />
-                    <span className="text-[9px] font-semibold">+ Seite</span>
-                  </button>
-                </div>
+                    {/* Main Image View */}
+                    <div className="flex-1 p-4 flex items-center justify-center bg-slate-950 overflow-auto min-h-[300px]">
+                      <img
+                        src={activePage.processedDataUrl}
+                        alt={`Scann Seite ${selectedPageIndex + 1}`}
+                        className="max-h-[420px] max-w-full object-contain rounded-lg shadow-xl border border-slate-800 bg-white transition-all"
+                      />
+                    </div>
+
+                    {/* Thumbnails strip for multi-page documents */}
+                    <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center gap-2 overflow-x-auto">
+                      {pages.map((p, idx) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setSelectedPageIndex(idx)}
+                          className={`relative shrink-0 w-14 h-18 rounded-lg overflow-hidden border-2 transition-all ${
+                            idx === selectedPageIndex
+                              ? 'border-emerald-500 ring-2 ring-emerald-500/30'
+                              : 'border-slate-700 hover:border-slate-500 opacity-70'
+                          }`}
+                        >
+                          <img src={p.processedDataUrl} alt={`Seite ${idx + 1}`} className="w-full h-full object-cover" />
+                          <span className="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] font-bold text-center text-white py-0.5">
+                            S. {idx + 1}
+                          </span>
+                        </button>
+                      ))}
+
+                      {/* Add Page Button */}
+                      <button
+                        type="button"
+                        onClick={() => setViewMode('camera')}
+                        className="shrink-0 w-14 h-18 rounded-lg border-2 border-dashed border-slate-700 hover:border-emerald-500 hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-400 flex flex-col items-center justify-center gap-1 transition-all"
+                        title="Weitere Seite scannen"
+                      >
+                        <Plus className="w-5 h-5" />
+                        <span className="text-[9px] font-semibold">+ Seite</span>
+                      </button>
+                    </div>
+                  </>
+                ) : null}
               </div>
 
               {/* Right Side: Filters, Digital Document Settings & Export */}
               <div className="w-full md:w-80 flex flex-col space-y-4">
                 
-                {/* 1. Scanner Filters */}
-                <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                    Dokumenten-Filter (Lesbarkeit)
-                  </label>
+                {/* 1. Scanner Filters (for scanned photos) */}
+                {activePage && !uploadedPdf && (
+                  <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                      Dokumenten-Filter (Lesbarkeit)
+                    </label>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleFilterChange('document')}
-                      className={`p-2.5 rounded-xl border text-left text-xs font-medium transition-all ${
-                        activePage.filter === 'document'
-                          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold shadow-xs'
-                          : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
-                      }`}
-                    >
-                      <div className="font-bold flex items-center justify-between">
-                        <span>Dokument B/W</span>
-                        {activePage.filter === 'document' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
-                      </div>
-                      <p className="text-[10px] text-slate-400 font-normal mt-0.5">Weißer Hintergrund & scharfe Schrift</p>
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleFilterChange('document')}
+                        className={`p-2.5 rounded-xl border text-left text-xs font-medium transition-all ${
+                          activePage.filter === 'document'
+                            ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold shadow-xs'
+                            : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        <div className="font-bold flex items-center justify-between">
+                          <span>Dokument B/W</span>
+                          {activePage.filter === 'document' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-normal mt-0.5">Weißer Hintergrund & scharfe Schrift</p>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleFilterChange('original')}
-                      className={`p-2.5 rounded-xl border text-left text-xs font-medium transition-all ${
-                        activePage.filter === 'original'
-                          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold shadow-xs'
-                          : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
-                      }`}
-                    >
-                      <div className="font-bold flex items-center justify-between">
-                        <span>Farbe (Original)</span>
-                        {activePage.filter === 'original' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
-                      </div>
-                      <p className="text-[10px] text-slate-400 font-normal mt-0.5">Unveränderte Echtfarben</p>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => handleFilterChange('original')}
+                        className={`p-2.5 rounded-xl border text-left text-xs font-medium transition-all ${
+                          activePage.filter === 'original'
+                            ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold shadow-xs'
+                            : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        <div className="font-bold flex items-center justify-between">
+                          <span>Farbe (Original)</span>
+                          {activePage.filter === 'original' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-normal mt-0.5">Unveränderte Echtfarben</p>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleFilterChange('grayscale')}
-                      className={`p-2.5 rounded-xl border text-left text-xs font-medium transition-all ${
-                        activePage.filter === 'grayscale'
-                          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold shadow-xs'
-                          : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
-                      }`}
-                    >
-                      <div className="font-bold flex items-center justify-between">
-                        <span>Graustufen</span>
-                        {activePage.filter === 'grayscale' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
-                      </div>
-                      <p className="text-[10px] text-slate-400 font-normal mt-0.5">Gleichmäßige Grauabstufung</p>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => handleFilterChange('grayscale')}
+                        className={`p-2.5 rounded-xl border text-left text-xs font-medium transition-all ${
+                          activePage.filter === 'grayscale'
+                            ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold shadow-xs'
+                            : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        <div className="font-bold flex items-center justify-between">
+                          <span>Graustufen</span>
+                          {activePage.filter === 'grayscale' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-normal mt-0.5">Gleichmäßige Grauabstufung</p>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleFilterChange('contrast')}
-                      className={`p-2.5 rounded-xl border text-left text-xs font-medium transition-all ${
-                        activePage.filter === 'contrast'
-                          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold shadow-xs'
-                          : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
-                      }`}
-                    >
-                      <div className="font-bold flex items-center justify-between">
-                        <span>Aufhellen</span>
-                        {activePage.filter === 'contrast' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
-                      </div>
-                      <p className="text-[10px] text-slate-400 font-normal mt-0.5">Thermodruck & Quittungen</p>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => handleFilterChange('contrast')}
+                        className={`p-2.5 rounded-xl border text-left text-xs font-medium transition-all ${
+                          activePage.filter === 'contrast'
+                            ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold shadow-xs'
+                            : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        <div className="font-bold flex items-center justify-between">
+                          <span>Aufhellen</span>
+                          {activePage.filter === 'contrast' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-normal mt-0.5">Thermodruck & Quittungen</p>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* PDF Info box */}
+                {uploadedPdf && (
+                  <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                      <FileText className="w-4 h-4 text-emerald-400" />
+                      <span>PDF-Beleg bereit zur Übernahme</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Die Datei wird direkt als vollwertiger Beleg an die Buchung angehängt oder im Vereinsarchiv abgelegt.
+                    </p>
+                  </div>
+                )}
 
                 {/* 2. Format Selection (PDF vs JPEG) */}
                 <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3">
