@@ -47,7 +47,7 @@
       "nsis": {
         "installMode": "both",
         "displayLanguageSelector": false,
-        "languages": ["de-DE"],
+        "languages": ["German"],
         "installerIcon": "icons/icon.ico"
       },
       "wix": {
