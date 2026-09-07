@@ -85,7 +85,7 @@ export const WidgetWrapper: React.FC<WidgetWrapperProps> = ({
         setIsLocalDragOver(false);
         onDrop?.(e, id);
       }}
-      className={`${colSpanClasses} group/widget relative transition-all duration-200 h-full flex flex-col ${
+      className={`${colSpanClasses} min-w-0 group/widget relative transition-all duration-200 h-full flex flex-col ${
         isDragging
           ? 'opacity-30 scale-[0.98] border-2 border-dashed border-blue-400 dark:border-blue-500 rounded-2xl'
           : ''

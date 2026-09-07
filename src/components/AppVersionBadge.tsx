@@ -33,10 +33,13 @@ export const AppVersionBadge: React.FC<AppVersionBadgeProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo>({
-    currentVersion: CURRENT_APP_VERSION,
-    latestVersion: CURRENT_APP_VERSION,
-    isUpdateAvailable: false
+  const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo>(() => {
+    const current = UpdateService.getCurrentVersionSync();
+    return {
+      currentVersion: current,
+      latestVersion: current,
+      isUpdateAvailable: false
+    };
   });
 
   // Desktop In-App Updater State
@@ -101,12 +104,19 @@ export const AppVersionBadge: React.FC<AppVersionBadgeProps> = ({
     setUpdateProgress(5);
     setUpdateStepText('Starte Update-Prozess...');
 
+    const targetVer = updateInfo.latestVersion;
     const res = await UpdateService.executeDesktopInAppUpdate((prog, text) => {
       setUpdateProgress(prog);
       setUpdateStepText(text);
-    });
+    }, targetVer);
 
     if (res.success) {
+      UpdateService.setInstalledVersion(targetVer);
+      setUpdateInfo(prev => ({
+        ...prev,
+        currentVersion: targetVer,
+        isUpdateAvailable: false
+      }));
       setUpdateFinished(true);
       setTimeout(() => {
         setIsUpdating(false);
@@ -119,6 +129,15 @@ export const AppVersionBadge: React.FC<AppVersionBadgeProps> = ({
       setIsUpdating(false);
       alert('Update-Fehler: ' + (res.error || 'Unbekannter Fehler'));
     }
+  };
+
+  const handleAcknowledgeVersion = (ver: string) => {
+    UpdateService.setInstalledVersion(ver);
+    setUpdateInfo(prev => ({
+      ...prev,
+      currentVersion: ver,
+      isUpdateAvailable: false
+    }));
   };
 
   // 1-Click Cloud Reload (Zero-Touch)
@@ -280,14 +299,26 @@ export const AppVersionBadge: React.FC<AppVersionBadgeProps> = ({
                         <span>Update erfolgreich! Starte neu...</span>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={handleExecuteDesktopUpdate}
-                        className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-                      >
-                        <Zap className="w-3.5 h-3.5 fill-current" />
-                        <span>Update jetzt per 1-Klick installieren</span>
-                      </button>
+                      <div className="space-y-1.5">
+                        <button
+                          type="button"
+                          onClick={handleExecuteDesktopUpdate}
+                          className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                        >
+                          <Zap className="w-3.5 h-3.5 fill-current" />
+                          <span>Update jetzt per 1-Klick installieren</span>
+                        </button>
+                        <div className="flex justify-center">
+                          <button
+                            type="button"
+                            onClick={() => handleAcknowledgeVersion(updateInfo.latestVersion)}
+                            className="text-[11px] text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer py-0.5"
+                            title="Falls Sie die neue Version manuell installiert haben"
+                          >
+                            Bereits manuell aktualisiert? Als v{updateInfo.latestVersion} übernehmen
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 ) : (

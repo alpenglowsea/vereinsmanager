@@ -6,9 +6,11 @@ import {
   Transaction,
   FinancialAccount,
   ClubSettings,
-  TaxSphere
+  TaxSphere,
+  ClubContact
 } from '../types';
 import { TAX_SPHERES } from '../data/taxSpheres';
+import { CONTACT_TYPE_MAP } from '../data/contactConstants';
 
 export const ExportService = {
   // 1. Export Members to CSV
@@ -455,5 +457,145 @@ export const ExportService = {
     }
 
     doc.save(`EStG_GuV_${yearFilter || 'gesamt'}_${new Date().toISOString().split('T')[0]}.pdf`);
+  },
+
+  // 6. Export Contacts to CSV
+  exportContactsCSV(contacts: ClubContact[], filename = 'kontakte.csv'): void {
+    const data = contacts.map(c => {
+      const typeLabels = (c.types || [])
+        .map(t => CONTACT_TYPE_MAP.get(t)?.label || t)
+        .join(', ');
+
+      return {
+        'Kontaktnummer': c.contactNumber,
+        'Personenart': c.personType === 'legal' ? 'Juristische Person (Firma / Organisation)' : 'Natürliche Person',
+        'Name / Firma': c.displayName,
+        'Rechtsform': c.legalForm || '',
+        'Kontakttypen': typeLabels,
+        'Ansprechpartner': c.personType === 'legal' && c.contactPerson
+          ? [c.contactPerson.salutation, c.contactPerson.firstName, c.contactPerson.lastName, c.contactPerson.roleOrPosition ? `(${c.contactPerson.roleOrPosition})` : '']
+              .filter(Boolean)
+              .join(' ')
+          : '',
+        'Steuernummer / USt-ID': c.taxId || '',
+        'Handelsregister': c.commercialRegister || '',
+        'E-Mail': c.email,
+        'Telefon': c.phone,
+        'Mobil': c.mobile || '',
+        'Website': c.website || '',
+        'Straße': c.address.street,
+        'Hausnummer': c.address.houseNumber,
+        'PLZ': c.address.zip,
+        'Ort': c.address.city,
+        'Land': c.address.country,
+        'IBAN': c.bankDetails?.iban || '',
+        'BIC': c.bankDetails?.bic || '',
+        'Bankname': c.bankDetails?.bankName || '',
+        'Kontoinhaber': c.bankDetails?.accountHolder || '',
+        'Kreditoren-/Debitorennr.': c.creditorOrDebtorNumber || '',
+        'Notizen': (c.notes || '').replace(/(\r\n|\n|\r)/gm, ' '),
+        'Schlagwörter': (c.tags || []).join(', ')
+      };
+    });
+
+    const csv = Papa.unparse(data, { delimiter: ';' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  },
+
+  // 7. Export Contacts to PDF
+  exportContactsPDF(contacts: ClubContact[], clubName = 'Verein', title = 'Kontaktliste'): void {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+    // Header
+    doc.setFontSize(18);
+    doc.setTextColor(20, 30, 50);
+    doc.text(clubName, 14, 15);
+
+    doc.setFontSize(12);
+    doc.setTextColor(100, 110, 120);
+    doc.text(title, 14, 22);
+
+    doc.setFontSize(9);
+    doc.text(`Stand: ${new Date().toLocaleDateString('de-DE')} | Gesamt: ${contacts.length} Kontakte`, 283, 22, { align: 'right' });
+
+    // Divider
+    doc.setDrawColor(220, 225, 230);
+    doc.setLineWidth(0.5);
+    doc.line(14, 25, 283, 25);
+
+    const tableRows = contacts.map(c => {
+      const typeLabels = (c.types || [])
+        .map(t => CONTACT_TYPE_MAP.get(t)?.label || t)
+        .join(', ');
+
+      const ap = c.personType === 'legal' && c.contactPerson
+        ? `${c.contactPerson.lastName}, ${c.contactPerson.firstName || ''}${c.contactPerson.roleOrPosition ? ` (${c.contactPerson.roleOrPosition})` : ''}`.trim()
+        : '–';
+
+      const location = [c.address?.zip, c.address?.city].filter(Boolean).join(' ') || '–';
+
+      return [
+        c.contactNumber || '–',
+        c.displayName + (c.legalForm ? ` (${c.legalForm})` : ''),
+        c.personType === 'legal' ? 'Firma' : 'Privat',
+        typeLabels || '–',
+        ap,
+        c.phone || c.mobile || '–',
+        c.email || '–',
+        location,
+        c.bankDetails?.iban ? `${c.bankDetails.iban.slice(0, 8)}...` : '–'
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 28,
+      head: [['Nr.', 'Name / Firma', 'Art', 'Rolle(n)', 'Ansprechpartner', 'Telefon', 'E-Mail', 'Ort', 'IBAN']],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [30, 41, 59],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 8,
+        cellPadding: 2
+      },
+      bodyStyles: {
+        fontSize: 8,
+        cellPadding: 2,
+        textColor: [40, 40, 40]
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      },
+      columnStyles: {
+        0: { cellWidth: 18 },
+        1: { cellWidth: 44 },
+        2: { cellWidth: 16 },
+        3: { cellWidth: 38 },
+        4: { cellWidth: 36 },
+        5: { cellWidth: 26 },
+        6: { cellWidth: 42 },
+        7: { cellWidth: 26 },
+        8: { cellWidth: 23 }
+      },
+      didDrawPage: (data) => {
+        doc.setFontSize(8);
+        doc.setTextColor(140, 140, 140);
+        doc.text(
+          `Seite ${data.pageNumber} | ${clubName} - Vertrauliche Geschäftspartner- & Kontaktdaten gem. DSGVO`,
+          14,
+          doc.internal.pageSize.height - 8
+        );
+      }
+    });
+
+    doc.save(`kontakte_${new Date().toISOString().split('T')[0]}.pdf`);
   }
 };

@@ -45,7 +45,10 @@ import {
   FileSpreadsheet,
   HeartHandshake,
   TrendingUp,
-  Building2
+  Building2,
+  Receipt,
+  Contact,
+  ScrollText
 } from 'lucide-react';
 
 interface DashboardConfigModalProps {
@@ -60,6 +63,9 @@ const CATEGORY_TABS: { id: DashboardWidgetCategory | 'all'; label: string; icon:
   { id: 'all', label: 'Alle Kacheln', icon: Grid },
   { id: 'members', label: 'Mitglieder', icon: Users },
   { id: 'finance', label: 'Finanzen & Steuern', icon: Wallet },
+  { id: 'invoices', label: 'Rechnungen', icon: Receipt },
+  { id: 'contacts', label: 'Kontakte & Partner', icon: Contact },
+  { id: 'meetings', label: 'Sitzungsdienst', icon: ScrollText },
   { id: 'calendar', label: 'Kalender & Termine', icon: CalendarDays },
   { id: 'inventory', label: 'Inventar', icon: Package },
   { id: 'documents', label: 'Dokumente & Archiv', icon: FolderArchive },
@@ -97,7 +103,10 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
   // Filtered definitions based on category & search
   const filteredDefinitions = useMemo(() => {
     return AVAILABLE_DASHBOARD_WIDGETS.filter((w) => {
-      const matchCategory = activeCategory === 'all' || w.category === activeCategory;
+      const matchCategory =
+        activeCategory === 'all' ||
+        w.category === activeCategory ||
+        (activeCategory === 'finance' && w.category === 'invoices');
       const matchSearch =
         searchTerm === '' ||
         w.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -233,6 +242,9 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
       case 'FolderArchive': return <FolderArchive className={className} />;
       case 'Sparkles': return <Sparkles className={className} />;
       case 'Building2': return <Building2 className={className} />;
+      case 'Receipt': return <Receipt className={className} />;
+      case 'Contact': return <Contact className={className} />;
+      case 'ScrollText': return <ScrollText className={className} />;
       default: return <Grid className={className} />;
     }
   };

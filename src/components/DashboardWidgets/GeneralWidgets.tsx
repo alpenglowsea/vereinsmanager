@@ -23,6 +23,8 @@ import {
 interface QuickActionsWidgetProps {
   onOpenCreateMember: () => void;
   onOpenCreateTx: () => void;
+  onOpenCreateInvoice?: () => void;
+  onOpenCreateContact?: () => void;
   onOpenCreateEvent?: () => void;
   onOpenCreateInventory: () => void;
   onOpenNewDocument?: () => void;
@@ -31,6 +33,8 @@ interface QuickActionsWidgetProps {
 export const QuickActionsWidget: React.FC<QuickActionsWidgetProps> = ({
   onOpenCreateMember,
   onOpenCreateTx,
+  onOpenCreateInvoice,
+  onOpenCreateContact,
   onOpenCreateEvent,
   onOpenCreateInventory,
   onOpenNewDocument
@@ -46,7 +50,7 @@ export const QuickActionsWidget: React.FC<QuickActionsWidgetProps> = ({
           Was möchten Sie heute im Verein erfassen?
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Erstellen Sie Buchungen, neue Mitglieder, Termine oder Dokumente mit einem Klick.
+          Erstellen Sie Buchungen, Rechnungen, neue Mitglieder, Kontakte, Termine oder Dokumente mit einem Klick.
         </p>
       </div>
 
@@ -68,6 +72,28 @@ export const QuickActionsWidget: React.FC<QuickActionsWidgetProps> = ({
           <Plus className="w-4 h-4" />
           <span>Buchung</span>
         </button>
+
+        {onOpenCreateInvoice && (
+          <button
+            type="button"
+            onClick={onOpenCreateInvoice}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all hover:scale-102 cursor-pointer active:scale-98"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Rechnung</span>
+          </button>
+        )}
+
+        {onOpenCreateContact && (
+          <button
+            type="button"
+            onClick={onOpenCreateContact}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all hover:scale-102 cursor-pointer active:scale-98"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Kontakt</span>
+          </button>
+        )}
 
         {onOpenCreateEvent && (
           <button

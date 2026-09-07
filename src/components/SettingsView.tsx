@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ClubSettings, AppUser, UserPermissions, DeploymentMode, Address } from '../types';
+import { ClubSettings, AppUser, UserPermissions, DeploymentMode, Address, AiProviderType } from '../types';
 import { StorageService } from '../services/storage';
 import { AuthService } from '../services/authService';
 import { AiBookingService } from '../services/aiBookingService';
 import { CURRENT_APP_VERSION } from '../services/updateService';
 import { FULL_PERMISSIONS } from '../data/roles';
 import { DeploymentHubSettingsPanel } from './DeploymentHubSettingsPanel';
+import { openExternalUrl } from '../utils/externalLink';
 import paypalQrImage from '../assets/paypal-original.jpg';
 import {
   Settings,
@@ -61,6 +62,82 @@ import {
   HelpCircle,
   Info
 } from 'lucide-react';
+
+interface ProviderMeta {
+  id: AiProviderType;
+  name: string;
+  badge: string;
+  badgeColor: string;
+  keyLabel: string;
+  keyPlaceholder: string;
+  keyLinkUrl: string;
+  keyLinkLabel: string;
+  defaultModel?: string;
+  models?: { id: string; name: string }[];
+  needsBaseUrl?: boolean;
+  defaultBaseUrl?: string;
+  description: string;
+}
+
+const AI_PROVIDERS: ProviderMeta[] = [
+  {
+    id: 'gemini',
+    name: 'Google Gemini',
+    badge: 'Empfohlen • Kostenlos',
+    badgeColor: 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300',
+    keyLabel: 'Google Gemini API-Schlüssel',
+    keyPlaceholder: 'AIzaSy...',
+    keyLinkUrl: 'https://aistudio.google.com/app/apikey',
+    keyLinkLabel: 'Kostenlosen Schlüssel generieren',
+    description: 'Dauerhaft kostenloser Tarif mit bis zu 15 Anfragen/Min. in Google AI Studio.',
+  },
+  {
+    id: 'openai',
+    name: 'OpenAI (ChatGPT)',
+    badge: 'GPT-4o & mini',
+    badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
+    keyLabel: 'OpenAI API-Schlüssel',
+    keyPlaceholder: 'sk-proj-...',
+    keyLinkUrl: 'https://platform.openai.com/api-keys',
+    keyLinkLabel: 'Schlüssel auf platform.openai.com erstellen',
+    defaultModel: 'gpt-4o-mini',
+    models: [
+      { id: 'gpt-4o-mini', name: 'GPT-4o mini (Sehr schnell & kostengünstig)' },
+      { id: 'gpt-4o', name: 'GPT-4o (Höchste Genauigkeit)' },
+    ],
+    description: 'Verbindung über Ihr OpenAI-Entwicklerkonto mit modernsten Modellen.',
+  },
+  {
+    id: 'anthropic',
+    name: 'Anthropic Claude',
+    badge: 'Claude 3.5',
+    badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300',
+    keyLabel: 'Anthropic Claude API-Schlüssel',
+    keyPlaceholder: 'sk-ant-...',
+    keyLinkUrl: 'https://console.anthropic.com/settings/keys',
+    keyLinkLabel: 'Schlüssel in Anthropic Console erstellen',
+    defaultModel: 'claude-3-5-haiku-20241022',
+    models: [
+      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku (Ultraschnell)' },
+      { id: 'claude-3-5-sonnet-latest', name: 'Claude 3.5 Sonnet (Rechtssichere Texte)' },
+    ],
+    description: 'Hervorragend geeignet für redaktionelle Protokolle und Beschlusstexte.',
+  },
+  {
+    id: 'custom',
+    name: 'Benutzerdefiniert / Lokal',
+    badge: 'Ollama & Groq',
+    badgeColor: 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300',
+    keyLabel: 'API-Schlüssel / Token (optional)',
+    keyPlaceholder: 'Optional (Bearer Token oder leer bei lokalem Ollama)',
+    keyLinkUrl: 'https://ollama.com',
+    keyLinkLabel: 'Ollama Dokumentation & Download',
+    needsBaseUrl: true,
+    defaultBaseUrl: 'http://localhost:11434/v1',
+    defaultModel: 'llama3.2',
+    description: 'Kompatibel mit lokalen Modellen (Ollama, LM Studio) oder Gateways (Groq, OpenRouter).',
+  },
+];
 
 interface SettingsViewProps {
   settings: ClubSettings;
@@ -305,11 +382,147 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [userMsg, setUserMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Gemini API Key state for BYOK (Bring Your Own Key)
-  const [geminiApiKey, setGeminiApiKey] = useState<string>(() => settings.geminiApiKey || AiBookingService.getStoredApiKey());
+  // AI Assistant State (Supporting Gemini, OpenAI, Anthropic, Custom/Ollama)
+  const initialAiConfig = AiBookingService.getAiConfig();
+  const [aiProvider, setAiProvider] = useState<AiProviderType>(
+    () => settings.aiProvider || initialAiConfig.provider || 'gemini'
+  );
+  const [aiApiKey, setAiApiKey] = useState<string>(
+    () => settings.aiApiKey || settings.geminiApiKey || initialAiConfig.apiKey || ''
+  );
+  const [aiModel, setAiModel] = useState<string>(
+    () => settings.aiModel || initialAiConfig.model || ''
+  );
+  const [aiBaseUrl, setAiBaseUrl] = useState<string>(
+    () => settings.aiBaseUrl || initialAiConfig.baseUrl || ''
+  );
   const [showApiKey, setShowApiKey] = useState(false);
   const [isTestingKey, setIsTestingKey] = useState(false);
   const [keyTestResult, setKeyTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // SMTP Configuration State (Sitzungsdienst & Vereinskorrespondenz)
+  const [showSmtpPassword, setShowSmtpPassword] = useState(false);
+  const [isTestingSmtp, setIsTestingSmtp] = useState(false);
+  const [smtpTestResult, setSmtpTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [smtpTestEmailInput, setSmtpTestEmailInput] = useState('');
+  const [showSmtpTestInput, setShowSmtpTestInput] = useState(false);
+
+  const applySmtpPreset = (preset: 'ionos' | 'strato' | 'gmail' | 'gmx' | 'webde' | 'telekom') => {
+    switch (preset) {
+      case 'ionos':
+        setFormData(prev => ({
+          ...prev,
+          smtpHost: 'smtp.ionos.de',
+          smtpPort: 587,
+          smtpSecure: false,
+          smtpFromName: prev.smtpFromName || prev.clubName || 'TSV Musterstadt 1890 e.V.'
+        }));
+        break;
+      case 'strato':
+        setFormData(prev => ({
+          ...prev,
+          smtpHost: 'smtp.strato.de',
+          smtpPort: 465,
+          smtpSecure: true,
+          smtpFromName: prev.smtpFromName || prev.clubName || 'TSV Musterstadt 1890 e.V.'
+        }));
+        break;
+      case 'gmail':
+        setFormData(prev => ({
+          ...prev,
+          smtpHost: 'smtp.gmail.com',
+          smtpPort: 587,
+          smtpSecure: false,
+          smtpFromName: prev.smtpFromName || prev.clubName || 'TSV Musterstadt 1890 e.V.'
+        }));
+        break;
+      case 'gmx':
+        setFormData(prev => ({
+          ...prev,
+          smtpHost: 'mail.gmx.net',
+          smtpPort: 587,
+          smtpSecure: false,
+          smtpFromName: prev.smtpFromName || prev.clubName || 'TSV Musterstadt 1890 e.V.'
+        }));
+        break;
+      case 'webde':
+        setFormData(prev => ({
+          ...prev,
+          smtpHost: 'smtp.web.de',
+          smtpPort: 587,
+          smtpSecure: false,
+          smtpFromName: prev.smtpFromName || prev.clubName || 'TSV Musterstadt 1890 e.V.'
+        }));
+        break;
+      case 'telekom':
+        setFormData(prev => ({
+          ...prev,
+          smtpHost: 'securesmtp.t-online.de',
+          smtpPort: 587,
+          smtpSecure: false,
+          smtpFromName: prev.smtpFromName || prev.clubName || 'TSV Musterstadt 1890 e.V.'
+        }));
+        break;
+    }
+  };
+
+  const handleTestSmtp = async () => {
+    if (!formData.smtpHost?.trim()) {
+      setSmtpTestResult({
+        success: false,
+        message: 'Bitte geben Sie zuerst einen SMTP-Hostnamen an (z.B. smtp.ionos.de).'
+      });
+      return;
+    }
+
+    setIsTestingSmtp(true);
+    setSmtpTestResult(null);
+
+    try {
+      const res = await fetch('/api/smtp/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: formData.smtpHost.trim(),
+          port: formData.smtpPort || (formData.smtpSecure ? 465 : 587),
+          secure: Boolean(formData.smtpSecure),
+          user: formData.smtpUser?.trim(),
+          password: formData.smtpPassword,
+          fromEmail: formData.smtpFromEmail?.trim() || formData.email,
+          testRecipient: smtpTestEmailInput.trim() || undefined
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSmtpTestResult({
+          success: true,
+          message: data.message || 'SMTP-Verbindung erfolgreich aufgebaut und authentifiziert.'
+        });
+      } else {
+        setSmtpTestResult({
+          success: false,
+          message: data.error || 'SMTP-Verbindung fehlgeschlagen. Bitte Zugangsdaten und Port überprüfen.'
+        });
+      }
+    } catch (err: any) {
+      setSmtpTestResult({
+        success: false,
+        message: err.message || 'Netzwerkfehler beim Verbindungstest zum Server.'
+      });
+    } finally {
+      setIsTestingSmtp(false);
+    }
+  };
+
+  // External Link Confirmation Modal State (Requirement 5)
+  const [externalLinkModal, setExternalLinkModal] = useState<{
+    isOpen: boolean;
+    url: string;
+    title: string;
+    providerName: string;
+  } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // Bug Reporting State
   const [bugSubject, setBugSubject] = useState('');
@@ -669,29 +882,100 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       ...formData,
       address: formattedAddress,
       clubAddress: clubAddress,
-      geminiApiKey: geminiApiKey.trim() || undefined
+      aiProvider,
+      aiApiKey: aiApiKey.trim() || undefined,
+      aiModel: aiModel.trim() || undefined,
+      aiBaseUrl: aiBaseUrl.trim() || undefined,
+      geminiApiKey: aiProvider === 'gemini' ? aiApiKey.trim() || undefined : formData.geminiApiKey,
     };
     setFormData(updated);
-    AiBookingService.setStoredApiKey(geminiApiKey.trim());
+    AiBookingService.setAiConfig({
+      provider: aiProvider,
+      apiKey: aiApiKey.trim(),
+      model: aiModel.trim() || undefined,
+      baseUrl: aiBaseUrl.trim() || undefined,
+    });
     onSaveSettings(updated);
     setStatusMsg({ type: 'success', text: 'Einstellungen & Vereinsstammdaten wurden erfolgreich gespeichert.' });
     setTimeout(() => setStatusMsg(null), 3500);
   };
 
-  const handleTestGeminiKey = async () => {
+  const handleTestAiKey = async () => {
     setIsTestingKey(true);
     setKeyTestResult(null);
     try {
-      const res = await AiBookingService.testConnection(geminiApiKey.trim());
+      const res = await AiBookingService.testConnection(
+        aiApiKey.trim(),
+        aiProvider,
+        aiModel.trim() || undefined,
+        aiBaseUrl.trim() || undefined
+      );
       setKeyTestResult(res);
       if (res.success) {
-        AiBookingService.setStoredApiKey(geminiApiKey.trim());
+        AiBookingService.setAiConfig({
+          provider: aiProvider,
+          apiKey: aiApiKey.trim(),
+          model: aiModel.trim() || undefined,
+          baseUrl: aiBaseUrl.trim() || undefined,
+        });
       }
     } catch (err: any) {
       setKeyTestResult({ success: false, message: err?.message || 'Verbindungstest fehlgeschlagen.' });
     } finally {
       setIsTestingKey(false);
     }
+  };
+
+  const handleSaveAiConfigOnly = () => {
+    const trimmedKey = aiApiKey.trim();
+    AiBookingService.setAiConfig({
+      provider: aiProvider,
+      apiKey: trimmedKey,
+      model: aiModel.trim() || undefined,
+      baseUrl: aiBaseUrl.trim() || undefined,
+    });
+    const selectedProvider = AI_PROVIDERS.find(p => p.id === aiProvider) || AI_PROVIDERS[0];
+    const updated: ClubSettings = {
+      ...formData,
+      aiProvider,
+      aiApiKey: trimmedKey || undefined,
+      aiModel: aiModel.trim() || undefined,
+      aiBaseUrl: aiBaseUrl.trim() || undefined,
+      geminiApiKey: aiProvider === 'gemini' ? trimmedKey || undefined : formData.geminiApiKey,
+    };
+    setFormData(updated);
+    onSaveSettings(updated);
+    setStatusMsg({
+      type: 'success',
+      text: `KI-Konfiguration (${selectedProvider.name}) wurde erfolgreich gespeichert.`
+    });
+    setTimeout(() => setStatusMsg(null), 3000);
+  };
+
+  const handleCopyLink = (url: string) => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url);
+      } else {
+        const el = document.createElement('textarea');
+        el.value = url;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+      }
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2500);
+    } catch (e) {
+      console.warn('Clipboard copy failed:', e);
+    }
+  };
+
+  const handleOpenExternalUrlConfirmed = async () => {
+    if (!externalLinkModal) return;
+    const targetUrl = externalLinkModal.url;
+    setExternalLinkModal(null);
+    await openExternalUrl(targetUrl);
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1222,127 +1506,223 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </form>
 
-          {/* KI-Buchungsassistent & Google Gemini BYOK Card */}
-          <div className="bg-white dark:bg-slate-900 border border-purple-200/80 dark:border-purple-900/40 rounded-3xl p-6 shadow-xs space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-2xl shadow-xs">
-                  <Sparkles className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      KI-Assistent & Buchungsanalyse (Google Gemini)
-                    </h3>
-                    <span className={`px-2 py-0.5 text-3xs font-bold rounded-full ${
-                      geminiApiKey.trim()
-                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
-                        : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                    }`}>
-                      {geminiApiKey.trim() ? 'Aktiviert' : 'Optional'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Automatische Ermittlung der 4 steuerlichen Sphären (§§ 51 ff. AO) und DATEV SKR 42-Kontierung per Freitext-Erklärung.
-                  </p>
-                </div>
-              </div>
-            </div>
+          {/* KI-Assistent Card */}
+          {(() => {
+            const currentProviderInfo = AI_PROVIDERS.find(p => p.id === aiProvider) || AI_PROVIDERS[0];
+            const isConfigured = Boolean(aiApiKey.trim() || (aiProvider === 'custom' && aiBaseUrl.trim()));
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Key className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                    Google Gemini API-Schlüssel (BYOK - Bring Your Own Key)
-                  </span>
-                  <a
-                    href="https://aistudio.google.com/app/apikey"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-2xs text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 font-medium"
-                  >
-                    <span>Kostenlosen Schlüssel generieren</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type={showApiKey ? 'text' : 'password'}
-                      value={geminiApiKey}
-                      onChange={e => setGeminiApiKey(e.target.value)}
-                      placeholder="AIzaSy..."
-                      className="w-full pl-3 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:bg-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                      title={showApiKey ? 'Schlüssel verbergen' : 'Schlüssel anzeigen'}
-                    >
-                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleTestGeminiKey}
-                      disabled={isTestingKey || !geminiApiKey.trim()}
-                      className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 disabled:opacity-40 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${isTestingKey ? 'animate-spin' : ''}`} />
-                      <span>{isTestingKey ? 'Prüfe...' : 'Verbindung testen'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        AiBookingService.setStoredApiKey(geminiApiKey.trim());
-                        const updated = { ...formData, geminiApiKey: geminiApiKey.trim() || undefined };
-                        setFormData(updated);
-                        onSaveSettings(updated);
-                        setStatusMsg({ type: 'success', text: 'Gemini API-Schlüssel wurde lokal gespeichert.' });
-                        setTimeout(() => setStatusMsg(null), 3000);
-                      }}
-                      className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-xs"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Speichern</span>
-                    </button>
+            return (
+              <div className="bg-white dark:bg-slate-900 border border-purple-200/80 dark:border-purple-900/40 rounded-3xl p-6 shadow-xs space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-2xl shadow-xs">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                          KI-Assistent
+                        </h3>
+                        <span className={`px-2 py-0.5 text-3xs font-bold rounded-full ${
+                          isConfigured
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
+                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                        }`}>
+                          {isConfigured ? `Aktiviert (${currentProviderInfo.name})` : 'Optional'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Unterstützt Sie bei der Buchungskontierung, Belegprüfung, Protokoll- und Notizenerfassung sowie bei der Auswertung von Mitgliedsanträgen.
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Test Result Message */}
-              {keyTestResult && (
-                <div className={`p-3 rounded-xl border text-xs flex items-center gap-2.5 ${
-                  keyTestResult.success
-                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
-                    : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
-                }`}>
-                  {keyTestResult.success ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  ) : (
-                    <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                <div className="space-y-4">
+                  {/* Provider Selection */}
+                  <div>
+                    <label className="block text-2xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                      KI-Anbieter auswählen
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                      {AI_PROVIDERS.map(provider => {
+                        const isSelected = aiProvider === provider.id;
+                        return (
+                          <button
+                            key={provider.id}
+                            type="button"
+                            onClick={() => {
+                              setAiProvider(provider.id);
+                              setKeyTestResult(null);
+                              if (provider.defaultModel && (!aiModel || !provider.models?.some(m => m.id === aiModel))) {
+                                setAiModel(provider.defaultModel);
+                              }
+                              if (provider.defaultBaseUrl && !aiBaseUrl) {
+                                setAiBaseUrl(provider.defaultBaseUrl);
+                              }
+                            }}
+                            className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                              isSelected
+                                ? 'bg-purple-50/70 dark:bg-purple-950/40 border-purple-500 dark:border-purple-500 ring-2 ring-purple-500/20 shadow-xs'
+                                : 'bg-slate-50/60 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                {provider.name}
+                              </span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />}
+                            </div>
+                            <span className={`px-1.5 py-0.5 text-3xs font-semibold rounded-md w-fit ${provider.badgeColor}`}>
+                              {provider.badge}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-2xs text-slate-500 dark:text-slate-400 mt-2">
+                      {currentProviderInfo.description}
+                    </p>
+                  </div>
+
+                  {/* Optional Custom Base URL */}
+                  {currentProviderInfo.needsBaseUrl && (
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        API-Basis-URL (OpenAI-kompatibel)
+                      </label>
+                      <input
+                        type="text"
+                        value={aiBaseUrl}
+                        onChange={e => setAiBaseUrl(e.target.value)}
+                        placeholder="http://localhost:11434/v1"
+                        className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:bg-white"
+                      />
+                      <p className="text-3xs text-slate-400 dark:text-slate-500 mt-1">
+                        Beispiel Ollama: http://localhost:11434/v1 • LM Studio: http://localhost:1234/v1 • Groq: https://api.groq.com/openai/v1
+                      </p>
+                    </div>
                   )}
-                  <span>{keyTestResult.message}</span>
-                </div>
-              )}
 
-              {/* Information callout */}
-              <div className="bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 rounded-2xl p-4 text-2xs text-slate-600 dark:text-slate-400 space-y-2">
-                <div className="font-bold text-purple-950 dark:text-purple-200 flex items-center gap-1.5">
-                  <Bot className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  <span>Funktionsweise & Datenschutz</span>
+                  {/* Model Selection if options exist */}
+                  {currentProviderInfo.models && (
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Bevorzugtes Modell
+                      </label>
+                      <select
+                        value={aiModel || currentProviderInfo.defaultModel || ''}
+                        onChange={e => setAiModel(e.target.value)}
+                        className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:bg-white"
+                      >
+                        {currentProviderInfo.models.map(m => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* API Key Input */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between flex-wrap gap-1">
+                      <span className="flex items-center gap-1.5">
+                        <Key className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                        {currentProviderInfo.keyLabel}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setExternalLinkModal({
+                          isOpen: true,
+                          url: currentProviderInfo.keyLinkUrl,
+                          title: currentProviderInfo.keyLinkLabel,
+                          providerName: currentProviderInfo.name,
+                        })}
+                        className="text-2xs text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                      >
+                        <span>{currentProviderInfo.keyLinkLabel}</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                    </label>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="relative flex-1">
+                        <input
+                          type={showApiKey ? 'text' : 'password'}
+                          value={aiApiKey}
+                          onChange={e => setAiApiKey(e.target.value)}
+                          placeholder={currentProviderInfo.keyPlaceholder}
+                          className="w-full pl-3 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:bg-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowApiKey(!showApiKey)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                          title={showApiKey ? 'Schlüssel verbergen' : 'Schlüssel anzeigen'}
+                        >
+                          {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleTestAiKey}
+                          disabled={isTestingKey || (!aiApiKey.trim() && aiProvider !== 'custom')}
+                          className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 disabled:opacity-40 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${isTestingKey ? 'animate-spin' : ''}`} />
+                          <span>{isTestingKey ? 'Prüfe...' : 'Verbindung testen'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveAiConfigOnly}
+                          className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-xs"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Speichern</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Test Result Message */}
+                  {keyTestResult && (
+                    <div className={`p-3 rounded-xl border text-xs flex items-center gap-2.5 ${
+                      keyTestResult.success
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+                        : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
+                    }`}>
+                      {keyTestResult.success ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                      )}
+                      <span>{keyTestResult.message}</span>
+                    </div>
+                  )}
+
+                  {/* Information callout: Funktionsweise & Datenschutz */}
+                  <div className="bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 rounded-2xl p-4 text-2xs text-slate-600 dark:text-slate-400 space-y-2">
+                    <div className="font-bold text-purple-950 dark:text-purple-200 flex items-center gap-1.5">
+                      <Bot className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      <span>Funktionsweise & Datenschutz</span>
+                    </div>
+                    <ul className="list-disc pl-4 space-y-1 text-slate-600 dark:text-slate-400 leading-relaxed">
+                      <li>
+                        <strong>Lokale Speicherung:</strong> Ihr API-Schlüssel wird ausschließlich lokal in Ihrer VereinsManager-Installation auf Ihrem PC bzw. im Browser gespeichert und zu keinem Zeitpunkt an fremde Dritte weitergegeben.
+                      </li>
+                      <li>
+                        <strong>Freie Anbieterwahl:</strong> Nutzen Sie den dauerhaft kostenlosen Standard-Tarif von Google Gemini oder binden Sie eigene Zugänge von OpenAI, Anthropic oder lokale KI-Modelle (z. B. via Ollama) ohne Cloud-Kosten an.
+                      </li>
+                      <li>
+                        <strong>App-weite Unterstützung:</strong> Der hinterlegte KI-Dienst steht automatisch in allen Bereichen der Vereinsverwaltung zur Verfügung (Finanzen & Belege, Sitzungen & Protokolle, Notizen sowie Mitgliedsanträge).
+                      </li>
+                    </ul>
+                  </div>
                 </div>
-                <ul className="list-disc pl-4 space-y-1 text-slate-600 dark:text-slate-400 leading-relaxed">
-                  <li><strong>Lokale Speicherung:</strong> Ihr Schlüssel wird ausschließlich lokal in Ihrem Browser bzw. Ihrer VereinsManager-Installation auf Ihrem PC gespeichert.</li>
-                  <li><strong>Kostenlos:</strong> Der Standard-Tarif in Google AI Studio ist dauerhaft kostenlos und umfasst bis zu 15 Anfragen pro Minute – ideal für die laufende Vereinsbuchhaltung.</li>
-                  <li><strong>Einsatzort:</strong> Beim Erfassen neuer Buchungen können Sie einfach per Klick auf <em>„✨ KI-Kategorisierung“</em> die steuerliche Sphäre, das passende DATEV SKR 42-Konto und den USt-Satz ermitteln lassen.</li>
-                </ul>
               </div>
-            </div>
-          </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1632,6 +2012,282 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                 placeholder="Sabine Weber"
               />
+            </div>
+
+            {/* SMTP-Server & E-Mail-Konfiguration für Sitzungsdienst */}
+            <div className="col-span-1 md:col-span-2 p-4 sm:p-5 bg-gradient-to-b from-blue-50/70 to-slate-50/70 dark:from-slate-800/80 dark:to-slate-850/80 border border-blue-200/80 dark:border-slate-700 rounded-2xl space-y-4 shadow-2xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-blue-200/60 dark:border-slate-700">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 flex items-center justify-center shrink-0 shadow-2xs">
+                    <Mail className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                        SMTP-Server für den Sitzungsdienst & E-Mail-Versand
+                      </h4>
+                      {formData.smtpHost ? (
+                        <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded-md text-[10px] font-bold border border-emerald-300/60 dark:border-emerald-800/60 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Konfiguriert
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 rounded-md text-[10px] font-bold border border-amber-300/60 dark:border-amber-800/60">
+                          Nicht eingerichtet
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 max-w-2xl">
+                      Ermöglicht das direkte, DSGVO-konforme Versenden von Sitzungseinladungen, Tagesordnungen und genehmigten Protokollen samt PDF-Anhang direkt aus der App.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Quick Provider Presets */}
+                <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mr-1">
+                    Schnellwahl:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => applySmtpPreset('ionos')}
+                    className="px-2 py-1 bg-white dark:bg-slate-750 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer"
+                  >
+                    IONOS
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applySmtpPreset('strato')}
+                    className="px-2 py-1 bg-white dark:bg-slate-750 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer"
+                  >
+                    Strato
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applySmtpPreset('gmail')}
+                    className="px-2 py-1 bg-white dark:bg-slate-750 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer"
+                  >
+                    Gmail
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applySmtpPreset('gmx')}
+                    className="px-2 py-1 bg-white dark:bg-slate-750 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer"
+                  >
+                    GMX
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applySmtpPreset('webde')}
+                    className="px-2 py-1 bg-white dark:bg-slate-750 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer"
+                  >
+                    Web.de
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applySmtpPreset('telekom')}
+                    className="px-2 py-1 bg-white dark:bg-slate-750 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer"
+                  >
+                    Telekom
+                  </button>
+                </div>
+              </div>
+
+              {/* SMTP Fields Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-1">
+                <div className="sm:col-span-5">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    SMTP-Server / Hostname *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.smtpHost || ''}
+                    onChange={e => setFormData({ ...formData, smtpHost: e.target.value })}
+                    placeholder="z.B. smtp.ionos.de oder mail.ihrverein.de"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Port *
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.smtpPort ?? 587}
+                    onChange={e => setFormData({ ...formData, smtpPort: parseInt(e.target.value, 10) || 587 })}
+                    placeholder="587 oder 465"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="sm:col-span-4">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Verschlüsselung
+                  </label>
+                  <select
+                    value={formData.smtpSecure ? 'ssl' : 'starttls'}
+                    onChange={e => {
+                      const isSsl = e.target.value === 'ssl';
+                      setFormData({
+                        ...formData,
+                        smtpSecure: isSsl,
+                        smtpPort: isSsl ? 465 : 587
+                      });
+                    }}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="starttls">STARTTLS (Port 587 - Standard)</option>
+                    <option value="ssl">SSL / TLS (Port 465)</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-6">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    SMTP-Benutzername (Login)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.smtpUser || ''}
+                    onChange={e => setFormData({ ...formData, smtpUser: e.target.value })}
+                    placeholder="z.B. vorstand@tsv-musterstadt1890.de"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="sm:col-span-6">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    SMTP-Passwort / App-Passwort
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showSmtpPassword ? 'text' : 'password'}
+                      value={formData.smtpPassword || ''}
+                      onChange={e => setFormData({ ...formData, smtpPassword: e.target.value })}
+                      placeholder="••••••••••••"
+                      className="w-full pl-3 pr-9 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSmtpPassword(!showSmtpPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-0.5"
+                      title={showSmtpPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+                    >
+                      {showSmtpPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="sm:col-span-6">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Absender-E-Mail (From-Adresse)
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.smtpFromEmail || ''}
+                    onChange={e => setFormData({ ...formData, smtpFromEmail: e.target.value })}
+                    placeholder={formData.email || 'vorstand@tsv-musterstadt1890.de'}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="sm:col-span-6">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Absender-Name (Anzeigename)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.smtpFromName || ''}
+                    onChange={e => setFormData({ ...formData, smtpFromName: e.target.value })}
+                    placeholder={formData.clubName || 'TSV Musterstadt 1890 e.V. Vorstand'}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* SMTP Test Actions & Feedback */}
+              <div className="pt-3 border-t border-blue-200/60 dark:border-slate-700 space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleTestSmtp}
+                      disabled={isTestingSmtp || !formData.smtpHost}
+                      className="px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700/80 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
+                    >
+                      {isTestingSmtp ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Verbindung wird geprüft...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>SMTP-Verbindung testen</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowSmtpTestInput(!showSmtpTestInput)}
+                      className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer underline"
+                    >
+                      {showSmtpTestInput ? 'Test-E-Mail Empfänger ausblenden' : '+ Echte Test-E-Mail versenden'}
+                    </button>
+                  </div>
+
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Sitzungsdienst nutzt DSGVO-Blindkopie (BCC)
+                  </span>
+                </div>
+
+                {/* Optional test email recipient input */}
+                {showSmtpTestInput && (
+                  <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <span className="text-xs text-slate-600 dark:text-slate-300 font-medium shrink-0">
+                      Test-E-Mail senden an:
+                    </span>
+                    <input
+                      type="email"
+                      value={smtpTestEmailInput}
+                      onChange={e => setSmtpTestEmailInput(e.target.value)}
+                      placeholder="ihre-private-adresse@example.de"
+                      className="flex-1 px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleTestSmtp}
+                      disabled={isTestingSmtp || !smtpTestEmailInput.includes('@')}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      Jetzt Test senden
+                    </button>
+                  </div>
+                )}
+
+                {/* Test Feedback Message */}
+                {smtpTestResult && (
+                  <div
+                    className={`p-3 rounded-xl border text-xs flex items-start gap-2 ${
+                      smtpTestResult.success
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                        : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                    }`}
+                  >
+                    {smtpTestResult.success ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <span className="font-bold block">
+                        {smtpTestResult.success ? 'Erfolg:' : 'Verbindungsfehler:'}
+                      </span>
+                      <span>{smtpTestResult.message}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -2825,6 +3481,73 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 className="py-3 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
               >
                 Schließen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* External Link Confirmation Modal (Requirement 5) */}
+      {externalLinkModal?.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 rounded-2xl shrink-0">
+                <ExternalLink className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Applikation jetzt verlassen?
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Hinweis: Sie verlassen nun die Vereinsverwaltung. Die Website von <strong className="text-slate-800 dark:text-slate-200">{externalLinkModal.providerName}</strong> wird in Ihrem installierten Browser geöffnet, damit Sie sich dort anmelden und einen API-Schlüssel erstellen können.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-1.5">
+              <span className="text-3xs font-bold text-slate-400 uppercase tracking-wider block">
+                Ziel-Adresse
+              </span>
+              <div className="flex items-center justify-between gap-2">
+                <code className="text-xs text-purple-600 dark:text-purple-400 font-mono break-all select-all">
+                  {externalLinkModal.url}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => handleCopyLink(externalLinkModal.url)}
+                  className="px-2.5 py-1 text-2xs font-semibold bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 flex items-center gap-1 shrink-0 cursor-pointer transition-colors"
+                >
+                  {linkCopied ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-600" />
+                      <span>Kopiert!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3" />
+                      <span>Kopieren</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setExternalLinkModal(null)}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenExternalUrlConfirmed}
+                className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>Website im Browser öffnen</span>
               </button>
             </div>
           </div>

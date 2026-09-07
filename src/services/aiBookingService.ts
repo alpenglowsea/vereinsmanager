@@ -1,7 +1,11 @@
-import { BookingAiSuggestion, TaxSphere } from '../types';
+import { AiConfig, AiProviderType, BookingAiSuggestion, TaxSphere } from '../types';
 import { findSkr42MainForSub, getSkr42MainCategories, SKR42_STRUCTURE } from '../data/taxSpheres';
 
 const STORAGE_KEY_GEMINI_KEY = 'vm_gemini_api_key';
+const STORAGE_KEY_AI_PROVIDER = 'vm_ai_provider';
+const STORAGE_KEY_AI_API_KEY = 'vm_ai_api_key';
+const STORAGE_KEY_AI_MODEL = 'vm_ai_model';
+const STORAGE_KEY_AI_BASE_URL = 'vm_ai_base_url';
 
 export interface CategorizeRequest {
   description: string;
@@ -13,48 +17,111 @@ export interface CategorizeRequest {
 
 export class AiBookingService {
   /**
-   * Retrieves the locally saved Gemini API Key
+   * Retrieves the comprehensive AI configuration
    */
-  static getStoredApiKey(): string {
+  static getAiConfig(): AiConfig {
     try {
-      return localStorage.getItem(STORAGE_KEY_GEMINI_KEY)?.trim() || '';
+      const provider = (localStorage.getItem(STORAGE_KEY_AI_PROVIDER) as AiProviderType) || 'gemini';
+      const apiKey =
+        localStorage.getItem(STORAGE_KEY_AI_API_KEY)?.trim() ||
+        localStorage.getItem(STORAGE_KEY_GEMINI_KEY)?.trim() ||
+        '';
+      const model = localStorage.getItem(STORAGE_KEY_AI_MODEL)?.trim() || '';
+      const baseUrl = localStorage.getItem(STORAGE_KEY_AI_BASE_URL)?.trim() || '';
+      return { provider, apiKey, model, baseUrl };
     } catch {
-      return '';
+      return { provider: 'gemini', apiKey: '' };
     }
   }
 
   /**
-   * Saves the Gemini API Key locally in the user's browser / storage
+   * Persists the AI configuration locally
    */
-  static setStoredApiKey(apiKey: string): void {
+  static setAiConfig(config: AiConfig): void {
     try {
-      if (apiKey && apiKey.trim()) {
-        localStorage.setItem(STORAGE_KEY_GEMINI_KEY, apiKey.trim());
+      localStorage.setItem(STORAGE_KEY_AI_PROVIDER, config.provider);
+      if (config.apiKey?.trim()) {
+        localStorage.setItem(STORAGE_KEY_AI_API_KEY, config.apiKey.trim());
+        if (config.provider === 'gemini') {
+          localStorage.setItem(STORAGE_KEY_GEMINI_KEY, config.apiKey.trim());
+        }
       } else {
-        localStorage.removeItem(STORAGE_KEY_GEMINI_KEY);
+        localStorage.removeItem(STORAGE_KEY_AI_API_KEY);
+        if (config.provider === 'gemini') {
+          localStorage.removeItem(STORAGE_KEY_GEMINI_KEY);
+        }
+      }
+
+      if (config.model?.trim()) {
+        localStorage.setItem(STORAGE_KEY_AI_MODEL, config.model.trim());
+      } else {
+        localStorage.removeItem(STORAGE_KEY_AI_MODEL);
+      }
+
+      if (config.baseUrl?.trim()) {
+        localStorage.setItem(STORAGE_KEY_AI_BASE_URL, config.baseUrl.trim());
+      } else {
+        localStorage.removeItem(STORAGE_KEY_AI_BASE_URL);
       }
     } catch (e) {
-      console.warn('Could not persist Gemini API key to localStorage:', e);
+      console.warn('Could not persist AI config:', e);
     }
   }
 
   /**
-   * Tests whether an API key or the backend connection is working
+   * Retrieves the locally saved API Key (backward compatible)
    */
-  static async testConnection(customApiKey?: string): Promise<{ success: boolean; message: string }> {
-    const keyToTest = (customApiKey || this.getStoredApiKey()).trim();
+  static getStoredApiKey(): string {
+    return this.getAiConfig().apiKey;
+  }
 
-    // 1. Try server endpoint
+  /**
+   * Saves the API Key locally in the user's browser / storage (backward compatible)
+   */
+  static setStoredApiKey(apiKey: string): void {
+    const current = this.getAiConfig();
+    this.setAiConfig({ ...current, apiKey });
+  }
+
+  /**
+   * Tests whether an API key or the backend connection is working for the given provider
+   */
+  static async testConnection(
+    customApiKey?: string,
+    customProvider?: AiProviderType,
+    customModel?: string,
+    customBaseUrl?: string
+  ): Promise<{ success: boolean; message: string }> {
+    const current = this.getAiConfig();
+    const provider = customProvider || current.provider || 'gemini';
+    const keyToTest = (customApiKey !== undefined ? customApiKey : current.apiKey).trim();
+    const model = customModel !== undefined ? customModel : current.model;
+    const baseUrl = customBaseUrl !== undefined ? customBaseUrl : current.baseUrl;
+
+    // 1. Try server endpoint first
     try {
-      const res = await fetch('/api/test-gemini-key', {
+      const res = await fetch('/api/test-ai-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: keyToTest }),
+        body: JSON.stringify({
+          apiKey: keyToTest,
+          provider,
+          model,
+          baseUrl,
+        }),
       });
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
-          return { success: true, message: data.message || 'Verbindung zu Google Gemini erfolgreich hergestellt.' };
+          return {
+            success: true,
+            message: data.message || `Verbindung zu ${provider.toUpperCase()} erfolgreich hergestellt.`,
+          };
+        }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        if (errData?.error) {
+          return { success: false, message: `Fehler: ${errData.error}` };
         }
       }
     } catch {
@@ -62,32 +129,114 @@ export class AiBookingService {
     }
 
     // 2. Direct client fallback test if in standalone / offline environment
-    if (keyToTest) {
+    if (provider === 'openai') {
+      if (!keyToTest) return { success: false, message: 'Bitte geben Sie Ihren OpenAI API-Schlüssel ein.' };
       try {
-        const directUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(keyToTest)}`;
-        const res = await fetch(directUrl, {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${keyToTest}`,
+          },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: 'Antworte mit OK.' }] }],
+            model: model || 'gpt-4o-mini',
+            messages: [{ role: 'user', content: 'Antworte mit OK.' }],
+            max_tokens: 10,
           }),
         });
-
         if (res.ok) {
-          return { success: true, message: 'Verbindung zu Google Gemini erfolgreich hergestellt (Direktmodus).' };
-        } else {
-          const errData = await res.json().catch(() => ({}));
-          const errMsg = errData.error?.message || `HTTP ${res.status}: Autorisierung fehlgeschlagen.`;
-          return { success: false, message: `Fehler: ${errMsg}` };
+          return { success: true, message: `Verbindung zu OpenAI (${model || 'gpt-4o-mini'}) erfolgreich.` };
         }
+        const errData = await res.json().catch(() => ({}));
+        return { success: false, message: errData?.error?.message || `Fehler HTTP ${res.status}` };
       } catch (err: any) {
-        return { success: false, message: err?.message || 'Netzwerkfehler bei der Verbindung zu Google Gemini.' };
+        return { success: false, message: err?.message || 'Netzwerkfehler bei Verbindung zu OpenAI.' };
       }
+    }
+
+    if (provider === 'anthropic') {
+      if (!keyToTest) return { success: false, message: 'Bitte geben Sie Ihren Anthropic API-Schlüssel ein.' };
+      try {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': keyToTest,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: model || 'claude-3-5-haiku-20241022',
+            max_tokens: 10,
+            messages: [{ role: 'user', content: 'Antworte mit OK.' }],
+          }),
+        });
+        if (res.ok) {
+          return { success: true, message: `Verbindung zu Anthropic Claude erfolgreich.` };
+        }
+        const errData = await res.json().catch(() => ({}));
+        return { success: false, message: errData?.error?.message || `Fehler HTTP ${res.status}` };
+      } catch (err: any) {
+        return { success: false, message: err?.message || 'Netzwerkfehler bei Verbindung zu Anthropic.' };
+      }
+    }
+
+    if (provider === 'custom') {
+      const base = (baseUrl?.trim() || 'http://localhost:11434/v1').replace(/\/+$/, '');
+      try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (keyToTest) headers['Authorization'] = `Bearer ${keyToTest}`;
+        const res = await fetch(`${base}/chat/completions`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: model || 'llama3.2',
+            messages: [{ role: 'user', content: 'Antworte mit OK.' }],
+            max_tokens: 10,
+          }),
+        });
+        if (res.ok) {
+          return { success: true, message: `Verbindung zum benutzerdefinierten Endpunkt erfolgreich.` };
+        }
+        const errData = await res.json().catch(() => ({}));
+        return { success: false, message: errData?.error?.message || `Fehler HTTP ${res.status}` };
+      } catch (err: any) {
+        return { success: false, message: err?.message || 'Verbindung zum Endpunkt fehlgeschlagen.' };
+      }
+    }
+
+    // Default: Gemini client fallback
+    if (keyToTest) {
+      const candidateModels = ['gemini-3.7-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-3.6-flash'];
+      let lastErrMsg = '';
+
+      for (const m of candidateModels) {
+        try {
+          const directUrl = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(keyToTest)}`;
+          const res = await fetch(directUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: 'Antworte mit OK.' }] }],
+            }),
+          });
+
+          if (res.ok) {
+            return { success: true, message: `Verbindung zu Google Gemini erfolgreich hergestellt (${m}).` };
+          } else {
+            const errData = await res.json().catch(() => ({}));
+            lastErrMsg = errData.error?.message || `HTTP ${res.status}: Autorisierung fehlgeschlagen.`;
+          }
+        } catch (err: any) {
+          lastErrMsg = err?.message || 'Netzwerkfehler bei der Verbindung zu Google Gemini.';
+        }
+      }
+
+      return { success: false, message: `Fehler: ${lastErrMsg || 'Autorisierung fehlgeschlagen.'}` };
     }
 
     return {
       success: false,
-      message: 'Kein API-Schlüssel hinterlegt. Bitte geben Sie Ihren Google Gemini API-Schlüssel ein.',
+      message: 'Kein API-Schlüssel hinterlegt. Bitte geben Sie Ihren API-Schlüssel ein.',
     };
   }
 
@@ -98,7 +247,8 @@ export class AiBookingService {
     req: CategorizeRequest,
     customApiKey?: string
   ): Promise<BookingAiSuggestion> {
-    const effectiveKey = (customApiKey || this.getStoredApiKey()).trim();
+    const aiConfig = this.getAiConfig();
+    const effectiveKey = (customApiKey || aiConfig.apiKey).trim();
     const effectiveType = req.type === 'transfer' ? 'expense' : req.type;
 
     // 1. Try Backend API first (/api/categorize-booking)
@@ -113,6 +263,9 @@ export class AiBookingService {
           amount: req.amount,
           type: effectiveType,
           userApiKey: effectiveKey || undefined,
+          aiProvider: aiConfig.provider,
+          aiModel: aiConfig.model,
+          aiBaseUrl: aiConfig.baseUrl,
         }),
       });
 
@@ -123,7 +276,6 @@ export class AiBookingService {
         }
       } else {
         const errorData = await response.json().catch(() => ({}));
-        // If server returned a meaningful error message
         if (errorData?.error && !errorData.error.includes('Kein Gemini API-Schlüssel')) {
           throw new Error(errorData.error);
         }
@@ -140,7 +292,7 @@ export class AiBookingService {
     }
 
     throw new Error(
-      'Kein Google Gemini API-Schlüssel gefunden. Bitte hinterlegen Sie Ihren API-Schlüssel in den Einstellungen (1. Allgemeine Einstellungen > KI-Assistent).'
+      'Kein API-Schlüssel hinterlegt. Bitte hinterlegen Sie Ihren API-Schlüssel in den Einstellungen (1. Allgemeine Einstellungen > KI-Assistent).'
     );
   }
 
@@ -182,7 +334,7 @@ Gib ausschließlich valides JSON mit diesem Schema aus:
   "reasoning": "Kurze Begründung nach Gemeinnützigkeitsrecht"
 }`;
 
-    const models = ['gemini-2.5-flash', 'gemini-3.7-flash', 'gemini-flash-latest'];
+    const models = ['gemini-2.5-flash', 'gemini-3.7-flash', 'gemini-flash-latest', 'gemini-2.0-flash', 'gemini-3.1-flash-lite', 'gemini-3.6-flash'];
     let lastError: any = null;
 
     for (const model of models) {

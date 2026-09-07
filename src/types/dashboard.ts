@@ -2,6 +2,9 @@ export type DashboardWidgetCategory =
   | 'overview'
   | 'members'
   | 'finance'
+  | 'invoices'
+  | 'contacts'
+  | 'meetings'
   | 'calendar'
   | 'inventory'
   | 'documents';

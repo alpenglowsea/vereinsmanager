@@ -85,6 +85,6 @@ jobs:
             - **Linux**: `.AppImage` oder `.deb`
             
             *Keine Installation von Node.js oder Webservern erforderlich. Einfach herunterladen und per Doppelklick starten.*
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}

@@ -15,12 +15,20 @@ import {
   CalendarEvent,
   CalendarEventCategory,
   OnlineMembershipApplication,
-  ApplicationTemplateSettings
+  ApplicationTemplateSettings,
+  ClubContact,
+  ClubInvoice,
+  InvoiceTemplateSettings,
+  Meeting,
+  MeetingTemplateSettings
 } from '../types';
 import { UserDashboardConfig } from '../types/dashboard';
 import { DEFAULT_DASHBOARD_CONFIG } from '../data/defaultDashboard';
 import { DEFAULT_DEPARTMENTS } from '../data/taxSpheres';
 import { INITIAL_INVENTORY } from '../data/initialInventory';
+import { INITIAL_CONTACTS } from '../data/initialContacts';
+import { INITIAL_INVOICES, DEFAULT_INVOICE_TEMPLATE } from '../data/initialInvoices';
+import { INITIAL_MEETINGS, DEFAULT_MEETING_TEMPLATE } from '../data/initialMeetings';
 import { getInitialDocuments } from '../data/initialDocuments';
 import { getInitialFolders } from '../data/initialFolders';
 import { DEFAULT_CALENDAR_CATEGORIES, INITIAL_CALENDAR_EVENTS } from '../data/initialEvents';
@@ -63,7 +71,12 @@ const STORES = {
   CALENDAR_CATEGORIES: 'calendar_categories',
   ONLINE_APPLICATIONS: 'online_applications',
   APPLICATION_SETTINGS: 'application_settings',
-  DASHBOARD_CONFIG: 'dashboard_config'
+  DASHBOARD_CONFIG: 'dashboard_config',
+  CONTACTS: 'contacts',
+  INVOICES: 'invoices',
+  INVOICE_TEMPLATES: 'invoice_templates',
+  MEETINGS: 'meetings',
+  MEETING_TEMPLATES: 'meeting_templates'
 };
 
 const DEFAULT_SETTINGS: ClubSettings = {
@@ -82,7 +95,14 @@ const DEFAULT_SETTINGS: ClubSettings = {
   chairman: 'Dr. Michael Sommer',
   treasurer: 'Sabine Weber',
   email: 'vorstand@tsv-musterstadt1890.de',
-  departments: DEFAULT_DEPARTMENTS
+  departments: DEFAULT_DEPARTMENTS,
+  smtpHost: 'smtp.ionos.de',
+  smtpPort: 587,
+  smtpSecure: false,
+  smtpUser: 'vorstand@tsv-musterstadt1890.de',
+  smtpPassword: '',
+  smtpFromEmail: 'vorstand@tsv-musterstadt1890.de',
+  smtpFromName: 'TSV Musterstadt 1890 e.V. Vorstand'
 };
 
 const DEFAULT_APPLICATION_SETTINGS: ApplicationTemplateSettings = {
@@ -1066,6 +1086,15 @@ export const StorageService = {
     sepaRuns: number;
     auditLogs: number;
     settings: boolean;
+    documents: number;
+    folders: number;
+    donations: number;
+    contacts: number;
+    invoices: number;
+    meetings: number;
+    calendarEvents: number;
+    calendarCategories: number;
+    onlineApplications: number;
   }> {
     if (!getStoredSupabaseConfig().isConfigured) {
       throw new Error('Supabase ist noch nicht mit URL und Anon Key konfiguriert.');
@@ -1078,7 +1107,20 @@ export const StorageService = {
       localInventory,
       localSepaRuns,
       localAuditLogs,
-      localSettings
+      localSettings,
+      localDocuments,
+      localFolders,
+      localDonations,
+      localContacts,
+      localInvoices,
+      localInvoiceTemplate,
+      localMeetings,
+      localMeetingTemplate,
+      localCalendarEvents,
+      localCalendarCategories,
+      localOnlineApplications,
+      localApplicationSettings,
+      localDashboardConfig
     ] = await Promise.all([
       getAllFromStore<Member>(STORES.MEMBERS),
       getAllFromStore<Transaction>(STORES.TRANSACTIONS),
@@ -1086,7 +1128,20 @@ export const StorageService = {
       getAllFromStore<InventoryItem>(STORES.INVENTORY),
       getAllFromStore<SepaRunHistory>(STORES.SEPA_RUNS),
       getAllFromStore<MemberAuditLog>(STORES.AUDIT_LOGS),
-      this.getSettings()
+      this.getSettings(),
+      getAllFromStore<ClubDocument>(STORES.DOCUMENTS),
+      getAllFromStore<DocumentFolder>(STORES.FOLDERS),
+      getAllFromStore<DonationReceipt>(STORES.DONATIONS),
+      getAllFromStore<ClubContact>(STORES.CONTACTS),
+      getAllFromStore<ClubInvoice>(STORES.INVOICES),
+      this.getInvoiceTemplate(),
+      getAllFromStore<Meeting>(STORES.MEETINGS),
+      this.getMeetingTemplate(),
+      getAllFromStore<CalendarEvent>(STORES.CALENDAR_EVENTS),
+      getAllFromStore<CalendarEventCategory>(STORES.CALENDAR_CATEGORIES),
+      getAllFromStore<OnlineMembershipApplication>(STORES.ONLINE_APPLICATIONS),
+      this.getApplicationTemplateSettings(),
+      this.getDashboardConfig()
     ]);
 
     // 1. Settings
@@ -1124,6 +1179,71 @@ export const StorageService = {
       await CloudStorageService.saveAuditLog(log);
     }
 
+    // 8. Folders
+    if (localFolders.length > 0) {
+      await CloudStorageService.batchSaveFolders(localFolders);
+    }
+
+    // 9. Documents
+    if (localDocuments.length > 0) {
+      await CloudStorageService.batchSaveDocuments(localDocuments);
+    }
+
+    // 10. Donations
+    if (localDonations.length > 0) {
+      await CloudStorageService.batchSaveDonations(localDonations);
+    }
+
+    // 11. Contacts
+    if (localContacts.length > 0) {
+      await CloudStorageService.batchSaveContacts(localContacts);
+    }
+
+    // 12. Invoices
+    if (localInvoices.length > 0) {
+      await CloudStorageService.batchSaveInvoices(localInvoices);
+    }
+
+    // 13. Invoice Template
+    if (localInvoiceTemplate) {
+      await CloudStorageService.saveInvoiceTemplate(localInvoiceTemplate);
+    }
+
+    // 14. Meetings
+    if (localMeetings.length > 0) {
+      await CloudStorageService.batchSaveMeetings(localMeetings);
+    }
+
+    // 15. Meeting Template
+    if (localMeetingTemplate) {
+      await CloudStorageService.saveMeetingTemplate(localMeetingTemplate);
+    }
+
+    // 16. Calendar Categories
+    if (localCalendarCategories.length > 0) {
+      await CloudStorageService.batchSaveCalendarCategories(localCalendarCategories);
+    }
+
+    // 17. Calendar Events
+    if (localCalendarEvents.length > 0) {
+      await CloudStorageService.batchSaveCalendarEvents(localCalendarEvents);
+    }
+
+    // 18. Online Applications
+    if (localOnlineApplications.length > 0) {
+      await CloudStorageService.batchSaveOnlineApplications(localOnlineApplications);
+    }
+
+    // 19. Application Settings
+    if (localApplicationSettings) {
+      await CloudStorageService.saveApplicationSettings(localApplicationSettings);
+    }
+
+    // 20. Dashboard Config
+    if (localDashboardConfig) {
+      await CloudStorageService.saveDashboardConfig(localDashboardConfig);
+    }
+
     // Switch mode to cloud
     this.setDeploymentMode('cloud');
 
@@ -1134,7 +1254,16 @@ export const StorageService = {
       inventory: localInventory.length,
       sepaRuns: localSepaRuns.length,
       auditLogs: localAuditLogs.length,
-      settings: Boolean(localSettings)
+      settings: Boolean(localSettings),
+      documents: localDocuments.length,
+      folders: localFolders.length,
+      donations: localDonations.length,
+      contacts: localContacts.length,
+      invoices: localInvoices.length,
+      meetings: localMeetings.length,
+      calendarEvents: localCalendarEvents.length,
+      calendarCategories: localCalendarCategories.length,
+      onlineApplications: localOnlineApplications.length
     };
   },
 
@@ -1154,6 +1283,7 @@ export const StorageService = {
         await saveAllToStore(STORES.FOLDERS, getInitialFolders());
         await saveAllToStore(STORES.DOCUMENTS, getInitialDocuments());
         await saveAllToStore(STORES.DONATIONS, INITIAL_DONATIONS);
+        await saveAllToStore(STORES.CONTACTS, INITIAL_CONTACTS);
         await saveAllToStore(STORES.CALENDAR_CATEGORIES, DEFAULT_CALENDAR_CATEGORIES);
         await saveAllToStore(STORES.CALENDAR_EVENTS, INITIAL_CALENDAR_EVENTS);
         await putItemToStore(STORES.SETTINGS, { id: 'main', ...DEFAULT_SETTINGS });
@@ -1249,6 +1379,7 @@ export const StorageService = {
     await saveAllToStore(STORES.FOLDERS, getInitialFolders());
     await saveAllToStore(STORES.DOCUMENTS, getInitialDocuments());
     await saveAllToStore(STORES.DONATIONS, INITIAL_DONATIONS);
+    await saveAllToStore(STORES.CONTACTS, INITIAL_CONTACTS);
     await putItemToStore(STORES.SETTINGS, { id: 'main', ...DEFAULT_SETTINGS });
     await this.syncReceiptsToDocuments();
     await this.syncDonationsToDocuments();
@@ -2038,11 +2169,30 @@ export const StorageService = {
 
   // Documents Management
   async getDocuments(): Promise<ClubDocument[]> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudDocs = await CloudStorageService.getDocuments();
+        if (cloudDocs && cloudDocs.length > 0) {
+          saveAllToStore(STORES.DOCUMENTS, cloudDocs).catch(() => {});
+          return cloudDocs;
+        }
+      } catch (err) {
+        console.warn('Cloud getDocuments error:', err);
+      }
+    }
     const docs = await getAllFromStore<ClubDocument>(STORES.DOCUMENTS);
     return docs.sort((a, b) => new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime());
   },
 
   async getDocument(id: string): Promise<ClubDocument | null> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudDoc = await CloudStorageService.getDocument(id);
+        if (cloudDoc) return cloudDoc;
+      } catch (err) {
+        console.warn('Cloud getDocument error:', err);
+      }
+    }
     return getItemFromStore<ClubDocument>(STORES.DOCUMENTS, id);
   },
 
@@ -2054,6 +2204,9 @@ export const StorageService = {
     }
     document.updatedAt = now;
     await putItemToStore(STORES.DOCUMENTS, document);
+    if (this.isCloudActive()) {
+      await CloudStorageService.saveDocument(document);
+    }
   },
 
   async saveBatchDocuments(documents: ClubDocument[]): Promise<void> {
@@ -2061,10 +2214,16 @@ export const StorageService = {
     const map = new Map<string, ClubDocument>(current.map(d => [d.id, d]));
     documents.forEach(d => map.set(d.id, d));
     await saveAllToStore(STORES.DOCUMENTS, Array.from(map.values()));
+    if (this.isCloudActive()) {
+      await CloudStorageService.batchSaveDocuments(documents);
+    }
   },
 
   async deleteDocument(id: string): Promise<void> {
     await deleteItemFromStore(STORES.DOCUMENTS, id);
+    if (this.isCloudActive()) {
+      await CloudStorageService.deleteDocument(id);
+    }
   },
 
   async deleteMultipleDocuments(ids: string[]): Promise<number> {
@@ -2072,6 +2231,9 @@ export const StorageService = {
     const idSet = new Set(ids);
     const remaining = current.filter(d => !idSet.has(d.id));
     await saveAllToStore(STORES.DOCUMENTS, remaining);
+    if (this.isCloudActive()) {
+      await CloudStorageService.deleteMultipleDocuments(ids);
+    }
     return ids.length;
   },
 
@@ -2092,21 +2254,47 @@ export const StorageService = {
       return d;
     });
     await saveAllToStore(STORES.DOCUMENTS, updated);
+    if (this.isCloudActive()) {
+      const changed = updated.filter(d => idSet.has(d.id));
+      await CloudStorageService.batchSaveDocuments(changed);
+    }
     return count;
   },
 
   // Folder Management
   async getFolders(): Promise<DocumentFolder[]> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudFolders = await CloudStorageService.getFolders();
+        if (cloudFolders && cloudFolders.length > 0) {
+          saveAllToStore(STORES.FOLDERS, cloudFolders).catch(() => {});
+          return cloudFolders;
+        }
+      } catch (err) {
+        console.warn('Cloud getFolders error:', err);
+      }
+    }
     const folders = await getAllFromStore<DocumentFolder>(STORES.FOLDERS);
     if (!folders || folders.length === 0) {
       const initial = getInitialFolders();
       await saveAllToStore(STORES.FOLDERS, initial);
+      if (this.isCloudActive()) {
+        await CloudStorageService.batchSaveFolders(initial);
+      }
       return initial;
     }
     return folders.sort((a, b) => a.name.localeCompare(b.name, 'de'));
   },
 
   async getFolder(id: string): Promise<DocumentFolder | null> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudFolder = await CloudStorageService.getFolder(id);
+        if (cloudFolder) return cloudFolder;
+      } catch (err) {
+        console.warn('Cloud getFolder error:', err);
+      }
+    }
     return getItemFromStore<DocumentFolder>(STORES.FOLDERS, id);
   },
 
@@ -2118,6 +2306,9 @@ export const StorageService = {
     }
     folder.updatedAt = now;
     await putItemToStore(STORES.FOLDERS, folder);
+    if (this.isCloudActive()) {
+      await CloudStorageService.saveFolder(folder);
+    }
   },
 
   async deleteFolder(folderId: string): Promise<void> {
@@ -2153,11 +2344,20 @@ export const StorageService = {
 
     if (docsChanged) {
       await saveAllToStore(STORES.DOCUMENTS, updatedDocs);
+      if (this.isCloudActive()) {
+        const modifiedDocs = updatedDocs.filter(d => d.folderId === undefined);
+        await CloudStorageService.batchSaveDocuments(modifiedDocs);
+      }
     }
 
     // Remove deleted folders
     const remainingFolders = allFolders.filter(f => !toDeleteIds.has(f.id));
     await saveAllToStore(STORES.FOLDERS, remainingFolders);
+    if (this.isCloudActive()) {
+      for (const id of toDeleteIds) {
+        await CloudStorageService.deleteFolder(id).catch(() => {});
+      }
+    }
   },
 
   async moveDocumentToFolder(docId: string, folderId: string | null, newCategory?: DocumentCategory): Promise<void> {
@@ -2239,11 +2439,30 @@ export const StorageService = {
 
   // Spenden & Zuwendungsbestätigungen (BMF Muster)
   async getDonations(): Promise<DonationReceipt[]> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudDonations = await CloudStorageService.getDonations();
+        if (cloudDonations && cloudDonations.length > 0) {
+          saveAllToStore(STORES.DONATIONS, cloudDonations).catch(() => {});
+          return cloudDonations;
+        }
+      } catch (err) {
+        console.warn('Cloud getDonations error:', err);
+      }
+    }
     const donations = await getAllFromStore<DonationReceipt>(STORES.DONATIONS);
     return donations.sort((a, b) => new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime());
   },
 
   async getDonation(id: string): Promise<DonationReceipt | null> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudDon = await CloudStorageService.getDonation(id);
+        if (cloudDon) return cloudDon;
+      } catch (err) {
+        console.warn('Cloud getDonation error:', err);
+      }
+    }
     return getItemFromStore<DonationReceipt>(STORES.DONATIONS, id);
   },
 
@@ -2326,6 +2545,9 @@ export const StorageService = {
     }
 
     await putItemToStore(STORES.DONATIONS, toSave);
+    if (this.isCloudActive()) {
+      await CloudStorageService.saveDonation(toSave);
+    }
 
     return { receipt: toSave, document: createdDoc, transaction: createdTx };
   },
@@ -2336,7 +2558,283 @@ export const StorageService = {
       await this.deleteDocument(existing.documentId).catch(() => {});
     }
     await deleteItemFromStore(STORES.DONATIONS, id);
+    if (this.isCloudActive()) {
+      await CloudStorageService.deleteDonation(id);
+    }
   },
+
+  // ----------------------------------------------------
+  // KONTAKTVERWALTUNG (KONTRAHENTEN, SPONSOREN, LIEFERANTEN)
+  // ----------------------------------------------------
+  async getContacts(): Promise<ClubContact[]> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudContacts = await CloudStorageService.getContacts();
+        if (cloudContacts && cloudContacts.length > 0) {
+          saveAllToStore(STORES.CONTACTS, cloudContacts).catch(() => {});
+          return cloudContacts;
+        }
+      } catch (err) {
+        console.warn('Cloud getContacts error:', err);
+      }
+    }
+    const contacts = await getAllFromStore<ClubContact>(STORES.CONTACTS);
+    if (contacts.length === 0 && isDemoModeActive()) {
+      await saveAllToStore(STORES.CONTACTS, INITIAL_CONTACTS);
+      if (this.isCloudActive()) {
+        await CloudStorageService.batchSaveContacts(INITIAL_CONTACTS);
+      }
+      return [...INITIAL_CONTACTS];
+    }
+    return contacts.sort((a, b) => (a.displayName || '').localeCompare(b.displayName || '', 'de'));
+  },
+
+  async getContact(id: string): Promise<ClubContact | null> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudContact = await CloudStorageService.getContact(id);
+        if (cloudContact) return cloudContact;
+      } catch (err) {
+        console.warn('Cloud getContact error:', err);
+      }
+    }
+    return getItemFromStore<ClubContact>(STORES.CONTACTS, id);
+  },
+
+  async saveContact(contact: ClubContact): Promise<ClubContact> {
+    const now = new Date().toISOString();
+    const existing = await getItemFromStore<ClubContact>(STORES.CONTACTS, contact.id);
+    const toSave: ClubContact = {
+      ...contact,
+      createdAt: existing?.createdAt || contact.createdAt || now,
+      updatedAt: now
+    };
+    await putItemToStore(STORES.CONTACTS, toSave);
+    if (this.isCloudActive()) {
+      await CloudStorageService.saveContact(toSave);
+    }
+    return toSave;
+  },
+
+  async saveContacts(contacts: ClubContact[]): Promise<void> {
+    await saveAllToStore(STORES.CONTACTS, contacts);
+    if (this.isCloudActive()) {
+      await CloudStorageService.batchSaveContacts(contacts);
+    }
+  },
+
+  async deleteContact(id: string): Promise<void> {
+    await deleteItemFromStore(STORES.CONTACTS, id);
+    if (this.isCloudActive()) {
+      await CloudStorageService.deleteContact(id);
+    }
+  },
+
+  // ----------------------------------------------------
+  // RECHNUNGSVERWALTUNG & VORLAGEN
+  // ----------------------------------------------------
+  async getInvoices(): Promise<ClubInvoice[]> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudInvoices = await CloudStorageService.getInvoices();
+        if (cloudInvoices && cloudInvoices.length > 0) {
+          saveAllToStore(STORES.INVOICES, cloudInvoices).catch(() => {});
+          return cloudInvoices;
+        }
+      } catch (err) {
+        console.warn('Cloud getInvoices error:', err);
+      }
+    }
+    const invoices = await getAllFromStore<ClubInvoice>(STORES.INVOICES);
+    if (invoices.length === 0 && isDemoModeActive()) {
+      await saveAllToStore(STORES.INVOICES, INITIAL_INVOICES);
+      if (this.isCloudActive()) {
+        await CloudStorageService.batchSaveInvoices(INITIAL_INVOICES);
+      }
+      return [...INITIAL_INVOICES];
+    }
+    return invoices.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+  },
+
+  async getInvoice(id: string): Promise<ClubInvoice | null> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudInv = await CloudStorageService.getInvoice(id);
+        if (cloudInv) return cloudInv;
+      } catch (err) {
+        console.warn('Cloud getInvoice error:', err);
+      }
+    }
+    return getItemFromStore<ClubInvoice>(STORES.INVOICES, id);
+  },
+
+  async saveInvoice(invoice: ClubInvoice): Promise<ClubInvoice> {
+    const now = new Date().toISOString();
+    const existing = await getItemFromStore<ClubInvoice>(STORES.INVOICES, invoice.id);
+    const toSave: ClubInvoice = {
+      ...invoice,
+      createdAt: existing?.createdAt || invoice.createdAt || now,
+      updatedAt: now
+    };
+    await putItemToStore(STORES.INVOICES, toSave);
+    if (this.isCloudActive()) {
+      await CloudStorageService.saveInvoice(toSave);
+    }
+    return toSave;
+  },
+
+  async saveInvoices(invoices: ClubInvoice[]): Promise<void> {
+    await saveAllToStore(STORES.INVOICES, invoices);
+    if (this.isCloudActive()) {
+      await CloudStorageService.batchSaveInvoices(invoices);
+    }
+  },
+
+  async deleteInvoice(id: string): Promise<void> {
+    const existing = await getItemFromStore<ClubInvoice>(STORES.INVOICES, id);
+    if (existing?.documentId) {
+      await this.deleteDocument(existing.documentId).catch(() => {});
+    }
+    await deleteItemFromStore(STORES.INVOICES, id);
+    if (this.isCloudActive()) {
+      await CloudStorageService.deleteInvoice(id);
+    }
+  },
+
+  async getInvoiceTemplate(): Promise<InvoiceTemplateSettings> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudTemplate = await CloudStorageService.getInvoiceTemplate();
+        if (cloudTemplate) {
+          await putItemToStore(STORES.INVOICE_TEMPLATES, { id: 'main_template', ...cloudTemplate });
+          return cloudTemplate;
+        }
+      } catch (err) {
+        console.warn('Cloud getInvoiceTemplate error:', err);
+      }
+    }
+    const stored = await getItemFromStore<InvoiceTemplateSettings & { id: string }>(
+      STORES.INVOICE_TEMPLATES,
+      'main_template'
+    );
+    if (!stored) {
+      return DEFAULT_INVOICE_TEMPLATE;
+    }
+    return stored;
+  },
+
+  async saveInvoiceTemplate(template: InvoiceTemplateSettings): Promise<InvoiceTemplateSettings> {
+    const toSave = { id: 'main_template', ...template };
+    await putItemToStore(STORES.INVOICE_TEMPLATES, toSave);
+    if (this.isCloudActive()) {
+      await CloudStorageService.saveInvoiceTemplate(template);
+    }
+    return toSave;
+  },
+
+  // ----------------------------------------------------
+  // SITZUNGS- & PROTOKOLLVERWALTUNG
+  // ----------------------------------------------------
+  async getMeetings(): Promise<Meeting[]> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudMeetings = await CloudStorageService.getMeetings();
+        if (cloudMeetings && cloudMeetings.length > 0) {
+          saveAllToStore(STORES.MEETINGS, cloudMeetings).catch(() => {});
+          return cloudMeetings;
+        }
+      } catch (err) {
+        console.warn('Cloud getMeetings error:', err);
+      }
+    }
+    const meetings = await getAllFromStore<Meeting>(STORES.MEETINGS);
+    if (meetings.length === 0 && isDemoModeActive()) {
+      await saveAllToStore(STORES.MEETINGS, INITIAL_MEETINGS);
+      if (this.isCloudActive()) {
+        await CloudStorageService.batchSaveMeetings(INITIAL_MEETINGS);
+      }
+      return [...INITIAL_MEETINGS];
+    }
+    return meetings.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+  },
+
+  async getMeeting(id: string): Promise<Meeting | null> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudMeeting = await CloudStorageService.getMeeting(id);
+        if (cloudMeeting) return cloudMeeting;
+      } catch (err) {
+        console.warn('Cloud getMeeting error:', err);
+      }
+    }
+    return getItemFromStore<Meeting>(STORES.MEETINGS, id);
+  },
+
+  async saveMeeting(meeting: Meeting): Promise<Meeting> {
+    const now = new Date().toISOString();
+    const existing = await getItemFromStore<Meeting>(STORES.MEETINGS, meeting.id);
+    const toSave: Meeting = {
+      ...meeting,
+      createdAt: existing?.createdAt || meeting.createdAt || now,
+      updatedAt: now
+    };
+    await putItemToStore(STORES.MEETINGS, toSave);
+    if (this.isCloudActive()) {
+      await CloudStorageService.saveMeeting(toSave);
+    }
+    return toSave;
+  },
+
+  async saveMeetings(meetings: Meeting[]): Promise<void> {
+    await saveAllToStore(STORES.MEETINGS, meetings);
+    if (this.isCloudActive()) {
+      await CloudStorageService.batchSaveMeetings(meetings);
+    }
+  },
+
+  async deleteMeeting(id: string): Promise<void> {
+    const existing = await getItemFromStore<Meeting>(STORES.MEETINGS, id);
+    if (existing?.documentId) {
+      await this.deleteDocument(existing.documentId).catch(() => {});
+    }
+    await deleteItemFromStore(STORES.MEETINGS, id);
+    if (this.isCloudActive()) {
+      await CloudStorageService.deleteMeeting(id);
+    }
+  },
+
+  async getMeetingTemplate(): Promise<MeetingTemplateSettings> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudTemplate = await CloudStorageService.getMeetingTemplate();
+        if (cloudTemplate) {
+          await putItemToStore(STORES.MEETING_TEMPLATES, { id: 'main_meeting_template', ...cloudTemplate });
+          return cloudTemplate;
+        }
+      } catch (err) {
+        console.warn('Cloud getMeetingTemplate error:', err);
+      }
+    }
+    const stored = await getItemFromStore<MeetingTemplateSettings & { id: string }>(
+      STORES.MEETING_TEMPLATES,
+      'main_meeting_template'
+    );
+    if (!stored) {
+      return DEFAULT_MEETING_TEMPLATE;
+    }
+    return stored;
+  },
+
+  async saveMeetingTemplate(template: MeetingTemplateSettings): Promise<MeetingTemplateSettings> {
+    const toSave = { id: 'main_meeting_template', ...template };
+    await putItemToStore(STORES.MEETING_TEMPLATES, toSave);
+    if (this.isCloudActive()) {
+      await CloudStorageService.saveMeetingTemplate(template);
+    }
+    return toSave;
+  },
+
+
 
   /**
    * Synchronisiert alle Zuwendungsbestätigungen als PDF in die Dokumentenablage
@@ -2394,9 +2892,23 @@ export const StorageService = {
   // =========================================================================
 
   async getCalendarEvents(): Promise<CalendarEvent[]> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudEvents = await CloudStorageService.getCalendarEvents();
+        if (cloudEvents && cloudEvents.length > 0) {
+          saveAllToStore(STORES.CALENDAR_EVENTS, cloudEvents).catch(() => {});
+          return cloudEvents;
+        }
+      } catch (err) {
+        console.warn('Cloud getCalendarEvents error:', err);
+      }
+    }
     const events = await getAllFromStore<CalendarEvent>(STORES.CALENDAR_EVENTS);
     if (events.length === 0 && isDemoModeActive()) {
       await saveAllToStore(STORES.CALENDAR_EVENTS, INITIAL_CALENDAR_EVENTS);
+      if (this.isCloudActive()) {
+        await CloudStorageService.batchSaveCalendarEvents(INITIAL_CALENDAR_EVENTS);
+      }
       return INITIAL_CALENDAR_EVENTS;
     }
     return events;
@@ -2410,23 +2922,46 @@ export const StorageService = {
       createdAt: event.createdAt || now
     };
     await putItemToStore(STORES.CALENDAR_EVENTS, toSave);
+    if (this.isCloudActive()) {
+      await CloudStorageService.saveCalendarEvent(toSave);
+    }
     return toSave;
   },
 
   async deleteCalendarEvent(id: string): Promise<void> {
     await deleteItemFromStore(STORES.CALENDAR_EVENTS, id);
+    if (this.isCloudActive()) {
+      await CloudStorageService.deleteCalendarEvent(id);
+    }
   },
 
   async batchSaveCalendarEvents(events: CalendarEvent[]): Promise<void> {
     for (const evt of events) {
       await putItemToStore(STORES.CALENDAR_EVENTS, evt);
     }
+    if (this.isCloudActive()) {
+      await CloudStorageService.batchSaveCalendarEvents(events);
+    }
   },
 
   async getCalendarCategories(): Promise<CalendarEventCategory[]> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudCats = await CloudStorageService.getCalendarCategories();
+        if (cloudCats && cloudCats.length > 0) {
+          saveAllToStore(STORES.CALENDAR_CATEGORIES, cloudCats).catch(() => {});
+          return cloudCats;
+        }
+      } catch (err) {
+        console.warn('Cloud getCalendarCategories error:', err);
+      }
+    }
     const categories = await getAllFromStore<CalendarEventCategory>(STORES.CALENDAR_CATEGORIES);
     if (categories.length === 0) {
       await saveAllToStore(STORES.CALENDAR_CATEGORIES, DEFAULT_CALENDAR_CATEGORIES);
+      if (this.isCloudActive()) {
+        await CloudStorageService.batchSaveCalendarCategories(DEFAULT_CALENDAR_CATEGORIES);
+      }
       return DEFAULT_CALENDAR_CATEGORIES;
     }
     return categories;
@@ -2434,11 +2969,17 @@ export const StorageService = {
 
   async saveCalendarCategory(category: CalendarEventCategory): Promise<CalendarEventCategory> {
     await putItemToStore(STORES.CALENDAR_CATEGORIES, category);
+    if (this.isCloudActive()) {
+      await CloudStorageService.saveCalendarCategory(category);
+    }
     return category;
   },
 
   async deleteCalendarCategory(id: string): Promise<void> {
     await deleteItemFromStore(STORES.CALENDAR_CATEGORIES, id);
+    if (this.isCloudActive()) {
+      await CloudStorageService.deleteCalendarCategory(id);
+    }
   },
 
   // =========================================================================
@@ -2446,9 +2987,23 @@ export const StorageService = {
   // =========================================================================
 
   async getOnlineApplications(): Promise<OnlineMembershipApplication[]> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudApps = await CloudStorageService.getOnlineApplications();
+        if (cloudApps && cloudApps.length > 0) {
+          saveAllToStore(STORES.ONLINE_APPLICATIONS, cloudApps).catch(() => {});
+          return cloudApps;
+        }
+      } catch (err) {
+        console.warn('Cloud getOnlineApplications error:', err);
+      }
+    }
     const apps = await getAllFromStore<OnlineMembershipApplication>(STORES.ONLINE_APPLICATIONS);
     if (apps.length === 0 && isDemoModeActive()) {
       await saveAllToStore(STORES.ONLINE_APPLICATIONS, INITIAL_APPLICATIONS);
+      if (this.isCloudActive()) {
+        await CloudStorageService.batchSaveOnlineApplications(INITIAL_APPLICATIONS);
+      }
       return INITIAL_APPLICATIONS;
     }
     return apps;
@@ -2456,14 +3011,31 @@ export const StorageService = {
 
   async saveOnlineApplication(app: OnlineMembershipApplication): Promise<OnlineMembershipApplication> {
     await putItemToStore(STORES.ONLINE_APPLICATIONS, app);
+    if (this.isCloudActive()) {
+      await CloudStorageService.saveOnlineApplication(app);
+    }
     return app;
   },
 
   async deleteOnlineApplication(id: string): Promise<void> {
     await deleteItemFromStore(STORES.ONLINE_APPLICATIONS, id);
+    if (this.isCloudActive()) {
+      await CloudStorageService.deleteOnlineApplication(id);
+    }
   },
 
   async getApplicationTemplateSettings(): Promise<ApplicationTemplateSettings> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudSettings = await CloudStorageService.getApplicationSettings();
+        if (cloudSettings) {
+          await putItemToStore(STORES.APPLICATION_SETTINGS, { id: 'main', ...cloudSettings });
+          return cloudSettings;
+        }
+      } catch (err) {
+        console.warn('Cloud getApplicationSettings error:', err);
+      }
+    }
     const stored = await getItemFromStore<ApplicationTemplateSettings & { id: string }>(
       STORES.APPLICATION_SETTINGS,
       'main'
@@ -2476,6 +3048,9 @@ export const StorageService = {
 
   async saveApplicationTemplateSettings(settings: ApplicationTemplateSettings): Promise<ApplicationTemplateSettings> {
     await putItemToStore(STORES.APPLICATION_SETTINGS, { id: 'main', ...settings });
+    if (this.isCloudActive()) {
+      await CloudStorageService.saveApplicationSettings(settings);
+    }
     return settings;
   },
 
@@ -2643,6 +3218,12 @@ export const StorageService = {
       sepaRuns,
       documents,
       donations,
+      contacts,
+      invoices,
+      invoiceTemplate,
+      meetings,
+      meetingTemplate,
+      dashboardConfig,
       calendarEvents,
       calendarCategories,
       onlineApplications,
@@ -2657,6 +3238,12 @@ export const StorageService = {
       this.getSepaRuns(),
       this.getDocuments(),
       this.getDonations(),
+      this.getContacts(),
+      this.getInvoices(),
+      this.getInvoiceTemplate(),
+      this.getMeetings(),
+      this.getMeetingTemplate(),
+      this.getDashboardConfig(),
       this.getCalendarEvents(),
       this.getCalendarCategories(),
       this.getOnlineApplications(),
@@ -2677,6 +3264,12 @@ export const StorageService = {
         sepaRuns,
         documents,
         donations,
+        contacts,
+        invoices,
+        invoiceTemplate,
+        meetings,
+        meetingTemplate,
+        dashboardConfig,
         calendarEvents,
         calendarCategories,
         onlineApplications,
@@ -2688,7 +3281,17 @@ export const StorageService = {
     return JSON.stringify(backup, null, 2);
   },
 
-  async importFullBackup(jsonString: string): Promise<{ membersCount: number; transactionsCount: number; inventoryCount: number; documentsCount: number; donationsCount: number; calendarEventsCount: number }> {
+  async importFullBackup(jsonString: string): Promise<{
+    membersCount: number;
+    transactionsCount: number;
+    inventoryCount: number;
+    documentsCount: number;
+    donationsCount: number;
+    calendarEventsCount: number;
+    meetingsCount: number;
+    invoicesCount: number;
+    contactsCount: number;
+  }> {
     const parsed = JSON.parse(jsonString);
     if (!parsed.data) {
       throw new Error('Ungültiges Sicherungsformat');
@@ -2702,6 +3305,12 @@ export const StorageService = {
       sepaRuns = [],
       documents = [],
       donations = [],
+      contacts = [],
+      invoices = [],
+      invoiceTemplate,
+      meetings = [],
+      meetingTemplate,
+      dashboardConfig,
       calendarEvents = [],
       calendarCategories = [],
       onlineApplications = [],
@@ -2717,6 +3326,24 @@ export const StorageService = {
     await saveAllToStore(STORES.SEPA_RUNS, sepaRuns);
     await saveAllToStore(STORES.DOCUMENTS, documents);
     await saveAllToStore(STORES.DONATIONS, donations);
+    if (contacts.length > 0) {
+      await saveAllToStore(STORES.CONTACTS, contacts);
+    }
+    if (invoices.length > 0) {
+      await saveAllToStore(STORES.INVOICES, invoices);
+    }
+    if (invoiceTemplate) {
+      await putItemToStore(STORES.INVOICE_TEMPLATES, { id: 'main_template', ...invoiceTemplate });
+    }
+    if (meetings.length > 0) {
+      await saveAllToStore(STORES.MEETINGS, meetings);
+    }
+    if (meetingTemplate) {
+      await putItemToStore(STORES.MEETING_TEMPLATES, { id: 'main_template', ...meetingTemplate });
+    }
+    if (dashboardConfig) {
+      await putItemToStore(STORES.DASHBOARD_CONFIG, { id: 'main_dashboard', ...dashboardConfig });
+    }
     if (calendarCategories.length > 0) {
       await saveAllToStore(STORES.CALENDAR_CATEGORIES, calendarCategories);
     }
@@ -2738,6 +3365,18 @@ export const StorageService = {
       if (accounts.length > 0) await CloudStorageService.batchSaveAccounts(accounts);
       if (inventory.length > 0) await CloudStorageService.batchSaveInventory(inventory);
       if (settings) await CloudStorageService.saveSettings(settings);
+      if (documents.length > 0) await CloudStorageService.batchSaveDocuments(documents);
+      if (donations.length > 0) await CloudStorageService.batchSaveDonations(donations);
+      if (contacts.length > 0) await CloudStorageService.batchSaveContacts(contacts);
+      if (invoices.length > 0) await CloudStorageService.batchSaveInvoices(invoices);
+      if (invoiceTemplate) await CloudStorageService.saveInvoiceTemplate(invoiceTemplate);
+      if (meetings.length > 0) await CloudStorageService.batchSaveMeetings(meetings);
+      if (meetingTemplate) await CloudStorageService.saveMeetingTemplate(meetingTemplate);
+      if (calendarCategories.length > 0) await CloudStorageService.batchSaveCalendarCategories(calendarCategories);
+      if (calendarEvents.length > 0) await CloudStorageService.batchSaveCalendarEvents(calendarEvents);
+      if (onlineApplications.length > 0) await CloudStorageService.batchSaveOnlineApplications(onlineApplications);
+      if (applicationSettings) await CloudStorageService.saveApplicationSettings(applicationSettings);
+      if (dashboardConfig) await CloudStorageService.saveDashboardConfig(dashboardConfig);
     }
 
     return {
@@ -2746,11 +3385,25 @@ export const StorageService = {
       inventoryCount: inventory.length,
       documentsCount: documents.length,
       donationsCount: donations.length,
-      calendarEventsCount: calendarEvents.length
+      calendarEventsCount: calendarEvents.length,
+      meetingsCount: meetings.length,
+      invoicesCount: invoices.length,
+      contactsCount: contacts.length
     };
   },
 
   async getDashboardConfig(): Promise<UserDashboardConfig> {
+    if (this.isCloudActive()) {
+      try {
+        const cloudConfig = await CloudStorageService.getDashboardConfig();
+        if (cloudConfig && cloudConfig.widgets && cloudConfig.widgets.length > 0) {
+          await putItemToStore(STORES.DASHBOARD_CONFIG, { id: 'main_dashboard', ...cloudConfig });
+          return cloudConfig;
+        }
+      } catch (err) {
+        console.warn('Cloud getDashboardConfig error:', err);
+      }
+    }
     const stored = await getItemFromStore<UserDashboardConfig & { id: string }>(
       STORES.DASHBOARD_CONFIG,
       'main_dashboard'
@@ -2763,6 +3416,9 @@ export const StorageService = {
 
   async saveDashboardConfig(config: UserDashboardConfig): Promise<UserDashboardConfig> {
     await putItemToStore(STORES.DASHBOARD_CONFIG, { id: 'main_dashboard', ...config });
+    if (this.isCloudActive()) {
+      await CloudStorageService.saveDashboardConfig(config);
+    }
     return config;
   },
 
@@ -2775,6 +3431,12 @@ export const StorageService = {
     await saveAllToStore(STORES.SEPA_RUNS, []);
     await saveAllToStore(STORES.DOCUMENTS, getInitialDocuments());
     await saveAllToStore(STORES.DONATIONS, INITIAL_DONATIONS);
+    await saveAllToStore(STORES.CONTACTS, INITIAL_CONTACTS);
+    await saveAllToStore(STORES.INVOICES, INITIAL_INVOICES);
+    await putItemToStore(STORES.INVOICE_TEMPLATES, { id: 'main_template', ...DEFAULT_INVOICE_TEMPLATE });
+    await saveAllToStore(STORES.MEETINGS, INITIAL_MEETINGS);
+    await putItemToStore(STORES.MEETING_TEMPLATES, { id: 'main_template', ...DEFAULT_MEETING_TEMPLATE });
+    await putItemToStore(STORES.DASHBOARD_CONFIG, { id: 'main_dashboard', ...DEFAULT_DASHBOARD_CONFIG });
     await saveAllToStore(STORES.CALENDAR_CATEGORIES, DEFAULT_CALENDAR_CATEGORIES);
     await saveAllToStore(STORES.CALENDAR_EVENTS, INITIAL_CALENDAR_EVENTS);
     await saveAllToStore(STORES.ONLINE_APPLICATIONS, INITIAL_APPLICATIONS);
@@ -2782,6 +3444,32 @@ export const StorageService = {
     await putItemToStore(STORES.SETTINGS, { id: 'main', ...DEFAULT_SETTINGS });
     await this.syncReceiptsToDocuments();
     await this.syncDonationsToDocuments();
+
+    if (this.isCloudActive()) {
+      try {
+        await Promise.allSettled([
+          CloudStorageService.batchSaveAccounts(INITIAL_ACCOUNTS),
+          CloudStorageService.batchSaveMembers(INITIAL_MEMBERS),
+          CloudStorageService.batchSaveTransactions(INITIAL_TRANSACTIONS),
+          CloudStorageService.batchSaveInventory(INITIAL_INVENTORY),
+          CloudStorageService.batchSaveDocuments(getInitialDocuments()),
+          CloudStorageService.batchSaveDonations(INITIAL_DONATIONS),
+          CloudStorageService.batchSaveContacts(INITIAL_CONTACTS),
+          CloudStorageService.batchSaveInvoices(INITIAL_INVOICES),
+          CloudStorageService.saveInvoiceTemplate(DEFAULT_INVOICE_TEMPLATE),
+          CloudStorageService.batchSaveMeetings(INITIAL_MEETINGS),
+          CloudStorageService.saveMeetingTemplate(DEFAULT_MEETING_TEMPLATE),
+          CloudStorageService.saveDashboardConfig(DEFAULT_DASHBOARD_CONFIG),
+          CloudStorageService.batchSaveCalendarCategories(DEFAULT_CALENDAR_CATEGORIES),
+          CloudStorageService.batchSaveCalendarEvents(INITIAL_CALENDAR_EVENTS),
+          CloudStorageService.batchSaveOnlineApplications(INITIAL_APPLICATIONS),
+          CloudStorageService.saveApplicationSettings(DEFAULT_APPLICATION_SETTINGS),
+          CloudStorageService.saveSettings(DEFAULT_SETTINGS)
+        ]);
+      } catch (err) {
+        console.warn('Cloud resetToDemoData warning:', err);
+      }
+    }
   },
 
   async clearAllData(): Promise<void> {
@@ -2793,6 +3481,10 @@ export const StorageService = {
     await saveAllToStore(STORES.SEPA_RUNS, []);
     await saveAllToStore(STORES.DOCUMENTS, []);
     await saveAllToStore(STORES.DONATIONS, []);
+    await saveAllToStore(STORES.CONTACTS, []);
+    await saveAllToStore(STORES.INVOICES, []);
+    await saveAllToStore(STORES.MEETINGS, []);
+    await putItemToStore(STORES.DASHBOARD_CONFIG, { id: 'main_dashboard', ...DEFAULT_DASHBOARD_CONFIG });
     await saveAllToStore(STORES.CALENDAR_CATEGORIES, DEFAULT_CALENDAR_CATEGORIES);
     await saveAllToStore(STORES.CALENDAR_EVENTS, []);
     await saveAllToStore(STORES.ONLINE_APPLICATIONS, []);

@@ -4,7 +4,8 @@ import {
   FinancialAccount,
   ClubSettings,
   TaxSphere,
-  ReceiptAttachment
+  ReceiptAttachment,
+  ClubContact
 } from '../types';
 import { TAX_SPHERES } from '../data/taxSpheres';
 import { ExportService } from '../services/exportService';
@@ -27,13 +28,17 @@ import {
   RefreshCw,
   ExternalLink,
   FileSpreadsheet,
-  Camera
+  Camera,
+  UserPlus,
+  UserCheck
 } from 'lucide-react';
 
 interface FinanceViewProps {
   transactions: Transaction[];
   accounts: FinancialAccount[];
   settings: ClubSettings;
+  contacts?: ClubContact[];
+  onOpenCreateContactFromTx?: (partnerName: string, isIncome: boolean) => void;
   onOpenCreateTx: () => void;
   onOpenEditTx: (tx: Transaction) => void;
   onDeleteTx: (id: string) => void;
@@ -49,6 +54,8 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   transactions,
   accounts,
   settings,
+  contacts = [],
+  onOpenCreateContactFromTx,
   onOpenCreateTx,
   onOpenEditTx,
   onDeleteTx,
@@ -430,8 +437,49 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                       {tx.documentNumber}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-bold text-slate-900 text-xs truncate max-w-xs">
-                        {tx.partner}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-slate-900 text-xs truncate max-w-xs">
+                          {tx.partner}
+                        </span>
+                        {(() => {
+                          if (!tx.partner || tx.type === 'transfer') return null;
+                          const trimmed = tx.partner.trim().toLowerCase();
+                          const existingContact = contacts.find(
+                            c =>
+                              (c.displayName || '').trim().toLowerCase() === trimmed ||
+                              (c.companyName || '').trim().toLowerCase() === trimmed
+                          );
+
+                          if (existingContact) {
+                            return (
+                              <span
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.2 text-3xs font-medium bg-orange-50 text-orange-700 border border-orange-200/80 rounded"
+                                title={`Gespeicherter Kontakt: ${existingContact.displayName}`}
+                              >
+                                <Building2 className="w-2.5 h-2.5" />
+                                <span>Kontakt</span>
+                              </span>
+                            );
+                          }
+
+                          if (onOpenCreateContactFromTx) {
+                            return (
+                              <button
+                                type="button"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  onOpenCreateContactFromTx(tx.partner, tx.type === 'income');
+                                }}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 text-3xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded transition-colors cursor-pointer"
+                                title={`»${tx.partner}« ist noch nicht als Kontakt erfasst. Klicken zum Anlegen.`}
+                              >
+                                <UserPlus className="w-2.5 h-2.5 text-amber-600" />
+                                <span>+ Kontakt</span>
+                              </button>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                       <div className="text-2xs text-slate-500 truncate max-w-md">
                         {tx.bookingText}

@@ -6,7 +6,7 @@ export const AVAILABLE_DASHBOARD_WIDGETS: DashboardWidgetDefinition[] = [
     id: 'quick_actions',
     title: 'Schnellzugriff',
     shortTitle: 'Schnellzugriff',
-    description: 'Direkter Schnellzugriff zum Anlegen neuer Mitglieder, Buchungen, Termine, Inventargegenstände und Dokumente.',
+    description: 'Direkter Schnellzugriff zum Anlegen neuer Mitglieder, Buchungen, Rechnungen, Termine, Inventargegenstände und Dokumente.',
     category: 'overview',
     categoryLabel: 'Übersicht & Aktionen',
     iconName: 'Sparkles',
@@ -247,7 +247,71 @@ export const AVAILABLE_DASHBOARD_WIDGETS: DashboardWidgetDefinition[] = [
     tags: ['Cashflow', 'Trend', 'Monate', 'Finanzen']
   },
 
-  // 4. Kalender & Termine
+  // 4. Rechnungen & Faktura (DIN 5008)
+  {
+    id: 'invoices_overview',
+    title: 'Rechnungen & Offene Posten',
+    shortTitle: 'Rechnungen',
+    description: 'Status aller ausgestellten Rechnungen, Gesamtsummen, Fälligkeiten und offene Forderungen.',
+    category: 'invoices',
+    categoryLabel: 'Rechnungen',
+    iconName: 'Receipt',
+    defaultColSpan: 2,
+    minColSpan: 1,
+    maxColSpan: 4,
+    defaultEnabled: true,
+    defaultOrder: 17,
+    tags: ['Rechnungen', 'Faktura', 'Forderungen', 'Offene Posten', 'DIN 5008', 'Belege', 'Mahnwesen']
+  },
+  {
+    id: 'invoices_kpi',
+    title: 'Offene Rechnungs-Forderungen',
+    shortTitle: 'Forderungen',
+    description: 'Kompakte Kennzahl über aktuell noch ausstehende und überfällige Rechnungsbeträge.',
+    category: 'invoices',
+    categoryLabel: 'Rechnungen',
+    iconName: 'Receipt',
+    defaultColSpan: 1,
+    minColSpan: 1,
+    maxColSpan: 2,
+    defaultEnabled: false,
+    defaultOrder: 18,
+    tags: ['Rechnungen', 'Forderungen', 'Offen', 'Überfällig', 'Faktura']
+  },
+
+  // 5. Kontakte & Geschäftspartner
+  {
+    id: 'contacts_summary',
+    title: 'Kontakt- & Partnerverzeichnis',
+    shortTitle: 'Kontakte & Partner',
+    description: 'Übersicht aller externen Geschäftspartner, Lieferanten, Sponsoren, Behörden und Förderer.',
+    category: 'contacts',
+    categoryLabel: 'Kontakte',
+    iconName: 'Contact',
+    defaultColSpan: 2,
+    minColSpan: 1,
+    maxColSpan: 4,
+    defaultEnabled: true,
+    defaultOrder: 19,
+    tags: ['Kontakte', 'Partner', 'Sponsoren', 'Lieferanten', 'Behörden', 'Adressbuch']
+  },
+  {
+    id: 'contacts_kpi',
+    title: 'Kontakte & Partnerbestand',
+    shortTitle: 'Kontaktbestand',
+    description: 'Gesamtzahl aller erfassten externen Kontakte gegliedert nach Sponsoren, Partnern und Lieferanten.',
+    category: 'contacts',
+    categoryLabel: 'Kontakte',
+    iconName: 'Contact',
+    defaultColSpan: 1,
+    minColSpan: 1,
+    maxColSpan: 2,
+    defaultEnabled: false,
+    defaultOrder: 20,
+    tags: ['Kontakte', 'Bestand', 'Sponsoren', 'Adressbuch']
+  },
+
+  // 6. Kalender & Termine
   {
     id: 'upcoming_events',
     title: 'Nächste Vereinstermine & Fristen',
@@ -260,11 +324,43 @@ export const AVAILABLE_DASHBOARD_WIDGETS: DashboardWidgetDefinition[] = [
     minColSpan: 1,
     maxColSpan: 4,
     defaultEnabled: true,
-    defaultOrder: 17,
+    defaultOrder: 21,
     tags: ['Termine', 'Kalender', 'Fristen', 'Events']
   },
 
-  // 5. Inventar
+  // 7. Sitzungs- & Protokolldienst
+  {
+    id: 'meetings_summary',
+    title: 'Sitzungen & Beschlussdienst',
+    shortTitle: 'Sitzungsdienst',
+    description: 'Nächste Vorstandssitzungen, Mitgliederversammlungen, offene Beschlüsse und Protokollstatus.',
+    category: 'meetings',
+    categoryLabel: 'Sitzungsdienst',
+    iconName: 'ScrollText',
+    defaultColSpan: 2,
+    minColSpan: 1,
+    maxColSpan: 4,
+    defaultEnabled: true,
+    defaultOrder: 22,
+    tags: ['Sitzungen', 'Protokolle', 'Vorstand', 'Beschlüsse', 'Versammlung', 'Tagesordnung']
+  },
+  {
+    id: 'meetings_kpi',
+    title: 'Sitzungen & Protokollstatus',
+    shortTitle: 'Sitzungsstatus',
+    description: 'Kompakte Kennzahl über anstehende Sitzungen, offene Protokollentwürfe und Beschlussfähigkeit.',
+    category: 'meetings',
+    categoryLabel: 'Sitzungsdienst',
+    iconName: 'ScrollText',
+    defaultColSpan: 1,
+    minColSpan: 1,
+    maxColSpan: 2,
+    defaultEnabled: false,
+    defaultOrder: 23,
+    tags: ['Sitzungen', 'Protokoll', 'Entwurf', 'Termin']
+  },
+
+  // 8. Inventar
   {
     id: 'inventory_overview',
     title: 'Inventar & Materialbestand',
@@ -277,11 +373,11 @@ export const AVAILABLE_DASHBOARD_WIDGETS: DashboardWidgetDefinition[] = [
     minColSpan: 1,
     maxColSpan: 3,
     defaultEnabled: true,
-    defaultOrder: 18,
+    defaultOrder: 24,
     tags: ['Inventar', 'Material', 'Geräte', 'Sportgeräte']
   },
 
-  // 6. Dokumente
+  // 9. Dokumente
   {
     id: 'documents_archive_kpi',
     title: 'Dokumentenarchiv & Belege',
@@ -294,7 +390,7 @@ export const AVAILABLE_DASHBOARD_WIDGETS: DashboardWidgetDefinition[] = [
     minColSpan: 1,
     maxColSpan: 3,
     defaultEnabled: true,
-    defaultOrder: 19,
+    defaultOrder: 25,
     tags: ['Dokumente', 'Archiv', 'Satzung', 'Protokolle']
   }
 ];
@@ -329,6 +425,7 @@ export const getPresetConfig = (preset: DashboardPreset): UserDashboardConfig =>
       'quick_actions',
       'total_liquidity',
       'annual_balance',
+      'invoices_overview',
       'wgb_limit_monitor',
       'donations_summary',
       'tax_spheres_overview',
@@ -352,12 +449,14 @@ export const getPresetConfig = (preset: DashboardPreset): UserDashboardConfig =>
     const enabledIds = [
       'quick_actions',
       'members_kpi',
+      'contacts_summary',
       'online_applications_kpi',
       'departments_distribution',
       'upcoming_birthdays',
       'recent_members',
       'demographics_distribution',
-      'upcoming_events'
+      'upcoming_events',
+      'meetings_summary'
     ];
     return {
       version: 1,
@@ -374,6 +473,9 @@ export const getPresetConfig = (preset: DashboardPreset): UserDashboardConfig =>
       'members_kpi',
       'total_liquidity',
       'annual_balance',
+      'invoices_kpi',
+      'contacts_kpi',
+      'meetings_kpi',
       'wgb_limit_monitor',
       'tax_spheres_overview',
       'sepa_debit_monitor',

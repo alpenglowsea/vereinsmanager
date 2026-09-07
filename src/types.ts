@@ -184,7 +184,38 @@ export interface ClubSettings {
   taxExemptionDate?: string; // z.B. '10.01.2024'
   taxAssessmentPeriod?: string; // z.B. '2021 bis 2023'
   promotedPurposes?: string; // z.B. 'Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)'
-  geminiApiKey?: string; // Eigener Google Gemini API-Schlüssel für KI-Funktionen (Buchungsassistent, Beleg- & Antragsscan)
+  geminiApiKey?: string; // Eigener Google Gemini API-Schlüssel für KI-Funktionen (Rückwärtskompatibilität)
+  aiProvider?: AiProviderType; // 'gemini' | 'openai' | 'anthropic' | 'custom'
+  aiApiKey?: string; // Allgemeiner API-Schlüssel für den gewählten Anbieter
+  aiModel?: string; // Ausgewähltes Modell (z.B. 'gpt-4o-mini', 'claude-3-5-haiku-20241022')
+  aiBaseUrl?: string; // Basis-URL für lokale / benutzerdefinierte KI (z.B. 'http://localhost:11434/v1')
+  // SMTP-Konfiguration für E-Mail-Versand (Sitzungsdienst, Einladungen, Protokolle)
+  smtpHost?: string; // z.B. 'smtp.ionos.de', 'smtp.strato.de', 'mail.gmx.net', 'smtp.gmail.com'
+  smtpPort?: number; // z.B. 587 (STARTTLS) oder 465 (SSL/TLS)
+  smtpSecure?: boolean; // true = Port 465 / SSL, false = Port 587 / STARTTLS
+  smtpUser?: string; // Benutzername / E-Mail für SMTP-Auth
+  smtpPassword?: string; // Passwort / App-Passwort
+  smtpFromEmail?: string; // Absender-Adresse (z.B. vorstand@tsv-musterstadt1890.de)
+  smtpFromName?: string; // Absender-Name (z.B. 'TSV Musterstadt 1890 e.V. Vorstand')
+}
+
+export interface SmtpConfig {
+  host?: string;
+  port?: number;
+  secure?: boolean;
+  user?: string;
+  password?: string;
+  fromEmail?: string;
+  fromName?: string;
+}
+
+export type AiProviderType = 'gemini' | 'openai' | 'anthropic' | 'custom';
+
+export interface AiConfig {
+  provider: AiProviderType;
+  apiKey: string;
+  model?: string;
+  baseUrl?: string;
 }
 
 export interface BookingAiSuggestion {
@@ -619,6 +650,295 @@ export interface AppUpdateInfo {
     linux?: string;
   };
 }
+
+// ----------------------------------------------------
+// KONTAKTVERWALTUNG (NATÜRLICHE & JURISTISCHE PERSONEN)
+// ----------------------------------------------------
+
+export type ContactPersonType = 'natural' | 'legal';
+
+export type ContactType =
+  | 'supplier'       // Lieferant
+  | 'donor'          // Spender
+  | 'sponsor'        // Sponsor
+  | 'service'        // Dienstleister / Handwerk
+  | 'association'    // Verband / Sportbund
+  | 'authority'      // Kommune / Behörde
+  | 'partner'        // Kooperationspartner
+  | 'member_contact' // Mitglieds-Bezug
+  | 'other';         // Sonstige
+
+export interface ContactPersonDetails {
+  salutation?: string; // Herr, Frau, Dr., etc.
+  firstName?: string;
+  lastName?: string;
+  roleOrPosition?: string; // z.B. Geschäftsführer, Marketingleiter, Trainer
+  email?: string;
+  phone?: string;
+}
+
+export interface ClubContact {
+  id: string;
+  contactNumber: string; // z.B. 'K-1001'
+  personType: ContactPersonType; // 'natural' = Natürliche Person, 'legal' = Juristische Person (Firma / Organisation)
+  types: ContactType[]; // z.B. ['sponsor', 'donor']
+
+  // Juristische Person / Firma
+  companyName?: string; // z.B. 'Musterstadt Stadtwerke AG'
+  legalForm?: string; // z.B. 'GmbH', 'AG', 'e.V.', 'GbR', 'Stiftung'
+  contactPerson?: ContactPersonDetails;
+  taxId?: string; // Steuernummer / USt-IdNr.
+  commercialRegister?: string; // z.B. 'HRB 12345 (Amtsgericht Musterstadt)'
+
+  // Natürliche Person
+  salutation?: string; // Herr, Frau, Dr., etc.
+  firstName?: string;
+  lastName?: string;
+  dateOfBirth?: string;
+
+  // Gemeinsame Kontaktdaten
+  displayName: string; // Vollständiger Name / Firmenname für Anzeigen und Suchen
+  address: Address;
+  email: string;
+  phone: string;
+  mobile?: string;
+  website?: string;
+
+  // Buchhaltungs- / Bankdaten
+  bankDetails?: {
+    iban?: string;
+    bic?: string;
+    bankName?: string;
+    accountHolder?: string;
+  };
+  creditorOrDebtorNumber?: string; // z.B. 'KRED-7001' oder 'DEB-1001'
+
+  notes?: string;
+  tags?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ----------------------------------------------------
+// RECHNUNGSVERWALTUNG & AUSGANGSRECHNUNGEN
+// ----------------------------------------------------
+
+export type InvoiceStatus = 'draft' | 'open' | 'paid' | 'overdue' | 'cancelled';
+
+export interface InvoiceItem {
+  id: string;
+  position: number; // Fortlaufende Nummer (1, 2, 3...)
+  description: string; // Beschreibung / Leistungsbezeichnung
+  quantity: number; // Menge (rationale Zahlen z.B. 1, 2.5, 0.75)
+  unit?: string; // z.B. 'Stück', 'Std.', 'Monate', 'Pauschale'
+  unitPrice: number; // Einzelpreis in EUR
+  vatRate: number; // 0, 7, 19 (%)
+  totalPrice: number; // Menge * Einzelpreis
+}
+
+export interface ClubInvoice {
+  id: string;
+  invoiceNumber: string; // z.B. 'RE-2026-001'
+  date: string; // YYYY-MM-DD
+  deliveryDate?: string; // YYYY-MM-DD (Leistungs- / Lieferdatum)
+  dueDate: string; // YYYY-MM-DD (Fälligkeitsdatum)
+  status: InvoiceStatus;
+
+  // Empfänger-Daten
+  recipientType: 'member' | 'contact' | 'custom';
+  recipientId?: string; // ID des verknüpften Mitglieds oder Kontakts
+  recipientName: string; // Name oder Firmenname
+  recipientCompany?: string;
+  recipientContactPerson?: string; // Ansprechpartner (z.B. 'z. Hd. Herrn Müller')
+  recipientAddress: Address;
+  recipientEmail?: string;
+  recipientPhone?: string;
+
+  // Inhalte
+  title: string; // z.B. 'Rechnung'
+  subject: string; // Betreffzeile
+  introText?: string; // Einleitungstext
+  items: InvoiceItem[]; // Rechnungspositionen
+  outroText?: string; // Schlusstext / Zahlungsbedingungen
+  taxSphere?: TaxSphere; // Steuerliche Sphäre
+
+  // Summen
+  subtotalNet: number; // Netto-Summe
+  vatAmounts: { [rate: number]: number }; // Aufschlüsselung nach USt-Sätzen
+  totalVat: number; // Gesamt-Umsatzsteuer
+  totalAmount: number; // Brutto-Gesamtbetrag (Zahlbetrag)
+
+  // Zahlungsinformationen
+  paymentTermsDays: number; // z.B. 14
+  paidAt?: string; // Datum der Zahlung
+  paymentMethod?: PaymentMethod;
+  linkedTransactionId?: string;
+
+  // Archivierung & Vorlage
+  documentId?: string; // ID in der Dokumentenverwaltung
+  customTemplateUsed?: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InvoiceTemplateSettings {
+  id?: string;
+  templateName: string;
+  customBlankoDataUrl?: string; // Base64 Data URL der hochgeladenen Blanko-Vorlage (Briefpapier)
+  customBlankoFileName?: string;
+  customBlankoUploadedAt?: string;
+
+  // Layout & Abstände in mm
+  marginTop: number;
+  marginBottom: number;
+  marginLeft: number;
+  marginRight: number;
+
+  // Standard-Texte
+  defaultIntroText: string;
+  defaultOutroText: string;
+  defaultPaymentTermsDays: number;
+  defaultDueNotice: string;
+
+  // Optionen
+  showClubLogo: boolean;
+  showFoldingMarks: boolean;
+  showGiroCode: boolean; // BezahlCode / EPC-QR-Code
+  accentColor: string; // Hex-Farbe
+}
+
+// ----------------------------------------------------
+// SITZUNGS- & PROTOKOLLDIENST (COMPLIANCE & PROTOKOLLE)
+// ----------------------------------------------------
+
+export type MeetingType =
+  | 'board' // Vorstandssitzung
+  | 'general_assembly' // Ordentliche Mitgliederversammlung / Jahreshauptversammlung
+  | 'extraordinary_assembly' // Außerordentliche Mitgliederversammlung
+  | 'committee' // Ausschuss / Beirat / Fachbereich
+  | 'department' // Abteilungsversammlung
+  | 'other'; // Sonstige Sitzung
+
+export type MeetingStatus =
+  | 'scheduled' // Einberufen / Geplant
+  | 'in_progress' // In Durchführung
+  | 'draft' // Protokoll im Entwurf
+  | 'review' // In Prüfung / Zur Genehmigung
+  | 'approved' // Rechtskräftig genehmigt / abgeschlossen
+  | 'cancelled'; // Abgesagt
+
+export type MeetingProtocolType =
+  | 'results' // Ergebnisprotokoll (Standard gem. BGB)
+  | 'verbatim'; // Ausführliches Verlaufsprotokoll
+
+export interface MeetingResolution {
+  id: string;
+  meetingId?: string;
+  agendaItemNumber: string; // z.B. "TOP 4"
+  title: string;
+  motionText: string; // Exakter Antragswortlaut
+  proposer?: string; // Antragsteller
+  votesFor: number; // Ja-Stimmen
+  votesAgainst: number; // Nein-Stimmen
+  votesAbstain: number; // Enthaltungen
+  result: 'accepted' | 'rejected' | 'deferred'; // Angenommen / Abgelehnt / Vertagt
+  isTaxRelevant: boolean; // Relevant für Finanzamt (z. B. Ehrenamtspauschale, Rücklagen, Mittelverwendung)
+  isRegisterRelevant: boolean; // Relevant für Vereinsregister / Notar (z.B. Vorstandswahlen § 26 BGB, Satzungsänderung § 33 BGB)
+  responsiblePerson?: string; // Verantwortlich für die Umsetzung
+  dueDate?: string; // Frist zur Umsetzung
+  notes?: string;
+}
+
+export interface MeetingAgendaItem {
+  id: string;
+  number: string; // z.B. "TOP 1"
+  title: string;
+  speaker?: string; // Berichterstatter
+  discussionNotes?: string; // Besprechung / Verlauf
+  resolutions?: MeetingResolution[]; // Beschlüsse zu diesem TOP
+}
+
+export interface MeetingAttendee {
+  id: string;
+  memberId?: string;
+  name: string;
+  email?: string; // Für Einladungs- und Protokollversand
+  role: string; // z.B. "Versammlungsleiter", "Schriftführer", "Vorstand", "Mitglied", "Gast"
+  present: boolean;
+  hasVotingRight: boolean; // Stimmberechtigt
+  isSignatory: boolean; // Muss das Protokoll unterzeichnen gem. Satzung
+  signatureDataUrl?: string; // Digital erfasste Unterschrift (Base64 PNG)
+  signedAt?: string; // Zeitstempel der Unterschrift
+}
+
+export interface MeetingDigitalSignature {
+  id: string;
+  signatoryId?: string; // ID des Teilnehmers oder Mitglieds
+  name: string;
+  role: string; // "Versammlungsleiter" | "Schriftführer" | "Unterzeichner"
+  signatureDataUrl: string; // Base64 PNG der Unterschrift
+  signedAt: string; // ISO Zeitstempel der Unterzeichnung
+  deviceInfo?: string; // z.B. "Touch-Eingabe (Smartphone)" oder "Mauszeiger (Desktop)"
+}
+
+export interface Meeting {
+  id: string;
+  title: string; // z.B. "Ordentliche Mitgliederversammlung 2026"
+  type: MeetingType;
+  status: MeetingStatus;
+  protocolType: MeetingProtocolType;
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:MM
+  endTime?: string; // HH:MM
+  location: string; // z.B. "Vereinsheim TSV Musterstadt"
+  chairperson: string; // Versammlungsleiter
+  minuteKeeper: string; // Protokollführer / Schriftführer
+
+  // Rechtliche Vorprüfung & Compliance gem. BGB & Satzung
+  invitationDate?: string; // Datum der Einladung
+  invitationMethod?: string; // z.B. "Schriftlich per E-Mail gem. § 8 der Satzung"
+  invitationCompliant: boolean; // Form- und fristgerecht eingeladen gem. Satzung
+  quorumConfirmed: boolean; // Beschlussfähigkeit ordnungsgemäß festgestellt
+  totalEligibleVoters?: number; // Anzahl der anwesenden stimmberechtigten Mitglieder
+
+  // Inhalte
+  agenda: MeetingAgendaItem[];
+  attendees: MeetingAttendee[];
+  generalNotes?: string;
+
+  // Vorlagen & Dokumentenablage
+  customTemplateUsed?: boolean;
+  signedAt?: string;
+  signatures?: MeetingDigitalSignature[]; // Digital erfasste Signaturen (Versammlungsleiter, Schriftführer, etc.)
+  documentId?: string; // Referenz auf archiviertes PDF in der Dokumentenverwaltung
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MeetingTemplateSettings {
+  id?: string;
+  templateName: string;
+  customBlankoDataUrl?: string; // Base64 Data URL der hochgeladenen Blanko-Vorlage (Briefpapier)
+  customBlankoFileName?: string;
+  customBlankoUploadedAt?: string;
+
+  // Layout & Abstände in mm
+  marginTop: number;
+  marginBottom: number;
+  marginLeft: number;
+  marginRight: number;
+
+  // Optionen
+  showClubHeader: boolean; // Wenn kein eigenes Briefpapier hochgeladen ist
+  showClubLogo: boolean;
+  showSignaturesBlock: boolean; // Offizielle Unterschriftenzeilen gem. Satzung
+  showRegisterExtractNotice: boolean; // Hinweiszeile für Notar / Amtsgericht
+  accentColor: string; // Hex-Farbe
+}
+
+
 
 
 

@@ -19,13 +19,22 @@ import {
   CalendarEvent,
   CalendarEventCategory,
   OnlineMembershipApplication,
-  ApplicationTemplateSettings
+  ApplicationTemplateSettings,
+  ClubContact,
+  ContactType,
+  ClubInvoice,
+  InvoiceTemplateSettings,
+  InvoiceStatus,
+  Meeting,
+  MeetingTemplateSettings
 } from './types';
 import { StorageService } from './services/storage';
 import { AuthService } from './services/authService';
 import { AppUser, UserAuthSession } from './types';
 import { UserDashboardConfig } from './types/dashboard';
 import { DEFAULT_DASHBOARD_CONFIG } from './data/defaultDashboard';
+import { DEFAULT_MEETING_TEMPLATE } from './data/initialMeetings';
+import { createDocumentFromInvoice, downloadInvoicePdf } from './services/invoicePdfService';
 
 // Views
 import { DashboardView } from './components/DashboardView';
@@ -34,12 +43,15 @@ import { MemberAnalyticsView } from './components/MemberAnalyticsView';
 import { FinanceView } from './components/FinanceView';
 import { GuvReportView } from './components/GuvReportView';
 import { FinanceAnalyticsView } from './components/FinanceAnalyticsView';
+import { InvoicesView } from './components/InvoicesView';
 import { DonationsView } from './components/DonationsView';
+import { ContactsView } from './components/ContactsView';
 import { InventoryView } from './components/InventoryView';
 import { SepaRunView } from './components/SepaRunView';
 import { DocumentsView } from './components/DocumentsView';
 import { CalendarView } from './components/CalendarView';
 import { OnlineApplicationsView } from './components/OnlineApplicationsView';
+import { MeetingsView } from './components/MeetingsView';
 import { PublicApplicationForm } from './components/PublicApplicationForm';
 
 // Modals & Drawers
@@ -47,10 +59,16 @@ import { DashboardConfigModal } from './components/DashboardConfigModal';
 import { MemberFormModal } from './components/MemberFormModal';
 import { MemberDetailsDrawer } from './components/MemberDetailsDrawer';
 import { MemberImportModal } from './components/MemberImportModal';
+import { ContactFormModal } from './components/ContactFormModal';
+import { ContactDetailsModal } from './components/ContactDetailsModal';
+import { ContactImportModal } from './components/ContactImportModal';
 import { TransactionFormModal } from './components/TransactionFormModal';
 import { TransactionImportModal } from './components/TransactionImportModal';
 import { BankImportModal } from './components/BankImportModal';
 import { AccountManageModal } from './components/AccountManageModal';
+import { InvoiceFormModal } from './components/InvoiceFormModal';
+import { InvoiceDetailsModal } from './components/InvoiceDetailsModal';
+import { InvoiceTemplateModal } from './components/InvoiceTemplateModal';
 import { ReceiptViewerModal } from './components/ReceiptViewerModal';
 import { ReceiptCameraScannerModal } from './components/ReceiptCameraScannerModal';
 import { SettingsView } from './components/SettingsView';
@@ -60,6 +78,7 @@ import { DocumentUploadModal } from './components/DocumentUploadModal';
 import { DocumentEditModal } from './components/DocumentEditModal';
 import { NewDocumentChoiceModal } from './components/NewDocumentChoiceModal';
 import { DonationFormModal } from './components/DonationFormModal';
+import { MeetingFormModal } from './components/MeetingFormModal';
 import { CalendarEventModal } from './components/CalendarEventModal';
 import { LoginScreen } from './components/LoginScreen';
 import { UserManageModal } from './components/UserManageModal';
@@ -107,7 +126,9 @@ import {
   FileSignature,
   Inbox,
   FileCheck,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Contact,
+  ScrollText
 } from 'lucide-react';
 
 type ActiveTab =
@@ -119,8 +140,11 @@ type ActiveTab =
   | 'sepa'
   | 'finance'
   | 'guv'
+  | 'invoices'
   | 'finance_analytics'
   | 'donations'
+  | 'contacts'
+  | 'meetings'
   | 'inventory'
   | 'documents'
   | 'settings';
@@ -213,6 +237,16 @@ export default function App() {
   const [donationFormOpen, setDonationFormOpen] = useState(false);
   const [editingDonation, setEditingDonation] = useState<DonationReceipt | null>(null);
 
+  // Contacts Management State
+  const [contacts, setContacts] = useState<ClubContact[]>([]);
+  const [contactFormOpen, setContactFormOpen] = useState(false);
+  const [contactImportOpen, setContactImportOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<ClubContact | null>(null);
+  const [detailsContact, setDetailsContact] = useState<ClubContact | null>(null);
+  const [initialContactFormName, setInitialContactFormName] = useState<string>('');
+  const [initialContactFormType, setInitialContactFormType] = useState<ContactType | undefined>(undefined);
+  const [initialBookingPartner, setInitialBookingPartner] = useState<string>('');
+
   const [receiptScannerOpen, setReceiptScannerOpen] = useState(false);
   const [scannerTargetTx, setScannerTargetTx] = useState<Transaction | null>(null);
 
@@ -223,9 +257,52 @@ export default function App() {
   const [transactionImportOpen, setTransactionImportOpen] = useState(false);
   const [accountManageOpen, setAccountManageOpen] = useState(false);
 
+  // Invoices Management States
+  const [invoices, setInvoices] = useState<ClubInvoice[]>([]);
+  const [invoiceTemplateSettings, setInvoiceTemplateSettings] = useState<InvoiceTemplateSettings>({
+    primaryColor: '#1e40af',
+    secondaryColor: '#475569',
+    accentColor: '#2563eb',
+    showClubLogo: true,
+    showGiroCode: true,
+    showFoldMarks: true,
+    showFooterColumns: true,
+    fontFamily: 'Helvetica',
+    tableHeaderBackground: '#f1f5f9',
+    defaultPaymentTermsDays: 14,
+    defaultNotes: 'Vielen Dank für Ihre Unterstützung unseres Vereins!',
+    customBlankoDataUrl: '',
+    useCustomBlankoOnly: false
+  });
+  const [invoiceFormOpen, setInvoiceFormOpen] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<ClubInvoice | null>(null);
+  const [detailsInvoice, setDetailsInvoice] = useState<ClubInvoice | null>(null);
+  const [invoiceTemplateModalOpen, setInvoiceTemplateModalOpen] = useState(false);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [meetingTemplateSettings, setMeetingTemplateSettings] = useState<MeetingTemplateSettings>(DEFAULT_MEETING_TEMPLATE);
+  const [prefillInvoiceRecipient, setPrefillInvoiceRecipient] = useState<{
+    id?: string;
+    name?: string;
+    type?: 'member' | 'contact' | 'custom';
+    company?: string;
+    contactPerson?: string;
+    email?: string;
+    address?: {
+      street?: string;
+      houseNumber?: string;
+      zip?: string;
+      city?: string;
+      country?: string;
+    };
+  } | null>(null);
+
   // Calendar Event Modal State
   const [calendarEventModalOpen, setCalendarEventModalOpen] = useState(false);
   const [calendarCategories, setCalendarCategories] = useState<CalendarEventCategory[]>([]);
+
+  // Meeting Form Modal State (Dashboard Schnellaktion & Global Modal)
+  const [meetingFormOpen, setMeetingFormOpen] = useState(false);
+  const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
 
   // Document Management States
   const [newDocChoiceOpen, setNewDocChoiceOpen] = useState(false);
@@ -241,9 +318,9 @@ export default function App() {
   const [dashboardConfig, setDashboardConfig] = useState<UserDashboardConfig>(DEFAULT_DASHBOARD_CONFIG);
   const [isDashboardConfigOpen, setIsDashboardConfigOpen] = useState(false);
 
-  // Submenu expansion states
-  const [membersMenuOpen, setMembersMenuOpen] = useState(true);
-  const [financeMenuOpen, setFinanceMenuOpen] = useState(true);
+  // Submenu expansion states - collapsed by default, expand on click
+  const [membersMenuOpen, setMembersMenuOpen] = useState(false);
+  const [financeMenuOpen, setFinanceMenuOpen] = useState(false);
 
   const [activeReceipt, setActiveReceipt] = useState<{
     receipt: ReceiptAttachment;
@@ -267,7 +344,12 @@ export default function App() {
         loadedFolders,
         loadedApplications,
         loadedTemplateSettings,
-        loadedDashboardConfig
+        loadedDashboardConfig,
+        loadedContacts,
+        loadedInvoices,
+        loadedInvoiceTemplate,
+        loadedMeetings,
+        loadedMeetingTemplate
       ] = await Promise.all([
         StorageService.getMembers(),
         StorageService.getTransactions(),
@@ -279,7 +361,12 @@ export default function App() {
         StorageService.getFolders(),
         StorageService.getOnlineApplications(),
         StorageService.getApplicationTemplateSettings(),
-        StorageService.getDashboardConfig()
+        StorageService.getDashboardConfig(),
+        StorageService.getContacts(),
+        StorageService.getInvoices(),
+        StorageService.getInvoiceTemplate(),
+        StorageService.getMeetings(),
+        StorageService.getMeetingTemplate()
       ]);
 
       setMembers(loadedMembers);
@@ -291,6 +378,15 @@ export default function App() {
       setDonations(loadedDonations);
       setFolders(loadedFolders);
       setOnlineApplications(loadedApplications);
+      setContacts(loadedContacts);
+      setInvoices(loadedInvoices);
+      if (loadedInvoiceTemplate) {
+        setInvoiceTemplateSettings(loadedInvoiceTemplate);
+      }
+      setMeetings(loadedMeetings);
+      if (loadedMeetingTemplate) {
+        setMeetingTemplateSettings(loadedMeetingTemplate);
+      }
       if (loadedDashboardConfig) {
         setDashboardConfig(loadedDashboardConfig);
       }
@@ -304,13 +400,44 @@ export default function App() {
     }
   };
 
+  const handleSaveMeeting = async (meeting: Meeting) => {
+    const saved = await StorageService.saveMeeting(meeting);
+    setMeetings(prev => {
+      const idx = prev.findIndex(m => m.id === saved.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = saved;
+        return next;
+      }
+      return [saved, ...prev];
+    });
+  };
+
+  const handleDeleteMeeting = async (meetingId: string) => {
+    await StorageService.deleteMeeting(meetingId);
+    setMeetings(prev => prev.filter(m => m.id !== meetingId));
+  };
+
+  const handleSaveMeetingTemplate = async (template: MeetingTemplateSettings) => {
+    const saved = await StorageService.saveMeetingTemplate(template);
+    setMeetingTemplateSettings(saved);
+  };
+
   useEffect(() => {
     AuthService.init().then(session => {
       setAuthSession(session);
+      if (session.isAuthenticated) {
+        setActiveTab('dashboard');
+      }
     });
 
     const unsubscribe = AuthService.onAuthStateChanged(session => {
-      setAuthSession(session);
+      setAuthSession(prev => {
+        if (!prev.isAuthenticated && session.isAuthenticated) {
+          setActiveTab('dashboard');
+        }
+        return session;
+      });
     });
 
     const handleUserActivity = () => {
@@ -383,6 +510,55 @@ export default function App() {
     await StorageService.batchSaveMembers(importedMembers);
     const updated = await StorageService.getMembers();
     setMembers(updated);
+  };
+
+  // Contact CRUD handlers
+  const handleSaveContact = async (contactData: ClubContact) => {
+    await StorageService.saveContact(contactData);
+    const updated = await StorageService.getContacts();
+    setContacts(updated);
+    setContactFormOpen(false);
+    setEditingContact(null);
+    setInitialContactFormName('');
+    setInitialContactFormType(undefined);
+    if (detailsContact?.id === contactData.id) {
+      setDetailsContact(contactData);
+    }
+  };
+
+  const handleDeleteContact = async (id: string) => {
+    await StorageService.deleteContact(id);
+    const updated = await StorageService.getContacts();
+    setContacts(updated);
+    if (detailsContact?.id === id) {
+      setDetailsContact(null);
+    }
+  };
+
+  const handleBulkDeleteContacts = async (ids: string[]) => {
+    for (const id of ids) {
+      await StorageService.deleteContact(id);
+    }
+    const updated = await StorageService.getContacts();
+    setContacts(updated);
+    if (detailsContact && ids.includes(detailsContact.id)) {
+      setDetailsContact(null);
+    }
+  };
+
+  const handleBatchImportContacts = async (importedContacts: ClubContact[]) => {
+    for (const c of importedContacts) {
+      await StorageService.saveContact(c);
+    }
+    const updated = await StorageService.getContacts();
+    setContacts(updated);
+  };
+
+  const handleQuickCreateContact = (initialName: string, initialType?: ContactType) => {
+    setEditingContact(null);
+    setInitialContactFormName(initialName);
+    setInitialContactFormType(initialType);
+    setContactFormOpen(true);
   };
 
   // Transaction CRUD handlers
@@ -617,6 +793,114 @@ export default function App() {
     setDonationFormOpen(true);
   };
 
+  // Invoicing CRUD Handlers (DIN 5008 & Blanko-Briefpapier)
+  const nextInvoiceNumber = `RE-${new Date().getFullYear()}-${String(invoices.length + 1).padStart(3, '0')}`;
+
+  const handleSaveInvoice = async (invoice: ClubInvoice, saveToDocuments: boolean = true) => {
+    const toSave: ClubInvoice = { ...invoice };
+    if (saveToDocuments) {
+      try {
+        const doc = await createDocumentFromInvoice(invoice, settings, invoiceTemplateSettings);
+        await StorageService.saveDocument(doc);
+        toSave.documentId = doc.id;
+      } catch (docErr) {
+        console.warn('Could not auto-archive invoice document:', docErr);
+      }
+    }
+    await StorageService.saveInvoice(toSave);
+    const [updatedInvoices, updatedDocs] = await Promise.all([
+      StorageService.getInvoices(),
+      StorageService.getDocuments()
+    ]);
+    setInvoices(updatedInvoices);
+    setDocuments(updatedDocs);
+    setInvoiceFormOpen(false);
+    setEditingInvoice(null);
+    setPrefillInvoiceRecipient(null);
+  };
+
+  const handleDeleteInvoice = async (id: string) => {
+    await StorageService.deleteInvoice(id);
+    const updatedInvoices = await StorageService.getInvoices();
+    setInvoices(updatedInvoices);
+    if (detailsInvoice?.id === id) {
+      setDetailsInvoice(null);
+    }
+  };
+
+  const handleBulkDeleteInvoices = async (ids: string[]) => {
+    for (const id of ids) {
+      await StorageService.deleteInvoice(id);
+    }
+    const updatedInvoices = await StorageService.getInvoices();
+    setInvoices(updatedInvoices);
+  };
+
+  const handleToggleInvoiceStatus = async (invoice: ClubInvoice, newStatus: InvoiceStatus) => {
+    const updated: ClubInvoice = {
+      ...invoice,
+      status: newStatus,
+      paidAt: newStatus === 'paid' ? (invoice.paidAt || new Date().toISOString().split('T')[0]) : undefined,
+      updatedAt: new Date().toISOString()
+    };
+    await StorageService.saveInvoice(updated);
+    const updatedInvoices = await StorageService.getInvoices();
+    setInvoices(updatedInvoices);
+    if (detailsInvoice?.id === invoice.id) {
+      setDetailsInvoice(updated);
+    }
+  };
+
+  const handleSaveInvoiceTemplate = async (newTemplate: InvoiceTemplateSettings) => {
+    await StorageService.saveInvoiceTemplate(newTemplate);
+    setInvoiceTemplateSettings(newTemplate);
+    setInvoiceTemplateModalOpen(false);
+  };
+
+  const handleCreateInvoiceForContact = (contact: ClubContact) => {
+    setEditingInvoice(null);
+    setPrefillInvoiceRecipient({
+      id: contact.id,
+      name: contact.displayName,
+      type: 'contact',
+      company: contact.companyName,
+      contactPerson: contact.contactPerson
+        ? [contact.contactPerson.firstName, contact.contactPerson.lastName].filter(Boolean).join(' ')
+        : undefined,
+      email: contact.email,
+      address: contact.address
+        ? {
+            street: contact.address.street,
+            houseNumber: contact.address.houseNumber,
+            zip: contact.address.zip,
+            city: contact.address.city,
+            country: contact.address.country
+          }
+        : undefined
+    });
+    setInvoiceFormOpen(true);
+  };
+
+  const handleCreateInvoiceForMember = (member: Member) => {
+    setEditingInvoice(null);
+    setPrefillInvoiceRecipient({
+      id: member.id,
+      name: `${member.firstName} ${member.lastName}`,
+      type: 'member',
+      email: member.email,
+      address: member.address
+        ? {
+            street: member.address.street || '',
+            houseNumber: member.address.houseNumber || '',
+            zip: member.address.zip || '',
+            city: member.address.city || '',
+            country: member.address.country || 'Deutschland'
+          }
+        : undefined
+    });
+    setInvoiceFormOpen(true);
+  };
+
   // Calendar Event Quick Action Handlers
   const handleOpenCreateCalendarEvent = async () => {
     try {
@@ -654,6 +938,7 @@ export default function App() {
         settings={settings}
         deploymentMode={deploymentMode}
         onLoginSuccess={(user) => {
+          setActiveTab('dashboard');
           setAuthSession({ user, isAuthenticated: true, loginTime: new Date().toISOString() });
           loadData();
         }}
@@ -782,18 +1067,24 @@ export default function App() {
           {/* 2. Mitglieder (Group with Sub-items) */}
           <div className="pt-2">
             <button
+              id="nav-btn-members-group"
               type="button"
               onClick={() => setMembersMenuOpen(!membersMenuOpen)}
-              className="w-full flex items-center justify-between px-3.5 py-2 text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 transition-colors"
+              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer select-none ${
+                ['members', 'online_applications', 'member_analytics'].includes(activeTab)
+                  ? 'text-blue-300 bg-slate-800/50 hover:bg-slate-800 hover:text-white'
+                  : 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-200'
+              }`}
+              title={membersMenuOpen ? 'Mitglieder-Untermenü einklappen' : 'Mitglieder-Untermenü ausklappen'}
             >
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-blue-400" />
                 <span>Mitglieder</span>
               </div>
               {membersMenuOpen ? (
-                <ChevronDown className="w-3.5 h-3.5" />
+                <ChevronDown className="w-3.5 h-3.5 transition-transform" />
               ) : (
-                <ChevronRight className="w-3.5 h-3.5" />
+                <ChevronRight className="w-3.5 h-3.5 transition-transform" />
               )}
             </button>
 
@@ -805,25 +1096,14 @@ export default function App() {
                     setActiveTab('members');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                     activeTab === 'members'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <Users className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Mitgliederverwaltung</span>
-                  </div>
-                  <span
-                    className={`text-[11px] px-1.5 py-0.5 rounded font-mono ${
-                      activeTab === 'members'
-                        ? 'bg-blue-500/80 text-white'
-                        : 'bg-slate-800 text-slate-400'
-                    }`}
-                  >
-                    {members.length}
-                  </span>
+                  <Users className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Mitgliederverwaltung</span>
                 </button>
 
                 <button
@@ -881,18 +1161,24 @@ export default function App() {
           {/* 3. Finanzen (Group with Sub-items: Buchungen, Beitragslauf, EÜR / GuV, Auswertungen) */}
           <div className="pt-2">
             <button
+              id="nav-btn-finance-group"
               type="button"
               onClick={() => setFinanceMenuOpen(!financeMenuOpen)}
-              className="w-full flex items-center justify-between px-3.5 py-2 text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 transition-colors"
+              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer select-none ${
+                ['finance', 'sepa', 'guv', 'invoices', 'donations', 'finance_analytics'].includes(activeTab)
+                  ? 'text-emerald-300 bg-slate-800/50 hover:bg-slate-800 hover:text-white'
+                  : 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-200'
+              }`}
+              title={financeMenuOpen ? 'Finanzen-Untermenü einklappen' : 'Finanzen-Untermenü ausklappen'}
             >
               <div className="flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-emerald-400" />
                 <span>Finanzen</span>
               </div>
               {financeMenuOpen ? (
-                <ChevronDown className="w-3.5 h-3.5" />
+                <ChevronDown className="w-3.5 h-3.5 transition-transform" />
               ) : (
-                <ChevronRight className="w-3.5 h-3.5" />
+                <ChevronRight className="w-3.5 h-3.5 transition-transform" />
               )}
             </button>
 
@@ -905,25 +1191,14 @@ export default function App() {
                     setActiveTab('finance');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                     activeTab === 'finance'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <Wallet className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Buchungen & Journal</span>
-                  </div>
-                  <span
-                    className={`text-[11px] px-1.5 py-0.5 rounded font-mono ${
-                      activeTab === 'finance'
-                        ? 'bg-blue-500/80 text-white'
-                        : 'bg-slate-800 text-slate-400'
-                    }`}
-                  >
-                    {transactions.length}
-                  </span>
+                  <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Buchungen & Journal</span>
                 </button>
 
                 {/* 3b. Beitragslauf (SEPA) */}
@@ -971,7 +1246,25 @@ export default function App() {
                   <span>EÜR / GuV</span>
                 </button>
 
-                {/* 3d. Geld- & Sachzuwendungen (BMF Muster) */}
+                {/* 3d. Rechnungen & Vorlagen */}
+                <button
+                  id="nav-btn-invoices"
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('invoices');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                    activeTab === 'invoices'
+                      ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Rechnungen</span>
+                </button>
+
+                {/* 3e. Geld- & Sachzuwendungen (BMF Muster) */}
                 <button
                   id="nav-btn-donations"
                   type="button"
@@ -979,25 +1272,14 @@ export default function App() {
                     setActiveTab('donations');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                     activeTab === 'donations'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <HeartHandshake className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Spenden</span>
-                  </div>
-                  <span
-                    className={`text-[11px] px-1.5 py-0.5 rounded font-mono ${
-                      activeTab === 'donations'
-                        ? 'bg-blue-500/80 text-white'
-                        : 'bg-slate-800 text-slate-400'
-                    }`}
-                  >
-                    {donations.length}
-                  </span>
+                  <HeartHandshake className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Spenden</span>
                 </button>
 
                 {/* 3e. Finanz-Auswertungen */}
@@ -1020,6 +1302,28 @@ export default function App() {
             )}
           </div>
 
+          {/* Kontakte (eigenständiger Menüpunkt zwischen Finanzen und Kalender) */}
+          <div className="pt-2">
+            <button
+              id="nav-btn-contacts"
+              type="button"
+              onClick={() => {
+                setActiveTab('contacts');
+                setMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'contacts'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Contact className={`w-4 h-4 ${activeTab === 'contacts' ? 'text-white' : 'text-cyan-400'}`} />
+                <span>Kontakte</span>
+              </div>
+            </button>
+          </div>
+
           {/* 4. Kalender */}
           <div className="pt-2">
             <button
@@ -1029,15 +1333,37 @@ export default function App() {
                 setActiveTab('calendar');
                 setMobileMenuOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 activeTab === 'calendar'
                   ? 'bg-blue-600 text-white shadow-xs font-bold'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
               }`}
             >
               <div className="flex items-center gap-2">
-                <CalendarDays className="w-4 h-4 text-indigo-400" />
+                <CalendarDays className={`w-4 h-4 ${activeTab === 'calendar' ? 'text-white' : 'text-indigo-400'}`} />
                 <span>Kalender</span>
+              </div>
+            </button>
+          </div>
+
+          {/* Sitzungen & Protokolldienst */}
+          <div className="pt-2">
+            <button
+              id="nav-btn-meetings"
+              type="button"
+              onClick={() => {
+                setActiveTab('meetings');
+                setMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'meetings'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <ScrollText className={`w-4 h-4 ${activeTab === 'meetings' ? 'text-white' : 'text-rose-400'}`} />
+                <span>Sitzungen</span>
               </div>
             </button>
           </div>
@@ -1050,25 +1376,14 @@ export default function App() {
                 setActiveTab('inventory');
                 setMobileMenuOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+              className={`w-full flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
                 activeTab === 'inventory'
                   ? 'bg-blue-600 text-white shadow-xs font-bold'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
               }`}
             >
-              <div className="flex items-center gap-2">
-                <Package className="w-4 h-4 text-purple-400" />
-                <span>Inventar</span>
-              </div>
-              <span
-                className={`text-[11px] px-1.5 py-0.5 rounded font-mono ${
-                  activeTab === 'inventory'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-slate-800 text-slate-400'
-                }`}
-              >
-                {inventory.length}
-              </span>
+              <Package className="w-4 h-4 text-purple-400" />
+              <span>Inventar</span>
             </button>
           </div>
 
@@ -1081,25 +1396,14 @@ export default function App() {
                 setActiveTab('documents');
                 setMobileMenuOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+              className={`w-full flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
                 activeTab === 'documents'
                   ? 'bg-blue-600 text-white shadow-xs font-bold'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
               }`}
             >
-              <div className="flex items-center gap-2">
-                <FolderArchive className="w-4 h-4 text-amber-400" />
-                <span>Dokumente</span>
-              </div>
-              <span
-                className={`text-[11px] px-1.5 py-0.5 rounded font-mono ${
-                  activeTab === 'documents'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-slate-800 text-slate-400'
-                }`}
-              >
-                {documents.length}
-              </span>
+              <FolderArchive className="w-4 h-4 text-amber-400" />
+              <span>Dokumente</span>
             </button>
           </div>
         </nav>
@@ -1218,9 +1522,12 @@ export default function App() {
                 {activeTab === 'sepa' && 'Beitragslauf (SEPA-Lastschriften)'}
                 {activeTab === 'finance' && 'Finanz- & Kassenverwaltung'}
                 {activeTab === 'guv' && 'Einnahmen-Überschuss-Rechnung (EÜR / GuV)'}
+                {activeTab === 'invoices' && 'Rechnungen & Vorlagen (DIN 5008)'}
                 {activeTab === 'finance_analytics' && 'Finanzanalysen & Cashflow'}
                 {activeTab === 'donations' && 'Geld- & Sachzuwendungen (BMF-Zuwendungsbestätigungen)'}
+                {activeTab === 'contacts' && 'Kontaktverwaltung (Geschäftspartner, Lieferanten, Sponsoren & Spender)'}
                 {activeTab === 'calendar' && 'Kalender & Termine'}
+                {activeTab === 'meetings' && 'Sitzungs- & Protokolldienst'}
                 {activeTab === 'inventory' && 'Inventar- & Materialverwaltung'}
                 {activeTab === 'documents' && 'Dokumentenverwaltung & Archiv'}
                 {activeTab === 'settings' && 'System- & Vereinseinstellungen'}
@@ -1359,6 +1666,9 @@ export default function App() {
                 documents={documents}
                 donations={donations}
                 applications={onlineApplications}
+                invoices={invoices}
+                contacts={contacts}
+                meetings={meetings}
                 settings={settings}
                 dashboardConfig={dashboardConfig}
                 onUpdateDashboardConfig={(newConfig) => {
@@ -1374,6 +1684,21 @@ export default function App() {
                 onOpenCreateTx={() => {
                   setEditingTx(null);
                   setTxFormOpen(true);
+                }}
+                onOpenCreateInvoice={() => {
+                  setEditingInvoice(null);
+                  setPrefillInvoiceRecipient(null);
+                  setInvoiceFormOpen(true);
+                }}
+                onOpenCreateContact={() => {
+                  setEditingContact(null);
+                  setInitialContactFormName('');
+                  setInitialContactFormType(undefined);
+                  setContactFormOpen(true);
+                }}
+                onOpenCreateMeeting={() => {
+                  setEditingMeeting(null);
+                  setMeetingFormOpen(true);
                 }}
                 onOpenCreateEvent={handleOpenCreateCalendarEvent}
                 onOpenCreateInventory={() => {
@@ -1463,6 +1788,10 @@ export default function App() {
                 transactions={transactions}
                 accounts={accounts}
                 settings={settings}
+                contacts={contacts}
+                onOpenCreateContactFromTx={(partnerName, isIncome) =>
+                  handleQuickCreateContact(partnerName, isIncome ? 'sponsor' : 'supplier')
+                }
                 onOpenCreateTx={() => {
                   setEditingTx(null);
                   setTxFormOpen(true);
@@ -1494,6 +1823,31 @@ export default function App() {
               />
             )}
 
+            {/* Tab: Invoices Management & Blanko-Briefpapier (DIN 5008) */}
+            {activeTab === 'invoices' && (
+              <InvoicesView
+                invoices={invoices}
+                clubSettings={settings}
+                templateSettings={invoiceTemplateSettings}
+                onOpenCreate={() => {
+                  setEditingInvoice(null);
+                  setPrefillInvoiceRecipient(null);
+                  setInvoiceFormOpen(true);
+                }}
+                onOpenEdit={(inv) => {
+                  setEditingInvoice(inv);
+                  setInvoiceFormOpen(true);
+                }}
+                onOpenDetails={(inv) => {
+                  setDetailsInvoice(inv);
+                }}
+                onDeleteInvoice={handleDeleteInvoice}
+                onBulkDeleteInvoices={handleBulkDeleteInvoices}
+                onOpenTemplateConfig={() => setInvoiceTemplateModalOpen(true)}
+                onToggleStatus={handleToggleInvoiceStatus}
+              />
+            )}
+
             {/* Tab 5: Finance Analytics */}
             {activeTab === 'finance_analytics' && (
               <FinanceAnalyticsView
@@ -1514,6 +1868,35 @@ export default function App() {
                 onEditReceipt={handleEditDonationReceipt}
                 onDeleteReceipt={handleDeleteDonationReceipt}
                 onViewDocument={(doc) => setDocViewerItem(doc)}
+              />
+            )}
+
+            {/* Tab: Contacts Management */}
+            {activeTab === 'contacts' && (
+              <ContactsView
+                contacts={contacts}
+                transactions={transactions}
+                clubName={settings.clubName}
+                onOpenCreate={() => {
+                  setEditingContact(null);
+                  setInitialContactFormName('');
+                  setInitialContactFormType(undefined);
+                  setContactFormOpen(true);
+                }}
+                onOpenEdit={c => {
+                  setEditingContact(c);
+                  setContactFormOpen(true);
+                }}
+                onOpenDetails={c => setDetailsContact(c)}
+                onDeleteContact={handleDeleteContact}
+                onBulkDeleteContacts={handleBulkDeleteContacts}
+                onCreateBookingForContact={c => {
+                  setEditingTx(null);
+                  setInitialBookingPartner(c.displayName);
+                  setTxFormOpen(true);
+                }}
+                onCreateInvoiceForContact={handleCreateInvoiceForContact}
+                onOpenImport={() => setContactImportOpen(true)}
               />
             )}
 
@@ -1541,6 +1924,19 @@ export default function App() {
                 members={members}
                 settings={settings}
                 userPermissions={userPermissions}
+              />
+            )}
+
+            {/* Tab: Meetings & Protocol Management */}
+            {activeTab === 'meetings' && (
+              <MeetingsView
+                meetings={meetings}
+                members={members}
+                clubSettings={settings}
+                templateSettings={meetingTemplateSettings}
+                onSaveMeeting={handleSaveMeeting}
+                onDeleteMeeting={handleDeleteMeeting}
+                onSaveTemplate={handleSaveMeetingTemplate}
               />
             )}
 
@@ -1732,11 +2128,64 @@ export default function App() {
           transaction={editingTx}
           accounts={accounts}
           nextDocNumber={nextDocNumber}
+          contacts={contacts}
+          members={members}
+          initialPartner={initialBookingPartner}
+          onQuickCreateContact={handleQuickCreateContact}
           onSave={handleSaveTransaction}
           onClose={() => {
             setTxFormOpen(false);
             setEditingTx(null);
+            setInitialBookingPartner('');
           }}
+        />
+      )}
+
+      {/* Contact Create/Edit Modal */}
+      {contactFormOpen && (
+        <ContactFormModal
+          isOpen={contactFormOpen}
+          contact={editingContact}
+          initialName={initialContactFormName}
+          initialType={initialContactFormType}
+          onSave={handleSaveContact}
+          onClose={() => {
+            setContactFormOpen(false);
+            setEditingContact(null);
+            setInitialContactFormName('');
+            setInitialContactFormType(undefined);
+          }}
+        />
+      )}
+
+      {/* Contact Details Modal */}
+      {detailsContact && (
+        <ContactDetailsModal
+          isOpen={true}
+          contact={detailsContact}
+          transactions={transactions}
+          onClose={() => setDetailsContact(null)}
+          onEdit={(c) => {
+            setDetailsContact(null);
+            setEditingContact(c);
+            setContactFormOpen(true);
+          }}
+          onDelete={handleDeleteContact}
+          onCreateBookingForContact={(c) => {
+            setDetailsContact(null);
+            setEditingTx(null);
+            setInitialBookingPartner(c.displayName);
+            setTxFormOpen(true);
+          }}
+        />
+      )}
+
+      {/* Contact Import Modal (CSV & Sheets) */}
+      {contactImportOpen && (
+        <ContactImportModal
+          existingContacts={contacts}
+          onImport={handleBatchImportContacts}
+          onClose={() => setContactImportOpen(false)}
         />
       )}
 
@@ -1820,6 +2269,69 @@ export default function App() {
         />
       )}
 
+      {/* Invoice Form Modal (Erstellung & Bearbeitung) */}
+      {invoiceFormOpen && (
+        <InvoiceFormModal
+          isOpen={invoiceFormOpen}
+          onClose={() => {
+            setInvoiceFormOpen(false);
+            setEditingInvoice(null);
+            setPrefillInvoiceRecipient(null);
+          }}
+          invoice={editingInvoice}
+          members={members}
+          contacts={contacts}
+          clubSettings={settings}
+          templateSettings={invoiceTemplateSettings}
+          nextInvoiceNumber={nextInvoiceNumber}
+          prefillRecipient={prefillInvoiceRecipient}
+          onSave={handleSaveInvoice}
+          onPreviewPdf={(inv) => downloadInvoicePdf(inv, settings, invoiceTemplateSettings)}
+        />
+      )}
+
+      {/* Invoice Details Modal */}
+      {detailsInvoice && (
+        <InvoiceDetailsModal
+          isOpen={Boolean(detailsInvoice)}
+          onClose={() => setDetailsInvoice(null)}
+          invoice={detailsInvoice}
+          clubSettings={settings}
+          templateSettings={invoiceTemplateSettings}
+          onEdit={(inv) => {
+            setDetailsInvoice(null);
+            setEditingInvoice(inv);
+            setInvoiceFormOpen(true);
+          }}
+          onDelete={(id) => handleDeleteInvoice(id)}
+          onDownloadPdf={(inv) => downloadInvoicePdf(inv, settings, invoiceTemplateSettings)}
+          onToggleStatus={(inv, newStatus) => handleToggleInvoiceStatus(inv, newStatus)}
+          onShowInDocuments={(docId) => {
+            const foundDoc = documents.find(d => d.id === docId);
+            if (foundDoc) {
+              setDocViewerItem(foundDoc);
+              setActiveTab('documents');
+            }
+          }}
+        />
+      )}
+
+      {/* Invoice Template Settings Modal (DIN 5008 & Blanko-Briefpapier) */}
+      {invoiceTemplateModalOpen && (
+        <InvoiceTemplateModal
+          isOpen={invoiceTemplateModalOpen}
+          onClose={() => setInvoiceTemplateModalOpen(false)}
+          template={invoiceTemplateSettings}
+          clubSettings={settings}
+          onSaveTemplate={handleSaveInvoiceTemplate}
+          onTestExport={(tpl) => {
+            if (invoices.length > 0) {
+              downloadInvoicePdf(invoices[0], settings, tpl);
+            }
+          }}
+        />
+      )}
+
       {/* User & Role Management Modal (Admin only) */}
       {userManageOpen && (
         <UserManageModal
@@ -1844,6 +2356,26 @@ export default function App() {
           departments={settings.departments}
           onSave={handleSaveCalendarEvent}
           clubSettingsAddress={settings.address}
+        />
+      )}
+
+      {/* Meeting Create/Edit Modal (Direct Dashboard Schnellaktion & Global Trigger) */}
+      {meetingFormOpen && (
+        <MeetingFormModal
+          isOpen={meetingFormOpen}
+          meetingToEdit={editingMeeting}
+          members={members}
+          clubSettings={settings}
+          templateSettings={meetingTemplateSettings}
+          onSave={async (savedMeeting) => {
+            await handleSaveMeeting(savedMeeting);
+            setMeetingFormOpen(false);
+            setEditingMeeting(null);
+          }}
+          onClose={() => {
+            setMeetingFormOpen(false);
+            setEditingMeeting(null);
+          }}
         />
       )}
 

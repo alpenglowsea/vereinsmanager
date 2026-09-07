@@ -7,7 +7,10 @@ import {
   InventoryItem,
   ClubDocument,
   DonationReceipt,
-  OnlineMembershipApplication
+  OnlineMembershipApplication,
+  ClubInvoice,
+  ClubContact,
+  Meeting
 } from '../types';
 import { UserDashboardConfig, WidgetColSpan } from '../types/dashboard';
 import { AVAILABLE_DASHBOARD_WIDGETS } from '../data/defaultDashboard';
@@ -38,6 +41,14 @@ import {
   DocumentsArchiveWidget
 } from './DashboardWidgets/GeneralWidgets';
 import {
+  InvoicesOverviewWidget,
+  InvoicesKpiWidget,
+  ContactsSummaryWidget,
+  ContactsKpiWidget,
+  MeetingsSummaryWidget,
+  MeetingsKpiWidget
+} from './DashboardWidgets/OperationalWidgets';
+import {
   SlidersHorizontal,
   Plus,
   RotateCcw,
@@ -57,6 +68,9 @@ interface DashboardViewProps {
   documents?: ClubDocument[];
   donations?: DonationReceipt[];
   applications?: OnlineMembershipApplication[];
+  invoices?: ClubInvoice[];
+  contacts?: ClubContact[];
+  meetings?: Meeting[];
   settings: ClubSettings;
   dashboardConfig: UserDashboardConfig;
   onUpdateDashboardConfig: (newConfig: UserDashboardConfig) => void;
@@ -64,6 +78,9 @@ interface DashboardViewProps {
   onNavigate: (tab: any) => void;
   onOpenCreateMember: () => void;
   onOpenCreateTx: () => void;
+  onOpenCreateInvoice?: () => void;
+  onOpenCreateContact?: () => void;
+  onOpenCreateMeeting?: () => void;
   onOpenCreateEvent?: () => void;
   onOpenCreateInventory: () => void;
   onOpenNewDocument?: () => void;
@@ -77,6 +94,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   documents = [],
   donations = [],
   applications = [],
+  invoices = [],
+  contacts = [],
+  meetings = [],
   settings,
   dashboardConfig,
   onUpdateDashboardConfig,
@@ -84,6 +104,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigate,
   onOpenCreateMember,
   onOpenCreateTx,
+  onOpenCreateInvoice,
+  onOpenCreateContact,
+  onOpenCreateMeeting,
   onOpenCreateEvent,
   onOpenCreateInventory,
   onOpenNewDocument
@@ -202,6 +225,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <QuickActionsWidget
             onOpenCreateMember={onOpenCreateMember}
             onOpenCreateTx={onOpenCreateTx}
+            onOpenCreateInvoice={onOpenCreateInvoice}
+            onOpenCreateContact={onOpenCreateContact}
             onOpenCreateEvent={onOpenCreateEvent}
             onOpenCreateInventory={onOpenCreateInventory}
             onOpenNewDocument={onOpenNewDocument}
@@ -237,6 +262,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         return <DonationsWidget donations={donations} onNavigate={onNavigate} />;
       case 'cashflow_chart':
         return <CashflowWidget transactions={transactions} onNavigate={onNavigate} />;
+      case 'invoices_overview':
+        return (
+          <InvoicesOverviewWidget
+            invoices={invoices}
+            onNavigate={onNavigate}
+            onOpenCreateInvoice={onOpenCreateInvoice}
+          />
+        );
+      case 'invoices_kpi':
+        return <InvoicesKpiWidget invoices={invoices} onNavigate={onNavigate} />;
+      case 'contacts_summary':
+        return (
+          <ContactsSummaryWidget
+            contacts={contacts}
+            onNavigate={onNavigate}
+            onOpenCreateContact={onOpenCreateContact}
+          />
+        );
+      case 'contacts_kpi':
+        return <ContactsKpiWidget contacts={contacts} onNavigate={onNavigate} />;
+      case 'meetings_summary':
+        return (
+          <MeetingsSummaryWidget
+            meetings={meetings}
+            onNavigate={onNavigate}
+            onOpenCreateMeeting={onOpenCreateMeeting}
+          />
+        );
+      case 'meetings_kpi':
+        return <MeetingsKpiWidget meetings={meetings} onNavigate={onNavigate} />;
       case 'upcoming_events':
         return <UpcomingEventsWidget onNavigate={onNavigate} onOpenCreateEvent={onOpenCreateEvent} />;
       case 'inventory_overview':
@@ -273,7 +328,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         : 'Neue digitale Mitgliedsanträge eingegangen'}
                     </h3>
                   </div>
-                  <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1">
+                  <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1 break-words">
                     Es liegen neue Online-Mitgliedsanträge zur satzungsgemäßen Prüfung und Freigabe vor:{' '}
                     <span className="font-semibold">
                       {pendingApplications.slice(0, 3).map((a) => `${a.firstName || (a as any).formData?.firstName || 'Antragsteller'} ${a.lastName || (a as any).formData?.lastName || ''} (${a.department || (a as any).formData?.department || 'Allgemein'})`).join(', ')}
@@ -286,10 +341,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('online_applications')}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 active:scale-98 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow-md transition-all cursor-pointer shrink-0"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 active:scale-98 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow-md transition-all cursor-pointer shrink-0 w-full sm:w-auto text-center"
               >
-                <span>Antragsportal öffnen & prüfen ({pendingApplications.length})</span>
-                <ArrowRight className="w-4 h-4" />
+                <span className="truncate">Antragsportal öffnen & prüfen ({pendingApplications.length})</span>
+                <ArrowRight className="w-4 h-4 shrink-0" />
               </button>
             </div>
           )}

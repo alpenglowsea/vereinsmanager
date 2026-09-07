@@ -1,0 +1,242 @@
+import { ClubInvoice, InvoiceTemplateSettings } from '../types';
+
+export const DEFAULT_INVOICE_TEMPLATE: InvoiceTemplateSettings = {
+  templateName: 'Standard-Vereinsbriefbogen (DIN 5008)',
+  marginTop: 45,
+  marginBottom: 25,
+  marginLeft: 20,
+  marginRight: 20,
+  defaultIntroText: 'Sehr geehrte Damen und Herren,\n\nwir bedanken uns für das entgegengebrachte Vertrauen und die gute Zusammenarbeit. Für die vereinbarten Leistungen stellen wir Ihnen folgende Positionen in Rechnung:',
+  defaultOutroText: 'Zahlungsziel: Bitte überweisen Sie den Rechnungsbetrag ohne Abzug innerhalb von 14 Tagen unter Angabe der Rechnungsnummer auf unser unten genanntes Vereinskonto.',
+  defaultPaymentTermsDays: 14,
+  defaultDueNotice: 'Zahlbar rein netto innerhalb von 14 Tagen.',
+  showClubLogo: true,
+  showFoldingMarks: true,
+  showGiroCode: true,
+  accentColor: '#1e40af' // Blue-800
+};
+
+export const INITIAL_INVOICES: ClubInvoice[] = [
+  {
+    id: 'inv-1',
+    invoiceNumber: 'RE-2026-001',
+    date: '2026-01-15',
+    deliveryDate: '2026-01-15',
+    dueDate: '2026-01-29',
+    status: 'paid',
+    recipientType: 'contact',
+    recipientId: 'cnt-1',
+    recipientName: 'Musterstadt Stadtwerke AG',
+    recipientCompany: 'Musterstadt Stadtwerke AG',
+    recipientContactPerson: 'Dr. Klaus Becker (Vorstand Marketing)',
+    recipientAddress: {
+      street: 'Energiestraße',
+      houseNumber: '1',
+      zip: '12345',
+      city: 'Musterstadt',
+      country: 'Deutschland'
+    },
+    recipientEmail: 'sponsoring@stadtwerke-musterstadt.de',
+    recipientPhone: '0234 5678-100',
+    title: 'Rechnung',
+    subject: 'Sponsoring Werbebande Hauptplatz & Trikotwerbung Saison 2025/2026',
+    introText: 'Sehr geehrte Damen und Herren,\n\nwir bedanken uns herzlich für Ihre treue Partnerschaft zur Förderung unseres Vereins. Für die vertraglich vereinbarte Werbepräsenz berechnen wir wie folgt:',
+    items: [
+      {
+        id: 'item-1-1',
+        position: 1,
+        description: 'Bandenwerbung Hauptplatz Sportgelände Ost (Länge 12 Meter)',
+        quantity: 1,
+        unit: 'Pauschale',
+        unitPrice: 850.00,
+        vatRate: 19,
+        totalPrice: 850.00
+      },
+      {
+        id: 'item-1-2',
+        position: 2,
+        description: 'Anzeigenplatzierung Vereinsheft & Stadionzeitung Ausgabe Rückrunde',
+        quantity: 1,
+        unit: 'Seite',
+        unitPrice: 350.00,
+        vatRate: 19,
+        totalPrice: 350.00
+      }
+    ],
+    outroText: 'Vielen Dank für Ihre Unterstützung! Bitte überweisen Sie den fälligen Betrag unter Angabe der Rechnungsnummer auf unser Geschäftskonto bei der Sparkasse Musterstadt.',
+    taxSphere: 'wirtschaftlich',
+    subtotalNet: 1200.00,
+    vatAmounts: { 19: 228.00 },
+    totalVat: 228.00,
+    totalAmount: 1428.00,
+    paymentTermsDays: 14,
+    paidAt: '2026-01-24',
+    paymentMethod: 'transfer',
+    notes: 'Zahlungseingang termingerecht gebucht auf Sparkassenkonto',
+    createdAt: '2026-01-15T09:00:00.000Z',
+    updatedAt: '2026-01-24T16:00:00.000Z'
+  },
+  {
+    id: 'inv-2',
+    invoiceNumber: 'RE-2026-002',
+    date: '2026-02-01',
+    deliveryDate: '2026-02-01',
+    dueDate: '2026-02-15',
+    status: 'open',
+    recipientType: 'contact',
+    recipientId: 'cnt-4',
+    recipientName: 'Gastronomie Pächter Luigi Rossi',
+    recipientCompany: 'Vereinsgaststätte "Da Luigi"',
+    recipientContactPerson: 'Luigi Rossi',
+    recipientAddress: {
+      street: 'Sportplatzweg',
+      houseNumber: '12a',
+      zip: '12345',
+      city: 'Musterstadt',
+      country: 'Deutschland'
+    },
+    recipientEmail: 'luigi.rossi@gastronomie-musterstadt.de',
+    recipientPhone: '0171 2233445',
+    title: 'Rechnung',
+    subject: 'Nebenkostenabrechnung & Pacht Vereinsgaststätte Monat Januar 2026',
+    introText: 'Hallo Luigi,\n\ngemäß Pachtvertrag stellen wir dir hiermit die monatliche Pauschalpacht sowie die verbrauchsabhängigen Betriebskosten für Januar 2026 in Rechnung:',
+    items: [
+      {
+        id: 'item-2-1',
+        position: 1,
+        description: 'Monatliche Grundpacht Vereinsheim-Gaststätte Januar 2026',
+        quantity: 1,
+        unit: 'Monat',
+        unitPrice: 600.00,
+        vatRate: 0,
+        totalPrice: 600.00
+      },
+      {
+        id: 'item-2-2',
+        position: 2,
+        description: 'Umlage Strom & Wasser Gastronomiebereich (Zwischenzähler)',
+        quantity: 1,
+        unit: 'Pauschale',
+        unitPrice: 185.50,
+        vatRate: 19,
+        totalPrice: 185.50
+      }
+    ],
+    outroText: 'Bitte überweise den Gesamtbetrag fristgerecht auf das Vereinskonto. Bei Fragen zur Zählerablesung melde dich gerne.',
+    taxSphere: 'vermoegen',
+    subtotalNet: 785.50,
+    vatAmounts: { 0: 0.00, 19: 35.25 },
+    totalVat: 35.25,
+    totalAmount: 820.75,
+    paymentTermsDays: 14,
+    paymentMethod: 'transfer',
+    notes: 'Pachtvertrag § 4 Abs. 2',
+    createdAt: '2026-02-01T10:00:00.000Z',
+    updatedAt: '2026-02-01T10:00:00.000Z'
+  },
+  {
+    id: 'inv-3',
+    invoiceNumber: 'RE-2026-003',
+    date: '2026-02-12',
+    deliveryDate: '2026-02-10',
+    dueDate: '2026-02-26',
+    status: 'open',
+    recipientType: 'contact',
+    recipientId: 'cnt-6',
+    recipientName: 'Landessportbund NRW e.V.',
+    recipientCompany: 'Landessportbund NRW e.V.',
+    recipientContactPerson: 'Abteilung Sportbildung & Förderungen',
+    recipientAddress: {
+      street: 'Friedrich-Alfred-Straße',
+      houseNumber: '25',
+      zip: '47055',
+      city: 'Duisburg',
+      country: 'Deutschland'
+    },
+    recipientEmail: 'abrechnung@lsb-nrw.de',
+    recipientPhone: '0203 7381-0',
+    title: 'Rechnung',
+    subject: 'Raumbereitstellung & Übungsleiterfortbildung Sportstätte Sporthalle 2',
+    introText: 'Sehr geehrte Damen und Herren,\n\nfür die Durchführung des regionalen C-Lizenz Lehrgangs stellen wir vereinbarungsgemäß die Nutzung unserer Halle sowie Schulungsmedien in Rechnung:',
+    items: [
+      {
+        id: 'item-3-1',
+        position: 1,
+        description: 'Hallenbereitstellung Dreifachsporthalle (2 Wochenend-Tage à 8 Std.)',
+        quantity: 16,
+        unit: 'Std.',
+        unitPrice: 22.50,
+        vatRate: 7,
+        totalPrice: 360.00
+      },
+      {
+        id: 'item-3-2',
+        position: 2,
+        description: 'Bereitstellung Seminarraum & Tagungstechnik (Beamer, Flipchart)',
+        quantity: 2,
+        unit: 'Tage',
+        unitPrice: 50.00,
+        vatRate: 7,
+        totalPrice: 100.00
+      }
+    ],
+    outroText: 'Zahlbar rein netto innerhalb von 14 Tagen auf unser Vereinskonto.',
+    taxSphere: 'zweckbetrieb',
+    subtotalNet: 460.00,
+    vatAmounts: { 7: 32.20 },
+    totalVat: 32.20,
+    totalAmount: 492.20,
+    paymentTermsDays: 14,
+    paymentMethod: 'transfer',
+    notes: 'Veranstaltungsnummer LSB-2026-FORTB-12',
+    createdAt: '2026-02-12T14:30:00.000Z',
+    updatedAt: '2026-02-12T14:30:00.000Z'
+  },
+  {
+    id: 'inv-4',
+    invoiceNumber: 'RE-2026-004',
+    date: '2026-02-20',
+    deliveryDate: '2026-03-08',
+    dueDate: '2026-03-06',
+    status: 'draft',
+    recipientType: 'member',
+    recipientId: 'mem-1',
+    recipientName: 'Maximilian Müller',
+    recipientContactPerson: '',
+    recipientAddress: {
+      street: 'Hauptstraße',
+      houseNumber: '42',
+      zip: '12345',
+      city: 'Musterstadt',
+      country: 'Deutschland'
+    },
+    recipientEmail: 'max.mueller@example.de',
+    recipientPhone: '0171 1234567',
+    title: 'Rechnung',
+    subject: 'Auslagenersatz & Lehrgangsbeitrag Trainerfortbildung',
+    introText: 'Hallo Maximilian,\n\nfür deinen anteiligen Kostenbeitrag zur Trainerfortbildung berechnen wir wie im Vorstand abgestimmt:',
+    items: [
+      {
+        id: 'item-4-1',
+        position: 1,
+        description: 'Eigenanteil Lizenzverlängerung DOSB C-Lizenz Fußball',
+        quantity: 1,
+        unit: 'Pauschale',
+        unitPrice: 75.00,
+        vatRate: 0,
+        totalPrice: 75.00
+      }
+    ],
+    outroText: 'Bitte überweise den Betrag bis zur Fälligkeit.',
+    taxSphere: 'ideell',
+    subtotalNet: 75.00,
+    vatAmounts: { 0: 0.00 },
+    totalVat: 0.00,
+    totalAmount: 75.00,
+    paymentTermsDays: 14,
+    paymentMethod: 'transfer',
+    notes: 'Entwurf für Abstimmung',
+    createdAt: '2026-02-20T11:00:00.000Z',
+    updatedAt: '2026-02-20T11:00:00.000Z'
+  }
+];

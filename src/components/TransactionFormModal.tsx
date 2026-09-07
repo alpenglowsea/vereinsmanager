@@ -4,8 +4,12 @@ import {
   FinancialAccount,
   TaxSphere,
   ReceiptAttachment,
-  BookingAiSuggestion
+  BookingAiSuggestion,
+  ClubContact,
+  Member,
+  ContactType
 } from '../types';
+import { CONTACT_TYPE_MAP } from '../data/contactConstants';
 import {
   TAX_SPHERES,
   getSkr42MainCategories,
@@ -30,15 +34,24 @@ import {
   Bot,
   Check,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Building2,
+  User,
+  UserPlus,
+  Plus
 } from 'lucide-react';
 import { ReceiptCameraScannerModal } from './ReceiptCameraScannerModal';
 import { AiBookingService } from '../services/aiBookingService';
+import { openExternalUrl } from '../utils/externalLink';
 
 interface TransactionFormModalProps {
   transaction: Transaction | null;
   accounts: FinancialAccount[];
   nextDocNumber: string;
+  contacts?: ClubContact[];
+  members?: Member[];
+  initialPartner?: string;
+  onQuickCreateContact?: (initialName: string, initialType?: ContactType) => void;
   onSave: (tx: Transaction) => void;
   onClose: () => void;
 }
@@ -47,6 +60,10 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   transaction,
   accounts,
   nextDocNumber,
+  contacts = [],
+  members = [],
+  initialPartner,
+  onQuickCreateContact,
   onSave,
   onClose
 }) => {
@@ -84,7 +101,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     targetAccountId: transaction?.targetAccountId || '',
     documentNumber: transaction?.documentNumber || nextDocNumber,
     bookingText: transaction?.bookingText || '',
-    partner: transaction?.partner || '',
+    partner: transaction?.partner || initialPartner || '',
     sphere: initialSphere,
     mainCategory: transaction?.mainCategory || initialMainCats.find(m => m.id === initialMainCatId)?.name || '',
     subCategory: initialSubCat,
@@ -111,6 +128,130 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   const [showKeySetupInline, setShowKeySetupInline] = useState(false);
   const [inlineApiKey, setInlineApiKey] = useState(AiBookingService.getStoredApiKey());
   const [keySavedToast, setKeySavedToast] = useState(false);
+
+  useEffect(() => {
+    if (initialPartner && !transaction) {
+      setFormData(prev => ({ ...prev, partner: initialPartner }));
+    }
+  }, [initialPartner, transaction]);
+
+  // Partner autocomplete & unknown contact detection
+  const [showPartnerSuggestions, setShowPartnerSuggestions] = useState(false);
+  const partnerQuery = formData.partner.trim().toLowerCase();
+
+  const matchedSuggestions = React.useMemo(() => {
+    if (formData.type === 'transfer' || !partnerQuery || partnerQuery.length < 1) {
+      return [];
+    }
+
+    const list: Array<{
+      id: string;
+      source: 'contact' | 'member';
+      name: string;
+      subtitle: string;
+      badge: string;
+      badgeColor: string;
+      contactRef?: ClubContact;
+      memberRef?: Member;
+    }> = [];
+
+    // Search contacts
+    for (const c of contacts) {
+      const matchName = (c.displayName || '').toLowerCase().includes(partnerQuery);
+      const matchCompany = (c.companyName || '').toLowerCase().includes(partnerQuery);
+      const matchPerson =
+        c.contactPerson &&
+        `${c.contactPerson.firstName || ''} ${c.contactPerson.lastName || ''}`
+          .toLowerCase()
+          .includes(partnerQuery);
+
+      if (matchName || matchCompany || matchPerson) {
+        const typeNames = c.types
+          .map(t => CONTACT_TYPE_MAP.get(t)?.label || t)
+          .join(', ');
+        list.push({
+          id: c.id,
+          source: 'contact',
+          name: c.displayName,
+          subtitle:
+            c.personType === 'legal'
+              ? `${c.legalForm || 'Firma'}${
+                  c.contactPerson
+                    ? ` • AP: ${c.contactPerson.firstName || ''} ${
+                        c.contactPerson.lastName || ''
+                      }`
+                    : ''
+                }`
+              : `Natürliche Person${
+                  c.address?.city ? ` (${c.address.city})` : ''
+                }`,
+          badge: typeNames || 'Kontakt',
+          badgeColor: 'bg-orange-100 text-orange-800 border-orange-200',
+          contactRef: c
+        });
+      }
+    }
+
+    // Search members
+    for (const m of members) {
+      const fullName = `${m.firstName} ${m.lastName}`.trim();
+      const matchName = fullName.toLowerCase().includes(partnerQuery);
+      const matchNum = (m.memberNumber || '').toLowerCase().includes(partnerQuery);
+
+      if (matchName || matchNum) {
+        list.push({
+          id: m.id,
+          source: 'member',
+          name: fullName,
+          subtitle: `Mitglied ${m.memberNumber} • Sparte: ${m.department}`,
+          badge: 'Mitglied',
+          badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+          memberRef: m
+        });
+      }
+    }
+
+    return list.slice(0, 8);
+  }, [contacts, members, partnerQuery, formData.type]);
+
+  // Check whether entered partner is already in contacts or members
+  const exactContactMatch = contacts.some(
+    c =>
+      (c.displayName || '').trim().toLowerCase() === partnerQuery ||
+      (c.companyName || '').trim().toLowerCase() === partnerQuery
+  );
+  const exactMemberMatch = members.some(
+    m => `${m.firstName} ${m.lastName}`.trim().toLowerCase() === partnerQuery
+  );
+  const isKnownPartner = exactContactMatch || exactMemberMatch;
+
+  const handleSelectPartnerSuggestion = (s: {
+    name: string;
+    contactRef?: ClubContact;
+    memberRef?: Member;
+  }) => {
+    setFormData(prev => {
+      const updated = { ...prev, partner: s.name };
+      if (s.contactRef) {
+        const c = s.contactRef;
+        if (prev.type === 'income') {
+          if (c.types.includes('donor')) {
+            updated.sphere = 'ideell';
+            updated.mainCategory = 'Spenden und Zuwendungen';
+            updated.subCategory = 'Spenden / Zuwendungen';
+            updated.category = 'Spenden / Zuwendungen';
+          } else if (c.types.includes('sponsor')) {
+            updated.sphere = 'wirtschaftlich';
+            updated.mainCategory = 'Werbung und Sponsoring';
+            updated.subCategory = 'Sponsoring Einnahmen';
+            updated.category = 'Sponsoring Einnahmen';
+          }
+        }
+      }
+      return updated;
+    });
+    setShowPartnerSuggestions(false);
+  };
 
   // Available SKR 42 categories for current sphere and type
   const activeType = formData.type === 'transfer' ? 'expense' : formData.type;
@@ -475,19 +616,122 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                   {errors.targetAccountId && <p className="text-xs text-rose-600 mt-1">{errors.targetAccountId}</p>}
                 </div>
               ) : (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    {formData.type === 'income' ? 'Zahler / Absender *' : 'Zahlungsempfänger *'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.partner}
-                    onChange={e => setFormData({ ...formData, partner: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
-                    placeholder="z.B. Stadtwerke AG oder Max Mustermann"
-                  />
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      {formData.type === 'income' ? 'Zahler / Absender *' : 'Zahlungsempfänger *'}
+                    </label>
+                    {onQuickCreateContact && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onQuickCreateContact(
+                            formData.partner.trim(),
+                            formData.type === 'income' ? 'sponsor' : 'supplier'
+                          )
+                        }
+                        className="text-xs text-orange-600 hover:text-orange-800 font-semibold flex items-center gap-1 cursor-pointer"
+                        title="Als neuen Kontakt anlegen"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Neuer Kontakt</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={formData.partner}
+                      onChange={e => {
+                        setFormData({ ...formData, partner: e.target.value });
+                        setShowPartnerSuggestions(true);
+                      }}
+                      onFocus={() => setShowPartnerSuggestions(true)}
+                      onBlur={() => {
+                        // Delay hide slightly so clicks on suggestions register
+                        setTimeout(() => setShowPartnerSuggestions(false), 250);
+                      }}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                      placeholder="z.B. Stadtwerke AG oder Max Mustermann"
+                    />
+
+                    {/* Autocomplete Dropdown */}
+                    {showPartnerSuggestions && matchedSuggestions.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-56 overflow-y-auto divide-y divide-slate-100 animate-in fade-in duration-100">
+                        <div className="px-3 py-1.5 bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-between">
+                          <span>Vorschläge aus Kontakten & Mitgliedern</span>
+                          <span className="text-slate-400 font-normal">Klicken zum Übernehmen</span>
+                        </div>
+                        {matchedSuggestions.map(s => (
+                          <div
+                            key={`${s.source}-${s.id}`}
+                            onMouseDown={e => {
+                              e.preventDefault(); // Prevent input onBlur before click
+                              handleSelectPartnerSuggestion(s);
+                            }}
+                            className="px-3 py-1.5 text-left hover:bg-orange-50/60 transition-colors flex items-center justify-between group cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div
+                                className={`p-1 rounded-md shrink-0 ${
+                                  s.source === 'contact'
+                                    ? 'bg-orange-50 text-orange-600'
+                                    : 'bg-emerald-50 text-emerald-600'
+                                }`}
+                              >
+                                {s.source === 'contact' ? (
+                                  <Building2 className="w-3.5 h-3.5" />
+                                ) : (
+                                  <User className="w-3.5 h-3.5" />
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-xs font-semibold text-slate-900 group-hover:text-orange-950 truncate">
+                                  {s.name}
+                                </div>
+                                <div className="text-[11px] text-slate-500 truncate">
+                                  {s.subtitle}
+                                </div>
+                              </div>
+                            </div>
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-medium border shrink-0 ${s.badgeColor}`}
+                            >
+                              {s.badge}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   {errors.partner && <p className="text-xs text-rose-600 mt-1">{errors.partner}</p>}
+
+                  {/* Suggestion prompt: if non-empty partner typed (>= 3 letters) that is not known */}
+                  {formData.partner.trim().length >= 3 && !isKnownPartner && onQuickCreateContact && (
+                    <div className="mt-1.5 px-3 py-2 bg-amber-50/90 border border-amber-200/80 rounded-lg flex items-center justify-between gap-2 text-xs animate-in fade-in duration-150">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-xs shrink-0">💡</span>
+                        <div className="text-[11px] text-amber-900 leading-tight truncate">
+                          <span className="font-semibold">Noch kein Kontakt:</span> &bdquo;{formData.partner.trim()}&ldquo; ist noch nicht im Kontaktbuch.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onQuickCreateContact(
+                            formData.partner.trim(),
+                            formData.type === 'income' ? 'sponsor' : 'supplier'
+                          )
+                        }
+                        className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-medium shadow-xs transition-colors shrink-0 flex items-center gap-1 cursor-pointer"
+                      >
+                        <UserPlus className="w-3 h-3" />
+                        <span>Als Kontakt anlegen</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -724,14 +968,18 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                             Speichern & Fortfahren
                           </button>
                         </div>
-                        <a
-                          href="https://aistudio.google.com/app/apikey"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-block text-3xs text-purple-700 hover:underline font-semibold"
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            if (window.confirm('Hinweis: Sie verlassen nun die Vereinsverwaltung. Die Website von Google AI Studio wird in Ihrem Standard-Browser geöffnet, um einen API-Schlüssel zu erstellen. Fortfahren?')) {
+                              await openExternalUrl('https://aistudio.google.com/app/apikey');
+                            }
+                          }}
+                          className="inline-block text-3xs text-purple-700 dark:text-purple-400 hover:underline font-semibold text-left cursor-pointer"
                         >
                           ➔ Kostenlosen Google Gemini API-Schlüssel erstellen (Google AI Studio)
-                        </a>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -773,17 +1021,32 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                         key={sph}
                         type="button"
                         onClick={() => handleSphereChange(sph)}
-                        className={`p-2.5 rounded-xl border text-left transition-all ${
+                        className={`p-2 sm:p-2.5 rounded-xl border text-left transition-all min-w-0 flex flex-col justify-between cursor-pointer ${
                           isSelected
                             ? 'border-blue-600 bg-white ring-2 ring-blue-500/20 shadow-xs'
-                            : 'border-slate-200 bg-white/60 text-slate-600 hover:bg-white'
+                            : 'border-slate-200 bg-white/70 text-slate-600 hover:bg-white'
                         }`}
+                        title={info.name}
                       >
-                        <div className={`text-xs font-bold ${isSelected ? 'text-blue-700' : 'text-slate-800'}`}>
-                          {info.name.split('.')[1]}
+                        <div className="min-w-0 w-full">
+                          <div className="text-[10px] font-semibold text-slate-400 mb-0.5">
+                            Sphäre {sph === 'ideell' ? '1' : sph === 'vermoegen' ? '2' : sph === 'zweckbetrieb' ? '3' : '4'}
+                          </div>
+                          <div
+                            className={`text-[11px] sm:text-xs font-bold leading-tight break-words hyphens-auto ${
+                              isSelected ? 'text-blue-700' : 'text-slate-800'
+                            }`}
+                            lang="de"
+                          >
+                            {sph === 'vermoegen'
+                              ? 'Vermögens\u00ADverwaltung'
+                              : sph === 'wirtschaftlich'
+                              ? 'Wirtschaftl. Betrieb'
+                              : info.name.split('.')[1]?.trim()}
+                          </div>
                         </div>
-                        <div className="text-2xs text-slate-500 truncate mt-0.5">
-                          {info.subtitle.split('(')[0]}
+                        <div className="text-[10px] text-slate-500 truncate mt-1">
+                          {info.subtitle.split('(')[0]?.trim()}
                         </div>
                       </button>
                     );

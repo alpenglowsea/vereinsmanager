@@ -258,16 +258,18 @@ export const MembersView: React.FC<MembersViewProps> = ({
         {/* Kachel 1: Mitglieder Gesamt */}
         <div className="lg:col-span-4 bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Mitglieder Gesamt
               </p>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700">
                 {activePct}% Aktiv
               </span>
             </div>
-            <div className="flex items-baseline justify-between">
-              <h3 className="text-3xl font-bold font-mono text-slate-900">{currentTotalCount}</h3>
+            <div className="flex items-baseline justify-between mt-1">
+              <h3 className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-slate-900 leading-none">
+                {currentTotalCount}
+              </h3>
               {(statusFilter !== 'all' || typeFilter !== 'all') && (
                 <button
                   type="button"
@@ -275,7 +277,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
                     setStatusFilter('all');
                     setTypeFilter('all');
                   }}
-                  className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-lg transition-colors flex items-center gap-1"
+                  className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1"
                   title="Filter für Status/Typ aufheben"
                 >
                   <span>Filter aufheben</span>
@@ -285,12 +287,12 @@ export const MembersView: React.FC<MembersViewProps> = ({
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
+          <div className="mt-5 pt-3.5 border-t border-slate-100 grid grid-cols-2 gap-3 text-center">
             {/* Aktiv Filter Button */}
             <button
               type="button"
               onClick={() => setStatusFilter(statusFilter === 'active' ? 'all' : 'active')}
-              className={`p-2 rounded-xl text-center border transition-all cursor-pointer flex flex-col items-center justify-center group ${
+              className={`py-2.5 px-3 rounded-xl text-center border transition-all cursor-pointer flex flex-col items-center justify-center group ${
                 statusFilter === 'active'
                   ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-400/40'
                   : 'bg-emerald-50/70 hover:bg-emerald-100 border-emerald-200 text-slate-800'
@@ -300,7 +302,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
               <p className={`text-[10px] uppercase font-bold tracking-wider ${statusFilter === 'active' ? 'text-emerald-100' : 'text-emerald-700'}`}>
                 Aktiv
               </p>
-              <p className={`text-sm font-bold font-mono ${statusFilter === 'active' ? 'text-white' : 'text-emerald-900'}`}>
+              <p className={`text-base font-bold font-mono ${statusFilter === 'active' ? 'text-white' : 'text-emerald-900'}`}>
                 {activeCount}
               </p>
             </button>
@@ -309,7 +311,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
             <button
               type="button"
               onClick={() => setStatusFilter(statusFilter === 'passive' ? 'all' : 'passive')}
-              className={`p-2 rounded-xl text-center border transition-all cursor-pointer flex flex-col items-center justify-center group ${
+              className={`py-2.5 px-3 rounded-xl text-center border transition-all cursor-pointer flex flex-col items-center justify-center group ${
                 statusFilter === 'passive'
                   ? 'bg-slate-700 text-white border-slate-700 shadow-xs ring-2 ring-slate-400/40'
                   : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800'
@@ -319,27 +321,8 @@ export const MembersView: React.FC<MembersViewProps> = ({
               <p className={`text-[10px] uppercase font-bold tracking-wider ${statusFilter === 'passive' ? 'text-slate-200' : 'text-slate-600'}`}>
                 Passiv
               </p>
-              <p className={`text-sm font-bold font-mono ${statusFilter === 'passive' ? 'text-white' : 'text-slate-800'}`}>
+              <p className={`text-base font-bold font-mono ${statusFilter === 'passive' ? 'text-white' : 'text-slate-800'}`}>
                 {passiveCount}
-              </p>
-            </button>
-
-            {/* Jugend Filter Button */}
-            <button
-              type="button"
-              onClick={() => setTypeFilter(typeFilter === 'youth' ? 'all' : 'youth')}
-              className={`p-2 rounded-xl text-center border transition-all cursor-pointer flex flex-col items-center justify-center group ${
-                typeFilter === 'youth'
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-400/40'
-                  : 'bg-blue-50/70 hover:bg-blue-100 border-blue-200 text-slate-800'
-              }`}
-              title={typeFilter === 'youth' ? 'Klicken, um Filter aufzuheben' : 'Klicken, um nach Jugend/Kindern zu filtern'}
-            >
-              <p className={`text-[10px] uppercase font-bold tracking-wider ${typeFilter === 'youth' ? 'text-blue-100' : 'text-blue-700'}`}>
-                Jugend
-              </p>
-              <p className={`text-sm font-bold font-mono ${typeFilter === 'youth' ? 'text-white' : 'text-blue-900'}`}>
-                {youthCount}
               </p>
             </button>
           </div>
