@@ -1,18 +1,18 @@
 import { AppUpdateInfo, DeploymentMode } from '../types';
 
-export const CURRENT_APP_VERSION = '1.0.1';
+export const CURRENT_APP_VERSION = '1.1.0';
 
 // Default release notes when a new version is detected or simulated
 const MOCK_LATEST_RELEASE = {
-  version: '1.0.1',
-  title: 'VereinsManager v1.0.1 – Bugfixes, verbesserte Rechte & Revisionssicherheit',
+  version: '1.1.0',
+  title: 'VereinsManager v1.1.0 – Kontaktverwaltung, Rechnungswesen, Sitzungsdienst & KI-Assistent',
   date: new Date().toISOString().split('T')[0],
   notes: [
-    '✨ Optimierter Verbleib im Reiter Benutzer & Rechte nach Aktionen',
-    '🚪 Detailansicht schließt sich jetzt direkt beim Klick auf Bearbeiten',
-    '💳 Neuer Zahlungsrhythmus Beitragsfrei (0,00 €)',
-    '🔴 Vollständige Unterstützung für Status & Typ Ausgetreten mit automatischer Beitrags-Sperrung',
-    '📊 Bereinigte Mitglieder-Gesamtzahl & exakte Altersgruppen in den Statistiken'
+    '👥 Neue Kontaktverwaltung: Zentrales Adressbuch für Sponsoren, Verbände, Dienstleister, Förderer & Ehrenmitglieder inkl. Historie',
+    '📄 Integriertes Rechnungswesen: Normgerechte Rechnungsstellung nach DIN 5008, automatischer Rechnungsnummernkreis & Blanko-Briefpapier-Offset',
+    '🏛️ Professioneller Sitzungsdienst: Rechtssichere Protokollführung, Tagesordnungen (TOPs), Quorum-Prüfung, Beschlussbuch & digitale Touch-Signatur',
+    '📧 E-Mail-Dienst & SMTP-Relay: Direkter Versand von Sitzungseinladungen und Protokollen samt PDF per sicherem Vereinskonto (BCC-Datenschutz)',
+    '🤖 Erweiterte KI-Funktionen: KI-gestützte Protokollerstellung, Sprachaufnahme-Transkription, Notizen-Extraktion & intelligenter Rechnungs-Assistent'
   ],
   githubUrl: 'https://github.com/strelitzerfc/vereinsmanager/releases/latest',
   downloadUrls: {
