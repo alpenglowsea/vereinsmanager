@@ -3,6 +3,7 @@ import { ClubSettings, AppUser, UserPermissions } from '../types';
 import { StorageService } from '../services/storage';
 import { AuthService } from '../services/authService';
 import { FULL_PERMISSIONS } from '../data/roles';
+import { saveBlobWithLocationPicker } from '../utils/fileExportHelper';
 import {
   X,
   ShieldCheck,
@@ -391,23 +392,40 @@ export const SettingsPrivacyModal: React.FC<SettingsPrivacyModalProps> = ({
     }));
   };
 
-  // Full Backup Export
+  // Full Backup Export with destination folder selection
   const handleExportBackup = async () => {
     try {
       const json = await StorageService.exportFullBackup();
       const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
       const dateStr = new Date().toISOString().split('T')[0];
-      link.href = url;
-      link.download = `VereinsManager_Sicherung_${dateStr}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setStatusMsg({ type: 'success', text: 'Komplette Datensicherung erfolgreich heruntergeladen.' });
-      setTimeout(() => setStatusMsg(null), 3000);
+      const safeClub = (formData.clubName || 'Verein').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_');
+      const filename = `VereinsManager_Sicherung_${safeClub}_${dateStr}.json`;
+
+      const result = await saveBlobWithLocationPicker(blob, filename, {
+        description: 'JSON-Datensicherungsdatei (*.json)',
+        mimeType: 'application/json',
+        extension: '.json'
+      });
+
+      if (result.cancelled) {
+        setStatusMsg({ type: 'info', text: 'Sicherung abgebrochen (kein Speicherort gewählt).' });
+        setTimeout(() => setStatusMsg(null), 3000);
+      } else if (result.success) {
+        setStatusMsg({
+          type: 'success',
+          text: result.method === 'picker'
+            ? `Datensicherung erfolgreich gespeichert als: "${result.fileName}"`
+            : `Datensicherung "${result.fileName}" erfolgreich gespeichert.`
+        });
+        setTimeout(() => setStatusMsg(null), 4500);
+      } else {
+        setStatusMsg({ type: 'error', text: result.error || 'Fehler beim Speichern der Sicherung.' });
+        setTimeout(() => setStatusMsg(null), 4000);
+      }
     } catch (err: any) {
+      console.error('Fehler beim Export der Sicherung:', err);
       setStatusMsg({ type: 'error', text: 'Fehler beim Erstellen der Sicherung.' });
+      setTimeout(() => setStatusMsg(null), 4000);
     }
   };
 

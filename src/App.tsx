@@ -424,20 +424,26 @@ export default function App() {
   };
 
   useEffect(() => {
-    AuthService.init().then(session => {
+    let isMounted = true;
+
+    AuthService.init().then(async session => {
+      if (!isMounted) return;
       setAuthSession(session);
       if (session.isAuthenticated) {
         setActiveTab('dashboard');
       }
+      await loadData();
     });
 
-    const unsubscribe = AuthService.onAuthStateChanged(session => {
+    const unsubscribe = AuthService.onAuthStateChanged(async session => {
+      if (!isMounted) return;
       setAuthSession(prev => {
         if (!prev.isAuthenticated && session.isAuthenticated) {
           setActiveTab('dashboard');
         }
         return session;
       });
+      await loadData();
     });
 
     const handleUserActivity = () => {
@@ -448,9 +454,8 @@ export default function App() {
     window.addEventListener('keydown', handleUserActivity);
     window.addEventListener('click', handleUserActivity);
 
-    loadData();
-
     return () => {
+      isMounted = false;
       unsubscribe();
       window.removeEventListener('mousemove', handleUserActivity);
       window.removeEventListener('keydown', handleUserActivity);
@@ -463,11 +468,17 @@ export default function App() {
   const nextDocNumber = `BE-${new Date().getFullYear()}-${String(transactions.length + 1).padStart(3, '0')}`;
 
   // Member CRUD handlers
-  const handleSaveMember = async (memberData: Member) => {
+  const handleSaveMember = async (memberData: Member, attachedDoc?: ClubDocument) => {
     const isNew = !members.some(m => m.id === memberData.id);
     await StorageService.saveMember(memberData, isNew ? 'Mitglied neu angelegt' : 'Stammdaten aktualisiert');
     const updated = await StorageService.getMembers();
     setMembers(updated);
+
+    if (attachedDoc) {
+      const updatedDocs = await StorageService.getDocuments();
+      setDocuments(updatedDocs);
+    }
+
     setMemberFormOpen(false);
     setEditingMember(null);
 

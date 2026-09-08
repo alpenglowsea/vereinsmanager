@@ -17,7 +17,8 @@ import {
   Eye,
   RefreshCw
 } from 'lucide-react';
-import { OnlineMembershipApplication, ClubSettings } from '../types';
+import { OnlineMembershipApplication, ClubSettings, ExtractedApplicationData } from '../types';
+import { AiBookingService } from '../services/aiBookingService';
 
 interface ApplicationPdfImporterModalProps {
   isOpen: boolean;
@@ -26,49 +27,113 @@ interface ApplicationPdfImporterModalProps {
   settings: ClubSettings;
 }
 
-export interface ExtractedApplicationData {
-  firstName?: string;
-  lastName?: string;
-  gender?: 'm' | 'w' | 'd' | 'none';
-  birthDate?: string;
-  nationality?: string;
-  phone?: string;
-  email?: string;
-  address?: {
-    street?: string;
-    houseNumber?: string;
-    zip?: string;
-    city?: string;
-    country?: string;
-  };
-  department?: string;
-  membershipType?: 'full' | 'reduced' | 'youth' | 'family' | 'supporting' | 'honorary';
-  feePeriod?: 'monthly' | 'quarterly' | 'half_yearly' | 'yearly';
-  feeAmount?: number;
-  entryDate?: string;
-  paymentMethod?: 'sepa' | 'transfer' | 'cash' | 'standing_order';
-  bankDetails?: {
-    iban?: string;
-    bic?: string;
-    bankName?: string;
-    accountHolder?: string;
-    mandateDate?: string;
-  };
-  isMinor?: boolean;
-  guardianName?: string;
-  guardianPhone?: string;
-  guardianEmail?: string;
-  guardianRelation?: string;
-  dataPrivacyConsent?: boolean;
-  statuteConsent?: boolean;
-  photoConsent?: boolean;
-  healthConfirmation?: boolean;
-  hasApplicantSignature?: boolean;
-  hasGuardianSignature?: boolean;
-  hasSepaSignature?: boolean;
-  notes?: string;
-  confidence?: number;
-  rawExtractedTextSummary?: string;
+// Re-export ExtractedApplicationData for backwards compatibility
+export type { ExtractedApplicationData };
+
+/**
+ * Direct client-side multimodal extraction via Google Gemini REST API.
+ * Essential for local apps (Tauri desktop / offline PWA) when no Node/Express server is listening.
+ */
+async function directClientScanApplication(
+  dataUrl: string,
+  mimeType: string,
+  apiKey: string
+): Promise<ExtractedApplicationData> {
+  const commaIndex = dataUrl.indexOf(',');
+  const base64Data = commaIndex !== -1 ? dataUrl.substring(commaIndex + 1) : dataUrl;
+  const detectedMimeType = mimeType || (dataUrl.startsWith('data:') ? dataUrl.substring(5, dataUrl.indexOf(';')) : 'application/pdf');
+
+  const candidateModels = ['gemini-2.5-flash', 'gemini-3.7-flash', 'gemini-flash-latest', 'gemini-2.0-flash'];
+  let lastError: any = null;
+
+  const prompt = `Du bist ein hochpräziser KI-Dokumenten-Parser für deutsche Vereins-Mitgliedsanträge und Aufnahmeformulare (sowohl handschriftlich ausgefüllt, gedruckt als auch digital ausgefüllt).
+
+Analysiere das beigefügte Dokument akribisch und extrahiere alle relevanten Daten für die Vereinsmitgliederverwaltung.
+
+Extrahiere:
+1. Vorname und Nachname des Antragstellers
+2. Geschlecht ('m', 'w', 'd' oder 'none')
+3. Geburtsdatum im Format YYYY-MM-DD (falls erkennbar)
+4. Vollständige Anschrift: Straße, Hausnummer, Postleitzahl (PLZ, 5-stellig), Ort/Stadt, Land (Standard 'Deutschland')
+5. Kontaktdaten: Telefon / Mobilnummer, E-Mail-Adresse
+6. Gewünschte Sparte / Sportart / Abteilung (z.B. Fußball, Tennis, Turnen, Gymnastik, Schwimmen, etc.)
+7. Gewünschtes Eintrittsdatum im Format YYYY-MM-DD (falls nicht angegeben, heutiges Datum oder leer)
+8. Mitgliedsart ('full' für Vollzahler/Erwachsener, 'reduced' für Ermäßigt/Student/Rentner, 'youth' für Jugend/Kind, 'family' für Familie, 'supporting' für Förderer)
+9. Beitragsintervall ('monthly', 'quarterly', 'half_yearly', 'yearly')
+10. Beitragshöhe als Zahl (Euro), falls auf dem Formular vermerkt
+11. Zahlungsart: 'sepa' (Lastschrift), 'transfer' (Überweisung), 'cash' (Bar)
+12. Bankverbindung & SEPA-Lastschriftmandat:
+    - IBAN (ohne Leerzeichen, z.B. DE...)
+    - BIC (8 oder 11 Zeichen)
+    - Bankname / Kreditinstitut
+    - Kontoinhaber
+    - Mandatsdatum (YYYY-MM-DD)
+13. Minderjährigen-Prüfung & Gesetzliche Vertreter:
+    - isMinor: true wenn das Geburtsdatum < 18 Jahre ist oder ein Erziehungsberechtigter angegeben ist
+    - Name des Erziehungsberechtigten
+    - Telefon & E-Mail des Erziehungsberechtigten
+    - Verwandtschaftsverhältnis ('Mutter', 'Vater', 'Gesetzlicher Vormund')
+14. Einwilligungen & Checkboxen (true/false):
+    - dataPrivacyConsent (Datenschutz / DSGVO)
+    - statuteConsent (Satzung anerkannt)
+    - photoConsent (Foto-/Medieneinwilligung)
+    - healthConfirmation (Sporttauglichkeit)
+15. Unterschriften-Prüfung:
+    - hasApplicantSignature: true/false (ob eine handschriftliche oder digitale Unterschrift des Antragstellers sichtbar ist)
+    - hasGuardianSignature: true/false (ob eine Unterschrift des Erziehungsberechtigten sichtbar ist)
+    - hasSepaSignature: true/false (ob ein SEPA-Mandat unterschrieben ist)
+16. Bemerkungen / Notizen: Besondere Hinweise, Freitextnotizen auf dem Formular.
+17. confidence: Einschätzung der Lesbarkeit von 0.0 (sehr unscharf/unleserlich) bis 1.0 (perfekt lesbar).
+18. rawExtractedTextSummary: Kurze stichpunktartige Zusammenfassung der Erkennung.
+
+Falls ein Feld nicht auf dem Dokument steht oder unleserlich ist, setze einen leeren String bzw. Standardwert ein. Erfinde keine Bankdaten oder Namen.
+Antworte ausschließlich im validen JSON-Format.`;
+
+  for (const model of candidateModels) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: detectedMimeType,
+                    data: base64Data,
+                  },
+                },
+                {
+                  text: prompt,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseMimeType: 'application/json',
+          },
+        }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          const cleanText = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+          return JSON.parse(cleanText) as ExtractedApplicationData;
+        }
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        lastError = new Error(errJson?.error?.message || `HTTP ${res.status} von Gemini (${model})`);
+      }
+    } catch (err: any) {
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error('Keine Antwort vom Google Gemini KI-Dienst erhalten.');
 }
 
 export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalProps> = ({
@@ -81,6 +146,7 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
 
   // State
   const [dragActive, setDragActive] = useState(false);
+  const dragCounterRef = useRef(0);
   const [file, setFile] = useState<File | null>(null);
   const [fileDataUrl, setFileDataUrl] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -91,13 +157,31 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
   const [formData, setFormData] = useState<Partial<OnlineMembershipApplication>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Drag & drop handlers
-  const handleDrag = useCallback((e: React.DragEvent) => {
+  // Drag & drop handlers (tracking depth to prevent child leave event flickering)
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
+    dragCounterRef.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
       setDragActive(true);
-    } else if (e.type === 'dragleave') {
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+    if (!dragActive) {
+      setDragActive(true);
+    }
+  }, [dragActive]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
       setDragActive(false);
     }
   }, []);
@@ -115,7 +199,7 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
       await runAiExtraction(dataUrl, selectedFile.type, selectedFile.name);
     };
     reader.onerror = () => {
-      setScanError('Fehler beim Lesen der Datei.');
+      setScanError('Fehler beim Lesen der Datei vom Dateisystem.');
     };
     reader.readAsDataURL(selectedFile);
   };
@@ -123,13 +207,19 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    dragCounterRef.current = 0;
     setDragActive(false);
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFile = e.dataTransfer.files[0];
-      const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
-      if (!validTypes.includes(droppedFile.type) && !droppedFile.name.endsWith('.pdf')) {
-        setScanError('Bitte laden Sie eine PDF-Datei oder ein Foto/Scan (JPG, PNG) des Antrags hoch.');
+      const name = (droppedFile.name || '').toLowerCase();
+      const type = (droppedFile.type || '').toLowerCase();
+
+      const isPdf = type.includes('pdf') || name.endsWith('.pdf');
+      const isImage = type.startsWith('image/') || /\.(jpe?g|png|webp|bmp|tiff?)$/i.test(name);
+
+      if (!isPdf && !isImage) {
+        setScanError('Bitte laden Sie eine PDF-Datei (.pdf) oder ein Foto/Scan (JPG, PNG, WEBP) des Antrags hoch.');
         return;
       }
       handleProcessFile(droppedFile);
@@ -142,11 +232,90 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
     }
   };
 
-  // Run AI Extraction via backend API
+  // Helper to map extracted data into the full editable application form
+  const populateFormData = (extracted: ExtractedApplicationData, dataUrl: string, fileName: string) => {
+    const mappedApp: Partial<OnlineMembershipApplication> = {
+      firstName: extracted.firstName || '',
+      lastName: extracted.lastName || '',
+      gender: extracted.gender || 'none',
+      birthDate: extracted.birthDate || '',
+      nationality: extracted.nationality || 'Deutsch',
+      phone: extracted.phone || '',
+      email: extracted.email || '',
+      address: {
+        street: extracted.address?.street || '',
+        houseNumber: extracted.address?.houseNumber || '',
+        zip: extracted.address?.zip || '',
+        city: extracted.address?.city || '',
+        country: extracted.address?.country || 'Deutschland',
+      },
+      department: extracted.department || settings.departments[0] || 'Hauptverein',
+      membershipType: extracted.membershipType || 'full',
+      feePeriod: extracted.feePeriod || 'yearly',
+      feeAmount: extracted.feeAmount || 0,
+      entryDate: extracted.entryDate || new Date().toISOString().slice(0, 10),
+      paymentMethod: extracted.paymentMethod || 'sepa',
+      bankDetails: {
+        iban: (extracted.bankDetails?.iban || '').replace(/\s+/g, ''),
+        bic: (extracted.bankDetails?.bic || '').trim(),
+        bankName: extracted.bankDetails?.bankName || '',
+        accountHolder: extracted.bankDetails?.accountHolder || `${extracted.firstName || ''} ${extracted.lastName || ''}`.trim(),
+        mandateDate: extracted.bankDetails?.mandateDate || new Date().toISOString().slice(0, 10),
+        mandateReference: `MANDAT-${Date.now().toString().slice(-6)}`,
+      },
+      isMinor: Boolean(extracted.isMinor),
+      guardianName: extracted.guardianName || '',
+      guardianPhone: extracted.guardianPhone || '',
+      guardianEmail: extracted.guardianEmail || '',
+      guardianRelation: extracted.guardianRelation || '',
+      dataPrivacyConsent: extracted.dataPrivacyConsent !== false,
+      statuteConsent: extracted.statuteConsent !== false,
+      photoConsent: Boolean(extracted.photoConsent),
+      healthConfirmation: Boolean(extracted.healthConfirmation),
+      notes: [
+        extracted.notes,
+        `Importiert aus Scan/PDF: ${fileName}`,
+        extracted.hasApplicantSignature ? 'Handschriftliche Unterschrift Antragsteller erkannt' : null,
+        extracted.hasGuardianSignature ? 'Handschriftliche Unterschrift Erziehungsberechtigter erkannt' : null,
+        extracted.hasSepaSignature ? 'SEPA-Mandat unterschrieben' : null,
+      ]
+        .filter(Boolean)
+        .join(' | '),
+      pdfDataUrl: dataUrl,
+    };
+    setFormData(mappedApp);
+  };
+
+  // Fallback: Manually record data without AI while keeping the uploaded PDF attached
+  const handleManualEntryFallback = () => {
+    setScanError(null);
+    const manualData: ExtractedApplicationData = {
+      firstName: '',
+      lastName: '',
+      gender: 'none',
+      confidence: 1.0,
+      rawExtractedTextSummary: 'Manuelle Erfassung (ohne automatische KI-Analyse)',
+    };
+    setExtractedData(manualData);
+    populateFormData(manualData, fileDataUrl || '', file?.name || 'Aufnahmeantrag.pdf');
+  };
+
+  // Run AI Extraction via backend API with graceful direct client-side fallback
   const runAiExtraction = async (dataUrl: string, mimeType: string, fileName: string) => {
     setIsScanning(true);
     setScanError(null);
 
+    const userApiKey = (
+      settings.geminiApiKey ||
+      settings.aiApiKey ||
+      AiBookingService.getStoredApiKey() ||
+      ''
+    ).trim();
+
+    let extracted: ExtractedApplicationData | null = null;
+    let lastErrMsg = '';
+
+    // Step 1: Try backend endpoint first
     try {
       const response = await fetch('/api/scan-application-pdf', {
         method: 'POST',
@@ -155,76 +324,49 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
           fileDataUrl: dataUrl,
           mimeType: mimeType || 'application/pdf',
           fileName,
+          userApiKey: userApiKey || undefined,
         }),
       });
 
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Die KI-Erkennung konnte die Datei nicht verarbeiten.');
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const result = await response.json();
+        if (response.ok && result.success && result.data) {
+          extracted = result.data;
+        } else {
+          lastErrMsg = result.error || `Server antwortete mit Fehler (${response.status})`;
+        }
+      } else {
+        // Backend returned HTML or non-JSON (e.g. static Vite/Tauri SPA fallback <!doctype html>)
+        lastErrMsg = 'Backend-Dienst nicht verfügbar (lokale Client-Umgebung).';
       }
-
-      const extracted: ExtractedApplicationData = result.data;
-      setExtractedData(extracted);
-
-      // Map to editable form data
-      const mappedApp: Partial<OnlineMembershipApplication> = {
-        firstName: extracted.firstName || '',
-        lastName: extracted.lastName || '',
-        gender: extracted.gender || 'none',
-        birthDate: extracted.birthDate || '',
-        nationality: extracted.nationality || 'Deutsch',
-        phone: extracted.phone || '',
-        email: extracted.email || '',
-        address: {
-          street: extracted.address?.street || '',
-          houseNumber: extracted.address?.houseNumber || '',
-          zip: extracted.address?.zip || '',
-          city: extracted.address?.city || '',
-          country: extracted.address?.country || 'Deutschland',
-        },
-        department: extracted.department || settings.departments[0] || 'Hauptverein',
-        membershipType: extracted.membershipType || 'full',
-        feePeriod: extracted.feePeriod || 'yearly',
-        feeAmount: extracted.feeAmount || 0,
-        entryDate: extracted.entryDate || new Date().toISOString().slice(0, 10),
-        paymentMethod: extracted.paymentMethod || 'sepa',
-        bankDetails: {
-          iban: (extracted.bankDetails?.iban || '').replace(/\s+/g, ''),
-          bic: (extracted.bankDetails?.bic || '').trim(),
-          bankName: extracted.bankDetails?.bankName || '',
-          accountHolder: extracted.bankDetails?.accountHolder || `${extracted.firstName || ''} ${extracted.lastName || ''}`.trim(),
-          mandateDate: extracted.bankDetails?.mandateDate || new Date().toISOString().slice(0, 10),
-          mandateReference: `MANDAT-${Date.now().toString().slice(-6)}`,
-        },
-        isMinor: Boolean(extracted.isMinor),
-        guardianName: extracted.guardianName || '',
-        guardianPhone: extracted.guardianPhone || '',
-        guardianEmail: extracted.guardianEmail || '',
-        guardianRelation: extracted.guardianRelation || '',
-        dataPrivacyConsent: extracted.dataPrivacyConsent !== false,
-        statuteConsent: extracted.statuteConsent !== false,
-        photoConsent: Boolean(extracted.photoConsent),
-        healthConfirmation: Boolean(extracted.healthConfirmation),
-        notes: [
-          extracted.notes,
-          `Importiert aus Scan/PDF: ${fileName}`,
-          extracted.hasApplicantSignature ? 'Handschriftliche Unterschrift Antragsteller erkannt' : null,
-          extracted.hasGuardianSignature ? 'Handschriftliche Unterschrift Erziehungsberechtigter erkannt' : null,
-          extracted.hasSepaSignature ? 'SEPA-Mandat unterschrieben' : null,
-        ]
-          .filter(Boolean)
-          .join(' | '),
-        pdfDataUrl: dataUrl,
-      };
-
-      setFormData(mappedApp);
-    } catch (err: any) {
-      console.error('Scan Error:', err);
-      setScanError(err.message || 'Fehler bei der automatischen Texterkennung.');
-    } finally {
-      setIsScanning(false);
+    } catch (netErr: any) {
+      lastErrMsg = netErr?.message || 'Keine Serververbindung.';
     }
+
+    // Step 2: If backend is not available (common in local Tauri / standalone apps), try direct client Gemini API
+    if (!extracted && userApiKey) {
+      try {
+        extracted = await directClientScanApplication(dataUrl, mimeType, userApiKey);
+      } catch (clientErr: any) {
+        lastErrMsg = clientErr?.message || 'Direkte KI-Erkennung über Google Gemini fehlgeschlagen.';
+      }
+    }
+
+    if (extracted) {
+      setExtractedData(extracted);
+      populateFormData(extracted, dataUrl, fileName);
+    } else {
+      let friendlyError = lastErrMsg;
+      if (!userApiKey && (lastErrMsg.includes('lokale Client-Umgebung') || lastErrMsg.includes('Keine Serververbindung') || lastErrMsg.includes('Kein Gemini API-Schlüssel'))) {
+        friendlyError = 'In der lokal installierten App ist für die automatische KI-Erkennung ein eigener Google Gemini API-Schlüssel erforderlich (einzutragen in den Einstellungen). Sie können den Antrag jetzt auch direkt ohne KI manuell erfassen und die PDF übernehmen.';
+      } else if (lastErrMsg.includes('Unexpected token') || lastErrMsg.includes('is not valid JSON')) {
+        friendlyError = 'Der Server konnte die Antrags-Datei nicht verarbeiten. Sie können die Daten jetzt direkt manuell erfassen und das Original-Dokument übernehmen.';
+      }
+      setScanError(friendlyError);
+    }
+
+    setIsScanning(false);
   };
 
   // Submit and create application in the system
@@ -324,42 +466,59 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
           
           {/* 1. Drag & Drop Zone */}
           {!extractedData && !isScanning && (
-            <div
-              onDragEnter={handleDrag}
-              onDragLeave={handleDrag}
-              onDragOver={handleDrag}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
-                dragActive
-                  ? 'border-blue-500 bg-blue-50/70 scale-[1.01]'
-                  : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50'
-              }`}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-              <div className="max-w-md mx-auto space-y-3">
-                <div className="w-14 h-14 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mx-auto shadow-2xs">
-                  <Upload className="w-7 h-7" />
+            <div className="space-y-3">
+              <div
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
+                  dragActive
+                    ? 'border-blue-500 bg-blue-50/70 scale-[1.01]'
+                    : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50'
+                }`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,application/pdf,image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                  className="hidden"
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => {
+                    handleFileChange(e);
+                    e.target.value = '';
+                  }}
+                />
+                <div className="max-w-md mx-auto space-y-3 pointer-events-none">
+                  <div className="w-14 h-14 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mx-auto shadow-2xs">
+                    <Upload className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-slate-800">
+                      PDF-Antrag oder Foto hier hineinziehen oder klicken zum Auswählen
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Unterstützt ausgefüllte Antrags-PDFs, Scans sowie Smartphone-Fotos (PDF, PNG, JPG, WEBP)
+                    </p>
+                  </div>
+                  <div className="pt-2 flex items-center justify-center gap-4 text-2xs text-slate-400">
+                    <span className="flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> DSGVO-konforme Analyse</span>
+                    <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-blue-500" /> Handschrift-Erkennung</span>
+                    <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-blue-500" /> SEPA-Mandate</span>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-bold text-slate-800">
-                    PDF-Antrag oder Foto hier hineinziehen oder klicken zum Auswählen
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Unterstützt eingescannte, handschriftlich ausgefüllte Anträge, PDF-Dokumente sowie Smartphone-Fotos (PDF, PNG, JPG)
-                  </p>
-                </div>
-                <div className="pt-2 flex items-center justify-center gap-4 text-2xs text-slate-400">
-                  <span className="flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> DSGVO-konforme Analyse</span>
-                  <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-blue-500" /> Handschrift-Erkennung</span>
-                  <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-blue-500" /> SEPA-Mandate</span>
-                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-2xs text-slate-500 px-1">
+                <span>PDF oder Bilddatei hochladen</span>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
+                >
+                  Datei auf Computer auswählen...
+                </button>
               </div>
             </div>
           )}
@@ -385,22 +544,32 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
           {scanError && (
             <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-3 text-rose-800 text-xs">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <div className="space-y-1.5 flex-1">
-                <strong className="font-semibold">Fehler beim Auslesen des Antrags</strong>
+              <div className="space-y-2 flex-1">
+                <strong className="font-semibold text-rose-900 block">Hinweis zum Auslesen des Antrags</strong>
                 <p className="text-slate-700 leading-relaxed">
                   {scanError.includes('503') || scanError.includes('high demand') || scanError.includes('UNAVAILABLE')
                     ? 'Der KI-Dienst ist im Moment kurzzeitig hoch ausgelastet. Dies ist in der Regel nur für wenige Sekunden der Fall.'
                     : scanError}
                 </p>
-                <div className="pt-1 flex items-center gap-3">
+                <div className="pt-1 flex flex-wrap items-center gap-2.5">
+                  {file && (
+                    <button
+                      type="button"
+                      onClick={handleManualEntryFallback}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Ohne KI manuell erfassen & PDF übernehmen</span>
+                    </button>
+                  )}
                   {file && fileDataUrl && (
                     <button
                       type="button"
                       onClick={() => runAiExtraction(fileDataUrl, file.type, file.name)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-rose-300 hover:bg-rose-100 text-rose-800 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Jetzt erneut versuchen</span>
+                      <span>Erneut versuchen</span>
                     </button>
                   )}
                   <button
@@ -411,7 +580,7 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
                       setFile(null);
                       setFileDataUrl(null);
                     }}
-                    className="text-xs font-semibold text-rose-700 underline hover:text-rose-900 cursor-pointer"
+                    className="text-xs font-semibold text-slate-600 hover:text-slate-900 underline cursor-pointer px-2 py-1"
                   >
                     Andere Datei wählen
                   </button>

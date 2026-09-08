@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ClubSettings, AppUser, UserPermissions, DeploymentMode, Address, AiProviderType } from '../types';
+import { ClubSettings, AppUser, UserPermissions, DeploymentMode, Address, AiProviderType, BoardMember } from '../types';
 import { StorageService } from '../services/storage';
 import { AuthService } from '../services/authService';
 import { AiBookingService } from '../services/aiBookingService';
+import { SnapshotService, AutoSnapshot } from '../services/snapshotService';
 import { CURRENT_APP_VERSION } from '../services/updateService';
 import { FULL_PERMISSIONS } from '../data/roles';
 import { DeploymentHubSettingsPanel } from './DeploymentHubSettingsPanel';
 import { openExternalUrl } from '../utils/externalLink';
+import { saveBlobWithLocationPicker } from '../utils/fileExportHelper';
 import paypalQrImage from '../assets/paypal-original.jpg';
 import {
   Settings,
@@ -60,7 +62,16 @@ import {
   Send,
   MessageSquare,
   HelpCircle,
-  Info
+  Info,
+  History,
+  RotateCcw,
+  Search,
+  Clock,
+  Archive,
+  GripVertical,
+  ChevronUp,
+  ChevronDown,
+  Plus
 } from 'lucide-react';
 
 interface ProviderMeta {
@@ -287,6 +298,24 @@ export const formatIbanWithSpaces = (iban: string = ''): string => {
   return iban.replace(/\s+/g, '').replace(/(.{4})/g, '$1 ').trim();
 };
 
+export const getInitialBoardMembers = (s: ClubSettings): BoardMember[] => {
+  if (s.boardMembers && s.boardMembers.length > 0) {
+    return s.boardMembers;
+  }
+  const list: BoardMember[] = [];
+  if (s.chairman) {
+    list.push({ id: 'bm-1', role: '1. Vorsitzender', name: s.chairman, email: s.email || '' });
+  } else {
+    list.push({ id: 'bm-1', role: '1. Vorsitzender', name: '' });
+  }
+  if (s.treasurer) {
+    list.push({ id: 'bm-2', role: 'Schatzmeister / Kassenwart', name: s.treasurer });
+  } else {
+    list.push({ id: 'bm-2', role: 'Schatzmeister / Kassenwart', name: '' });
+  }
+  return list;
+};
+
 type SettingsTab = 'general' | 'club' | 'users' | 'backup' | 'deployment' | 'support' | 'bugreport';
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -352,6 +381,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     theme: currentTheme || settings.theme || 'light'
   });
 
+  // Dynamic Board Members State
+  const [boardMembers, setBoardMembers] = useState<BoardMember[]>(() =>
+    getInitialBoardMembers(settings)
+  );
+
+  // Department Drag and Drop State
+  const [draggedDeptIndex, setDraggedDeptIndex] = useState<number | null>(null);
+  const [dragOverDeptIndex, setDragOverDeptIndex] = useState<number | null>(null);
+
+  // Club Save Feedback State
+  const [isSavingClub, setIsSavingClub] = useState(false);
+  const [clubSaveSuccess, setClubSaveSuccess] = useState(false);
+  const [clubSaveFeedbackText, setClubSaveFeedbackText] = useState<string | null>(null);
+
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
@@ -362,6 +405,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       theme: currentTheme || settings.theme || prev.theme || 'light'
     }));
     setClubAddress(parseClubAddress(settings.clubAddress || settings.address));
+    setBoardMembers(getInitialBoardMembers(settings));
   }, [settings, currentTheme]);
 
   const [newDepartment, setNewDepartment] = useState('');
@@ -875,13 +919,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const handleSaveClub = (e: React.FormEvent) => {
+  const handleSaveClub = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSavingClub(true);
+    setClubSaveSuccess(false);
+
+    // Sync backwards-compatible chairman and treasurer fields for external services & reports
+    const chairmanMember = boardMembers.find(bm => 
+      bm.role.toLowerCase().includes('vorsitz') || bm.role.toLowerCase().includes('vorstand')
+    ) || boardMembers[0];
+    const treasurerMember = boardMembers.find(bm => 
+      bm.role.toLowerCase().includes('kasse') || bm.role.toLowerCase().includes('schatz') || bm.role.toLowerCase().includes('finanz')
+    ) || boardMembers[1] || boardMembers[0];
+
+    const finalChairman = chairmanMember ? chairmanMember.name.trim() : (formData.chairman || '');
+    const finalTreasurer = treasurerMember ? treasurerMember.name.trim() : (formData.treasurer || '');
+
     const formattedAddress = formatClubAddress(clubAddress);
     const updated: ClubSettings = {
       ...formData,
       address: formattedAddress,
       clubAddress: clubAddress,
+      chairman: finalChairman,
+      treasurer: finalTreasurer,
+      boardMembers: boardMembers,
       aiProvider,
       aiApiKey: aiApiKey.trim() || undefined,
       aiModel: aiModel.trim() || undefined,
@@ -895,9 +956,114 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       model: aiModel.trim() || undefined,
       baseUrl: aiBaseUrl.trim() || undefined,
     });
-    onSaveSettings(updated);
-    setStatusMsg({ type: 'success', text: 'Einstellungen & Vereinsstammdaten wurden erfolgreich gespeichert.' });
-    setTimeout(() => setStatusMsg(null), 3500);
+
+    try {
+      await onSaveSettings(updated);
+      setIsSavingClub(false);
+      setClubSaveSuccess(true);
+      setClubSaveFeedbackText('Vereinsstammdaten erfolgreich gespeichert!');
+      setStatusMsg({ type: 'success', text: 'Einstellungen & Vereinsstammdaten wurden erfolgreich gespeichert.' });
+
+      setTimeout(() => {
+        setClubSaveSuccess(false);
+        setClubSaveFeedbackText(null);
+      }, 4000);
+      setTimeout(() => setStatusMsg(null), 3500);
+    } catch (err: any) {
+      setIsSavingClub(false);
+      setStatusMsg({ type: 'error', text: err?.message || 'Fehler beim Speichern der Vereinsstammdaten.' });
+      setTimeout(() => setStatusMsg(null), 4000);
+    }
+  };
+
+  // Board Members Handlers
+  const handleAddBoardMember = () => {
+    const newId = `bm-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    setBoardMembers(prev => [
+      ...prev,
+      {
+        id: newId,
+        role: '',
+        name: '',
+        email: '',
+        phone: ''
+      }
+    ]);
+  };
+
+  const handleUpdateBoardMember = (id: string, field: keyof BoardMember, value: string) => {
+    setBoardMembers(prev =>
+      prev.map(bm => (bm.id === id ? { ...bm, [field]: value } : bm))
+    );
+  };
+
+  const handleRemoveBoardMember = (id: string) => {
+    if (boardMembers.length <= 1) {
+      alert('Mindestens ein Vorstandsmitglied muss hinterlegt sein.');
+      return;
+    }
+    setBoardMembers(prev => prev.filter(bm => bm.id !== id));
+  };
+
+  const handleMoveBoardMember = (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= boardMembers.length) return;
+    setBoardMembers(prev => {
+      const next = [...prev];
+      const temp = next[index];
+      next[index] = next[targetIndex];
+      next[targetIndex] = temp;
+      return next;
+    });
+  };
+
+  // Department Drag and Drop Handlers
+  const handleDeptDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedDeptIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', index.toString());
+  };
+
+  const handleDeptDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedDeptIndex !== null && draggedDeptIndex !== index) {
+      setDragOverDeptIndex(index);
+    }
+  };
+
+  const handleDeptDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedDeptIndex === null || draggedDeptIndex === targetIndex) {
+      setDraggedDeptIndex(null);
+      setDragOverDeptIndex(null);
+      return;
+    }
+    setFormData(prev => {
+      const next = [...prev.departments];
+      const [moved] = next.splice(draggedDeptIndex, 1);
+      next.splice(targetIndex, 0, moved);
+      return { ...prev, departments: next };
+    });
+    setDraggedDeptIndex(null);
+    setDragOverDeptIndex(null);
+  };
+
+  const handleDeptDragEnd = () => {
+    setDraggedDeptIndex(null);
+    setDragOverDeptIndex(null);
+  };
+
+  const handleMoveDepartment = (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= formData.departments.length) return;
+    setFormData(prev => {
+      const next = [...prev.departments];
+      const temp = next[index];
+      next[index] = next[targetIndex];
+      next[targetIndex] = temp;
+      return { ...prev, departments: next };
+    });
   };
 
   const handleTestAiKey = async () => {
@@ -1039,23 +1205,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }));
   };
 
-  // Full Backup Export
+  // Full Backup Export with destination folder selection
   const handleExportBackup = async () => {
     try {
       const json = await StorageService.exportFullBackup();
       const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
       const dateStr = new Date().toISOString().split('T')[0];
-      link.href = url;
-      link.download = `VereinsManager_Sicherung_${dateStr}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setStatusMsg({ type: 'success', text: 'Komplette Datensicherung erfolgreich heruntergeladen.' });
-      setTimeout(() => setStatusMsg(null), 3500);
+      const safeClub = (formData.clubName || 'Verein').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_');
+      const filename = `VereinsManager_Sicherung_${safeClub}_${dateStr}.json`;
+
+      const result = await saveBlobWithLocationPicker(blob, filename, {
+        description: 'JSON-Datensicherungsdatei (*.json)',
+        mimeType: 'application/json',
+        extension: '.json'
+      });
+
+      if (result.cancelled) {
+        setStatusMsg({ type: 'info', text: 'Sicherung abgebrochen (kein Speicherort gewählt).' });
+        setTimeout(() => setStatusMsg(null), 3000);
+      } else if (result.success) {
+        setStatusMsg({
+          type: 'success',
+          text: result.method === 'picker'
+            ? `Datensicherung erfolgreich gespeichert als: "${result.fileName}"`
+            : `Datensicherung "${result.fileName}" erfolgreich gespeichert.`
+        });
+        setTimeout(() => setStatusMsg(null), 4500);
+      } else {
+        setStatusMsg({ type: 'error', text: result.error || 'Fehler beim Speichern der Sicherung.' });
+        setTimeout(() => setStatusMsg(null), 4000);
+      }
     } catch (err: any) {
+      console.error('Fehler beim Export der Sicherung:', err);
       setStatusMsg({ type: 'error', text: 'Fehler beim Erstellen der Sicherung.' });
+      setTimeout(() => setStatusMsg(null), 4000);
     }
   };
 
@@ -1099,6 +1282,93 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       onDataReload?.();
       setStatusMsg({ type: 'success', text: 'Alle lokalen Daten wurden gelöscht.' });
       setTimeout(() => setStatusMsg(null), 3000);
+    }
+  };
+
+  // Auto-Snapshots & Legacy Recovery State & Handlers
+  const [snapshots, setSnapshots] = useState<AutoSnapshot[]>([]);
+  const [loadingSnapshots, setLoadingSnapshots] = useState(false);
+  const [isScanningLegacy, setIsScanningLegacy] = useState(false);
+  const [legacyScanFeedback, setLegacyScanFeedback] = useState<string | null>(null);
+
+  const loadSnapshotsList = async () => {
+    try {
+      setLoadingSnapshots(true);
+      const list = await SnapshotService.getSnapshots();
+      setSnapshots(list);
+    } catch (e) {
+      console.warn('Snapshots konnten nicht geladen werden:', e);
+    } finally {
+      setLoadingSnapshots(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'backup') {
+      loadSnapshotsList();
+    }
+  }, [activeTab]);
+
+  const handleCreateManualSnapshot = async () => {
+    try {
+      const snap = await SnapshotService.createSnapshot('manual', 'Manuell gesicherter Snapshot');
+      if (snap) {
+        setStatusMsg({ type: 'success', text: 'Manueller Sicherheits-Snapshot wurde erfolgreich erstellt.' });
+        loadSnapshotsList();
+      } else {
+        setStatusMsg({ type: 'error', text: 'Keine Daten vorhanden, die gesichert werden können.' });
+      }
+      setTimeout(() => setStatusMsg(null), 3500);
+    } catch (e: any) {
+      setStatusMsg({ type: 'error', text: 'Fehler beim Erstellen des Snapshots.' });
+    }
+  };
+
+  const handleRestoreSnapshot = async (snapId: string, label: string) => {
+    if (!window.confirm(`Möchten Sie diesen Snapshot ("${label}") wirklich wiederherstellen? Aktuelle Daten werden auf diesen Stand zurückgesetzt.`)) {
+      return;
+    }
+    try {
+      const res = await SnapshotService.restoreSnapshot(snapId);
+      if (res.success && res.counts) {
+        onDataReload?.();
+        setStatusMsg({
+          type: 'success',
+          text: `Snapshot erfolgreich wiederhergestellt (${res.counts.membersCount} Mitglieder, ${res.counts.transactionsCount} Buchungen, ${res.counts.contactsCount} Kontakte)!`
+        });
+        loadSnapshotsList();
+      } else {
+        setStatusMsg({ type: 'error', text: res.error || 'Wiederherstellung fehlgeschlagen.' });
+      }
+      setTimeout(() => setStatusMsg(null), 4000);
+    } catch (e: any) {
+      setStatusMsg({ type: 'error', text: 'Fehler bei der Wiederherstellung.' });
+    }
+  };
+
+  const handleDeleteSnapshot = async (snapId: string) => {
+    if (!window.confirm('Möchten Sie diesen Snapshot wirklich löschen?')) return;
+    await SnapshotService.deleteSnapshot(snapId);
+    loadSnapshotsList();
+  };
+
+  const handleRunLegacyScan = async () => {
+    setIsScanningLegacy(true);
+    setLegacyScanFeedback(null);
+    try {
+      const res = await SnapshotService.scanAndRecoverLegacyData();
+      if (res.recovered) {
+        onDataReload?.();
+        setLegacyScanFeedback(`✅ ${res.details}`);
+        setStatusMsg({ type: 'success', text: `Altdaten aus "${res.source}" gerettet!` });
+        loadSnapshotsList();
+      } else {
+        setLegacyScanFeedback('ℹ️ Es wurden keine Altdaten in anderen Browser-Speichern oder früheren Datenbanken gefunden.');
+      }
+    } catch (e: any) {
+      setLegacyScanFeedback(`Fehler beim Scan: ${e.message || 'Unbekannter Fehler'}`);
+    } finally {
+      setIsScanningLegacy(false);
     }
   };
 
@@ -1988,30 +2258,164 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                1. Vorsitzender / Vertretungsberechtigter Vorstand
-              </label>
-              <input
-                type="text"
-                value={formData.chairman}
-                onChange={e => setFormData({ ...formData, chairman: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                placeholder="Dr. Michael Sommer"
-              />
-            </div>
+            {/* Vorstandsmitglieder & Vertretungsberechtigte (§ 26 BGB / Satzung) */}
+            <div className="col-span-1 md:col-span-2 p-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-2xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 flex items-center justify-center shrink-0">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <span>Vorstand & Vertretungsberechtigte (§ 26 BGB / Satzung)</span>
+                      <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 rounded-md text-[10px] font-bold">
+                        {boardMembers.length} {boardMembers.length === 1 ? 'Mitglied' : 'Mitglieder'}
+                      </span>
+                    </h4>
+                    <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Legen Sie alle Vorstandsmitglieder an und benennen Sie deren Ämter frei (z. B. 1. Vorsitzender, 2. Vorsitzende, Schatzmeister, Schriftführer, Sportwart etc.).
+                    </p>
+                  </div>
+                </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Schatzmeister / Kassenwart
-              </label>
-              <input
-                type="text"
-                value={formData.treasurer}
-                onChange={e => setFormData({ ...formData, treasurer: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                placeholder="Sabine Weber"
-              />
+                <button
+                  type="button"
+                  onClick={handleAddBoardMember}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 shadow-xs"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Neues Vorstandsmitglied anlegen</span>
+                </button>
+              </div>
+
+              {/* List of Board Members */}
+              <div className="space-y-3">
+                {boardMembers.map((bm, idx) => (
+                  <div
+                    key={bm.id}
+                    className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-750 rounded-xl shadow-2xs space-y-3 transition-all hover:border-slate-350 dark:hover:border-slate-650"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-mono font-bold flex items-center justify-center">
+                          #{idx + 1}
+                        </span>
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">
+                          {bm.role || 'Neues Vorstandsamt'} {bm.name ? `– ${bm.name}` : ''}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => handleMoveBoardMember(idx, 'up')}
+                          className={`p-1.5 rounded-lg border transition-colors ${
+                            idx === 0
+                              ? 'opacity-30 border-slate-200 dark:border-slate-800 cursor-not-allowed text-slate-400'
+                              : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer'
+                          }`}
+                          title="Nach oben verschieben"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={idx === boardMembers.length - 1}
+                          onClick={() => handleMoveBoardMember(idx, 'down')}
+                          className={`p-1.5 rounded-lg border transition-colors ${
+                            idx === boardMembers.length - 1
+                              ? 'opacity-30 border-slate-200 dark:border-slate-800 cursor-not-allowed text-slate-400'
+                              : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer'
+                          }`}
+                          title="Nach unten verschieben"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveBoardMember(bm.id)}
+                          className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer transition-colors ml-1"
+                          title="Vorstandsmitglied entfernen"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                      <div className="sm:col-span-4">
+                        <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                          Funktion / Amtsbezeichnung *
+                        </label>
+                        <input
+                          type="text"
+                          value={bm.role}
+                          onChange={e => handleUpdateBoardMember(bm.id, 'role', e.target.value)}
+                          placeholder="z.B. 1. Vorsitzender, Sportwart, Schriftführer"
+                          className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-4">
+                        <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                          Vollständiger Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={bm.name}
+                          onChange={e => handleUpdateBoardMember(bm.id, 'name', e.target.value)}
+                          placeholder="Vor- und Nachname"
+                          className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                          E-Mail (optional)
+                        </label>
+                        <input
+                          type="email"
+                          value={bm.email || ''}
+                          onChange={e => handleUpdateBoardMember(bm.id, 'email', e.target.value)}
+                          placeholder="name@verein.de"
+                          className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                          Telefon (optional)
+                        </label>
+                        <input
+                          type="tel"
+                          value={bm.phone || ''}
+                          onChange={e => handleUpdateBoardMember(bm.id, 'phone', e.target.value)}
+                          placeholder="+49 170..."
+                          className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Quick suggestion chips for role if empty */}
+                    {!bm.role && (
+                      <div className="flex flex-wrap items-center gap-1 pt-1 text-[11px] text-slate-400">
+                        <span className="text-[10px] font-medium mr-1">Vorschläge:</span>
+                        {['1. Vorsitzender', '2. Vorsitzender', 'Schatzmeister', 'Kassenwart', 'Schriftführer', 'Sportwart', 'Jugendleiter', 'Beisitzer'].map(suggestion => (
+                          <button
+                            key={suggestion}
+                            type="button"
+                            onClick={() => handleUpdateBoardMember(bm.id, 'role', suggestion)}
+                            className="px-2 py-0.5 bg-slate-100 hover:bg-blue-100 dark:bg-slate-800 dark:hover:bg-blue-900/40 text-slate-600 hover:text-blue-700 dark:text-slate-300 dark:hover:text-blue-300 rounded-md text-[10px] border border-slate-200 dark:border-slate-700 cursor-pointer transition-colors"
+                          >
+                            + {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* SMTP-Server & E-Mail-Konfiguration für Sitzungsdienst */}
@@ -2291,60 +2695,172 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
-          {/* Department configuration */}
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-              Abteilungen & Sparten ({formData.departments.length})
-            </label>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {formData.departments.map(dept => (
-                <span
-                  key={dept}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-medium border border-slate-200 dark:border-slate-700"
+          {/* Department configuration with Drag & Drop Sorting */}
+          <div className="pt-5 border-t border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>Abteilungen & Sparten ({formData.departments.length})</span>
+                  <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-[10px] rounded-md font-bold">
+                    Per Drag & Drop sortierbar
+                  </span>
+                </label>
+                <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Ziehen Sie Sparten mit der Maus oder nutzen Sie die Pfeiltasten, um die Reihenfolge festzulegen. Diese Reihenfolge wird in Formularen und Dropdowns verwendet.
+                </p>
+              </div>
+
+              {/* Add New Department Form Inline */}
+              <div className="flex gap-2 max-w-sm w-full sm:w-auto">
+                <input
+                  type="text"
+                  value={newDepartment}
+                  onChange={e => setNewDepartment(e.target.value)}
+                  placeholder="Neue Sparte (z. B. Badminton)"
+                  className="px-3 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white flex-1 focus:ring-2 focus:ring-blue-500"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddDepartment();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddDepartment}
+                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shrink-0 flex items-center gap-1 shadow-2xs"
                 >
-                  <span>{dept}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveDepartment(dept)}
-                    className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 ml-1 transition-colors"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Hinzufügen</span>
+                </button>
+              </div>
             </div>
 
-            <div className="flex gap-2 max-w-md">
-              <input
-                type="text"
-                value={newDepartment}
-                onChange={e => setNewDepartment(e.target.value)}
-                placeholder="Neue Sparte hinzufügen (z.B. Badminton)"
-                className="px-3.5 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white flex-1"
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddDepartment();
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={handleAddDepartment}
-                className="px-4 py-2 bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 dark:hover:bg-slate-600 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors"
-              >
-                Hinzufügen
-              </button>
+            {/* Drag and drop department list */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-1">
+              {formData.departments.map((dept, index) => {
+                const isDragging = draggedDeptIndex === index;
+                const isDragOver = dragOverDeptIndex === index;
+
+                return (
+                  <div
+                    key={dept}
+                    draggable
+                    onDragStart={e => handleDeptDragStart(e, index)}
+                    onDragOver={e => handleDeptDragOver(e, index)}
+                    onDrop={e => handleDeptDrop(e, index)}
+                    onDragEnd={handleDeptDragEnd}
+                    className={`flex items-center justify-between p-2.5 rounded-xl border transition-all select-none ${
+                      isDragging
+                        ? 'opacity-40 border-dashed border-blue-500 bg-blue-50/50 dark:bg-blue-950/30'
+                        : isDragOver
+                        ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50 dark:bg-blue-950/60 scale-[1.02]'
+                        : 'bg-white dark:bg-slate-850 border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div
+                        className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"
+                        title="Ziehen zum Neuanordnen"
+                      >
+                        <GripVertical className="w-4 h-4" />
+                      </div>
+                      <span className="w-5 h-5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-mono font-bold flex items-center justify-center shrink-0">
+                        {index + 1}
+                      </span>
+                      <span className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                        {dept}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-0.5 shrink-0 ml-2">
+                      <button
+                        type="button"
+                        disabled={index === 0}
+                        onClick={() => handleMoveDepartment(index, 'up')}
+                        className={`p-1 rounded-md transition-colors ${
+                          index === 0
+                            ? 'opacity-25 cursor-not-allowed text-slate-400'
+                            : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-750 cursor-pointer'
+                        }`}
+                        title="Nach oben schieben"
+                      >
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={index === formData.departments.length - 1}
+                        onClick={() => handleMoveDepartment(index, 'down')}
+                        className={`p-1 rounded-md transition-colors ${
+                          index === formData.departments.length - 1
+                            ? 'opacity-25 cursor-not-allowed text-slate-400'
+                            : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-750 cursor-pointer'
+                        }`}
+                        title="Nach unten schieben"
+                      >
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveDepartment(dept)}
+                        className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer transition-colors ml-0.5"
+                        title="Sparte entfernen"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-            <button
-              type="submit"
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-            >
-              Vereinsstammdaten speichern
-            </button>
+          {/* Action & Feedback Footer with Prominent Save Button & Instant Notification */}
+          <div className="pt-5 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* Inline Feedback Banner directly in view of the user */}
+            <div className="flex-1">
+              {clubSaveFeedbackText && (
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 rounded-xl text-xs font-semibold flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-2 shadow-2xs">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <div>
+                    <span className="font-bold block">Erfolgreich gespeichert!</span>
+                    <span className="text-2xs text-emerald-700 dark:text-emerald-300">
+                      {clubSaveFeedbackText} Alle Änderungen an Vorstand, Sparten und Stammdaten sind gesichert.
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Save Button with Interactive Feedback & Spinner */}
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                type="submit"
+                disabled={isSavingClub}
+                className={`px-6 py-3 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer ${
+                  clubSaveSuccess
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-400/60 shadow-emerald-600/20'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+              >
+                {isSavingClub ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Wird gespeichert...</span>
+                  </>
+                ) : clubSaveSuccess ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Vereinsstammdaten erfolgreich gespeichert!</span>
+                  </>
+                ) : (
+                  <>
+                    <Building className="w-4 h-4" />
+                    <span>Vereinsstammdaten speichern</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </form>
       )}
@@ -2713,6 +3229,169 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   Erstellen Sie Sicherungskopien aller Vereinsdaten oder stellen Sie einen früheren Stand wieder her.
                 </p>
               </div>
+            </div>
+
+            {/* Active Protection Banner */}
+            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl flex items-start gap-3.5">
+              <div className="p-2 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-xl shrink-0 mt-0.5">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-xs sm:text-sm font-bold text-emerald-900 dark:text-emerald-200">
+                  Automatischer Update-Schutz & Datensicherheit aktiv
+                </h4>
+                <p className="text-2xs sm:text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed">
+                  Ihre Daten sind vor und nach Versions-Updates optimal geschützt. Bei jedem App-Start und vor Aktualisierungen werden isolierte Sicherheits-Snapshots in einer geschützten Datenbank angelegt. Ein unbeabsichtigtes Überschreiben bei Updates ist technisch ausgeschlossen.
+                </p>
+              </div>
+            </div>
+
+            {/* Automatic Snapshots Section */}
+            <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-5 bg-slate-50/50 dark:bg-slate-800/40 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 rounded-xl">
+                    <History className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                      Automatische Sicherheits-Snapshots
+                    </h4>
+                    <p className="text-2xs text-slate-500 dark:text-slate-400">
+                      Rollback-Punkte für den Fall, dass Sie auf einen früheren Stand zurückkehren möchten.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCreateManualSnapshot}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-2xs font-bold rounded-lg transition-colors cursor-pointer"
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Jetzt Snapshot anlegen</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={loadSnapshotsList}
+                    className="p-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                    title="Snapshots neu laden"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingSnapshots ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+              </div>
+
+              {snapshots.length === 0 ? (
+                <div className="p-6 text-center bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                  <Archive className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Noch keine Snapshots gespeichert. Sobald Daten eingegeben werden, legt das System automatisch Sicherungen an.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {snapshots.map(snap => {
+                    const date = new Date(snap.timestamp);
+                    const formattedDate = date.toLocaleDateString('de-DE', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    });
+
+                    return (
+                      <div
+                        key={snap.id}
+                        className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-slate-900 dark:text-white">
+                              {snap.label}
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded text-3xs font-bold uppercase bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                              v{snap.version}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-slate-500 dark:text-slate-400">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              {formattedDate}
+                            </span>
+                            <span>•</span>
+                            <span>{snap.summary.membersCount} Mitglieder</span>
+                            <span>•</span>
+                            <span>{snap.summary.transactionsCount} Buchungen</span>
+                            {snap.summary.contactsCount > 0 && (
+                              <>
+                                <span>•</span>
+                                <span>{snap.summary.contactsCount} Kontakte</span>
+                              </>
+                            )}
+                            {snap.summary.invoicesCount > 0 && (
+                              <>
+                                <span>•</span>
+                                <span>{snap.summary.invoicesCount} Rechnungen</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleRestoreSnapshot(snap.id, snap.label)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-2xs font-bold rounded-lg shadow-2xs transition-colors cursor-pointer"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>Wiederherstellen</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSnapshot(snap.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            title="Snapshot löschen"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Legacy Data Rescue Scan */}
+            <div className="border border-blue-200 dark:border-blue-900/60 rounded-2xl p-5 bg-blue-50/40 dark:bg-blue-950/20 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-xs sm:text-sm font-bold text-blue-950 dark:text-blue-200 flex items-center gap-2">
+                    <Search className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <span>Notfall-Scan: Altdaten aus früheren Versionen suchen & retten</span>
+                  </h4>
+                  <p className="text-2xs text-blue-800/80 dark:text-blue-300 mt-1 max-w-xl">
+                    Fehlen Ihnen nach einem Update Daten? Dieser Scan durchsucht alle älteren Browser-Datenbanken und früheren Speicherbereiche und führt gefundene Datensätze sicher in die aktuelle Version zusammen.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRunLegacyScan}
+                  disabled={isScanningLegacy}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-xl shadow-2xs transition-colors shrink-0 disabled:opacity-50 cursor-pointer"
+                >
+                  <Search className={`w-3.5 h-3.5 ${isScanningLegacy ? 'animate-spin' : ''}`} />
+                  <span>{isScanningLegacy ? 'Scanne Speicher...' : 'Altdaten-Scan starten'}</span>
+                </button>
+              </div>
+
+              {legacyScanFeedback && (
+                <div className="p-3 bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded-xl text-xs text-slate-800 dark:text-slate-200 animate-in fade-in duration-200">
+                  {legacyScanFeedback}
+                </div>
+              )}
             </div>
 
             {/* Export Backup Card */}

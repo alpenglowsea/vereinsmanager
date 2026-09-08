@@ -11,10 +11,11 @@ import {
 } from '../types';
 import { TAX_SPHERES } from '../data/taxSpheres';
 import { CONTACT_TYPE_MAP } from '../data/contactConstants';
+import { saveBlobWithLocationPicker, FileSaveResult } from '../utils/fileExportHelper';
 
 export const ExportService = {
-  // 1. Export Members to CSV
-  exportMembersCSV(members: Member[], filename = 'mitgliederliste.csv'): void {
+  // 1. Export Members to CSV with location picker & fallback
+  async exportMembersCSV(members: Member[], filename = 'mitgliederliste.csv'): Promise<FileSaveResult> {
     const data = members.map(m => ({
       'Mitgliedsnummer': m.memberNumber,
       'Nachname': m.lastName,
@@ -35,7 +36,7 @@ export const ExportService = {
       'Mitgliedschaftstyp': m.membershipType === 'full' ? 'Vollmitglied' : m.membershipType === 'reduced' ? 'Ermäßigt' : m.membershipType === 'youth' ? 'Jugend' : m.membershipType === 'family' ? 'Familie' : m.membershipType === 'supporting' ? 'Fördermitglied' : m.membershipType === 'honorary' ? 'Ehrenmitglied' : m.membershipType === 'ausgetreten' || m.membershipType === 'terminated' ? 'Ausgetreten' : m.membershipType,
       'Beitrag (EUR)': m.feeAmount.toFixed(2),
       'Zahlungsweise': m.feePeriod === 'monthly' ? 'Monatlich' : m.feePeriod === 'quarterly' ? 'Vierteljährlich' : m.feePeriod === 'half_yearly' ? 'Halbjährlich' : m.feePeriod === 'none' ? 'Beitragsfrei' : 'Jährlich',
-      'Zahlungsmethode': m.paymentMethod === 'sepa' ? 'SEPA-Lastschrift' : m.paymentMethod === 'transfer' ? 'Überweisung' : m.paymentMethod === 'cash' ? 'Bar' : 'Dauerauftrag',
+      'Zahlungsmethode': m.paymentMethod === 'exempt' ? 'Beitragsfrei' : m.paymentMethod === 'sepa' ? 'SEPA-Lastschrift' : m.paymentMethod === 'transfer' ? 'Überweisung' : m.paymentMethod === 'cash' ? 'Bar' : 'Dauerauftrag',
       'IBAN': m.bankDetails.iban,
       'BIC': m.bankDetails.bic,
       'Bankname': m.bankDetails.bankName,
@@ -49,17 +50,15 @@ export const ExportService = {
     const csv = Papa.unparse(data, { delimiter: ';' });
     // Add UTF-8 BOM for Microsoft Excel compatibility
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    return await saveBlobWithLocationPicker(blob, filename, {
+      description: 'CSV-Tabelle (*.csv)',
+      mimeType: 'text/csv',
+      extension: '.csv'
+    });
   },
 
-  // 2. Export Members to PDF
-  exportMembersPDF(members: Member[], settings: ClubSettings, title = 'Mitgliederliste'): void {
+  // 2. Export Members to PDF with location picker & fallback
+  async exportMembersPDF(members: Member[], settings: ClubSettings, title = 'Mitgliederliste', filename?: string): Promise<FileSaveResult> {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
     // Header
@@ -88,8 +87,8 @@ export const ExportService = {
       m.email || '–',
       `${m.address.zip} ${m.address.city}`,
       m.entryDate ? new Date(m.entryDate).toLocaleDateString('de-DE') : '–',
-      `${m.feeAmount.toFixed(2)} € / ${m.feePeriod === 'yearly' ? 'J.' : 'M.'}`,
-      m.paymentMethod === 'sepa' ? 'SEPA' : m.paymentMethod === 'transfer' ? 'Überw.' : 'Bar'
+      `${m.feeAmount.toFixed(2)} € / ${m.feePeriod === 'yearly' ? 'J.' : m.feePeriod === 'none' ? 'Frei' : 'M.'}`,
+      m.paymentMethod === 'exempt' ? 'Frei' : m.paymentMethod === 'sepa' ? 'SEPA' : m.paymentMethod === 'transfer' ? 'Überw.' : 'Bar'
     ]);
 
     autoTable(doc, {
@@ -136,11 +135,17 @@ export const ExportService = {
       }
     });
 
-    doc.save(`mitglieder_${new Date().toISOString().split('T')[0]}.pdf`);
+    const pdfBlob = doc.output('blob');
+    const targetFilename = filename || `mitglieder_${new Date().toISOString().split('T')[0]}.pdf`;
+    return await saveBlobWithLocationPicker(pdfBlob, targetFilename, {
+      description: 'PDF-Dokument (*.pdf)',
+      mimeType: 'application/pdf',
+      extension: '.pdf'
+    });
   },
 
   // 3. Single Member Sheet / Stammblatt with SEPA & DSGVO
-  exportMemberStammblattPDF(member: Member, settings: ClubSettings): void {
+  async exportMemberStammblattPDF(member: Member, settings: ClubSettings): Promise<FileSaveResult> {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
     // Club Header
@@ -256,7 +261,13 @@ export const ExportService = {
     doc.text('Ort, Datum', 16, signY + 4);
     doc.text('Unterschrift Mitglied / Gesetzl. Vertreter', 115, signY + 4);
 
-    doc.save(`stammblatt_${member.memberNumber}_${member.lastName}.pdf`);
+    const pdfBlob = doc.output('blob');
+    const filename = `stammblatt_${member.memberNumber}_${member.lastName}.pdf`;
+    return await saveBlobWithLocationPicker(pdfBlob, filename, {
+      description: 'PDF-Dokument (*.pdf)',
+      mimeType: 'application/pdf',
+      extension: '.pdf'
+    });
   },
 
   // 4. Transactions CSV Export

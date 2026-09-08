@@ -94,6 +94,12 @@ const DEFAULT_SETTINGS: ClubSettings = {
   address: 'Sportplatzweg 12, 12345 Musterstadt',
   chairman: 'Dr. Michael Sommer',
   treasurer: 'Sabine Weber',
+  boardMembers: [
+    { id: 'bm-1', role: '1. Vorsitzender', name: 'Dr. Michael Sommer', email: 'vorstand@tsv-musterstadt1890.de' },
+    { id: 'bm-2', role: 'Schatzmeisterin / Kassenwart', name: 'Sabine Weber', email: 'finanzen@tsv-musterstadt1890.de' },
+    { id: 'bm-3', role: '2. Vorsitzender', name: 'Thomas Müller' },
+    { id: 'bm-4', role: 'Schriftführerin', name: 'Claudia Schmidt' }
+  ],
   email: 'vorstand@tsv-musterstadt1890.de',
   departments: DEFAULT_DEPARTMENTS,
   smtpHost: 'smtp.ionos.de',
@@ -884,6 +890,18 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
+let snapshotTimer: any = null;
+function triggerAutoSnapshot() {
+  if (isDemoModeActive()) return;
+  if (snapshotTimer) clearTimeout(snapshotTimer);
+  snapshotTimer = setTimeout(async () => {
+    try {
+      const { SnapshotService } = await import('./snapshotService');
+      await SnapshotService.createSnapshot('periodic');
+    } catch {}
+  }, 4000);
+}
+
 async function getAllFromStore<T>(storeName: string): Promise<T[]> {
   const prefix = getStorePrefix();
   try {
@@ -926,12 +944,14 @@ async function saveAllToStore<T extends { id: string }>(storeName: string, items
             localStorage.setItem(`${prefix}${storeName}`, JSON.stringify(items));
           }
         } catch (_) {}
+        if (items.length > 0) triggerAutoSnapshot();
         resolve();
       };
       tx.onerror = () => reject(tx.error);
     });
   } catch (err) {
     localStorage.setItem(`${prefix}${storeName}`, JSON.stringify(items));
+    if (items.length > 0) triggerAutoSnapshot();
   }
 }
 
@@ -965,13 +985,17 @@ async function putItemToStore<T extends { id: string }>(storeName: string, item:
       if (idx >= 0) items[idx] = item;
       else items.push(item);
       await saveAllToStore(storeName, items);
+      triggerAutoSnapshot();
       return;
     }
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite');
       const store = tx.objectStore(storeName);
       store.put(item);
-      tx.oncomplete = () => resolve();
+      tx.oncomplete = () => {
+        triggerAutoSnapshot();
+        resolve();
+      };
       tx.onerror = () => reject(tx.error);
     });
   } catch (err) {
@@ -980,6 +1004,7 @@ async function putItemToStore<T extends { id: string }>(storeName: string, item:
     if (idx >= 0) items[idx] = item;
     else items.push(item);
     await saveAllToStore(storeName, items);
+    triggerAutoSnapshot();
   }
 }
 
@@ -990,19 +1015,24 @@ async function deleteItemFromStore(storeName: string, id: string): Promise<void>
       const items = await getAllFromStore<{ id: string }>(storeName);
       const filtered = items.filter(i => i.id !== id);
       await saveAllToStore(storeName, filtered);
+      triggerAutoSnapshot();
       return;
     }
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite');
       const store = tx.objectStore(storeName);
       store.delete(id);
-      tx.oncomplete = () => resolve();
+      tx.oncomplete = () => {
+        triggerAutoSnapshot();
+        resolve();
+      };
       tx.onerror = () => reject(tx.error);
     });
   } catch (err) {
     const items = await getAllFromStore<{ id: string }>(storeName);
     const filtered = items.filter(i => i.id !== id);
     await saveAllToStore(storeName, filtered);
+    triggerAutoSnapshot();
   }
 }
 
@@ -1272,8 +1302,8 @@ export const StorageService = {
     const initKey = isDemo ? 'vm_demo_initialized' : 'vm_live_initialized';
     const initialized = localStorage.getItem(initKey);
 
-    if (!initialized) {
-      if (isDemo) {
+    if (isDemo) {
+      if (!initialized) {
         // Load complete isolated Demo Sample Sandbox for TSV Musterstadt 1890 e.V.
         await saveAllToStore(STORES.ACCOUNTS, INITIAL_ACCOUNTS);
         await saveAllToStore(STORES.MEMBERS, INITIAL_MEMBERS);
@@ -1289,9 +1319,38 @@ export const StorageService = {
         await putItemToStore(STORES.SETTINGS, { id: 'main', ...DEFAULT_SETTINGS });
         await this.syncReceiptsToDocuments();
         await this.syncDonationsToDocuments();
+        localStorage.setItem(initKey, 'true');
       } else {
-        // LIVE Mode Initialization for real club
-        try {
+        const existingFolders = await getAllFromStore<DocumentFolder>(STORES.FOLDERS);
+        if (!existingFolders || existingFolders.length === 0) {
+          await saveAllToStore(STORES.FOLDERS, getInitialFolders());
+        }
+        await this.syncReceiptsToDocuments();
+        await this.syncDonationsToDocuments();
+      }
+    } else {
+      // LIVE Mode Initialization with STRICT ZERO-DATA-LOSS GUARANTEE
+      try {
+        // 1. Altdaten-Prüfung: Falls die aktuelle Live-DB leer ist (z.B. nach einem App-Update),
+        // führen wir automatisch einen Notfall-Scan über ältere Datenbanken und LocalStorage aus.
+        const currentMembers = await getAllFromStore<Member>(STORES.MEMBERS);
+        const currentTx = await getAllFromStore<Transaction>(STORES.TRANSACTIONS);
+
+        if (currentMembers.length === 0 && currentTx.length === 0) {
+          try {
+            const { SnapshotService } = await import('./snapshotService');
+            const recovery = await SnapshotService.scanAndRecoverLegacyData();
+            if (recovery.recovered) {
+              console.info(`[StorageService] Altdaten nach Update erfolgreich wiederhergestellt: ${recovery.details}`);
+            }
+          } catch (scanErr) {
+            console.warn('[StorageService] Altdaten-Scan nicht verfügbar:', scanErr);
+          }
+        }
+
+        // 2. Nur initialisieren, wenn Konten wirklich leer sind
+        const existingAccounts = await getAllFromStore<FinancialAccount>(STORES.ACCOUNTS);
+        if (existingAccounts.length === 0) {
           const starterAccounts: FinancialAccount[] = [
             {
               id: 'acc-main',
@@ -1314,54 +1373,56 @@ export const StorageService = {
               createdAt: new Date().toISOString()
             }
           ];
-
           await saveAllToStore(STORES.ACCOUNTS, starterAccounts);
-          await saveAllToStore(STORES.MEMBERS, []);
-          await saveAllToStore(STORES.TRANSACTIONS, []);
-          await saveAllToStore(STORES.AUDIT_LOGS, []);
-          await saveAllToStore(STORES.INVENTORY, []);
-          await saveAllToStore(STORES.FOLDERS, getInitialFolders());
-          await saveAllToStore(STORES.DOCUMENTS, []);
-          await saveAllToStore(STORES.DONATIONS, []);
-          await saveAllToStore(STORES.CALENDAR_CATEGORIES, DEFAULT_CALENDAR_CATEGORIES);
-          await saveAllToStore(STORES.CALENDAR_EVENTS, []);
-
-          const currentSettings = await getItemFromStore<ClubSettings>(STORES.SETTINGS, 'main');
-          if (!currentSettings) {
-            await putItemToStore(STORES.SETTINGS, {
-              id: 'main',
-              clubName: 'Mein Sportverein e.V.',
-              associationNumber: '',
-              taxNumber: '',
-              taxOffice: '',
-              taxExemptionDate: '',
-              taxAssessmentPeriod: '',
-              promotedPurposes: 'Förderung des Sports',
-              creditorId: '',
-              creditorIban: '',
-              creditorBic: '',
-              creditorAccountId: 'acc-main',
-              address: '',
-              chairman: '',
-              treasurer: '',
-              email: '',
-              departments: DEFAULT_DEPARTMENTS
-            });
-          }
-        } catch (err) {
-          console.warn('Initialisierung Live-DB:', err);
         }
-      }
-      localStorage.setItem(initKey, 'true');
-    } else {
-      // Refresh checks
-      const existingFolders = await getAllFromStore<DocumentFolder>(STORES.FOLDERS);
-      if (!existingFolders || existingFolders.length === 0) {
-        await saveAllToStore(STORES.FOLDERS, getInitialFolders());
-      }
-      if (isDemo) {
-        await this.syncReceiptsToDocuments();
-        await this.syncDonationsToDocuments();
+
+        // 3. Ordner-Struktur für Dokumente nur bei Bedarf anlegen
+        const existingFolders = await getAllFromStore<DocumentFolder>(STORES.FOLDERS);
+        if (existingFolders.length === 0) {
+          await saveAllToStore(STORES.FOLDERS, getInitialFolders());
+        }
+
+        // 4. Kalender-Kategorien nur anlegen falls leer
+        const existingCategories = await getAllFromStore<CalendarEventCategory>(STORES.CALENDAR_CATEGORIES);
+        if (existingCategories.length === 0) {
+          await saveAllToStore(STORES.CALENDAR_CATEGORIES, DEFAULT_CALENDAR_CATEGORIES);
+        }
+
+        // 5. Vereinsstammdaten nur initialisieren, falls keine vorhanden sind
+        const currentSettings = await getItemFromStore<ClubSettings>(STORES.SETTINGS, 'main');
+        if (!currentSettings) {
+          await putItemToStore(STORES.SETTINGS, {
+            id: 'main',
+            clubName: 'Mein Sportverein e.V.',
+            associationNumber: '',
+            taxNumber: '',
+            taxOffice: '',
+            taxExemptionDate: '',
+            taxAssessmentPeriod: '',
+            promotedPurposes: 'Förderung des Sports',
+            creditorId: '',
+            creditorIban: '',
+            creditorBic: '',
+            creditorAccountId: 'acc-main',
+            address: '',
+            chairman: '',
+            treasurer: '',
+            email: '',
+            departments: DEFAULT_DEPARTMENTS
+          });
+        }
+
+        // SICHERHEIT: Bestehende Daten in STORES.MEMBERS, TRANSACTIONS, CONTACTS, INVOICES,
+        // MEETINGS, INVENTORY, DOCUMENTS, DONATIONS usw. werden NIEMALS mit [] überschrieben!
+        localStorage.setItem(initKey, 'true');
+
+        // 6. Automatischen Sicherheits-Snapshot im Hintergrund anstoßen
+        try {
+          const { SnapshotService } = await import('./snapshotService');
+          await SnapshotService.createSnapshot('startup');
+        } catch {}
+      } catch (err) {
+        console.warn('Initialisierung Live-DB:', err);
       }
     }
   },
@@ -1629,14 +1690,16 @@ export const StorageService = {
       sepa: 'SEPA-Lastschrift',
       transfer: 'Überweisung',
       cash: 'Bargeld',
-      standing_order: 'Dauerauftrag'
+      standing_order: 'Dauerauftrag',
+      exempt: 'Beitragsfrei'
     };
 
     const periodTranslations: Record<string, string> = {
       monthly: 'monatlich',
       quarterly: 'vierteljährlich',
       half_yearly: 'halbjährlich',
-      yearly: 'jährlich'
+      yearly: 'jährlich',
+      none: 'beitragsfrei'
     };
 
     const typeTranslations: Record<string, string> = {

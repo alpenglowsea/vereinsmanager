@@ -237,6 +237,15 @@ export class UpdateService {
     targetVersion?: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      // 0. Vor jedem Update automatisch einen unlöschbaren Sicherheits-Snapshot anlegen
+      onProgress(5, 'Erstelle Sicherheits-Snapshot der Datenbank...');
+      try {
+        const { SnapshotService } = await import('./snapshotService');
+        await SnapshotService.createSnapshot('pre_update', `Sicherheits-Backup vor Update auf ${targetVersion || 'neue Version'}`);
+      } catch (snapErr) {
+        console.warn('Pre-Update Snapshot konnte nicht erstellt werden:', snapErr);
+      }
+
       // Wenn echtes Tauri vorhanden ist
       if (this.isRunningInTauri()) {
         try {

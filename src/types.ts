@@ -4,7 +4,7 @@ export type MembershipStatus = 'active' | 'passive' | 'honorary' | 'terminated' 
 
 export type MembershipType = 'full' | 'reduced' | 'youth' | 'family' | 'supporting' | 'honorary' | 'ausgetreten' | 'terminated';
 
-export type PaymentMethod = 'sepa' | 'transfer' | 'cash' | 'standing_order';
+export type PaymentMethod = 'sepa' | 'transfer' | 'cash' | 'standing_order' | 'exempt';
 
 export type FeePeriod = 'monthly' | 'quarterly' | 'half_yearly' | 'yearly' | 'none';
 
@@ -159,6 +159,14 @@ export interface Transaction {
   updatedAt: string;
 }
 
+export interface BoardMember {
+  id: string;
+  role: string; // Frei wählbar/benennbar: z.B. '1. Vorsitzender', '2. Vorsitzender', 'Schatzmeister / Kassenwart', 'Schriftführer', 'Sportwart', 'Jugendleiter'
+  name: string; // Name des Vorstandsmitglieds
+  email?: string;
+  phone?: string;
+}
+
 export interface ClubSettings {
   clubName: string;
   clubLogoUrl?: string; // Optional custom club logo as Base64 Data URL
@@ -172,6 +180,7 @@ export interface ClubSettings {
   clubAddress?: Address;
   chairman: string;
   treasurer: string;
+  boardMembers?: BoardMember[]; // Frei konfigurierbare Vorstandsmitglieder
   email: string;
   phone?: string;
   website?: string;
@@ -612,6 +621,51 @@ export interface OnlineMembershipApplication {
   // PDF & Vorlagen
   pdfDataUrl?: string; // Zuletzt generierte Antrags-PDF
   customTemplateUsed?: boolean;
+}
+
+export interface ExtractedApplicationData {
+  firstName?: string;
+  lastName?: string;
+  gender?: 'm' | 'w' | 'd' | 'none';
+  birthDate?: string;
+  nationality?: string;
+  phone?: string;
+  email?: string;
+  address?: {
+    street?: string;
+    houseNumber?: string;
+    zip?: string;
+    city?: string;
+    country?: string;
+  };
+  department?: string;
+  membershipType?: 'full' | 'reduced' | 'youth' | 'family' | 'supporting' | 'honorary';
+  feePeriod?: 'monthly' | 'quarterly' | 'half_yearly' | 'yearly';
+  feeAmount?: number;
+  entryDate?: string;
+  paymentMethod?: 'sepa' | 'transfer' | 'cash' | 'standing_order';
+  bankDetails?: {
+    iban?: string;
+    bic?: string;
+    bankName?: string;
+    accountHolder?: string;
+    mandateDate?: string;
+  };
+  isMinor?: boolean;
+  guardianName?: string;
+  guardianPhone?: string;
+  guardianEmail?: string;
+  guardianRelation?: string;
+  dataPrivacyConsent?: boolean;
+  statuteConsent?: boolean;
+  photoConsent?: boolean;
+  healthConfirmation?: boolean;
+  hasApplicantSignature?: boolean;
+  hasGuardianSignature?: boolean;
+  hasSepaSignature?: boolean;
+  notes?: string;
+  confidence?: number;
+  rawExtractedTextSummary?: string;
 }
 
 export interface ApplicationTemplateSettings {

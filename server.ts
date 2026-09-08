@@ -497,7 +497,7 @@ Gib ausschließlich valides JSON mit diesem Format aus:
  */
 app.post("/api/scan-application-pdf", async (req, res) => {
   try {
-    const { fileDataUrl, mimeType, fileName } = req.body;
+    const { fileDataUrl, mimeType, fileName, userApiKey } = req.body;
 
     if (!fileDataUrl) {
       return res.status(400).json({ error: "Keine Datei (fileDataUrl) übermittelt." });
@@ -508,8 +508,8 @@ app.post("/api/scan-application-pdf", async (req, res) => {
     const base64Data = commaIndex !== -1 ? fileDataUrl.substring(commaIndex + 1) : fileDataUrl;
     const detectedMimeType = mimeType || (fileDataUrl.startsWith("data:") ? fileDataUrl.substring(5, fileDataUrl.indexOf(";")) : "application/pdf");
 
-    // Initialize Gemini
-    const ai = getGeminiClient();
+    // Initialize Gemini with optional user API key
+    const ai = getGeminiClient(userApiKey);
 
     const prompt = `Du bist ein hochpräziser KI-Dokumenten-Parser für deutsche Vereins-Mitgliedsanträge und Aufnahmeformulare (sowohl handschriftlich ausgefüllt, gedruckt als auch digital ausgefüllt).
 

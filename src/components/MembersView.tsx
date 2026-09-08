@@ -29,6 +29,8 @@ import {
   X
 } from 'lucide-react';
 
+export type MemberSortField = 'number' | 'name' | 'status' | 'department' | 'entryDate' | 'city' | 'fee' | 'paymentMethod';
+
 interface MembersViewProps {
   members: Member[];
   settings: ClubSettings;
@@ -60,8 +62,24 @@ export const MembersView: React.FC<MembersViewProps> = ({
   const [deptFilter, setDeptFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'number' | 'name' | 'entryDate' | 'fee'>('number');
+  const [sortBy, setSortBy] = useState<MemberSortField>('number');
   const [sortAsc, setSortAsc] = useState(true);
+
+  // Export notification state
+  const [exportStatus, setExportStatus] = useState<{
+    type: 'success' | 'info' | 'error';
+    message: string;
+  } | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleSort = (field: MemberSortField) => {
+    if (sortBy === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortBy(field);
+      setSortAsc(true);
+    }
+  };
 
   // Multiple selection state
   const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
@@ -105,11 +123,21 @@ export const MembersView: React.FC<MembersViewProps> = ({
       if (sortBy === 'number') {
         comparison = a.memberNumber.localeCompare(b.memberNumber, undefined, { numeric: true });
       } else if (sortBy === 'name') {
-        comparison = a.lastName.localeCompare(b.lastName);
+        comparison = `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`);
+      } else if (sortBy === 'status') {
+        comparison = a.status.localeCompare(b.status);
+      } else if (sortBy === 'department') {
+        comparison = (a.department || '').localeCompare(b.department || '');
       } else if (sortBy === 'entryDate') {
-        comparison = new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime();
+        comparison = new Date(a.entryDate || 0).getTime() - new Date(b.entryDate || 0).getTime();
+      } else if (sortBy === 'city') {
+        const cityA = `${a.address?.city || ''} ${a.address?.zip || ''}`;
+        const cityB = `${b.address?.city || ''} ${b.address?.zip || ''}`;
+        comparison = cityA.localeCompare(cityB);
       } else if (sortBy === 'fee') {
         comparison = a.feeAmount - b.feeAmount;
+      } else if (sortBy === 'paymentMethod') {
+        comparison = (a.paymentMethod || '').localeCompare(b.paymentMethod || '');
       }
       return sortAsc ? comparison : -comparison;
     });
@@ -228,12 +256,74 @@ export const MembersView: React.FC<MembersViewProps> = ({
     return list.sort((a, b) => b.count - a.count);
   }, [members, settings.departments]);
 
-  const handleExportCSV = () => {
-    ExportService.exportMembersCSV(filteredMembers, `mitglieder_${settings.clubName.replace(/\s/g, '_')}.csv`);
+  const handleExportCSV = async () => {
+    try {
+      setIsExporting(true);
+      const safeClub = (settings.clubName || 'Verein').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_');
+      const filename = `mitglieder_${safeClub}_${new Date().toISOString().split('T')[0]}.csv`;
+      const result = await ExportService.exportMembersCSV(filteredMembers, filename);
+      if (result.cancelled) {
+        setExportStatus({
+          type: 'info',
+          message: 'CSV-Export abgebrochen (kein Zielordner gewählt).'
+        });
+      } else if (result.success) {
+        setExportStatus({
+          type: 'success',
+          message: result.method === 'picker'
+            ? `CSV-Tabelle erfolgreich gespeichert als: "${result.fileName}"`
+            : `CSV-Tabelle "${result.fileName}" erfolgreich im gewählten Verzeichnis / Download abgelegt.`
+        });
+      } else {
+        setExportStatus({
+          type: 'error',
+          message: result.error || 'Fehler beim CSV-Export.'
+        });
+      }
+    } catch (err: any) {
+      setExportStatus({
+        type: 'error',
+        message: 'Fehler beim Exportieren der CSV-Tabelle.'
+      });
+    } finally {
+      setIsExporting(false);
+      setTimeout(() => setExportStatus(null), 5000);
+    }
   };
 
-  const handleExportPDF = () => {
-    ExportService.exportMembersPDF(filteredMembers, settings);
+  const handleExportPDF = async () => {
+    try {
+      setIsExporting(true);
+      const safeClub = (settings.clubName || 'Verein').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_');
+      const filename = `mitgliederliste_${safeClub}_${new Date().toISOString().split('T')[0]}.pdf`;
+      const result = await ExportService.exportMembersPDF(filteredMembers, settings, 'Mitgliederliste', filename);
+      if (result.cancelled) {
+        setExportStatus({
+          type: 'info',
+          message: 'PDF-Export abgebrochen (kein Zielordner gewählt).'
+        });
+      } else if (result.success) {
+        setExportStatus({
+          type: 'success',
+          message: result.method === 'picker'
+            ? `PDF-Mitgliederliste erfolgreich gespeichert als: "${result.fileName}"`
+            : `PDF-Mitgliederliste "${result.fileName}" erfolgreich im gewählten Verzeichnis / Download abgelegt.`
+        });
+      } else {
+        setExportStatus({
+          type: 'error',
+          message: result.error || 'Fehler beim PDF-Export.'
+        });
+      }
+    } catch (err: any) {
+      setExportStatus({
+        type: 'error',
+        message: 'Fehler beim Generieren der PDF-Mitgliederliste.'
+      });
+    } finally {
+      setIsExporting(false);
+      setTimeout(() => setExportStatus(null), 5000);
+    }
   };
 
   const getStatusBadge = (status: Member['status']) => {
@@ -516,8 +606,9 @@ export const MembersView: React.FC<MembersViewProps> = ({
             <button
               type="button"
               onClick={handleExportCSV}
-              className="text-xs border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5"
-              title="Gefilterte Liste als Excel-CSV exportieren"
+              disabled={isExporting}
+              className="text-xs border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 disabled:opacity-50"
+              title="Gefilterte Liste als Excel-CSV exportieren (Speicherort wählbar)"
             >
               <Download className="w-3.5 h-3.5 text-slate-500" />
               <span>CSV Export</span>
@@ -526,8 +617,9 @@ export const MembersView: React.FC<MembersViewProps> = ({
             <button
               type="button"
               onClick={handleExportPDF}
-              className="text-xs border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5"
-              title="Druckreife Mitgliederliste als PDF herunterladen"
+              disabled={isExporting}
+              className="text-xs border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 disabled:opacity-50"
+              title="Druckreife Mitgliederliste als PDF herunterladen (Speicherort wählbar)"
             >
               <FileDown className="w-3.5 h-3.5 text-blue-600" />
               <span>PDF Liste</span>
@@ -543,6 +635,34 @@ export const MembersView: React.FC<MembersViewProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Export Notification / Feedback Banner */}
+        {exportStatus && (
+          <div
+            className={`px-4 py-2.5 text-xs font-medium border-b flex items-center justify-between transition-all ${
+              exportStatus.type === 'success'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                : exportStatus.type === 'info'
+                ? 'bg-blue-50 border-blue-200 text-blue-900'
+                : 'bg-rose-50 border-rose-200 text-rose-900'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className={`w-4 h-4 shrink-0 ${
+                exportStatus.type === 'success' ? 'text-emerald-600' : exportStatus.type === 'info' ? 'text-blue-600' : 'text-rose-600'
+              }`} />
+              <span>{exportStatus.message}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setExportStatus(null)}
+              className="text-slate-400 hover:text-slate-700 ml-4 font-bold text-sm"
+              title="Schließen"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Search & Filter Bar */}
         <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-3 text-xs">
@@ -657,37 +777,101 @@ export const MembersView: React.FC<MembersViewProps> = ({
                   />
                 </th>
                 <th
-                  onClick={() => {
-                    if (sortBy === 'number') setSortAsc(!sortAsc);
-                    else { setSortBy('number'); setSortAsc(true); }
-                  }}
-                  className="px-4 py-3 cursor-pointer hover:text-slate-800 w-24"
+                  onClick={() => handleSort('number')}
+                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-800 transition-colors w-24"
+                  title="Nach Mitgliedsnummer sortieren"
                 >
-                  ID {sortBy === 'number' && (sortAsc ? '↑' : '↓')}
+                  <div className="inline-flex items-center gap-1">
+                    <span>ID</span>
+                    <span className={`text-xs font-bold ${sortBy === 'number' ? 'text-blue-600' : 'text-slate-300'}`}>
+                      {sortBy === 'number' ? (sortAsc ? '↑' : '↓') : '↕'}
+                    </span>
+                  </div>
                 </th>
                 <th
-                  onClick={() => {
-                    if (sortBy === 'name') setSortAsc(!sortAsc);
-                    else { setSortBy('name'); setSortAsc(true); }
-                  }}
-                  className="px-4 py-3 cursor-pointer hover:text-slate-800"
+                  onClick={() => handleSort('name')}
+                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-800 transition-colors"
+                  title="Nach Name sortieren"
                 >
-                  Name {sortBy === 'name' && (sortAsc ? '↑' : '↓')}
+                  <div className="inline-flex items-center gap-1">
+                    <span>Name</span>
+                    <span className={`text-xs font-bold ${sortBy === 'name' ? 'text-blue-600' : 'text-slate-300'}`}>
+                      {sortBy === 'name' ? (sortAsc ? '↑' : '↓') : '↕'}
+                    </span>
+                  </div>
                 </th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Abteilung</th>
-                <th className="px-4 py-3">Eintritt</th>
-                <th className="px-4 py-3">Wohnort</th>
                 <th
-                  onClick={() => {
-                    if (sortBy === 'fee') setSortAsc(!sortAsc);
-                    else { setSortBy('fee'); setSortAsc(true); }
-                  }}
-                  className="px-4 py-3 cursor-pointer hover:text-slate-800 text-right"
+                  onClick={() => handleSort('status')}
+                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-800 transition-colors"
+                  title="Nach Status sortieren"
                 >
-                  Beitrag {sortBy === 'fee' && (sortAsc ? '↑' : '↓')}
+                  <div className="inline-flex items-center gap-1">
+                    <span>Status</span>
+                    <span className={`text-xs font-bold ${sortBy === 'status' ? 'text-blue-600' : 'text-slate-300'}`}>
+                      {sortBy === 'status' ? (sortAsc ? '↑' : '↓') : '↕'}
+                    </span>
+                  </div>
                 </th>
-                <th className="px-4 py-3 text-center">Zahlung</th>
+                <th
+                  onClick={() => handleSort('department')}
+                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-800 transition-colors"
+                  title="Nach Sparte / Abteilung sortieren"
+                >
+                  <div className="inline-flex items-center gap-1">
+                    <span>Abteilung</span>
+                    <span className={`text-xs font-bold ${sortBy === 'department' ? 'text-blue-600' : 'text-slate-300'}`}>
+                      {sortBy === 'department' ? (sortAsc ? '↑' : '↓') : '↕'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('entryDate')}
+                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-800 transition-colors"
+                  title="Nach Eintrittsdatum sortieren"
+                >
+                  <div className="inline-flex items-center gap-1">
+                    <span>Eintritt</span>
+                    <span className={`text-xs font-bold ${sortBy === 'entryDate' ? 'text-blue-600' : 'text-slate-300'}`}>
+                      {sortBy === 'entryDate' ? (sortAsc ? '↑' : '↓') : '↕'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('city')}
+                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-800 transition-colors"
+                  title="Nach Wohnort / PLZ sortieren"
+                >
+                  <div className="inline-flex items-center gap-1">
+                    <span>Wohnort</span>
+                    <span className={`text-xs font-bold ${sortBy === 'city' ? 'text-blue-600' : 'text-slate-300'}`}>
+                      {sortBy === 'city' ? (sortAsc ? '↑' : '↓') : '↕'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('fee')}
+                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-800 transition-colors text-right"
+                  title="Nach Beitragshöhe sortieren"
+                >
+                  <div className="inline-flex items-center justify-end gap-1">
+                    <span>Beitrag</span>
+                    <span className={`text-xs font-bold ${sortBy === 'fee' ? 'text-blue-600' : 'text-slate-300'}`}>
+                      {sortBy === 'fee' ? (sortAsc ? '↑' : '↓') : '↕'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('paymentMethod')}
+                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-800 transition-colors text-center"
+                  title="Nach Zahlungsmethode sortieren"
+                >
+                  <div className="inline-flex items-center justify-center gap-1">
+                    <span>Zahlung</span>
+                    <span className={`text-xs font-bold ${sortBy === 'paymentMethod' ? 'text-blue-600' : 'text-slate-300'}`}>
+                      {sortBy === 'paymentMethod' ? (sortAsc ? '↑' : '↓') : '↕'}
+                    </span>
+                  </div>
+                </th>
                 <th className="px-4 py-3 text-right">Aktion</th>
               </tr>
             </thead>
@@ -759,15 +943,31 @@ export const MembersView: React.FC<MembersViewProps> = ({
                       {member.address.zip} {member.address.city}
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-bold text-slate-800 text-xs">
-                      {member.feeAmount.toFixed(2)} €
+                      {member.paymentMethod === 'exempt' || member.feePeriod === 'none' || member.feeAmount === 0 ? (
+                        <span className="text-emerald-700 font-bold">0,00 €</span>
+                      ) : (
+                        `${member.feeAmount.toFixed(2)} €`
+                      )}
                       <span className="text-[10px] text-slate-400 block font-normal">
-                        {member.feePeriod === 'yearly' ? 'jährlich' : member.feePeriod === 'monthly' ? 'monatl.' : 'halbj.'}
+                        {member.feePeriod === 'none' || member.paymentMethod === 'exempt'
+                          ? 'beitragsfrei'
+                          : member.feePeriod === 'yearly'
+                          ? 'jährlich'
+                          : member.feePeriod === 'monthly'
+                          ? 'monatl.'
+                          : 'halbj.'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                        {member.paymentMethod.toUpperCase()}
-                      </span>
+                      {member.paymentMethod === 'exempt' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                          BEITRAGSFREI
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                          {member.paymentMethod.toUpperCase()}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
