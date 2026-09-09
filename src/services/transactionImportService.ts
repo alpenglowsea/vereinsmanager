@@ -171,7 +171,9 @@ export function autoDetectTransactionMapping(headers: string[]): TransactionColu
     {
       key: 'type',
       aliases: [
-        'typ', 'buchungsart', 'art', 'sollhaben', 'sh', 'einnahmeausgabe', 'type', 'vorgangsart'
+        'typ', 'buchungsart', 'art', 'sollhaben', 'sh', 's/h', 'einnahmeausgabe', 'e/a', 'einnahme/ausgabe',
+        'type', 'vorgangsart', 'umsatzart', 'kategorieart', 'transaktionsart', 'bewegung', 'buchungstyp', 'vorzeichen',
+        'buchungsrichtung', 'richtung', 'direction', 'buchungsartname'
       ]
     },
     {
@@ -240,8 +242,12 @@ export function autoDetectTransactionMapping(headers: string[]): TransactionColu
  * - 50,00 S (Soll = negative / expense)
  * - 50,00 H (Haben = positive / income)
  */
-export function parseAmountValue(rawVal: string, typeVal?: string): { amount: number; isExpense: boolean } {
-  if (!rawVal) return { amount: 0, isExpense: false };
+export function parseAmountValue(
+  rawVal: string,
+  typeVal?: string,
+  defaultType: 'auto' | 'income' | 'expense' = 'auto'
+): { amount: number; isExpense: boolean } {
+  if (!rawVal) return { amount: 0, isExpense: defaultType === 'expense' };
 
   let str = rawVal.trim();
   let forceNegative = false;
@@ -286,15 +292,53 @@ export function parseAmountValue(rawVal: string, typeVal?: string): { amount: nu
   }
 
   // Type string heuristics e.g. "Ausgabe", "Abgang", "Expense", "Debit", "Lastschrift", "Einnahme", "Gutschrift"
-  if (typeVal) {
-    const t = typeVal.toLowerCase();
-    if (t.includes('ausgabe') || t.includes('abgang') || t.includes('expense') || t.includes('debit') || t.includes('lastschrift') || t.includes('soll')) {
+  if (typeVal && typeVal.trim().length > 0) {
+    const t = typeVal.toLowerCase().trim();
+    if (
+      t.includes('ausgabe') ||
+      t.includes('abgang') ||
+      t.includes('expense') ||
+      t.includes('debit') ||
+      t.includes('lastschrift') ||
+      t.includes('soll') ||
+      t.includes('aufwand') ||
+      t.includes('auszahlung') ||
+      t.includes('entnahme') ||
+      t.includes('kosten') ||
+      t.includes('gebühr') ||
+      t.includes('gebuehr') ||
+      t === 'a' ||
+      t === 's' ||
+      t === '-'
+    ) {
       forceNegative = true;
       forcePositive = false;
-    } else if (t.includes('einnahme') || t.includes('zugang') || t.includes('income') || t.includes('credit') || t.includes('gutschrift') || t.includes('haben')) {
+    } else if (
+      t.includes('einnahme') ||
+      t.includes('zugang') ||
+      t.includes('income') ||
+      t.includes('credit') ||
+      t.includes('gutschrift') ||
+      t.includes('haben') ||
+      t.includes('ertrag') ||
+      t.includes('einzahlung') ||
+      t.includes('einlage') ||
+      t.includes('zuschuss') ||
+      t.includes('spende') ||
+      t.includes('beitrag') ||
+      t === 'e' ||
+      t === 'h' ||
+      t === '+'
+    ) {
       forcePositive = true;
       forceNegative = false;
     }
+  } else if (defaultType === 'expense') {
+    forceNegative = true;
+    forcePositive = false;
+  } else if (defaultType === 'income') {
+    forcePositive = true;
+    forceNegative = false;
   }
 
   if (forceNegative) {
@@ -481,7 +525,8 @@ export function convertRowsToTransactions(
   settings: ClubSettings,
   defaultAccountId: string,
   defaultSphere: TaxSphere,
-  defaultVatRate: 0 | 7 | 19 = 0
+  defaultVatRate: 0 | 7 | 19 = 0,
+  defaultType: 'auto' | 'income' | 'expense' = 'auto'
 ): ParsedTransactionRow[] {
   const currentYear = new Date().getFullYear();
   let runningDocIndex = 1;
@@ -511,13 +556,41 @@ export function convertRowsToTransactions(
     const date = parseDateValue(rawDate);
     if (!rawDate) warnings.push('Datum fehlte in der Datei (auf heute gesetzt)');
 
-    // 2. Amount & Type
+    // 2. Amount & Type (Buchungsart)
     const rawAmount = mapping.amount ? row[mapping.amount] || '' : '';
     const rawType = mapping.type ? row[mapping.type] || '' : '';
-    const { amount, isExpense } = parseAmountValue(rawAmount, rawType);
+    const { amount, isExpense } = parseAmountValue(rawAmount, rawType, defaultType);
     if (amount === 0) warnings.push('Betrag ist 0,00 € oder konnte nicht eindeutig gelesen werden');
 
-    const txType: 'income' | 'expense' | 'transfer' = amount >= 0 ? 'income' : 'expense';
+    let txType: 'income' | 'expense' | 'transfer' = amount >= 0 ? 'income' : 'expense';
+    const lowerType = rawType.toLowerCase().trim();
+    if (lowerType.includes('umbuchung') || lowerType.includes('transfer') || lowerType.includes('transit')) {
+      txType = 'transfer';
+    } else if (
+      isExpense ||
+      lowerType.includes('ausgabe') ||
+      lowerType.includes('abgang') ||
+      lowerType.includes('soll') ||
+      lowerType.includes('aufwand') ||
+      lowerType.includes('auszahlung') ||
+      lowerType.includes('entnahme') ||
+      lowerType === 'a' ||
+      lowerType === 's'
+    ) {
+      txType = 'expense';
+    } else if (
+      !isExpense &&
+      (lowerType.includes('einnahme') ||
+        lowerType.includes('zugang') ||
+        lowerType.includes('haben') ||
+        lowerType.includes('ertrag') ||
+        lowerType.includes('einzahlung') ||
+        lowerType.includes('einlage') ||
+        lowerType === 'e' ||
+        lowerType === 'h')
+    ) {
+      txType = 'income';
+    }
 
     // 3. Document Number
     let docNum = mapping.documentNumber ? (row[mapping.documentNumber] || '').trim() : '';

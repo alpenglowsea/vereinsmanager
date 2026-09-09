@@ -59,6 +59,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
   
   // Default fallbacks
   const [defaultAccountId, setDefaultAccountId] = useState<string>(accounts[0]?.id || 'acc-1');
+  const [defaultType, setDefaultType] = useState<'auto' | 'income' | 'expense'>('auto');
   const [defaultSphere, setDefaultSphere] = useState<TaxSphere>('ideell');
   const [defaultVatRate, setDefaultVatRate] = useState<0 | 7 | 19>(0);
   const [duplicateStrategy, setDuplicateStrategy] = useState<'update' | 'skip' | 'create_always'>('skip');
@@ -142,7 +143,8 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
       settings,
       defaultAccountId,
       defaultSphere,
-      defaultVatRate
+      defaultVatRate,
+      defaultType
     );
 
     // Apply duplicate strategy
@@ -222,6 +224,28 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
         transaction: {
           ...item.transaction,
           accountId: newAccountId
+        }
+      };
+    }));
+  };
+
+  const updateRowType = (id: string, newType: 'income' | 'expense' | 'transfer') => {
+    setParsedList(prev => prev.map(item => {
+      if (item.id !== id) return item;
+      const absAmount = Math.abs(item.transaction.amount);
+      const newAmount = newType === 'expense' ? -absAmount : absAmount;
+      const isIncome = newAmount >= 0;
+      const availableMain = SKR42_STRUCTURE.filter(c => c.sphere === item.transaction.sphere && c.type === (isIncome ? 'income' : 'expense'));
+      const defaultMain = availableMain[0]?.name || item.transaction.category;
+      const defaultSub = availableMain[0]?.subCategories[0]?.label || item.transaction.subCategory || '';
+      return {
+        ...item,
+        transaction: {
+          ...item.transaction,
+          type: newType,
+          amount: newAmount,
+          category: defaultMain,
+          subCategory: defaultSub
         }
       };
     }));
@@ -570,7 +594,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   <span>Standard-Vorgaben für fehlende Spaltenwerte</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                   {/* Default Target Account */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -588,6 +612,23 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                       ))}
                     </select>
                     <span className="text-[11px] text-slate-500 mt-1 block">Wird genutzt, falls Spalte fehlt</span>
+                  </div>
+
+                  {/* Default Transaction Type */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Standard-Buchungsart
+                    </label>
+                    <select
+                      value={defaultType}
+                      onChange={(e) => setDefaultType(e.target.value as 'auto' | 'income' | 'expense')}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="auto">Automatisch (Vorzeichen +/-)</option>
+                      <option value="income">Immer Einnahme (+)</option>
+                      <option value="expense">Immer Ausgabe (-)</option>
+                    </select>
+                    <span className="text-[11px] text-slate-500 mt-1 block">Fallback bei fehlender Spalte</span>
                   </div>
 
                   {/* Default Sphere */}
@@ -692,6 +733,25 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                       ))}
                     </select>
                     <p className="text-[11px] text-slate-400">z.B. 150,00 oder -45,50 €</p>
+                  </div>
+
+                  {/* Field 3: Transaction Type (Buchungsart) */}
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-800">Buchungsart / Typ</label>
+                      <span className="text-[10px] font-bold text-emerald-700">E/A / Soll/Haben</span>
+                    </div>
+                    <select
+                      value={mapping.type || ''}
+                      onChange={(e) => setMapping({ ...mapping, type: e.target.value || undefined })}
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="">-- Automatisch anhand Vorzeichen --</option>
+                      {csvHeaders.map(h => (
+                        <option key={h} value={h}>{h} {rawRows[0]?.[h] ? `("${rawRows[0][h]}")` : ''}</option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-slate-400">z.B. Einnahme, Ausgabe, Umbuchung, Soll/Haben</p>
                   </div>
 
                   {/* Field 3: Booking Text */}
@@ -1032,6 +1092,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                         <th className="p-3">Datum</th>
                         <th className="p-3">Beleg-Nr.</th>
                         <th className="p-3">Partner / Buchungstext</th>
+                        <th className="p-3">Art</th>
                         <th className="p-3 text-right">Betrag (€)</th>
                         <th className="p-3">Sphäre (SKR 42)</th>
                         <th className="p-3">Hauptkategorie & Konto</th>
@@ -1041,7 +1102,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                     <tbody className="divide-y divide-slate-100 font-sans">
                       {filteredPreview.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="p-8 text-center text-slate-400">
+                          <td colSpan={10} className="p-8 text-center text-slate-400">
                             Keine Buchungen für den aktuellen Filter gefunden.
                           </td>
                         </tr>
@@ -1118,6 +1179,25 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                                 <div className="text-[11px] text-slate-500 truncate" title={tx.bookingText}>
                                   {tx.bookingText}
                                 </div>
+                              </td>
+
+                              {/* Transaction Type Selector / Toggle */}
+                              <td className="p-3 whitespace-nowrap">
+                                <select
+                                  value={tx.type}
+                                  onChange={(e) => updateRowType(item.id, e.target.value as 'income' | 'expense' | 'transfer')}
+                                  className={`text-2xs font-bold px-2 py-1 rounded-md border focus:outline-none cursor-pointer ${
+                                    tx.type === 'income'
+                                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                      : tx.type === 'expense'
+                                      ? 'bg-rose-50 border-rose-200 text-rose-800'
+                                      : 'bg-blue-50 border-blue-200 text-blue-800'
+                                  }`}
+                                >
+                                  <option value="income">Einnahme</option>
+                                  <option value="expense">Ausgabe</option>
+                                  <option value="transfer">Umbuchung</option>
+                                </select>
                               </td>
 
                               {/* Amount */}
