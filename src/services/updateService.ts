@@ -1,18 +1,18 @@
 import { AppUpdateInfo, DeploymentMode } from '../types';
 
-export const CURRENT_APP_VERSION = (import.meta as any).env?.VITE_APP_VERSION || '1.2.0';
+export const CURRENT_APP_VERSION = (import.meta as any).env?.VITE_APP_VERSION || '1.2.1';
 
 // Default release notes when a new version is detected or simulated
 const MOCK_LATEST_RELEASE = {
   version: CURRENT_APP_VERSION,
-  title: `VereinsManager v${CURRENT_APP_VERSION} – Kontaktverwaltung, Rechnungswesen, Sitzungsdienst & KI-Assistent`,
+  title: `VereinsManager v${CURRENT_APP_VERSION} – Drag & Drop Konten, Spaltensortierung im Journal & Belegdetails`,
   date: new Date().toISOString().split('T')[0],
   notes: [
-    '👥 Neue Kontaktverwaltung: Zentrales Adressbuch für Sponsoren, Verbände, Dienstleister, Förderer & Ehrenmitglieder inkl. Historie',
-    '📄 Integriertes Rechnungswesen: Normgerechte Rechnungsstellung nach DIN 5008, automatischer Rechnungsnummernkreis & Blanko-Briefpapier-Offset',
-    '🏛️ Professioneller Sitzungsdienst: Rechtssichere Protokollführung, Tagesordnungen (TOPs), Quorum-Prüfung, Beschlussbuch & digitale Touch-Signatur',
-    '📧 E-Mail-Dienst & SMTP-Relay: Direkter Versand von Sitzungseinladungen und Protokollen samt PDF per sicherem Vereinskonto (BCC-Datenschutz)',
-    '🤖 Erweiterte KI-Funktionen: KI-gestützte Protokollerstellung, Sprachaufnahme-Transkription, Notizen-Extraktion & intelligenter Rechnungs-Assistent'
+    '💰 Finanzkonten-Reihenfolge: Bank- und Barkassen-Karten lassen sich per Drag & Drop direkt mit der Maus in jede gewünschte Reihenfolge verschieben',
+    '📊 Interaktive Tabellensortierung: Alle Spaltenköpfe des Kassenjournals (Datum, Beleg-Nr., Buchungstext, Sphäre, Kategorie, Beleg, Betrag) sind auf- und absteigend sortierbar',
+    '🔍 Detailansicht für Buchungen: Buchungszeilen sind analog zur Mitgliederkartei anklickbar und öffnen vollständige Beleg-, Steuer- und Buchungsinformationen',
+    '⚙️ Vorstand & Spartenverwaltung: Aufgeräumte Benennung, optimierte Drag & Drop Sortierung und Entfernung redundanter Pfeiltasten',
+    '🤖 Zuverlässige KI-Modelle: Umstellung aller Beleg- und Dokumentenanalysen auf aktuelle Gemini-Modelle'
   ],
   githubUrl: 'https://github.com/strelitzerfc/vereinsmanager/releases',
   downloadUrls: {
