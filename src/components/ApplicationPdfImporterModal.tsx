@@ -43,7 +43,7 @@ async function directClientScanApplication(
   const base64Data = commaIndex !== -1 ? dataUrl.substring(commaIndex + 1) : dataUrl;
   const detectedMimeType = mimeType || (dataUrl.startsWith('data:') ? dataUrl.substring(5, dataUrl.indexOf(';')) : 'application/pdf');
 
-  const candidateModels = ['gemini-2.5-flash', 'gemini-3.7-flash', 'gemini-flash-latest', 'gemini-2.0-flash'];
+  const candidateModels = ['gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.1-flash-lite'];
   let lastError: any = null;
 
   const prompt = `Du bist ein hochpräziser KI-Dokumenten-Parser für deutsche Vereins-Mitgliedsanträge und Aufnahmeformulare (sowohl handschriftlich ausgefüllt, gedruckt als auch digital ausgefüllt).

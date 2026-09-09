@@ -1961,18 +1961,40 @@ export const StorageService = {
 
   // Accounts
   async getAccounts(): Promise<FinancialAccount[]> {
+    let accounts: FinancialAccount[] = [];
     if (this.isCloudActive()) {
       try {
         const cloudAccounts = await CloudStorageService.getAccounts();
         if (cloudAccounts && cloudAccounts.length > 0) {
           saveAllToStore(STORES.ACCOUNTS, cloudAccounts).catch(() => {});
-          return cloudAccounts;
+          accounts = cloudAccounts;
         }
       } catch (err) {
         console.warn('Cloud getAccounts error:', err);
       }
     }
-    return getAllFromStore<FinancialAccount>(STORES.ACCOUNTS);
+    if (accounts.length === 0) {
+      accounts = await getAllFromStore<FinancialAccount>(STORES.ACCOUNTS);
+    }
+    try {
+      const orderJson = localStorage.getItem('vm_accounts_order');
+      if (orderJson) {
+        const orderIds: string[] = JSON.parse(orderJson);
+        accounts.sort((a, b) => {
+          const indexA = orderIds.indexOf(a.id);
+          const indexB = orderIds.indexOf(b.id);
+          if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+          if (indexA !== -1) return -1;
+          if (indexB !== -1) return 1;
+          return (a.order ?? 999) - (b.order ?? 999);
+        });
+      } else {
+        accounts.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+      }
+    } catch {
+      accounts.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+    }
+    return accounts;
   },
 
   async saveAccount(account: FinancialAccount): Promise<void> {
@@ -1983,6 +2005,24 @@ export const StorageService = {
     await putItemToStore(STORES.ACCOUNTS, account);
     if (this.isCloudActive()) {
       await CloudStorageService.saveAccount(account);
+    }
+  },
+
+  async saveAccounts(accounts: FinancialAccount[]): Promise<void> {
+    const withOrder = accounts.map((acc, index) => ({
+      ...acc,
+      order: index
+    }));
+    await saveAllToStore(STORES.ACCOUNTS, withOrder);
+    try {
+      localStorage.setItem('vm_accounts_order', JSON.stringify(withOrder.map(a => a.id)));
+    } catch {
+      // ignore
+    }
+    if (this.isCloudActive()) {
+      for (const account of withOrder) {
+        await CloudStorageService.saveAccount(account).catch(() => {});
+      }
     }
   },
 

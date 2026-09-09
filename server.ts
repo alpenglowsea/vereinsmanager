@@ -261,7 +261,7 @@ app.post(["/api/test-ai-key", "/api/test-gemini-key"], async (req, res) => {
 
     // 4. Default: Google Gemini
     const client = getGeminiClient(apiKey);
-    const testModels = ["gemini-2.5-flash", "gemini-3.7-flash", "gemini-flash-latest", "gemini-2.0-flash"];
+    const testModels = ["gemini-3.6-flash", "gemini-3.7-flash", "gemini-flash-latest", "gemini-2.5-flash"];
     let testResponse: any = null;
     let lastErr: any = null;
     for (const m of testModels) {
@@ -446,7 +446,7 @@ Gib ausschließlich valides JSON mit diesem Format aus:
       },
     };
 
-    const candidateModels = ["gemini-2.5-flash", "gemini-3.7-flash", "gemini-flash-latest", "gemini-2.0-flash", "gemini-3.1-flash-lite"];
+    const candidateModels = ["gemini-3.6-flash", "gemini-3.7-flash", "gemini-flash-latest", "gemini-2.5-flash", "gemini-3.1-flash-lite"];
     let response: any = null;
     let lastError: any = null;
 
@@ -634,7 +634,7 @@ Falls ein Feld nicht auf dem Dokument steht oder unleserlich ist, setze einen le
     ];
 
     // Helper with retry logic and fallback models in case of high load (503 / 429)
-    const candidateModels = ["gemini-2.5-flash", "gemini-3.7-flash", "gemini-flash-latest", "gemini-2.0-flash", "gemini-3.1-flash-lite"];
+    const candidateModels = ["gemini-3.6-flash", "gemini-3.7-flash", "gemini-flash-latest", "gemini-2.5-flash", "gemini-3.1-flash-lite"];
     let response: any = null;
     let lastError: any = null;
 
@@ -822,7 +822,7 @@ Falls bestimmte Angaben auf den Notizen nicht vorhanden sind, ergänze sinnvolle
       { text: prompt },
     ];
 
-    const candidateModels = ["gemini-2.5-flash", "gemini-3.8-flash", "gemini-flash-latest", "gemini-2.0-flash", "gemini-3.1-flash-lite"];
+    const candidateModels = ["gemini-3.6-flash", "gemini-3.7-flash", "gemini-flash-latest", "gemini-2.5-flash", "gemini-3.1-flash-lite"];
     let response: any = null;
     let lastError: any = null;
 
@@ -988,7 +988,7 @@ AUFGABE:
       { text: prompt },
     ];
 
-    const candidateModels = ["gemini-2.5-flash", "gemini-3.8-flash", "gemini-flash-latest", "gemini-2.0-flash"];
+    const candidateModels = ["gemini-3.6-flash", "gemini-3.7-flash", "gemini-flash-latest", "gemini-2.5-flash"];
     let response: any = null;
     let lastError: any = null;
 
@@ -1134,7 +1134,7 @@ Gib eine Liste strukturierter Tagesordnungspunkte (TOP 1, TOP 2, ...) mit Titel 
       aiConfig.responseSchema = schemaConfig.responseSchema;
     }
 
-    const candidateModels = ["gemini-2.5-flash", "gemini-3.8-flash", "gemini-flash-latest", "gemini-2.0-flash"];
+    const candidateModels = ["gemini-3.6-flash", "gemini-3.7-flash", "gemini-flash-latest", "gemini-2.5-flash"];
     let response: any = null;
     let lastError: any = null;
 

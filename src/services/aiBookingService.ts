@@ -334,7 +334,7 @@ Gib ausschließlich valides JSON mit diesem Schema aus:
   "reasoning": "Kurze Begründung nach Gemeinnützigkeitsrecht"
 }`;
 
-    const models = ['gemini-2.5-flash', 'gemini-3.7-flash', 'gemini-flash-latest', 'gemini-2.0-flash', 'gemini-3.1-flash-lite', 'gemini-3.6-flash'];
+    const models = ['gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.1-flash-lite'];
     let lastError: any = null;
 
     for (const model of models) {

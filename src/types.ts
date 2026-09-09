@@ -99,6 +99,7 @@ export interface FinancialAccount {
   color: string;
   description?: string;
   createdAt: string;
+  order?: number;
 }
 
 // 4 Tax Spheres according to German Association Law (§§ 51 ff. AO / Gemeinnützigkeitsrecht)

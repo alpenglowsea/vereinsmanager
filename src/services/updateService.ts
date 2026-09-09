@@ -1,11 +1,11 @@
 import { AppUpdateInfo, DeploymentMode } from '../types';
 
-export const CURRENT_APP_VERSION = '1.1.0';
+export const CURRENT_APP_VERSION = (import.meta as any).env?.VITE_APP_VERSION || '1.2.0';
 
 // Default release notes when a new version is detected or simulated
 const MOCK_LATEST_RELEASE = {
-  version: '1.1.0',
-  title: 'VereinsManager v1.1.0 – Kontaktverwaltung, Rechnungswesen, Sitzungsdienst & KI-Assistent',
+  version: CURRENT_APP_VERSION,
+  title: `VereinsManager v${CURRENT_APP_VERSION} – Kontaktverwaltung, Rechnungswesen, Sitzungsdienst & KI-Assistent`,
   date: new Date().toISOString().split('T')[0],
   notes: [
     '👥 Neue Kontaktverwaltung: Zentrales Adressbuch für Sponsoren, Verbände, Dienstleister, Förderer & Ehrenmitglieder inkl. Historie',
@@ -14,7 +14,7 @@ const MOCK_LATEST_RELEASE = {
     '📧 E-Mail-Dienst & SMTP-Relay: Direkter Versand von Sitzungseinladungen und Protokollen samt PDF per sicherem Vereinskonto (BCC-Datenschutz)',
     '🤖 Erweiterte KI-Funktionen: KI-gestützte Protokollerstellung, Sprachaufnahme-Transkription, Notizen-Extraktion & intelligenter Rechnungs-Assistent'
   ],
-  githubUrl: 'https://github.com/strelitzerfc/vereinsmanager/releases/latest',
+  githubUrl: 'https://github.com/strelitzerfc/vereinsmanager/releases',
   downloadUrls: {
     windows: 'https://github.com/strelitzerfc/vereinsmanager/releases/latest/download/VereinsManager_Setup_x64.exe',
     mac: 'https://github.com/strelitzerfc/vereinsmanager/releases/latest/download/VereinsManager_macOS.dmg',
@@ -24,6 +24,8 @@ const MOCK_LATEST_RELEASE = {
 
 const STORAGE_KEY_SIMULATE_UPDATE = 'vereinsmanager_simulated_update_available';
 const STORAGE_KEY_INSTALLED_VERSION = 'vereinsmanager_installed_version';
+const STORAGE_KEY_GITHUB_REPO = 'vm_github_repo';
+const STORAGE_KEY_GITHUB_TOKEN = 'vm_github_token';
 
 export class UpdateService {
   /**
@@ -46,14 +48,56 @@ export class UpdateService {
     }
   }
 
+  static getGitHubRepo(): string {
+    try {
+      return localStorage.getItem(STORAGE_KEY_GITHUB_REPO)?.trim() || 'strelitzerfc/vereinsmanager';
+    } catch {
+      return 'strelitzerfc/vereinsmanager';
+    }
+  }
+
+  static setGitHubRepo(repo: string) {
+    try {
+      const clean = repo.trim().replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '');
+      if (clean) {
+        localStorage.setItem(STORAGE_KEY_GITHUB_REPO, clean);
+      } else {
+        localStorage.removeItem(STORAGE_KEY_GITHUB_REPO);
+      }
+    } catch {}
+  }
+
+  static getGitHubToken(): string | null {
+    try {
+      return localStorage.getItem(STORAGE_KEY_GITHUB_TOKEN)?.trim() || null;
+    } catch {
+      return null;
+    }
+  }
+
+  static setGitHubToken(token: string | null) {
+    try {
+      if (token && token.trim()) {
+        localStorage.setItem(STORAGE_KEY_GITHUB_TOKEN, token.trim());
+      } else {
+        localStorage.removeItem(STORAGE_KEY_GITHUB_TOKEN);
+      }
+    } catch {}
+  }
+
   static async getCurrentVersion(): Promise<string> {
     let activeVersion = CURRENT_APP_VERSION;
 
     // 1. Manuell oder per Updater gespeicherte Version prüfen
     try {
       const stored = this.getInstalledVersion();
-      if (stored && this.compareVersions(stored, activeVersion) >= 0) {
-        activeVersion = stored;
+      if (stored) {
+        if (this.compareVersions(stored, activeVersion) >= 0) {
+          activeVersion = stored;
+        } else {
+          // Die Code-Version ist neuer als die im Storage gespeicherte -> aktualisieren
+          this.setInstalledVersion(activeVersion);
+        }
       }
     } catch {}
 
@@ -61,13 +105,20 @@ export class UpdateService {
     try {
       if (typeof window !== 'undefined') {
         const tauri = (window as any).__TAURI__;
+        let v: string | undefined;
         if (tauri?.app?.getVersion) {
-          const v = await tauri.app.getVersion();
-          if (v) {
-            const cleanTauri = v.replace(/^v/, '').trim();
-            if (this.compareVersions(cleanTauri, activeVersion) >= 0) {
-              activeVersion = cleanTauri;
-            }
+          v = await tauri.app.getVersion();
+        } else if ((window as any).__TAURI_INTERNALS__?.invoke) {
+          try {
+            v = await (window as any).__TAURI_INTERNALS__.invoke('plugin:app|version');
+          } catch {}
+        }
+
+        if (v) {
+          const cleanTauri = v.replace(/^v/, '').trim();
+          if (cleanTauri && this.compareVersions(cleanTauri, activeVersion) >= 0) {
+            activeVersion = cleanTauri;
+            this.setInstalledVersion(cleanTauri);
           }
         }
       }
@@ -119,43 +170,87 @@ export class UpdateService {
   static async checkForUpdates(): Promise<AppUpdateInfo> {
     const isSimulated = this.isUpdateSimulated();
     const currentVer = await this.getCurrentVersion();
+    const repo = this.getGitHubRepo();
+    const token = this.getGitHubToken();
+
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.github.v3+json',
+    };
+    if (token) {
+      headers['Authorization'] = `token ${token}`;
+    }
 
     try {
-      // Live-Abfrage des GitHub Repositories (zuerst /releases/latest, dann fallback auf /releases)
+      // 1. Abfrage des GitHub Repositories: /releases/latest
       let releaseData: any = null;
+      const cacheBust = `?t=${Date.now()}`;
 
       try {
-        const responseLatest = await fetch('https://api.github.com/repos/strelitzerfc/vereinsmanager/releases/latest', {
-          headers: { Accept: 'application/vnd.github.v3+json' },
-          signal: AbortSignal.timeout(8000)
+        const responseLatest = await fetch(`https://api.github.com/repos/${repo}/releases/latest${cacheBust}`, {
+          headers,
+          cache: 'no-store',
+          signal: AbortSignal.timeout(6000)
         });
         if (responseLatest.ok) {
           releaseData = await responseLatest.json();
         }
-      } catch {
-        // Fallback below
-      }
+      } catch {}
 
+      // 2. Fallback: Liste der Releases (/releases?per_page=5)
       if (!releaseData) {
         try {
-          const responseAll = await fetch('https://api.github.com/repos/strelitzerfc/vereinsmanager/releases?per_page=1', {
-            headers: { Accept: 'application/vnd.github.v3+json' },
-            signal: AbortSignal.timeout(8000)
+          const responseAll = await fetch(`https://api.github.com/repos/${repo}/releases?per_page=5${cacheBust}`, {
+            headers,
+            cache: 'no-store',
+            signal: AbortSignal.timeout(6000)
           });
           if (responseAll.ok) {
             const list = await responseAll.json();
             if (Array.isArray(list) && list.length > 0) {
-              releaseData = list[0];
+              // Nimm das neueste nicht-draft Release
+              releaseData = list.find((r: any) => !r.draft) || list[0];
             }
           }
-        } catch {
-          // Ignore
-        }
+        } catch {}
+      }
+
+      // 3. Fallback: Tags (/tags?per_page=5) falls keine formalen GitHub Releases angelegt wurden
+      let tagVersion: string | null = null;
+      if (!releaseData) {
+        try {
+          const responseTags = await fetch(`https://api.github.com/repos/${repo}/tags?per_page=5${cacheBust}`, {
+            headers,
+            cache: 'no-store',
+            signal: AbortSignal.timeout(6000)
+          });
+          if (responseTags.ok) {
+            const tags = await responseTags.json();
+            if (Array.isArray(tags) && tags.length > 0) {
+              tagVersion = (tags[0].name || '').replace(/^v/, '').trim();
+            }
+          }
+        } catch {}
+      }
+
+      // 4. Fallback: Raw package.json auf default branch
+      if (!releaseData && !tagVersion) {
+        try {
+          const responsePkg = await fetch(`https://raw.githubusercontent.com/${repo}/main/package.json${cacheBust}`, {
+            cache: 'no-store',
+            signal: AbortSignal.timeout(5000)
+          });
+          if (responsePkg.ok) {
+            const pkgData = await responsePkg.json();
+            if (pkgData?.version) {
+              tagVersion = String(pkgData.version).replace(/^v/, '').trim();
+            }
+          }
+        } catch {}
       }
 
       if (releaseData) {
         const data = releaseData;
-        const tag = (data.tag_name || '').replace(/^v/, '');
+        const tag = (data.tag_name || '').replace(/^v/, '').trim();
         const isNewer = this.compareVersions(tag, currentVer) > 0;
 
         let windowsUrl = MOCK_LATEST_RELEASE.downloadUrls.windows;
@@ -184,12 +279,12 @@ export class UpdateService {
 
         return {
           currentVersion: currentVer,
-          latestVersion: tag || MOCK_LATEST_RELEASE.version,
+          latestVersion: tag || currentVer,
           isUpdateAvailable: isSimulated || isNewer,
-          releaseTitle: data.name || MOCK_LATEST_RELEASE.title,
+          releaseTitle: data.name || `VereinsManager v${tag || currentVer}`,
           releaseDate: data.published_at ? data.published_at.split('T')[0] : MOCK_LATEST_RELEASE.date,
           releaseNotes: notes.length > 0 ? notes : MOCK_LATEST_RELEASE.notes,
-          githubUrl: data.html_url || MOCK_LATEST_RELEASE.githubUrl,
+          githubUrl: data.html_url || `https://github.com/${repo}/releases`,
           downloadUrls: {
             windows: windowsUrl,
             mac: macUrl,
@@ -197,19 +292,36 @@ export class UpdateService {
           }
         };
       }
-    } catch {
-      // Fallback bei Offline / Sandbox
+
+      if (tagVersion) {
+        const isNewer = this.compareVersions(tagVersion, currentVer) > 0;
+        return {
+          currentVersion: currentVer,
+          latestVersion: tagVersion,
+          isUpdateAvailable: isSimulated || isNewer,
+          releaseTitle: `VereinsManager v${tagVersion}`,
+          releaseDate: new Date().toISOString().split('T')[0],
+          releaseNotes: [
+            `Veröffentlichte Version v${tagVersion} auf GitHub (${repo})`,
+            'Enthält die neuesten Fehlerbehebungen und Verbesserungen.'
+          ],
+          githubUrl: `https://github.com/${repo}/releases`,
+          downloadUrls: MOCK_LATEST_RELEASE.downloadUrls
+        };
+      }
+    } catch (err) {
+      console.warn('Update check failed:', err);
     }
 
     // Fallback: Entweder simulierter oder Standard-Status
     return {
       currentVersion: currentVer,
-      latestVersion: isSimulated ? MOCK_LATEST_RELEASE.version : currentVer,
+      latestVersion: isSimulated ? '1.3.0' : currentVer,
       isUpdateAvailable: isSimulated,
       releaseTitle: MOCK_LATEST_RELEASE.title,
       releaseDate: MOCK_LATEST_RELEASE.date,
       releaseNotes: MOCK_LATEST_RELEASE.notes,
-      githubUrl: MOCK_LATEST_RELEASE.githubUrl,
+      githubUrl: `https://github.com/${repo}/releases`,
       downloadUrls: MOCK_LATEST_RELEASE.downloadUrls
     };
   }

@@ -658,6 +658,12 @@ export default function App() {
     setAccounts(updated);
   };
 
+  const handleReorderAccounts = async (reordered: FinancialAccount[]) => {
+    const withOrder = reordered.map((a, idx) => ({ ...a, order: idx }));
+    setAccounts(withOrder);
+    await StorageService.saveAccounts(withOrder);
+  };
+
   // Inventory CRUD handlers
   const handleSaveInventoryItem = async (item: InventoryItem) => {
     await StorageService.saveInventoryItem(item);
@@ -1823,6 +1829,7 @@ export default function App() {
                 onOpenReceiptViewer={(receipt, docNum, text) => {
                   setActiveReceipt({ receipt, docNum, text });
                 }}
+                onReorderAccounts={handleReorderAccounts}
               />
             )}
 

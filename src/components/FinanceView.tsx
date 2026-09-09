@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Transaction,
   FinancialAccount,
@@ -9,6 +9,7 @@ import {
 } from '../types';
 import { TAX_SPHERES } from '../data/taxSpheres';
 import { ExportService } from '../services/exportService';
+import { TransactionDetailsModal } from './TransactionDetailsModal';
 import {
   Plus,
   Search,
@@ -30,8 +31,21 @@ import {
   FileSpreadsheet,
   Camera,
   UserPlus,
-  UserCheck
+  UserCheck,
+  GripVertical,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
+
+export type TransactionSortField =
+  | 'date'
+  | 'documentNumber'
+  | 'partner'
+  | 'sphere'
+  | 'category'
+  | 'receipt'
+  | 'amount';
 
 interface FinanceViewProps {
   transactions: Transaction[];
@@ -48,6 +62,8 @@ interface FinanceViewProps {
   onQuickScanReceipt?: (tx: Transaction) => void;
   onOpenAccountManage: () => void;
   onOpenReceiptViewer: (receipt: ReceiptAttachment, docNum: string, text: string) => void;
+  onReorderAccounts?: (accounts: FinancialAccount[]) => void;
+  onOpenDetailsTx?: (tx: Transaction) => void;
 }
 
 export const FinanceView: React.FC<FinanceViewProps> = ({
@@ -64,7 +80,9 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   onOpenReceiptScanner,
   onQuickScanReceipt,
   onOpenAccountManage,
-  onOpenReceiptViewer
+  onOpenReceiptViewer,
+  onReorderAccounts,
+  onOpenDetailsTx
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('all');
@@ -72,6 +90,75 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   const [selectedType, setSelectedType] = useState<string>('all');
   const [receiptFilter, setReceiptFilter] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
+
+  // Accounts ordering state & Drag and Drop
+  const [localAccounts, setLocalAccounts] = useState<FinancialAccount[]>(accounts);
+  const [draggedAccountIndex, setDraggedAccountIndex] = useState<number | null>(null);
+  const [dragOverAccountIndex, setDragOverAccountIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    setLocalAccounts(accounts);
+  }, [accounts]);
+
+  const handleAccountDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedAccountIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', `account_${index}`);
+  };
+
+  const handleAccountDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedAccountIndex !== null && draggedAccountIndex !== index) {
+      setDragOverAccountIndex(index);
+    }
+  };
+
+  const handleAccountDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedAccountIndex === null || draggedAccountIndex === targetIndex) {
+      setDraggedAccountIndex(null);
+      setDragOverAccountIndex(null);
+      return;
+    }
+    const next = [...localAccounts];
+    const [moved] = next.splice(draggedAccountIndex, 1);
+    next.splice(targetIndex, 0, moved);
+    setLocalAccounts(next);
+    setDraggedAccountIndex(null);
+    setDragOverAccountIndex(null);
+    if (onReorderAccounts) {
+      onReorderAccounts(next);
+    }
+  };
+
+  const handleAccountDragEnd = () => {
+    setDraggedAccountIndex(null);
+    setDragOverAccountIndex(null);
+  };
+
+  // Sorting state
+  const [sortField, setSortField] = useState<TransactionSortField>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (field: TransactionSortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection(field === 'date' || field === 'amount' ? 'desc' : 'asc');
+    }
+  };
+
+  // Transaction details modal state
+  const [selectedDetailTx, setSelectedDetailTx] = useState<Transaction | null>(null);
+
+  const handleRowClick = (tx: Transaction) => {
+    if (onOpenDetailsTx) {
+      onOpenDetailsTx(tx);
+    }
+    setSelectedDetailTx(tx);
+  };
 
   // Compute live balance for each account
   const accountBalances = useMemo(() => {
@@ -141,8 +228,51 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
     });
   }, [transactions, searchQuery, selectedAccountId, selectedSphere, selectedType, receiptFilter, selectedYear]);
 
+  const accMap = useMemo(() => new Map<string, FinancialAccount>(accounts.map(a => [a.id, a])), [accounts]);
+
+  const sortedTransactions = useMemo(() => {
+    return [...filteredTransactions].sort((a, b) => {
+      let comparison = 0;
+      switch (sortField) {
+        case 'date':
+          comparison = a.date.localeCompare(b.date);
+          break;
+        case 'documentNumber':
+          comparison = (a.documentNumber || '').localeCompare(b.documentNumber || '', undefined, {
+            numeric: true,
+            sensitivity: 'base'
+          });
+          break;
+        case 'partner': {
+          const textA = `${a.partner || ''} ${a.bookingText || ''}`.toLowerCase();
+          const textB = `${b.partner || ''} ${b.bookingText || ''}`.toLowerCase();
+          comparison = textA.localeCompare(textB);
+          break;
+        }
+        case 'sphere':
+          comparison = (a.sphere || '').localeCompare(b.sphere || '');
+          break;
+        case 'category': {
+          const catA = `${a.category || ''} ${accMap.get(a.accountId)?.name || ''}`.toLowerCase();
+          const catB = `${b.category || ''} ${accMap.get(b.accountId)?.name || ''}`.toLowerCase();
+          comparison = catA.localeCompare(catB);
+          break;
+        }
+        case 'receipt':
+          comparison = (a.receipt ? 1 : 0) - (b.receipt ? 1 : 0);
+          break;
+        case 'amount':
+          comparison = a.amount - b.amount;
+          break;
+        default:
+          comparison = 0;
+      }
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [filteredTransactions, sortField, sortDirection, accMap]);
+
   const handleExportCSV = () => {
-    ExportService.exportTransactionsCSV(filteredTransactions, accounts, `buchungen_${settings.clubName.replace(/\s/g, '_')}.csv`);
+    ExportService.exportTransactionsCSV(sortedTransactions, accounts, `buchungen_${settings.clubName.replace(/\s/g, '_')}.csv`);
   };
 
   const getSphereBadge = (sphere: TaxSphere) => {
@@ -161,7 +291,26 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
     );
   };
 
-  const accMap = useMemo(() => new Map<string, FinancialAccount>(accounts.map(a => [a.id, a])), [accounts]);
+  const renderSortIndicator = (field: TransactionSortField) => {
+    const isActive = sortField === field;
+    return (
+      <span
+        className={`inline-flex items-center text-xs ml-1 transition-colors ${
+          isActive ? 'text-blue-600 font-bold' : 'text-slate-300 opacity-60 group-hover/th:opacity-100'
+        }`}
+      >
+        {isActive ? (
+          sortDirection === 'asc' ? (
+            <ArrowUp className="w-3.5 h-3.5" />
+          ) : (
+            <ArrowDown className="w-3.5 h-3.5" />
+          )
+        ) : (
+          <ArrowUpDown className="w-3 h-3" />
+        )}
+      </span>
+    );
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
@@ -177,7 +326,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             <div className="text-3xl font-bold font-mono text-emerald-400">
               {totalLiquidAssets.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
             </div>
-            <span className="text-[11px] text-slate-400">Über {accounts.length} Konten & Barkassen</span>
+            <span className="text-[11px] text-slate-400">Über {localAccounts.length} Konten & Barkassen (Drag & Drop sortierbar)</span>
           </div>
           <div className="pt-3 border-t border-slate-800 flex justify-between items-center text-xs">
             <span className="text-slate-400">Finanzstatus</span>
@@ -191,28 +340,56 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           </div>
         </div>
 
-        {/* Individual Account Cards */}
-        {accounts.map(acc => {
+        {/* Individual Account Cards with Drag & Drop */}
+        {localAccounts.map((acc, index) => {
           const balance = accountBalances[acc.id] ?? acc.initialBalance;
           const isSelected = selectedAccountId === acc.id;
+          const isDragging = draggedAccountIndex === index;
+          const isDragOver = dragOverAccountIndex === index;
+
           return (
             <div
               key={acc.id}
-              onClick={() => setSelectedAccountId(isSelected ? 'all' : acc.id)}
-              className={`p-5 rounded-xl border transition-all cursor-pointer shadow-xs flex flex-col justify-between ${
-                isSelected
+              draggable
+              onDragStart={e => handleAccountDragStart(e, index)}
+              onDragOver={e => handleAccountDragOver(e, index)}
+              onDragEnter={e => {
+                e.preventDefault();
+                if (draggedAccountIndex !== null && draggedAccountIndex !== index) {
+                  setDragOverAccountIndex(index);
+                }
+              }}
+              onDrop={e => handleAccountDrop(e, index)}
+              onDragEnd={handleAccountDragEnd}
+              onClick={() => {
+                if (draggedAccountIndex === null) {
+                  setSelectedAccountId(isSelected ? 'all' : acc.id);
+                }
+              }}
+              className={`p-5 rounded-xl border transition-all cursor-pointer shadow-xs flex flex-col justify-between relative group select-none ${
+                isDragging
+                  ? 'opacity-40 border-dashed border-blue-500 bg-blue-50/50 scale-[0.98]'
+                  : isDragOver
+                  ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/80 scale-[1.02]'
+                  : isSelected
                   ? 'bg-blue-50/70 border-blue-500 ring-2 ring-blue-500/20'
                   : 'bg-white border-slate-200 hover:border-slate-300'
               }`}
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-slate-100 rounded-lg text-slate-700">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div
+                    className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-slate-300 group-hover:text-slate-500 hover:text-slate-700 transition-colors shrink-0"
+                    title="Konto per Drag & Drop verschieben"
+                  >
+                    <GripVertical className="w-4 h-4 pointer-events-none" />
+                  </div>
+                  <div className="p-1.5 bg-slate-100 rounded-lg text-slate-700 shrink-0">
                     {acc.accountType === 'cash' ? <Coins className="w-4 h-4 text-amber-600" /> : <Building2 className="w-4 h-4 text-blue-600" />}
                   </div>
-                  <span className="text-xs font-bold text-slate-900 truncate max-w-[130px]">{acc.name}</span>
+                  <span className="text-xs font-bold text-slate-900 truncate max-w-[120px]" title={acc.name}>{acc.name}</span>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded uppercase">
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded uppercase shrink-0">
                   {acc.accountType === 'cash' ? 'Kasse' : 'Bank'}
                 </span>
               </div>
@@ -410,25 +587,90 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[11px] tracking-wider border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3 w-28">Datum</th>
-                <th className="px-4 py-3 w-28">Beleg-Nr.</th>
-                <th className="px-4 py-3">Zahlungspartner & Buchungstext</th>
-                <th className="px-4 py-3">Steuer-Sphäre</th>
-                <th className="px-4 py-3">Kategorie / Konto</th>
-                <th className="px-4 py-3 text-center">Beleg</th>
-                <th className="px-4 py-3 text-right">Betrag (€)</th>
+                <th
+                  onClick={() => handleSort('date')}
+                  className="px-4 py-3 w-28 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-900 transition-colors group/th"
+                  title="Nach Datum sortieren"
+                >
+                  <div className="inline-flex items-center gap-1">
+                    <span>Datum</span>
+                    {renderSortIndicator('date')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('documentNumber')}
+                  className="px-4 py-3 w-28 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-900 transition-colors group/th"
+                  title="Nach Belegnummer sortieren"
+                >
+                  <div className="inline-flex items-center gap-1">
+                    <span>Beleg-Nr.</span>
+                    {renderSortIndicator('documentNumber')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('partner')}
+                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-900 transition-colors group/th"
+                  title="Nach Zahlungspartner & Buchungstext sortieren"
+                >
+                  <div className="inline-flex items-center gap-1">
+                    <span>Zahlungspartner & Buchungstext</span>
+                    {renderSortIndicator('partner')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('sphere')}
+                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-900 transition-colors group/th"
+                  title="Nach Steuer-Sphäre sortieren"
+                >
+                  <div className="inline-flex items-center gap-1">
+                    <span>Steuer-Sphäre</span>
+                    {renderSortIndicator('sphere')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('category')}
+                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-900 transition-colors group/th"
+                  title="Nach Kategorie / Konto sortieren"
+                >
+                  <div className="inline-flex items-center gap-1">
+                    <span>Kategorie / Konto</span>
+                    {renderSortIndicator('category')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('receipt')}
+                  className="px-4 py-3 text-center cursor-pointer select-none hover:bg-slate-100 hover:text-slate-900 transition-colors group/th"
+                  title="Nach Beleg (vorhanden / fehlend) sortieren"
+                >
+                  <div className="inline-flex items-center justify-center gap-1">
+                    <span>Beleg</span>
+                    {renderSortIndicator('receipt')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('amount')}
+                  className="px-4 py-3 text-right cursor-pointer select-none hover:bg-slate-100 hover:text-slate-900 transition-colors group/th"
+                  title="Nach Betrag sortieren"
+                >
+                  <div className="inline-flex items-center justify-end gap-1">
+                    <span>Betrag (€)</span>
+                    {renderSortIndicator('amount')}
+                  </div>
+                </th>
                 <th className="px-4 py-3 text-right">Aktionen</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredTransactions.map((tx) => {
+              {sortedTransactions.map((tx) => {
                 const acc = accMap.get(tx.accountId);
                 const isIncome = tx.amount >= 0;
 
                 return (
                   <tr
                     key={tx.id}
-                    className="hover:bg-blue-50/50 transition-colors"
+                    onClick={() => handleRowClick(tx)}
+                    className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
+                    title="Klicken für vollständige Beleg- & Buchungsdetails"
                   >
                     <td className="px-4 py-3 font-mono text-slate-500 whitespace-nowrap text-xs">
                       {new Date(tx.date).toLocaleDateString('de-DE')}
@@ -501,7 +743,10 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                       {tx.receipt ? (
                         <button
                           type="button"
-                          onClick={() => onOpenReceiptViewer(tx.receipt!, tx.documentNumber, tx.bookingText)}
+                          onClick={e => {
+                            e.stopPropagation();
+                            onOpenReceiptViewer(tx.receipt!, tx.documentNumber, tx.bookingText);
+                          }}
                           className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded font-semibold text-2xs transition-colors"
                           title="Beleg anzeigen (PDF/Bild)"
                         >
@@ -511,7 +756,14 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                       ) : (
                         <button
                           type="button"
-                          onClick={() => onQuickScanReceipt ? onQuickScanReceipt(tx) : onOpenEditTx(tx)}
+                          onClick={e => {
+                            e.stopPropagation();
+                            if (onQuickScanReceipt) {
+                              onQuickScanReceipt(tx);
+                            } else {
+                              onOpenEditTx(tx);
+                            }
+                          }}
                           className="inline-flex items-center gap-1 px-1.5 py-0.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded text-2xs transition-colors border border-dashed border-slate-200 hover:border-emerald-300"
                           title="Beleg mit Kamera scannen & verknüpfen"
                         >
@@ -527,7 +779,10 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                       <div className="flex items-center justify-end gap-1">
                         <button
                           type="button"
-                          onClick={() => onOpenEditTx(tx)}
+                          onClick={e => {
+                            e.stopPropagation();
+                            onOpenEditTx(tx);
+                          }}
                           className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                           title="Buchung bearbeiten"
                         >
@@ -535,7 +790,8 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={e => {
+                            e.stopPropagation();
                             if (window.confirm(`Buchung ${tx.documentNumber} (${tx.bookingText}) wirklich löschen?`)) {
                               onDeleteTx(tx.id);
                             }
@@ -551,7 +807,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                 );
               })}
 
-              {filteredTransactions.length === 0 && (
+              {sortedTransactions.length === 0 && (
                 <tr>
                   <td colSpan={8} className="p-8 text-center text-slate-400 text-xs">
                     Keine Buchungen für die aktuellen Filterkriterien vorhanden.
@@ -564,9 +820,39 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
 
         {/* Table Bottom Footer */}
         <div className="p-3.5 bg-slate-50 border-t border-slate-200 text-center text-xs text-slate-400">
-          Zeige {filteredTransactions.length} von {transactions.length} Buchungen
+          Zeige {sortedTransactions.length} von {transactions.length} Buchungen
         </div>
       </section>
+
+      {/* Transaction Details Modal */}
+      {selectedDetailTx && (
+        <TransactionDetailsModal
+          isOpen={!!selectedDetailTx}
+          transaction={selectedDetailTx}
+          accounts={accounts}
+          settings={settings}
+          contacts={contacts}
+          onClose={() => setSelectedDetailTx(null)}
+          onEdit={tx => {
+            setSelectedDetailTx(null);
+            onOpenEditTx(tx);
+          }}
+          onDelete={id => {
+            setSelectedDetailTx(null);
+            onDeleteTx(id);
+          }}
+          onOpenReceiptViewer={onOpenReceiptViewer}
+          onQuickScanReceipt={
+            onQuickScanReceipt
+              ? tx => {
+                  setSelectedDetailTx(null);
+                  onQuickScanReceipt(tx);
+                }
+              : undefined
+          }
+          onOpenCreateContactFromTx={onOpenCreateContactFromTx}
+        />
+      )}
     </div>
   );
 };

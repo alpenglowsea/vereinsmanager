@@ -386,6 +386,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     getInitialBoardMembers(settings)
   );
 
+  // Board Member Drag and Drop State
+  const [draggedBoardIndex, setDraggedBoardIndex] = useState<number | null>(null);
+  const [dragOverBoardIndex, setDragOverBoardIndex] = useState<number | null>(null);
+
   // Department Drag and Drop State
   const [draggedDeptIndex, setDraggedDeptIndex] = useState<number | null>(null);
   const [dragOverDeptIndex, setDragOverDeptIndex] = useState<number | null>(null);
@@ -1005,6 +1009,43 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setBoardMembers(prev => prev.filter(bm => bm.id !== id));
   };
 
+  // Board Member Drag and Drop Handlers
+  const handleBoardDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedBoardIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', `board_${index}`);
+  };
+
+  const handleBoardDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedBoardIndex !== null && draggedBoardIndex !== index) {
+      setDragOverBoardIndex(index);
+    }
+  };
+
+  const handleBoardDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedBoardIndex === null || draggedBoardIndex === targetIndex) {
+      setDraggedBoardIndex(null);
+      setDragOverBoardIndex(null);
+      return;
+    }
+    setBoardMembers(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(draggedBoardIndex, 1);
+      next.splice(targetIndex, 0, moved);
+      return next;
+    });
+    setDraggedBoardIndex(null);
+    setDragOverBoardIndex(null);
+  };
+
+  const handleBoardDragEnd = () => {
+    setDraggedBoardIndex(null);
+    setDragOverBoardIndex(null);
+  };
+
   const handleMoveBoardMember = (index: number, direction: 'up' | 'down') => {
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= boardMembers.length) return;
@@ -1021,7 +1062,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleDeptDragStart = (e: React.DragEvent, index: number) => {
     setDraggedDeptIndex(index);
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', index.toString());
+    e.dataTransfer.setData('text/plain', `dept_${index}`);
   };
 
   const handleDeptDragOver = (e: React.DragEvent, index: number) => {
@@ -2258,7 +2299,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
 
-            {/* Vorstandsmitglieder & Vertretungsberechtigte (§ 26 BGB / Satzung) */}
+            {/* Vorstandsmitglieder & Vertretungsberechtigte */}
             <div className="col-span-1 md:col-span-2 p-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-2xl space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-700">
                 <div className="flex items-center gap-3">
@@ -2267,13 +2308,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </div>
                   <div>
                     <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <span>Vorstand & Vertretungsberechtigte (§ 26 BGB / Satzung)</span>
+                      <span>Vorstand & Vertretungsberechtigte</span>
                       <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 rounded-md text-[10px] font-bold">
                         {boardMembers.length} {boardMembers.length === 1 ? 'Mitglied' : 'Mitglieder'}
                       </span>
                     </h4>
                     <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Legen Sie alle Vorstandsmitglieder an und benennen Sie deren Ämter frei (z. B. 1. Vorsitzender, 2. Vorsitzende, Schatzmeister, Schriftführer, Sportwart etc.).
+                      Legen Sie alle Vorstandsmitglieder an und benennen Sie deren Ämter frei.
                     </p>
                   </div>
                 </div>
@@ -2289,49 +2330,57 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
 
               {/* List of Board Members */}
-              <div className="space-y-3">
-                {boardMembers.map((bm, idx) => (
+              <div
+                onDragOver={e => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                }}
+                onDragEnter={e => e.preventDefault()}
+                className="space-y-3"
+              >
+                {boardMembers.map((bm, idx) => {
+                  const isDragging = draggedBoardIndex === idx;
+                  const isDragOver = dragOverBoardIndex === idx;
+
+                  return (
                   <div
                     key={bm.id}
-                    className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-750 rounded-xl shadow-2xs space-y-3 transition-all hover:border-slate-350 dark:hover:border-slate-650"
+                    draggable
+                    onDragStart={e => handleBoardDragStart(e, idx)}
+                    onDragOver={e => handleBoardDragOver(e, idx)}
+                    onDragEnter={e => {
+                      e.preventDefault();
+                      if (draggedBoardIndex !== null && draggedBoardIndex !== idx) {
+                        setDragOverBoardIndex(idx);
+                      }
+                    }}
+                    onDrop={e => handleBoardDrop(e, idx)}
+                    onDragEnd={handleBoardDragEnd}
+                    className={`p-3.5 bg-white dark:bg-slate-900 border rounded-xl shadow-2xs space-y-3 transition-all ${
+                      isDragging
+                        ? 'opacity-40 border-dashed border-blue-500 bg-blue-50/50 dark:bg-blue-950/30'
+                        : isDragOver
+                        ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50 dark:bg-blue-950/60 scale-[1.01]'
+                        : 'border-slate-200 dark:border-slate-750 hover:border-slate-350 dark:hover:border-slate-650'
+                    }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-mono font-bold flex items-center justify-center">
+                        <div
+                          className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0 select-none"
+                          title="Ziehen zum Neuanordnen per Drag & Drop"
+                        >
+                          <GripVertical className="w-4 h-4 pointer-events-none" />
+                        </div>
+                        <span className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-mono font-bold flex items-center justify-center select-none pointer-events-none">
                           #{idx + 1}
                         </span>
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white select-none">
                           {bm.role || 'Neues Vorstandsamt'} {bm.name ? `– ${bm.name}` : ''}
                         </span>
                       </div>
 
                       <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          disabled={idx === 0}
-                          onClick={() => handleMoveBoardMember(idx, 'up')}
-                          className={`p-1.5 rounded-lg border transition-colors ${
-                            idx === 0
-                              ? 'opacity-30 border-slate-200 dark:border-slate-800 cursor-not-allowed text-slate-400'
-                              : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer'
-                          }`}
-                          title="Nach oben verschieben"
-                        >
-                          <ChevronUp className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={idx === boardMembers.length - 1}
-                          onClick={() => handleMoveBoardMember(idx, 'down')}
-                          className={`p-1.5 rounded-lg border transition-colors ${
-                            idx === boardMembers.length - 1
-                              ? 'opacity-30 border-slate-200 dark:border-slate-800 cursor-not-allowed text-slate-400'
-                              : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer'
-                          }`}
-                          title="Nach unten verschieben"
-                        >
-                          <ChevronDown className="w-3.5 h-3.5" />
-                        </button>
                         <button
                           type="button"
                           onClick={() => handleRemoveBoardMember(bm.id)}
@@ -2414,7 +2463,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       </div>
                     )}
                   </div>
-                ))}
+                );
+              })}
               </div>
             </div>
 
@@ -2701,12 +2751,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div>
                 <label className="block text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <span>Abteilungen & Sparten ({formData.departments.length})</span>
-                  <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-[10px] rounded-md font-bold">
-                    Per Drag & Drop sortierbar
-                  </span>
                 </label>
                 <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Ziehen Sie Sparten mit der Maus oder nutzen Sie die Pfeiltasten, um die Reihenfolge festzulegen. Diese Reihenfolge wird in Formularen und Dropdowns verwendet.
+                  Ziehen Sie Sparten per Drag & Drop mit der Maus, um die Reihenfolge festzulegen. Diese Reihenfolge wird in Formularen und Dropdowns verwendet.
                 </p>
               </div>
 
@@ -2737,7 +2784,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             {/* Drag and drop department list */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-1">
+            <div
+              onDragOver={e => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+              }}
+              onDragEnter={e => e.preventDefault()}
+              className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-1"
+            >
               {formData.departments.map((dept, index) => {
                 const isDragging = draggedDeptIndex === index;
                 const isDragOver = dragOverDeptIndex === index;
@@ -2748,6 +2802,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     draggable
                     onDragStart={e => handleDeptDragStart(e, index)}
                     onDragOver={e => handleDeptDragOver(e, index)}
+                    onDragEnter={e => {
+                      e.preventDefault();
+                      if (draggedDeptIndex !== null && draggedDeptIndex !== index) {
+                        setDragOverDeptIndex(index);
+                      }
+                    }}
                     onDrop={e => handleDeptDrop(e, index)}
                     onDragEnd={handleDeptDragEnd}
                     className={`flex items-center justify-between p-2.5 rounded-xl border transition-all select-none ${
@@ -2760,46 +2820,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <div
-                        className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"
-                        title="Ziehen zum Neuanordnen"
+                        className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0 select-none"
+                        title="Ziehen zum Neuanordnen per Drag & Drop"
                       >
-                        <GripVertical className="w-4 h-4" />
+                        <GripVertical className="w-4 h-4 pointer-events-none" />
                       </div>
-                      <span className="w-5 h-5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-mono font-bold flex items-center justify-center shrink-0">
+                      <span className="w-5 h-5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-mono font-bold flex items-center justify-center shrink-0 pointer-events-none">
                         {index + 1}
                       </span>
-                      <span className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                      <span className="text-xs font-semibold text-slate-900 dark:text-white truncate pointer-events-none">
                         {dept}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-0.5 shrink-0 ml-2">
-                      <button
-                        type="button"
-                        disabled={index === 0}
-                        onClick={() => handleMoveDepartment(index, 'up')}
-                        className={`p-1 rounded-md transition-colors ${
-                          index === 0
-                            ? 'opacity-25 cursor-not-allowed text-slate-400'
-                            : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-750 cursor-pointer'
-                        }`}
-                        title="Nach oben schieben"
-                      >
-                        <ChevronUp className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={index === formData.departments.length - 1}
-                        onClick={() => handleMoveDepartment(index, 'down')}
-                        className={`p-1 rounded-md transition-colors ${
-                          index === formData.departments.length - 1
-                            ? 'opacity-25 cursor-not-allowed text-slate-400'
-                            : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-750 cursor-pointer'
-                        }`}
-                        title="Nach unten schieben"
-                      >
-                        <ChevronDown className="w-3.5 h-3.5" />
-                      </button>
                       <button
                         type="button"
                         onClick={() => handleRemoveDepartment(dept)}
