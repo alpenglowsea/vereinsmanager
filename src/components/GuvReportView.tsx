@@ -85,12 +85,16 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
     wirtschaftlich: { income: 0, expense: 0, net: 0, mainCategories: {} }
   };
 
-  filteredTxs.forEach(t => {
-    const sph = t.sphere || 'ideell';
-    const subCatName = t.subCategory || t.category || 'Sonstige Buchung';
-    
-    // Resolve main category
-    let mainCatKey = t.mainCategory;
+  const processBookingLine = (
+    sph: TaxSphere,
+    mainCatRaw: string | undefined,
+    subCatRaw: string | undefined,
+    skrAccountRaw: string | undefined,
+    amt: number,
+    isExpense: boolean
+  ) => {
+    const subCatName = subCatRaw || 'Sonstige Buchung';
+    let mainCatKey = mainCatRaw;
     let mainCode = '';
     let mainName = '';
 
@@ -111,7 +115,6 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
       }
     }
 
-    // Initialize Main Category if needed
     if (!reportData[sph].mainCategories[mainCatKey]) {
       reportData[sph].mainCategories[mainCatKey] = {
         id: mainCatKey,
@@ -127,11 +130,10 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
     const mainObj = reportData[sph].mainCategories[mainCatKey];
     mainObj.txCount++;
 
-    // Initialize Sub Category if needed
     if (!mainObj.subCategories[subCatName]) {
       mainObj.subCategories[subCatName] = {
         name: subCatName,
-        skrCode: t.skrAccount,
+        skrCode: skrAccountRaw,
         income: 0,
         expense: 0,
         txCount: 0
@@ -140,17 +142,44 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
     const subObj = mainObj.subCategories[subCatName];
     subObj.txCount++;
 
-    if (t.amount >= 0) {
-      reportData[sph].income += t.amount;
-      mainObj.income += t.amount;
-      subObj.income += t.amount;
+    if (!isExpense) {
+      reportData[sph].income += amt;
+      mainObj.income += amt;
+      subObj.income += amt;
     } else {
-      const abs = Math.abs(t.amount);
-      reportData[sph].expense += abs;
-      mainObj.expense += abs;
-      subObj.expense += abs;
+      reportData[sph].expense += amt;
+      mainObj.expense += amt;
+      subObj.expense += amt;
     }
     reportData[sph].net = reportData[sph].income - reportData[sph].expense;
+  };
+
+  filteredTxs.forEach(t => {
+    const isExpense = t.amount < 0 || t.type === 'expense';
+
+    if (t.isSplit && t.splits && t.splits.length > 0) {
+      t.splits.forEach(split => {
+        const splitAmt = Math.abs(split.amount || 0);
+        processBookingLine(
+          split.sphere || t.sphere || 'ideell',
+          split.mainCategory || t.mainCategory,
+          split.subCategory || split.category || t.subCategory || t.category,
+          split.skrAccount || t.skrAccount,
+          splitAmt,
+          isExpense
+        );
+      });
+    } else {
+      const absAmt = Math.abs(t.amount);
+      processBookingLine(
+        t.sphere || 'ideell',
+        t.mainCategory,
+        t.subCategory || t.category,
+        t.skrAccount,
+        absAmt,
+        isExpense
+      );
+    }
   });
 
   let totalIncome = 0;

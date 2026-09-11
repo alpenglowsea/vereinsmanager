@@ -44,7 +44,9 @@ import {
   FileDown,
   CheckCircle2,
   X,
-  AlertCircle
+  AlertCircle,
+  Split,
+  Layers
 } from 'lucide-react';
 
 export type TransactionSortField =
@@ -917,6 +919,15 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                         <span className="font-bold text-slate-900 text-xs truncate max-w-xs">
                           {tx.partner}
                         </span>
+                        {tx.isSplit && (
+                          <span
+                            className="inline-flex items-center gap-1 px-1.5 py-0.2 text-3xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 rounded"
+                            title={`Splittbuchung: ${tx.splits?.length || 0} Teilbuchungen`}
+                          >
+                            <Split className="w-2.5 h-2.5 text-indigo-600" />
+                            <span>Splitt ({tx.splits?.length || 0})</span>
+                          </span>
+                        )}
                         {(() => {
                           if (!tx.partner || tx.type === 'transfer') return null;
                           const trimmed = tx.partner.trim().toLowerCase();
@@ -965,13 +976,30 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                       {getSphereBadge(tx.sphere)}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-xs font-semibold text-slate-800 truncate max-w-[180px]">
-                        {tx.category}
-                      </div>
-                      <div className="text-[11px] text-slate-400 flex items-center gap-1">
-                        <span>{acc?.name || tx.accountId}</span>
-                        {tx.vatRate > 0 && <span className="text-slate-500 font-mono">({tx.vatRate}% USt)</span>}
-                      </div>
+                      {tx.isSplit && tx.splits && tx.splits.length > 0 ? (
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-950">
+                            <Split className="w-3 h-3 text-indigo-600 shrink-0" />
+                            <span>{tx.splits.length} Teilbuchungen</span>
+                          </div>
+                          <div className="text-3xs text-slate-500 font-mono truncate max-w-[200px]" title={tx.splits.map(s => `${s.amount.toFixed(2)} €: ${s.subCategory || s.category}`).join(' | ')}>
+                            {tx.splits.map(s => `${s.amount.toFixed(2)} €`).join(' + ')}
+                          </div>
+                          <div className="text-[11px] text-slate-400">
+                            {acc?.name || tx.accountId}
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="text-xs font-semibold text-slate-800 truncate max-w-[180px]">
+                            {tx.category}
+                          </div>
+                          <div className="text-[11px] text-slate-400 flex items-center gap-1">
+                            <span>{acc?.name || tx.accountId}</span>
+                            {tx.vatRate > 0 && <span className="text-slate-500 font-mono">({tx.vatRate}% USt)</span>}
+                          </div>
+                        </>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-center">
                       {tx.receipt ? (

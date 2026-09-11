@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Transaction,
+  TransactionSplit,
   FinancialAccount,
   TaxSphere,
   ReceiptAttachment,
@@ -21,6 +22,7 @@ import {
   findSkr42SubCategory
 } from '../data/taxSpheres';
 import { SearchableAccountSelect, SearchableAccountOption } from './SearchableAccountSelect';
+import { SplitBookingManager } from './SplitBookingManager';
 import {
   X,
   FileText,
@@ -43,7 +45,8 @@ import {
   Building2,
   User,
   UserPlus,
-  Plus
+  Plus,
+  Split
 } from 'lucide-react';
 import { ReceiptCameraScannerModal } from './ReceiptCameraScannerModal';
 import { AiBookingService } from '../services/aiBookingService';
@@ -94,6 +97,41 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
 
   const [selectedMainCatId, setSelectedMainCatId] = useState<string>(initialMainCatId);
   const [showAllSpheresInDropdown, setShowAllSpheresInDropdown] = useState<boolean>(true);
+
+  const [isSplitBooking, setIsSplitBooking] = useState<boolean>(
+    Boolean(transaction?.isSplit && transaction?.splits && transaction.splits.length > 0)
+  );
+
+  const [splitLines, setSplitLines] = useState<TransactionSplit[]>(() => {
+    if (transaction?.splits && transaction.splits.length > 0) {
+      return transaction.splits;
+    }
+    const initAmt = transaction ? Math.abs(transaction.amount) : 0;
+    return [
+      {
+        id: `split-${Date.now()}-1`,
+        amount: initAmt,
+        bookingText: transaction?.bookingText || '',
+        sphere: initialSphere,
+        mainCategory: transaction?.mainCategory || (currentMainObj ? `${currentMainObj.code} - ${currentMainObj.name}` : ''),
+        subCategory: initialSubCat,
+        category: initialSubCat,
+        skrAccount: transaction?.skrAccount || initialSubObj?.code || '',
+        vatRate: transaction?.vatRate ?? initialSubObj?.vatRateDefault ?? 0
+      },
+      {
+        id: `split-${Date.now()}-2`,
+        amount: 0,
+        bookingText: '',
+        sphere: initialSphere,
+        mainCategory: 'HK-68000-IDE',
+        subCategory: '68100 - Nebenkosten des Geldverkehrs & Bankspesen',
+        category: '68100 - Nebenkosten des Geldverkehrs & Bankspesen',
+        skrAccount: '68100',
+        vatRate: 0
+      }
+    ];
+  });
 
   const [formData, setFormData] = useState<Transaction>({
     id: transaction?.id || `tx-${Date.now()}`,
@@ -257,24 +295,23 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     setShowPartnerSuggestions(false);
   };
 
-  // Available SKR 42 categories for current sphere and type
-  const activeType = formData.type === 'transfer' ? 'expense' : formData.type;
-  const mainCategories = getSkr42MainCategories(formData.sphere, activeType);
-  const allMainCategories = getAllSkr42MainCategories(activeType);
-  const subCategories = getSkr42SubCategories(formData.sphere, activeType, selectedMainCatId);
+  // Available SKR 42 categories for current sphere (showing all accounts: both income & expense)
+  const mainCategories = getSkr42MainCategories(formData.sphere);
+  const allMainCategories = getAllSkr42MainCategories();
+  const subCategories = getSkr42SubCategories(formData.sphere, undefined, selectedMainCatId);
 
   const mainCatOptions: SearchableAccountOption[] = useMemo(() => {
     if (showAllSpheresInDropdown) {
       const spheres: TaxSphere[] = ['ideell', 'vermoegen', 'zweckbetrieb', 'wirtschaftlich'];
       return spheres.flatMap(sph => {
-        const catsForSph = getSkr42MainCategories(sph, activeType);
+        const catsForSph = getSkr42MainCategories(sph);
         const groupName = TAX_SPHERES[sph]?.name || sph;
         return catsForSph.map(main => ({
           value: main.id,
           code: main.code,
           name: main.name,
           label: `${main.code} - ${main.name}`,
-          group: groupName
+          group: `${groupName} • ${main.type === 'income' ? 'Einnahmen' : 'Ausgaben'}`
         }));
       });
     } else {
@@ -283,10 +320,10 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
         code: main.code,
         name: main.name,
         label: `${main.code} - ${main.name}`,
-        group: TAX_SPHERES[formData.sphere]?.name
+        group: main.type === 'income' ? 'Einnahmen-Konten (Erträge / Erlöse)' : 'Ausgaben-Konten (Kosten / Aufwand)'
       }));
     }
-  }, [showAllSpheresInDropdown, activeType, mainCategories, formData.sphere]);
+  }, [showAllSpheresInDropdown, mainCategories]);
 
   const subCatOptions: SearchableAccountOption[] = useMemo(() => {
     return subCategories.map(sub => ({
@@ -368,6 +405,22 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
       bookingText: prev.bookingText.trim() ? prev.bookingText : (suggestion.suggestedBookingText || prev.bookingText)
     }));
 
+    if (isSplitBooking && splitLines.length > 0) {
+      setSplitLines(prev => {
+        const next = [...prev];
+        next[0] = {
+          ...next[0],
+          sphere: suggestion.sphere,
+          mainCategory: matchedMain ? `${matchedMain.code} - ${matchedMain.name}` : suggestion.mainCategoryName,
+          subCategory: matchedSub?.label || suggestion.subCategoryLabel,
+          category: matchedSub?.label || suggestion.subCategoryLabel,
+          skrAccount: matchedSub?.code || suggestion.subCategoryCode,
+          vatRate: suggestion.vatRate,
+        };
+        return next;
+      });
+    }
+
     setAiAppliedBanner(true);
     setTimeout(() => {
       setAiAppliedBanner(false);
@@ -386,7 +439,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   };
 
   const handleSphereChange = (sphere: TaxSphere) => {
-    const mains = getSkr42MainCategories(sphere, activeType);
+    const mains = getSkr42MainCategories(sphere);
     const newMain = mains[0];
     const newSub = newMain?.subCategories[0];
     if (newMain) {
@@ -404,23 +457,9 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   };
 
   const handleTypeChange = (type: 'income' | 'expense' | 'transfer') => {
-    const effectiveType = type === 'transfer' ? 'expense' : type;
-    const mains = getSkr42MainCategories(formData.sphere, effectiveType);
-    const fallbackMains = getAllSkr42MainCategories(effectiveType);
-    const newMain = mains[0] || fallbackMains[0];
-    const newSub = newMain?.subCategories[0];
-    if (newMain) {
-      setSelectedMainCatId(newMain.id);
-    }
     setFormData(prev => ({
       ...prev,
-      type,
-      sphere: newMain?.sphere || prev.sphere,
-      mainCategory: newMain ? `${newMain.code} - ${newMain.name}` : '',
-      subCategory: newSub?.label || '',
-      category: newSub?.label || '',
-      skrAccount: newSub?.code || '',
-      vatRate: newSub?.vatRateDefault ?? (newMain?.sphere === 'wirtschaftlich' ? 19 : newMain?.sphere === 'zweckbetrieb' ? 7 : 0)
+      type
     }));
   };
 
@@ -487,6 +526,21 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
       newErrors.targetAccountId = 'Zielkonto muss sich vom Quellkonto unterscheiden.';
     }
 
+    if (isSplitBooking && formData.type !== 'transfer') {
+      if (splitLines.length < 2) {
+        newErrors.splits = 'Eine Splittbuchung muss aus mindestens 2 Teilbuchungen bestehen.';
+      }
+      const sumOfSplits = splitLines.reduce((acc, s) => acc + (Number(s.amount) || 0), 0);
+      const diff = Number((formData.amount - sumOfSplits).toFixed(2));
+      if (Math.abs(diff) > 0.009) {
+        newErrors.splits = `Die Summe der Teilbeträge (${sumOfSplits.toFixed(2)} €) stimmt nicht mit der Buchungssumme (${formData.amount.toFixed(2)} €) überein. Differenz: ${diff.toFixed(2)} €.`;
+      }
+      const hasInvalidRow = splitLines.some(s => !s.amount || s.amount <= 0);
+      if (hasInvalidRow) {
+        newErrors.splits = 'Jede Teilbuchung muss einen Betrag größer als 0,00 € haben.';
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -496,11 +550,34 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     if (!validate()) return;
 
     const finalAmount = formData.type === 'expense' ? -Math.abs(formData.amount) : Math.abs(formData.amount);
-    onSave({
-      ...formData,
-      amount: finalAmount,
-      receipt: receiptFile || undefined
-    });
+    
+    if (isSplitBooking && formData.type !== 'transfer' && splitLines.length > 0) {
+      const primarySplit = splitLines[0];
+      onSave({
+        ...formData,
+        amount: finalAmount,
+        isSplit: true,
+        splits: splitLines.map(s => ({
+          ...s,
+          amount: Math.abs(s.amount)
+        })),
+        sphere: primarySplit.sphere,
+        mainCategory: primarySplit.mainCategory,
+        subCategory: primarySplit.subCategory,
+        category: primarySplit.category,
+        skrAccount: primarySplit.skrAccount,
+        vatRate: primarySplit.vatRate,
+        receipt: receiptFile || undefined
+      });
+    } else {
+      onSave({
+        ...formData,
+        amount: finalAmount,
+        isSplit: false,
+        splits: undefined,
+        receipt: receiptFile || undefined
+      });
+    }
   };
 
   return (
@@ -595,6 +672,28 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                   <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-semibold">EUR</span>
                 </div>
                 {errors.amount && <p className="text-xs text-rose-600 mt-1">{errors.amount}</p>}
+                {formData.type !== 'transfer' && (
+                  <div className="mt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextVal = !isSplitBooking;
+                        setIsSplitBooking(nextVal);
+                        if (nextVal && splitLines.length > 0 && splitLines[0].amount === 0 && formData.amount > 0) {
+                          setSplitLines(prev => [
+                            { ...prev[0], amount: formData.amount },
+                            ...prev.slice(1)
+                          ]);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 text-2xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+                      title="Buchungsbetrag auf mehrere Teilbuchungen mit jeweils eigener Sphäre und Konten aufteilen"
+                    >
+                      <Split className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>{isSplitBooking ? 'Splittbuchung aktiv (beenden)' : 'Als Splittbuchung aufteilen'}</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -841,7 +940,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                       }`}
                     >
                       <Sparkles className="w-3.5 h-3.5" />
-                      <span>{aiLoading ? 'KI analysiert...' : '✨ KI-Assistent (Hilfe bei Unsicherheit)'}</span>
+                      <span>{aiLoading ? 'KI analysiert...' : '✨ KI-Assistent'}</span>
                     </button>
                     <button
                       type="button"
@@ -1066,7 +1165,18 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {isSplitBooking ? (
+                  <SplitBookingManager
+                    totalAmount={formData.amount}
+                    transactionType={formData.type}
+                    splits={splitLines}
+                    onChange={setSplitLines}
+                    onCancelSplit={() => setIsSplitBooking(false)}
+                    error={errors.splits}
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {(['ideell', 'vermoegen', 'zweckbetrieb', 'wirtschaftlich'] as TaxSphere[]).map(sph => {
                     const info = TAX_SPHERES[sph];
                     const isSelected = formData.sphere === sph;
@@ -1178,9 +1288,31 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                       </select>
                     </div>
                   </div>
+
+                  {/* Link to switch to Splittbuchung */}
+                  <div className="pt-2 border-t border-slate-200/80 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSplitBooking(true);
+                        if (splitLines.length > 0 && splitLines[0].amount === 0 && formData.amount > 0) {
+                          setSplitLines(prev => [
+                            { ...prev[0], amount: formData.amount },
+                            ...prev.slice(1)
+                          ]);
+                        }
+                      }}
+                      className="text-2xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 cursor-pointer py-1 px-2 rounded hover:bg-indigo-50/70 transition-colors"
+                    >
+                      <Split className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Diesen Betrag auf mehrere Konten/Sphären aufteilen (Splittbuchung)</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
+          </div>
+        )}
 
             {/* 6. BELEG-UPLOAD & KAMERASCAN (PDF, JPEG, PNG) */}
             <div className="border border-slate-200 rounded-xl p-4 space-y-3 bg-slate-50/50">

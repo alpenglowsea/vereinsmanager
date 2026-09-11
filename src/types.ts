@@ -166,6 +166,18 @@ export interface Skr42MainCategory {
   subCategories: Skr42SubCategory[];
 }
 
+export interface TransactionSplit {
+  id: string;
+  amount: number; // Teilbetrag (positiver Betrag)
+  bookingText?: string; // Eigener Teil-Buchungstext / Verwendungszweck
+  sphere: TaxSphere; // Steuerliche Sphäre (1. Ideell, 2. Vermögen, 3. Zweckbetrieb, 4. Wirtschaftlich)
+  mainCategory?: string; // Hauptkategorie e.g. '40000 - Mitgliedsbeiträge & Aufnahmegebühren'
+  subCategory?: string;  // Nebenkategorie e.g. '40000 - Echte Mitgliedsbeiträge (laufend)'
+  skrAccount?: string;   // SKR 42 Kontonummer e.g. '40000'
+  category: string;      // Backwards-compatible label
+  vatRate: 0 | 7 | 19;
+}
+
 export interface Transaction {
   id: string;
   date: string; // YYYY-MM-DD
@@ -182,6 +194,8 @@ export interface Transaction {
   skrAccount?: string;   // e.g. '3110'
   category: string;      // Backwards compatible combined name / Nebenkategorie
   vatRate: 0 | 7 | 19;
+  isSplit?: boolean;     // Ob die Buchung in mehrere Teilsummen zerlegt ist
+  splits?: TransactionSplit[]; // Die einzelnen Teilbuchungs-Zeilen
   notes?: string;
   receipt?: ReceiptAttachment;
   createdAt: string;

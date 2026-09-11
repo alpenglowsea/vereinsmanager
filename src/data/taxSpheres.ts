@@ -491,13 +491,16 @@ export const getAllSkr42MainCategories = (type?: 'income' | 'expense'): Skr42Mai
   return SKR42_STRUCTURE.filter(m => m.type === type);
 };
 
-export const getSkr42MainCategories = (sphere: TaxSphere, type: 'income' | 'expense'): Skr42MainCategory[] => {
+export const getSkr42MainCategories = (sphere: TaxSphere, type?: 'income' | 'expense'): Skr42MainCategory[] => {
+  if (!type) {
+    return SKR42_STRUCTURE.filter(m => m.sphere === sphere);
+  }
   return SKR42_STRUCTURE.filter(m => m.sphere === sphere && m.type === type);
 };
 
 export const getSkr42SubCategories = (
   sphere: TaxSphere,
-  type: 'income' | 'expense',
+  type?: 'income' | 'expense',
   mainCategoryId?: string
 ): Skr42SubCategory[] => {
   if (mainCategoryId) {

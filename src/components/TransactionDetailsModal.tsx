@@ -27,7 +27,9 @@ import {
   Info,
   CreditCard,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Split,
+  Layers
 } from 'lucide-react';
 
 interface TransactionDetailsModalProps {
@@ -311,39 +313,93 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
               </div>
             </div>
 
-            {/* Steuerliche Zuordnung (4-Sphären-System) */}
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                <Tag className="w-4 h-4 text-emerald-600" />
-                <span>Steuer-Sphäre & Kategorie</span>
-              </div>
-              <div className="space-y-1.5 text-xs">
-                <div className="flex justify-between items-center py-1 border-b border-slate-200/80">
-                  <span className="text-slate-500">Sphäre:</span>
-                  <span className="font-bold text-slate-900">
-                    {sphereInfo ? sphereInfo.name : transaction.sphere}
+            {/* Steuerliche Zuordnung (4-Sphären-System) oder Splittbuchung */}
+            {transaction.isSplit && transaction.splits && transaction.splits.length > 0 ? (
+              <div className="p-4 bg-indigo-50/70 rounded-xl border border-indigo-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-indigo-900 uppercase tracking-wider">
+                    <Split className="w-4 h-4 text-indigo-600" />
+                    <span>Aufteilung in {transaction.splits.length} Teilbuchungen</span>
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-3xs font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-md border border-indigo-200">
+                    Splittbuchung
                   </span>
                 </div>
 
-                <div className="flex justify-between items-center py-1 border-b border-slate-200/80">
-                  <span className="text-slate-500">Kategorie:</span>
-                  <span className="font-bold text-slate-900">{transaction.category}</span>
+                <div className="space-y-2">
+                  {transaction.splits.map((s, idx) => (
+                    <div key={idx} className="p-2.5 bg-white rounded-lg border border-indigo-100 shadow-2xs space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-800">Teil #{idx + 1}</span>
+                          <span className="text-2xs px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-medium">
+                            {TAX_SPHERES[s.sphere]?.name || s.sphere}
+                          </span>
+                        </div>
+                        <span className="font-mono font-bold text-indigo-950 text-xs">
+                          {s.amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        </span>
+                      </div>
+                      <div className="text-2xs text-slate-600 space-y-0.5 pt-1 border-t border-slate-100">
+                        <div>
+                          <span className="text-slate-400">Hauptkonto: </span>
+                          <span className="font-medium text-slate-800">{s.mainCategory}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Nebenkonto: </span>
+                          <span className="font-medium text-slate-800">
+                            {s.skrAccount ? `${s.skrAccount} - ` : ''}{s.subCategory || s.category}
+                          </span>
+                        </div>
+                        {s.note && (
+                          <p className="text-3xs text-slate-500 italic">Notiz: {s.note}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
-                <div className="flex justify-between items-center py-1 border-b border-slate-200/80">
-                  <span className="text-slate-500">Umsatzsteuersatz:</span>
-                  <span className="font-mono font-semibold text-slate-800">
-                    {transaction.vatRate || 0}%
+                <div className="flex items-center justify-between pt-2 border-t border-indigo-200/80 text-xs font-semibold text-indigo-950">
+                  <span>Kontrollsumme der Teile:</span>
+                  <span className="font-mono font-bold text-xs text-indigo-900 bg-white px-2 py-0.5 rounded border border-indigo-200">
+                    {transaction.splits.reduce((acc, s) => acc + s.amount, 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                   </span>
                 </div>
-
-                {sphereInfo?.subtitle && (
-                  <p className="text-3xs text-slate-500 italic pt-1 leading-relaxed">
-                    {sphereInfo.subtitle}
-                  </p>
-                )}
               </div>
-            </div>
+            ) : (
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  <Tag className="w-4 h-4 text-emerald-600" />
+                  <span>Steuer-Sphäre & Kategorie</span>
+                </div>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/80">
+                    <span className="text-slate-500">Sphäre:</span>
+                    <span className="font-bold text-slate-900">
+                      {sphereInfo ? sphereInfo.name : transaction.sphere}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/80">
+                    <span className="text-slate-500">Kategorie:</span>
+                    <span className="font-bold text-slate-900">{transaction.category}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/80">
+                    <span className="text-slate-500">Umsatzsteuersatz:</span>
+                    <span className="font-mono font-semibold text-slate-800">
+                      {transaction.vatRate || 0}%
+                    </span>
+                  </div>
+
+                  {sphereInfo?.subtitle && (
+                    <p className="text-3xs text-slate-500 italic pt-1 leading-relaxed">
+                      {sphereInfo.subtitle}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Beleg & digitaler Anhang */}
