@@ -75,6 +75,34 @@ export interface MemberBulkUpdates {
   notesValue?: string;
 }
 
+export interface TransactionBulkUpdates {
+  accountId?: string;
+  sphere?: TaxSphere;
+  category?: string;
+  mainCategory?: string;
+  subCategory?: string;
+  skrAccount?: string;
+  vatRate?: 0 | 7 | 19;
+  partner?: string;
+  date?: string;
+  notesAction?: 'append' | 'replace';
+  notesValue?: string;
+}
+
+export interface InventoryBulkUpdates {
+  department?: string;
+  category?: InventoryCategory;
+  condition?: ItemCondition;
+  location?: string;
+  responsiblePerson?: string;
+  assignedTo?: string;
+  supplier?: string;
+  lastCheckedDate?: string;
+  nextInspectionDate?: string;
+  notesAction?: 'append' | 'replace';
+  notesValue?: string;
+}
+
 export interface MemberAuditLog {
   id: string;
   memberId: string;

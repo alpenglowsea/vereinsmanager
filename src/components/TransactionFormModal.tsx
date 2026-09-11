@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Transaction,
   FinancialAccount,
@@ -12,10 +12,15 @@ import {
 import { CONTACT_TYPE_MAP } from '../data/contactConstants';
 import {
   TAX_SPHERES,
+  SKR42_STRUCTURE,
   getSkr42MainCategories,
   getSkr42SubCategories,
-  findSkr42MainForSub
+  getAllSkr42MainCategories,
+  findSkr42Main,
+  findSkr42MainForSub,
+  findSkr42SubCategory
 } from '../data/taxSpheres';
+import { SearchableAccountSelect, SearchableAccountOption } from './SearchableAccountSelect';
 import {
   X,
   FileText,
@@ -67,30 +72,28 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   onSave,
   onClose
 }) => {
-  // Determine initial main and sub category
-  const initialSphere: TaxSphere = transaction?.sphere || 'ideell';
+  // Determine initial main and sub category from transaction or defaults
   const initialType: 'income' | 'expense' | 'transfer' = transaction?.type || 'expense';
-  
-  const initialMainCats = getSkr42MainCategories(
-    initialSphere,
-    initialType === 'transfer' ? 'expense' : initialType
-  );
-  
-  let initialMainCatId = initialMainCats[0]?.id || 'HK-3100';
-  let initialSubCat = initialMainCats[0]?.subCategories[0]?.label || '';
+  const effectiveInitialType: 'income' | 'expense' = initialType === 'transfer' ? 'expense' : initialType;
 
-  if (transaction) {
-    if (transaction.mainCategory) {
-      const match = initialMainCats.find(m => m.name === transaction.mainCategory || m.id === transaction.mainCategory);
-      if (match) initialMainCatId = match.id;
-    } else if (transaction.category) {
-      const detectedMain = findSkr42MainForSub(transaction.category);
-      if (detectedMain) initialMainCatId = detectedMain.id;
-    }
-    initialSubCat = transaction.subCategory || transaction.category || initialSubCat;
-  }
+  // Detect main category across all SKR 42 structure
+  let detectedMain = transaction?.mainCategory
+    ? findSkr42Main(transaction.mainCategory)
+    : transaction?.subCategory || transaction?.category
+    ? findSkr42MainForSub(transaction.subCategory || transaction.category)
+    : undefined;
+
+  const initialSphere: TaxSphere = detectedMain?.sphere || transaction?.sphere || 'ideell';
+  const initialMainCats = getSkr42MainCategories(initialSphere, effectiveInitialType);
+  const initialMainCatId = detectedMain?.id || initialMainCats[0]?.id || (effectiveInitialType === 'income' ? 'HK-40000' : 'HK-68000-IDE');
+  const currentMainObj = SKR42_STRUCTURE.find(m => m.id === initialMainCatId) || initialMainCats[0];
+  const initialSubCat = transaction?.subCategory || transaction?.category || currentMainObj?.subCategories[0]?.label || '';
+  const initialSubObj = currentMainObj?.subCategories.find(
+    s => s.label === initialSubCat || s.code === initialSubCat || s.name === initialSubCat
+  ) || currentMainObj?.subCategories[0];
 
   const [selectedMainCatId, setSelectedMainCatId] = useState<string>(initialMainCatId);
+  const [showAllSpheresInDropdown, setShowAllSpheresInDropdown] = useState<boolean>(true);
 
   const [formData, setFormData] = useState<Transaction>({
     id: transaction?.id || `tx-${Date.now()}`,
@@ -103,10 +106,11 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     bookingText: transaction?.bookingText || '',
     partner: transaction?.partner || initialPartner || '',
     sphere: initialSphere,
-    mainCategory: transaction?.mainCategory || initialMainCats.find(m => m.id === initialMainCatId)?.name || '',
+    mainCategory: transaction?.mainCategory || (currentMainObj ? `${currentMainObj.code} - ${currentMainObj.name}` : ''),
     subCategory: initialSubCat,
     category: initialSubCat,
-    vatRate: transaction?.vatRate ?? 0,
+    skrAccount: transaction?.skrAccount || initialSubObj?.code || '',
+    vatRate: transaction?.vatRate ?? initialSubObj?.vatRateDefault ?? 0,
     notes: transaction?.notes || '',
     receipt: transaction?.receipt,
     createdAt: transaction?.createdAt || new Date().toISOString(),
@@ -256,7 +260,43 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   // Available SKR 42 categories for current sphere and type
   const activeType = formData.type === 'transfer' ? 'expense' : formData.type;
   const mainCategories = getSkr42MainCategories(formData.sphere, activeType);
+  const allMainCategories = getAllSkr42MainCategories(activeType);
   const subCategories = getSkr42SubCategories(formData.sphere, activeType, selectedMainCatId);
+
+  const mainCatOptions: SearchableAccountOption[] = useMemo(() => {
+    if (showAllSpheresInDropdown) {
+      const spheres: TaxSphere[] = ['ideell', 'vermoegen', 'zweckbetrieb', 'wirtschaftlich'];
+      return spheres.flatMap(sph => {
+        const catsForSph = getSkr42MainCategories(sph, activeType);
+        const groupName = TAX_SPHERES[sph]?.name || sph;
+        return catsForSph.map(main => ({
+          value: main.id,
+          code: main.code,
+          name: main.name,
+          label: `${main.code} - ${main.name}`,
+          group: groupName
+        }));
+      });
+    } else {
+      return mainCategories.map(main => ({
+        value: main.id,
+        code: main.code,
+        name: main.name,
+        label: `${main.code} - ${main.name}`,
+        group: TAX_SPHERES[formData.sphere]?.name
+      }));
+    }
+  }, [showAllSpheresInDropdown, activeType, mainCategories, formData.sphere]);
+
+  const subCatOptions: SearchableAccountOption[] = useMemo(() => {
+    return subCategories.map(sub => ({
+      value: sub.label,
+      code: sub.code,
+      name: sub.name,
+      label: sub.label,
+      vatRateDefault: sub.vatRateDefault
+    }));
+  }, [subCategories]);
 
   const handleAiCategorize = async (customText?: string) => {
     // Determine the most specific and valid text available
@@ -349,7 +389,9 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     const mains = getSkr42MainCategories(sphere, activeType);
     const newMain = mains[0];
     const newSub = newMain?.subCategories[0];
-    setSelectedMainCatId(newMain?.id || '');
+    if (newMain) {
+      setSelectedMainCatId(newMain.id);
+    }
     setFormData(prev => ({
       ...prev,
       sphere,
@@ -364,31 +406,37 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   const handleTypeChange = (type: 'income' | 'expense' | 'transfer') => {
     const effectiveType = type === 'transfer' ? 'expense' : type;
     const mains = getSkr42MainCategories(formData.sphere, effectiveType);
-    const newMain = mains[0];
+    const fallbackMains = getAllSkr42MainCategories(effectiveType);
+    const newMain = mains[0] || fallbackMains[0];
     const newSub = newMain?.subCategories[0];
-    setSelectedMainCatId(newMain?.id || '');
+    if (newMain) {
+      setSelectedMainCatId(newMain.id);
+    }
     setFormData(prev => ({
       ...prev,
       type,
+      sphere: newMain?.sphere || prev.sphere,
       mainCategory: newMain ? `${newMain.code} - ${newMain.name}` : '',
       subCategory: newSub?.label || '',
       category: newSub?.label || '',
       skrAccount: newSub?.code || '',
-      vatRate: newSub?.vatRateDefault ?? prev.vatRate
+      vatRate: newSub?.vatRateDefault ?? (newMain?.sphere === 'wirtschaftlich' ? 19 : newMain?.sphere === 'zweckbetrieb' ? 7 : 0)
     }));
   };
 
   const handleMainCatChange = (mainCatId: string) => {
     setSelectedMainCatId(mainCatId);
-    const main = mainCategories.find(m => m.id === mainCatId);
-    const firstSub = main?.subCategories[0];
+    const main = SKR42_STRUCTURE.find(m => m.id === mainCatId || m.code === mainCatId);
+    if (!main) return;
+    const firstSub = main.subCategories[0];
     setFormData(prev => ({
       ...prev,
-      mainCategory: main ? `${main.code} - ${main.name}` : '',
+      sphere: main.sphere, // Automatically update sphere when selecting any Hauptkonto!
+      mainCategory: `${main.code} - ${main.name}`,
       subCategory: firstSub?.label || '',
       category: firstSub?.label || '',
       skrAccount: firstSub?.code || '',
-      vatRate: firstSub?.vatRateDefault ?? prev.vatRate
+      vatRate: firstSub?.vatRateDefault ?? (main.sphere === 'wirtschaftlich' ? 19 : main.sphere === 'zweckbetrieb' ? 7 : 0)
     }));
   };
 
@@ -777,17 +825,14 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        const directText = (formData.bookingText || formData.partner || '').trim();
-                        if (directText) {
-                          handleAiCategorize(directText);
-                        } else {
-                          setShowAiPromptInput(true);
-                          setAiError('Bitte geben Sie zuerst einen Buchungstext ein oder beschreiben Sie den Vorfall in der Eingabezeile.');
+                        setShowAiPromptInput(!showAiPromptInput);
+                        if (!showAiPromptInput) {
+                          setAiError(null);
                         }
                       }}
                       disabled={aiLoading}
-                      title="Automatische steuerliche Zuordnung per KI anhand des Buchungstextes oder einer kurzen Beschreibung"
-                      className={`px-2.5 py-1 text-2xs font-bold rounded-lg border transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer ${
+                      title="Optionale KI-Unterstützung bei Unsicherheit: Schlägt passende Sphäre und Konten vor"
+                      className={`px-2.5 py-1 text-2xs font-semibold rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer ${
                         aiLoading
                           ? 'bg-purple-100 text-purple-800 border-purple-300 animate-pulse'
                           : showAiPromptInput || aiSuggestion
@@ -796,7 +841,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                       }`}
                     >
                       <Sparkles className="w-3.5 h-3.5" />
-                      <span>{aiLoading ? 'KI analysiert...' : '✨ KI-Kategorisierung'}</span>
+                      <span>{aiLoading ? 'KI analysiert...' : '✨ KI-Assistent (Hilfe bei Unsicherheit)'}</span>
                     </button>
                     <button
                       type="button"
@@ -811,21 +856,24 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
 
                 {/* AI Custom Prompt Input Bar */}
                 {showAiPromptInput && !aiSuggestion && (
-                  <div className="p-3 bg-white border border-purple-200 rounded-xl shadow-xs space-y-2">
+                  <div className="p-3.5 bg-gradient-to-br from-purple-50/70 to-indigo-50/70 border border-purple-200 rounded-xl shadow-xs space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-2xs font-bold text-purple-900 flex items-center gap-1">
+                      <span className="text-2xs font-bold text-purple-900 flex items-center gap-1.5">
                         <Bot className="w-3.5 h-3.5 text-purple-600" />
-                        Buchung kurz in eigenen Worten erklären:
+                        KI-Unterstützung bei Unsicherheit
                       </span>
                       <button
                         type="button"
                         onClick={() => setShowAiPromptInput(false)}
-                        className="text-slate-400 hover:text-slate-600 text-xs"
+                        className="text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    <div className="flex gap-2">
+                    <p className="text-3xs text-purple-800 leading-normal">
+                      Unsicher bei der steuerlichen Einordnung? Geben Sie eine kurze Beschreibung ein oder nutzen Sie den bestehenden Buchungstext:
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <input
                         type="text"
                         value={aiCustomPrompt}
@@ -833,18 +881,24 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                         onKeyDown={e => {
                           if (e.key === 'Enter') {
                             e.preventDefault();
-                            handleAiCategorize(aiCustomPrompt);
+                            handleAiCategorize(aiCustomPrompt || formData.bookingText);
                           }
                         }}
-                        placeholder="z.B. '15 Trainingsbälle für C-Jugend gekauft' oder 'Spende von Firma Müller'"
-                        className="flex-1 px-3 py-1.5 text-xs bg-purple-50/50 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:bg-white text-slate-800 placeholder-slate-400"
-                        autoFocus
+                        placeholder={formData.bookingText ? `Aktueller Buchungstext: "${formData.bookingText}" (oder eigene Worte)` : "z.B. '15 Trainingsbälle für C-Jugend gekauft' oder 'Spende von Firma Müller'"}
+                        className="flex-1 px-3 py-1.5 text-xs bg-white border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 text-slate-800 placeholder-slate-400"
                       />
                       <button
                         type="button"
-                        onClick={() => handleAiCategorize(aiCustomPrompt)}
+                        onClick={() => {
+                          const textToAnalyze = (aiCustomPrompt || formData.bookingText || formData.partner || '').trim();
+                          if (!textToAnalyze) {
+                            setAiError('Bitte geben Sie eine kurze Beschreibung ein oder tragen Sie einen Buchungstext ein.');
+                            return;
+                          }
+                          handleAiCategorize(textToAnalyze);
+                        }}
                         disabled={aiLoading}
-                        className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                        className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
                       >
                         <Sparkles className="w-3 h-3" />
                         <span>{aiLoading ? 'Ermittle...' : 'Vorschlag ermitteln'}</span>
@@ -1054,50 +1108,59 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                 </div>
 
                 <div className="space-y-3 pt-2">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-2xs font-bold text-slate-700 mb-1 flex items-center gap-1">
-                        <Layers className="w-3 h-3 text-blue-600" />
-                        Hauptkategorie (SKR 42) *
-                      </label>
-                      <select
-                        value={selectedMainCatId}
-                        onChange={e => handleMainCatChange(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 font-semibold text-slate-800"
-                      >
-                        {mainCategories.map(main => (
-                          <option key={main.id} value={main.id}>
-                            {main.code} - {main.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+                    <SearchableAccountSelect
+                      label={
+                        <>
+                          <Layers className="w-3 h-3 text-blue-600 shrink-0" />
+                          <span>Hauptkategorie (SKR 42) *</span>
+                        </>
+                      }
+                      headerRight={
+                        <button
+                          type="button"
+                          onClick={() => setShowAllSpheresInDropdown(prev => !prev)}
+                          className="text-3xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer underline"
+                          title="Umschalten zwischen Anzeige aller gängigen SKR 42 Hauptkonten aller 4 Sphären oder nur der aktuell gewählten Sphäre"
+                        >
+                          {showAllSpheresInDropdown ? 'Nur gewählte Sphäre' : 'Alle 4 Sphären anzeigen'}
+                        </button>
+                      }
+                      value={selectedMainCatId}
+                      onChange={handleMainCatChange}
+                      options={mainCatOptions}
+                      placeholder="Hauptkonto auswählen..."
+                      searchPlaceholder="Nummer oder Hauptkonto tippen (z.B. 40000, Spenden)..."
+                    />
 
-                    <div>
-                      <label className="block text-2xs font-bold text-slate-700 mb-1 flex items-center gap-1">
-                        <Tag className="w-3 h-3 text-emerald-600" />
-                        Nebenkategorie / SKR 42-Konto *
-                      </label>
-                      <select
-                        value={formData.subCategory || formData.category}
-                        onChange={e => handleSubCatChange(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 font-medium text-slate-700"
-                      >
-                        {subCategories.map(sub => (
-                          <option key={sub.code} value={sub.label}>
-                            {sub.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <SearchableAccountSelect
+                      label={
+                        <>
+                          <Tag className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span>Nebenkategorie / Unterkonto (SKR 42) *</span>
+                        </>
+                      }
+                      headerRight={
+                        <span className="text-3xs text-slate-400 font-normal">
+                          {subCategories.length} {subCategories.length === 1 ? 'Unterkonto' : 'Unterkonten'}
+                        </span>
+                      }
+                      value={formData.subCategory || formData.category}
+                      onChange={handleSubCatChange}
+                      options={subCatOptions}
+                      placeholder="Unterkonto auswählen..."
+                      searchPlaceholder="Nummer oder Begriff tippen (z.B. 40000, 60040, Übungsleiter)..."
+                    />
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-200">
-                    <div className="text-2xs text-slate-500 flex items-center gap-1.5">
-                      <span className="font-mono bg-slate-200 px-1.5 py-0.5 rounded text-slate-700 font-semibold">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200">
+                    <div className="text-2xs text-slate-600 flex items-center gap-2">
+                      <span className="font-mono bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-blue-800 font-bold">
                         SKR 42: {formData.skrAccount || 'Konto'}
                       </span>
-                      <span>DATEV Standardkontenrahmen für Vereine</span>
+                      <span className="text-slate-500">
+                        Sphäre: <strong className="text-slate-700">{TAX_SPHERES[formData.sphere]?.name || formData.sphere}</strong>
+                      </span>
                     </div>
 
                     <div className="flex items-center gap-2">

@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Member, ClubSettings, MembershipStatus, MembershipType, PaymentMethod, MemberBulkUpdates } from '../types';
 import { ExportService } from '../services/exportService';
 import { MemberBulkEditModal } from './MemberBulkEditModal';
+import { TablePagination } from './TablePagination';
 import {
   Search,
   Plus,
@@ -64,6 +65,15 @@ export const MembersView: React.FC<MembersViewProps> = ({
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<MemberSortField>('number');
   const [sortAsc, setSortAsc] = useState(true);
+
+  // Pagination state (25, 50, 100, or 'all')
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number | 'all'>(25);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, deptFilter, typeFilter, paymentFilter, sortBy, sortAsc]);
 
   // Export notification state
   const [exportStatus, setExportStatus] = useState<{
@@ -142,6 +152,13 @@ export const MembersView: React.FC<MembersViewProps> = ({
       return sortAsc ? comparison : -comparison;
     });
   }, [members, searchQuery, statusFilter, deptFilter, typeFilter, paymentFilter, sortBy, sortAsc]);
+
+  // Paginated members for display
+  const paginatedMembers = useMemo(() => {
+    if (pageSize === 'all') return filteredMembers;
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredMembers.slice(startIndex, startIndex + pageSize);
+  }, [filteredMembers, currentPage, pageSize]);
 
   // Selected members list
   const selectedMembers = useMemo(() => {
@@ -876,7 +893,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredMembers.map((member) => {
+              {paginatedMembers.map((member) => {
                 const isSelected = selectedMemberIds.has(member.id);
 
                 return (
@@ -1015,18 +1032,28 @@ export const MembersView: React.FC<MembersViewProps> = ({
           </table>
         </div>
 
-        {/* Table Bottom Footer */}
-        <div className="p-3.5 bg-slate-50 border-t border-slate-200 text-center text-xs text-slate-400 flex items-center justify-between px-6">
-          <span>Zeige {filteredMembers.length} von {members.length} Mitgliedern</span>
+        {/* Table Bottom Footer & Pagination */}
+        <div>
           {selectedMemberIds.size > 0 && (
-            <button
-              type="button"
-              onClick={handleClearSelection}
-              className="text-blue-600 hover:underline font-semibold"
-            >
-              {selectedMemberIds.size} Auswahl aufheben
-            </button>
+            <div className="px-6 py-2 bg-blue-50/60 border-t border-blue-100 text-xs text-blue-700 flex items-center justify-between">
+              <span className="font-semibold">{selectedMemberIds.size} {selectedMemberIds.size === 1 ? 'Mitglied' : 'Mitglieder'} ausgewählt</span>
+              <button
+                type="button"
+                onClick={handleClearSelection}
+                className="text-blue-600 hover:text-blue-800 hover:underline font-semibold cursor-pointer text-xs"
+              >
+                Auswahl aufheben
+              </button>
+            </div>
           )}
+          <TablePagination
+            totalItems={filteredMembers.length}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemName="Mitgliedern"
+          />
         </div>
       </section>
 

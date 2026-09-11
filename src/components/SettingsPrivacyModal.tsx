@@ -444,7 +444,7 @@ export const SettingsPrivacyModal: React.FC<SettingsPrivacyModalProps> = ({
       onDataReload?.();
       setStatusMsg({
         type: 'success',
-        text: `Sicherung erfolgreich wiederhergestellt (${result.membersCount} Mitglieder, ${result.transactionsCount} Buchungen).`
+        text: `Sicherung erfolgreich wiederhergestellt (${result.membersCount} Mitglieder, ${result.transactionsCount} Buchungen${result.usersCount ? `, ${result.usersCount} Benutzerkonten` : ''}).`
       });
       setTimeout(() => setStatusMsg(null), 4000);
     } catch (err: any) {

@@ -6,6 +6,8 @@ import {
   ClubSettings,
   InventoryItem,
   MemberBulkUpdates,
+  TransactionBulkUpdates,
+  InventoryBulkUpdates,
   SepaRunHistory,
   DeploymentMode,
   ClubDocument,
@@ -20,7 +22,8 @@ import {
   ClubInvoice,
   InvoiceTemplateSettings,
   Meeting,
-  MeetingTemplateSettings
+  MeetingTemplateSettings,
+  AppUser
 } from '../types';
 import { UserDashboardConfig } from '../types/dashboard';
 import { DEFAULT_DASHBOARD_CONFIG } from '../data/defaultDashboard';
@@ -852,8 +855,8 @@ const INITIAL_AUDIT_LOGS: MemberAuditLog[] = [
 ];
 
 // IndexedDB Helper
-function openDB(): Promise<IDBDatabase> {
-  const currentDB = getActiveDBName();
+function openDB(dbNameOverride?: string): Promise<IDBDatabase> {
+  const currentDB = dbNameOverride || getActiveDBName();
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(currentDB, DB_VERSION);
     request.onupgradeneeded = (event) => {
@@ -902,10 +905,10 @@ function triggerAutoSnapshot() {
   }, 4000);
 }
 
-async function getAllFromStore<T>(storeName: string): Promise<T[]> {
-  const prefix = getStorePrefix();
+async function getAllFromStore<T>(storeName: string, dbNameOverride?: string): Promise<T[]> {
+  const prefix = dbNameOverride ? (dbNameOverride === DEMO_DB_NAME ? 'vm_demo_' : 'vm_live_') : getStorePrefix();
   try {
-    const db = await openDB();
+    const db = await openDB(dbNameOverride);
     if (!db.objectStoreNames.contains(storeName)) {
       const local = localStorage.getItem(`${prefix}${storeName}`);
       return local ? JSON.parse(local) : [];
@@ -924,10 +927,10 @@ async function getAllFromStore<T>(storeName: string): Promise<T[]> {
   }
 }
 
-async function saveAllToStore<T extends { id: string }>(storeName: string, items: T[]): Promise<void> {
-  const prefix = getStorePrefix();
+async function saveAllToStore<T extends { id: string }>(storeName: string, items: T[], dbNameOverride?: string): Promise<void> {
+  const prefix = dbNameOverride ? (dbNameOverride === DEMO_DB_NAME ? 'vm_demo_' : 'vm_live_') : getStorePrefix();
   try {
-    const db = await openDB();
+    const db = await openDB(dbNameOverride);
     if (!db.objectStoreNames.contains(storeName)) {
       localStorage.setItem(`${prefix}${storeName}`, JSON.stringify(items));
       return;
@@ -955,12 +958,12 @@ async function saveAllToStore<T extends { id: string }>(storeName: string, items
   }
 }
 
-async function getItemFromStore<T>(storeName: string, id: string): Promise<T | null> {
-  const prefix = getStorePrefix();
+async function getItemFromStore<T>(storeName: string, id: string, dbNameOverride?: string): Promise<T | null> {
+  const prefix = dbNameOverride ? (dbNameOverride === DEMO_DB_NAME ? 'vm_demo_' : 'vm_live_') : getStorePrefix();
   try {
-    const db = await openDB();
+    const db = await openDB(dbNameOverride);
     if (!db.objectStoreNames.contains(storeName)) {
-      const items = await getAllFromStore<T & { id: string }>(storeName);
+      const items = await getAllFromStore<T & { id: string }>(storeName, dbNameOverride);
       return items.find(i => i.id === id) || null;
     }
     return new Promise((resolve, reject) => {
@@ -971,20 +974,21 @@ async function getItemFromStore<T>(storeName: string, id: string): Promise<T | n
       req.onerror = () => reject(req.error);
     });
   } catch (err) {
-    const items = await getAllFromStore<T & { id: string }>(storeName);
+    const items = await getAllFromStore<T & { id: string }>(storeName, dbNameOverride);
     return items.find(i => i.id === id) || null;
   }
 }
 
-async function putItemToStore<T extends { id: string }>(storeName: string, item: T): Promise<void> {
+async function putItemToStore<T extends { id: string }>(storeName: string, item: T, dbNameOverride?: string): Promise<void> {
+  const prefix = dbNameOverride ? (dbNameOverride === DEMO_DB_NAME ? 'vm_demo_' : 'vm_live_') : getStorePrefix();
   try {
-    const db = await openDB();
+    const db = await openDB(dbNameOverride);
     if (!db.objectStoreNames.contains(storeName)) {
-      const items = await getAllFromStore<T>(storeName);
+      const items = await getAllFromStore<T>(storeName, dbNameOverride);
       const idx = items.findIndex(i => i.id === item.id);
       if (idx >= 0) items[idx] = item;
       else items.push(item);
-      await saveAllToStore(storeName, items);
+      await saveAllToStore(storeName, items, dbNameOverride);
       triggerAutoSnapshot();
       return;
     }
@@ -999,11 +1003,11 @@ async function putItemToStore<T extends { id: string }>(storeName: string, item:
       tx.onerror = () => reject(tx.error);
     });
   } catch (err) {
-    const items = await getAllFromStore<T>(storeName);
+    const items = await getAllFromStore<T>(storeName, dbNameOverride);
     const idx = items.findIndex(i => i.id === item.id);
     if (idx >= 0) items[idx] = item;
     else items.push(item);
-    await saveAllToStore(storeName, items);
+    await saveAllToStore(storeName, items, dbNameOverride);
     triggerAutoSnapshot();
   }
 }
@@ -2109,6 +2113,93 @@ export const StorageService = {
     }
   },
 
+  async deleteMultipleTransactions(ids: string[]): Promise<number> {
+    const idSet = new Set(ids);
+    const allTxs = await this.getTransactions();
+    const remaining = allTxs.filter(t => !idSet.has(t.id));
+    await saveAllToStore(STORES.TRANSACTIONS, remaining);
+    if (this.isCloudActive()) {
+      for (const id of ids) {
+        CloudStorageService.deleteTransaction(id).catch(() => {});
+      }
+    }
+    return ids.length;
+  },
+
+  async bulkUpdateTransactions(
+    ids: string[],
+    updates: TransactionBulkUpdates
+  ): Promise<{ updatedCount: number; updatedTransactions: Transaction[] }> {
+    const allTxs = await this.getTransactions();
+    const idSet = new Set(ids);
+    const now = new Date().toISOString();
+    const updatedList: Transaction[] = [];
+
+    for (const tx of allTxs) {
+      if (!idSet.has(tx.id)) continue;
+      const copy = { ...tx };
+      let changed = false;
+
+      if (updates.accountId !== undefined && copy.accountId !== updates.accountId) {
+        copy.accountId = updates.accountId;
+        changed = true;
+      }
+      if (updates.sphere !== undefined && copy.sphere !== updates.sphere) {
+        copy.sphere = updates.sphere;
+        changed = true;
+      }
+      if (updates.category !== undefined && copy.category !== updates.category) {
+        copy.category = updates.category;
+        changed = true;
+      }
+      if (updates.mainCategory !== undefined && copy.mainCategory !== updates.mainCategory) {
+        copy.mainCategory = updates.mainCategory;
+        changed = true;
+      }
+      if (updates.subCategory !== undefined && copy.subCategory !== updates.subCategory) {
+        copy.subCategory = updates.subCategory;
+        changed = true;
+      }
+      if (updates.skrAccount !== undefined && copy.skrAccount !== updates.skrAccount) {
+        copy.skrAccount = updates.skrAccount;
+        changed = true;
+      }
+      if (updates.vatRate !== undefined && copy.vatRate !== updates.vatRate) {
+        copy.vatRate = updates.vatRate;
+        changed = true;
+      }
+      if (updates.partner !== undefined && updates.partner.trim() && copy.partner !== updates.partner.trim()) {
+        copy.partner = updates.partner.trim();
+        changed = true;
+      }
+      if (updates.date !== undefined && copy.date !== updates.date) {
+        copy.date = updates.date;
+        changed = true;
+      }
+      if (updates.notesAction === 'replace') {
+        copy.notes = updates.notesValue || '';
+        changed = true;
+      } else if (updates.notesAction === 'append' && updates.notesValue && updates.notesValue.trim()) {
+        copy.notes = copy.notes ? `${copy.notes}\n${updates.notesValue.trim()}` : updates.notesValue.trim();
+        changed = true;
+      }
+
+      if (changed) {
+        copy.updatedAt = now;
+        await putItemToStore(STORES.TRANSACTIONS, copy);
+        if (this.isCloudActive()) {
+          CloudStorageService.saveTransaction(copy).catch(() => {});
+        }
+        updatedList.push(copy);
+      }
+    }
+
+    return {
+      updatedCount: updatedList.length,
+      updatedTransactions: updatedList
+    };
+  },
+
   // Inventory
   async getInventory(): Promise<InventoryItem[]> {
     if (this.isCloudActive()) {
@@ -2164,6 +2255,93 @@ export const StorageService = {
     if (this.isCloudActive()) {
       await CloudStorageService.deleteInventoryItem(id);
     }
+  },
+
+  async deleteMultipleInventoryItems(ids: string[]): Promise<number> {
+    const idSet = new Set(ids);
+    const allItems = await this.getInventory();
+    const remaining = allItems.filter(i => !idSet.has(i.id));
+    await saveAllToStore(STORES.INVENTORY, remaining);
+    if (this.isCloudActive()) {
+      for (const id of ids) {
+        CloudStorageService.deleteInventoryItem(id).catch(() => {});
+      }
+    }
+    return ids.length;
+  },
+
+  async bulkUpdateInventoryItems(
+    ids: string[],
+    updates: InventoryBulkUpdates
+  ): Promise<{ updatedCount: number; updatedItems: InventoryItem[] }> {
+    const allItems = await this.getInventory();
+    const idSet = new Set(ids);
+    const now = new Date().toISOString();
+    const updatedList: InventoryItem[] = [];
+
+    for (const item of allItems) {
+      if (!idSet.has(item.id)) continue;
+      const copy = { ...item };
+      let changed = false;
+
+      if (updates.department !== undefined && copy.department !== updates.department) {
+        copy.department = updates.department;
+        changed = true;
+      }
+      if (updates.category !== undefined && copy.category !== updates.category) {
+        copy.category = updates.category;
+        changed = true;
+      }
+      if (updates.condition !== undefined && copy.condition !== updates.condition) {
+        copy.condition = updates.condition;
+        changed = true;
+      }
+      if (updates.location !== undefined && updates.location.trim() && copy.location !== updates.location.trim()) {
+        copy.location = updates.location.trim();
+        changed = true;
+      }
+      if (updates.responsiblePerson !== undefined && copy.responsiblePerson !== updates.responsiblePerson) {
+        copy.responsiblePerson = updates.responsiblePerson.trim();
+        changed = true;
+      }
+      if (updates.assignedTo !== undefined && copy.assignedTo !== updates.assignedTo) {
+        copy.assignedTo = updates.assignedTo.trim();
+        changed = true;
+      }
+      if (updates.supplier !== undefined && copy.supplier !== updates.supplier) {
+        copy.supplier = updates.supplier.trim();
+        changed = true;
+      }
+      if (updates.lastCheckedDate !== undefined && copy.lastCheckedDate !== updates.lastCheckedDate) {
+        copy.lastCheckedDate = updates.lastCheckedDate;
+        changed = true;
+      }
+      if (updates.nextInspectionDate !== undefined && copy.nextInspectionDate !== updates.nextInspectionDate) {
+        copy.nextInspectionDate = updates.nextInspectionDate;
+        changed = true;
+      }
+      if (updates.notesAction === 'replace') {
+        copy.notes = updates.notesValue || '';
+        changed = true;
+      } else if (updates.notesAction === 'append' && updates.notesValue && updates.notesValue.trim()) {
+        copy.notes = copy.notes ? `${copy.notes}\n${updates.notesValue.trim()}` : updates.notesValue.trim();
+        changed = true;
+      }
+
+      if (changed) {
+        copy.updatedAt = now;
+        await putItemToStore(STORES.INVENTORY, copy);
+        if (this.isCloudActive()) {
+          CloudStorageService.saveInventoryItem(copy).catch(() => {});
+        }
+        updatedList.push(copy);
+      }
+    }
+
+    return {
+      updatedCount: updatedList.length,
+      updatedItems: updatedList
+    };
   },
 
   // Settings
@@ -3354,9 +3532,12 @@ export const StorageService = {
       this.getSettings()
     ]);
 
+    const users = AuthService.getUsers();
+    const securitySettings = AuthService.getSecuritySettings();
+
     const backup = {
       app: 'VereinsManager Lokal',
-      version: '1.0.0',
+      version: '1.2.2',
       exportedAt: new Date().toISOString(),
       data: {
         members,
@@ -3377,14 +3558,16 @@ export const StorageService = {
         calendarCategories,
         onlineApplications,
         applicationSettings,
-        settings
+        settings,
+        users,
+        securitySettings
       }
     };
 
     return JSON.stringify(backup, null, 2);
   },
 
-  async importFullBackup(jsonString: string): Promise<{
+  async importFullBackup(jsonString: string, targetEnv: 'auto' | 'live' = 'live'): Promise<{
     membersCount: number;
     transactionsCount: number;
     inventoryCount: number;
@@ -3394,9 +3577,13 @@ export const StorageService = {
     meetingsCount: number;
     invoicesCount: number;
     contactsCount: number;
+    usersCount: number;
+    clubName?: string;
+    restoredUsers: AppUser[];
   }> {
     const parsed = JSON.parse(jsonString);
-    if (!parsed.data) {
+    const data = parsed.data || parsed;
+    if (!data) {
       throw new Error('Ungültiges Sicherungsformat');
     }
     const {
@@ -3418,48 +3605,69 @@ export const StorageService = {
       calendarCategories = [],
       onlineApplications = [],
       applicationSettings,
-      settings
-    } = parsed.data;
+      settings,
+      users = [],
+      securitySettings
+    } = data;
 
-    await saveAllToStore(STORES.MEMBERS, members);
-    await saveAllToStore(STORES.TRANSACTIONS, transactions);
-    await saveAllToStore(STORES.ACCOUNTS, accounts);
-    await saveAllToStore(STORES.AUDIT_LOGS, auditLogs);
-    await saveAllToStore(STORES.INVENTORY, inventory);
-    await saveAllToStore(STORES.SEPA_RUNS, sepaRuns);
-    await saveAllToStore(STORES.DOCUMENTS, documents);
-    await saveAllToStore(STORES.DONATIONS, donations);
+    // By default target the Live DB so that restored data is available for real usage
+    const dbTarget = targetEnv === 'live' ? LIVE_DB_NAME : undefined;
+
+    await saveAllToStore(STORES.MEMBERS, members, dbTarget);
+    await saveAllToStore(STORES.TRANSACTIONS, transactions, dbTarget);
+    await saveAllToStore(STORES.ACCOUNTS, accounts, dbTarget);
+    await saveAllToStore(STORES.AUDIT_LOGS, auditLogs, dbTarget);
+    await saveAllToStore(STORES.INVENTORY, inventory, dbTarget);
+    await saveAllToStore(STORES.SEPA_RUNS, sepaRuns, dbTarget);
+    await saveAllToStore(STORES.DOCUMENTS, documents, dbTarget);
+    await saveAllToStore(STORES.DONATIONS, donations, dbTarget);
     if (contacts.length > 0) {
-      await saveAllToStore(STORES.CONTACTS, contacts);
+      await saveAllToStore(STORES.CONTACTS, contacts, dbTarget);
     }
     if (invoices.length > 0) {
-      await saveAllToStore(STORES.INVOICES, invoices);
+      await saveAllToStore(STORES.INVOICES, invoices, dbTarget);
     }
     if (invoiceTemplate) {
-      await putItemToStore(STORES.INVOICE_TEMPLATES, { id: 'main_template', ...invoiceTemplate });
+      await putItemToStore(STORES.INVOICE_TEMPLATES, { id: 'main_template', ...invoiceTemplate }, dbTarget);
     }
     if (meetings.length > 0) {
-      await saveAllToStore(STORES.MEETINGS, meetings);
+      await saveAllToStore(STORES.MEETINGS, meetings, dbTarget);
     }
     if (meetingTemplate) {
-      await putItemToStore(STORES.MEETING_TEMPLATES, { id: 'main_template', ...meetingTemplate });
+      await putItemToStore(STORES.MEETING_TEMPLATES, { id: 'main_template', ...meetingTemplate }, dbTarget);
     }
     if (dashboardConfig) {
-      await putItemToStore(STORES.DASHBOARD_CONFIG, { id: 'main_dashboard', ...dashboardConfig });
+      await putItemToStore(STORES.DASHBOARD_CONFIG, { id: 'main_dashboard', ...dashboardConfig }, dbTarget);
     }
     if (calendarCategories.length > 0) {
-      await saveAllToStore(STORES.CALENDAR_CATEGORIES, calendarCategories);
+      await saveAllToStore(STORES.CALENDAR_CATEGORIES, calendarCategories, dbTarget);
     }
-    await saveAllToStore(STORES.CALENDAR_EVENTS, calendarEvents);
+    await saveAllToStore(STORES.CALENDAR_EVENTS, calendarEvents, dbTarget);
     if (onlineApplications.length > 0) {
-      await saveAllToStore(STORES.ONLINE_APPLICATIONS, onlineApplications);
+      await saveAllToStore(STORES.ONLINE_APPLICATIONS, onlineApplications, dbTarget);
     }
     if (applicationSettings) {
-      await putItemToStore(STORES.APPLICATION_SETTINGS, { id: 'main', ...applicationSettings });
+      await putItemToStore(STORES.APPLICATION_SETTINGS, { id: 'main', ...applicationSettings }, dbTarget);
     }
 
     if (settings) {
-      await putItemToStore(STORES.SETTINGS, { id: 'main', ...settings });
+      await putItemToStore(STORES.SETTINGS, { id: 'main', ...settings }, dbTarget);
+    }
+
+    // Restore Users & Security Settings
+    let usersCount = 0;
+    const resolvedUsers: AppUser[] = Array.isArray(users) && users.length > 0
+      ? users
+      : (Array.isArray(parsed.users) && parsed.users.length > 0 ? parsed.users : []);
+    
+    if (resolvedUsers.length > 0) {
+      AuthService.saveUsers(resolvedUsers);
+      usersCount = resolvedUsers.length;
+    }
+
+    const resolvedSecurity = securitySettings || parsed.securitySettings;
+    if (resolvedSecurity) {
+      AuthService.saveSecuritySettings(resolvedSecurity);
     }
 
     if (this.isCloudActive()) {
@@ -3491,7 +3699,10 @@ export const StorageService = {
       calendarEventsCount: calendarEvents.length,
       meetingsCount: meetings.length,
       invoicesCount: invoices.length,
-      contactsCount: contacts.length
+      contactsCount: contacts.length,
+      usersCount,
+      clubName: settings?.clubName,
+      restoredUsers: resolvedUsers
     };
   },
 

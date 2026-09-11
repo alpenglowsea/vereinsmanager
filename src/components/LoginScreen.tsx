@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { AppUser, ClubSettings, DeploymentMode } from '../types';
 import { AuthService } from '../services/authService';
 import { StorageService } from '../services/storage';
@@ -18,7 +18,9 @@ import {
   UserPlus,
   Mail,
   CheckCircle2,
-  HelpCircle
+  HelpCircle,
+  Upload,
+  Database
 } from 'lucide-react';
 
 interface LoginScreenProps {
@@ -26,15 +28,17 @@ interface LoginScreenProps {
   deploymentMode: DeploymentMode;
   onLoginSuccess: (user: AppUser) => void;
   onOpenDeploymentHub?: () => void;
+  onSettingsReload?: (newSettings: ClubSettings) => void;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
   settings,
   deploymentMode,
   onLoginSuccess,
-  onOpenDeploymentHub
+  onOpenDeploymentHub,
+  onSettingsReload
 }) => {
-  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+  const [activeTab, setActiveTab] = useState<'login' | 'register' | 'import'>('login');
 
   // Login State
   const [usernameInput, setUsernameInput] = useState('');
@@ -49,6 +53,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [regPassword, setRegPassword] = useState('');
   const [regPasswordConfirm, setRegPasswordConfirm] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
+
+  // Import State
+  const [isDragging, setIsDragging] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -161,6 +170,79 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
   };
 
+  const processBackupFile = async (file: File) => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') {
+      setErrorMsg('Bitte wählen Sie eine gültige .json-Sicherungsdatei aus.');
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const res = await StorageService.importFullBackup(text, 'live');
+      
+      const newSettings = await StorageService.getSettings();
+      if (onSettingsReload && newSettings) {
+        onSettingsReload(newSettings);
+      }
+
+      // Switch to login tab
+      setActiveTab('login');
+
+      if (res.usersCount > 0) {
+        const firstUser = res.restoredUsers?.[0]?.username || 'admin';
+        setUsernameInput(firstUser);
+        setPasswordInput('');
+        setSuccessMsg(
+          `Datensicherung von „${res.clubName || 'Verein'}“ erfolgreich wiederhergestellt! (${res.membersCount} Mitglieder, ${res.transactionsCount} Buchungen, ${res.usersCount} Benutzerkonto/en wiederhergestellt). Sie können sich jetzt direkt mit Ihren Zugangsdaten anmelden.`
+        );
+      } else {
+        setUsernameInput('admin');
+        setPasswordInput('');
+        setSuccessMsg(
+          `Datensicherung von „${res.clubName || 'Verein'}“ erfolgreich eingespielt (${res.membersCount} Mitglieder, ${res.transactionsCount} Buchungen). Hinweis: Da in dieser älteren Sicherung noch keine Benutzerkonten exportiert waren, können Sie sich mit dem Standard-Konto „admin“ (Passwort: „admin“) anmelden.`
+        );
+      }
+    } catch (err: any) {
+      console.error('Import error on login screen:', err);
+      setErrorMsg(`Fehler beim Einspielen der Datensicherung: ${err?.message || 'Ungültige Datei'}`);
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processBackupFile(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processBackupFile(file);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
       <div className="w-full max-w-md">
@@ -185,16 +267,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             </div>
 
             <h1 className="text-xl font-extrabold text-white tracking-tight leading-tight">
-              {activeTab === 'login' ? clubName : 'Neues Vereinskonto anlegen'}
+              {activeTab === 'login'
+                ? clubName
+                : activeTab === 'register'
+                ? 'Neues Vereinskonto anlegen'
+                : 'Datensicherung importieren'}
             </h1>
             <p className="text-xs text-slate-400 mt-1 font-medium">
               {activeTab === 'login'
                 ? 'VereinsManager – Sichere Vereinsverwaltung'
-                : 'Kostenlos starten & Verein nach DSGVO verwalten'}
+                : activeTab === 'register'
+                ? 'Kostenlos starten & Verein nach DSGVO verwalten'
+                : 'JSON-Backup laden, um Verein & Konten wiederherzustellen'}
             </p>
 
             {/* Tab Switcher */}
-            <div className="mt-5 grid grid-cols-2 p-1 bg-slate-800/80 border border-slate-700/60 rounded-xl">
+            <div className="mt-5 grid grid-cols-3 p-1 bg-slate-800/80 border border-slate-700/60 rounded-xl gap-1">
               <button
                 type="button"
                 onClick={() => {
@@ -202,13 +290,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   setErrorMsg(null);
                   setSuccessMsg(null);
                 }}
-                className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                className={`py-1.5 px-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
                   activeTab === 'login'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Anmelden
+                <span>Anmelden</span>
               </button>
               <button
                 type="button"
@@ -217,14 +305,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   setErrorMsg(null);
                   setSuccessMsg(null);
                 }}
-                className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                className={`py-1.5 px-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
                   activeTab === 'register'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <UserPlus className="w-3.5 h-3.5" />
+                <UserPlus className="w-3.5 h-3.5 shrink-0" />
                 <span>Registrieren</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('import');
+                  setErrorMsg(null);
+                  setSuccessMsg(null);
+                }}
+                className={`py-1.5 px-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  activeTab === 'import'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="Datensicherung (.json) einspielen"
+              >
+                <Upload className="w-3.5 h-3.5 shrink-0" />
+                <span>Importieren</span>
               </button>
             </div>
           </div>
@@ -512,6 +617,80 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   </button>
                 </div>
               </>
+            )}
+
+            {/* TAB 3: IMPORT BACKUP */}
+            {activeTab === 'import' && (
+              <div className="space-y-4">
+                <div className="p-3.5 bg-blue-50/80 border border-blue-200/80 rounded-xl text-xs text-blue-900 leading-relaxed space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-blue-950">
+                    <Database className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>Nahtloser Umzug auf diesen Rechner</span>
+                  </div>
+                  <p className="text-slate-600 text-[11px] leading-normal">
+                    Laden Sie hier Ihre am anderen PC exportierte <span className="font-semibold text-slate-800">.json-Datensicherung</span> hoch. Alle Daten sowie <strong>Benutzerkonten & Rollen</strong> werden direkt in die lokale Live-Datenbank übertragen, sodass Sie sich anschließend direkt wie gewohnt anmelden können.
+                  </p>
+                </div>
+
+                {/* Dropzone */}
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => !importing && fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
+                    isDragging
+                      ? 'border-blue-600 bg-blue-50/70 scale-[1.01]'
+                      : 'border-slate-300 hover:border-blue-500 hover:bg-slate-50/80 bg-white'
+                  }`}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".json,application/json"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="login-backup-file-input"
+                  />
+
+                  {importing ? (
+                    <div className="py-4 flex flex-col items-center justify-center gap-2.5">
+                      <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                      <div className="text-xs font-bold text-slate-800">Datensicherung wird importiert...</div>
+                      <div className="text-2xs text-slate-500">Datenbank & Benutzerkonten werden eingerichtet</div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm">
+                        <Upload className="w-6 h-6" />
+                      </div>
+                      <div className="mt-1">
+                        <span className="text-xs font-bold text-blue-600 hover:underline">
+                          JSON-Sicherung auswählen
+                        </span>
+                        <span className="text-xs text-slate-500"> oder Datei hierher ziehen</span>
+                      </div>
+                      <p className="text-2xs text-slate-400 font-medium">
+                        Unterstützt VereinsManager .json Sicherungsdateien
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Back to login button */}
+                <div className="text-center pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('login');
+                      setErrorMsg(null);
+                    }}
+                    className="text-xs text-slate-500 hover:text-slate-800 font-semibold hover:underline cursor-pointer"
+                  >
+                    ← Zurück zur Anmeldung
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 

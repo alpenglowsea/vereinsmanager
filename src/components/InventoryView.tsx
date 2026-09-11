@@ -1,6 +1,10 @@
-import React, { useState, useMemo } from 'react';
-import { InventoryItem, InventoryCategory, ItemCondition, ClubSettings } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { InventoryItem, InventoryCategory, ItemCondition, ClubSettings, InventoryBulkUpdates } from '../types';
 import { INVENTORY_CATEGORIES, CONDITION_OPTIONS } from '../data/inventoryCategories';
+import { StorageService } from '../services/storage';
+import { ExportService } from '../services/exportService';
+import { TablePagination } from './TablePagination';
+import { InventoryBulkEditModal } from './InventoryBulkEditModal';
 import {
   Package,
   Plus,
@@ -29,7 +33,9 @@ import {
   Clock,
   Sparkles,
   CheckCircle2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  FileDown,
+  X
 } from 'lucide-react';
 
 interface InventoryViewProps {
@@ -39,6 +45,8 @@ interface InventoryViewProps {
   onOpenCreate: () => void;
   onOpenEdit: (item: InventoryItem) => void;
   onDeleteItem: (id: string) => void;
+  onBulkUpdateItems?: (ids: string[], updates: InventoryBulkUpdates) => Promise<void>;
+  onBulkDeleteItems?: (ids: string[]) => Promise<void>;
 }
 
 export const InventoryView: React.FC<InventoryViewProps> = ({
@@ -47,7 +55,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   settings,
   onOpenCreate,
   onOpenEdit,
-  onDeleteItem
+  onDeleteItem,
+  onBulkUpdateItems,
+  onBulkDeleteItems
 }) => {
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,6 +67,21 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [showNeedsInspectionOnly, setShowNeedsInspectionOnly] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Multi-selection state
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
+  const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+
+  // Pagination state (25, 50, 100, or 'all')
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number | 'all'>(25);
+
+  // Reset to page 1 on filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedDepartment, selectedCategory, selectedCondition, showNeedsInspectionOnly]);
 
   // Departments list including Gesamtverein
   const allDepartments = useMemo(() => {
@@ -111,6 +136,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       return true;
     });
   }, [inventory, searchQuery, selectedDepartment, selectedCategory, selectedCondition, showNeedsInspectionOnly]);
+
+  // Paginated Inventory slice
+  const paginatedInventory = useMemo(() => {
+    if (pageSize === 'all') return filteredInventory;
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredInventory.slice(startIndex, startIndex + pageSize);
+  }, [filteredInventory, currentPage, pageSize]);
 
   // Statistics Summary
   const stats = useMemo(() => {
@@ -218,6 +250,104 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Selected items objects
+  const selectedItems = useMemo(() => {
+    return inventory.filter(item => selectedItemIds.has(item.id));
+  }, [inventory, selectedItemIds]);
+
+  const allFilteredSelected =
+    filteredInventory.length > 0 &&
+    filteredInventory.every(item => selectedItemIds.has(item.id));
+
+  const someFilteredSelected =
+    filteredInventory.some(item => selectedItemIds.has(item.id)) && !allFilteredSelected;
+
+  const handleToggleSelectItem = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedItemIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    if (allFilteredSelected) {
+      setSelectedItemIds(prev => {
+        const next = new Set(prev);
+        filteredInventory.forEach(item => next.delete(item.id));
+        return next;
+      });
+    } else {
+      setSelectedItemIds(prev => {
+        const next = new Set(prev);
+        filteredInventory.forEach(item => next.add(item.id));
+        return next;
+      });
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedItemIds(new Set());
+  };
+
+  const handleBulkUpdate = async (updates: InventoryBulkUpdates) => {
+    const ids = Array.from(selectedItemIds) as string[];
+    if (ids.length === 0) return;
+    setIsBulkProcessing(true);
+    try {
+      if (onBulkUpdateItems) {
+        await onBulkUpdateItems(ids, updates);
+      } else {
+        await StorageService.bulkUpdateInventoryItems(ids, updates);
+      }
+      setIsBulkEditOpen(false);
+      handleClearSelection();
+    } catch (err) {
+      console.error('Failed to bulk update inventory items:', err);
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedItemIds) as string[];
+    if (ids.length === 0) return;
+    setIsBulkProcessing(true);
+    try {
+      if (onBulkDeleteItems) {
+        await onBulkDeleteItems(ids);
+      } else {
+        await StorageService.deleteMultipleInventoryItems(ids);
+      }
+      setIsBulkDeleteConfirmOpen(false);
+      handleClearSelection();
+    } catch (err) {
+      console.error('Failed to bulk delete inventory items:', err);
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const handleExportSelectedCSV = () => {
+    const toExport = selectedItems.length > 0 ? selectedItems : filteredInventory;
+    ExportService.exportInventoryCSV(toExport, `inventar_${toExport.length}_ausgewaehlt.csv`);
+  };
+
+  const handleExportSelectedPDF = () => {
+    const toExport = selectedItems.length > 0 ? selectedItems : filteredInventory;
+    ExportService.exportInventoryPDF(
+      toExport,
+      settings,
+      `inventar_${toExport.length}_ausgewaehlt.pdf`,
+      `Inventarliste (${toExport.length} ausgewählt)`
+    );
   };
 
   return (
@@ -492,6 +622,76 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         </div>
       </div>
 
+      {/* Floating / Sticky Bulk Actions Bar */}
+      {selectedItemIds.size > 0 && (
+        <div className="sticky top-4 z-30 bg-slate-900 text-white rounded-2xl p-4 shadow-xl border border-slate-700 flex flex-wrap items-center justify-between gap-4 animate-in slide-in-from-top-3 duration-200">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+              {selectedItemIds.size}
+            </div>
+            <div>
+              <div className="text-sm font-bold text-white flex items-center gap-2">
+                <span>{selectedItemIds.size} Gegenstand{selectedItemIds.size > 1 ? 'e' : ''} ausgewählt</span>
+              </div>
+              <p className="text-[11px] text-slate-300">
+                Wählen Sie eine Sammelaktion für alle markierten Inventargegenstände
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setIsBulkEditOpen(true)}
+              className="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              <span>Sammelbearbeitung</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsBulkDeleteConfirmOpen(true)}
+              className="bg-rose-600/90 hover:bg-rose-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Ausgewählte löschen</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportSelectedCSV}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Nur ausgewählte Gegenstände als CSV exportieren"
+            >
+              <Download className="w-3.5 h-3.5 text-slate-400" />
+              <span>CSV</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportSelectedPDF}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Nur ausgewählte Gegenstände als PDF exportieren"
+            >
+              <FileDown className="w-3.5 h-3.5 text-blue-400" />
+              <span>PDF</span>
+            </button>
+
+            <div className="h-6 w-px bg-slate-700 mx-1 hidden sm:block" />
+
+            <button
+              type="button"
+              onClick={handleClearSelection}
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              title="Auswahl aufheben"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Content: Table or Cards */}
       {filteredInventory.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-2xs">
@@ -518,6 +718,18 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                  <th className="w-10 py-3.5 px-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={allFilteredSelected}
+                      ref={input => {
+                        if (input) input.indeterminate = someFilteredSelected;
+                      }}
+                      onChange={handleToggleSelectAll}
+                      aria-label="Alle sichtbaren Inventargegenstände auswählen"
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                    />
+                  </th>
                   <th className="py-3.5 px-4">Inventar-Nr. & Gegenstand</th>
                   <th className="py-3.5 px-4">Art des Materials</th>
                   <th className="py-3.5 px-4">Sparte / Abteilung</th>
@@ -530,12 +742,29 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredInventory.map((item) => {
+                {paginatedInventory.map((item) => {
                   const catMeta = getCategoryMeta(item.category);
                   const conditionMeta = CONDITION_OPTIONS.find(c => c.value === item.condition) || CONDITION_OPTIONS[1];
 
                   return (
-                    <tr key={item.id} className="hover:bg-slate-50/60 transition-colors group">
+                    <tr
+                      key={item.id}
+                      className={`transition-colors group ${
+                        selectedItemIds.has(item.id) ? 'bg-blue-50/70 hover:bg-blue-50' : 'hover:bg-slate-50/60'
+                      }`}
+                    >
+                      <td
+                        className="w-10 py-3 px-3 text-center"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedItemIds.has(item.id)}
+                          onChange={(e) => handleToggleSelectItem(item.id, e)}
+                          aria-label={`Gegenstand ${item.name} auswählen`}
+                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                        />
+                      </td>
                       {/* Name & ID */}
                       <td className="py-3 px-4">
                         <div className="font-bold text-slate-900 text-sm leading-snug">{item.name}</div>
@@ -657,37 +886,63 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             </table>
           </div>
 
-          <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+          {/* Table Bottom Summary & Pagination */}
+          <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2">
             <div>
-              Zeige <span className="font-bold text-slate-800">{filteredInventory.length}</span> von <span className="font-bold text-slate-800">{inventory.length}</span> Inventargegenständen
-            </div>
-            <div className="font-medium">
               Gesamtwert der gefilterten Liste:{' '}
               <span className="font-bold text-emerald-700">
                 {filteredInventory.reduce((sum, item) => sum + (item.currentValue || item.purchasePrice || 0), 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
               </span>
             </div>
+            {stats.overdueCount > 0 && (
+              <div className="text-amber-700 font-medium flex items-center gap-1">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                <span>{stats.overdueCount} Prüfung(en) fällig</span>
+              </div>
+            )}
           </div>
+          <TablePagination
+            totalItems={filteredInventory.length}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemName="Inventargegenständen"
+          />
         </div>
       ) : (
         /* CARDS GRID VIEW */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredInventory.map((item) => {
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginatedInventory.map((item) => {
             const catMeta = getCategoryMeta(item.category);
             const conditionMeta = CONDITION_OPTIONS.find(c => c.value === item.condition) || CONDITION_OPTIONS[1];
 
             return (
               <div
                 key={item.id}
-                className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between"
+                className={`bg-white rounded-2xl border ${
+                  selectedItemIds.has(item.id)
+                    ? 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/10'
+                    : 'border-slate-200/80'
+                } p-5 shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between`}
               >
                 <div>
                   {/* Card Header: Category & Sparte */}
                   <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold ${catMeta.badgeBg} ${catMeta.badgeText}`}>
-                      {renderCategoryIcon(item.category, 'w-3 h-3')}
-                      <span>{catMeta.shortLabel}</span>
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedItemIds.has(item.id)}
+                        onChange={(e) => handleToggleSelectItem(item.id, e)}
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                        aria-label={`Gegenstand ${item.name} auswählen`}
+                      />
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold ${catMeta.badgeBg} ${catMeta.badgeText}`}>
+                        {renderCategoryIcon(item.category, 'w-3 h-3')}
+                        <span>{catMeta.shortLabel}</span>
+                      </span>
+                    </div>
 
                     <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200/60">
                       {item.department}
@@ -781,6 +1036,18 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               </div>
             );
           })}
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden">
+            <TablePagination
+              totalItems={filteredInventory.length}
+              currentPage={currentPage}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              itemName="Inventargegenständen"
+            />
+          </div>
         </div>
       )}
 
@@ -814,6 +1081,71 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-xs"
               >
                 Endgültig löschen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inventory Bulk Edit Modal */}
+      {isBulkEditOpen && (
+        <InventoryBulkEditModal
+          selectedItems={selectedItems}
+          departments={allDepartments}
+          onSave={handleBulkUpdate}
+          onClose={() => setIsBulkEditOpen(false)}
+        />
+      )}
+
+      {/* Inventory Bulk Delete Confirmation Modal */}
+      {isBulkDeleteConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  {selectedItemIds.size} Gegenstand{selectedItemIds.size > 1 ? 'e' : ''} wirklich löschen?
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Diese Aktion kann nicht rückgängig gemacht werden. Die Löschungen werden im Revisionsprotokoll archiviert.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 max-h-48 overflow-y-auto text-xs divide-y divide-rose-100">
+              {selectedItems.map(item => (
+                <div key={item.id} className="py-1.5 flex items-center justify-between text-rose-950 font-medium">
+                  <div className="truncate max-w-[280px]">
+                    <span className="font-mono text-rose-700 font-bold mr-2">{item.itemNumber}</span>
+                    <span>{item.name}</span>
+                  </div>
+                  <span className="font-mono text-[11px] text-rose-800">
+                    {item.quantity} {item.unit} • {item.department}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsBulkDeleteConfirmOpen(false)}
+                disabled={isBulkProcessing}
+                className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                disabled={isBulkProcessing}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{isBulkProcessing ? 'Wird gelöscht...' : `${selectedItemIds.size} Gegenstand${selectedItemIds.size > 1 ? 'e' : ''} endgültig löschen`}</span>
               </button>
             </div>
           </div>

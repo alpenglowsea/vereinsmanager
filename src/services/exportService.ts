@@ -7,7 +7,8 @@ import {
   FinancialAccount,
   ClubSettings,
   TaxSphere,
-  ClubContact
+  ClubContact,
+  InventoryItem
 } from '../types';
 import { TAX_SPHERES } from '../data/taxSpheres';
 import { CONTACT_TYPE_MAP } from '../data/contactConstants';
@@ -299,6 +300,265 @@ export const ExportService = {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  },
+
+  // 4b. Transactions Journal PDF Export
+  exportTransactionsPDF(
+    transactions: Transaction[],
+    accounts: FinancialAccount[],
+    settings: ClubSettings,
+    title = 'Buchungsjournal',
+    filename?: string
+  ): void {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const accMap = new Map(accounts.map(a => [a.id, a.name]));
+
+    // Header
+    doc.setFontSize(16);
+    doc.setTextColor(15, 23, 42);
+    doc.text(settings.clubName || 'Sportverein e.V.', 14, 15);
+
+    doc.setFontSize(11);
+    doc.setTextColor(100, 116, 139);
+    doc.text(title, 14, 21);
+
+    doc.setFontSize(8.5);
+    doc.text(
+      `Stand: ${new Date().toLocaleDateString('de-DE')} | ${transactions.length} Buchung(en)`,
+      283,
+      21,
+      { align: 'right' }
+    );
+
+    // Divider
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.5);
+    doc.line(14, 24, 283, 24);
+
+    let totalAmount = 0;
+    const tableRows = transactions.map(t => {
+      totalAmount += t.amount;
+      const isIncome = t.amount >= 0;
+      const amountStr = `${isIncome ? '+' : ''}${t.amount.toFixed(2)} €`;
+      const sphereName = TAX_SPHERES[t.sphere]?.name || t.sphere;
+
+      return [
+        new Date(t.date).toLocaleDateString('de-DE'),
+        t.documentNumber || '–',
+        t.partner || '–',
+        t.bookingText || '–',
+        accMap.get(t.accountId) || t.accountId,
+        sphereName,
+        t.category || '–',
+        t.receipt ? 'Ja' : 'Nein',
+        amountStr
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 27,
+      head: [['Datum', 'Beleg-Nr.', 'Partner', 'Buchungstext', 'Konto', 'Sphäre', 'Kategorie', 'Beleg', 'Betrag (€)']],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [30, 41, 59],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 8,
+        cellPadding: 2
+      },
+      bodyStyles: {
+        fontSize: 7.5,
+        cellPadding: 1.8,
+        textColor: [30, 41, 59]
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      },
+      columnStyles: {
+        0: { cellWidth: 20 },
+        1: { cellWidth: 24, fontStyle: 'bold' },
+        2: { cellWidth: 42 },
+        3: { cellWidth: 50 },
+        4: { cellWidth: 32 },
+        5: { cellWidth: 35 },
+        6: { cellWidth: 36 },
+        7: { cellWidth: 14, halign: 'center' },
+        8: { cellWidth: 24, halign: 'right', fontStyle: 'bold' }
+      },
+      foot: [
+        [
+          { content: `GESAMTSUMME (${transactions.length} Buchungen):`, colSpan: 8, styles: { fontStyle: 'bold', halign: 'right', fillColor: [241, 245, 249], textColor: [15, 23, 42] } },
+          { content: `${totalAmount >= 0 ? '+' : ''}${totalAmount.toFixed(2)} €`, styles: { fontStyle: 'bold', halign: 'right', fillColor: [241, 245, 249], textColor: totalAmount >= 0 ? [16, 185, 129] : [225, 29, 72] } }
+        ]
+      ],
+      didDrawPage: (data) => {
+        doc.setFontSize(7.5);
+        doc.setTextColor(148, 163, 184);
+        doc.text(
+          `Seite ${data.pageNumber} | ${settings.clubName} - Buchungsjournal & GoBD-Archiv`,
+          14,
+          doc.internal.pageSize.height - 8
+        );
+      }
+    });
+
+    const targetFile = filename || `buchungsjournal_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(targetFile);
+  },
+
+  // 4c. Inventory CSV Export
+  exportInventoryCSV(items: InventoryItem[], filename = 'inventarliste.csv'): void {
+    const conditionLabels: Record<string, string> = {
+      new: 'Neu / Neuwertig',
+      good: 'Gut / Einsatzbereit',
+      used: 'Gebraucht',
+      damaged: 'Beschädigt',
+      in_repair: 'In Reparatur',
+      discarded: 'Ausgemustert'
+    };
+
+    const data = items.map(item => ({
+      'Inventar-Nr.': item.itemNumber,
+      'Bezeichnung': item.name,
+      'Kategorie': item.category,
+      'Sparte / Abteilung': item.department,
+      'Menge': item.quantity,
+      'Einheit': item.unit,
+      'Standort': item.location,
+      'Zustand': conditionLabels[item.condition] || item.condition,
+      'Anschaffungsdatum': item.purchaseDate || '',
+      'Anschaffungspreis (EUR)': item.purchasePrice !== undefined ? item.purchasePrice.toFixed(2) : '',
+      'Aktueller Zeitwert (EUR)': item.currentValue !== undefined ? item.currentValue.toFixed(2) : '',
+      'Lieferant / Hersteller': item.supplier || '',
+      'Zuständige Person': item.responsiblePerson || '',
+      'Zugewiesen / Einsatz bei': item.assignedTo || '',
+      'Seriennummer': item.serialNumber || '',
+      'Letzte Prüfung': item.lastCheckedDate || '',
+      'Nächste Prüfung': item.nextInspectionDate || '',
+      'Notizen': (item.notes || '').replace(/(\r\n|\n|\r)/gm, ' ')
+    }));
+
+    const csv = Papa.unparse(data, { delimiter: ';' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  },
+
+  // 4d. Inventory PDF Export
+  exportInventoryPDF(
+    items: InventoryItem[],
+    settings: ClubSettings,
+    title = 'Inventar- & Materialliste',
+    filename?: string
+  ): void {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const conditionLabels: Record<string, string> = {
+      new: 'Neu',
+      good: 'Gut',
+      used: 'Gebraucht',
+      damaged: 'Defekt',
+      in_repair: 'Reparatur',
+      discarded: 'Ausgemustert'
+    };
+
+    // Header
+    doc.setFontSize(16);
+    doc.setTextColor(15, 23, 42);
+    doc.text(settings.clubName || 'Sportverein e.V.', 14, 15);
+
+    doc.setFontSize(11);
+    doc.setTextColor(100, 116, 139);
+    doc.text(title, 14, 21);
+
+    doc.setFontSize(8.5);
+    doc.text(
+      `Stand: ${new Date().toLocaleDateString('de-DE')} | ${items.length} Gegenstände`,
+      283,
+      21,
+      { align: 'right' }
+    );
+
+    // Divider
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.5);
+    doc.line(14, 24, 283, 24);
+
+    let totalValue = 0;
+    const tableRows = items.map(item => {
+      const val = item.currentValue !== undefined ? item.currentValue : item.purchasePrice || 0;
+      totalValue += val;
+      const valStr = val > 0 ? `${val.toFixed(2)} €` : '–';
+
+      return [
+        item.itemNumber || '–',
+        item.name,
+        item.department,
+        `${item.quantity} ${item.unit}`,
+        item.location || '–',
+        conditionLabels[item.condition] || item.condition,
+        valStr,
+        item.responsiblePerson || item.assignedTo || '–',
+        item.nextInspectionDate || '–'
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 27,
+      head: [['Inventar-Nr.', 'Gegenstand', 'Abteilung', 'Menge', 'Standort', 'Zustand', 'Zeitwert (€)', 'Verantwortlich', 'Nächste Prüf.']],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [30, 41, 59],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 8,
+        cellPadding: 2
+      },
+      bodyStyles: {
+        fontSize: 7.5,
+        cellPadding: 1.8,
+        textColor: [30, 41, 59]
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      },
+      columnStyles: {
+        0: { cellWidth: 26, fontStyle: 'bold' },
+        1: { cellWidth: 60 },
+        2: { cellWidth: 32 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 42 },
+        5: { cellWidth: 24 },
+        6: { cellWidth: 24, halign: 'right', fontStyle: 'bold' },
+        7: { cellWidth: 36 },
+        8: { cellWidth: 22, halign: 'center' }
+      },
+      foot: [
+        [
+          { content: `GESAMTWERT (${items.length} Gegenstände):`, colSpan: 6, styles: { fontStyle: 'bold', halign: 'right', fillColor: [241, 245, 249], textColor: [15, 23, 42] } },
+          { content: `${totalValue.toFixed(2)} €`, styles: { fontStyle: 'bold', halign: 'right', fillColor: [241, 245, 249], textColor: [15, 23, 42] } },
+          { content: '', colSpan: 2, styles: { fillColor: [241, 245, 249] } }
+        ]
+      ],
+      didDrawPage: (data) => {
+        doc.setFontSize(7.5);
+        doc.setTextColor(148, 163, 184);
+        doc.text(
+          `Seite ${data.pageNumber} | ${settings.clubName} - Inventarverzeichnis & Sachanlagen`,
+          14,
+          doc.internal.pageSize.height - 8
+        );
+      }
+    });
+
+    const targetFile = filename || `inventarliste_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(targetFile);
   },
 
   // 5. Gewinn- und Verlustrechnung (GuV / EÜR) PDF Export nach § 4 Abs. 3 EStG / 4 steuerliche Sphären

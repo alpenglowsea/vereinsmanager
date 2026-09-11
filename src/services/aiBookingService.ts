@@ -313,21 +313,21 @@ Kategorisiere diesen Geschäftsvorfall:
 - Betrag: ${req.amount ? `${req.amount} EUR` : 'k.A.'}
 - Buchungsart: ${fallbackType || 'automatisch ermitteln'}
 
-SPHÄREN:
-- "ideell": Mitgliedsbeiträge (3100), Spenden (3200), Zuschüsse (3300), Verband (5100), Verwaltung (5200) (0% USt)
-- "vermoegen": Zinsen (3500), Miete/Pacht (3600), Aufwand Vermietung (5500) (0% USt)
-- "zweckbetrieb": Eintrittsgelder (4100), Kurse (4200), Sportartikel Selbstkosten (4300), Trainer/Übungsleiter (6500), Sportgeräte/Bälle/Trikots/Platzmieten/Schiedsrichter (6600), Reisekosten Sport (6700) (7% oder 0% USt)
-- "wirtschaftlich": Werbung/Sponsoring (4500), Bewirtung/Kiosk/Feste (4600), Fanartikel (4700), Wareneinkauf Feste (7100), Feste/GEMA (7200) (19% USt)
+SPHÄREN (DATEV SKR 42 - 5-stellig):
+- "ideell": Mitgliedsbeiträge (40000), Spenden (40450), Zuschüsse (40700), Verband (66100), Verwaltung/Büro (68100) (0% USt)
+- "vermoegen": Miete/Pacht Vereinsheim (46100), Zinsen (47000), Erhaltung Vermietung (62150) (0% USt)
+- "zweckbetrieb": Eintrittsgelder (41100), Kurse (41200), Sportartikel (41400), Trainer/Übungsleiter gem. § 3 Nr. 26 EStG (60040), Sportgeräte/Bälle/Trikots (65100), Hallenmieten (62100), Reisekosten Sport (63100) (7% oder 0% USt)
+- "wirtschaftlich": Bewirtung/Kiosk/Feste (43100/43200), Werbung/Sponsoring (44100), Merchandising (45100), Wareneinkauf Feste/Getränke (51000/51100), Steuern (73100) (19% USt)
 
 Gib ausschließlich valides JSON mit diesem Schema aus:
 {
   "sphere": "ideell" | "vermoegen" | "zweckbetrieb" | "wirtschaftlich",
   "type": "income" | "expense",
-  "mainCategoryCode": "6600",
-  "mainCategoryName": "Spiel-, Trainings- & Wettkampfbetrieb",
-  "subCategoryCode": "6610",
-  "subCategoryName": "Sportgeräte, Bälle, Tore, Netze & Trainingsmaterial",
-  "subCategoryLabel": "6610 - Sport- & Trainingsgeräte",
+  "mainCategoryCode": "65000",
+  "mainCategoryName": "Spielbetrieb, Sportgeräte & Trikots",
+  "subCategoryCode": "65100",
+  "subCategoryName": "Sportgeräte & Trainingsmaterial",
+  "subCategoryLabel": "65100 - Sportgeräte & Trainingsmaterial",
   "vatRate": 0 | 7 | 19,
   "suggestedBookingText": "Prägnanter Buchungstext",
   "confidence": 0.95,

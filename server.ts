@@ -318,30 +318,30 @@ BUCHUNGSDATEN:
 - Betrag: ${amount ? `${amount} EUR` : 'Nicht angegeben'}
 - Vorausgewählte Buchungsart: ${type || 'automatisch erkennen'}
 
-REGELWERK DER 4 STEUERLICHEN SPHÄREN:
+REGELWERK DER 4 STEUERLICHEN SPHÄREN (DATEV SKR 42 - 5-stellig):
 1. "ideell" (Ideeller Bereich - Satzungsgemäße Kernaktivitäten, steuerfrei, 0% USt):
-   - Einnahmen: Mitgliedsbeiträge (3100), Spenden/Zuwendungen (3200), Zuschüsse/Fördermittel (3300), sonstige ideelle Erlöse (3400)
-   - Ausgaben: Verbandsabgaben/LSB (5100), Allgemeine Verwaltung/Büro/IT/Bank (5200), Gremienarbeit/Mitgliederbetreuung (5300)
+   - Einnahmen: Mitgliedsbeiträge (40000), Spenden/Zuwendungen (40400/40450), Zuschüsse/Fördermittel (40700), Bußgelder/sonstiges (40800)
+   - Ausgaben: Verbandsabgaben/LSB (66100), Verwaltung/Büro/IT/Bank/Versicherung (68000), Satzungsgemäße Förderung (50000)
 2. "vermoegen" (Vermögensverwaltung - Fruchtziehung aus Vermögen, ertragssteuerfrei, 0% USt):
-   - Einnahmen: Zinsen/Dividenden (3500), langfristige Vermietung & Verpachtung Vereinsheim/Gaststätte (3600)
-   - Ausgaben: Gebäudeaufwand/Instandhaltung vermietete Objekte (5500), Depotgebühren (5600)
+   - Einnahmen: Miete & Pacht Vereinsheim/Gaststätte (46100), Zinsen & Kapitalerträge (47000)
+   - Ausgaben: Bewirtschaftung & Erhaltung vermietetes Vermögen (62150)
 3. "zweckbetrieb" (Zweckbetrieb - Wirtschaftliche Betätigung zur Zweckerreichung gem. §§ 65-68 AO, steuerbegünstigt, i.d.R. 7% USt oder 0% Vorsteuer):
-   - Einnahmen: Eintrittsgelder Wettkämpfe/Spiele (4100), Kursgebühren/Lehrgänge (4200), Weitergabe Sportartikel zum Selbstkostenpreis (4300)
-   - Ausgaben: Übungsleiter-/Ehrenamtspauschalen (6500), Spiel-, Trainings- & Wettkampfbetrieb wie Bälle/Tore/Netze/Trikots/Platzmieten/Schiedsrichter/Pokale/Erste-Hilfe (6600), Fahrtkosten & Reisekosten Sportler (6700)
+   - Einnahmen: Eintrittsgelder Sport (41100), Kurse & Lehrgänge (41200), Startgelder (41300), Sportartikel Selbstkosten (41400)
+   - Ausgaben: Übungsleiterpauschale § 3 Nr. 26 EStG (60040), Ehrenamtspauschale (60020), Sportstätten & Hallenmieten (62100), Reisekosten Sport (63100), Sportgeräte/Bälle/Trikots (65100), Startgelder (66150)
 4. "wirtschaftlich" (Wirtschaftlicher Geschäftsbetrieb - Voll steuerpflichtig, Wettbewerb, 19% USt):
-   - Einnahmen: Bandenwerbung/Trikotsponsoring/Marketing (4500), Bewirtung/Kiosk/Getränkeverkauf/Vereinsfeste (4600), Merchandising/Fanartikel (4700)
-   - Ausgaben: Wareneinkauf Speisen/Getränke für Feste (7100), Festzelte/GEMA für gesellige Feste/Werbung (7200), Steuern wirtschaftlicher Betrieb (7300)
+   - Einnahmen: Kiosk & Bewirtung (43100/43200), Bandenwerbung/Sponsoring (44100), Merchandising (45100)
+   - Ausgaben: Wareneinkauf Speisen & Getränke (51000/51100), Werbeaufwand (67100), Steuern wirtschaftlicher Betrieb (73100)
 
 AUFGABE:
 Gib ausschließlich valides JSON mit diesem Format aus:
 {
   "sphere": "ideell" | "vermoegen" | "zweckbetrieb" | "wirtschaftlich",
   "type": "income" | "expense",
-  "mainCategoryCode": "6600",
-  "mainCategoryName": "Spiel-, Trainings- & Wettkampfbetrieb",
-  "subCategoryCode": "6610",
-  "subCategoryName": "Sportgeräte, Bälle, Tore, Netze & Trainingsmaterial",
-  "subCategoryLabel": "6610 - Sport- & Trainingsgeräte",
+  "mainCategoryCode": "65000",
+  "mainCategoryName": "Spielbetrieb, Sportgeräte & Trikots",
+  "subCategoryCode": "65100",
+  "subCategoryName": "Sportgeräte & Trainingsmaterial",
+  "subCategoryLabel": "65100 - Sportgeräte & Trainingsmaterial",
   "vatRate": 0 | 7 | 19,
   "suggestedBookingText": "Prägnanter Buchungstext",
   "confidence": 0.95,

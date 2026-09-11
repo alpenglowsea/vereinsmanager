@@ -12,6 +12,8 @@ import {
   ReceiptAttachment,
   InventoryItem,
   MemberBulkUpdates,
+  TransactionBulkUpdates,
+  InventoryBulkUpdates,
   ClubDocument,
   DocumentCategory,
   DocumentFolder,
@@ -587,6 +589,18 @@ export default function App() {
     setTransactions(updated);
   };
 
+  const handleBulkUpdateTransactions = async (ids: string[], updates: TransactionBulkUpdates) => {
+    await StorageService.bulkUpdateTransactions(ids, updates);
+    const updated = await StorageService.getTransactions();
+    setTransactions(updated);
+  };
+
+  const handleBulkDeleteTransactions = async (ids: string[]) => {
+    await StorageService.deleteMultipleTransactions(ids);
+    const updated = await StorageService.getTransactions();
+    setTransactions(updated);
+  };
+
   // Camera Receipt Scanner Handlers
   const handleScannerLinkToTransaction = async (transactionId: string, receipt: ReceiptAttachment) => {
     const targetTx = transactions.find(t => t.id === transactionId);
@@ -675,6 +689,18 @@ export default function App() {
 
   const handleDeleteInventoryItem = async (id: string) => {
     await StorageService.deleteInventoryItem(id);
+    const updated = await StorageService.getInventory();
+    setInventory(updated);
+  };
+
+  const handleBulkUpdateInventoryItems = async (ids: string[], updates: InventoryBulkUpdates) => {
+    await StorageService.bulkUpdateInventoryItems(ids, updates);
+    const updated = await StorageService.getInventory();
+    setInventory(updated);
+  };
+
+  const handleBulkDeleteInventoryItems = async (ids: string[]) => {
+    await StorageService.deleteMultipleInventoryItems(ids);
     const updated = await StorageService.getInventory();
     setInventory(updated);
   };
@@ -958,6 +984,9 @@ export default function App() {
           setActiveTab('dashboard');
           setAuthSession({ user, isAuthenticated: true, loginTime: new Date().toISOString() });
           loadData();
+        }}
+        onSettingsReload={(newSettings) => {
+          if (newSettings) setSettings(newSettings);
         }}
       />
     );
@@ -1818,6 +1847,8 @@ export default function App() {
                   setTxFormOpen(true);
                 }}
                 onDeleteTx={handleDeleteTransaction}
+                onBulkUpdateTransactions={handleBulkUpdateTransactions}
+                onBulkDeleteTransactions={handleBulkDeleteTransactions}
                 onOpenBankImport={() => setBankImportOpen(true)}
                 onOpenTransactionImport={() => setTransactionImportOpen(true)}
                 onOpenReceiptScanner={() => {
@@ -1933,6 +1964,8 @@ export default function App() {
                   setInventoryFormOpen(true);
                 }}
                 onDeleteItem={handleDeleteInventoryItem}
+                onBulkUpdateItems={handleBulkUpdateInventoryItems}
+                onBulkDeleteItems={handleBulkDeleteInventoryItems}
               />
             )}
 

@@ -5,11 +5,15 @@ import {
   ClubSettings,
   TaxSphere,
   ReceiptAttachment,
-  ClubContact
+  ClubContact,
+  TransactionBulkUpdates
 } from '../types';
 import { TAX_SPHERES } from '../data/taxSpheres';
 import { ExportService } from '../services/exportService';
+import { StorageService } from '../services/storage';
 import { TransactionDetailsModal } from './TransactionDetailsModal';
+import { TransactionBulkEditModal } from './TransactionBulkEditModal';
+import { TablePagination } from './TablePagination';
 import {
   Plus,
   Search,
@@ -35,7 +39,12 @@ import {
   GripVertical,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  SlidersHorizontal,
+  FileDown,
+  CheckCircle2,
+  X,
+  AlertCircle
 } from 'lucide-react';
 
 export type TransactionSortField =
@@ -56,6 +65,8 @@ interface FinanceViewProps {
   onOpenCreateTx: () => void;
   onOpenEditTx: (tx: Transaction) => void;
   onDeleteTx: (id: string) => void;
+  onBulkUpdateTransactions?: (ids: string[], updates: TransactionBulkUpdates) => Promise<void>;
+  onBulkDeleteTransactions?: (ids: string[]) => Promise<void>;
   onOpenBankImport: () => void;
   onOpenTransactionImport?: () => void;
   onOpenReceiptScanner?: () => void;
@@ -75,6 +86,8 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   onOpenCreateTx,
   onOpenEditTx,
   onDeleteTx,
+  onBulkUpdateTransactions,
+  onBulkDeleteTransactions,
   onOpenBankImport,
   onOpenTransactionImport,
   onOpenReceiptScanner,
@@ -90,6 +103,12 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   const [selectedType, setSelectedType] = useState<string>('all');
   const [receiptFilter, setReceiptFilter] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
+
+  // Multi-selection state
+  const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
+  const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
   // Accounts ordering state & Drag and Drop
   const [localAccounts, setLocalAccounts] = useState<FinancialAccount[]>(accounts);
@@ -149,6 +168,15 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
       setSortDirection(field === 'date' || field === 'amount' ? 'desc' : 'asc');
     }
   };
+
+  // Pagination state (25, 50, 100, or 'all')
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number | 'all'>(25);
+
+  // Reset to page 1 when any filter or sorting changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedAccountId, selectedSphere, selectedType, receiptFilter, selectedYear, sortField, sortDirection]);
 
   // Transaction details modal state
   const [selectedDetailTx, setSelectedDetailTx] = useState<Transaction | null>(null);
@@ -270,6 +298,111 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
       return sortDirection === 'asc' ? comparison : -comparison;
     });
   }, [filteredTransactions, sortField, sortDirection, accMap]);
+
+  // Paginated slice
+  const paginatedTransactions = useMemo(() => {
+    if (pageSize === 'all') return sortedTransactions;
+    const startIndex = (currentPage - 1) * pageSize;
+    return sortedTransactions.slice(startIndex, startIndex + pageSize);
+  }, [sortedTransactions, currentPage, pageSize]);
+
+  // Selected transactions objects
+  const selectedTransactions = useMemo(() => {
+    return transactions.filter(t => selectedTxIds.has(t.id));
+  }, [transactions, selectedTxIds]);
+
+  const allFilteredSelected =
+    filteredTransactions.length > 0 &&
+    filteredTransactions.every(t => selectedTxIds.has(t.id));
+
+  const someFilteredSelected =
+    filteredTransactions.some(t => selectedTxIds.has(t.id)) && !allFilteredSelected;
+
+  const handleToggleSelectTx = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedTxIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    if (allFilteredSelected) {
+      setSelectedTxIds(prev => {
+        const next = new Set(prev);
+        filteredTransactions.forEach(t => next.delete(t.id));
+        return next;
+      });
+    } else {
+      setSelectedTxIds(prev => {
+        const next = new Set(prev);
+        filteredTransactions.forEach(t => next.add(t.id));
+        return next;
+      });
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedTxIds(new Set());
+  };
+
+  const handleBulkUpdate = async (updates: TransactionBulkUpdates) => {
+    const ids = Array.from(selectedTxIds) as string[];
+    if (ids.length === 0) return;
+    setIsBulkProcessing(true);
+    try {
+      if (onBulkUpdateTransactions) {
+        await onBulkUpdateTransactions(ids, updates);
+      } else {
+        await StorageService.bulkUpdateTransactions(ids, updates);
+      }
+      setIsBulkEditOpen(false);
+      handleClearSelection();
+    } catch (err) {
+      console.error('Failed to bulk update transactions:', err);
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedTxIds) as string[];
+    if (ids.length === 0) return;
+    setIsBulkProcessing(true);
+    try {
+      if (onBulkDeleteTransactions) {
+        await onBulkDeleteTransactions(ids);
+      } else {
+        await StorageService.deleteMultipleTransactions(ids);
+      }
+      setIsBulkDeleteConfirmOpen(false);
+      handleClearSelection();
+    } catch (err) {
+      console.error('Failed to bulk delete transactions:', err);
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const handleExportSelectedCSV = () => {
+    const toExport = selectedTransactions.length > 0 ? selectedTransactions : sortedTransactions;
+    ExportService.exportTransactionsCSV(toExport, accounts, `buchungen_${toExport.length}_ausgewaehlt.csv`);
+  };
+
+  const handleExportSelectedPDF = () => {
+    const toExport = selectedTransactions.length > 0 ? selectedTransactions : sortedTransactions;
+    ExportService.exportTransactionsPDF(
+      toExport,
+      accounts,
+      settings,
+      `Buchungsjournal (${toExport.length} ausgewählt)`
+    );
+  };
 
   const handleExportCSV = () => {
     ExportService.exportTransactionsCSV(sortedTransactions, accounts, `buchungen_${settings.clubName.replace(/\s/g, '_')}.csv`);
@@ -412,6 +545,76 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
         })}
       </div>
 
+      {/* Floating / Sticky Bulk Actions Bar */}
+      {selectedTxIds.size > 0 && (
+        <div className="sticky top-4 z-30 bg-slate-900 text-white rounded-2xl p-4 shadow-xl border border-slate-700 flex flex-wrap items-center justify-between gap-4 animate-in slide-in-from-top-3 duration-200">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+              {selectedTxIds.size}
+            </div>
+            <div>
+              <div className="text-sm font-bold text-white flex items-center gap-2">
+                <span>{selectedTxIds.size} Buchung{selectedTxIds.size > 1 ? 'en' : ''} ausgewählt</span>
+              </div>
+              <p className="text-[11px] text-slate-300">
+                Wählen Sie eine Sammelaktion für alle markierten Buchungen
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setIsBulkEditOpen(true)}
+              className="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              <span>Sammelbearbeitung</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsBulkDeleteConfirmOpen(true)}
+              className="bg-rose-600/90 hover:bg-rose-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Ausgewählte löschen</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportSelectedCSV}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Nur ausgewählte Buchungen als CSV exportieren"
+            >
+              <Download className="w-3.5 h-3.5 text-slate-400" />
+              <span>CSV</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportSelectedPDF}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Nur ausgewählte Buchungen als PDF exportieren"
+            >
+              <FileDown className="w-3.5 h-3.5 text-blue-400" />
+              <span>PDF</span>
+            </button>
+
+            <div className="h-6 w-px bg-slate-700 mx-1 hidden sm:block" />
+
+            <button
+              type="button"
+              onClick={handleClearSelection}
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              title="Auswahl aufheben"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Journal Container */}
       <section className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col overflow-hidden">
         {/* Header toolbar */}
@@ -423,6 +626,11 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-semibold">
               {filteredTransactions.length}
             </span>
+            {selectedTxIds.size > 0 && (
+              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full font-bold">
+                {selectedTxIds.size} markiert
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -587,6 +795,18 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[11px] tracking-wider border-b border-slate-200">
               <tr>
+                <th className="w-10 px-3 py-3 text-center">
+                  <input
+                    type="checkbox"
+                    checked={allFilteredSelected}
+                    ref={input => {
+                      if (input) input.indeterminate = someFilteredSelected;
+                    }}
+                    onChange={handleToggleSelectAll}
+                    aria-label="Alle sichtbaren Buchungen auswählen"
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                  />
+                </th>
                 <th
                   onClick={() => handleSort('date')}
                   className="px-4 py-3 w-28 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-900 transition-colors group/th"
@@ -661,7 +881,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {sortedTransactions.map((tx) => {
+              {paginatedTransactions.map((tx) => {
                 const acc = accMap.get(tx.accountId);
                 const isIncome = tx.amount >= 0;
 
@@ -669,9 +889,23 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                   <tr
                     key={tx.id}
                     onClick={() => handleRowClick(tx)}
-                    className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
+                    className={`transition-colors cursor-pointer group ${
+                      selectedTxIds.has(tx.id) ? 'bg-blue-50/70 hover:bg-blue-50' : 'hover:bg-blue-50/50'
+                    }`}
                     title="Klicken für vollständige Beleg- & Buchungsdetails"
                   >
+                    <td
+                      className="w-10 px-3 py-3 text-center"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedTxIds.has(tx.id)}
+                        onChange={(e) => handleToggleSelectTx(tx.id, e)}
+                        aria-label={`Buchung ${tx.documentNumber || tx.id} auswählen`}
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                      />
+                    </td>
                     <td className="px-4 py-3 font-mono text-slate-500 whitespace-nowrap text-xs">
                       {new Date(tx.date).toLocaleDateString('de-DE')}
                     </td>
@@ -809,7 +1043,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
 
               {sortedTransactions.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400 text-xs">
+                  <td colSpan={9} className="p-8 text-center text-slate-400 text-xs">
                     Keine Buchungen für die aktuellen Filterkriterien vorhanden.
                   </td>
                 </tr>
@@ -818,10 +1052,15 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           </table>
         </div>
 
-        {/* Table Bottom Footer */}
-        <div className="p-3.5 bg-slate-50 border-t border-slate-200 text-center text-xs text-slate-400">
-          Zeige {sortedTransactions.length} von {transactions.length} Buchungen
-        </div>
+        {/* Table Bottom Footer & Pagination */}
+        <TablePagination
+          totalItems={sortedTransactions.length}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemName="Buchungen"
+        />
       </section>
 
       {/* Transaction Details Modal */}
@@ -852,6 +1091,71 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           }
           onOpenCreateContactFromTx={onOpenCreateContactFromTx}
         />
+      )}
+
+      {/* Transaction Bulk Edit Modal */}
+      {isBulkEditOpen && (
+        <TransactionBulkEditModal
+          selectedTransactions={selectedTransactions}
+          accounts={accounts}
+          onSave={handleBulkUpdate}
+          onClose={() => setIsBulkEditOpen(false)}
+        />
+      )}
+
+      {/* Transaction Bulk Delete Confirmation Modal */}
+      {isBulkDeleteConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  {selectedTxIds.size} Buchung{selectedTxIds.size > 1 ? 'en' : ''} wirklich löschen?
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Diese Aktion kann nicht rückgängig gemacht werden. Die Löschungen werden im Revisionsprotokoll archiviert.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 max-h-48 overflow-y-auto text-xs divide-y divide-rose-100">
+              {selectedTransactions.map(tx => (
+                <div key={tx.id} className="py-1.5 flex items-center justify-between text-rose-950 font-medium">
+                  <div className="truncate max-w-[280px]">
+                    <span className="font-mono text-rose-700 font-bold mr-2">{tx.documentNumber}</span>
+                    <span>{tx.partner || tx.bookingText}</span>
+                  </div>
+                  <span className={`font-mono font-bold text-[11px] ${tx.amount >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    {tx.amount.toFixed(2)} €
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsBulkDeleteConfirmOpen(false)}
+                disabled={isBulkProcessing}
+                className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                disabled={isBulkProcessing}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{isBulkProcessing ? 'Wird gelöscht...' : `${selectedTxIds.size} Buchung${selectedTxIds.size > 1 ? 'en' : ''} endgültig löschen`}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
