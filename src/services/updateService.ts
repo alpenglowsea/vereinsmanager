@@ -1,17 +1,16 @@
 import { AppUpdateInfo, DeploymentMode } from '../types';
 
-export const CURRENT_APP_VERSION = (import.meta as any).env?.VITE_APP_VERSION || '1.2.2';
+export const CURRENT_APP_VERSION = (import.meta as any).env?.VITE_APP_VERSION || '1.2.3';
 
 // Default release notes when a new version is detected or simulated
 const MOCK_LATEST_RELEASE = {
   version: CURRENT_APP_VERSION,
-  title: `VereinsManager v${CURRENT_APP_VERSION} – Mehrfachauswahl & Sammelaktionen (Buchungen & Inventar) sowie Konten-Tooltips`,
+  title: `VereinsManager v${CURRENT_APP_VERSION} – Mitgliederbefragung, Inventar-Mitgliederverknüpfung & flexible Kontenverwaltung`,
   date: new Date().toISOString().split('T')[0],
   notes: [
-    '✨ Mehrfachauswahl im Kassenjournal: Markieren mehrerer Buchungen mit schwebender Aktionsleiste, Sammelbearbeitung (Sphäre, Steuer, Konto) und revisionssicherem Sammellöschen',
-    '📦 Mehrfachauswahl im Inventar: Vollständige Checkbox-Auswahl in Tabelle & Kacheln, Sammelbearbeitung (Zustand, Sparte, Standort) und selektiver CSV-/PDF-Export',
-    '🖱️ Mauszeiger-Tooltips für Konten: Vollständige Lesbarkeit überlanger Haupt- und Nebenkonten in Dropdowns durch dynamisch am Mauszeiger haftende Pop-ups',
-    '📄 Selektiver CSV- & PDF-Export: Gezielter Export ausschließlich der aktuell ausgewählten Buchungen bzw. Inventargegenstände'
+    '🗳️ Mitgliederbefragung & Meinungsbilder: Digitale Abstimmungen mit Einmal-Tokens, WhatsApp- & E-Mail-Versand, NPS-Auswertung und PDF-/CSV-Berichten',
+    '📦 Verknüpfung von Inventar und Mitgliedern: Direkte Ausleihe und Rückgabe von Vereinsgegenständen an Mitglieder mit Statusprotokollierung',
+    '🏦 Selbständiges Hinzufügen von Konten: Flexible Anlage eigener Buchungs- und Sachkonten mit dynamischer Sphären- und Kategoriezuordnung'
   ],
   githubUrl: 'https://github.com/strelitzerfc/vereinsmanager/releases',
   downloadUrls: {

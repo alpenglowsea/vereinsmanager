@@ -4,6 +4,49 @@ Alle relevanten Änderungen und Versionsstände des VereinsManagers werden in di
 
 ---
 
+## [v1.2.3] - 2026-09-14
+
+### 🚀 Neue Features & Verbesserungen
+
+#### 🗳️ Mitgliederbefragung & Meinungsbilder (Neues Modul)
+- **Vollintegriertes Befragungstool:** Erstellung und Verwaltung vereinsinterner Umfragen, Stimmungsbilder und Zufriedenheitsanalysen direkt im Navigationsbereich *Mitglieder*.
+- **Vielseitige Fragetypen:**
+  - ⭐ Sterne-Bewertung (1–5 Sterne mit Durchschnittswert)
+  - 🔢 0–10 Skala mit automatischer Net Promoter Score (NPS) Berechnung
+  - 🔘 Einfachauswahl (Single-Choice) mit frei definierbaren Antwortoptionen
+  - ☑️ Mehrfachauswahl (Multiple-Choice)
+  - 👍 Ja / Nein / Enthaltung für formelle Beschluss-Vorabfragen
+  - 📝 Freitext-Rückmeldungen für Lob, Kritik und Anregungen
+- **Vorkonfigurierte Mustervorlagen:** Sofort nutzbare Templates für *Allgemeine Mitgliederzufriedenheit*, *Trainingszeiten & Hallennutzung*, *Meinungsbild Beitragsanpassung* und *Vereinsfest-Organisation*.
+- **Registrierungsfreie Teilnahme:** Mitglieder nehmen über ihren individuellen Link ohne Registrierung, Login oder Passwort direkt auf Smartphone, Tablet oder PC teil.
+- **Kryptografische Einmal-Tokens:** Standardmäßig erzeugt das System für jedes berechtigte Mitglied einen individuellen Einmal-Token, der nach Absenden automatisch entwertet wird, um Mehrfachabstimmungen wirksam auszuschließen. Für unverbindliche Stimmungsbilder kann der Token-Zwang per Schalter deaktiviert werden.
+- **Multi-Channel-Verteilung & Einladungen:**
+  - 💬 **WhatsApp-Direktlink:** Öffnet WhatsApp Web oder die Smartphone-App mit personalisiertem Text und direktem Abstimmungslink.
+  - ✉️ **E-Mail-Einladung:** Generiert fertige E-Mail-Entwürfe mit persönlicher Ansprache und Einladungslink.
+  - 📄 **Druckfertige PDF-Teilnehmerliste:** Ideal zur handschriftlichen Verteilung oder postalischen Beilage.
+  - 📊 **CSV-Export:** Vollständiger Export aller personalisierten Links zur Weiterverarbeitung.
+- **Live-Analytics & Berichte:**
+  - Echtzeit-Übersicht von Gesamtrückläufen, Rücklaufquoten und Status.
+  - Graphische Balkendiagramme, NPS-Aufteilung (Promotoren, Passive, Detraktoren) und anonymisierte Freitextsammlungen.
+  - **PDF-Ergebnisbericht:** Hochwertiger, druckfertiger Bericht für Vorstandssitzungen und Mitgliederversammlungen.
+  - **CSV-Rohdatenexport:** Export aller Antworten für tiefgehende statistische Auswertungen.
+- **Betriebsmodus-Schutz:** Dezenter Hinweis im lokalen Modus mit 1-Klick-Weiterleitung zur Cloud-Aktivierung.
+
+#### 📦 Verknüpfung von Mitglied und Inventar (Ausleihe & Rückgabe)
+- **Direkte Zuordnung an Vereinsmitglieder:** Inventargegenstände (Sportgeräte, Trainingssets, Trikotsätze, Schlüssel, Werkzeuge, IT-Hardware) können direkt einem registrierten Vereinsmitglied zugewiesen werden.
+- **Komfortable Mitgliederauswahl:** Suchbare Dropdowns mit Mitgliedsname, Mitgliedsnummer und Sparte.
+- **Leihstatus & Historie:** Erfassung von Ausleihdatum, geplantem Rückgabedatum, aktuellem Leihstatus (*Verfügbar*, *Verliehen*, *In Reparatur*, *Ausgesondert*) und individuellen Notizen.
+- **1-Klick-Rücknahme:** Schnelle Rückbuchung direkt in der Inventarkarte oder Tabellenzeile mit automatischer Freigabe des Gegenstands.
+- **Visuelle Indikatoren:** Farblich hervorgehobene Badges mit Name des Entleihers in der Kachel- und Tabellenansicht.
+
+#### 🏦 Selbständiges Hinzufügen von Konten & flexible Finanzverwaltung
+- **Eigene Konten flexibel anlegen:** Neben den Standardkonten können jederzeit beliebig viele eigene Bankkonten (Giro, Festgeld, Sparkasse, Unterkonten) sowie Barkassen mit eigener IBAN, BIC und Anfangsbestand angelegt werden.
+- **Freie Sachkonten- & Kategorienkonfiguration:** Anpassung und Erweiterung von Buchungskategorien je Sphäre (Ideeller Bereich, Vermögensverwaltung, Zweckbetrieb, Wirtschaftlicher Geschäftsbetrieb).
+- **Drag & Drop Sortierung:** Bank- und Barkassenkarten lassen sich per Maus in jede gewünschte Reihenfolge verschieben und persistent speichern.
+- **Mauszeiger-Tooltips:** Dynamisch haftende Tooltips in allen Konten-Dropdowns zur vollständigen Lesbarkeit auch sehr langer IBANs und Kontobezeichnungen.
+
+---
+
 ## [v1.2.2] - 2026-09-11
 
 ### 🚀 Neue Features & Verbesserungen

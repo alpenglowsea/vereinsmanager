@@ -23,7 +23,11 @@ import {
   InvoiceTemplateSettings,
   Meeting,
   MeetingTemplateSettings,
-  AppUser
+  AppUser,
+  MemberInventoryAssignment,
+  MemberSurvey,
+  MemberSurveyToken,
+  MemberSurveyResponse
 } from '../types';
 import { UserDashboardConfig } from '../types/dashboard';
 import { DEFAULT_DASHBOARD_CONFIG } from '../data/defaultDashboard';
@@ -32,6 +36,8 @@ import { INITIAL_INVENTORY } from '../data/initialInventory';
 import { INITIAL_CONTACTS } from '../data/initialContacts';
 import { INITIAL_INVOICES, DEFAULT_INVOICE_TEMPLATE } from '../data/initialInvoices';
 import { INITIAL_MEETINGS, DEFAULT_MEETING_TEMPLATE } from '../data/initialMeetings';
+import { INITIAL_SURVEYS, INITIAL_SURVEY_RESPONSES } from '../data/initialSurveys';
+
 import { getInitialDocuments } from '../data/initialDocuments';
 import { getInitialFolders } from '../data/initialFolders';
 import { DEFAULT_CALENDAR_CATEGORIES, INITIAL_CALENDAR_EVENTS } from '../data/initialEvents';
@@ -79,7 +85,11 @@ const STORES = {
   INVOICES: 'invoices',
   INVOICE_TEMPLATES: 'invoice_templates',
   MEETINGS: 'meetings',
-  MEETING_TEMPLATES: 'meeting_templates'
+  MEETING_TEMPLATES: 'meeting_templates',
+  MEMBER_INVENTORY: 'member_inventory',
+  SURVEYS: 'surveys',
+  SURVEY_RESPONSES: 'survey_responses',
+  SURVEY_TOKENS: 'survey_tokens'
 };
 
 const DEFAULT_SETTINGS: ClubSettings = {
@@ -2344,6 +2354,132 @@ export const StorageService = {
     };
   },
 
+  // ----------------------------------------------------
+  // MITGLIEDER-MATERIAL & INVENTARVERKNÜPFUNG
+  // ----------------------------------------------------
+  async getMemberInventoryAssignments(): Promise<MemberInventoryAssignment[]> {
+    const list = await getAllFromStore<MemberInventoryAssignment>(STORES.MEMBER_INVENTORY);
+    return list.sort((a, b) => new Date(b.issueDate || b.createdAt || 0).getTime() - new Date(a.issueDate || a.createdAt || 0).getTime());
+  },
+
+  async getMemberInventoryAssignmentsByMember(memberId: string): Promise<MemberInventoryAssignment[]> {
+    const all = await this.getMemberInventoryAssignments();
+    return all.filter(a => a.memberId === memberId);
+  },
+
+  async saveMemberInventoryAssignment(assignment: MemberInventoryAssignment): Promise<MemberInventoryAssignment> {
+    const now = new Date().toISOString();
+    const existing = await getItemFromStore<MemberInventoryAssignment>(STORES.MEMBER_INVENTORY, assignment.id);
+    const toSave: MemberInventoryAssignment = {
+      ...assignment,
+      createdAt: existing?.createdAt || assignment.createdAt || now,
+      updatedAt: now
+    };
+    await putItemToStore(STORES.MEMBER_INVENTORY, toSave);
+    return toSave;
+  },
+
+  async deleteMemberInventoryAssignment(id: string): Promise<void> {
+    await deleteItemFromStore(STORES.MEMBER_INVENTORY, id);
+  },
+
+  // ----------------------------------------------------
+  // MITGLIEDERBEFRAGUNG & UMFRAGEN
+  // ----------------------------------------------------
+  async getSurveys(): Promise<MemberSurvey[]> {
+    let list = await getAllFromStore<MemberSurvey>(STORES.SURVEYS);
+    if (list.length === 0 && INITIAL_SURVEYS.length > 0) {
+      for (const s of INITIAL_SURVEYS) {
+        await putItemToStore(STORES.SURVEYS, s);
+      }
+      list = [...INITIAL_SURVEYS];
+    }
+    return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  },
+
+  async getSurvey(id: string): Promise<MemberSurvey | null> {
+    const item = await getItemFromStore<MemberSurvey>(STORES.SURVEYS, id);
+    if (!item) {
+      const initial = INITIAL_SURVEYS.find(s => s.id === id);
+      if (initial) {
+        await putItemToStore(STORES.SURVEYS, initial);
+        return initial;
+      }
+    }
+    return item || null;
+  },
+
+  async saveSurvey(survey: MemberSurvey): Promise<MemberSurvey> {
+    const now = new Date().toISOString();
+    const existing = await getItemFromStore<MemberSurvey>(STORES.SURVEYS, survey.id);
+    const toSave: MemberSurvey = {
+      ...survey,
+      createdAt: existing?.createdAt || survey.createdAt || now,
+      updatedAt: now
+    };
+    await putItemToStore(STORES.SURVEYS, toSave);
+    return toSave;
+  },
+
+  async deleteSurvey(id: string): Promise<void> {
+    await deleteItemFromStore(STORES.SURVEYS, id);
+    // Auch zugehörige Antworten und Tokens aufräumen
+    try {
+      const responses = await this.getSurveyResponses(id);
+      for (const r of responses) {
+        await deleteItemFromStore(STORES.SURVEY_RESPONSES, r.id);
+      }
+      const tokens = await this.getSurveyTokens(id);
+      for (const t of tokens) {
+        await deleteItemFromStore(STORES.SURVEY_TOKENS, t.id);
+      }
+    } catch (e) {
+      console.warn('Fehler beim Löschen zugehöriger Umfragedaten:', e);
+    }
+  },
+
+  async getSurveyResponses(surveyId: string): Promise<MemberSurveyResponse[]> {
+    let list = await getAllFromStore<MemberSurveyResponse>(STORES.SURVEY_RESPONSES);
+    let surveyResponses = list.filter(r => r.surveyId === surveyId);
+    if (surveyResponses.length === 0 && surveyId === 'survey-satisfaction-2026' && INITIAL_SURVEY_RESPONSES.length > 0) {
+      for (const r of INITIAL_SURVEY_RESPONSES) {
+        await putItemToStore(STORES.SURVEY_RESPONSES, r as MemberSurveyResponse);
+      }
+      surveyResponses = [...INITIAL_SURVEY_RESPONSES] as MemberSurveyResponse[];
+    }
+    return surveyResponses.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+  },
+
+  async saveSurveyResponse(response: MemberSurveyResponse): Promise<MemberSurveyResponse> {
+    await putItemToStore(STORES.SURVEY_RESPONSES, response);
+    return response;
+  },
+
+  async getSurveyTokens(surveyId: string): Promise<MemberSurveyToken[]> {
+    const list = await getAllFromStore<MemberSurveyToken>(STORES.SURVEY_TOKENS);
+    return list.filter(t => t.surveyId === surveyId);
+  },
+
+  async saveSurveyTokens(tokens: MemberSurveyToken[]): Promise<void> {
+    for (const token of tokens) {
+      await putItemToStore(STORES.SURVEY_TOKENS, token);
+    }
+  },
+
+  async getSurveyToken(surveyId: string, tokenStr: string): Promise<MemberSurveyToken | null> {
+    const tokens = await this.getSurveyTokens(surveyId);
+    return tokens.find(t => t.token === tokenStr) || null;
+  },
+
+  async markSurveyTokenUsed(surveyId: string, tokenStr: string): Promise<void> {
+    const token = await this.getSurveyToken(surveyId, tokenStr);
+    if (token) {
+      token.isUsed = true;
+      token.usedAt = new Date().toISOString();
+      await putItemToStore(STORES.SURVEY_TOKENS, token);
+    }
+  },
+
   // Settings
   async getSettings(): Promise<ClubSettings> {
     if (this.isCloudActive()) {
@@ -3537,7 +3673,7 @@ export const StorageService = {
 
     const backup = {
       app: 'VereinsManager Lokal',
-      version: '1.2.2',
+      version: '1.2.3',
       exportedAt: new Date().toISOString(),
       data: {
         members,

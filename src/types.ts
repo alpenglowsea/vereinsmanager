@@ -155,6 +155,7 @@ export interface Skr42SubCategory {
   name: string; // e.g. 'Laufende Mitgliedsbeiträge'
   label: string; // e.g. '3110 - Laufende Mitgliedsbeiträge'
   vatRateDefault: 0 | 7 | 19;
+  isCustom?: boolean;
 }
 
 export interface Skr42MainCategory {
@@ -164,6 +165,7 @@ export interface Skr42MainCategory {
   sphere: TaxSphere;
   type: 'income' | 'expense';
   subCategories: Skr42SubCategory[];
+  isCustom?: boolean;
 }
 
 export interface TransactionSplit {
@@ -383,6 +385,24 @@ export interface InventoryItem {
   photoUrl?: string; // Optionales Foto des Gegenstands
   lastCheckedDate?: string; // Datum der letzten Inventur / Prüfung
   nextInspectionDate?: string; // Nächste Prüfung (z.B. TÜV Sportgeräte)
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MemberInventoryAssignment {
+  id: string;
+  memberId: string;
+  inventoryItemId: string;
+  itemName?: string;
+  itemNumber?: string;
+  quantity: number;
+  unit?: string;
+  hasContribution: boolean; // Check-Box ob das Mitglied einen Eigenanteil geleistet hat
+  contributionAmount?: number; // Betrag des Eigenanteils in EUR
+  issueDate: string; // YYYY-MM-DD
+  returnDate?: string; // YYYY-MM-DD
+  status: 'issued' | 'returned';
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -1034,6 +1054,82 @@ export interface MeetingTemplateSettings {
   showRegisterExtractNotice: boolean; // Hinweiszeile für Notar / Amtsgericht
   accentColor: string; // Hex-Farbe
 }
+
+// ----------------------------------------------------
+// MITGLIEDERBEFRAGUNG & MEINUNGSBILDER
+// ----------------------------------------------------
+
+export type SurveyQuestionType =
+  | 'single_choice'
+  | 'multiple_choice'
+  | 'rating_stars'
+  | 'scale_10'
+  | 'text'
+  | 'yes_no';
+
+export interface SurveyQuestion {
+  id: string;
+  type: SurveyQuestionType;
+  title: string;
+  description?: string;
+  required: boolean;
+  options?: string[]; // Für single_choice und multiple_choice
+  minRating?: number; // Standard: 1
+  maxRating?: number; // Standard: 5
+  scaleMin?: number; // Standard: 0 oder 1
+  scaleMax?: number; // Standard: 10
+  scaleMinLabel?: string; // z.B. "Überhaupt nicht zufrieden"
+  scaleMaxLabel?: string; // z.B. "Vollkommen zufrieden"
+  order: number;
+}
+
+export type SurveyStatus = 'draft' | 'active' | 'closed';
+
+export interface MemberSurvey {
+  id: string;
+  title: string;
+  description: string;
+  category?: string; // z.B. "Mitgliederzufriedenheit", "Sportangebot", "Vereinsleben"
+  department?: string; // 'all' oder z.B. "Fußball", "Tennis"
+  status: SurveyStatus;
+  startDate: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  anonymous: boolean; // Anonyme Auswertung (Antworten ohne Mitgliedsbezug)
+  useTokens: boolean; // Einmal-Token Switch (true = personengebundene Einmal-Links, false = öffentlicher Link)
+  allowMultipleSubmissions?: boolean;
+  questions: SurveyQuestion[];
+  createdById?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MemberSurveyToken {
+  id: string;
+  surveyId: string;
+  memberId: string;
+  token: string;
+  memberName: string;
+  memberNumber: string;
+  memberEmail?: string;
+  memberPhone?: string;
+  memberDepartment?: string;
+  isUsed: boolean;
+  usedAt?: string;
+  invitedAt?: string;
+  inviteMethod?: 'whatsapp' | 'email' | 'manual';
+  createdAt: string;
+}
+
+export interface MemberSurveyResponse {
+  id: string;
+  surveyId: string;
+  token?: string;
+  memberId?: string;
+  memberName?: string;
+  submittedAt: string;
+  answers: Record<string, any>; // questionId -> value (string, string[], number)
+}
+
 
 
 

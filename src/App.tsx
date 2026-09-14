@@ -37,6 +37,7 @@ import { UserDashboardConfig } from './types/dashboard';
 import { DEFAULT_DASHBOARD_CONFIG } from './data/defaultDashboard';
 import { DEFAULT_MEETING_TEMPLATE } from './data/initialMeetings';
 import { createDocumentFromInvoice, downloadInvoicePdf } from './services/invoicePdfService';
+import './services/customCategoryService';
 
 // Views
 import { DashboardView } from './components/DashboardView';
@@ -55,6 +56,8 @@ import { CalendarView } from './components/CalendarView';
 import { OnlineApplicationsView } from './components/OnlineApplicationsView';
 import { MeetingsView } from './components/MeetingsView';
 import { PublicApplicationForm } from './components/PublicApplicationForm';
+import { MemberSurveysView } from './components/MemberSurveysView';
+import { PublicSurveyView } from './components/PublicSurveyView';
 
 // Modals & Drawers
 import { DashboardConfigModal } from './components/DashboardConfigModal';
@@ -130,7 +133,8 @@ import {
   FileCheck,
   SlidersHorizontal,
   Contact,
-  ScrollText
+  ScrollText,
+  Vote
 } from 'lucide-react';
 
 type ActiveTab =
@@ -139,6 +143,7 @@ type ActiveTab =
   | 'members'
   | 'online_applications'
   | 'member_analytics'
+  | 'member_surveys'
   | 'sepa'
   | 'finance'
   | 'guv'
@@ -214,6 +219,19 @@ export default function App() {
   });
   const [isPublicFormMode, setIsPublicFormMode] = useState<boolean>(() => {
     return window.location.search.includes('antrag') || window.location.search.includes('form');
+  });
+  const [publicSurveyParams, setPublicSurveyParams] = useState<{ surveyId: string; token?: string } | null>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const sId = params.get('surveyId') || params.get('survey') || params.get('umfrage');
+      if (sId) {
+        return {
+          surveyId: sId,
+          token: params.get('token') || undefined
+        };
+      }
+    }
+    return null;
   });
   const [settings, setSettings] = useState<ClubSettings>({
     clubName: 'TSV Musterstadt 1890 e.V.',
@@ -974,6 +992,23 @@ export default function App() {
     );
   }
 
+  // Public Survey Participation Gate: Members can vote directly via link without registration/login
+  if (publicSurveyParams) {
+    return (
+      <PublicSurveyView
+        surveyId={publicSurveyParams.surveyId}
+        token={publicSurveyParams.token}
+        settings={settings}
+        onClose={() => {
+          if (typeof window !== 'undefined') {
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+          setPublicSurveyParams(null);
+        }}
+      />
+    );
+  }
+
   // Auth Gate: If user is not authenticated, show Login Screen
   if (!authSession.isAuthenticated) {
     return (
@@ -1117,7 +1152,7 @@ export default function App() {
               type="button"
               onClick={() => setMembersMenuOpen(!membersMenuOpen)}
               className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer select-none ${
-                ['members', 'online_applications', 'member_analytics'].includes(activeTab)
+                ['members', 'online_applications', 'member_analytics', 'member_surveys'].includes(activeTab)
                   ? 'text-blue-300 bg-slate-800/50 hover:bg-slate-800 hover:text-white'
                   : 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-200'
               }`}
@@ -1199,6 +1234,28 @@ export default function App() {
                 >
                   <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
                   <span>Mitglieder-Statistiken</span>
+                </button>
+
+                <button
+                  type="button"
+                  id="nav-btn-member-surveys"
+                  onClick={() => {
+                    setActiveTab('member_surveys');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    activeTab === 'member_surveys'
+                      ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Vote className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Mitgliederbefragung</span>
+                  </div>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                    Cloud
+                  </span>
                 </button>
               </div>
             )}
@@ -1565,6 +1622,7 @@ export default function App() {
                 {activeTab === 'members' && 'Mitgliederverwaltung'}
                 {activeTab === 'online_applications' && 'Mitgliedsanträge & Digitales Aufnahmewesen'}
                 {activeTab === 'member_analytics' && 'Mitglieder-Statistiken & Demografie'}
+                {activeTab === 'member_surveys' && 'Mitgliederbefragung & Meinungsbilder'}
                 {activeTab === 'sepa' && 'Beitragslauf (SEPA-Lastschriften)'}
                 {activeTab === 'finance' && 'Finanz- & Kassenverwaltung'}
                 {activeTab === 'guv' && 'Einnahmen-Überschuss-Rechnung (EÜR / GuV)'}
@@ -1817,6 +1875,18 @@ export default function App() {
               <MemberAnalyticsView members={members} settings={settings} />
             )}
 
+            {/* Tab: Member Surveys & Feedback */}
+            {activeTab === 'member_surveys' && (
+              <MemberSurveysView
+                settings={settings}
+                members={members}
+                onNavigateToSettings={() => {
+                  setSettingsActiveTab('deployment');
+                  setActiveTab('settings');
+                }}
+              />
+            )}
+
             {/* Tab: SEPA Direct Debit & Contribution Run */}
             {activeTab === 'sepa' && (
               <SepaRunView
@@ -1955,6 +2025,7 @@ export default function App() {
                 inventory={inventory}
                 departments={settings.departments}
                 settings={settings}
+                members={members}
                 onOpenCreate={() => {
                   setEditingInventoryItem(null);
                   setInventoryFormOpen(true);
@@ -2162,6 +2233,8 @@ export default function App() {
         <MemberDetailsDrawer
           member={detailsMember}
           settings={settings}
+          inventory={inventory}
+          allMembers={members}
           onClose={() => setDetailsMember(null)}
           onDelete={handleDeleteMember}
           onSaveMember={handleSaveMember}

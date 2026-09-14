@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, ChevronDown, X, Check } from 'lucide-react';
+import { Search, ChevronDown, X, Check, Plus } from 'lucide-react';
 
 export interface SearchableAccountOption {
   value: string;
@@ -9,6 +9,7 @@ export interface SearchableAccountOption {
   label?: string;
   group?: string;
   vatRateDefault?: 0 | 7 | 19;
+  isCustom?: boolean;
 }
 
 interface SearchableAccountSelectProps {
@@ -20,6 +21,8 @@ interface SearchableAccountSelectProps {
   placeholder?: string;
   searchPlaceholder?: string;
   disabled?: boolean;
+  onAddNew?: (searchQuery?: string) => void;
+  addNewLabel?: string;
 }
 
 export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = ({
@@ -30,7 +33,9 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
   onChange,
   placeholder = 'Konto auswählen...',
   searchPlaceholder = 'Nummer oder Begriff tippen...',
-  disabled = false
+  disabled = false,
+  onAddNew,
+  addNewLabel = 'Neues Konto anlegen...'
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -216,10 +221,49 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
           </div>
 
           {/* Scrollable Options List */}
-          <div className="max-h-56 overflow-y-auto divide-y divide-slate-50 text-xs">
+          <div className="max-h-60 overflow-y-auto divide-y divide-slate-50 text-xs">
+            {/* Direct Add Action from Dropdown */}
+            {onAddNew && (
+              <div className="p-1.5 bg-slate-50/90 border-b border-slate-200/80 sticky top-0 z-10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    onAddNew(searchQuery);
+                  }}
+                  className="w-full px-3 py-2 text-left flex items-center justify-between gap-2 bg-white hover:bg-blue-50 text-blue-700 font-semibold border border-blue-200 hover:border-blue-300 rounded-lg shadow-2xs transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <div className="w-5 h-5 rounded-md bg-blue-100 group-hover:bg-blue-200 text-blue-700 flex items-center justify-center shrink-0">
+                      <Plus className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="text-xs truncate">{addNewLabel}</span>
+                  </div>
+                  <span className="text-3xs font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 shrink-0">
+                    + Neu
+                  </span>
+                </button>
+              </div>
+            )}
+
             {filteredOptions.length === 0 ? (
-              <div className="p-4 text-center text-slate-400 text-xs">
-                Kein Konto für „{searchQuery}“ gefunden.
+              <div className="p-5 text-center space-y-2.5">
+                <div className="text-slate-400 text-xs">
+                  Kein Konto für „{searchQuery}“ gefunden.
+                </div>
+                {onAddNew && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsOpen(false);
+                      onAddNew(searchQuery);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{addNewLabel}</span>
+                  </button>
+                )}
               </div>
             ) : groupedOptions ? (
               groupedOptions.map(([groupName, groupItems]) => (
@@ -258,6 +302,11 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                             </span>
                           )}
                           <span className="truncate">{opt.name}</span>
+                          {opt.isCustom && (
+                            <span className="text-3xs bg-amber-50 text-amber-700 border border-amber-200/80 px-1.5 py-0.2 rounded font-medium shrink-0">
+                              Eigenes
+                            </span>
+                          )}
                           {opt.vatRateDefault !== undefined && opt.vatRateDefault > 0 && (
                             <span className="text-3xs text-slate-400 font-normal shrink-0">
                               ({opt.vatRateDefault}% USt)
@@ -302,6 +351,11 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                         </span>
                       )}
                       <span className="truncate">{opt.name}</span>
+                      {opt.isCustom && (
+                        <span className="text-3xs bg-amber-50 text-amber-700 border border-amber-200/80 px-1.5 py-0.2 rounded font-medium shrink-0">
+                          Eigenes
+                        </span>
+                      )}
                       {opt.vatRateDefault !== undefined && opt.vatRateDefault > 0 && (
                         <span className="text-3xs text-slate-400 font-normal shrink-0">
                           ({opt.vatRateDefault}% USt)
@@ -315,10 +369,22 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
             )}
           </div>
 
-          {/* Footer count */}
-          <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 text-3xs text-slate-400 flex items-center justify-between">
+          {/* Footer count and optional Add link */}
+          <div className="px-3 py-2 bg-slate-50 border-t border-slate-100 text-3xs text-slate-500 flex items-center justify-between">
             <span>{filteredOptions.length} Konten verfügbar</span>
-            <span className="text-slate-400">Tipp: Tippen Sie z.B. 40000 oder Name</span>
+            {onAddNew && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  onAddNew(searchQuery);
+                }}
+                className="text-2xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Neu anlegen</span>
+              </button>
+            )}
           </div>
         </div>
       )}

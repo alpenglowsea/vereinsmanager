@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Plus,
   Trash2,
@@ -14,6 +14,7 @@ import {
 import { TaxSphere, TransactionSplit } from '../types';
 import { TAX_SPHERES, getSkr42MainCategories, getSkr42SubCategories, SKR42_STRUCTURE } from '../data/taxSpheres';
 import { SearchableAccountSelect, SearchableAccountOption } from './SearchableAccountSelect';
+import { CreateAccountModal } from './CreateAccountModal';
 
 interface SplitBookingManagerProps {
   totalAmount: number; // Gesamtbetrag der Buchung
@@ -39,6 +40,20 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
   onCancelSplit,
   error
 }) => {
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createMode, setCreateMode] = useState<'main' | 'sub'>('main');
+  const [activeSplitIndex, setActiveSplitIndex] = useState(0);
+  const [initialQuery, setInitialQuery] = useState('');
+  const [customCatVer, setCustomCatVer] = useState(0);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setCustomCatVer(v => v + 1);
+    };
+    window.addEventListener('vm_skr42_updated', handleUpdate);
+    return () => window.removeEventListener('vm_skr42_updated', handleUpdate);
+  }, []);
+
   // Rechnerische Summe aller Teilbeträge
   const sumOfSplits = useMemo(() => {
     return splits.reduce((acc, s) => acc + (Number(s.amount) || 0), 0);
@@ -59,7 +74,8 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
       code: main.code,
       name: main.name,
       label: `${main.code} - ${main.name}`,
-      group: main.type === 'income' ? 'Einnahmen-Konten (Erträge / Erlöse)' : 'Ausgaben-Konten (Kosten / Aufwand)'
+      group: main.type === 'income' ? 'Einnahmen-Konten (Erträge / Erlöse)' : 'Ausgaben-Konten (Kosten / Aufwand)',
+      isCustom: main.isCustom
     }));
   };
 
@@ -71,7 +87,8 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
       code: sub.code,
       name: sub.name,
       label: sub.label,
-      vatRateDefault: sub.vatRateDefault
+      vatRateDefault: sub.vatRateDefault,
+      isCustom: sub.isCustom
     }));
   };
 
@@ -342,6 +359,13 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
                   options={mainOptions}
                   placeholder="Hauptkonto auswählen..."
                   searchPlaceholder="Hauptkonto oder Nummer suchen..."
+                  onAddNew={(query) => {
+                    setActiveSplitIndex(index);
+                    setCreateMode('main');
+                    setInitialQuery(query || '');
+                    setCreateModalOpen(true);
+                  }}
+                  addNewLabel="Neues Hauptkonto anlegen..."
                 />
 
                 <SearchableAccountSelect
@@ -356,6 +380,13 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
                   options={subOptions}
                   placeholder="Unterkonto auswählen..."
                   searchPlaceholder="Unterkonto suchen..."
+                  onAddNew={(query) => {
+                    setActiveSplitIndex(index);
+                    setCreateMode('sub');
+                    setInitialQuery(query || '');
+                    setCreateModalOpen(true);
+                  }}
+                  addNewLabel="Neues Unterkonto anlegen..."
                 />
               </div>
 
@@ -527,6 +558,26 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
           </div>
         )}
       </div>
+
+      {/* Modal for creating custom SKR42 Haupt- and Nebenkonten directly from Split Dropdowns */}
+      {createModalOpen && (
+        <CreateAccountModal
+          isOpen={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          mode={createMode}
+          currentSphere={splits[activeSplitIndex]?.sphere || 'ideell'}
+          currentType="expense"
+          currentMainCatIdOrCode={splits[activeSplitIndex]?.mainCategory}
+          initialQuery={initialQuery}
+          onCreatedMain={(newMain) => {
+            handleMainCategoryChange(activeSplitIndex, newMain.id);
+          }}
+          onCreatedSub={(newSub, parentMain) => {
+            handleMainCategoryChange(activeSplitIndex, parentMain.id);
+            handleSubCategoryChange(activeSplitIndex, newSub.label);
+          }}
+        />
+      )}
     </div>
   );
 };

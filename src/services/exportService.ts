@@ -8,7 +8,8 @@ import {
   ClubSettings,
   TaxSphere,
   ClubContact,
-  InventoryItem
+  InventoryItem,
+  MemberInventoryAssignment
 } from '../types';
 import { TAX_SPHERES } from '../data/taxSpheres';
 import { CONTACT_TYPE_MAP } from '../data/contactConstants';
@@ -868,5 +869,156 @@ export const ExportService = {
     });
 
     doc.save(`kontakte_${new Date().toISOString().split('T')[0]}.pdf`);
+  },
+
+  // 14. Export Issued Inventory (Materialausgabe an Mitglieder) to CSV
+  async exportIssuedInventoryCSV(
+    assignments: MemberInventoryAssignment[],
+    members: Member[],
+    inventory: InventoryItem[],
+    filename?: string
+  ): Promise<FileSaveResult> {
+    const memberMap = new Map(members.map(m => [m.id, m]));
+    const invMap = new Map(inventory.map(i => [i.id, i]));
+
+    const data = assignments.map(a => {
+      const member = memberMap.get(a.memberId);
+      const inv = invMap.get(a.inventoryItemId);
+      return {
+        'Mitgliedsnummer': member?.memberNumber || '',
+        'Mitglied Name': member ? `${member.lastName}, ${member.firstName}` : '',
+        'Abteilung': member?.department || '',
+        'Inventarnummer': a.itemNumber || inv?.itemNumber || '',
+        'Gegenstand': a.itemName || inv?.name || '',
+        'Menge': a.quantity,
+        'Einheit': a.unit || inv?.unit || 'Stk.',
+        'Ausgabedatum': a.issueDate || '',
+        'Status': a.status === 'returned' ? 'Zurückgegeben' : 'Ausgegeben',
+        'Rückgabedatum': a.returnDate || '',
+        'Eigenanteil': a.hasContribution ? 'Ja' : 'Nein',
+        'Eigenanteil Betrag (EUR)': a.hasContribution && a.contributionAmount ? a.contributionAmount.toFixed(2) : '0.00',
+        'Notizen': (a.notes || '').replace(/(\r\n|\n|\r)/gm, ' ')
+      };
+    });
+
+    const csv = Papa.unparse(data, { delimiter: ';' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    return saveBlobWithLocationPicker(blob, filename || `ausgeteilte_gegenstaende_${new Date().toISOString().split('T')[0]}.csv`, {
+      description: 'CSV-Tabelle (*.csv)',
+      mimeType: 'text/csv',
+      extension: '.csv'
+    });
+  },
+
+  // 15. Export Issued Inventory (Materialausgabe an Mitglieder) to PDF
+  async exportIssuedInventoryPDF(
+    assignments: MemberInventoryAssignment[],
+    members: Member[],
+    inventory: InventoryItem[],
+    settings: ClubSettings,
+    filename?: string
+  ): Promise<FileSaveResult> {
+    const memberMap = new Map(members.map(m => [m.id, m]));
+    const invMap = new Map(inventory.map(i => [i.id, i]));
+
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+    // Header
+    doc.setFontSize(18);
+    doc.setTextColor(20, 30, 50);
+    doc.text(settings.clubName, 14, 15);
+
+    doc.setFontSize(12);
+    doc.setTextColor(100, 110, 120);
+    doc.text('Übersicht ausgeteilter Gegenstände & Materialausgabe', 14, 22);
+
+    const activeCount = assignments.filter(a => a.status !== 'returned').length;
+    const totalContribution = assignments
+      .filter(a => a.hasContribution && a.contributionAmount)
+      .reduce((s, a) => s + (a.contributionAmount || 0), 0);
+
+    doc.setFontSize(9);
+    doc.text(
+      `Stand: ${new Date().toLocaleDateString('de-DE')} | Gesamt: ${assignments.length} Zuweisungen (${activeCount} aktiv) | Eigenanteil gesamt: ${totalContribution.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+      283,
+      22,
+      { align: 'right' }
+    );
+
+    // Divider
+    doc.setDrawColor(220, 225, 230);
+    doc.setLineWidth(0.5);
+    doc.line(14, 25, 283, 25);
+
+    const tableRows = assignments.map(a => {
+      const member = memberMap.get(a.memberId);
+      const inv = invMap.get(a.inventoryItemId);
+      const memberName = member ? `${member.lastName}, ${member.firstName} (${member.memberNumber})` : 'Unbekannt';
+      const itemName = a.itemName || inv?.name || 'Gegenstand';
+      const itemNumber = a.itemNumber || inv?.itemNumber || '–';
+      const qtyStr = `${a.quantity} ${a.unit || inv?.unit || 'Stk.'}`;
+      const statusStr = a.status === 'returned' ? `Zurück (${a.returnDate || ''})` : 'Ausgegeben';
+      const contribStr = a.hasContribution
+        ? `${(a.contributionAmount || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+        : '–';
+      return [
+        memberName,
+        itemNumber,
+        itemName,
+        qtyStr,
+        a.issueDate || '–',
+        statusStr,
+        contribStr,
+        a.notes || ''
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 28,
+      head: [['Mitglied', 'Inventar-Nr.', 'Gegenstand', 'Menge', 'Ausgabedatum', 'Status', 'Eigenanteil', 'Bemerkung']],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [30, 41, 59],
+        textColor: [255, 255, 255],
+        fontSize: 8,
+        fontStyle: 'bold',
+        halign: 'left'
+      },
+      bodyStyles: {
+        fontSize: 8,
+        cellPadding: 2,
+        textColor: [40, 40, 40]
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      },
+      columnStyles: {
+        0: { cellWidth: 50 },
+        1: { cellWidth: 26 },
+        2: { cellWidth: 60 },
+        3: { cellWidth: 20, halign: 'center' },
+        4: { cellWidth: 24, halign: 'center' },
+        5: { cellWidth: 28 },
+        6: { cellWidth: 24, halign: 'right' },
+        7: { cellWidth: 37 }
+      },
+      didDrawPage: (data) => {
+        doc.setFontSize(8);
+        doc.setTextColor(140, 140, 140);
+        doc.text(
+          `Seite ${data.pageNumber} | ${settings.clubName} - Material- & Inventarnutzung`,
+          14,
+          doc.internal.pageSize.height - 8
+        );
+      }
+    });
+
+    const pdfBlob = doc.output('blob');
+    return saveBlobWithLocationPicker(pdfBlob, filename || `ausgeteilte_gegenstaende_${new Date().toISOString().split('T')[0]}.pdf`, {
+      description: 'PDF-Dokument (*.pdf)',
+      mimeType: 'application/pdf',
+      extension: '.pdf'
+    });
   }
 };

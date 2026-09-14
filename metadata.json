@@ -1,6 +1,6 @@
 {
   "name": "VereinsManager Lokal",
-  "description": "DSGVO-konforme Vereinsverwaltung für Mitglieder, Kontaktverwaltung, professionelle Rechnungserstellung nach DIN 5008 mit Blanko-Briefpapier-Unterstützung, Online-Aufnahmeanträge mit digitaler Touch-Signatur & SEPA-Mandat, Beitrags- & SEPA-Lastschriften (pain.008 XML), Finanzen/GuV nach 4 Sphären, Geld- & Sachzuwendungsbestätigungen nach BMF-Muster, Inventar, Dokumentenarchiv und Terminkalender.",
+  "description": "DSGVO-konforme Vereinsverwaltung für Mitglieder, digitale Mitgliederbefragungen & Meinungsbilder mit Einmal-Tokens, Kontaktverwaltung, professionelle Rechnungserstellung nach DIN 5008 mit Blanko-Briefpapier-Unterstützung, Online-Aufnahmeanträge mit digitaler Touch-Signatur & SEPA-Mandat, Beitrags- & SEPA-Lastschriften (pain.008 XML), Finanzen/GuV nach 4 Sphären, Geld- & Sachzuwendungsbestätigungen nach BMF-Muster, Inventar, Dokumentenarchiv und Terminkalender.",
   "requestFramePermissions": ["camera", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

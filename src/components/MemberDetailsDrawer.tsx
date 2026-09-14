@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Member, MemberAuditLog, ClubSettings } from '../types';
+import { Member, MemberAuditLog, ClubSettings, InventoryItem, MemberInventoryAssignment } from '../types';
 import { ExportService } from '../services/exportService';
 import { StorageService } from '../services/storage';
+import { IssuedInventoryModal } from './IssuedInventoryModal';
 import {
   X,
   Edit2,
@@ -23,13 +24,21 @@ import {
   Copy,
   Check,
   Upload,
-  AlertCircle
+  AlertCircle,
+  Package,
+  Plus,
+  CheckCircle2,
+  RotateCcw,
+  FileSpreadsheet,
+  FileText
 } from 'lucide-react';
 
 interface MemberDetailsDrawerProps {
   member: Member | null;
   auditLogs?: MemberAuditLog[];
   settings: ClubSettings;
+  inventory?: InventoryItem[];
+  allMembers?: Member[];
   onEdit: (member: Member) => void;
   onDelete?: (id: string) => void;
   onSaveMember?: (member: Member) => void;
@@ -40,16 +49,186 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
   member,
   auditLogs = [],
   settings,
+  inventory,
+  allMembers,
   onEdit,
   onDelete,
   onSaveMember,
   onClose
 }) => {
-  const [tab, setTab] = useState<'details' | 'history'>('details');
+  const [tab, setTab] = useState<'details' | 'history' | 'inventory'>('details');
   const [copiedIban, setCopiedIban] = useState(false);
   const [logs, setLogs] = useState<MemberAuditLog[]>(auditLogs || []);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Material & Inventar Verknüpfung
+  const [memberAssignments, setMemberAssignments] = useState<MemberInventoryAssignment[]>([]);
+  const [allAssignments, setAllAssignments] = useState<MemberInventoryAssignment[]>([]);
+  const [inventoryList, setInventoryList] = useState<InventoryItem[]>(inventory || []);
+  const [showAllIssuedModal, setShowAllIssuedModal] = useState(false);
+
+  // Neue Kachel (Inline-Formular)
+  const [isAddingAssignment, setIsAddingAssignment] = useState(false);
+  const [newAssignmentItem, setNewAssignmentItem] = useState('');
+  const [newQuantity, setNewQuantity] = useState(1);
+  const [newIssueDate, setNewIssueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newHasContribution, setNewHasContribution] = useState(false);
+  const [newContributionAmount, setNewContributionAmount] = useState('');
+  const [newNotes, setNewNotes] = useState('');
+
+  // Kachel bearbeiten
+  const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
+  const [editItem, setEditItem] = useState('');
+  const [editQuantity, setEditQuantity] = useState(1);
+  const [editIssueDate, setEditIssueDate] = useState('');
+  const [editHasContribution, setEditHasContribution] = useState(false);
+  const [editContributionAmount, setEditContributionAmount] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+
+  const loadAssignments = async () => {
+    if (!member) return;
+    try {
+      const all = await StorageService.getMemberInventoryAssignments();
+      setAllAssignments(all);
+      setMemberAssignments(all.filter(a => a.memberId === member.id));
+    } catch (err) {
+      console.warn('Fehler beim Laden der Materialzuweisungen:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadAssignments();
+  }, [member]);
+
+  useEffect(() => {
+    if (inventory && inventory.length > 0) {
+      setInventoryList(inventory);
+      if (!newAssignmentItem) setNewAssignmentItem(inventory[0].id);
+    } else {
+      StorageService.getInventory().then(items => {
+        setInventoryList(items);
+        if (items.length > 0 && !newAssignmentItem) {
+          setNewAssignmentItem(items[0].id);
+        }
+      }).catch(() => {});
+    }
+  }, [inventory]);
+
+  const handleSaveNewAssignment = async () => {
+    if (!member || !newAssignmentItem) return;
+    const inv = inventoryList.find(i => i.id === newAssignmentItem);
+    const parsedContrib = newHasContribution
+      ? parseFloat(String(newContributionAmount).replace(',', '.')) || 0
+      : undefined;
+
+    const assignment: MemberInventoryAssignment = {
+      id: `mia_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      memberId: member.id,
+      inventoryItemId: newAssignmentItem,
+      itemName: inv?.name || 'Gegenstand',
+      itemNumber: inv?.itemNumber || '',
+      quantity: Math.max(1, Number(newQuantity) || 1),
+      unit: inv?.unit || 'Stk.',
+      hasContribution: Boolean(newHasContribution),
+      contributionAmount: parsedContrib,
+      issueDate: newIssueDate || new Date().toISOString().split('T')[0],
+      status: 'issued',
+      notes: newNotes.trim() || undefined,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    await StorageService.saveMemberInventoryAssignment(assignment);
+    setIsAddingAssignment(false);
+    setNewQuantity(1);
+    setNewHasContribution(false);
+    setNewContributionAmount('');
+    setNewNotes('');
+    await loadAssignments();
+  };
+
+  const handleUpdateAssignment = async (updated: MemberInventoryAssignment) => {
+    await StorageService.saveMemberInventoryAssignment(updated);
+    await loadAssignments();
+  };
+
+  const handleToggleReturn = async (item: MemberInventoryAssignment) => {
+    const isNowReturned = item.status !== 'returned';
+    const updated: MemberInventoryAssignment = {
+      ...item,
+      status: isNowReturned ? 'returned' : 'issued',
+      returnDate: isNowReturned ? new Date().toISOString().split('T')[0] : undefined,
+      updatedAt: new Date().toISOString()
+    };
+    await handleUpdateAssignment(updated);
+  };
+
+  const handleDeleteAssignment = async (id: string) => {
+    if (window.confirm('Gegenstand-Verknüpfung wirklich entfernen?')) {
+      await StorageService.deleteMemberInventoryAssignment(id);
+      await loadAssignments();
+    }
+  };
+
+  const handleStartEdit = (a: MemberInventoryAssignment) => {
+    setEditingAssignmentId(a.id);
+    setEditItem(a.inventoryItemId);
+    setEditQuantity(a.quantity);
+    setEditIssueDate(a.issueDate);
+    setEditHasContribution(a.hasContribution);
+    setEditContributionAmount(a.contributionAmount ? String(a.contributionAmount) : '');
+    setEditNotes(a.notes || '');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingAssignmentId || !member) return;
+    const existing = memberAssignments.find(a => a.id === editingAssignmentId);
+    if (!existing) return;
+    const inv = inventoryList.find(i => i.id === editItem);
+    const parsedContrib = editHasContribution
+      ? parseFloat(String(editContributionAmount).replace(',', '.')) || 0
+      : undefined;
+
+    const updated: MemberInventoryAssignment = {
+      ...existing,
+      inventoryItemId: editItem,
+      itemName: inv?.name || existing.itemName,
+      itemNumber: inv?.itemNumber || existing.itemNumber,
+      quantity: Math.max(1, Number(editQuantity) || 1),
+      unit: inv?.unit || existing.unit,
+      hasContribution: Boolean(editHasContribution),
+      contributionAmount: parsedContrib,
+      issueDate: editIssueDate || existing.issueDate,
+      notes: editNotes.trim() || undefined,
+      updatedAt: new Date().toISOString()
+    };
+
+    await StorageService.saveMemberInventoryAssignment(updated);
+    setEditingAssignmentId(null);
+    await loadAssignments();
+  };
+
+  const handleExportMemberAssignmentsCSV = () => {
+    if (!member) return;
+    ExportService.exportIssuedInventoryCSV(
+      memberAssignments,
+      [member],
+      inventoryList,
+      `material_${member.lastName}_${member.firstName}.csv`
+    );
+  };
+
+  const handleExportMemberAssignmentsPDF = () => {
+    if (!member) return;
+    ExportService.exportIssuedInventoryPDF(
+      memberAssignments,
+      [member],
+      inventoryList,
+      settings,
+      `material_${member.lastName}_${member.firstName}.pdf`
+    );
+  };
 
   // Load audit logs if not passed in
   useEffect(() => {
@@ -363,6 +542,16 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
           </button>
           <button
             type="button"
+            onClick={() => setTab('inventory')}
+            className={`py-3 border-b-2 flex items-center gap-1.5 transition-colors ${
+              tab === 'inventory' ? 'border-blue-600 text-blue-600' : 'border-transparent hover:text-slate-900'
+            }`}
+          >
+            <Package className="w-4 h-4" />
+            Inventar ({memberAssignments.length})
+          </button>
+          <button
+            type="button"
             onClick={() => setTab('history')}
             className={`py-3 border-b-2 flex items-center gap-1.5 transition-colors ${
               tab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent hover:text-slate-900'
@@ -651,6 +840,428 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
               )}
             </div>
           )}
+
+          {/* Tab 3: Inventar & Material */}
+          {tab === 'inventory' && (
+            <div className="space-y-4">
+              {/* Header Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-2 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                <div>
+                  <div className="text-xs font-bold text-slate-900">
+                    Inventar & Material ({memberAssignments.length})
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    Dem Mitglied zur Nutzung überlassene Vereinsgegenstände
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAllIssuedModal(true)}
+                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Alle ausgeteilten Gegenstände</span>
+                  </button>
+
+                  {!isAddingAssignment && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingAssignment(true);
+                        if (inventoryList.length > 0 && !newAssignmentItem) {
+                          setNewAssignmentItem(inventoryList[0].id);
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Gegenstand verknüpfen</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* NEUE KACHEL (Inline-Formular bei Klick auf Button) */}
+              {isAddingAssignment && (
+                <div className="p-4 bg-blue-50/60 border-2 border-blue-300 rounded-xl space-y-3 animate-in fade-in duration-150 shadow-xs">
+                  <div className="flex items-center justify-between border-b border-blue-200/80 pb-2">
+                    <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                      <Package className="w-4 h-4 text-blue-600" />
+                      Gegenstand verknüpfen
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingAssignment(false)}
+                      className="text-slate-400 hover:text-slate-600 p-1"
+                      title="Abbrechen"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {inventoryList.length === 0 ? (
+                    <div className="text-xs text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+                      Kein Inventar vorhanden. Erfassen Sie zuerst Gegenstände in der Inventarverwaltung.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {/* Gegenstand Dropdown */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">Gegenstand</label>
+                        <select
+                          value={newAssignmentItem}
+                          onChange={e => setNewAssignmentItem(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        >
+                          {inventoryList.map(item => (
+                            <option key={item.id} value={item.id}>
+                              [{item.itemNumber}] {item.name} ({item.department} • Bestand: {item.quantity} {item.unit})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Menge */}
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Menge</label>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={newQuantity}
+                            onChange={e => setNewQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+
+                        {/* Ausgabedatum */}
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Ausgabedatum</label>
+                          <input
+                            type="date"
+                            value={newIssueDate}
+                            onChange={e => setNewIssueDate(e.target.value)}
+                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Checkbox Eigenanteil */}
+                      <div className="pt-1">
+                        <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={newHasContribution}
+                            onChange={e => setNewHasContribution(e.target.checked)}
+                            className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
+                          />
+                          <span className="text-xs font-semibold text-slate-700">Eigenanteil geleistet</span>
+                        </label>
+                      </div>
+
+                      {/* Betragsfeld bei bestätigter Checkbox */}
+                      {newHasContribution && (
+                        <div className="animate-in fade-in duration-150">
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">Betrag (€)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={newContributionAmount}
+                            onChange={e => setNewContributionAmount(e.target.value)}
+                            placeholder="0,00"
+                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                      )}
+
+                      {/* Notiz */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">Notiz</label>
+                        <input
+                          type="text"
+                          value={newNotes}
+                          onChange={e => setNewNotes(e.target.value)}
+                          placeholder="z.B. Kennzeichnung, Zustand..."
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      {/* Buttons */}
+                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-blue-200/80">
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingAssignment(false)}
+                          className="px-3 py-1.5 border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
+                        >
+                          Abbrechen
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveNewAssignment}
+                          className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-xs"
+                        >
+                          Speichern
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* LISTE DER BESTEHENDEN KACHELN */}
+              {memberAssignments.length === 0 && !isAddingAssignment ? (
+                <div className="p-8 text-center text-slate-500 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                  <Package className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+                  <p className="font-semibold text-xs text-slate-700">Keine Gegenstände verknüpft</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Klicken Sie auf "+ Gegenstand verknüpfen", um Material aus dem Inventar zuzuweisen.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {memberAssignments.map(a => {
+                    const isEditing = editingAssignmentId === a.id;
+                    const inv = inventoryList.find(i => i.id === a.inventoryItemId);
+                    const itemName = a.itemName || inv?.name || 'Gegenstand';
+                    const itemNumber = a.itemNumber || inv?.itemNumber;
+                    const unit = a.unit || inv?.unit || 'Stk.';
+
+                    if (isEditing) {
+                      return (
+                        <div key={a.id} className="p-4 bg-amber-50/60 border-2 border-amber-300 rounded-xl space-y-3">
+                          <div className="flex items-center justify-between border-b border-amber-200/80 pb-2">
+                            <span className="text-xs font-bold text-amber-900">Gegenstand bearbeiten</span>
+                            <button
+                              type="button"
+                              onClick={() => setEditingAssignmentId(null)}
+                              className="text-slate-400 hover:text-slate-600 p-1"
+                              title="Abbrechen"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">Gegenstand</label>
+                              <select
+                                value={editItem}
+                                onChange={e => setEditItem(e.target.value)}
+                                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800"
+                              >
+                                {inventoryList.map(item => (
+                                  <option key={item.id} value={item.id}>
+                                    [{item.itemNumber}] {item.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-1">Menge</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  value={editQuantity}
+                                  onChange={e => setEditQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-1">Ausgabedatum</label>
+                                <input
+                                  type="date"
+                                  value={editIssueDate}
+                                  onChange={e => setEditIssueDate(e.target.value)}
+                                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="pt-1">
+                              <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={editHasContribution}
+                                  onChange={e => setEditHasContribution(e.target.checked)}
+                                  className="w-4 h-4 rounded text-blue-600 border-slate-300"
+                                />
+                                <span className="text-xs font-semibold text-slate-700">Eigenanteil geleistet</span>
+                              </label>
+                            </div>
+
+                            {editHasContribution && (
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-1">Betrag (€)</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={editContributionAmount}
+                                  onChange={e => setEditContributionAmount(e.target.value)}
+                                  placeholder="0,00"
+                                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800"
+                                />
+                              </div>
+                            )}
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">Notiz</label>
+                              <input
+                                type="text"
+                                value={editNotes}
+                                onChange={e => setEditNotes(e.target.value)}
+                                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800"
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-amber-200">
+                              <button
+                                type="button"
+                                onClick={() => setEditingAssignmentId(null)}
+                                className="px-3 py-1.5 border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold"
+                              >
+                                Abbrechen
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleSaveEdit}
+                                className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-xs"
+                              >
+                                Speichern
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Kachel im Anzeige-Modus
+                    return (
+                      <div
+                        key={a.id}
+                        className={`p-3.5 rounded-xl border transition-all ${
+                          a.status === 'returned'
+                            ? 'bg-slate-50 border-slate-200 opacity-80'
+                            : 'bg-white border-slate-200 hover:border-blue-300 hover:shadow-2xs'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-bold text-xs text-slate-900 truncate">{itemName}</h4>
+                              {itemNumber && (
+                                <span className="font-mono text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded">
+                                  {itemNumber}
+                                </span>
+                              )}
+                              {a.status === 'returned' ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                  <CheckCircle2 className="w-3 h-3" /> Zurück ({a.returnDate})
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                                  <Clock className="w-3 h-3" /> Ausgegeben
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+                              <span>Menge: <strong className="text-slate-800 font-semibold">{a.quantity} {unit}</strong></span>
+                              <span>•</span>
+                              <span>Ausgabe: <strong className="text-slate-700">{a.issueDate || '–'}</strong></span>
+                              <span>•</span>
+                              <span>
+                                {a.hasContribution && a.contributionAmount ? (
+                                  <span className="font-bold text-blue-700">
+                                    Eigenanteil: {a.contributionAmount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400">Kein Eigenanteil</span>
+                                )}
+                              </span>
+                            </div>
+
+                            {a.notes && (
+                              <p className="text-[11px] text-slate-600 italic mt-1 bg-slate-50 px-2 py-1 rounded border border-slate-100">
+                                {a.notes}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleReturn(a)}
+                              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors text-xs flex items-center gap-1"
+                              title={a.status === 'returned' ? 'Erneut ausgeben' : 'Rückgabe verbuchen'}
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span className="text-[11px] font-medium hidden sm:inline">
+                                {a.status === 'returned' ? 'Erneut ausgeben' : 'Rückgabe'}
+                              </span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleStartEdit(a)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                              title="Bearbeiten"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteAssignment(a.id)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                              title="Löschen"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Export Buttons für dieses Mitglied */}
+              {memberAssignments.length > 0 && (
+                <div className="pt-2 flex items-center justify-between text-xs border-t border-slate-200">
+                  <span className="text-[11px] text-slate-500">
+                    Export für {member.firstName} {member.lastName}:
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleExportMemberAssignmentsCSV}
+                      className="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-md text-[11px] font-medium flex items-center gap-1"
+                    >
+                      <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
+                      <span>CSV-Export</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportMemberAssignmentsPDF}
+                      className="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-md text-[11px] font-medium flex items-center gap-1"
+                    >
+                      <FileText className="w-3 h-3 text-rose-600" />
+                      <span>PDF-Export</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer Actions */}
@@ -686,6 +1297,27 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Modal: Liste aller ausgeteilten Gegenstände mit CSV/PDF Export */}
+      {showAllIssuedModal && (
+        <IssuedInventoryModal
+          isOpen={showAllIssuedModal}
+          onClose={() => {
+            setShowAllIssuedModal(false);
+            loadAssignments();
+          }}
+          assignments={allAssignments}
+          members={allMembers || (member ? [member] : [])}
+          inventory={inventoryList}
+          settings={settings}
+          onUpdateAssignment={async (updated) => {
+            await handleUpdateAssignment(updated);
+          }}
+          onDeleteAssignment={async (id) => {
+            await handleDeleteAssignment(id);
+          }}
+        />
+      )}
     </div>
   );
 };

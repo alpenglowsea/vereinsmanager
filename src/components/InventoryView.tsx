@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { InventoryItem, InventoryCategory, ItemCondition, ClubSettings, InventoryBulkUpdates } from '../types';
+import { InventoryItem, InventoryCategory, ItemCondition, ClubSettings, InventoryBulkUpdates, Member, MemberInventoryAssignment } from '../types';
 import { INVENTORY_CATEGORIES, CONDITION_OPTIONS } from '../data/inventoryCategories';
 import { StorageService } from '../services/storage';
 import { ExportService } from '../services/exportService';
 import { TablePagination } from './TablePagination';
 import { InventoryBulkEditModal } from './InventoryBulkEditModal';
+import { IssuedInventoryModal } from './IssuedInventoryModal';
 import {
   Package,
   Plus,
@@ -42,6 +43,7 @@ interface InventoryViewProps {
   inventory: InventoryItem[];
   departments: string[];
   settings: ClubSettings;
+  members?: Member[];
   onOpenCreate: () => void;
   onOpenEdit: (item: InventoryItem) => void;
   onDeleteItem: (id: string) => void;
@@ -53,6 +55,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   inventory,
   departments,
   settings,
+  members = [],
   onOpenCreate,
   onOpenEdit,
   onDeleteItem,
@@ -67,6 +70,23 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [showNeedsInspectionOnly, setShowNeedsInspectionOnly] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Materialausgabe Modal & Assignments
+  const [showIssuedModal, setShowIssuedModal] = useState(false);
+  const [issuedAssignments, setIssuedAssignments] = useState<MemberInventoryAssignment[]>([]);
+
+  const loadAssignments = async () => {
+    try {
+      const items = await StorageService.getMemberInventoryAssignments();
+      setIssuedAssignments(items);
+    } catch (e) {
+      console.warn('Fehler beim Laden der Materialausgaben:', e);
+    }
+  };
+
+  useEffect(() => {
+    loadAssignments();
+  }, []);
 
   // Multi-selection state
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
@@ -371,6 +391,16 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setShowIssuedModal(true)}
+            className="px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-2xs"
+            title="Übersicht aller an Mitglieder ausgeteilten Gegenstände"
+          >
+            <Boxes className="w-4 h-4 text-blue-600" />
+            <span>Ausgeteilte Gegenstände ({issuedAssignments.length})</span>
+          </button>
+
           <button
             type="button"
             onClick={handleExportCSV}
@@ -1150,6 +1180,28 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {/* Modal: Ausgeteilte Gegenstände an Mitglieder */}
+      {showIssuedModal && (
+        <IssuedInventoryModal
+          isOpen={showIssuedModal}
+          onClose={() => {
+            setShowIssuedModal(false);
+            loadAssignments();
+          }}
+          assignments={issuedAssignments}
+          members={members}
+          inventory={inventory}
+          settings={settings}
+          onUpdateAssignment={async (updated) => {
+            await StorageService.saveMemberInventoryAssignment(updated);
+            await loadAssignments();
+          }}
+          onDeleteAssignment={async (id) => {
+            await StorageService.deleteMemberInventoryAssignment(id);
+            await loadAssignments();
+          }}
+        />
       )}
     </div>
   );

@@ -9,7 +9,14 @@
 
 - [Überblick & Leitphilosophie](#-überblick--leitphilosophie)
 - [Systemarchitektur & Betriebsmodi](#-systemarchitektur--betriebsmodi)
-- [Funktionsübersicht der Module](#-funktionsübersicht-der-module)
+- [Die 7 Hauptfunktionen der App im Detail](#-die-7-hauptfunktionen-der-app-im-detail)
+  - [1. Mitgliederverwaltung & Mitgliederbetreuung](#1-mitgliederverwaltung--mitgliederbetreuung)
+  - [2. Finanz- & Kassenverwaltung (inkl. 4 Sphären & Rechnungen)](#2-finanz--kassenverwaltung-inkl-4-sphären--rechnungen)
+  - [3. Kontakt-, Partner- & Sponsorenverwaltung](#3-kontakt--partner--sponsorenverwaltung)
+  - [4. Termine & Vereinskalender](#4-termine--vereinskalender)
+  - [5. Sitzungsdienst, Beschlussbuch & Versammlungen](#5-sitzungsdienst-beschlussbuch--versammlungen)
+  - [6. Inventar-, Material- & Geräteverwaltung](#6-inventar--material--geräteverwaltung)
+  - [7. Revisionssicheres Dokumenten- & Belegarchiv](#7-revisionssicheres-dokumenten--belegarchiv)
 - [Detaillierte Beschreibung der komplexesten Kernfunktionen](#-detaillierte-beschreibung-der-komplexesten-kernfunktionen)
   - [1. Das 4-Sphären-Gemeinnützigkeitsmodell (§ 52 AO)](#1-das-4-sphären-gemeinnützigkeitsmodell--52-ao)
   - [2. Der SEPA-Lastschriftlauf (pain.008 XML) & Mandatsprüfung](#2-der-sepa-lastschriftlauf-pain008-xml--mandatsprüfung)
@@ -65,20 +72,178 @@ Die Anwendung vereint drei flexible Betriebsmodi in einer einzigen Codebasis:
 
 ---
 
-## 📦 Funktionsübersicht der Module
+## 🏛️ Die 7 Hauptfunktionen der App im Detail
 
-| Modul | Hauptmerkmale |
-| :--- | :--- |
-| **Mitgliederverwaltung** | Vollständige Stammdaten, Beitragsrhythmen (inkl. *Beitragsfrei*), Status (*Aktiv, Passiv, Ehrenmitglied, Ausgetreten* mit automatischer Beitragssperre), Spartenzuweisung, CSV/Excel-Import & -Export, detailliertes Änderungsprotokoll. |
-| **Online-Aufnahmeanträge** | Öffentliches, responsives Antragsformular mit digitaler Touch-Signatur, automatischer SEPA-Mandatserteilung, Vorstands-Prüfungsansicht und 1-Klick-Übernahme in die Mitgliederkartei. |
-| **Finanzwesen & 4 Sphären** | Revisionssicheres Buchungsjournal, getrennte Kassenbücher und Bankkonten, Zuordnung zu den 4 steuerlichen Sphären nach § 52 AO, EÜR-Überschussrechnung, Budgetanalysen. |
-| **SEPA-Lastschriftlauf** | Vollautomatischer Lastschriftlauf mit ISO-konformer **pain.008.001.02 XML-Generierung**, Mandatsprüfung, IBAN/BIC-Validierung und automatischer Buchungserzeugung. |
-| **Rechnungswesen (DIN 5008)**| Normgerechte Rechnungsstellung nach DIN 5008, Unterstützung von **Blanko-Briefpapier (Druck-Offset)**, automatische Rechnungsnummern, PDF-Vorschau, Mahnwesen & Buchungsübernahme. |
-| **Zuwendungsbestätigungen** | Spendenbescheinigungen nach amtlichem **BMF-Muster** (Geldspende, Sachspende, Verzicht auf Aufwendungsersatz), integrierter Freistellungsbescheid-Nachweis. |
-| **Sitzungsdienst & Protokolle**| Verwaltung von Mitgliederversammlungen & Vorstandssitzungen, Tagesordnungspunkte (TOPs), Stimmberechtigung, Beschlussfassung, digitale Signatur, PDF-Export & **SMTP-E-Mail-Direktversand**. |
-| **Dokumentenmanagement** | Revisionssicheres Archiv mit Ordnerstrukturen, Tags, Dokumentenkategorien und integriertem **Kamera-Scanner mit automatischer Belegerkennung**. |
-| **Kalender & Veranstaltungen**| Vereinskalender mit Sparten- und Raumfiltern, iCal-Export, Anwesenheitsplanung und Verknüpfung mit Mitgliedern. |
-| **Benutzer- & Rollenverwaltung**| Granulare Berechtigungen (Admin, Finanzen, Mitglieder, Lesezugriff), Session-Sperre (PIN/Passwort) und DSGVO-konforme Audit-Logs. |
+VereinsManager gliedert sich in **sieben voll integrierte Hauptmodule**, die sämtliche operativen und gesetzlichen Aufgaben eines eingetragenen Vereins (e.V.) abdecken:
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 VEREINSMANAGER HAUPTMODULE                                  │
+├──────────────┬──────────────┬──────────────┬──────────────┬──────────────┬──────────────┬──────────────┤
+│ 1. MITGLIEDER│ 2. FINANZEN  │ 3. KONTAKTE  │ 4. KALENDER  │ 5. SITZUNGEN │ 6. INVENTAR  │ 7. DOKUMENTE │
+│ • Stammdaten │ • 4 Sphären  │ • Partner    │ • Termine    │ • Versammlung│ • Geräte     │ • Belegarchiv│
+│ • Beiträge   │ • Eigene Kto.│ • Sponsoren  │ • Sparten    │ • Beschlüsse │ • Ausleihe an│ • OCR-Scanner│
+│ • Online-Antr│ • SEPA XML   │ • Verbände   │ • Räume      │ • Protokolle │   Mitglieder │ • Revision   │
+│ • Umfragen   │ • EÜR / DIN  │ • Schnittst. │ • iCal-Sync  │ • SMTP-Mail  │ • Prüffristen│ • Verknüpfung│
+└──────────────┴──────────────┴──────────────┴──────────────┴──────────────┴──────────────┴──────────────┘
+```
+
+---
+
+### 1. Mitgliederverwaltung & Mitgliederbetreuung
+
+Das zentrale Nervensystem der Vereinsorganisation:
+
+* **Vollständige Stammdaten & Adressverwaltung:**
+  * DSGVO-konforme Erfassung von Name, Anschrift, Geburtsdatum, Geschlecht, Telefon, Mobil, E-Mail sowie individueller Mitgliedsnummer.
+  * Interaktive Tabellensortierung über alle Spaltenköpfe sowie Schnellfilterung nach Status und Sparte.
+  * Hinterlegung von Bankverbindungen (IBAN/BIC) und SEPA-Mandatsdaten (Mandatsreferenz, Ausstellungsdatum).
+* **Beitragsstrukturen & Zahlungsrhythmen:**
+  * Freie Zuweisung von Monats-, Quartals-, Halbjahres- und Jahresbeiträgen.
+  * **Option *„Beitragsfrei“*:** Für Ehrenmitglieder, Schiedsrichter oder beurlaubte Mitglieder. Befreit automatisch von Pflichtangaben (IBAN/BIC), sperrt den Einzug und hebt den Status in der Kartei hervor.
+  * Frei wählbarer Fälligkeitstag (1. oder 15. des Monats) für maßgeschneiderte Kassenläufe.
+* **Status- & Spartenmanagement:**
+  * Statusarten: *Aktiv*, *Passiv*, *Ehrenmitglied* und *Ausgetreten*.
+  * **Automatische Beitragssperre:** Bei Status *Ausgetreten* wird das Mitglied sofort vor versehentlichen SEPA-Einzügen oder Rechnungsstellungen geschützt.
+  * Beliebig viele Abteilungen/Sparten (z. B. Fußball, Turnen, Tennis) mit individueller Zuordnung und Sortierung per Drag & Drop.
+* **Online-Aufnahmeanträge & Digitales Aufnahmewesen:**
+  * Responsives Online-Formular für Smartphone, Tablet und PC mit digitaler Signatur (Touchscreen/Maus).
+  * Automatische Erfassung des SEPA-Lastschriftmandats mit rechtssicherem Bestätigungstext.
+  * Übersicht aller eingegangenen Anträge für den Vorstand mit 1-Klick-Übernahme in den regulären Mitgliederbestand.
+* **Mitglieder-Statistiken & Demografie:**
+  * Grafische Analysen der Altersverteilung, Geschlechteranteile, Spartenbelegungen und Eintritts-/Austrittstrends.
+* **Mitgliederbefragung & Meinungsbilder (Neu in v1.2.3):**
+  * Erstellung interner Befragungen mit 6 Fragetypen: 1–5 Sterne, 0–10 NPS-Skala, Single-/Multiple-Choice, Ja/Nein/Enthaltung und Freitext.
+  * Registrierungsfreie Stimmabgabe für Mitglieder via Direktlink.
+  * **Einmal-Token-Schutz:** Automatische Generierung fälschungssicherer Einmal-Links gegen Mehrfachabstimmungen.
+  * Multi-Channel-Versand per **WhatsApp-Direktlink**, E-Mail-Vorlage, druckfertiger PDF-Teilnehmerliste oder CSV.
+  * Live-Auswertungen, Net Promoter Score (NPS) und druckfertiger PDF-Ergebnisbericht für Vorstandssitzungen.
+* **Massen-Import, Export & Etiketten:**
+  * CSV/Excel-Import mit intelligentem Spalten-Mapping.
+  * Export nach CSV, Excel, vCard (.vcf) sowie druckfertige PDF-Mitgliederlisten und Adressetiketten.
+
+---
+
+### 2. Finanz- & Kassenverwaltung (inkl. 4 Sphären & Rechnungen)
+
+Rechtssichere und transparente Buchführung für den ehrenamtlichen Schatzmeister:
+
+* **Das 4-Sphären-Buchungsjournal (§ 52 AO):**
+  * Strikte Trennung aller Einnahmen und Ausgaben in *Ideeller Bereich*, *Vermögensverwaltung*, *Zweckbetrieb* und *Wirtschaftlicher Geschäftsbetrieb* (nach SKR 42).
+  * Lückenloses Buchungsjournal mit automatischer Belegnummerierung, Buchungstext, Beleg-Upload und Steuersatz (0%, 7%, 19%).
+* **Flexible Kontenverwaltung (Neu in v1.2.3):**
+  * Beliebig viele eigene Zahlungskonten anlegen: Girokonten, Sparkassen, Festgeldkonten, Barkassen und PayPal.
+  * Anpassbare IBAN, BIC und Anfangsbestände.
+  * **Drag & Drop Sortierung:** Kontokarten per Maus in die gewünschte Reihenfolge schieben.
+  * **Mauszeiger-Tooltips:** Dynamische Tooltips zeigen bei überlangen Kontobezeichnungen und IBANs den vollen Text direkt am Mauszeiger.
+* **Individuelle Sachkonten & Kategorien:**
+  * Freie Anlage und Verwaltung von Buchungskategorien je Sphäre für eine präzise Kontierung.
+* **SEPA-Lastschriftlauf (pain.008.001.02 XML):**
+  * Vollautomatischer Einzugslauf für Mitgliedsbeiträge nach ISO 20022.
+  * Automatische Unterscheidung von Erst- (`FRST`), Folge- (`RCUR`) und Einmallastschriften (`OOFF`).
+  * Automatische Anlage aller Buchungssätze im Journal nach erfolgreicher Generierung.
+* **Einnahmen-Überschuss-Rechnung (EÜR / GuV):**
+  * Automatischer Abschluss nach den 4 Sphären mit Vorjahresvergleich.
+  * **Freigrenzenüberwachung:** Permanente Überprüfung der gesetzlichen 45.000 €-Einnahmegrenze im wirtschaftlichen Geschäftsbetrieb mit rechtzeitigen Warnhinweisen.
+* **DIN 5008 Rechnungswesen:**
+  * Rechnungen und Mahnungen nach deutscher DIN 5008 (Form A/B) mit Falt- und Lochmarken.
+  * **Blanko-Briefpapier-Offset:** Millimetergenaue Anpassung von Kopf- und Fußabständen zum Bedrucken vorbedruckten Vereinspapiers.
+* **Amtliche Zuwendungsbestätigungen (BMF):**
+  * Spendenbescheinigungen für Geldspenden, Sachspenden und Aufwandsverzichte nach aktuellem amtlichen Muster inklusive Freistellungsbescheid-Verankerung.
+* **Sammelaktionen im Kassenjournal:**
+  * Checkbox-Mehrfachauswahl, schwebende Aktionsleiste für Sammeländerungen (Sphäre, Steuer, Konto) und revisionssicheres Sammellöschen.
+
+---
+
+### 3. Kontakt-, Partner- & Sponsorenverwaltung
+
+Verwaltung aller vereinsrelevanten Kontakte außerhalb der Mitgliedschaft:
+
+* **Stammdaten von Partnern & Sponsoren:**
+  * Strukturierte Erfassung von Firmen, Verbänden (z. B. LSB, Fachverbände), Behörden, Dienstleistern, Übungsleitern und Sponsoren.
+  * Hinterlegung von juristischem Namen, Ansprechpartner, Position, Telefon, E-Mail, Anschrift und Steuernummer.
+* **Bankdaten & Zahlungsverkehr:**
+  * Speicherung von IBAN/BIC für Überweisungen und Abrechnungen.
+* **Verknüpfung mit Finanzen & Spenden:**
+  * Direkte Auswahl von Kontakten bei Rechnungserstellung, Spendenbescheinigungen und Ausgabenbuchungen.
+* **Schnellkommunikation & Export:**
+  * Direkte Verlinkung zu E-Mail-Client und Telefonie, Export von Partnerlisten nach CSV und PDF.
+
+---
+
+### 4. Termine & Vereinskalender
+
+Zentrale Koordination aller Trainingszeiten, Spiele und Events:
+
+* **Interaktiver Kalender:**
+  * Übersichtliche Monats-, Wochen- und Listenansichten mit responsiver Bedienung.
+* **Sparten- & Liegenschaftsfilter:**
+  * Farbliche Kennzeichnung und Filterung nach Sportart/Abteilung sowie nach Räumen/Plätzen (z. B. Sporthalle 1, Vereinsheim, Rasenplatz).
+* **Serientermine & Wiederholungen:**
+  * Wöchentliche Trainingseinheiten, monatliche Vorstandssitzungen oder jährliche Turniere mit flexiblen Wiederholungsregeln.
+* **Teilnehmer- & Anwesenheitsverwaltung:**
+  * Zuordnung von Trainern/Verantwortlichen und Dokumentation von Anwesenheiten.
+* **iCal-Export (.ics):**
+  * Export einzelner Termine oder ganzer Spartenkalender zum direkten Einbinden in Smartphone-Kalender (Google Kalender, Apple iCal, Microsoft Outlook).
+
+---
+
+### 5. Sitzungsdienst, Beschlussbuch & Versammlungen
+
+Rechtssichere Durchführung und Dokumentation von Gremiensitzungen:
+
+* **Sitzungsarten:**
+  * Unterstützung von Vorstandssitzungen, Beiratssitzungen, Fachausschüssen und ordentlichen/außerordentlichen Mitgliederversammlungen nach § 32 BGB.
+* **Tagesordnungen (TOPs) & Ablaufplanung:**
+  * Strukturierte Tagesordnungspunkte mit Titeln, Beratungsnotizen, Referenten und Zeiteinteilung.
+* **Beschlussbuch & Beschlussfähigkeit (Quorum):**
+  * Automatische Feststellung der Beschlussfähigkeit anhand der Anwesenheitsliste und der Vereinssatzung.
+  * Lückenlose, fortlaufende Beschlussnummerierung (`BES-JJJJ-XXX`) mit Dokumentation von Ja-, Nein- und Enthaltungsstimmen.
+* **Digitale Signatur:**
+  * Unterschriftserfassung auf Touchscreen, Tablet oder per Maus für Sitzungsleiter und Protokollführer.
+* **DSGVO-konformer SMTP-Relay-Versand:**
+  * Direkter E-Mail-Versand von Einladungen und Protokollen samt PDF über den vereinseigenen SMTP-Server.
+  * **Automatischer BCC-Schutz:** Alle Mitglieder und Vorstände werden ausnahmslos per Blindkopie adressiert, um E-Mail-Adressen vor fremden Blicken zu schützen.
+
+---
+
+### 6. Inventar-, Material- & Geräteverwaltung
+
+Transparente Verwaltung aller Sachwerte und Betriebsmittel des Vereins:
+
+* **Sachmittelkatalog:**
+  * Erfassung von Trainingsmaterialien, Bällen, Trikotsätzen, Turngeräten, IT-Equipment, Fahrzeugen, Werkzeugen und Schlüsseln.
+  * Anschaffungspreise, Zeitwerte, Seriennummern und Aufbewahrungsorte.
+* **Verknüpfung von Inventar und Mitgliedern (Neu in v1.2.3):**
+  * **Direkte Ausleihe an Vereinsmitglieder:** Zuweisung von Gegenständen an registrierte Mitglieder mit Auswahl aus der aktiven Mitgliederliste.
+  * Erfassung von Ausleihdatum, geplantem Rückgabedatum und Zustand bei Übergabe.
+  * **1-Klick-Rücknahme:** Schnelle Rückbuchung direkt aus der Tabelle oder Kachelkarte mit sofortiger Freigabe des Gegenstands.
+  * Lückenlose Historie aller bisherigen Entleiher.
+* **Prüffristen & Sicherheitsvorschriften:**
+  * Überwachung gesetzlicher Prüftermine: **DGUV Vorschrift 3** (elektrische Betriebsmittel), TÜV für Sport- und Großgeräte, UVV sowie Verfallsdaten von Erste-Hilfe-Kästen.
+  * Farblich hervorgehobene Warn-Badges bei fälligen oder abgelaufenen Prüfterminen.
+* **Sammelaktionen im Inventar:**
+  * Checkbox-Auswahl in Tabelle und Kacheln für Massenaktualisierungen (Zustand, Standort, Prüfdatum) und selektiven CSV-/PDF-Export.
+* **Etikettierung & Barcodes:**
+  * Automatische Generierung von QR-Codes und Barcodes zur schnellen Identifikation per Smartphone-Kamera.
+
+---
+
+### 7. Revisionssicheres Dokumenten- & Belegarchiv
+
+GoBD-konforme digitale Ablage für alle vereinsrelevanten Dokumente:
+
+* **Strukturierte Ordner- & Kategorienhierarchie:**
+  * Strukturierte Ablage für Satzungen, Registerauszüge (VR), Freistellungsbescheide, Pacht- und Mietverträge, Sitzungsprotokolle und Kassenbelege.
+* **KI-gestützter Dokumenten- & Belegscanner:**
+  * Multimodale Texterkennung (OCR via Google Gemini) für Belegscans, Rechnungs-PDFs und Smartphone-Fotos.
+  * Automatische Extraktion von Rechnungsdatum, Bruttobetrag, Belegnummer und Zahlungsempfänger mit 1-Klick-Übernahme in das Kassenjournal.
+* **Verknüpfung zu Buchungen & Mitgliedern:**
+  * Revisionssichere Bindung hochgeladener Belege an die jeweiligen Buchungssätze im Journal und Aufnahmeanträge an das Mitglied.
+* **Revisionssicheres Audit-Log:**
+  * Unveränderliche Protokollierung aller Dateioperationen (Upload, Bearbeitung, Löschung) mit Benutzer- und Zeitstempel.
+* **Integrierter Dokumentenbetrachter:**
+  * Direkte Vorschau von PDFs, Scans und Bildern im Webbrowser oder Desktop-Client ohne externe Programme.
 
 ---
 
