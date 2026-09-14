@@ -1243,19 +1243,14 @@ export default function App() {
                     setActiveTab('member_surveys');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                     activeTab === 'member_surveys'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <Vote className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Mitgliederbefragung</span>
-                  </div>
-                  <span className="text-[10px] px-1.5 py-0.2 rounded font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                    Cloud
-                  </span>
+                  <Vote className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Mitgliederbefragung</span>
                 </button>
               </div>
             )}
