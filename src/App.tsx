@@ -1875,6 +1875,7 @@ export default function App() {
               <MemberSurveysView
                 settings={settings}
                 members={members}
+                deploymentMode={deploymentMode}
                 onNavigateToSettings={() => {
                   setSettingsActiveTab('deployment');
                   setActiveTab('settings');

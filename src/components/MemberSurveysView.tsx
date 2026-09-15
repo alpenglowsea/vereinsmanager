@@ -33,15 +33,16 @@ import {
 interface MemberSurveysViewProps {
   settings: ClubSettings;
   members: Member[];
+  deploymentMode?: DeploymentMode;
   onNavigateToSettings?: () => void;
 }
 
 export const MemberSurveysView: React.FC<MemberSurveysViewProps> = ({
   settings,
   members,
+  deploymentMode: propDeploymentMode,
   onNavigateToSettings
 }) => {
-  const [deploymentMode, setDeploymentMode] = useState<DeploymentMode>('local');
   const [surveys, setSurveys] = useState<MemberSurvey[]>([]);
   const [responseCounts, setResponseCounts] = useState<Record<string, number>>({});
   const [tokenCounts, setTokenCounts] = useState<Record<string, { total: number; used: number }>>({});
@@ -59,25 +60,19 @@ export const MemberSurveysView: React.FC<MemberSurveysViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'draft' | 'closed'>('all');
 
+  // Determine actual deployment mode and genuine cloud status
+  const currentMode = propDeploymentMode || StorageService.getDeploymentMode();
+  const isCloudConfigured = StorageService.isCloudActive();
+  const isActuallyCloud = currentMode === 'cloud' && isCloudConfigured;
+
   useEffect(() => {
-    loadDeploymentModeAndData();
-  }, []);
-
-  const loadDeploymentModeAndData = async () => {
-    try {
+    if (isActuallyCloud) {
       setLoading(true);
-      const mode = StorageService.getDeploymentMode();
-      setDeploymentMode(mode);
-
-      if (mode === 'cloud') {
-        await loadSurveysData();
-      }
-    } catch (e) {
-      console.warn('Fehler beim Initialisieren der Mitgliederbefragungen:', e);
-    } finally {
+      loadSurveysData().finally(() => setLoading(false));
+    } else {
       setLoading(false);
     }
-  };
+  }, [isActuallyCloud]);
 
   const loadSurveysData = async () => {
     const list = await StorageService.getSurveys();
@@ -143,7 +138,9 @@ export const MemberSurveysView: React.FC<MemberSurveysViewProps> = ({
   // ----------------------------------------------------
   // NON-CLOUD VIEW (Notice requirement 2)
   // ----------------------------------------------------
-  if (deploymentMode !== 'cloud') {
+  if (!isActuallyCloud) {
+    const isCloudSelectedButNotConnected = currentMode === 'cloud' && !isCloudConfigured;
+
     return (
       <div className="space-y-6">
         {/* Header */}
@@ -166,19 +163,30 @@ export const MemberSurveysView: React.FC<MemberSurveysViewProps> = ({
               <Cloud className="w-7 h-7" />
             </div>
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800">
-                  Cloud-Betrieb erforderlich
+                  {isCloudSelectedButNotConnected ? 'Supabase-Verbindung erforderlich' : 'Cloud-Betrieb erforderlich'}
                 </span>
                 <span className="text-xs text-slate-400 font-medium">
-                  Aktueller Modus: <strong className="text-slate-700 dark:text-slate-200">{deploymentMode === 'local' ? 'Lokaler Betrieb (Browser)' : 'Selfhosted'}</strong>
+                  Aktueller Modus:{' '}
+                  <strong className="text-slate-700 dark:text-slate-200">
+                    {currentMode === 'local'
+                      ? 'Lokaler Betrieb (Browser / IndexedDB)'
+                      : currentMode === 'selfhosted'
+                      ? 'Eigener Server / NAS (Selfhosted)'
+                      : 'Cloud-Modus (Supabase nicht verbunden)'}
+                  </strong>
                 </span>
               </div>
               <h3 className="text-base font-bold text-slate-800 dark:text-white">
-                Diese Funktion steht ausschließlich im Cloud-Betrieb zur Verfügung
+                {isCloudSelectedButNotConnected
+                  ? 'Cloud-Synchronisation noch nicht eingerichtet'
+                  : 'Diese Funktion steht ausschließlich im Cloud-Betrieb zur Verfügung'}
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                Um Ihren Vereinsmitgliedern die Befragungen jederzeit ohne vorherige Registrierung über personalisierte Einmal-Links oder WhatsApp-Direktlinks bereitzustellen, ist eine synchronisierte Cloud-Anbindung erforderlich.
+                {isCloudSelectedButNotConnected
+                  ? 'Der Cloud-Betrieb ist ausgewählt, jedoch ist noch keine aktive Supabase-Datenbankverbindung konfiguriert. Bitte hinterlegen und testen Sie Ihre Supabase-Verbindung in den Einstellungen.'
+                  : 'Um Ihren Vereinsmitgliedern die Befragungen jederzeit ohne vorherige Registrierung über personalisierte Einmal-Links oder WhatsApp-Direktlinks bereitzustellen, ist eine synchronisierte Cloud-Anbindung (Supabase) erforderlich.'}
               </p>
             </div>
           </div>
@@ -196,30 +204,18 @@ export const MemberSurveysView: React.FC<MemberSurveysViewProps> = ({
             </ul>
           </div>
 
-          {/* Optional: Switch to Cloud mode button for convenience */}
-          <div className="pt-2 flex items-center gap-3">
-            <button
-              type="button"
-              onClick={async () => {
-                await StorageService.setDeploymentMode('cloud');
-                setDeploymentMode('cloud');
-                await loadSurveysData();
-              }}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
-            >
-              <Cloud className="w-4 h-4" />
-              <span>In den Cloud-Betrieb wechseln</span>
-            </button>
-            {onNavigateToSettings && (
+          {onNavigateToSettings && (
+            <div className="pt-2 flex items-center gap-3">
               <button
                 type="button"
                 onClick={onNavigateToSettings}
-                className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-2"
               >
-                Zu den Betriebsmodus-Einstellungen
+                <Cloud className="w-4 h-4" />
+                <span>Zu den Cloud-Einstellungen</span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     );

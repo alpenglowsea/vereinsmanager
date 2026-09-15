@@ -564,7 +564,7 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
 
         {/* Body Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {tab === 'details' ? (
+          {tab === 'details' && (
             <div className="space-y-6">
               
               {/* Quick Actions Bar */}
@@ -793,8 +793,10 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
               </div>
 
             </div>
-          ) : (
-            /* HISTORIE (AUDIT LOG TAB) */
+          )}
+
+          {/* Tab 2: HISTORIE (AUDIT LOG TAB) */}
+          {tab === 'history' && (
             <div className="space-y-4">
               <div className="p-3.5 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-800">
                 Lückenlose Revisions- und Änderungshistorie nach DSGVO- und Steuerrecht-Grundsätzen (GoBD).
@@ -877,7 +879,7 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
                       className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition-colors"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>+ Gegenstand verknüpfen</span>
+                      <span>Gegenstand verknüpfen</span>
                     </button>
                   )}
                 </div>
