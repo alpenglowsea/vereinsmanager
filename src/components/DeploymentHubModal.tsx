@@ -5,6 +5,7 @@ import {
   saveStoredSupabaseConfig,
   clearStoredSupabaseConfig,
   testSupabaseConnection,
+  sanitizeSupabaseUrl,
   getAuthSession,
   signInUser,
   signUpUser,
@@ -129,9 +130,13 @@ export const DeploymentHubModal: React.FC<DeploymentHubModalProps> = ({
 
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
-    saveStoredSupabaseConfig(config.url, config.anonKey);
+    const cleanUrl = sanitizeSupabaseUrl(config.url);
+    if (cleanUrl !== config.url) {
+      setConfig(prev => ({ ...prev, url: cleanUrl }));
+    }
+    saveStoredSupabaseConfig(cleanUrl, config.anonKey);
     setTestStatus({ loading: true });
-    const res = await testSupabaseConnection(config.url, config.anonKey);
+    const res = await testSupabaseConnection(cleanUrl, config.anonKey);
     setTestStatus({
       loading: false,
       success: res.success,
@@ -148,8 +153,12 @@ export const DeploymentHubModal: React.FC<DeploymentHubModalProps> = ({
   };
 
   const handleTestConnection = async () => {
+    const cleanUrl = sanitizeSupabaseUrl(config.url);
+    if (cleanUrl !== config.url) {
+      setConfig(prev => ({ ...prev, url: cleanUrl }));
+    }
     setTestStatus({ loading: true });
-    const res = await testSupabaseConnection(config.url, config.anonKey);
+    const res = await testSupabaseConnection(cleanUrl, config.anonKey);
     setTestStatus({
       loading: false,
       success: res.success,

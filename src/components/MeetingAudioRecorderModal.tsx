@@ -14,19 +14,35 @@ import {
   ShieldAlert,
   Volume2,
   Radio,
-  FileAudio
+  FileAudio,
+  Globe,
+  Server,
+  Laptop,
+  HelpCircle,
+  RefreshCw,
+  Lock,
+  ExternalLink
 } from 'lucide-react';
 import { MeetingType } from '../types';
 import { MeetingAiService, MeetingExtractedData } from '../services/meetingAiService';
+import { StorageService } from '../services/storage';
 
 interface MeetingAudioRecorderModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApplyExtractedData: (data: MeetingExtractedData) => void;
+  onApplyExtractedData?: (data: MeetingExtractedData) => void;
+  onApplyData?: (data: MeetingExtractedData) => void;
   currentMeetingContext?: {
     title?: string;
     type?: MeetingType;
     date?: string;
+    chairperson?: string;
+  };
+  meetingContext?: {
+    title?: string;
+    type?: MeetingType;
+    date?: string;
+    chairperson?: string;
   };
 }
 
@@ -34,10 +50,26 @@ export const MeetingAudioRecorderModal: React.FC<MeetingAudioRecorderModalProps>
   isOpen,
   onClose,
   onApplyExtractedData,
+  onApplyData,
   currentMeetingContext,
+  meetingContext,
 }) => {
-  const [meetingType, setMeetingType] = useState<MeetingType>(currentMeetingContext?.type || 'board');
+  const activeContext = meetingContext || currentMeetingContext;
+  const effectiveApplyData = onApplyData || onApplyExtractedData;
+  const [meetingType, setMeetingType] = useState<MeetingType>(activeContext?.type || 'board');
   const [tab, setTab] = useState<'record' | 'upload'>('record');
+
+  // Deployment mode
+  const deploymentMode = StorageService.getDeploymentMode();
+
+  // Permission prompt states
+  const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
+  const [isRequestingMic, setIsRequestingMic] = useState(false);
+  const [permissionError, setPermissionError] = useState<{
+    type: 'browser_denied' | 'insecure_http' | 'no_device' | 'unknown';
+    title: string;
+    message: string;
+  } | null>(null);
 
   // Recording states
   const [isRecording, setIsRecording] = useState(false);
@@ -71,14 +103,21 @@ export const MeetingAudioRecorderModal: React.FC<MeetingAudioRecorderModalProps>
   // Clean up timers & audio blobs
   const cleanupRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      try {
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
+      } catch (e) {
+        console.warn('Track cleanup note:', e);
+      }
     }
     if (timerRef.current) clearInterval(timerRef.current);
     setIsRecording(false);
     setIsPaused(false);
     setRecordingSeconds(0);
     audioChunksRef.current = [];
+    setShowPermissionPrompt(false);
+    setIsRequestingMic(false);
+    setPermissionError(null);
   };
 
   if (!isOpen) return null;
@@ -90,15 +129,58 @@ export const MeetingAudioRecorderModal: React.FC<MeetingAudioRecorderModalProps>
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleStartRecording = async () => {
+  // Called when clicking "Aufnahme starten" or "Neu aufnehmen" -> triggers explicit permission prompt every time
+  const handleRequestMicPermission = () => {
+    setPermissionError(null);
     setAnalysisError(null);
-    setRecordedAudioBlob(null);
-    setAudioUrl(null);
-    setExtractedResult(null);
-    audioChunksRef.current = [];
+    setShowPermissionPrompt(true);
+  };
 
+  // Called when user clicks "Mikrofon jetzt freigeben & Aufnahme starten" in the permission prompt
+  const confirmAndStartRecording = async () => {
+    setIsRequestingMic(true);
+    setPermissionError(null);
+    setAnalysisError(null);
+
+    // 1. Validate if mediaDevices is supported in current environment
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setIsRequestingMic(false);
+      const isHttpInsecure =
+        typeof window !== 'undefined' &&
+        window.location.protocol === 'http:' &&
+        window.location.hostname !== 'localhost' &&
+        window.location.hostname !== '127.0.0.1';
+
+      if (isHttpInsecure) {
+        setPermissionError({
+          type: 'insecure_http',
+          title: 'Browser blockiert Mikrofon auf unverschlüsseltem HTTP',
+          message:
+            'Moderne Webbrowser (Chrome, Firefox, Safari, Edge) sperren Mikrofonzugriffe aus Sicherheitsgründen über unverschlüsseltes HTTP. Bei Betrieb auf einem eigenen Server (Docker / IP) muss HTTPS eingerichtet sein oder "localhost" verwendet werden.',
+        });
+      } else {
+        setPermissionError({
+          type: 'unknown',
+          title: 'Mikrofon-Schnittstelle nicht verfügbar',
+          message:
+            'Die Audio-Schnittstelle (navigator.mediaDevices.getUserMedia) wird in dieser Browser-Umgebung nicht unterstützt.',
+        });
+      }
+      return;
+    }
+
+    // 2. Request microphone stream from browser
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Permission granted!
+      setShowPermissionPrompt(false);
+      setIsRequestingMic(false);
+      setRecordedAudioBlob(null);
+      setAudioUrl(null);
+      setExtractedResult(null);
+      audioChunksRef.current = [];
+
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
           ? 'audio/webm;codecs=opus'
@@ -137,10 +219,33 @@ export const MeetingAudioRecorderModal: React.FC<MeetingAudioRecorderModalProps>
         setRecordingSeconds((prev) => prev + 1);
       }, 1000);
     } catch (err: any) {
-      console.error('Microphone access failed:', err);
-      setAnalysisError(
-        'Mikrofon-Zugriff nicht möglich. Bitte erlauben Sie den Mikrofon-Zugriff im Browser oder laden Sie eine Audiodatei hoch.'
-      );
+      setIsRequestingMic(false);
+      console.error('Microphone permission or start failed:', err);
+
+      const errName = err?.name || '';
+      if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError' || err?.message?.toLowerCase().includes('denied')) {
+        setPermissionError({
+          type: 'browser_denied',
+          title: 'Mikrofon-Zugriff im Browser verweigert oder blockiert',
+          message:
+            'Die Berechtigung für das Mikrofon wurde nicht erteilt oder ist im Web-Browser gesperrt. Bitte erlauben Sie den Zugriff über die Browser-Adressleiste.',
+        });
+      } else if (errName === 'NotFoundError' || errName === 'DevicesNotFoundError') {
+        setPermissionError({
+          type: 'no_device',
+          title: 'Kein Mikrofon am Computer gefunden',
+          message:
+            'Es konnte kein aktives Audio-Eingabegerät (Mikrofon oder Headset) erkannt werden. Bitte schließen Sie ein Mikrofon an und versuchen Sie es erneut.',
+        });
+      } else {
+        setPermissionError({
+          type: 'unknown',
+          title: 'Mikrofon-Zugriff nicht möglich',
+          message:
+            err?.message ||
+            'Der Mikrofonzugriff konnte nicht initialisiert werden. Bitte prüfen Sie Ihre Browser-Einstellungen oder laden Sie eine Audiodatei hoch.',
+        });
+      }
     }
   };
 
@@ -205,7 +310,9 @@ export const MeetingAudioRecorderModal: React.FC<MeetingAudioRecorderModalProps>
 
   const handleApply = () => {
     if (extractedResult) {
-      onApplyExtractedData(extractedResult);
+      if (effectiveApplyData) {
+        effectiveApplyData(extractedResult);
+      }
       cleanupRecording();
       onClose();
     }
@@ -214,6 +321,175 @@ export const MeetingAudioRecorderModal: React.FC<MeetingAudioRecorderModalProps>
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
       <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8">
+        {/* EXPLICIT MICROPHONE PERMISSION CONFIRMATION MODAL */}
+        {showPermissionPrompt && (
+          <div className="absolute inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+              {/* Header */}
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center shadow-inner relative">
+                    <Mic className="w-6 h-6 animate-pulse" />
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-purple-600"></span>
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">
+                      Mikrofon-Freigabe anfordern
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Audio-Diktat & Protokoll-Erfassung für Sitzung
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPermissionPrompt(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Mode indicator badge & guidance */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-xs">
+                {deploymentMode === 'cloud' ? (
+                  <div className="flex items-start gap-2.5">
+                    <Globe className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-emerald-900 inline-flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Cloud-Betrieb (Multi-User)
+                      </span>
+                      <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                        Die Anwendung läuft im Cloud-Betrieb. Beim Klick auf <strong>„Mikrofon jetzt freigeben“</strong> fordert Sie Ihr Webbrowser in der oberen Leiste zur Bestätigung auf. Bitte bestätigen Sie diese Abfrage mit <strong>„Zulassen“</strong> oder <strong>„Erlauben“</strong>.
+                      </p>
+                    </div>
+                  </div>
+                ) : deploymentMode === 'selfhosted' ? (
+                  <div className="flex items-start gap-2.5">
+                    <Server className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-blue-900 inline-flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                        Eigener Server (Docker / Selfhosted)
+                      </span>
+                      <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                        Hinweis: Webbrowser erlauben Audio-Aufnahmen aus Sicherheitsgründen nur über verschlüsselte HTTPS-Verbindungen oder <code>localhost</code>. Bei Aufruf über eine unverschlüsselte IP (<code>http://...</code>) kann der Browser den Zugriff sperren.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-2.5">
+                    <Laptop className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-amber-900 inline-flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                        Lokale Desktop-App
+                      </span>
+                      <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                        Zugriff auf das am Computer angeschlossene Standard-Mikrofon bzw. Headset. Die Aufnahme wird lokal im Browser verarbeitet.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* DSGVO & privacy information */}
+              <div className="p-3 bg-purple-50/60 border border-purple-100 rounded-xl space-y-1 text-xs text-purple-950">
+                <div className="flex items-center gap-1.5 font-bold text-purple-900">
+                  <ShieldAlert className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Datenschutz & Vertraulichkeit</span>
+                </div>
+                <p className="text-[11px] text-purple-800 leading-relaxed">
+                  Möchten Sie den Zugriff auf Ihr Mikrofon freigeben? Die Tonaufnahme wird temporär im Browser erfasst und erst bei Klick auf „Audio auswerten“ verarbeitet. Es erfolgt kein stummes Mithören im Hintergrund.
+                </p>
+              </div>
+
+              {/* Error display if permission denied or no device */}
+              {permissionError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-2 text-xs text-rose-900">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold block">{permissionError.title}</span>
+                      <p className="text-[11px] text-rose-700 mt-0.5 leading-relaxed">
+                        {permissionError.message}
+                      </p>
+                    </div>
+                  </div>
+
+                  {permissionError.type === 'browser_denied' && (
+                    <div className="bg-white/80 p-2.5 rounded-lg border border-rose-200 text-[11px] text-slate-700 space-y-1">
+                      <span className="font-bold text-slate-900 block">So schalten Sie das Mikrofon frei:</span>
+                      <ol className="list-decimal list-inside space-y-0.5 text-slate-600">
+                        <li>Klicken Sie links in der Browser-Adresszeile auf das 🔒 Schloss-Symbol.</li>
+                        <li>Stellen Sie den Schalter bei <strong>Mikrofon</strong> auf <strong>„Zulassen“</strong> bzw. <strong>„Erlauben“</strong>.</li>
+                        <li>Klicken Sie danach auf „Erneut versuchen“ oder laden Sie die Seite neu.</li>
+                      </ol>
+                    </div>
+                  )}
+
+                  {permissionError.type === 'insecure_http' && (
+                    <div className="bg-white/80 p-2.5 rounded-lg border border-rose-200 text-[11px] text-slate-700 space-y-1">
+                      <span className="font-bold text-slate-900 block">Tipp für eigenen Server:</span>
+                      <p className="text-slate-600">
+                        Richten Sie für Ihren Server ein SSL-Zertifikat (HTTPS) ein oder nehmen Sie das Diktat mit dem Smartphone auf und laden Sie die Datei im Tab <strong>„Audiodatei hochladen“</strong> hoch.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div className="space-y-2 pt-1">
+                <button
+                  type="button"
+                  disabled={isRequestingMic}
+                  onClick={confirmAndStartRecording}
+                  className="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 active:scale-[0.99] text-white rounded-xl font-bold text-xs shadow-md shadow-purple-200 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isRequestingMic ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Mikrofon-Zugriff wird angefordert...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="w-4 h-4" />
+                      <span>{permissionError ? 'Erneut versuchen & Freigabe anfordern' : 'Mikrofon jetzt freigeben & Aufnahme starten'}</span>
+                    </>
+                  )}
+                </button>
+
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPermissionPrompt(false);
+                      setTab('upload');
+                    }}
+                    className="text-xs font-semibold text-purple-700 hover:text-purple-900 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Stattdessen Audiodatei (.mp3/.m4a) hochladen</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPermissionPrompt(false)}
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
+                    Abbrechen
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/70">
           <div className="flex items-center gap-3">
@@ -343,7 +619,7 @@ export const MeetingAudioRecorderModal: React.FC<MeetingAudioRecorderModalProps>
                     {!isRecording && !recordedAudioBlob && (
                       <button
                         type="button"
-                        onClick={handleStartRecording}
+                        onClick={handleRequestMicPermission}
                         className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-bold text-xs shadow-md shadow-purple-200 flex items-center gap-2 transition-all cursor-pointer hover:scale-105"
                       >
                         <Mic className="w-4 h-4" />
@@ -375,7 +651,7 @@ export const MeetingAudioRecorderModal: React.FC<MeetingAudioRecorderModalProps>
                     {!isRecording && recordedAudioBlob && (
                       <button
                         type="button"
-                        onClick={handleStartRecording}
+                        onClick={handleRequestMicPermission}
                         className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
                       >
                         Neu aufnehmen

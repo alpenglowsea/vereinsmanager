@@ -8,22 +8,55 @@ const STORAGE_KEY_MODE = 'vm_deployment_mode';
 let clientInstance: SupabaseClient | null = null;
 let currentConfigKey = '';
 
+export function sanitizeSupabaseUrl(rawUrl: string): string {
+  if (!rawUrl) return '';
+  let url = rawUrl.trim();
+
+  // If user pasted dashboard project URL e.g. https://supabase.com/dashboard/project/abcdefghijklmnopqrst
+  const dashboardMatch = url.match(/supabase\.com\/dashboard\/project\/([a-z0-9]+)/i);
+  if (dashboardMatch) {
+    return `https://${dashboardMatch[1]}.supabase.co`;
+  }
+
+  // Prepend https:// if protocol was omitted
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://${url}`;
+  }
+
+  try {
+    const parsed = new URL(url);
+    // Standard Supabase host is [project-ref].supabase.co
+    // If path has /rest/v1 or /auth/v1 or any subpath, strip to origin to prevent PostgREST 404
+    if (parsed.hostname.endsWith('.supabase.co')) {
+      return parsed.origin;
+    }
+    // For custom self-hosted domains, strip trailing slashes and common API suffixes if accidentally included
+    let clean = url.replace(/\/+$/, '');
+    clean = clean.replace(/\/(rest|auth|storage|functions)\/v\d+.*$/i, '');
+    clean = clean.replace(/\/+$/, '');
+    return clean;
+  } catch {
+    return url.replace(/\/+$/, '');
+  }
+}
+
 export function getStoredSupabaseConfig(): SupabaseConfig {
   const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
   const envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
 
   const storedUrl = localStorage.getItem(STORAGE_KEY_URL) || envUrl;
   const storedKey = localStorage.getItem(STORAGE_KEY_KEY) || envKey;
+  const cleanUrl = sanitizeSupabaseUrl(storedUrl);
 
   return {
-    url: storedUrl.trim(),
+    url: cleanUrl,
     anonKey: storedKey.trim(),
-    isConfigured: Boolean(storedUrl.trim() && storedKey.trim())
+    isConfigured: Boolean(cleanUrl && storedKey.trim())
   };
 }
 
 export function saveStoredSupabaseConfig(url: string, anonKey: string): void {
-  const cleanUrl = url.trim();
+  const cleanUrl = sanitizeSupabaseUrl(url);
   const cleanKey = anonKey.trim();
 
   localStorage.setItem(STORAGE_KEY_URL, cleanUrl);
@@ -43,13 +76,14 @@ export function getSupabaseClient(): SupabaseClient | null {
     return null;
   }
 
-  const cacheKey = `${config.url}:::${config.anonKey}`;
+  const cleanUrl = sanitizeSupabaseUrl(config.url);
+  const cacheKey = `${cleanUrl}:::${config.anonKey}`;
   if (clientInstance && currentConfigKey === cacheKey) {
     return clientInstance;
   }
 
   try {
-    clientInstance = createClient(config.url, config.anonKey, {
+    clientInstance = createClient(cleanUrl, config.anonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
@@ -65,15 +99,17 @@ export function getSupabaseClient(): SupabaseClient | null {
 }
 
 export async function testSupabaseConnection(url?: string, anonKey?: string): Promise<{ success: boolean; error?: string }> {
-  const targetUrl = (url || getStoredSupabaseConfig().url).trim();
+  const rawUrl = (url || getStoredSupabaseConfig().url).trim();
   const targetKey = (anonKey || getStoredSupabaseConfig().anonKey).trim();
 
-  if (!targetUrl || !targetKey) {
+  if (!rawUrl || !targetKey) {
     return { success: false, error: 'Supabase URL und Anon Key dürfen nicht leer sein.' };
   }
 
-  if (!targetUrl.startsWith('https://')) {
-    return { success: false, error: 'Die Supabase-URL muss mit https:// beginnen (z.B. https://xyzcompany.supabase.co).' };
+  const targetUrl = sanitizeSupabaseUrl(rawUrl);
+
+  if (!targetUrl.startsWith('https://') && !targetUrl.startsWith('http://localhost')) {
+    return { success: false, error: 'Die Supabase-URL muss das Format https://[projekt-id].supabase.co haben (z.B. https://xyzcompany.supabase.co).' };
   }
 
   try {
@@ -223,6 +259,32 @@ export const SUPABASE_SCHEMA_SQL = `-- =========================================
 -- Erstellt alle Tabellen, Indizes und Sicherheitsregeln (RLS) für den Verein.
 -- Region-Empfehlung: Frankfurt am Main (eu-central-1) für 100% DSGVO-Konformität
 -- ==============================================================================
+
+-- 0. Vorhandene Beispieltabelle/Template-Tabellen bei Erstinitialisierung bereinigen
+DROP TABLE IF EXISTS public.dashboard_config CASCADE;
+DROP TABLE IF EXISTS public.application_settings CASCADE;
+DROP TABLE IF EXISTS public.online_applications CASCADE;
+DROP TABLE IF EXISTS public.folders CASCADE;
+DROP TABLE IF EXISTS public.documents CASCADE;
+DROP TABLE IF EXISTS public.calendar_categories CASCADE;
+DROP TABLE IF EXISTS public.calendar_events CASCADE;
+DROP TABLE IF EXISTS public.donations CASCADE;
+DROP TABLE IF EXISTS public.meeting_templates CASCADE;
+DROP TABLE IF EXISTS public.meetings CASCADE;
+DROP TABLE IF EXISTS public.invoice_templates CASCADE;
+DROP TABLE IF EXISTS public.invoices CASCADE;
+DROP TABLE IF EXISTS public.contacts CASCADE;
+DROP TABLE IF EXISTS public.audit_logs CASCADE;
+DROP TABLE IF EXISTS public.sepa_runs CASCADE;
+DROP TABLE IF EXISTS public.member_inventory_assignments CASCADE;
+DROP TABLE IF EXISTS public.survey_tokens CASCADE;
+DROP TABLE IF EXISTS public.survey_responses CASCADE;
+DROP TABLE IF EXISTS public.member_surveys CASCADE;
+DROP TABLE IF EXISTS public.inventory CASCADE;
+DROP TABLE IF EXISTS public.transactions CASCADE;
+DROP TABLE IF EXISTS public.members CASCADE;
+DROP TABLE IF EXISTS public.accounts CASCADE;
+DROP TABLE IF EXISTS public.settings CASCADE;
 
 -- 1. TABELLE: SETTINGS (Vereinsdaten & Gläubiger-ID)
 CREATE TABLE IF NOT EXISTS public.settings (
@@ -706,7 +768,8 @@ CREATE TABLE IF NOT EXISTS public.application_settings (
 -- 20. TABELLE: DASHBOARD_CONFIG (Individuelle Dashboard-Anordnung & Widgets)
 CREATE TABLE IF NOT EXISTS public.dashboard_config (
   id TEXT PRIMARY KEY DEFAULT 'main_dashboard',
-  config JSONB NOT NULL,
+  config JSONB NOT NULL DEFAULT '{}'::jsonb,
+  widgets JSONB DEFAULT '[]'::jsonb,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

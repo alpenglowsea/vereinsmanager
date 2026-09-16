@@ -1599,9 +1599,19 @@ export const CloudStorageService = {
     if (!client) return null;
     const { data, error } = await client.from('dashboard_config').select('*').eq('id', 'main_dashboard').single();
     if (error || !data) return null;
+
+    let widgets: any[] = [];
+    if (Array.isArray(data.widgets)) {
+      widgets = data.widgets;
+    } else if (data.config && Array.isArray(data.config.widgets)) {
+      widgets = data.config.widgets;
+    } else if (Array.isArray(data.config)) {
+      widgets = data.config;
+    }
+
     return {
-      version: 1,
-      widgets: data.widgets || [],
+      version: data.config?.version || data.version || 1,
+      widgets,
       updatedAt: data.updated_at
     };
   },
@@ -1609,12 +1619,32 @@ export const CloudStorageService = {
   async saveDashboardConfig(config: UserDashboardConfig): Promise<void> {
     const client = getSupabaseClient();
     if (!client) return;
-    const dbPayload = {
+
+    const widgetsList = config.widgets || [];
+    const nowIso = config.updatedAt || new Date().toISOString();
+
+    // Standard in DB schema: 'config' JSONB column
+    const payloadWithConfig = {
       id: 'main_dashboard',
-      widgets: config.widgets || [],
-      updated_at: config.updatedAt || new Date().toISOString()
+      config: {
+        version: config.version || 1,
+        widgets: widgetsList
+      },
+      updated_at: nowIso
     };
-    const { error } = await client.from('dashboard_config').upsert(dbPayload, { onConflict: 'id' });
-    if (error) throw new Error(`Supabase saveDashboardConfig Fehler: ${error.message}`);
+
+    const { error: err1 } = await client.from('dashboard_config').upsert(payloadWithConfig, { onConflict: 'id' });
+    if (!err1) return;
+
+    // Fallback: If the user's table has a dedicated 'widgets' column
+    const payloadWithWidgets = {
+      id: 'main_dashboard',
+      widgets: widgetsList,
+      updated_at: nowIso
+    };
+    const { error: err2 } = await client.from('dashboard_config').upsert(payloadWithWidgets, { onConflict: 'id' });
+    if (err2) {
+      throw new Error(`Supabase saveDashboardConfig Fehler: ${err1.message || err2.message}`);
+    }
   }
 };

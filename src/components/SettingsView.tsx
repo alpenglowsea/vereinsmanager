@@ -639,49 +639,133 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setIsSubmittingBug(true);
     setBugSuccessMessage(null);
 
+    const ticketId = `VM-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const timestamp = new Date().toLocaleString('de-DE');
+
+    const clientInfo = bugIncludeSystemInfo
+      ? `App v${CURRENT_APP_VERSION} | Modus: ${currentDepMode} | UA: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'n/a'} | Screen: ${typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'n/a'}`
+      : 'Keine Diagnosedaten';
+
+    const reportPayload = {
+      subject: bugSubject.trim(),
+      area: bugArea,
+      description: bugDescription.trim(),
+      severity: bugSeverity,
+      contactName: bugContactName.trim() || undefined,
+      contactEmail: bugContactEmail.trim() || undefined,
+      appVersion: `v${CURRENT_APP_VERSION}`,
+      deploymentMode: currentDepMode,
+      clientDetails: clientInfo,
+    };
+
+    let sent = false;
+    let serverMessage = '';
+
     try {
-      const clientInfo = bugIncludeSystemInfo
-        ? `App v${CURRENT_APP_VERSION} | Modus: ${currentDepMode} | UA: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'n/a'} | Screen: ${typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'n/a'}`
-        : 'Keine Diagnosedaten';
-
-      const response = await fetch('/api/submit-bugreport', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subject: bugSubject.trim(),
-          area: bugArea,
-          description: bugDescription.trim(),
-          severity: bugSeverity,
-          contactName: bugContactName.trim() || undefined,
-          contactEmail: bugContactEmail.trim() || undefined,
-          appVersion: `v${CURRENT_APP_VERSION}`,
-          deploymentMode: currentDepMode,
-          clientDetails: clientInfo,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        setSubmittedTicket({
-          ticketId: result.ticketId || `VM-${Date.now().toString(36).toUpperCase()}`,
-          timestamp: result.timestamp || new Date().toLocaleString('de-DE'),
-          message: result.message || 'Ihr Fehlerbericht wurde direkt an vereinsmanager@ik.me übermittelt.',
+      // 1. First attempt: In-App Backend API route /api/submit-bugreport
+      try {
+        const response = await fetch('/api/submit-bugreport', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(reportPayload),
         });
-        setBugSuccessMessage(`Fehlerbericht erfolgreich direkt versendet! Ticket-Nr: #${result.ticketId || 'VM'}`);
+
+        const contentType = response.headers.get('content-type') || '';
+        // Only parse as JSON if the server actually returned JSON (avoids Safari/WebKit HTML parse DOMExceptions)
+        if (response.ok && contentType.includes('application/json')) {
+          const rawText = await response.text();
+          try {
+            const result = JSON.parse(rawText);
+            if (result && result.success) {
+              sent = true;
+              serverMessage = result.message || 'Ihr Fehlerbericht wurde direkt an vereinsmanager@ik.me übermittelt.';
+            }
+          } catch {
+            // Non-JSON response, continue to fallback
+          }
+        }
+      } catch {
+        // Backend API not reachable (e.g. running standalone local desktop app / static file)
+      }
+
+      // 2. Second attempt: Direct relay if online and backend API was unavailable
+      if (!sent && typeof navigator !== 'undefined' && navigator.onLine) {
+        try {
+          const formSubmitPayload = {
+            _subject: `[VereinsManager #${ticketId} - ${bugArea}] ${bugSubject.trim()}`,
+            _template: 'table',
+            _captcha: 'false',
+            Ticket_ID: ticketId,
+            Bereich: bugArea,
+            Betreff: bugSubject.trim(),
+            Schweregrad: bugSeverity,
+            Beschreibung: bugDescription.trim(),
+            Absender_Name: bugContactName.trim() || 'Anonym / Nicht angegeben',
+            Absender_Email: bugContactEmail.trim() || 'Keine Angabe',
+            App_Version: `v${CURRENT_APP_VERSION}`,
+            Betriebsmodus: currentDepMode,
+            System_Info: clientInfo,
+            Eingangszeit: timestamp,
+          };
+
+          const directRes = await fetch('https://formsubmit.co/ajax/vereinsmanager@ik.me', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+            },
+            body: JSON.stringify(formSubmitPayload),
+          });
+
+          const rawDirect = await directRes.text();
+          let directJson: any = null;
+          try {
+            directJson = JSON.parse(rawDirect);
+          } catch {
+            directJson = null;
+          }
+
+          if (directRes.ok && (directJson?.success === true || directJson?.success === 'true')) {
+            sent = true;
+            serverMessage = 'Ihr Fehlerbericht wurde direkt an vereinsmanager@ik.me übermittelt!';
+          }
+        } catch {
+          // Direct relay failed (e.g. CORS or offline)
+        }
+      }
+
+      if (sent) {
+        setSubmittedTicket({
+          ticketId,
+          timestamp,
+          message: serverMessage || 'Ihr Fehlerbericht wurde direkt an vereinsmanager@ik.me übermittelt.',
+        });
+        setBugSuccessMessage(`Fehlerbericht erfolgreich direkt versendet! Ticket-Nr: #${ticketId}`);
         setStatusMsg({
           type: 'success',
-          text: `Fehlerbericht wurde direkt an vereinsmanager@ik.me übermittelt (Ticket #${result.ticketId})`,
+          text: `Fehlerbericht wurde direkt an vereinsmanager@ik.me übermittelt (Ticket #${ticketId})`,
         });
       } else {
-        throw new Error(result.error || 'Server konnte den Bericht nicht annehmen.');
+        // If neither method succeeded (e.g. completely offline in local mode or no internet access):
+        // Gracefully register ticket locally and prompt the user to use 1-click email or clipboard
+        setSubmittedTicket({
+          ticketId,
+          timestamp,
+          message: 'Bericht wurde lokal vorbereitet. Im reinen Offline-Modus steht kein direkter Serverversand zur Verfügung. Nutzen Sie bitte den Button "E-Mail-App" oder "Kopieren".',
+        });
+        setStatusMsg({
+          type: 'info',
+          text: `Ticket #${ticketId} erfasst. Im lokalen Offline-Modus bitte den Bericht per E-Mail-App versenden oder kopieren.`
+        });
       }
     } catch (err: any) {
-      console.error('Fehler bei direkter In-App Übermittlung:', err);
-      // Fallback: Explain and allow mailto or clipboard
+      console.error('Fehler bei Fehlerbericht-Verarbeitung:', err);
+      const cleanMsg = err?.message && !err.message.includes('expected pattern')
+        ? err.message
+        : 'Offline-Modus aktiv';
       setStatusMsg({
         type: 'error',
-        text: `Direkter Versand fehlgeschlagen (${err?.message || 'Netzwerkfehler'}). Sie können den Bericht alternativ über das E-Mail-Programm senden.`
+        text: `Direkter Versand nicht möglich (${cleanMsg}). Bitte nutzen Sie den Button "E-Mail-App" oder "Kopieren".`
       });
     } finally {
       setIsSubmittingBug(false);
@@ -1289,6 +1373,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     if (!file) return;
 
     if (!window.confirm('Achtung: Durch das Einspielen der Sicherung werden die aktuellen lokalen Daten überschrieben. Fortfahren?')) {
+      e.target.value = '';
       return;
     }
 
@@ -1302,7 +1387,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       });
       setTimeout(() => setStatusMsg(null), 4000);
     } catch (err: any) {
-      setStatusMsg({ type: 'error', text: `Fehler beim Import: ${err.message || 'Ungültige Datei'}` });
+      console.error('Fehler beim Import:', err);
+      const isQuota = err?.name === 'QuotaExceededError' || (err?.message && err.message.toLowerCase().includes('quota'));
+      setStatusMsg({
+        type: 'error',
+        text: isQuota
+          ? 'Speicherplatz-Limit des Browsers überschritten. Bitte leeren Sie den Browser-Cache oder nutzen Sie die Desktop-App.'
+          : `Fehler beim Import: ${err.message || 'Ungültige Datei'}`
+      });
+    } finally {
+      e.target.value = '';
     }
   };
 

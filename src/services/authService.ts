@@ -395,7 +395,11 @@ export class AuthService {
   }
 
   private static persistSession(session: UserAuthSession) {
-    localStorage.setItem(STORAGE_KEY_CURRENT_SESSION, JSON.stringify(session));
+    try {
+      localStorage.setItem(STORAGE_KEY_CURRENT_SESSION, JSON.stringify(session));
+    } catch (err) {
+      console.warn('[AuthService] Could not persist session:', err);
+    }
     this.recordActivity();
   }
 
@@ -414,13 +418,19 @@ export class AuthService {
       }
     }
     this.cachedUsers = [...INITIAL_USERS];
-    localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(this.cachedUsers));
+    try {
+      localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(this.cachedUsers));
+    } catch (_) {}
     return this.cachedUsers;
   }
 
   public static saveUsers(users: AppUser[]): void {
     this.cachedUsers = users;
-    localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
+    try {
+      localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
+    } catch (err) {
+      console.warn('[AuthService] Could not save users to localStorage (quota exceeded):', err);
+    }
   }
 
   public static saveUser(user: AppUser): void {
@@ -475,13 +485,19 @@ export class AuthService {
       }
     }
     this.cachedSecurity = { ...DEFAULT_SECURITY_SETTINGS };
-    localStorage.setItem(STORAGE_KEY_SECURITY, JSON.stringify(this.cachedSecurity));
+    try {
+      localStorage.setItem(STORAGE_KEY_SECURITY, JSON.stringify(this.cachedSecurity));
+    } catch (_) {}
     return this.cachedSecurity;
   }
 
   public static saveSecuritySettings(settings: SecuritySettings): void {
     this.cachedSecurity = settings;
-    localStorage.setItem(STORAGE_KEY_SECURITY, JSON.stringify(settings));
+    try {
+      localStorage.setItem(STORAGE_KEY_SECURITY, JSON.stringify(settings));
+    } catch (err) {
+      console.warn('[AuthService] Could not save security settings to localStorage:', err);
+    }
     this.startInactivityTracker();
   }
 

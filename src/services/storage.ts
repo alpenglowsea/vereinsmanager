@@ -51,7 +51,55 @@ const STORAGE_KEY_MODE = 'vm_deployment_mode';
 
 const LIVE_DB_NAME = 'VereinsManager_LiveDB_v1';
 const DEMO_DB_NAME = 'VereinsManager_DemoDB_v1';
-const DB_VERSION = 8;
+const DB_VERSION = 9;
+
+let isImportingBackup = false;
+
+/**
+ * Reclaims localStorage quota by removing bloated legacy dumps of entire tables.
+ * localStorage has a strict 5MB limit across all keys; large data must reside in IndexedDB.
+ */
+export function purgeBloatedLocalStorage(): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const keysToRemove: string[] = [];
+    const largeStores = [
+      'members', 'transactions', 'accounts', 'audit_logs', 'inventory',
+      'sepa_runs', 'documents', 'donations', 'contacts', 'invoices',
+      'meetings', 'calendar_events', 'online_applications', 'folders'
+    ];
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+
+      const isMirroredStore = largeStores.some(s => key === `vm_live_${s}` || key === `vm_demo_${s}`);
+      if (isMirroredStore) {
+        keysToRemove.push(key);
+        continue;
+      }
+
+      // Remove any non-essential large blob > 80KB that might choke the quota
+      try {
+        const val = localStorage.getItem(key);
+        if (val && val.length > 80000 && !key.startsWith('sb-') && key !== 'vm_auth_users') {
+          keysToRemove.push(key);
+        }
+      } catch (_) {}
+    }
+
+    keysToRemove.forEach(k => {
+      try {
+        localStorage.removeItem(k);
+      } catch (_) {}
+    });
+  } catch (err) {
+    console.warn('[Storage] Error during localStorage purge:', err);
+  }
+}
+
+// Automatically run on startup to reclaim space
+purgeBloatedLocalStorage();
 
 function isDemoModeActive(): boolean {
   return AuthService.isDemoMode();
@@ -905,7 +953,7 @@ function openDB(dbNameOverride?: string): Promise<IDBDatabase> {
 
 let snapshotTimer: any = null;
 function triggerAutoSnapshot() {
-  if (isDemoModeActive()) return;
+  if (isDemoModeActive() || isImportingBackup) return;
   if (snapshotTimer) clearTimeout(snapshotTimer);
   snapshotTimer = setTimeout(async () => {
     try {
@@ -942,7 +990,12 @@ async function saveAllToStore<T extends { id: string }>(storeName: string, items
   try {
     const db = await openDB(dbNameOverride);
     if (!db.objectStoreNames.contains(storeName)) {
-      localStorage.setItem(`${prefix}${storeName}`, JSON.stringify(items));
+      // Store not present in DB: only store in localStorage if it is tiny (prevent QuotaExceededError)
+      try {
+        if (items.length <= 25 && JSON.stringify(items).length < 40000) {
+          localStorage.setItem(`${prefix}${storeName}`, JSON.stringify(items));
+        }
+      } catch (_) {}
       return;
     }
     return new Promise((resolve, reject) => {
@@ -951,20 +1004,20 @@ async function saveAllToStore<T extends { id: string }>(storeName: string, items
       store.clear();
       items.forEach(item => store.put(item));
       tx.oncomplete = () => {
-        // Also mirror in localStorage for redundancy if small
-        try {
-          if (storeName !== STORES.TRANSACTIONS && storeName !== STORES.DOCUMENTS) {
-            localStorage.setItem(`${prefix}${storeName}`, JSON.stringify(items));
-          }
-        } catch (_) {}
-        if (items.length > 0) triggerAutoSnapshot();
+        // Do NOT mirror large collections into localStorage. localStorage has a strict 5MB quota.
+        if (items.length > 0 && !isImportingBackup) triggerAutoSnapshot();
         resolve();
       };
       tx.onerror = () => reject(tx.error);
     });
   } catch (err) {
-    localStorage.setItem(`${prefix}${storeName}`, JSON.stringify(items));
-    if (items.length > 0) triggerAutoSnapshot();
+    console.warn(`[saveAllToStore] Fallback for ${storeName}:`, err);
+    try {
+      if (items.length <= 25 && JSON.stringify(items).length < 40000) {
+        localStorage.setItem(`${prefix}${storeName}`, JSON.stringify(items));
+      }
+    } catch (_) {}
+    if (items.length > 0 && !isImportingBackup) triggerAutoSnapshot();
   }
 }
 
@@ -999,7 +1052,7 @@ async function putItemToStore<T extends { id: string }>(storeName: string, item:
       if (idx >= 0) items[idx] = item;
       else items.push(item);
       await saveAllToStore(storeName, items, dbNameOverride);
-      triggerAutoSnapshot();
+      if (!isImportingBackup) triggerAutoSnapshot();
       return;
     }
     return new Promise((resolve, reject) => {
@@ -1007,7 +1060,7 @@ async function putItemToStore<T extends { id: string }>(storeName: string, item:
       const store = tx.objectStore(storeName);
       store.put(item);
       tx.oncomplete = () => {
-        triggerAutoSnapshot();
+        if (!isImportingBackup) triggerAutoSnapshot();
         resolve();
       };
       tx.onerror = () => reject(tx.error);
@@ -1018,7 +1071,7 @@ async function putItemToStore<T extends { id: string }>(storeName: string, item:
     if (idx >= 0) items[idx] = item;
     else items.push(item);
     await saveAllToStore(storeName, items, dbNameOverride);
-    triggerAutoSnapshot();
+    if (!isImportingBackup) triggerAutoSnapshot();
   }
 }
 
@@ -3717,129 +3770,138 @@ export const StorageService = {
     clubName?: string;
     restoredUsers: AppUser[];
   }> {
-    const parsed = JSON.parse(jsonString);
-    const data = parsed.data || parsed;
-    if (!data) {
-      throw new Error('Ungültiges Sicherungsformat');
-    }
-    const {
-      members = [],
-      transactions = [],
-      accounts = [],
-      auditLogs = [],
-      inventory = [],
-      sepaRuns = [],
-      documents = [],
-      donations = [],
-      contacts = [],
-      invoices = [],
-      invoiceTemplate,
-      meetings = [],
-      meetingTemplate,
-      dashboardConfig,
-      calendarEvents = [],
-      calendarCategories = [],
-      onlineApplications = [],
-      applicationSettings,
-      settings,
-      users = [],
-      securitySettings
-    } = data;
+    // Free up any bloated localStorage entries before importing
+    purgeBloatedLocalStorage();
+    isImportingBackup = true;
 
-    // By default target the Live DB so that restored data is available for real usage
-    const dbTarget = targetEnv === 'live' ? LIVE_DB_NAME : undefined;
+    try {
+      const parsed = JSON.parse(jsonString);
+      const data = parsed.data || parsed;
+      if (!data) {
+        throw new Error('Ungültiges Sicherungsformat');
+      }
+      const {
+        members = [],
+        transactions = [],
+        accounts = [],
+        auditLogs = [],
+        inventory = [],
+        sepaRuns = [],
+        documents = [],
+        donations = [],
+        contacts = [],
+        invoices = [],
+        invoiceTemplate,
+        meetings = [],
+        meetingTemplate,
+        dashboardConfig,
+        calendarEvents = [],
+        calendarCategories = [],
+        onlineApplications = [],
+        applicationSettings,
+        settings,
+        users = [],
+        securitySettings
+      } = data;
 
-    await saveAllToStore(STORES.MEMBERS, members, dbTarget);
-    await saveAllToStore(STORES.TRANSACTIONS, transactions, dbTarget);
-    await saveAllToStore(STORES.ACCOUNTS, accounts, dbTarget);
-    await saveAllToStore(STORES.AUDIT_LOGS, auditLogs, dbTarget);
-    await saveAllToStore(STORES.INVENTORY, inventory, dbTarget);
-    await saveAllToStore(STORES.SEPA_RUNS, sepaRuns, dbTarget);
-    await saveAllToStore(STORES.DOCUMENTS, documents, dbTarget);
-    await saveAllToStore(STORES.DONATIONS, donations, dbTarget);
-    if (contacts.length > 0) {
-      await saveAllToStore(STORES.CONTACTS, contacts, dbTarget);
-    }
-    if (invoices.length > 0) {
-      await saveAllToStore(STORES.INVOICES, invoices, dbTarget);
-    }
-    if (invoiceTemplate) {
-      await putItemToStore(STORES.INVOICE_TEMPLATES, { id: 'main_template', ...invoiceTemplate }, dbTarget);
-    }
-    if (meetings.length > 0) {
-      await saveAllToStore(STORES.MEETINGS, meetings, dbTarget);
-    }
-    if (meetingTemplate) {
-      await putItemToStore(STORES.MEETING_TEMPLATES, { id: 'main_template', ...meetingTemplate }, dbTarget);
-    }
-    if (dashboardConfig) {
-      await putItemToStore(STORES.DASHBOARD_CONFIG, { id: 'main_dashboard', ...dashboardConfig }, dbTarget);
-    }
-    if (calendarCategories.length > 0) {
-      await saveAllToStore(STORES.CALENDAR_CATEGORIES, calendarCategories, dbTarget);
-    }
-    await saveAllToStore(STORES.CALENDAR_EVENTS, calendarEvents, dbTarget);
-    if (onlineApplications.length > 0) {
-      await saveAllToStore(STORES.ONLINE_APPLICATIONS, onlineApplications, dbTarget);
-    }
-    if (applicationSettings) {
-      await putItemToStore(STORES.APPLICATION_SETTINGS, { id: 'main', ...applicationSettings }, dbTarget);
-    }
+      // By default target the Live DB so that restored data is available for real usage
+      const dbTarget = targetEnv === 'live' ? LIVE_DB_NAME : undefined;
 
-    if (settings) {
-      await putItemToStore(STORES.SETTINGS, { id: 'main', ...settings }, dbTarget);
-    }
+      await saveAllToStore(STORES.MEMBERS, members, dbTarget);
+      await saveAllToStore(STORES.TRANSACTIONS, transactions, dbTarget);
+      await saveAllToStore(STORES.ACCOUNTS, accounts, dbTarget);
+      await saveAllToStore(STORES.AUDIT_LOGS, auditLogs, dbTarget);
+      await saveAllToStore(STORES.INVENTORY, inventory, dbTarget);
+      await saveAllToStore(STORES.SEPA_RUNS, sepaRuns, dbTarget);
+      await saveAllToStore(STORES.DOCUMENTS, documents, dbTarget);
+      await saveAllToStore(STORES.DONATIONS, donations, dbTarget);
+      if (contacts.length > 0) {
+        await saveAllToStore(STORES.CONTACTS, contacts, dbTarget);
+      }
+      if (invoices.length > 0) {
+        await saveAllToStore(STORES.INVOICES, invoices, dbTarget);
+      }
+      if (invoiceTemplate) {
+        await putItemToStore(STORES.INVOICE_TEMPLATES, { id: 'main_template', ...invoiceTemplate }, dbTarget);
+      }
+      if (meetings.length > 0) {
+        await saveAllToStore(STORES.MEETINGS, meetings, dbTarget);
+      }
+      if (meetingTemplate) {
+        await putItemToStore(STORES.MEETING_TEMPLATES, { id: 'main_template', ...meetingTemplate }, dbTarget);
+      }
+      if (dashboardConfig) {
+        await putItemToStore(STORES.DASHBOARD_CONFIG, { id: 'main_dashboard', ...dashboardConfig }, dbTarget);
+      }
+      if (calendarCategories.length > 0) {
+        await saveAllToStore(STORES.CALENDAR_CATEGORIES, calendarCategories, dbTarget);
+      }
+      await saveAllToStore(STORES.CALENDAR_EVENTS, calendarEvents, dbTarget);
+      if (onlineApplications.length > 0) {
+        await saveAllToStore(STORES.ONLINE_APPLICATIONS, onlineApplications, dbTarget);
+      }
+      if (applicationSettings) {
+        await putItemToStore(STORES.APPLICATION_SETTINGS, { id: 'main', ...applicationSettings }, dbTarget);
+      }
 
-    // Restore Users & Security Settings
-    let usersCount = 0;
-    const resolvedUsers: AppUser[] = Array.isArray(users) && users.length > 0
-      ? users
-      : (Array.isArray(parsed.users) && parsed.users.length > 0 ? parsed.users : []);
-    
-    if (resolvedUsers.length > 0) {
-      AuthService.saveUsers(resolvedUsers);
-      usersCount = resolvedUsers.length;
-    }
+      if (settings) {
+        await putItemToStore(STORES.SETTINGS, { id: 'main', ...settings }, dbTarget);
+      }
 
-    const resolvedSecurity = securitySettings || parsed.securitySettings;
-    if (resolvedSecurity) {
-      AuthService.saveSecuritySettings(resolvedSecurity);
-    }
+      // Restore Users & Security Settings
+      let usersCount = 0;
+      const resolvedUsers: AppUser[] = Array.isArray(users) && users.length > 0
+        ? users
+        : (Array.isArray(parsed.users) && parsed.users.length > 0 ? parsed.users : []);
+      
+      if (resolvedUsers.length > 0) {
+        AuthService.saveUsers(resolvedUsers);
+        usersCount = resolvedUsers.length;
+      }
 
-    if (this.isCloudActive()) {
-      if (members.length > 0) await CloudStorageService.batchSaveMembers(members);
-      if (transactions.length > 0) await CloudStorageService.batchSaveTransactions(transactions);
-      if (accounts.length > 0) await CloudStorageService.batchSaveAccounts(accounts);
-      if (inventory.length > 0) await CloudStorageService.batchSaveInventory(inventory);
-      if (settings) await CloudStorageService.saveSettings(settings);
-      if (documents.length > 0) await CloudStorageService.batchSaveDocuments(documents);
-      if (donations.length > 0) await CloudStorageService.batchSaveDonations(donations);
-      if (contacts.length > 0) await CloudStorageService.batchSaveContacts(contacts);
-      if (invoices.length > 0) await CloudStorageService.batchSaveInvoices(invoices);
-      if (invoiceTemplate) await CloudStorageService.saveInvoiceTemplate(invoiceTemplate);
-      if (meetings.length > 0) await CloudStorageService.batchSaveMeetings(meetings);
-      if (meetingTemplate) await CloudStorageService.saveMeetingTemplate(meetingTemplate);
-      if (calendarCategories.length > 0) await CloudStorageService.batchSaveCalendarCategories(calendarCategories);
-      if (calendarEvents.length > 0) await CloudStorageService.batchSaveCalendarEvents(calendarEvents);
-      if (onlineApplications.length > 0) await CloudStorageService.batchSaveOnlineApplications(onlineApplications);
-      if (applicationSettings) await CloudStorageService.saveApplicationSettings(applicationSettings);
-      if (dashboardConfig) await CloudStorageService.saveDashboardConfig(dashboardConfig);
-    }
+      const resolvedSecurity = securitySettings || parsed.securitySettings;
+      if (resolvedSecurity) {
+        AuthService.saveSecuritySettings(resolvedSecurity);
+      }
 
-    return {
-      membersCount: members.length,
-      transactionsCount: transactions.length,
-      inventoryCount: inventory.length,
-      documentsCount: documents.length,
-      donationsCount: donations.length,
-      calendarEventsCount: calendarEvents.length,
-      meetingsCount: meetings.length,
-      invoicesCount: invoices.length,
-      contactsCount: contacts.length,
-      usersCount,
-      clubName: settings?.clubName,
-      restoredUsers: resolvedUsers
-    };
+      if (this.isCloudActive()) {
+        if (members.length > 0) await CloudStorageService.batchSaveMembers(members);
+        if (transactions.length > 0) await CloudStorageService.batchSaveTransactions(transactions);
+        if (accounts.length > 0) await CloudStorageService.batchSaveAccounts(accounts);
+        if (inventory.length > 0) await CloudStorageService.batchSaveInventory(inventory);
+        if (settings) await CloudStorageService.saveSettings(settings);
+        if (documents.length > 0) await CloudStorageService.batchSaveDocuments(documents);
+        if (donations.length > 0) await CloudStorageService.batchSaveDonations(donations);
+        if (contacts.length > 0) await CloudStorageService.batchSaveContacts(contacts);
+        if (invoices.length > 0) await CloudStorageService.batchSaveInvoices(invoices);
+        if (invoiceTemplate) await CloudStorageService.saveInvoiceTemplate(invoiceTemplate);
+        if (meetings.length > 0) await CloudStorageService.batchSaveMeetings(meetings);
+        if (meetingTemplate) await CloudStorageService.saveMeetingTemplate(meetingTemplate);
+        if (calendarCategories.length > 0) await CloudStorageService.batchSaveCalendarCategories(calendarCategories);
+        if (calendarEvents.length > 0) await CloudStorageService.batchSaveCalendarEvents(calendarEvents);
+        if (onlineApplications.length > 0) await CloudStorageService.batchSaveOnlineApplications(onlineApplications);
+        if (applicationSettings) await CloudStorageService.saveApplicationSettings(applicationSettings);
+        if (dashboardConfig) await CloudStorageService.saveDashboardConfig(dashboardConfig);
+      }
+
+      return {
+        membersCount: members.length,
+        transactionsCount: transactions.length,
+        inventoryCount: inventory.length,
+        documentsCount: documents.length,
+        donationsCount: donations.length,
+        calendarEventsCount: calendarEvents.length,
+        meetingsCount: meetings.length,
+        invoicesCount: invoices.length,
+        contactsCount: contacts.length,
+        usersCount,
+        clubName: settings?.clubName,
+        restoredUsers: resolvedUsers
+      };
+    } finally {
+      isImportingBackup = false;
+      triggerAutoSnapshot();
+    }
   },
 
   async getDashboardConfig(): Promise<UserDashboardConfig> {
