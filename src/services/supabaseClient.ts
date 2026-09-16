@@ -348,7 +348,7 @@ CREATE INDEX IF NOT EXISTS idx_members_status ON public.members (status);
 CREATE INDEX IF NOT EXISTS idx_members_department ON public.members (department);
 CREATE INDEX IF NOT EXISTS idx_members_number ON public.members (member_number);
 
--- 4. TABELLE: TRANSACTIONS (Buchungsjournal / Kassenbuch)
+-- 4. TABELLE: TRANSACTIONS (Buchungsjournal / Kassenbuch inkl. Splittbuchungen)
 CREATE TABLE IF NOT EXISTS public.transactions (
   id TEXT PRIMARY KEY,
   date DATE NOT NULL,
@@ -365,11 +365,17 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   skr_account TEXT,
   category TEXT NOT NULL,
   vat_rate NUMERIC(4,1) DEFAULT 0.0,
+  is_split BOOLEAN DEFAULT false,
+  splits JSONB DEFAULT '[]'::jsonb,
   notes TEXT,
   receipt JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Migration für bestehende Datenbanken (Splittbuchungs-Spalten sicherstellen):
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS is_split BOOLEAN DEFAULT false;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS splits JSONB DEFAULT '[]'::jsonb;
 
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON public.transactions (date);
 CREATE INDEX IF NOT EXISTS idx_transactions_account ON public.transactions (account_id);

@@ -106,6 +106,8 @@ function mapTransactionToDb(t: Transaction) {
     skr_account: t.skrAccount || null,
     category: t.category,
     vat_rate: Number(t.vatRate) || 0,
+    is_split: Boolean(t.isSplit),
+    splits: t.isSplit && t.splits && t.splits.length > 0 ? t.splits : [],
     notes: t.notes || '',
     receipt: t.receipt || null,
     created_at: t.createdAt || new Date().toISOString(),
@@ -130,6 +132,8 @@ function mapTransactionFromDb(row: any): Transaction {
     skrAccount: row.skr_account || undefined,
     category: row.category,
     vatRate: Number(row.vat_rate) as 0 | 7 | 19,
+    isSplit: Boolean(row.is_split),
+    splits: Array.isArray(row.splits) && row.splits.length > 0 ? row.splits : undefined,
     notes: row.notes || undefined,
     receipt: row.receipt || undefined,
     createdAt: row.created_at,
@@ -1019,7 +1023,24 @@ export const CloudStorageService = {
     if (!client) return;
     const dbPayload = mapTransactionToDb(tx);
     const { error } = await client.from('transactions').upsert(dbPayload, { onConflict: 'id' });
-    if (error) throw new Error(`Supabase saveTransaction Fehler: ${error.message}`);
+    if (error) {
+      // Wenn die Supabase-Tabelle noch nicht migriert wurde (fehlende Spalten is_split / splits)
+      if (
+        error.message?.includes('is_split') ||
+        error.message?.includes('splits') ||
+        (error as any).code === 'PGRST204' ||
+        error.message?.includes('schema cache')
+      ) {
+        console.warn('Supabase transactions table lacks is_split or splits columns. Falling back to base payload without splits until schema migration is executed:', error.message);
+        const { is_split, splits, ...fallbackPayload } = dbPayload as any;
+        const fallbackRes = await client.from('transactions').upsert(fallbackPayload, { onConflict: 'id' });
+        if (fallbackRes.error) {
+          throw new Error(`Supabase saveTransaction Fehler: ${fallbackRes.error.message}`);
+        }
+        return;
+      }
+      throw new Error(`Supabase saveTransaction Fehler: ${error.message}`);
+    }
   },
 
   async batchSaveTransactions(txs: Transaction[]): Promise<void> {
@@ -1027,7 +1048,23 @@ export const CloudStorageService = {
     if (!client || txs.length === 0) return;
     const payloads = txs.map(mapTransactionToDb);
     const { error } = await client.from('transactions').upsert(payloads, { onConflict: 'id' });
-    if (error) throw new Error(`Supabase batchSaveTransactions Fehler: ${error.message}`);
+    if (error) {
+      if (
+        error.message?.includes('is_split') ||
+        error.message?.includes('splits') ||
+        (error as any).code === 'PGRST204' ||
+        error.message?.includes('schema cache')
+      ) {
+        console.warn('Supabase transactions table lacks is_split or splits columns. Falling back to base payloads without splits until schema migration is executed:', error.message);
+        const fallbackPayloads = payloads.map(({ is_split, splits, ...rest }: any) => rest);
+        const fallbackRes = await client.from('transactions').upsert(fallbackPayloads, { onConflict: 'id' });
+        if (fallbackRes.error) {
+          throw new Error(`Supabase batchSaveTransactions Fehler: ${fallbackRes.error.message}`);
+        }
+        return;
+      }
+      throw new Error(`Supabase batchSaveTransactions Fehler: ${error.message}`);
+    }
   },
 
   async deleteTransaction(id: string): Promise<void> {

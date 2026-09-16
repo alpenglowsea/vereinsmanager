@@ -2106,8 +2106,29 @@ export const StorageService = {
       try {
         const cloudTxs = await CloudStorageService.getTransactions();
         if (cloudTxs && cloudTxs.length > 0) {
-          saveAllToStore(STORES.TRANSACTIONS, cloudTxs).catch(() => {});
-          return cloudTxs;
+          // Lokalen Stand abrufen, um Splitt-Informationen abzusichern, falls Cloud-Spalten noch nicht migriert wurden
+          const localTxs = await getAllFromStore<Transaction>(STORES.TRANSACTIONS);
+          const localMap = new Map(localTxs.map(t => [t.id, t]));
+
+          const mergedTxs = cloudTxs.map(cloudTx => {
+            const local = localMap.get(cloudTx.id);
+            if (
+              local?.isSplit &&
+              local?.splits &&
+              local.splits.length > 0 &&
+              (!cloudTx.isSplit || !cloudTx.splits || cloudTx.splits.length === 0)
+            ) {
+              return {
+                ...cloudTx,
+                isSplit: true,
+                splits: local.splits
+              };
+            }
+            return cloudTx;
+          });
+
+          saveAllToStore(STORES.TRANSACTIONS, mergedTxs).catch(() => {});
+          return mergedTxs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         }
       } catch (err) {
         console.warn('Cloud getTransactions error:', err);

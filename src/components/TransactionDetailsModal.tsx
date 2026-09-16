@@ -351,8 +351,8 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
                             {s.skrAccount ? `${s.skrAccount} - ` : ''}{s.subCategory || s.category}
                           </span>
                         </div>
-                        {s.note && (
-                          <p className="text-3xs text-slate-500 italic">Notiz: {s.note}</p>
+                        {(s.bookingText || (s as any).note) && (
+                          <p className="text-3xs text-slate-500 italic">Buchungstext: {s.bookingText || (s as any).note}</p>
                         )}
                       </div>
                     </div>
