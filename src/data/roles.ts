@@ -10,6 +10,9 @@ export const FULL_PERMISSIONS: UserPermissions = {
   canManageDocuments: true,
   canManageInventory: true,
   canManageSettings: true,
+  canManageSurveys: true,
+  canManageContacts: true,
+  canManageMeetings: true,
   canManageUsers: true,
   canManageCalendar: true
 };
@@ -43,6 +46,9 @@ export const INITIAL_USERS: AppUser[] = [
       canManageDocuments: true,
       canManageInventory: true,
       canManageSettings: false,
+      canManageSurveys: true,
+      canManageContacts: true,
+      canManageMeetings: true,
       canManageUsers: false,
       canManageCalendar: true
     },
@@ -66,6 +72,9 @@ export const INITIAL_USERS: AppUser[] = [
       canManageDocuments: true,
       canManageInventory: true,
       canManageSettings: false,
+      canManageSurveys: false,
+      canManageContacts: true,
+      canManageMeetings: true,
       canManageUsers: false,
       canManageCalendar: true
     },

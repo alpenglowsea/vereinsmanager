@@ -459,15 +459,18 @@ export type DeploymentMode = 'local' | 'cloud' | 'selfhosted';
 export interface UserPermissions {
   canViewMembers: boolean;
   canEditMembers: boolean;
+  canManageSurveys: boolean;
   canViewFinances: boolean;
   canEditFinances: boolean;
   canExecuteSepa: boolean;
   canManageDonations: boolean;
+  canManageContacts: boolean;
+  canManageCalendar: boolean;
+  canManageMeetings: boolean;
   canManageDocuments: boolean;
   canManageInventory: boolean;
   canManageSettings: boolean;
   canManageUsers: boolean;
-  canManageCalendar?: boolean;
 }
 
 export interface AppUser {

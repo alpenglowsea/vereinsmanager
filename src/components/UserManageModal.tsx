@@ -28,7 +28,12 @@ interface UserManageModalProps {
 interface PermissionItem {
   key: keyof UserPermissions;
   label: string;
-  category: 'Mitglieder' | 'Finanzen & SEPA' | 'Dokumente & Inventar' | 'System & Verwaltung';
+  category:
+    | 'Mitglieder'
+    | 'Finanzen & SEPA'
+    | 'Kontakte, Termine & Sitzungen'
+    | 'Dokumente & Inventar'
+    | 'System & Verwaltung';
   description: string;
 }
 
@@ -45,6 +50,12 @@ const PERMISSION_ITEMS: PermissionItem[] = [
     label: 'Mitglieder anlegen & bearbeiten',
     category: 'Mitglieder',
     description: 'Neueintritte erfassen, Daten ändern und Kündigungen verarbeiten'
+  },
+  {
+    key: 'canManageSurveys',
+    label: 'Mitgliederbefragungen durchführen',
+    category: 'Mitglieder',
+    description: 'Umfragen und Meinungsbilder anlegen, versenden und auswerten'
   },
 
   // Finanzen
@@ -71,6 +82,26 @@ const PERMISSION_ITEMS: PermissionItem[] = [
     label: 'Spendenbescheinigungen ausstellen',
     category: 'Finanzen & SEPA',
     description: 'Geld- und Sachzuwendungsbestätigungen nach BMF-Muster erstellen'
+  },
+
+  // Kontakte, Termine & Sitzungen
+  {
+    key: 'canManageContacts',
+    label: 'Kontakte & Partner verwalten',
+    category: 'Kontakte, Termine & Sitzungen',
+    description: 'Lieferanten, Sponsoren, Spender und Partner pflegen'
+  },
+  {
+    key: 'canManageCalendar',
+    label: 'Vereinskalender verwalten',
+    category: 'Kontakte, Termine & Sitzungen',
+    description: 'Termine anlegen, ändern und Einladungen versenden'
+  },
+  {
+    key: 'canManageMeetings',
+    label: 'Sitzungsdienst & Beschlussbuch',
+    category: 'Kontakte, Termine & Sitzungen',
+    description: 'Sitzungen planen, Protokolle führen und Beschlüsse erfassen'
   },
 
   // Dokumente & Inventar
@@ -112,6 +143,10 @@ const DEFAULT_BLANK_PERMISSIONS: UserPermissions = {
   canManageDocuments: false,
   canManageInventory: false,
   canManageSettings: false,
+  canManageSurveys: false,
+  canManageContacts: true,
+  canManageCalendar: true,
+  canManageMeetings: false,
   canManageUsers: false
 };
 
@@ -206,6 +241,10 @@ export const UserManageModal: React.FC<UserManageModalProps> = ({
           canManageDocuments: true,
           canManageInventory: true,
           canManageSettings: false,
+          canManageSurveys: true,
+          canManageContacts: true,
+          canManageCalendar: true,
+          canManageMeetings: true,
           canManageUsers: false
         });
         break;
@@ -220,6 +259,10 @@ export const UserManageModal: React.FC<UserManageModalProps> = ({
           canManageDocuments: true,
           canManageInventory: true,
           canManageSettings: false,
+          canManageSurveys: false,
+          canManageContacts: true,
+          canManageCalendar: true,
+          canManageMeetings: true,
           canManageUsers: false
         });
         break;
@@ -234,6 +277,10 @@ export const UserManageModal: React.FC<UserManageModalProps> = ({
           canManageDocuments: true,
           canManageInventory: true,
           canManageSettings: false,
+          canManageSurveys: true,
+          canManageContacts: true,
+          canManageCalendar: true,
+          canManageMeetings: true,
           canManageUsers: false
         });
         break;
@@ -574,7 +621,15 @@ export const UserManageModal: React.FC<UserManageModalProps> = ({
 
                     {/* Permissions Grid Grouped by Category */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {(['Mitglieder', 'Finanzen & SEPA', 'Dokumente & Inventar', 'System & Verwaltung'] as const).map(cat => {
+                      {(
+                        [
+                          'Mitglieder',
+                          'Finanzen & SEPA',
+                          'Kontakte, Termine & Sitzungen',
+                          'Dokumente & Inventar',
+                          'System & Verwaltung'
+                        ] as const
+                      ).map(cat => {
                         const items = PERMISSION_ITEMS.filter(p => p.category === cat);
                         return (
                           <div key={cat} className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-2.5 shadow-2xs">

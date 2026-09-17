@@ -239,6 +239,10 @@ const DEFAULT_BLANK_PERMISSIONS: UserPermissions = {
   canManageDocuments: false,
   canManageInventory: false,
   canManageSettings: false,
+  canManageSurveys: false,
+  canManageContacts: true,
+  canManageCalendar: true,
+  canManageMeetings: false,
   canManageUsers: false
 };
 
@@ -884,6 +888,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           canManageDocuments: true,
           canManageInventory: true,
           canManageSettings: false,
+          canManageSurveys: false,
+          canManageContacts: true,
+          canManageCalendar: true,
+          canManageMeetings: true,
           canManageUsers: false
         });
         break;
@@ -898,6 +906,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           canManageDocuments: true,
           canManageInventory: true,
           canManageSettings: false,
+          canManageSurveys: false,
+          canManageContacts: true,
+          canManageCalendar: true,
+          canManageMeetings: true,
           canManageUsers: false
         });
         break;
@@ -912,6 +924,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           canManageDocuments: true,
           canManageInventory: false,
           canManageSettings: false,
+          canManageSurveys: true,
+          canManageContacts: true,
+          canManageCalendar: true,
+          canManageMeetings: true,
           canManageUsers: false
         });
         break;

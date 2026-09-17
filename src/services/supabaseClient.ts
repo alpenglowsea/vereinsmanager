@@ -168,6 +168,10 @@ export async function getAuthSession(): Promise<UserAuthSession> {
           canManageDocuments: true,
           canManageInventory: true,
           canManageSettings: true,
+          canManageSurveys: true,
+          canManageContacts: true,
+          canManageCalendar: true,
+          canManageMeetings: true,
           canManageUsers: true
         },
         isActive: true,

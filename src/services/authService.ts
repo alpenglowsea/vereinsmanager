@@ -6,6 +6,35 @@ const STORAGE_KEY_USERS = 'vm_users_v2';
 const STORAGE_KEY_SECURITY = 'vm_security_settings_v2';
 const STORAGE_KEY_CURRENT_SESSION = 'vm_auth_session_v2';
 
+/**
+ * Ergänzt Berechtigungen, die es zum Zeitpunkt der Speicherung noch nicht gab.
+ *
+ * Fehlende Felder werden als ERLAUBT gewertet, nicht als verboten: Wer gestern
+ * Zugriff auf die Kontakte hatte, darf ihn durch ein Programm-Update nicht
+ * verlieren. Der Vorstand kann jederzeit nachträglich einschränken — ein
+ * stillschweigendes Aussperren könnte er dagegen nicht einmal erklären.
+ */
+function withDefaultPermissions(user: AppUser): AppUser {
+  const p = (user.permissions || {}) as Partial<UserPermissions>;
+  const filled: UserPermissions = {
+    canViewMembers: p.canViewMembers ?? true,
+    canEditMembers: p.canEditMembers ?? true,
+    canManageSurveys: p.canManageSurveys ?? true,
+    canViewFinances: p.canViewFinances ?? true,
+    canEditFinances: p.canEditFinances ?? true,
+    canExecuteSepa: p.canExecuteSepa ?? true,
+    canManageDonations: p.canManageDonations ?? true,
+    canManageContacts: p.canManageContacts ?? true,
+    canManageCalendar: p.canManageCalendar ?? true,
+    canManageMeetings: p.canManageMeetings ?? true,
+    canManageDocuments: p.canManageDocuments ?? true,
+    canManageInventory: p.canManageInventory ?? true,
+    canManageSettings: p.canManageSettings ?? true,
+    canManageUsers: p.canManageUsers ?? true
+  };
+  return { ...user, permissions: filled };
+}
+
 export class AuthService {
   private static cachedUsers: AppUser[] | null = null;
   private static cachedSecurity: SecuritySettings | null = null;
@@ -411,7 +440,8 @@ export class AuthService {
     const stored = localStorage.getItem(STORAGE_KEY_USERS);
     if (stored) {
       try {
-        this.cachedUsers = JSON.parse(stored);
+        const parsed: AppUser[] = JSON.parse(stored);
+        this.cachedUsers = parsed.map(withDefaultPermissions);
         return this.cachedUsers!;
       } catch {
         // fallback

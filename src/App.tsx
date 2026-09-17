@@ -1044,20 +1044,68 @@ export default function App() {
     canManageDocuments: true,
     canManageInventory: true,
     canManageSettings: true,
+    canManageSurveys: true,
+    canManageContacts: true,
+    canManageCalendar: true,
+    canManageMeetings: true,
     canManageUsers: true
   };
 
-  const canViewFinances = Boolean(userPermissions.canViewFinances);
   const canEditFinances = Boolean(userPermissions.canEditFinances);
-  const canExecuteSepa = Boolean(userPermissions.canExecuteSepa);
-  const canManageDonations = Boolean(userPermissions.canManageDonations);
-  const canViewMembers = Boolean(userPermissions.canViewMembers);
   const canEditMembers = Boolean(userPermissions.canEditMembers);
-  const canManageDocuments = Boolean(userPermissions.canManageDocuments);
-  const canManageInventory = Boolean(userPermissions.canManageInventory);
   const canManageUsers = Boolean(userPermissions.canManageUsers);
-  const canManageSettings = Boolean(userPermissions.canManageSettings);
   const isReadOnly = !canEditFinances && !canEditMembers;
+
+  // ---------------------------------------------------------------------
+  // Welcher Bereich verlangt welche Berechtigung?
+  //
+  // WICHTIG: Das ist eine Bedienhilfe, keine Sicherheitsgrenze. Alles läuft
+  // im Browser des Nutzers und lässt sich dort umgehen. Verbindlich schützen
+  // kann nur der Server (Supabase Row Level Security).
+  // ---------------------------------------------------------------------
+  const TAB_PERMISSION: Record<string, keyof UserPermissions | null> = {
+    dashboard: null, // immer zugänglich
+    members: 'canViewMembers',
+    online_applications: 'canEditMembers',
+    member_analytics: 'canViewMembers',
+    member_surveys: 'canManageSurveys',
+    finance: 'canViewFinances',
+    sepa: 'canExecuteSepa',
+    guv: 'canViewFinances',
+    invoices: 'canViewFinances',
+    donations: 'canManageDonations',
+    finance_analytics: 'canViewFinances',
+    contacts: 'canManageContacts',
+    calendar: 'canManageCalendar',
+    meetings: 'canManageMeetings',
+    inventory: 'canManageInventory',
+    documents: 'canManageDocuments',
+    settings: 'canManageSettings'
+  };
+
+  const mayAccess = (tab: string): boolean => {
+    const required = TAB_PERMISSION[tab];
+    if (!required) return true;
+    return Boolean(userPermissions[required]);
+  };
+
+  /** Zusatzklassen für einen gesperrten Navigationseintrag. */
+  const navLockClass = (tab: string): string =>
+    mayAccess(tab) ? '' : ' opacity-40 cursor-not-allowed';
+
+  const NAV_LOCK_TITLE = 'Ihre Rolle hat für diesen Bereich keine Berechtigung';
+
+  /**
+   * Bereichswechsel aus der Anwendung heraus (Kacheln, Querverweise).
+   * Führt ins Leere, wenn die Berechtigung fehlt — sonst könnte ein
+   * Verweis jemanden in einen Bereich befördern, den die Navigation
+   * für ihn gesperrt hat.
+   */
+  const goToTab = (tab: ActiveTab) => {
+    if (!mayAccess(tab)) return;
+    setActiveTab(tab);
+  };
+
 
   return (
     <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
@@ -1179,6 +1227,8 @@ export default function App() {
               <div className="pl-2 pr-1 space-y-1 mt-1 border-l border-slate-800 ml-4">
                 <button
                   type="button"
+                  disabled={!mayAccess('members')}
+                  title={mayAccess('members') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('members');
                     setMobileMenuOpen(false);
@@ -1187,14 +1237,17 @@ export default function App() {
                     activeTab === 'members'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
+                  }${navLockClass('members')}`}
                 >
                   <Users className="w-3.5 h-3.5 text-blue-400" />
                   <span>Mitgliederverwaltung</span>
+                  {!mayAccess('members') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
 
                 <button
                   type="button"
+                  disabled={!mayAccess('online_applications')}
+                  title={mayAccess('online_applications') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('online_applications');
                     setMobileMenuOpen(false);
@@ -1203,7 +1256,7 @@ export default function App() {
                     activeTab === 'online_applications'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
+                  }${navLockClass('online_applications')}`}
                 >
                   <div className="flex items-center gap-2">
                     <FileSignature className="w-3.5 h-3.5 text-blue-400" />
@@ -1224,10 +1277,13 @@ export default function App() {
                       {onlineApplications.length}
                     </span>
                   )}
+                  {!mayAccess('online_applications') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
 
                 <button
                   type="button"
+                  disabled={!mayAccess('member_analytics')}
+                  title={mayAccess('member_analytics') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('member_analytics');
                     setMobileMenuOpen(false);
@@ -1236,14 +1292,17 @@ export default function App() {
                     activeTab === 'member_analytics'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
+                  }${navLockClass('member_analytics')}`}
                 >
                   <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
                   <span>Mitglieder-Statistiken</span>
+                  {!mayAccess('member_analytics') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
 
                 <button
                   type="button"
+                  disabled={!mayAccess('member_surveys')}
+                  title={mayAccess('member_surveys') ? undefined : NAV_LOCK_TITLE}
                   id="nav-btn-member-surveys"
                   onClick={() => {
                     setActiveTab('member_surveys');
@@ -1253,10 +1312,11 @@ export default function App() {
                     activeTab === 'member_surveys'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
+                  }${navLockClass('member_surveys')}`}
                 >
                   <Vote className="w-3.5 h-3.5 text-blue-400" />
                   <span>Mitgliederbefragung</span>
+                  {!mayAccess('member_surveys') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
               </div>
             )}
@@ -1291,6 +1351,8 @@ export default function App() {
                 {/* 3a. Buchungen & Konten */}
                 <button
                   type="button"
+                  disabled={!mayAccess('finance')}
+                  title={mayAccess('finance') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('finance');
                     setMobileMenuOpen(false);
@@ -1299,15 +1361,18 @@ export default function App() {
                     activeTab === 'finance'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
+                  }${navLockClass('finance')}`}
                 >
                   <Wallet className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Buchungen & Journal</span>
+                  {!mayAccess('finance') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
 
                 {/* 3b. Beitragslauf (SEPA) */}
                 <button
                   type="button"
+                  disabled={!mayAccess('sepa')}
+                  title={mayAccess('sepa') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('sepa');
                     setMobileMenuOpen(false);
@@ -1316,7 +1381,7 @@ export default function App() {
                     activeTab === 'sepa'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
+                  }${navLockClass('sepa')}`}
                 >
                   <div className="flex items-center gap-2">
                     <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
@@ -1331,11 +1396,14 @@ export default function App() {
                   >
                     SEPA
                   </span>
+                  {!mayAccess('sepa') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
 
                 {/* 3c. EÜR / GuV */}
                 <button
                   type="button"
+                  disabled={!mayAccess('guv')}
+                  title={mayAccess('guv') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('guv');
                     setMobileMenuOpen(false);
@@ -1344,16 +1412,19 @@ export default function App() {
                     activeTab === 'guv'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
+                  }${navLockClass('guv')}`}
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
                   <span>EÜR / GuV</span>
+                  {!mayAccess('guv') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
 
                 {/* 3d. Rechnungen & Vorlagen */}
                 <button
                   id="nav-btn-invoices"
                   type="button"
+                  disabled={!mayAccess('invoices')}
+                  title={mayAccess('invoices') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('invoices');
                     setMobileMenuOpen(false);
@@ -1362,16 +1433,19 @@ export default function App() {
                     activeTab === 'invoices'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
+                  }${navLockClass('invoices')}`}
                 >
                   <FileText className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Rechnungen</span>
+                  {!mayAccess('invoices') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
 
                 {/* 3e. Geld- & Sachzuwendungen (BMF Muster) */}
                 <button
                   id="nav-btn-donations"
                   type="button"
+                  disabled={!mayAccess('donations')}
+                  title={mayAccess('donations') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('donations');
                     setMobileMenuOpen(false);
@@ -1380,15 +1454,18 @@ export default function App() {
                     activeTab === 'donations'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
+                  }${navLockClass('donations')}`}
                 >
                   <HeartHandshake className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Spenden</span>
+                  {!mayAccess('donations') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
 
                 {/* 3e. Finanz-Auswertungen */}
                 <button
                   type="button"
+                  disabled={!mayAccess('finance_analytics')}
+                  title={mayAccess('finance_analytics') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('finance_analytics');
                     setMobileMenuOpen(false);
@@ -1397,10 +1474,11 @@ export default function App() {
                     activeTab === 'finance_analytics'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
+                  }${navLockClass('finance_analytics')}`}
                 >
                   <PieChart className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Finanz-Auswertungen</span>
+                  {!mayAccess('finance_analytics') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
               </div>
             )}
@@ -1411,6 +1489,8 @@ export default function App() {
             <button
               id="nav-btn-contacts"
               type="button"
+              disabled={!mayAccess('contacts')}
+              title={mayAccess('contacts') ? undefined : NAV_LOCK_TITLE}
               onClick={() => {
                 setActiveTab('contacts');
                 setMobileMenuOpen(false);
@@ -1419,12 +1499,13 @@ export default function App() {
                 activeTab === 'contacts'
                   ? 'bg-blue-600 text-white shadow-xs font-bold'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-              }`}
+              }${navLockClass('contacts')}`}
             >
               <div className="flex items-center gap-2">
                 <Contact className={`w-4 h-4 ${activeTab === 'contacts' ? 'text-white' : 'text-cyan-400'}`} />
                 <span>Kontakte</span>
               </div>
+              {!mayAccess('contacts') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
             </button>
           </div>
 
@@ -1433,6 +1514,8 @@ export default function App() {
             <button
               id="nav-btn-calendar"
               type="button"
+              disabled={!mayAccess('calendar')}
+              title={mayAccess('calendar') ? undefined : NAV_LOCK_TITLE}
               onClick={() => {
                 setActiveTab('calendar');
                 setMobileMenuOpen(false);
@@ -1441,12 +1524,13 @@ export default function App() {
                 activeTab === 'calendar'
                   ? 'bg-blue-600 text-white shadow-xs font-bold'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-              }`}
+              }${navLockClass('calendar')}`}
             >
               <div className="flex items-center gap-2">
                 <CalendarDays className={`w-4 h-4 ${activeTab === 'calendar' ? 'text-white' : 'text-indigo-400'}`} />
                 <span>Kalender</span>
               </div>
+              {!mayAccess('calendar') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
             </button>
           </div>
 
@@ -1455,6 +1539,8 @@ export default function App() {
             <button
               id="nav-btn-meetings"
               type="button"
+              disabled={!mayAccess('meetings')}
+              title={mayAccess('meetings') ? undefined : NAV_LOCK_TITLE}
               onClick={() => {
                 setActiveTab('meetings');
                 setMobileMenuOpen(false);
@@ -1463,12 +1549,13 @@ export default function App() {
                 activeTab === 'meetings'
                   ? 'bg-blue-600 text-white shadow-xs font-bold'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-              }`}
+              }${navLockClass('meetings')}`}
             >
               <div className="flex items-center gap-2">
                 <ScrollText className={`w-4 h-4 ${activeTab === 'meetings' ? 'text-white' : 'text-rose-400'}`} />
                 <span>Sitzungen</span>
               </div>
+              {!mayAccess('meetings') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
             </button>
           </div>
 
@@ -1476,6 +1563,8 @@ export default function App() {
           <div className="pt-2">
             <button
               type="button"
+              disabled={!mayAccess('inventory')}
+              title={mayAccess('inventory') ? undefined : NAV_LOCK_TITLE}
               onClick={() => {
                 setActiveTab('inventory');
                 setMobileMenuOpen(false);
@@ -1484,10 +1573,11 @@ export default function App() {
                 activeTab === 'inventory'
                   ? 'bg-blue-600 text-white shadow-xs font-bold'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-              }`}
+              }${navLockClass('inventory')}`}
             >
               <Package className="w-4 h-4 text-purple-400" />
               <span>Inventar</span>
+              {!mayAccess('inventory') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
             </button>
           </div>
 
@@ -1496,6 +1586,8 @@ export default function App() {
             <button
               id="nav-btn-documents"
               type="button"
+              disabled={!mayAccess('documents')}
+              title={mayAccess('documents') ? undefined : NAV_LOCK_TITLE}
               onClick={() => {
                 setActiveTab('documents');
                 setMobileMenuOpen(false);
@@ -1504,10 +1596,11 @@ export default function App() {
                 activeTab === 'documents'
                   ? 'bg-blue-600 text-white shadow-xs font-bold'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-              }`}
+              }${navLockClass('documents')}`}
             >
               <FolderArchive className="w-4 h-4 text-amber-400" />
               <span>Dokumente</span>
+              {!mayAccess('documents') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
             </button>
           </div>
         </nav>
@@ -1520,7 +1613,7 @@ export default function App() {
             type="button"
             onClick={() => {
               setSettingsActiveTab('general');
-              setActiveTab('settings');
+              goToTab('settings');
               setMobileMenuOpen(false);
             }}
             className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -1545,7 +1638,7 @@ export default function App() {
             currentMode={deploymentMode}
             onOpenDeploymentHub={() => {
               setSettingsActiveTab('deployment');
-              setActiveTab('settings');
+              goToTab('settings');
             }}
           />
         </div>
@@ -1695,7 +1788,7 @@ export default function App() {
                       onClick={() => {
                         setUserDropdownOpen(false);
                         setSettingsActiveTab('general');
-                        setActiveTab('settings');
+                        goToTab('settings');
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-left transition-colors cursor-pointer"
                     >
@@ -1709,7 +1802,7 @@ export default function App() {
                         onClick={() => {
                           setUserDropdownOpen(false);
                           setSettingsActiveTab('users');
-                          setActiveTab('settings');
+                          goToTab('settings');
                         }}
                         className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-left transition-colors cursor-pointer"
                       >
@@ -1782,7 +1875,7 @@ export default function App() {
                   StorageService.saveDashboardConfig(newConfig);
                 }}
                 onOpenDashboardConfigModal={() => setIsDashboardConfigOpen(true)}
-                onNavigate={(tab) => setActiveTab(tab)}
+                onNavigate={(tab) => goToTab(tab)}
                 onOpenCreateMember={() => {
                   setEditingMember(null);
                   setMemberFormOpen(true);
@@ -1865,8 +1958,8 @@ export default function App() {
                   await StorageService.saveOnlineApplication(newApp);
                   await loadData();
                 }}
-                onNavigateToMembers={() => setActiveTab('members')}
-                onNavigateToDocuments={() => setActiveTab('documents')}
+                onNavigateToMembers={() => goToTab('members')}
+                onNavigateToDocuments={() => goToTab('documents')}
               />
             )}
 
@@ -1883,7 +1976,7 @@ export default function App() {
                 deploymentMode={deploymentMode}
                 onNavigateToSettings={() => {
                   setSettingsActiveTab('deployment');
-                  setActiveTab('settings');
+                  goToTab('settings');
                 }}
               />
             )}
@@ -1894,7 +1987,7 @@ export default function App() {
                 members={members}
                 settings={settings}
                 accounts={accounts}
-                onOpenSettings={() => setActiveTab('settings')}
+                onOpenSettings={() => goToTab('settings')}
                 onRefreshData={loadData}
               />
             )}
@@ -2095,7 +2188,7 @@ export default function App() {
                 onDataReload={loadData}
                 onOpenDeploymentHub={() => {
                   setSettingsActiveTab('deployment');
-                  setActiveTab('settings');
+                  goToTab('settings');
                 }}
                 onOpenUserManage={() => setUserManageOpen(true)}
                 currentTheme={theme}
@@ -2433,7 +2526,7 @@ export default function App() {
             const foundDoc = documents.find(d => d.id === docId);
             if (foundDoc) {
               setDocViewerItem(foundDoc);
-              setActiveTab('documents');
+              goToTab('documents');
             }
           }}
         />
