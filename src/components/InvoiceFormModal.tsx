@@ -1184,7 +1184,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                             value={item.unitPrice === 0 || (item.unitPrice as any) === '' ? ((item.unitPrice as any) === '' ? '' : item.unitPrice) : item.unitPrice}
                             onChange={(e) => handleUnitPriceChange(item.id, e.target.value)}
                             onFocus={(e) => {
-                              if (item.unitPrice === 0 || item.unitPrice === '0' || (item.unitPrice as any) === '') {
+                              if (item.unitPrice === 0 || (item.unitPrice as any) === '') {
                                 handleItemChange(item.id, 'unitPrice', '');
                               } else {
                                 e.target.select();

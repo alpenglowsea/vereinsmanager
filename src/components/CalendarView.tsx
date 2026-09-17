@@ -8,6 +8,7 @@ import {
   SpecialCalendarItem,
   UserPermissions
 } from '../types';
+import { formatClubAddress } from '../utils/clubAddress';
 import { CalendarService, ExpandedEventInstance } from '../services/calendarService';
 import { StorageService } from '../services/storage';
 import { CalendarEventModal } from './CalendarEventModal';
@@ -1359,7 +1360,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             setIsEventModalOpen(false);
             setIsCategoryModalOpen(true);
           }}
-          clubSettingsAddress={settings.address}
+          clubSettingsAddress={formatClubAddress(settings.address)}
         />
       )}
 

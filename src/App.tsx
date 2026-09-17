@@ -33,6 +33,7 @@ import {
 import { StorageService } from './services/storage';
 import { AuthService } from './services/authService';
 import { AppUser, UserAuthSession } from './types';
+import { formatClubAddress } from './utils/clubAddress';
 import { UserDashboardConfig } from './types/dashboard';
 import { DEFAULT_DASHBOARD_CONFIG } from './data/defaultDashboard';
 import { DEFAULT_MEETING_TEMPLATE } from './data/initialMeetings';
@@ -241,6 +242,7 @@ export default function App() {
     address: 'Sportplatzweg 12, 12345 Musterstadt',
     chairman: 'Dr. Michael Sommer',
     treasurer: 'Sabine Weber',
+    email: '',
     departments: ['Fußball', 'Tennis', 'Turnen', 'Leichtathletik', 'Schwimmen', 'Volleyball'],
     currency: 'EUR'
   });
@@ -280,19 +282,25 @@ export default function App() {
   // Invoices Management States
   const [invoices, setInvoices] = useState<ClubInvoice[]>([]);
   const [invoiceTemplateSettings, setInvoiceTemplateSettings] = useState<InvoiceTemplateSettings>({
-    primaryColor: '#1e40af',
-    secondaryColor: '#475569',
-    accentColor: '#2563eb',
-    showClubLogo: true,
-    showGiroCode: true,
-    showFoldMarks: true,
-    showFooterColumns: true,
-    fontFamily: 'Helvetica',
-    tableHeaderBackground: '#f1f5f9',
+    templateName: 'Standard',
+
+    // Seitenränder in mm. marginTop steuert im PDF-Dienst die Position des
+    // Adressfeldes, wenn eigenes Briefpapier hinterlegt ist.
+    marginTop: 45,
+    marginBottom: 20,
+    marginLeft: 25,
+    marginRight: 20,
+
+    defaultIntroText: 'für Ihre Mitgliedschaft in unserem Verein stellen wir Ihnen folgende Positionen in Rechnung:',
+    defaultOutroText: 'Vielen Dank für Ihre Unterstützung unseres Vereins!',
     defaultPaymentTermsDays: 14,
-    defaultNotes: 'Vielen Dank für Ihre Unterstützung unseres Vereins!',
-    customBlankoDataUrl: '',
-    useCustomBlankoOnly: false
+    defaultDueNotice: 'Bitte überweisen Sie den Rechnungsbetrag bis zum angegebenen Fälligkeitsdatum auf das unten genannte Vereinskonto.',
+
+    showClubLogo: true,
+    showFoldingMarks: true,
+    showGiroCode: true,
+    accentColor: '#2563eb',
+    customBlankoDataUrl: ''
   });
   const [invoiceFormOpen, setInvoiceFormOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<ClubInvoice | null>(null);
@@ -1870,8 +1878,6 @@ export default function App() {
                   await StorageService.saveOnlineApplication(newApp);
                   await loadData();
                 }}
-                onViewDocument={(doc) => setDocViewerItem(doc)}
-                onOpenPublicForm={() => setIsPublicFormMode(true)}
                 onNavigateToMembers={() => setActiveTab('members')}
                 onNavigateToDocuments={() => setActiveTab('documents')}
               />
@@ -2176,10 +2182,6 @@ export default function App() {
             setDocViewerItem(null);
             setDocEditItem(item);
           }}
-          onDelete={(id) => {
-            handleDeleteDocument(id);
-            setDocViewerItem(null);
-          }}
         />
       )}
 
@@ -2218,7 +2220,7 @@ export default function App() {
         <InventoryFormModal
           item={editingInventoryItem}
           departments={settings.departments}
-          existingInventory={inventory}
+          settings={settings}
           onSave={handleSaveInventoryItem}
           onClose={() => {
             setInventoryFormOpen(false);
@@ -2489,7 +2491,7 @@ export default function App() {
           members={members}
           departments={settings.departments}
           onSave={handleSaveCalendarEvent}
-          clubSettingsAddress={settings.address}
+          clubSettingsAddress={formatClubAddress(settings.address)}
         />
       )}
 
@@ -2559,14 +2561,14 @@ export default function App() {
             </div>
             <div className="p-3 sm:p-6 overflow-y-auto flex-1 bg-slate-100">
               <PublicApplicationForm
-                clubSettings={settings}
+                settings={settings}
                 templateSettings={applicationSettings}
-                onSubmit={async (app) => {
+                onSubmitApplication={async (app) => {
                   await StorageService.saveOnlineApplication(app);
                   await loadData();
                   setIsPublicFormMode(false);
                 }}
-                onCancel={() => setIsPublicFormMode(false)}
+                onClose={() => setIsPublicFormMode(false)}
               />
             </div>
           </div>

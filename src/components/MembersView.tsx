@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Member, ClubSettings, MembershipStatus, MembershipType, PaymentMethod, MemberBulkUpdates } from '../types';
 import { ExportService } from '../services/exportService';
 import { MemberBulkEditModal } from './MemberBulkEditModal';
-import { TablePagination } from './TablePagination';
+import { TablePagination, PageSizeOption } from './TablePagination';
 import {
   Search,
   Plus,
@@ -68,7 +68,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
 
   // Pagination state (25, 50, 100, or 'all')
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number | 'all'>(25);
+  const [pageSize, setPageSize] = useState<PageSizeOption>(25);
 
   // Reset page when filters change
   useEffect(() => {
@@ -186,7 +186,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
     }
   };
 
-  const handleToggleMember = (id: string, e?: React.MouseEvent) => {
+  const handleToggleMember = (id: string, e?: React.SyntheticEvent) => {
     if (e) e.stopPropagation();
     setSelectedMemberIds(prev => {
       const next = new Set(prev);

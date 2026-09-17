@@ -413,7 +413,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   }, [settings, currentTheme]);
 
   const [newDepartment, setNewDepartment] = useState('');
-  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [statusMsg, setStatusMsg] = useState<{
+    type: 'success' | 'error' | 'info';
+    text: string;
+  } | null>(null);
   const [usersList, setUsersList] = useState<AppUser[]>(() => AuthService.getUsers());
   const [qrModalOpen, setQrModalOpen] = useState(false);
 
@@ -1661,11 +1664,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           className={`p-4 rounded-2xl text-xs font-semibold flex items-center gap-3 animate-in fade-in duration-200 ${
             statusMsg.type === 'success'
               ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
-              : 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
+              : statusMsg.type === 'info'
+                ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60'
+                : 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
           }`}
         >
           {statusMsg.type === 'success' ? (
             <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          ) : statusMsg.type === 'info' ? (
+            <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
           ) : (
             <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
           )}

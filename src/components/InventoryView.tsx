@@ -3,7 +3,7 @@ import { InventoryItem, InventoryCategory, ItemCondition, ClubSettings, Inventor
 import { INVENTORY_CATEGORIES, CONDITION_OPTIONS } from '../data/inventoryCategories';
 import { StorageService } from '../services/storage';
 import { ExportService } from '../services/exportService';
-import { TablePagination } from './TablePagination';
+import { TablePagination, PageSizeOption } from './TablePagination';
 import { InventoryBulkEditModal } from './InventoryBulkEditModal';
 import { IssuedInventoryModal } from './IssuedInventoryModal';
 import {
@@ -96,7 +96,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
   // Pagination state (25, 50, 100, or 'all')
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number | 'all'>(25);
+  const [pageSize, setPageSize] = useState<PageSizeOption>(25);
 
   // Reset to page 1 on filter changes
   useEffect(() => {
@@ -290,7 +290,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const someFilteredSelected =
     filteredInventory.some(item => selectedItemIds.has(item.id)) && !allFilteredSelected;
 
-  const handleToggleSelectItem = (id: string, e?: React.MouseEvent) => {
+  const handleToggleSelectItem = (id: string, e?: React.SyntheticEvent) => {
     if (e) e.stopPropagation();
     setSelectedItemIds(prev => {
       const next = new Set(prev);

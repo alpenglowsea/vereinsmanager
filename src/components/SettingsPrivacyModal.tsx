@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ClubSettings, AppUser, UserPermissions } from '../types';
+import { formatClubAddress } from '../utils/clubAddress';
 import { StorageService } from '../services/storage';
 import { AuthService } from '../services/authService';
 import { FULL_PERMISSIONS } from '../data/roles';
@@ -17,6 +18,7 @@ import {
   HardDrive,
   CheckCircle2,
   AlertTriangle,
+  Info,
   CreditCard,
   Cloud,
   Server,
@@ -145,7 +147,10 @@ export const SettingsPrivacyModal: React.FC<SettingsPrivacyModalProps> = ({
   const [activeTab, setActiveTab] = useState<'privacy' | 'club' | 'backup' | 'deployment' | 'users'>('privacy');
   const [formData, setFormData] = useState<ClubSettings>({ ...settings });
   const [newDepartment, setNewDepartment] = useState('');
-  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [statusMsg, setStatusMsg] = useState<{
+    type: 'success' | 'error' | 'info';
+    text: string;
+  } | null>(null);
   const [usersList, setUsersList] = useState<AppUser[]>(() => AuthService.getUsers());
 
   // User In-Place Editing State
@@ -559,9 +564,19 @@ export const SettingsPrivacyModal: React.FC<SettingsPrivacyModalProps> = ({
         {/* Notifications */}
         {statusMsg && (
           <div className={`mx-6 mt-4 p-3 rounded-xl text-xs flex items-center gap-2 ${
-            statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
+            statusMsg.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              : statusMsg.type === 'info'
+                ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                : 'bg-rose-50 text-rose-800 border border-rose-200'
           }`}>
-            {statusMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
+            {statusMsg.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+            ) : statusMsg.type === 'info' ? (
+              <Info className="w-4 h-4 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+            )}
             {statusMsg.text}
           </div>
         )}
@@ -744,7 +759,7 @@ export const SettingsPrivacyModal: React.FC<SettingsPrivacyModalProps> = ({
                   </label>
                   <input
                     type="text"
-                    value={formData.address}
+                    value={formatClubAddress(formData.address)}
                     onChange={e => setFormData({ ...formData, address: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
                     placeholder="Sportplatzweg 12, 12345 Musterstadt"

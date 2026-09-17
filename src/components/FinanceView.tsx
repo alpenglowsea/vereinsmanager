@@ -13,7 +13,7 @@ import { ExportService } from '../services/exportService';
 import { StorageService } from '../services/storage';
 import { TransactionDetailsModal } from './TransactionDetailsModal';
 import { TransactionBulkEditModal } from './TransactionBulkEditModal';
-import { TablePagination } from './TablePagination';
+import { TablePagination, PageSizeOption } from './TablePagination';
 import {
   Plus,
   Search,
@@ -173,7 +173,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
 
   // Pagination state (25, 50, 100, or 'all')
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number | 'all'>(25);
+  const [pageSize, setPageSize] = useState<PageSizeOption>(25);
 
   // Reset to page 1 when any filter or sorting changes
   useEffect(() => {
@@ -320,7 +320,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   const someFilteredSelected =
     filteredTransactions.some(t => selectedTxIds.has(t.id)) && !allFilteredSelected;
 
-  const handleToggleSelectTx = (id: string, e?: React.MouseEvent) => {
+  const handleToggleSelectTx = (id: string, e?: React.SyntheticEvent) => {
     if (e) e.stopPropagation();
     setSelectedTxIds(prev => {
       const next = new Set(prev);

@@ -1070,11 +1070,11 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
       <MeetingNotesUploadModal
         isOpen={isOverviewNotesModalOpen}
         onClose={() => setIsOverviewNotesModalOpen(false)}
-        meetingContext={{
+        currentMeetingContext={{
           type: 'board',
           chairperson: clubSettings.chairman || '1. Vorsitzender',
         }}
-        onApplyData={handleApplyExtractedFromOverview}
+        onApplyExtractedData={handleApplyExtractedFromOverview}
       />
 
       <MeetingAudioRecorderModal

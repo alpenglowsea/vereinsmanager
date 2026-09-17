@@ -24,6 +24,7 @@ interface MeetingNotesUploadModalProps {
     title?: string;
     type?: MeetingType;
     date?: string;
+    chairperson?: string;
   };
 }
 

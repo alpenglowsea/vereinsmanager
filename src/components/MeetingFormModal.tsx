@@ -334,7 +334,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
       title: 'Beschlussantrag',
       motionText: 'Der Vorstand / die Versammlung beschließt...',
       proposer: chairperson,
-      votesFor: totalEligibleVoters,
+      votesFor: typeof totalEligibleVoters === 'number' ? totalEligibleVoters : 5,
       votesAgainst: 0,
       votesAbstain: 0,
       result: 'accepted',
@@ -1493,13 +1493,13 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
         <MeetingNotesUploadModal
           isOpen={isNotesModalOpen}
           onClose={() => setIsNotesModalOpen(false)}
-          meetingContext={{
+          currentMeetingContext={{
             title,
             type,
             date,
             chairperson,
           }}
-          onApplyData={handleApplyExtractedData}
+          onApplyExtractedData={handleApplyExtractedData}
         />
 
         <MeetingAudioRecorderModal
@@ -1526,7 +1526,6 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
               aiAssistantConfig.topIndex !== undefined
                 ? agenda[aiAssistantConfig.topIndex]?.title
                 : undefined,
-            agendaCount: agenda.length,
           }}
           onApplyResolution={handleApplyAiResolution}
           onApplyDiscussion={handleApplyAiDiscussion}

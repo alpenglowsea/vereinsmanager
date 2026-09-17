@@ -1176,8 +1176,8 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             setFolderModalParentId(null);
           }}
           allFolders={folders}
-          folderToEdit={editingFolder}
-          initialParentId={folderModalParentId}
+          existingFolder={editingFolder}
+          defaultParentId={folderModalParentId}
         />
       )}
 

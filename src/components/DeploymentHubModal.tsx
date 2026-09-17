@@ -1387,8 +1387,7 @@ services:
                       <div>
                         <div className="font-bold text-slate-900 dark:text-white">{authSession.user?.email}</div>
                         <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
-                          Rolle: <span className="font-bold text-emerald-700 dark:text-emerald-400">{authSession.user?.role || 'Vorstandsmitglied'}</span>
-                          {authSession.user?.clubName && ` • ${authSession.user.clubName}`}
+                          Rolle: <span className="font-bold text-emerald-700 dark:text-emerald-400">{authSession.user?.customRoleName || 'Vorstandsmitglied'}</span>
                         </div>
                         <div className="text-2xs text-slate-400 mt-0.5">
                           Angemeldet über Supabase Auth (Cloud)
