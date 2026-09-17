@@ -96,7 +96,10 @@ export const SepaService = {
    */
   sanitizeText(text: string, maxLength = 140): string {
     if (!text) return '';
+
     let res = text
+      // Deutsche Umlaute zuerst: sie werden ausgeschrieben, nicht auf den
+      // Grundbuchstaben reduziert (Müller -> Mueller, nicht Muller).
       .replace(/Ä/g, 'Ae')
       .replace(/Ö/g, 'Oe')
       .replace(/Ü/g, 'Ue')
@@ -105,7 +108,17 @@ export const SepaService = {
       .replace(/ü/g, 'ue')
       .replace(/ß/g, 'ss')
       .replace(/&/g, '+')
-      .replace(/[^\w\s\+\-\/\?:().,']/g, '') // ISO 20022 allowed subset
+      // Übrige diakritische Zeichen auf den Grundbuchstaben abbilden
+      // (José -> Jose, Núñez -> Nunez). Ohne diesen Schritt wurden sie
+      // ersatzlos gelöscht, und das Mandat lautete auf einen Namen, den
+      // es nicht gibt.
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      // Zeilenumbrüche und Tabulatoren sind im Zeichensatz nicht erlaubt
+      .replace(/\s+/g, ' ')
+      // Erlaubter Zeichensatz nach EPC/ISO 20022. Bewusst ausgeschrieben:
+      // \w schloss den Unterstrich mit ein, den Banken zurückweisen.
+      .replace(/[^A-Za-z0-9/\-?:().,'+ ]/g, '')
       .trim();
 
     if (maxLength && res.length > maxLength) {
@@ -201,8 +214,10 @@ export const SepaService = {
     // 3. Match the period filter
     return members
       .filter(m => {
-        // Exclude terminated or suspended members
-        if (m.status === 'terminated') return false;
+        // Gekündigte und ruhende Mitgliedschaften werden nicht eingezogen.
+        // Der Kommentar nannte "suspended" bereits, die Prüfung fehlte aber,
+        // sodass bei ruhender Mitgliedschaft weiter abgebucht wurde.
+        if (m.status === 'terminated' || m.status === 'suspended') return false;
         // Must use SEPA
         if (m.paymentMethod !== 'sepa') return false;
 
@@ -288,13 +303,32 @@ export const SepaService = {
           periodLabel = `${targetYear}`;
         }
 
-        let customRemittance = config.remittanceTemplate || 'Mitgliedsbeitrag {PERIOD} {MEMBER_NO} {NAME}';
-        customRemittance = customRemittance
-          .replace('{PERIOD}', periodLabel)
-          .replace('{MEMBER_NO}', m.memberNumber)
-          .replace('{NAME}', `${m.lastName}, ${m.firstName}`)
-          .replace('{YEAR}', targetYear.toString())
-          .replace('{DEPT}', m.department || '');
+        // Platzhalter werden in beiden Schreibweisen unterstützt: Die
+        // Eingabemaske schlägt {month}/{year}/{memberNumber} vor, ältere
+        // gespeicherte Vorlagen verwenden {PERIOD}/{MEMBER_NO}/{NAME}.
+        // Vorher kannte der Ersetzer nur die Großschreibweise, weshalb die
+        // vorgeschlagene Vorlage unersetzt im Verwendungszweck landete.
+        const placeholders: Record<string, string> = {
+          PERIOD: periodLabel,
+          period: periodLabel,
+          month: monthStr,
+          MONTH: monthStr,
+          MEMBER_NO: m.memberNumber,
+          memberNumber: m.memberNumber,
+          NAME: `${m.lastName}, ${m.firstName}`,
+          name: `${m.lastName}, ${m.firstName}`,
+          YEAR: targetYear.toString(),
+          year: targetYear.toString(),
+          DEPT: m.department || '',
+          department: m.department || ''
+        };
+
+        let customRemittance =
+          config.remittanceTemplate || 'Mitgliedsbeitrag {PERIOD} {MEMBER_NO} {NAME}';
+        customRemittance = customRemittance.replace(
+          /\{(\w+)\}/g,
+          (match, key: string) => (key in placeholders ? placeholders[key] : match)
+        );
 
         const sanitizedRemittance = this.sanitizeText(customRemittance, 140);
         const endToEndId = `E2E-${m.memberNumber}-${targetYear}${monthStr}-${Math.floor(Math.random() * 1000)}`.replace(/[^a-zA-Z0-9-]/g, '');
@@ -467,7 +501,12 @@ ${txXmlParts.join('\n')}
     items: SepaCollectionItem[],
     settings: ClubSettings
   ): void {
-    const activeItems = items.filter(i => i.selected);
+    // Identische Auswahl wie in generateSepaXml. Vorher filterte das
+    // Protokoll nur auf "selected", die XML-Datei zusätzlich auf gültig und
+    // Betrag über null – Protokoll und eingereichte Datei konnten damit
+    // unterschiedliche Posten und Summen ausweisen, obwohl das Protokoll
+    // genau der Freigabe zur Bankeinreichung dient.
+    const activeItems = items.filter(i => i.selected && i.isValid && i.amount > 0);
     const totalAmount = activeItems.reduce((s, i) => s + i.amount, 0);
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
