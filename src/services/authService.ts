@@ -420,7 +420,9 @@ export class AuthService {
     this.cachedUsers = [...INITIAL_USERS];
     try {
       localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(this.cachedUsers));
-    } catch (_) {}
+    } catch (err) {
+      console.warn('Benutzerliste konnte nicht in localStorage gesichert werden (vermutlich Speicherplatz erschöpft):', err);
+    }
     return this.cachedUsers;
   }
 
@@ -487,7 +489,9 @@ export class AuthService {
     this.cachedSecurity = { ...DEFAULT_SECURITY_SETTINGS };
     try {
       localStorage.setItem(STORAGE_KEY_SECURITY, JSON.stringify(this.cachedSecurity));
-    } catch (_) {}
+    } catch (err) {
+      console.warn('Sicherheitseinstellungen konnten nicht gesichert werden:', err);
+    }
     return this.cachedSecurity;
   }
 

@@ -85,13 +85,17 @@ export function purgeBloatedLocalStorage(): void {
         if (val && val.length > 80000 && !key.startsWith('sb-') && key !== 'vm_auth_users') {
           keysToRemove.push(key);
         }
-      } catch (_) {}
+      } catch {
+        // Einzelner Schluessel nicht lesbar: bei der Aufraeumsuche uebergehen.
+      }
     }
 
     keysToRemove.forEach(k => {
       try {
         localStorage.removeItem(k);
-      } catch (_) {}
+      } catch {
+        // Einzelner Schluessel nicht loeschbar: uebergehen.
+      }
     });
   } catch (err) {
     console.warn('[Storage] Error during localStorage purge:', err);
@@ -959,7 +963,9 @@ function triggerAutoSnapshot() {
     try {
       const { SnapshotService } = await import('./snapshotService');
       await SnapshotService.createSnapshot('periodic');
-    } catch {}
+    } catch (err) {
+      console.warn('Automatische Datensicherung fehlgeschlagen - es entsteht KEIN Snapshot:', err);
+    }
   }, 4000);
 }
 
@@ -995,7 +1001,9 @@ async function saveAllToStore<T extends { id: string }>(storeName: string, items
         if (items.length <= 25 && JSON.stringify(items).length < 40000) {
           localStorage.setItem(`${prefix}${storeName}`, JSON.stringify(items));
         }
-      } catch (_) {}
+      } catch (err) {
+        console.warn('Ausweichspeicherung in localStorage fehlgeschlagen - diese Daten sind nicht gesichert:', err);
+      }
       return;
     }
     return new Promise((resolve, reject) => {
@@ -1016,7 +1024,9 @@ async function saveAllToStore<T extends { id: string }>(storeName: string, items
       if (items.length <= 25 && JSON.stringify(items).length < 40000) {
         localStorage.setItem(`${prefix}${storeName}`, JSON.stringify(items));
       }
-    } catch (_) {}
+    } catch (err) {
+      console.warn('Ausweichspeicherung in localStorage fehlgeschlagen - diese Daten sind nicht gesichert:', err);
+    }
     if (items.length > 0 && !isImportingBackup) triggerAutoSnapshot();
   }
 }
@@ -1487,7 +1497,9 @@ export const StorageService = {
         try {
           const { SnapshotService } = await import('./snapshotService');
           await SnapshotService.createSnapshot('startup');
-        } catch {}
+        } catch (err) {
+          console.warn('Start-Snapshot konnte nicht angelegt werden:', err);
+        }
       } catch (err) {
         console.warn('Initialisierung Live-DB:', err);
       }

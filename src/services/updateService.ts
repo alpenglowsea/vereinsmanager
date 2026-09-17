@@ -62,7 +62,9 @@ export class UpdateService {
       } else {
         localStorage.removeItem(STORAGE_KEY_GITHUB_REPO);
       }
-    } catch {}
+    } catch (err) {
+      console.warn('GitHub-Repository konnte nicht gespeichert werden:', err);
+    }
   }
 
   static getGitHubToken(): string | null {
@@ -80,7 +82,9 @@ export class UpdateService {
       } else {
         localStorage.removeItem(STORAGE_KEY_GITHUB_TOKEN);
       }
-    } catch {}
+    } catch (err) {
+      console.warn('GitHub-Zugriffstoken konnte nicht gespeichert werden:', err);
+    }
   }
 
   static async getCurrentVersion(): Promise<string> {
@@ -97,7 +101,9 @@ export class UpdateService {
           this.setInstalledVersion(activeVersion);
         }
       }
-    } catch {}
+    } catch {
+      // Gespeicherte Version nicht lesbar: mit der Code-Version weiterarbeiten.
+    }
 
     // 2. Native Tauri Version prüfen (falls in Desktop-App)
     try {
@@ -109,7 +115,9 @@ export class UpdateService {
         } else if ((window as any).__TAURI_INTERNALS__?.invoke) {
           try {
             v = await (window as any).__TAURI_INTERNALS__.invoke('plugin:app|version');
-          } catch {}
+          } catch {
+            // Version nicht ermittelbar: naechste Quelle probieren.
+          }
         }
 
         if (v) {
@@ -120,7 +128,9 @@ export class UpdateService {
           }
         }
       }
-    } catch {}
+    } catch {
+      // Version nicht ermittelbar: naechste Quelle probieren.
+    }
 
     return activeVersion;
   }
@@ -132,7 +142,9 @@ export class UpdateService {
       if (stored && this.compareVersions(stored, activeVersion) >= 0) {
         activeVersion = stored;
       }
-    } catch {}
+    } catch {
+      // Version nicht ermittelbar: Vorgabewert verwenden.
+    }
     return activeVersion;
   }
 
@@ -192,7 +204,9 @@ export class UpdateService {
         if (responseLatest.ok) {
           releaseData = await responseLatest.json();
         }
-      } catch {}
+      } catch {
+        // Abruf fehlgeschlagen (offline oder Limit erreicht): naechste Quelle probieren.
+      }
 
       // 2. Fallback: Liste der Releases (/releases?per_page=5)
       if (!releaseData) {
@@ -209,7 +223,9 @@ export class UpdateService {
               releaseData = list.find((r: any) => !r.draft) || list[0];
             }
           }
-        } catch {}
+        } catch {
+          // Abruf fehlgeschlagen (offline oder Limit erreicht): naechste Quelle probieren.
+        }
       }
 
       // 3. Fallback: Tags (/tags?per_page=5) falls keine formalen GitHub Releases angelegt wurden
@@ -227,7 +243,9 @@ export class UpdateService {
               tagVersion = (tags[0].name || '').replace(/^v/, '').trim();
             }
           }
-        } catch {}
+        } catch {
+          // Abruf fehlgeschlagen (offline oder Limit erreicht): naechste Quelle probieren.
+        }
       }
 
       // 4. Fallback: Raw package.json auf default branch
@@ -243,7 +261,9 @@ export class UpdateService {
               tagVersion = String(pkgData.version).replace(/^v/, '').trim();
             }
           }
-        } catch {}
+        } catch {
+          // Abruf fehlgeschlagen (offline oder Limit erreicht): letzte Quelle.
+        }
       }
 
       if (releaseData) {

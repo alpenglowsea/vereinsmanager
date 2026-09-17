@@ -144,7 +144,9 @@ export class SnapshotService {
           label: snapshot.label,
           records: totalRecords
         }));
-      } catch {}
+      } catch (err) {
+        console.warn('Kenndaten des letzten Snapshots konnten nicht vermerkt werden:', err);
+      }
 
       return snapshot;
     } catch (err) {
@@ -324,7 +326,9 @@ export class SnapshotService {
               recoveredSettings = d.settings || null;
               sourceName = `Automatischer Snapshot (${snap.label || snap.timestamp})`;
             }
-          } catch {}
+          } catch (err) {
+            console.warn('Snapshot liess sich bei der Wiederherstellung nicht lesen und wurde uebersprungen:', err);
+          }
         }
       }
 
@@ -341,7 +345,9 @@ export class SnapshotService {
                 sourceName = `LocalStorage-Schlüssel "${k}"`;
                 break;
               }
-            } catch {}
+            } catch (err) {
+              console.warn('Snapshot liess sich bei der Wiederherstellung nicht lesen und wurde uebersprungen:', err);
+            }
           }
         }
 
@@ -356,7 +362,9 @@ export class SnapshotService {
                 if (sourceName === 'Keine') sourceName = `LocalStorage-Schlüssel "${k}"`;
                 break;
               }
-            } catch {}
+            } catch {
+              // Unlesbarer Eintrag: naechsten Schluessel probieren.
+            }
           }
         }
 
@@ -367,7 +375,9 @@ export class SnapshotService {
             try {
               const arr = JSON.parse(raw);
               if (Array.isArray(arr) && arr.length > 0) recoveredContacts = arr;
-            } catch {}
+            } catch {
+              // Unlesbarer Eintrag: naechsten Schluessel probieren.
+            }
           }
         }
 
@@ -378,7 +388,9 @@ export class SnapshotService {
             try {
               const arr = JSON.parse(raw);
               if (Array.isArray(arr) && arr.length > 0) recoveredInvoices = arr;
-            } catch {}
+            } catch {
+              // Unlesbarer Eintrag: naechsten Schluessel probieren.
+            }
           }
         }
 
@@ -389,7 +401,9 @@ export class SnapshotService {
             try {
               const arr = JSON.parse(raw);
               if (Array.isArray(arr) && arr.length > 0) recoveredMeetings = arr;
-            } catch {}
+            } catch {
+              // Unlesbarer Eintrag: naechsten Schluessel probieren.
+            }
           }
         }
 
@@ -400,7 +414,9 @@ export class SnapshotService {
             try {
               const arr = JSON.parse(raw);
               if (Array.isArray(arr) && arr.length > 0) recoveredAccounts = arr;
-            } catch {}
+            } catch {
+              // Unlesbarer Eintrag: naechsten Schluessel probieren.
+            }
           }
         }
       }
@@ -432,7 +448,9 @@ export class SnapshotService {
               sourceName = `IndexedDB "${dbName}"`;
               break;
             }
-          } catch {}
+          } catch {
+            // Diese Alt-Datenbank ist nicht lesbar: naechste probieren.
+          }
         }
       }
 

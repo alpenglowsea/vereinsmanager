@@ -136,9 +136,9 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
       // Check torch support on the active track
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack) {
-        // @ts-ignore
+        // @ts-ignore getCapabilities fehlt in aelteren DOM-Typdefinitionen
         const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
-        // @ts-ignore
+        // @ts-ignore torch ist eine Chrome-Erweiterung und nicht im DOM-Standard
         if (capabilities.torch) {
           setTorchAvailable(true);
         } else {
@@ -189,7 +189,7 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
     if (track) {
       try {
         const newTorch = !torchOn;
-        // @ts-ignore
+        // @ts-ignore torch ist eine Chrome-Erweiterung und nicht im DOM-Standard
         await track.applyConstraints({ advanced: [{ torch: newTorch }] });
         setTorchOn(newTorch);
       } catch (e) {

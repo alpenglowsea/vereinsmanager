@@ -415,7 +415,9 @@ export function generateMembershipApplicationPdf(
     // Wenn Volljährig & gleicher Kontoinhaber, gleiche Signatur nutzen
     try {
       doc.addImage(app.applicantSignature, 'PNG', rightBoxX + 3, y + 5, signBoxWidth - 6, signBoxHeight - 9);
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Unterschrift konnte nicht in den Aufnahmeantrag eingebettet werden - das PDF entsteht OHNE Signatur:', e);
+    }
   }
 
   doc.setFont('helvetica', 'normal');

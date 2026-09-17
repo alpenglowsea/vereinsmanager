@@ -60,6 +60,26 @@ export default tseslint.config(
       // hinderlich.
       '@typescript-eslint/no-explicit-any': 'off',
 
+      // Eine Typprüfung zu unterdrücken ist manchmal richtig — etwa bei
+      // Browser-Schnittstellen, die im DOM-Standard fehlen. Ohne
+      // Begründung ist es aber nie richtig, deshalb wird sie verlangt.
+      '@typescript-eslint/ban-ts-comment': [
+        'error',
+        {
+          'ts-ignore': 'allow-with-description',
+          'ts-expect-error': 'allow-with-description',
+          minimumDescriptionLength: 10,
+        },
+      ],
+
+      // Herabgestuft nach Prüfung aller zwölf Fundstellen im Bestand:
+      // Es handelt sich durchweg um einen Vorgabewert, den anschliessend
+      // jeder Zweig überschreibt. Das ist redundant, aber harmlos — und
+      // den Startwert zu entfernen, würde TypeScript an mehreren Stellen
+      // "wird vor der Zuweisung verwendet" melden. Sichtbar ja,
+      // blockierend nein.
+      'no-useless-assignment': 'warn',
+
       // --- Auf Warnung heruntergestuft -----------------------------
       // Ungenutzte Variablen sind meist harmlos, manchmal aber ein
       // Hinweis auf vergessenen Code. Ein führender Unterstrich
