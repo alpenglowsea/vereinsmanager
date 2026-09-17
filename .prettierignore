@@ -1,0 +1,22 @@
+# Generiert oder fremd — nicht formatieren
+node_modules/
+dist/
+build/
+coverage/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/icons/
+
+# Von Werkzeugen verwaltet
+package-lock.json
+
+# Binärdateien und Rohdaten
+*.png
+*.jpg
+*.jpeg
+*.ico
+*.icns
+*.svg
+
+# Datenbankschema: bewusst von Hand formatiert
+supabase_schema.sql

@@ -1,0 +1,27 @@
+{
+  // Messkonfiguration – NICHT die aktive Einstellung des Projekts.
+  //
+  // Die reguläre tsconfig.json prüft nachsichtig. Diese Datei zeigt,
+  // wie viele Probleme eine strenge Prüfung finden würde, ohne dass
+  // sich am normalen Ablauf etwas ändert.
+  //
+  // Aufruf:  npm run typecheck:strict
+  //
+  // Ziel ist, diese Flags nach und nach in die echte tsconfig.json zu
+  // übernehmen – eine nach der anderen, jeweils mit aufgeräumtem Code.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // strictNullChecks ist der wichtigste Schalter: Er findet Stellen,
+    // an denen ein Wert undefined oder null sein kann und trotzdem
+    // ohne Prüfung verwendet wird. Genau dort stürzt eine App ab.
+    "strict": true,
+
+    // Zusätzliche Schärfe, die erfahrungsgemäss echte Fehler aufdeckt:
+    // Zugriff auf ein Array-Element kann undefined liefern.
+    "noUncheckedIndexedAccess": true,
+    // Nicht behandelte Zweige in switch-Anweisungen.
+    "noFallthroughCasesInSwitch": true,
+    // Funktionen, die nicht auf allen Pfaden einen Wert zurückgeben.
+    "noImplicitReturns": true
+  }
+}
