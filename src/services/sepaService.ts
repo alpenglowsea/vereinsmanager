@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { formatClubAddress } from '../utils/clubAddress';
 import {
   Member,
   ClubSettings,
@@ -313,6 +314,7 @@ export const SepaService = {
           sequenceType: m.bankDetails?.mandateSequenceType || 'RCUR',
           amount,
           feePeriod: m.feePeriod,
+          department: m.department,
           monthlyDueDay: m.bankDetails?.monthlyDueDay || (filter === 'monthly_15' ? 15 : 1),
           remittanceInfo: sanitizedRemittance,
           endToEndId,
@@ -477,7 +479,7 @@ ${txXmlParts.join('\n')}
 
     doc.setFontSize(9);
     doc.setTextColor(100, 116, 139);
-    doc.text(`${settings.address} | Gläubiger-ID: ${settings.creditorId}`, 14, 21);
+    doc.text(`${formatClubAddress(settings.address)} | Gläubiger-ID: ${settings.creditorId}`, 14, 21);
     doc.text(`Vereinskonto: ${settings.creditorIban || '–'} (${settings.creditorBic || '–'})`, 14, 26);
 
     doc.setDrawColor(203, 213, 225);

@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Papa from 'papaparse';
+import { formatClubAddress } from '../utils/clubAddress';
 import {
   Member,
   Transaction,
@@ -157,7 +158,7 @@ export const ExportService = {
 
     doc.setFontSize(9);
     doc.setTextColor(100, 116, 139);
-    doc.text(`${settings.address} | ${settings.email}`, 14, 24);
+    doc.text(`${formatClubAddress(settings.address)} | ${settings.email}`, 14, 24);
     doc.text(`${settings.associationNumber} | Steuernummer: ${settings.taxNumber}`, 14, 29);
 
     doc.setDrawColor(203, 213, 225);

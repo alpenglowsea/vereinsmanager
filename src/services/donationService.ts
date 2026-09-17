@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import { DonationReceipt, ClubSettings } from '../types';
+import { formatClubAddress } from '../utils/clubAddress';
 
 /**
  * Wandelt einen Geldbetrag in deutsche Worte um (z.B. 1500 -> "Eintausendfünfhundert Euro")
@@ -96,7 +97,7 @@ export function generateBmfDonationReceiptPdf(receipt: DonationReceipt, settings
   doc.text(settings.clubName, 16, 23);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
-  doc.text(`${settings.address} • Vereinsregister: ${settings.associationNumber}`, 16, 28);
+  doc.text(`${formatClubAddress(settings.address)} • Vereinsregister: ${settings.associationNumber}`, 16, 28);
   doc.text(`Steuernummer: ${receipt.taxNumber || settings.taxNumber}`, 16, 32);
 
   // 2. Belegnummer & Datum oben rechts

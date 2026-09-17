@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import QRCode from 'qrcode';
+import { formatClubAddress } from '../utils/clubAddress';
 import { ClubInvoice, ClubSettings, InvoiceTemplateSettings, ClubDocument } from '../types';
 import { DEFAULT_INVOICE_TEMPLATE } from '../data/initialInvoices';
 
@@ -178,7 +179,7 @@ export const InvoicePdfService = {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
       doc.setTextColor(100, 116, 139);
-      const returnAddress = `${settings.clubName} • ${settings.address} • ${settings.email || ''}`;
+      const returnAddress = `${settings.clubName} • ${formatClubAddress(settings.address)} • ${settings.email || ''}`;
       doc.text(returnAddress, 20, 48);
       doc.setDrawColor(226, 232, 240);
       doc.setLineWidth(0.2);

@@ -1072,7 +1072,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
         onClose={() => setIsOverviewNotesModalOpen(false)}
         meetingContext={{
           type: 'board',
-          chairperson: clubSettings.firstChairman || '1. Vorsitzender',
+          chairperson: clubSettings.chairman || '1. Vorsitzender',
         }}
         onApplyData={handleApplyExtractedFromOverview}
       />
@@ -1082,7 +1082,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
         onClose={() => setIsOverviewAudioModalOpen(false)}
         meetingContext={{
           type: 'board',
-          chairperson: clubSettings.firstChairman || '1. Vorsitzender',
+          chairperson: clubSettings.chairman || '1. Vorsitzender',
         }}
         onApplyData={handleApplyExtractedFromOverview}
       />

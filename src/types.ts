@@ -310,6 +310,7 @@ export interface SepaCollectionItem {
   sequenceType: 'RCUR' | 'FRST' | 'OOFF';
   amount: number;
   feePeriod: FeePeriod;
+  department?: string; // Abteilung des Mitglieds (Filter in der SEPA-Ansicht)
   monthlyDueDay?: 1 | 15;
   remittanceInfo: string; // Verwendungszweck (z.B. "Mitgliedsbeitrag 09/2026 MG-001 Maximilian Mueller")
   endToEndId: string; // Eindeutige Referenz pro Lastschriftposten

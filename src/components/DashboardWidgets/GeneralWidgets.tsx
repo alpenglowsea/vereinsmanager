@@ -157,7 +157,7 @@ export const ClubHeaderWidget: React.FC<ClubHeaderWidgetProps> = ({ settings, on
             <span className="px-2.5 py-0.5 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60 rounded-full text-2xs font-bold uppercase tracking-wider">
               {settings.associationNumber || 'Eingetragener Verein (e.V.)'}
             </span>
-            {settings.isTaxExempt && (
+            {settings.taxExemptionDate && (
               <span className="px-2.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 rounded-full text-2xs font-bold">
                 Gemeinnützig
               </span>

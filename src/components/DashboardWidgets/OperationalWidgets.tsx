@@ -48,12 +48,12 @@ export const InvoicesOverviewWidget: React.FC<InvoicesOverviewWidgetProps> = ({
     const today = new Date().toISOString().split('T')[0];
 
     invoices.forEach((inv) => {
-      totalBilled += inv.total || 0;
+      totalBilled += inv.totalAmount || 0;
       if (inv.status === 'paid') {
         paidCount++;
       } else if (inv.status !== 'cancelled') {
-        openAmount += inv.total || 0;
-        if (inv.dueDate && inv.dueDate < today && inv.status !== 'paid') {
+        openAmount += inv.totalAmount || 0;
+        if (inv.dueDate && inv.dueDate < today) {
           overdueCount++;
         }
       }
@@ -205,7 +205,7 @@ export const InvoicesOverviewWidget: React.FC<InvoicesOverviewWidgetProps> = ({
                 <div className="flex items-center gap-3 shrink-0 ml-2">
                   <div className="text-right">
                     <span className="text-xs font-bold font-mono text-slate-900 dark:text-white block">
-                      {(inv.total || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      {(inv.totalAmount || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                     </span>
                   </div>
                   {getStatusBadge(inv.status)}
@@ -244,7 +244,7 @@ export const InvoicesKpiWidget: React.FC<InvoicesKpiWidgetProps> = ({
 
     invoices.forEach((inv) => {
       if (inv.status !== 'paid' && inv.status !== 'cancelled') {
-        openSum += inv.total || 0;
+        openSum += inv.totalAmount || 0;
         openCount++;
         if (inv.dueDate && inv.dueDate < today) {
           overdueCount++;

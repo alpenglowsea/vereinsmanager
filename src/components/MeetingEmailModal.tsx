@@ -146,7 +146,7 @@ ${agendaPreview || '- Tagesordnungspunkte werden vor Ort bekanntgegeben.'}
 Die vollständige, form- und fristgerechte Einladung mit allen Details finden Sie als PDF im Anhang dieses Schreibens.
 
 Mit sportlichen Grüßen
-${meeting.chairperson || clubSettings?.firstChairman || 'Der Vorstand'}
+${meeting.chairperson || clubSettings?.chairman || 'Der Vorstand'}
 ${clubName}`
       );
     } else {
@@ -166,7 +166,7 @@ Das vollständige Ergebnisprotokoll mit allen gefassten Beschlüssen und Beratun
 Bei Rückfragen steht der Vorstand jederzeit gern zur Verfügung.
 
 Mit freundlichen Grüßen
-${meeting.chairperson || clubSettings?.firstChairman || 'Der Vorstand'}
+${meeting.chairperson || clubSettings?.chairman || 'Der Vorstand'}
 ${clubName}`
       );
     }
