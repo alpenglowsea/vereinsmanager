@@ -91,8 +91,6 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
     setLocalWidgets([...config.widgets]);
   }, [config, isOpen]);
 
-  if (!isOpen) return null;
-
   // Map of widget definitions for quick lookup
   const definitionsMap = useMemo(() => {
     const map = new Map<string, DashboardWidgetDefinition>();
@@ -248,6 +246,11 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
       default: return <Grid className={className} />;
     }
   };
+
+  // Frühzeitiger Ausstieg MUSS unterhalb aller Hooks stehen: React
+  // erkennt Hooks an ihrer Aufrufreihenfolge, und die muss bei jedem
+  // Durchlauf identisch sein.
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">

@@ -31,7 +31,6 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
   templateSettings,
   onSaveTemplateSettings
 }) => {
-  if (!isOpen) return null;
 
   const [notificationEmail, setNotificationEmail] = useState(
     templateSettings.notificationEmail || settings.email || 'vorstand@musterverein.de'
@@ -121,6 +120,11 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
     setCustomPdfFileName(undefined);
     setCustomPdfUploadedAt(undefined);
   };
+
+  // Frühzeitiger Ausstieg MUSS unterhalb aller Hooks stehen: React
+  // erkennt Hooks an ihrer Aufrufreihenfolge, und die muss bei jedem
+  // Durchlauf identisch sein.
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">

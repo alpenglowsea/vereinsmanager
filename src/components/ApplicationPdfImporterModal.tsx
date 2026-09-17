@@ -142,7 +142,6 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
   onApplicationImported,
   settings,
 }) => {
-  if (!isOpen) return null;
 
   // State
   const [dragActive, setDragActive] = useState(false);
@@ -427,6 +426,11 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
     onApplicationImported(fullApplication);
     onClose();
   };
+
+  // Frühzeitiger Ausstieg MUSS unterhalb aller Hooks stehen: React
+  // erkennt Hooks an ihrer Aufrufreihenfolge, und die muss bei jedem
+  // Durchlauf identisch sein.
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">

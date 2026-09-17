@@ -63,7 +63,6 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
   onSave,
   onClose
 }) => {
-  if (!isOpen) return null;
 
   // Determine initial person type
   const isEditing = Boolean(contact);
@@ -286,6 +285,11 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
 
     onSave(newOrUpdated);
   };
+
+  // Frühzeitiger Ausstieg MUSS unterhalb aller Hooks stehen: React
+  // erkennt Hooks an ihrer Aufrufreihenfolge, und die muss bei jedem
+  // Durchlauf identisch sein.
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">

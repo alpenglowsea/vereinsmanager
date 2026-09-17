@@ -64,7 +64,6 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
   onReject,
   currentUser = 'Vorstand / Administrator'
 }) => {
-  if (!isOpen || !application) return null;
 
   const safeMembers = existingMembers || [];
   const safeDepartments = settings?.departments?.length ? settings.departments : ['Hauptverein', 'Fußball', 'Tennis', 'Turnen'];
@@ -190,6 +189,10 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
     city: '',
     country: 'Deutschland'
   };
+
+  // Unterhalb aller Hooks: React erkennt Hooks an ihrer Aufrufreihenfolge.
+  // Die Prüfung auf !application entfiel, sie ist im Typ nicht-null.
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">

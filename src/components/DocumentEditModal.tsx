@@ -10,7 +10,10 @@ import {
 } from 'lucide-react';
 
 interface DocumentEditModalProps {
-  document: ClubDocument | null;
+  // Nicht optional: Der Elternteil rendert diesen Dialog nur, wenn ein
+  // Dokument ausgewählt ist. Damit entfällt ein früher Ausstieg, der
+  // vor den Hooks stand und deren Aufrufreihenfolge gefährdet hätte.
+  document: ClubDocument;
   onClose: () => void;
   onSave: (updated: ClubDocument) => Promise<void>;
   members?: Member[];
@@ -26,8 +29,6 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
   transactions = [],
   folders = []
 }) => {
-  if (!doc) return null;
-
   const [title, setTitle] = useState(doc.title);
   const [category, setCategory] = useState<DocumentCategory>(doc.category);
   const [folderId, setFolderId] = useState<string | null>(doc.folderId || null);
