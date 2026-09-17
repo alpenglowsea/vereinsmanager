@@ -79,6 +79,8 @@ interface DashboardViewProps {
   onOpenCreateEvent?: () => void;
   onOpenCreateInventory: () => void;
   onOpenNewDocument?: () => void;
+  /** Wird hochgezählt, wenn ein Termin gespeichert wurde. */
+  calendarRefreshKey?: number;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -104,7 +106,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenCreateMeeting,
   onOpenCreateEvent,
   onOpenCreateInventory,
-  onOpenNewDocument
+  onOpenNewDocument,
+  calendarRefreshKey
 }) => {
   // Widget definitions lookup
   const definitionsMap = useMemo(() => {
@@ -288,7 +291,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       case 'meetings_kpi':
         return <MeetingsKpiWidget meetings={meetings} onNavigate={onNavigate} />;
       case 'upcoming_events':
-        return <UpcomingEventsWidget onNavigate={onNavigate} onOpenCreateEvent={onOpenCreateEvent} />;
+        return (
+          <UpcomingEventsWidget
+            onNavigate={onNavigate}
+            onOpenCreateEvent={onOpenCreateEvent}
+            refreshKey={calendarRefreshKey}
+          />
+        );
       case 'inventory_overview':
         return <InventoryWidget inventory={inventory} onNavigate={onNavigate} />;
       case 'documents_archive_kpi':

@@ -1,9 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   ClubSettings,
   InventoryItem,
-  ClubDocument
+  ClubDocument,
+  CalendarEvent,
+  CalendarEventCategory
 } from '../../types';
+import { StorageService } from '../../services/storage';
 import {
   Sparkles,
   Plus,
@@ -184,52 +187,77 @@ export const ClubHeaderWidget: React.FC<ClubHeaderWidgetProps> = ({ settings, on
 interface UpcomingEventsWidgetProps {
   onNavigate: (tab: string) => void;
   onOpenCreateEvent?: () => void;
+  /**
+   * Wird von App.tsx hochgezählt, sobald ein Termin gespeichert wurde.
+   * Dadurch lädt die Kachel neu, statt bis zum nächsten Seitenwechsel
+   * einen veralteten Stand zu zeigen.
+   */
+  refreshKey?: number;
+}
+
+/** Heutiges Datum als YYYY-MM-DD in der LOKALEN Zeitzone. */
+function localDateKey(d: Date = new Date()): string {
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0')
+  ].join('-');
 }
 
 export const UpcomingEventsWidget: React.FC<UpcomingEventsWidgetProps> = ({
   onNavigate,
-  onOpenCreateEvent
+  onOpenCreateEvent,
+  refreshKey = 0
 }) => {
-  // Demo / local dynamic events
-  const today = new Date();
-  const sampleEvents = useMemo(() => {
-    const d1 = new Date(today);
-    d1.setDate(today.getDate() + 2);
-    const d2 = new Date(today);
-    d2.setDate(today.getDate() + 6);
-    const d3 = new Date(today);
-    d3.setDate(today.getDate() + 14);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [categories, setCategories] = useState<CalendarEventCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-    return [
-      {
-        id: '1',
-        title: 'Vorstandssitzung & Kassenprüfung Q3',
-        date: d1.toISOString().split('T')[0],
-        time: '19:00 - 21:00 Uhr',
-        location: 'Vereinsheim / Konferenzraum',
-        category: 'Vorstand',
-        badgeColor: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-300'
-      },
-      {
-        id: '2',
-        title: 'Heimspiel & Jugend-Turnier 2026',
-        date: d2.toISOString().split('T')[0],
-        time: '10:00 - 16:30 Uhr',
-        location: 'Sportplatz Hauptfeld',
-        category: 'Wettkampf',
-        badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
-      },
-      {
-        id: '3',
-        title: 'Jahreshauptversammlung & Neuwahlen',
-        date: d3.toISOString().split('T')[0],
-        time: '18:30 Uhr',
-        location: 'Bürgerhaus Stadthalle',
-        category: 'Versammlung',
-        badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300'
-      }
-    ];
-  }, []);
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    Promise.all([StorageService.getCalendarEvents(), StorageService.getCalendarCategories()])
+      .then(([loadedEvents, loadedCategories]) => {
+        if (cancelled) return;
+        setEvents(loadedEvents || []);
+        setCategories(loadedCategories || []);
+      })
+      .catch(err => {
+        console.warn('Termine für das Dashboard konnten nicht geladen werden:', err);
+        if (!cancelled) {
+          setEvents([]);
+          setCategories([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshKey]);
+
+  const upcoming = useMemo(() => {
+    const today = localDateKey();
+    return events
+      // Mehrtägige Termine bleiben sichtbar, solange sie noch laufen.
+      .filter(evt => (evt.endDate || evt.startDate) >= today)
+      .sort((a, b) => {
+        const byDate = a.startDate.localeCompare(b.startDate);
+        if (byDate !== 0) return byDate;
+        return (a.startTime || '').localeCompare(b.startTime || '');
+      })
+      .slice(0, 3);
+  }, [events]);
+
+  const categoryOf = (categoryId: string) => categories.find(c => c.id === categoryId);
+
+  const timeLabel = (evt: CalendarEvent) => {
+    if (evt.isAllDay) return 'Ganztägig';
+    if (evt.startTime && evt.endTime) return `${evt.startTime} - ${evt.endTime} Uhr`;
+    if (evt.startTime) return `${evt.startTime} Uhr`;
+    return 'Ohne Uhrzeit';
+  };
 
   return (
     <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 h-full flex flex-col justify-between">
@@ -255,49 +283,85 @@ export const UpcomingEventsWidget: React.FC<UpcomingEventsWidgetProps> = ({
           </button>
         </div>
 
-        <div className="space-y-2.5">
-          {sampleEvents.map((evt) => (
-            <div
-              key={evt.id}
-              onClick={() => onNavigate('calendar')}
-              className="p-3 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex items-start justify-between gap-3 transition-colors cursor-pointer"
-            >
-              <div className="space-y-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`text-[10px] uppercase font-bold px-1.5 py-0.2 rounded ${evt.badgeColor}`}>
-                    {evt.category}
-                  </span>
-                  <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                    {evt.title}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 text-2xs text-slate-500 dark:text-slate-400 flex-wrap">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-slate-400" />
-                    {evt.time}
-                  </span>
-                  <span className="flex items-center gap-1 truncate max-w-[200px]">
-                    <MapPin className="w-3 h-3 text-slate-400" />
-                    {evt.location}
-                  </span>
-                </div>
-              </div>
+        {isLoading ? (
+          <div className="py-8 text-center text-xs text-slate-400 dark:text-slate-500">
+            Termine werden geladen...
+          </div>
+        ) : upcoming.length === 0 ? (
+          <div className="py-8 text-center space-y-2">
+            <CalendarDays className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600" />
+            <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+              Keine anstehenden Termine
+            </p>
+            <p className="text-2xs text-slate-400 dark:text-slate-500">
+              Sobald im Kalender Termine erfasst sind, erscheinen die nächsten drei hier.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {upcoming.map(evt => {
+              const cat = categoryOf(evt.categoryId);
+              return (
+                <div
+                  key={evt.id}
+                  onClick={() => onNavigate('calendar')}
+                  className="p-3 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex items-start justify-between gap-3 transition-colors cursor-pointer"
+                >
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {cat && (
+                        <span
+                          className={`text-[10px] uppercase font-bold px-1.5 py-0.2 rounded ${cat.badgeBg} ${cat.badgeText}`}
+                        >
+                          {cat.name}
+                        </span>
+                      )}
+                      <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                        {evt.title}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-2xs text-slate-500 dark:text-slate-400 flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        {timeLabel(evt)}
+                      </span>
+                      {evt.location && (
+                        <span className="flex items-center gap-1 truncate max-w-[200px]">
+                          <MapPin className="w-3 h-3 text-slate-400" />
+                          {evt.location}
+                        </span>
+                      )}
+                    </div>
+                  </div>
 
-              <div className="text-right shrink-0">
-                <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-200 block">
-                  {new Date(evt.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })}
-                </span>
-                <span className="text-[10px] text-slate-400">
-                  {new Date(evt.date).toLocaleDateString('de-DE', { weekday: 'short' })}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+                  <div className="text-right shrink-0">
+                    <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-200 block">
+                      {new Date(`${evt.startDate}T00:00:00`).toLocaleDateString('de-DE', {
+                        day: '2-digit',
+                        month: 'short'
+                      })}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {new Date(`${evt.startDate}T00:00:00`).toLocaleDateString('de-DE', {
+                        weekday: 'short'
+                      })}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-2xs text-slate-400">
-        <span>iCal / Google Kalender Sync aktiv</span>
+        <span>
+          {isLoading
+            ? ''
+            : events.length === 0
+              ? 'Noch keine Termine erfasst'
+              : `${events.length} Termin${events.length === 1 ? '' : 'e'} im Kalender`}
+        </span>
         {onOpenCreateEvent && (
           <button
             type="button"

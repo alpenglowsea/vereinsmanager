@@ -309,6 +309,9 @@ export default function App() {
   // Calendar Event Modal State
   const [calendarEventModalOpen, setCalendarEventModalOpen] = useState(false);
   const [calendarCategories, setCalendarCategories] = useState<CalendarEventCategory[]>([]);
+  // Wird nach jedem gespeicherten Termin hochgezählt, damit die
+  // Dashboard-Kachel ihre Liste neu lädt.
+  const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
 
   // Meeting Form Modal State (Dashboard Schnellaktion & Global Modal)
   const [meetingFormOpen, setMeetingFormOpen] = useState(false);
@@ -978,6 +981,7 @@ export default function App() {
   const handleSaveCalendarEvent = async (eventData: CalendarEvent) => {
     await StorageService.saveCalendarEvent(eventData);
     setCalendarEventModalOpen(false);
+    setCalendarRefreshKey(k => k + 1);
   };
 
   if (loading) {
@@ -1771,6 +1775,7 @@ export default function App() {
                 contacts={contacts}
                 meetings={meetings}
                 settings={settings}
+                calendarRefreshKey={calendarRefreshKey}
                 dashboardConfig={dashboardConfig}
                 onUpdateDashboardConfig={(newConfig) => {
                   setDashboardConfig(newConfig);
