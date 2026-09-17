@@ -63,6 +63,9 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
 
       - name: Install Frontend Dependencies
+        # npm ci installiert exakt die in package-lock.json festgeschriebenen
+        # Versionen. Wichtig für reproduzierbare Releases: derselbe Tag ergibt
+        # dieselben Abhängigkeiten, auch Monate später.
         run: npm ci --no-audit
 
       # Erzeugt dist/ (Oberfläche) UND dist/server.cjs (Server). Früher stand

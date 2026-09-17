@@ -8,7 +8,9 @@ import nodemailer from "nodemailer";
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+// Port aus der Umgebung übernehmen (z. B. in Docker oder hinter einem
+// Reverse-Proxy), sonst 3000 als Standard.
+const PORT = Number(process.env.PORT) || 3000;
 
 // Body parser for JSON and large payloads (PDF / Image Base64)
 app.use(express.json({ limit: "50mb" }));

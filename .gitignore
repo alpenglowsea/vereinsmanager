@@ -1,8 +1,28 @@
+# Abhängigkeiten
 node_modules/
+
+# Build-Ergebnisse
 build/
 dist/
+server.js
+src-tauri/target/
+src-tauri/gen/
+
+# Tests & Werkzeuge
 coverage/
-.DS_Store
-*.log
+*.tsbuildinfo
+.eslintcache
+
+# Umgebungsvariablen (enthalten Zugangsdaten!)
 .env*
 !.env.example
+*.local
+
+# Editor & Betriebssystem
+.DS_Store
+Thumbs.db
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
