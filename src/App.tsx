@@ -487,6 +487,18 @@ export default function App() {
   const nextMemberNumber = `M-${String(members.length + 101).padStart(4, '0')}`;
   const nextDocNumber = `BE-${new Date().getFullYear()}-${String(transactions.length + 1).padStart(3, '0')}`;
 
+  // Nächste freie Kontaktnummer (Format K-1001, wie im Bestand).
+  // Bewusst aus der höchsten bereits vergebenen Nummer abgeleitet und
+  // nicht aus der Anzahl: Nach dem Löschen eines Kontakts würde eine
+  // anzahlbasierte Berechnung eine bereits vergebene Nummer erneut
+  // ausgeben.
+  const nextContactNumber = `K-${String(
+    contacts.reduce((max, c) => {
+      const parsed = Number.parseInt((c.contactNumber || '').replace(/\D/g, ''), 10);
+      return Number.isFinite(parsed) && parsed > max ? parsed : max;
+    }, 1000) + 1
+  ).padStart(4, '0')}`;
+
   // Member CRUD handlers
   const handleSaveMember = async (memberData: Member, attachedDoc?: ClubDocument) => {
     const isNew = !members.some(m => m.id === memberData.id);
@@ -2110,6 +2122,7 @@ export default function App() {
       {/* New Document Choice Dialog (Upload vs Scan) */}
       {newDocChoiceOpen && (
         <NewDocumentChoiceModal
+          isOpen={newDocChoiceOpen}
           onSelectUpload={() => {
             setNewDocChoiceOpen(false);
             setDocUploadCategory(undefined);
@@ -2266,6 +2279,7 @@ export default function App() {
         <ContactFormModal
           isOpen={contactFormOpen}
           contact={editingContact}
+          nextContactNumber={nextContactNumber}
           initialName={initialContactFormName}
           initialType={initialContactFormType}
           onSave={handleSaveContact}

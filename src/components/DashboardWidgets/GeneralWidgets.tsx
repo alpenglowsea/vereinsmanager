@@ -330,7 +330,7 @@ export const InventoryWidget: React.FC<InventoryWidgetProps> = ({ inventory, onN
     inventory.forEach((item) => {
       val += (item.purchasePrice || 0) * (item.quantity || 1);
       qty += item.quantity || 1;
-      if (item.condition === 'defective' || item.condition === 'poor') repair++;
+      if (item.condition === 'damaged' || item.condition === 'in_repair') repair++;
     });
 
     return { totalValue: val, totalQuantity: qty, needsRepair: repair };
@@ -409,9 +409,9 @@ export const DocumentsArchiveWidget: React.FC<DocumentsArchiveWidgetProps> = ({
   const { receiptsCount, contractsCount, protocolsCount } = useMemo(() => {
     let r = 0, c = 0, p = 0;
     documents.forEach((d) => {
-      if (d.category === 'beleg' || d.category === 'receipt') r++;
-      else if (d.category === 'vertrag' || d.category === 'contract') c++;
-      else if (d.category === 'protokoll' || d.category === 'protocol') p++;
+      if (d.category === 'belege') r++;
+      else if (d.category === 'vertraege') c++;
+      else if (d.category === 'protokolle') p++;
     });
     return { receiptsCount: r, contractsCount: c, protocolsCount: p };
   }, [documents]);
