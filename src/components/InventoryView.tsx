@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { InventoryItem, InventoryCategory, ItemCondition, ClubSettings, InventoryBulkUpdates, Member, MemberInventoryAssignment } from '../types';
+import { InventoryItem, InventoryCategory, ClubSettings, InventoryBulkUpdates, Member, MemberInventoryAssignment } from '../types';
 import { INVENTORY_CATEGORIES, CONDITION_OPTIONS } from '../data/inventoryCategories';
 import { StorageService } from '../services/storage';
 import { ExportService } from '../services/exportService';
@@ -10,9 +10,7 @@ import {
   Package,
   Plus,
   Search,
-  Filter,
   Download,
-  Upload,
   Trophy,
   Shirt,
   Boxes,
@@ -21,20 +19,16 @@ import {
   HeartPulse,
   Armchair,
   MapPin,
-  Calendar,
   DollarSign,
   User,
   Tag,
   Edit2,
   Trash2,
   SlidersHorizontal,
-  ChevronDown,
   Layers,
   AlertTriangle,
   Clock,
-  Sparkles,
   CheckCircle2,
-  FileSpreadsheet,
   FileDown,
   X
 } from 'lucide-react';

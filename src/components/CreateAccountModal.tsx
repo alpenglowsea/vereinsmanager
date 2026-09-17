@@ -6,8 +6,6 @@ import {
   X,
   Check,
   AlertCircle,
-  HelpCircle,
-  Sparkles,
   Trash2,
   Settings2
 } from 'lucide-react';

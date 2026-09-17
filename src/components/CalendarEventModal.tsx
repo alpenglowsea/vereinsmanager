@@ -14,7 +14,6 @@ import {
   MapPin,
   Users,
   Repeat,
-  Tag,
   Trash2,
   Check,
   X,
@@ -22,7 +21,6 @@ import {
   Compass,
   AlertCircle,
   Building,
-  Sparkles,
   Search
 } from 'lucide-react';
 import { OpenStreetMapModal } from './OpenStreetMapModal';

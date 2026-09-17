@@ -1,5 +1,5 @@
 import { Transaction, TaxSphere, FinancialAccount, ClubSettings } from '../types';
-import { SKR42_STRUCTURE, TAX_SPHERES } from '../data/taxSpheres';
+import { SKR42_STRUCTURE } from '../data/taxSpheres';
 
 export interface TransactionColumnMapping {
   date?: string;
@@ -269,7 +269,7 @@ export function parseAmountValue(
   // Remove currency, spaces, S/H letters
   str = str.replace(/[€$£a-zA-Z\s]/g, '');
 
-  let num = 0;
+  let num: number;
   if (str.includes(',') && str.includes('.')) {
     // German format e.g. 1.234,56 or US format 1,234.56
     const lastComma = str.lastIndexOf(',');
@@ -620,7 +620,7 @@ export function convertRowsToTransactions(
     const rawCat = mapping.category ? row[mapping.category] || '' : '';
     const rawSubCat = mapping.subCategory ? row[mapping.subCategory] || '' : '';
 
-    let sphere: TaxSphere = defaultSphere;
+    let sphere: TaxSphere;
     if (rawSphere) {
       sphere = detectTaxSphere(rawSphere, rawCat, rawSubCat, bookingText);
     } else {

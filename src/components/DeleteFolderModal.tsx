@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { DocumentFolder, ClubDocument } from '../types';
 import {
   AlertTriangle,
-  X,
-  Trash2,
-  Folder
+  Trash2
 } from 'lucide-react';
 
 interface DeleteFolderModalProps {

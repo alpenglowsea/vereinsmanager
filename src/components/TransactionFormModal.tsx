@@ -18,13 +18,12 @@ import {
   getSkr42SubCategories,
   getAllSkr42MainCategories,
   findSkr42Main,
-  findSkr42MainForSub,
-  findSkr42SubCategory
+  findSkr42MainForSub
 } from '../data/taxSpheres';
 import { SearchableAccountSelect, SearchableAccountOption } from './SearchableAccountSelect';
 import { SplitBookingManager } from './SplitBookingManager';
 import { CreateAccountModal } from './CreateAccountModal';
-import { customCategoryService } from '../services/customCategoryService';
+import {  } from '../services/customCategoryService';
 import {
   X,
   FileText,
@@ -38,12 +37,8 @@ import {
   Layers,
   Camera,
   Sparkles,
-  Wand2,
-  Key,
   Bot,
   Check,
-  ChevronDown,
-  ChevronUp,
   Building2,
   User,
   UserPlus,

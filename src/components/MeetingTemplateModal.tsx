@@ -6,7 +6,6 @@ import {
   Check,
   FileText,
   Sliders,
-  Sparkles,
   Info,
   ScrollText,
   Building

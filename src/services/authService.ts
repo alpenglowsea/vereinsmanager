@@ -438,7 +438,7 @@ export class AuthService {
   public static saveUser(user: AppUser): void {
     const users = this.getUsers();
     const index = users.findIndex(u => u.id === user.id);
-    let updatedUser = user;
+    let updatedUser: AppUser;
     if (index >= 0) {
       updatedUser = { ...user, updatedAt: new Date().toISOString() };
       users[index] = updatedUser;

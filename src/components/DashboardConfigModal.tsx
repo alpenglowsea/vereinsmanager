@@ -9,18 +9,13 @@ import {
 } from '../types/dashboard';
 import {
   AVAILABLE_DASHBOARD_WIDGETS,
-  DEFAULT_DASHBOARD_CONFIG,
   getPresetConfig
 } from '../data/defaultDashboard';
 import {
-  LayoutDashboard,
   X,
   Plus,
   Trash2,
   Check,
-  ArrowUp,
-  ArrowDown,
-  Columns,
   Sparkles,
   Users,
   Wallet,
@@ -31,9 +26,6 @@ import {
   Search,
   RotateCcw,
   SlidersHorizontal,
-  CheckCircle2,
-  HelpCircle,
-  Eye,
   Grid,
   FileSignature,
   Gift,

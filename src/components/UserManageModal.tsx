@@ -11,18 +11,12 @@ import {
   Trash2,
   Lock,
   Clock,
-  Check,
   AlertTriangle,
-  Info,
   CheckCircle2,
   User,
   Eye,
   EyeOff,
-  Sparkles,
-  Key,
-  Users,
-  CheckSquare,
-  Square
+  Users
 } from 'lucide-react';
 
 interface UserManageModalProps {

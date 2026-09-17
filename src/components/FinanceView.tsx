@@ -17,36 +17,25 @@ import { TablePagination, PageSizeOption } from './TablePagination';
 import {
   Plus,
   Search,
-  Filter,
   Download,
   Building2,
   Coins,
   Paperclip,
   Upload,
-  FileText,
   Trash2,
   Edit2,
-  Calendar,
   Wallet,
-  ArrowUpRight,
-  ArrowDownRight,
-  RefreshCw,
-  ExternalLink,
   FileSpreadsheet,
   Camera,
   UserPlus,
-  UserCheck,
   GripVertical,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
   SlidersHorizontal,
   FileDown,
-  CheckCircle2,
   X,
-  AlertCircle,
-  Split,
-  Layers
+  Split
 } from 'lucide-react';
 
 export type TransactionSortField =
@@ -262,7 +251,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
 
   const sortedTransactions = useMemo(() => {
     return [...filteredTransactions].sort((a, b) => {
-      let comparison = 0;
+      let comparison: number;
       switch (sortField) {
         case 'date':
           comparison = a.date.localeCompare(b.date);

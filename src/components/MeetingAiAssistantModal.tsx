@@ -8,11 +8,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  ArrowRight,
-  HelpCircle,
   ShieldCheck
 } from 'lucide-react';
-import { MeetingType, MeetingResolution, MeetingAgendaItem } from '../types';
+import { MeetingType, MeetingResolution } from '../types';
 import { MeetingAiService } from '../services/meetingAiService';
 
 interface MeetingAiAssistantModalProps {

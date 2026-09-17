@@ -10,14 +10,9 @@ import {
   TrendingDown,
   ChevronDown,
   ChevronUp,
-  AlertTriangle,
-  CheckCircle,
   Percent,
   Layers,
-  Tag,
-  Info,
-  Scale,
-  Sparkles
+  Tag
 } from 'lucide-react';
 
 interface GuvReportViewProps {
@@ -95,8 +90,8 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
   ) => {
     const subCatName = subCatRaw || 'Sonstige Buchung';
     let mainCatKey = mainCatRaw;
-    let mainCode = '';
-    let mainName = '';
+    let mainCode: string;
+    let mainName: string;
 
     if (mainCatKey) {
       const parts = mainCatKey.split(' - ');

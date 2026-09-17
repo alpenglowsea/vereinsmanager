@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { DocumentCategory } from '../types';
 import { FolderInput, X, Check } from 'lucide-react';
-import { CATEGORY_CONFIG } from './DocumentViewerModal';
+import {  } from './DocumentViewerModal';
 
 interface DocumentMoveModalProps {
   isOpen: boolean;

@@ -5,15 +5,11 @@ import {
   X,
   Upload,
   FileSpreadsheet,
-  CheckCircle2,
   AlertCircle,
   Download,
-  Building2,
-  Table,
   Check,
   Search,
-  ClipboardPaste,
-  HelpCircle
+  ClipboardPaste
 } from 'lucide-react';
 import { CONTACT_TYPES_LIST } from '../data/contactConstants';
 

@@ -3,11 +3,8 @@ import { ClubDocument, DocumentFolder, DocumentCategory } from '../types';
 import {
   X,
   FolderInput,
-  Folder,
   Check,
   Search,
-  ChevronRight,
-  ChevronDown,
   AlertCircle
 } from 'lucide-react';
 

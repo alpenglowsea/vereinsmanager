@@ -8,11 +8,7 @@ import {
   UserPlus,
   BarChart3,
   ArrowRight,
-  Sparkles,
-  Calendar,
-  Award,
-  CheckCircle2,
-  AlertCircle
+  CheckCircle2
 } from 'lucide-react';
 
 // 1. Members KPI Widget

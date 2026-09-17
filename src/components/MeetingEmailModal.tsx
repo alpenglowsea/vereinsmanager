@@ -10,9 +10,7 @@ import {
   AlertCircle,
   ShieldCheck,
   FileText,
-  Loader2,
-  Check,
-  Filter
+  Loader2
 } from 'lucide-react';
 import { Meeting, Member, ClubSettings, MeetingTemplateSettings } from '../types';
 import { MeetingPdfService } from '../services/meetingPdfService';

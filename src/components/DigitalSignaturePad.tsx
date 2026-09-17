@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { RotateCcw, CheckCircle2, PenTool, Eraser } from 'lucide-react';
+import { RotateCcw, CheckCircle2, PenTool } from 'lucide-react';
 
 interface DigitalSignaturePadProps {
   id?: string;
@@ -84,8 +84,8 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
 
-    let clientX = 0;
-    let clientY = 0;
+    let clientX: number;
+    let clientY: number;
 
     if ('touches' in e && e.touches.length > 0) {
       clientX = e.touches[0].clientX;

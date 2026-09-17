@@ -2,14 +2,12 @@ import React, { useState, useMemo } from 'react';
 import {
   User,
   MapPin,
-  Calendar,
   CreditCard,
   FileCheck2,
   PenTool,
   CheckCircle2,
   AlertCircle,
   Download,
-  Building2,
   ShieldCheck,
   Phone,
   Mail,
@@ -17,10 +15,6 @@ import {
   ChevronRight,
   ChevronLeft,
   Eye,
-  Info,
-  Sparkles,
-  ArrowRight,
-  ExternalLink,
   Lock
 } from 'lucide-react';
 import {

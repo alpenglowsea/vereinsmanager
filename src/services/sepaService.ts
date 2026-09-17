@@ -6,8 +6,7 @@ import {
   ClubSettings,
   SepaCollectionItem,
   SepaRunConfig,
-  SepaPeriodFilter,
-  FeePeriod
+  SepaPeriodFilter
 } from '../types';
 
 export const SepaService = {
@@ -113,7 +112,7 @@ export const SepaService = {
       // ersatzlos gelöscht, und das Mandat lautete auf einen Namen, den
       // es nicht gibt.
       .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
+      .replace(/[\u0300-\u036f]/g, '')
       // Zeilenumbrüche und Tabulatoren sind im Zeichensatz nicht erlaubt
       .replace(/\s+/g, ' ')
       // Erlaubter Zeichensatz nach EPC/ISO 20022. Bewusst ausgeschrieben:

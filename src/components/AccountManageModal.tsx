@@ -3,7 +3,6 @@ import { FinancialAccount, AccountType } from '../types';
 import {
   X,
   Building2,
-  Wallet,
   Coins,
   Plus,
   Trash2,

@@ -13,8 +13,6 @@ import {
   Filter,
   ArrowUpRight,
   ArrowDownRight,
-  Layers,
-  Sparkles,
   ChevronDown,
   X,
   Search

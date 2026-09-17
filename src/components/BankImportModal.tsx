@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FinancialAccount, Transaction, TaxSphere } from '../types';
 import { BankImportService, ParsedBankRow } from '../services/bankImport';
-import { TAX_SPHERES, SPHERE_CATEGORIES } from '../data/taxSpheres';
+import { SPHERE_CATEGORIES } from '../data/taxSpheres';
 import {
   X,
   Upload,
@@ -9,8 +9,7 @@ import {
   CheckCircle2,
   FileSpreadsheet,
   AlertCircle,
-  Sparkles,
-  ArrowRight
+  Sparkles
 } from 'lucide-react';
 
 interface BankImportModalProps {

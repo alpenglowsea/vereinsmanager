@@ -7,13 +7,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
-  FileSpreadsheet,
   Image as ImageIcon,
-  ArrowRight,
-  RefreshCw,
-  Eye
+  ArrowRight
 } from 'lucide-react';
-import { MeetingType, Meeting } from '../types';
+import { MeetingType } from '../types';
 import { MeetingAiService, MeetingExtractedData } from '../services/meetingAiService';
 
 interface MeetingNotesUploadModalProps {

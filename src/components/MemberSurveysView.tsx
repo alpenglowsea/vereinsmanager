@@ -16,18 +16,14 @@ import {
   Eye,
   Edit2,
   Trash2,
-  CheckCircle2,
   Clock,
-  AlertCircle,
   HelpCircle,
   Users,
   ShieldCheck,
   Search,
-  Sparkles,
   Globe,
   Archive,
-  Play,
-  RotateCcw
+  Play
 } from 'lucide-react';
 
 interface MemberSurveysViewProps {

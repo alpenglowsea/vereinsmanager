@@ -1,4 +1,4 @@
-import { Meeting, MeetingType, MeetingAgendaItem, MeetingResolution } from '../types';
+import { MeetingType, MeetingAgendaItem, MeetingResolution } from '../types';
 import { AiBookingService } from './aiBookingService';
 
 export interface MeetingExtractedData {

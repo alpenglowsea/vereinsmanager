@@ -1,4 +1,4 @@
-import { DashboardWidgetDefinition, DashboardWidgetConfig, UserDashboardConfig, DashboardPreset } from '../types/dashboard';
+import { DashboardWidgetDefinition, UserDashboardConfig, DashboardPreset } from '../types/dashboard';
 
 export const AVAILABLE_DASHBOARD_WIDGETS: DashboardWidgetDefinition[] = [
   // 1. Übersicht & Schnellaktionen

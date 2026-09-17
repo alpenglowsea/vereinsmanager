@@ -6,24 +6,19 @@ import {
   Address
 } from '../types';
 import {
-  CONTACT_TYPES_LIST,
-  computeContactDisplayName
+  CONTACT_TYPES_LIST
 } from '../data/contactConstants';
 import {
   X,
   Building2,
   User,
   Check,
-  Tag,
   CreditCard,
   MapPin,
   Mail,
   Phone,
   Globe,
-  FileText,
   AlertCircle,
-  HelpCircle,
-  Hash,
   Briefcase
 } from 'lucide-react';
 
@@ -218,7 +213,7 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
       .map(t => t.trim())
       .filter(Boolean);
 
-    let finalDisplayName = '';
+    let finalDisplayName: string;
     if (personType === 'legal') {
       finalDisplayName = companyName.trim();
     } else {

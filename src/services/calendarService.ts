@@ -211,7 +211,7 @@ export class CalendarService {
             const date = `${year}-${month}-${day}`;
             const name = `${member.firstName} ${member.lastName}`.trim();
 
-            let titleSuffix = '';
+            let titleSuffix: string;
             if (years === 25) titleSuffix = ' (Silbernes Jubiläum 🥈)';
             else if (years === 50) titleSuffix = ' (Goldenes Jubiläum 🥇)';
             else if (years === 60) titleSuffix = ' (Diamant-Jubiläum 💎)';

@@ -7,8 +7,6 @@ import {
   User,
   MapPin,
   Mail,
-  Phone,
-  Globe,
   CreditCard,
   Tag,
   Edit2,
@@ -16,7 +14,6 @@ import {
   Receipt,
   Plus,
   ExternalLink,
-  Calendar,
   Briefcase
 } from 'lucide-react';
 

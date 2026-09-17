@@ -1,4 +1,4 @@
-import { AppUpdateInfo, DeploymentMode } from '../types';
+import { AppUpdateInfo } from '../types';
 
 export const CURRENT_APP_VERSION = (import.meta as any).env?.VITE_APP_VERSION || '1.2.3';
 

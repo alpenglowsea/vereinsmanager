@@ -12,11 +12,9 @@ import {
   FileSpreadsheet,
   FileText,
   Search,
-  Users,
   CheckCircle2,
   Clock,
   RefreshCw,
-  ExternalLink,
   ShieldCheck,
   Globe
 } from 'lucide-react';

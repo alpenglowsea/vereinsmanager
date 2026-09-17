@@ -194,8 +194,8 @@ export async function generatePdfFromScannedPages(
     const imgAspect = imgDims.w / imgDims.h;
     const containerAspect = availableWidth / availableHeight;
 
-    let renderW = availableWidth;
-    let renderH = availableHeight;
+    let renderW: number;
+    let renderH: number;
     let renderX = margin;
     let renderY = startY;
 

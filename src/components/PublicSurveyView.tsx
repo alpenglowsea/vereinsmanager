@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MemberSurvey, SurveyQuestion, MemberSurveyToken, MemberSurveyResponse, ClubSettings } from '../types';
+import { MemberSurvey, MemberSurveyToken, MemberSurveyResponse, ClubSettings } from '../types';
 import { StorageService } from '../services/storage';
 import {
   CheckCircle2,
@@ -10,7 +10,6 @@ import {
   Lock,
   Calendar,
   Sparkles,
-  ChevronRight,
   ShieldCheck,
   Check,
   X

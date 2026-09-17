@@ -1,5 +1,5 @@
 import { TaxSphere, Skr42MainCategory, Skr42SubCategory } from '../types';
-import { SKR42_STRUCTURE, TAX_SPHERES } from '../data/taxSpheres';
+import { SKR42_STRUCTURE } from '../data/taxSpheres';
 
 const STORAGE_KEY_CUSTOM_ACCOUNTS = 'vm_custom_skr42_accounts';
 

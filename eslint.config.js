@@ -72,13 +72,13 @@ export default tseslint.config(
         },
       ],
 
-      // Herabgestuft nach Prüfung aller zwölf Fundstellen im Bestand:
-      // Es handelt sich durchweg um einen Vorgabewert, den anschliessend
-      // jeder Zweig überschreibt. Das ist redundant, aber harmlos — und
-      // den Startwert zu entfernen, würde TypeScript an mehreren Stellen
-      // "wird vor der Zuweisung verwendet" melden. Sichtbar ja,
-      // blockierend nein.
-      'no-useless-assignment': 'warn',
+      // Bleibt ein Fehler. Ein Startwert, den ohnehin jeder Zweig
+      // überschreibt, ist nicht nur überflüssig — er hebt eine Prüfung
+      // auf: Vergisst später jemand einen Zweig, liefert die Variable
+      // stillschweigend den Vorgabewert, statt dass TypeScript den
+      // fehlenden Fall meldet. Eine Fehlermeldung beim Bauen ist einem
+      // stillen Fehlverhalten im Betrieb immer vorzuziehen.
+      'no-useless-assignment': 'error',
 
       // --- Auf Warnung heruntergestuft -----------------------------
       // Ungenutzte Variablen sind meist harmlos, manchmal aber ein

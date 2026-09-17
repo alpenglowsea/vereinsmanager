@@ -3,7 +3,6 @@ import {
   X,
   User,
   MapPin,
-  Calendar,
   CreditCard,
   CheckCircle2,
   XCircle,
@@ -12,28 +11,22 @@ import {
   Download,
   Eye,
   ShieldCheck,
-  Building2,
   Users,
   PenTool,
   Phone,
   Mail,
-  AlertTriangle,
-  FolderArchive,
-  ArrowRight
+  AlertTriangle
 } from 'lucide-react';
 import {
   OnlineMembershipApplication,
   Member,
   ClubSettings,
-  Gender,
   MembershipType,
-  PaymentMethod,
   FeePeriod
 } from '../types';
 import {
   generateMembershipApplicationPdf,
   calculateAge,
-  getMembershipTypeLabel,
   getGenderLabel,
   getPaymentMethodLabel,
   getFeePeriodLabel

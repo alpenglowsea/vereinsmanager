@@ -4,7 +4,6 @@ import {
   X,
   FileText,
   Save,
-  Tag,
   Folder,
   AlertCircle
 } from 'lucide-react';

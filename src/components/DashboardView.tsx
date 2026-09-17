@@ -51,11 +51,6 @@ import {
 import {
   SlidersHorizontal,
   Plus,
-  RotateCcw,
-  Sparkles,
-  LayoutDashboard,
-  CheckCircle2,
-  Settings2,
   FileSignature,
   ArrowRight
 } from 'lucide-react';

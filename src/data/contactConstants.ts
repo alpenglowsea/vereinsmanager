@@ -1,4 +1,4 @@
-import { ContactType, ContactPersonType, ClubContact } from '../types';
+import { ContactType, ClubContact } from '../types';
 
 export interface ContactTypeMeta {
   id: ContactType;

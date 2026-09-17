@@ -6,8 +6,6 @@ import {
   TrendingDown,
   PieChart,
   BarChart3,
-  Calendar,
-  Wallet,
   ArrowUpRight,
   ArrowDownRight,
   Filter

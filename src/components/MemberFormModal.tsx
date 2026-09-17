@@ -27,12 +27,10 @@ import {
   Trash2,
   CheckCircle2,
   Clock,
-  Upload,
   Paperclip,
   FileUp,
   FileCheck,
   Download,
-  Eye,
   Gift
 } from 'lucide-react';
 

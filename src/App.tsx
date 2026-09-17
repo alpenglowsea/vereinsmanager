@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Member,
   Transaction,
@@ -32,7 +32,7 @@ import {
 } from './types';
 import { StorageService } from './services/storage';
 import { AuthService } from './services/authService';
-import { AppUser, UserAuthSession } from './types';
+import { UserAuthSession } from './types';
 import { formatClubAddress } from './utils/clubAddress';
 import { UserDashboardConfig } from './types/dashboard';
 import { DEFAULT_DASHBOARD_CONFIG } from './data/defaultDashboard';
@@ -99,39 +99,21 @@ import {
   Wallet,
   FileSpreadsheet,
   PieChart,
-  ShieldCheck,
   Settings,
-  Plus,
-  Building2,
-  HardDrive,
-  CheckCircle2,
   Menu,
   X,
-  Search,
-  Database,
   Lock,
   Package,
   ChevronDown,
   ChevronRight,
-  Cloud,
-  Server,
-  Globe,
   FolderArchive,
   FileText,
-  Camera,
-  Upload,
   HeartHandshake,
-  UserCheck,
   LogOut,
   ShieldAlert,
   UserCog,
-  KeyRound,
-  Shield,
-  Calendar as CalendarIcon,
   CalendarDays,
   FileSignature,
-  Inbox,
-  FileCheck,
   SlidersHorizontal,
   Contact,
   ScrollText,

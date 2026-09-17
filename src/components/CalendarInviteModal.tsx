@@ -10,7 +10,6 @@ import {
 import { CalendarService } from '../services/calendarService';
 import {
   Mail,
-  Share2,
   Download,
   Copy,
   Check,
@@ -21,10 +20,7 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  MapPin,
-  Calendar,
-  Search,
-  MessageSquare
+  Search
 } from 'lucide-react';
 
 interface CalendarInviteModalProps {

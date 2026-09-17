@@ -31,10 +31,7 @@ import {
   User as UserIcon,
   Eye,
   EyeOff,
-  Check,
-  UserCheck,
-  UserX,
-  Sparkles
+  Check
 } from 'lucide-react';
 
 interface SettingsPrivacyModalProps {

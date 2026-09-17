@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Member, ClubSettings, MembershipStatus, MembershipType, PaymentMethod, MemberBulkUpdates } from '../types';
+import { Member, ClubSettings, MemberBulkUpdates } from '../types';
 import { ExportService } from '../services/exportService';
 import { MemberBulkEditModal } from './MemberBulkEditModal';
 import { TablePagination, PageSizeOption } from './TablePagination';
@@ -9,23 +9,12 @@ import {
   FileDown,
   Download,
   Upload,
-  FileSpreadsheet,
-  Filter,
-  UserCheck,
   Building2,
   Trash2,
   Edit2,
-  Eye,
   CreditCard,
   CheckCircle2,
-  XCircle,
-  Phone,
-  Mail,
-  ChevronRight,
-  ShieldCheck,
   SlidersHorizontal,
-  CheckSquare,
-  Square,
   AlertTriangle,
   X
 } from 'lucide-react';

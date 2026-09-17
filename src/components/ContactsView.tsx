@@ -19,8 +19,7 @@ import {
   Square,
   Receipt,
   FileText,
-  X,
-  SlidersHorizontal
+  X
 } from 'lucide-react';
 
 interface ContactsViewProps {

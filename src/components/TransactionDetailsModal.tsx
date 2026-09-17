@@ -24,12 +24,10 @@ import {
   FileText,
   Camera,
   UserPlus,
-  Info,
   CreditCard,
   CheckCircle2,
   AlertCircle,
-  Split,
-  Layers
+  Split
 } from 'lucide-react';
 
 interface TransactionDetailsModalProps {

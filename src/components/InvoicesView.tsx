@@ -10,7 +10,6 @@ import { formatCurrency, generateInvoicePdf } from '../services/invoicePdfServic
 import {
   Search,
   Plus,
-  FileDown,
   Download,
   Trash2,
   Edit2,
@@ -19,17 +18,9 @@ import {
   Clock,
   Ban,
   FileText,
-  Building2,
-  User,
   Sliders,
-  CheckSquare,
-  Square,
   X,
-  Calendar,
-  Layers,
-  Sparkles,
-  QrCode,
-  FolderArchive
+  Sparkles
 } from 'lucide-react';
 
 interface InvoicesViewProps {

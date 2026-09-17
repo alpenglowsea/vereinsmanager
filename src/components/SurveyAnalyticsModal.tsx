@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MemberSurvey, MemberSurveyResponse, MemberSurveyToken, ClubSettings } from '../types';
 import { StorageService } from '../services/storage';
 import { SurveyPdfService } from '../services/surveyPdfService';
@@ -7,22 +7,11 @@ import {
   BarChart3,
   FileText,
   FileSpreadsheet,
-  Users,
-  CheckCircle2,
-  Clock,
   Star,
-  Sliders,
-  CheckSquare,
-  List,
-  MessageSquare,
-  HelpCircle,
   Lock,
   ChevronDown,
   ChevronUp,
-  Search,
-  Filter,
-  TrendingUp,
-  AlertCircle
+  TrendingUp
 } from 'lucide-react';
 
 interface SurveyAnalyticsModalProps {

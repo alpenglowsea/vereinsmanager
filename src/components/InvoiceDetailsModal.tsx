@@ -6,19 +6,16 @@ import {
   Download,
   Edit2,
   Trash2,
-  Calendar,
   Building2,
   User,
   CheckCircle,
   Clock,
   Ban,
   FileText,
-  CreditCard,
   Mail,
   Phone,
   MapPin,
-  FolderArchive,
-  QrCode
+  FolderArchive
 } from 'lucide-react';
 
 interface InvoiceDetailsModalProps {

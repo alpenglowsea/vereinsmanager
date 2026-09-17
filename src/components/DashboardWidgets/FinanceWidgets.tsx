@@ -18,10 +18,7 @@ import {
   HeartHandshake,
   TrendingUp,
   ArrowRight,
-  AlertCircle,
-  TrendingDown,
-  Building2,
-  Receipt
+  AlertCircle
 } from 'lucide-react';
 
 // 1. Liquidity & Bank Balances Widget

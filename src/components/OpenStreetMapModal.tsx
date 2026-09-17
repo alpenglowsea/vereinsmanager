@@ -7,7 +7,6 @@ import {
   X,
   Navigation,
   Layers,
-  Search,
   Loader2
 } from 'lucide-react';
 

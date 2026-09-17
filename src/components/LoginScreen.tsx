@@ -12,13 +12,11 @@ import {
   Sparkles,
   ArrowRight,
   ShieldCheck,
-  HardDrive,
   Cloud,
   Server,
   UserPlus,
   Mail,
   CheckCircle2,
-  HelpCircle,
   Upload,
   Database
 } from 'lucide-react';

@@ -4,13 +4,8 @@ import {
   X,
   Upload,
   FileText,
-  FileSpreadsheet,
-  FileCode,
-  Image as ImageIcon,
   CheckCircle2,
   Trash2,
-  Tag,
-  Calendar,
   Folder,
   AlertCircle,
   Plus

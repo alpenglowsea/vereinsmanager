@@ -16,7 +16,6 @@ import {
   DollarSign,
   MapPin,
   User,
-  Hash,
   FileText,
   AlertCircle,
   Tag,

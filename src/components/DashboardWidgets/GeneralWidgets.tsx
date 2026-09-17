@@ -7,15 +7,12 @@ import {
 import {
   Sparkles,
   Plus,
-  Building2,
   CalendarDays,
   Package,
   FolderArchive,
   ArrowRight,
   MapPin,
   Clock,
-  CheckCircle2,
-  ShieldCheck,
   AlertTriangle
 } from 'lucide-react';
 

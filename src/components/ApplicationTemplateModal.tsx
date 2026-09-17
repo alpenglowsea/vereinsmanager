@@ -6,13 +6,10 @@ import {
   Trash2,
   Download,
   CheckCircle2,
-  AlertCircle,
   Settings,
   Mail,
   Building2,
-  FileUp,
-  Sparkles,
-  Info
+  FileUp
 } from 'lucide-react';
 import { ApplicationTemplateSettings, ClubSettings } from '../types';
 

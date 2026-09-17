@@ -8,7 +8,7 @@ import {
   InvoiceTemplateSettings,
   TaxSphere
 } from '../types';
-import { TAX_SPHERES } from '../data/taxSpheres';
+import {  } from '../data/taxSpheres';
 import { formatCurrency } from '../services/invoicePdfService';
 import {
   X,
@@ -23,10 +23,7 @@ import {
   FileText,
   Check,
   Eye,
-  Calendar,
-  Layers,
-  FolderArchive,
-  AlertCircle
+  FolderArchive
 } from 'lucide-react';
 
 interface InvoiceFormModalProps {

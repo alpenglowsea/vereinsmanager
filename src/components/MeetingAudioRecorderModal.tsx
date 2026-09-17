@@ -12,16 +12,11 @@ import {
   Loader2,
   ArrowRight,
   ShieldAlert,
-  Volume2,
   Radio,
   FileAudio,
   Globe,
   Server,
-  Laptop,
-  HelpCircle,
-  RefreshCw,
-  Lock,
-  ExternalLink
+  Laptop
 } from 'lucide-react';
 import { MeetingType } from '../types';
 import { MeetingAiService, MeetingExtractedData } from '../services/meetingAiService';

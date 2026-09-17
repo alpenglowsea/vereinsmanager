@@ -6,15 +6,11 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
-  FileSearch,
-  ArrowRight,
   ShieldCheck,
   Check,
   User,
   CreditCard,
   Building2,
-  Calendar,
-  Eye,
   RefreshCw
 } from 'lucide-react';
 import { OnlineMembershipApplication, ClubSettings, ExtractedApplicationData } from '../types';

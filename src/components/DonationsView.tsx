@@ -12,7 +12,6 @@ import {
   Plus,
   Search,
   Calendar,
-  Filter,
   Download,
   Eye,
   Trash2,
@@ -20,13 +19,9 @@ import {
   FileCheck,
   Coins,
   Package,
-  ArrowUpRight,
   ShieldCheck,
   Info,
-  Building2,
-  User,
-  CheckCircle2,
-  FileText
+  CheckCircle2
 } from 'lucide-react';
 
 interface DonationsViewProps {

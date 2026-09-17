@@ -11,11 +11,8 @@ import {
   Trash2,
   Plus,
   RefreshCw,
-  Sun,
-  Layers,
   Search,
   Link as LinkIcon,
-  Maximize2,
   Sliders,
   AlertCircle,
   UploadCloud,
@@ -23,7 +20,7 @@ import {
   Zap,
   ZapOff
 } from 'lucide-react';
-import { Transaction, FinancialAccount, ClubSettings, ReceiptAttachment, ClubDocument, DocumentCategory } from '../types';
+import { Transaction, FinancialAccount, ClubSettings, ReceiptAttachment, ClubDocument } from '../types';
 import {
   ScannedPage,
   ScannerFilterType,

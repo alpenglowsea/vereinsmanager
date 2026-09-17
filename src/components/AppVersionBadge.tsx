@@ -1,21 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AppUpdateInfo, DeploymentMode } from '../types';
-import { UpdateService, CURRENT_APP_VERSION } from '../services/updateService';
+import { UpdateService } from '../services/updateService';
 import {
   Sparkles,
   RefreshCw,
   CheckCircle2,
-  AlertCircle,
-  Download,
   Copy,
   Check,
   ExternalLink,
   X,
-  Laptop,
   Cloud,
   Server,
   Terminal,
-  ArrowRight,
   ShieldCheck,
   Zap,
   RotateCcw,

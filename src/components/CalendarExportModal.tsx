@@ -6,12 +6,10 @@ import {
 import { CalendarService } from '../services/calendarService';
 import {
   Download,
-  Calendar,
   FileSpreadsheet,
   FileCode,
   Check,
   X,
-  Filter,
   CheckSquare,
   Square
 } from 'lucide-react';

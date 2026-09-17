@@ -1,5 +1,5 @@
 import { AiConfig, AiProviderType, BookingAiSuggestion, TaxSphere } from '../types';
-import { findSkr42MainForSub, getSkr42MainCategories, SKR42_STRUCTURE } from '../data/taxSpheres';
+import { findSkr42MainForSub, getSkr42MainCategories } from '../data/taxSpheres';
 
 const STORAGE_KEY_GEMINI_KEY = 'vm_gemini_api_key';
 const STORAGE_KEY_AI_PROVIDER = 'vm_ai_provider';

@@ -7,10 +7,8 @@ import {
   Package,
   CheckCircle2,
   Clock,
-  Euro,
   RotateCcw,
-  Trash2,
-  Filter
+  Trash2
 } from 'lucide-react';
 import { Member, InventoryItem, MemberInventoryAssignment, ClubSettings } from '../types';
 import { ExportService } from '../services/exportService';

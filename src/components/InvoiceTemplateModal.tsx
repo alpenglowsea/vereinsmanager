@@ -8,7 +8,6 @@ import {
   FileText,
   Eye,
   Trash2,
-  Download,
   Info,
   Sliders,
   Sparkles,

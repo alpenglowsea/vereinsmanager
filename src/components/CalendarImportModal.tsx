@@ -13,8 +13,7 @@ import {
   X,
   FileCode,
   Check,
-  Loader2,
-  Info
+  Loader2
 } from 'lucide-react';
 
 interface CalendarImportModalProps {

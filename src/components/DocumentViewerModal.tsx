@@ -7,15 +7,11 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCw,
-  Calendar,
-  Tag,
   FileCode,
   FileSpreadsheet,
   Image as ImageIcon,
-  HardDrive,
   User,
   Receipt,
-  ExternalLink,
   Info
 } from 'lucide-react';
 

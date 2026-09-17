@@ -8,7 +8,7 @@ import {
   TransactionColumnMapping,
   ParsedTransactionRow
 } from '../services/transactionImportService';
-import { TAX_SPHERES, SKR42_STRUCTURE } from '../data/taxSpheres';
+import { SKR42_STRUCTURE } from '../data/taxSpheres';
 import {
   X,
   Upload,
@@ -16,20 +16,16 @@ import {
   CheckCircle2,
   AlertCircle,
   Download,
-  Building2,
   Settings2,
   Table,
   Check,
   Search,
-  HelpCircle,
   FileText,
   ClipboardPaste,
-  Coins,
   ArrowRight,
   TrendingUp,
   TrendingDown,
   Scale,
-  Sparkles,
   Info
 } from 'lucide-react';
 
