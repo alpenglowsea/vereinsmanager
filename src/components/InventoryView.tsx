@@ -167,8 +167,14 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   // Statistics Summary
   const stats = useMemo(() => {
     const totalCount = inventory.reduce((acc, curr) => acc + (curr.quantity || 1), 0);
-    const totalOriginalValue = inventory.reduce((acc, curr) => acc + (curr.purchasePrice || 0), 0);
-    const totalCurrentValue = inventory.reduce((acc, curr) => acc + (curr.currentValue || curr.purchasePrice || 0), 0);
+    const totalOriginalValue = inventory.reduce(
+      (acc, curr) => acc + (curr.purchasePrice || 0) * (curr.quantity || 1),
+      0
+    );
+    const totalCurrentValue = inventory.reduce(
+      (acc, curr) => acc + (curr.currentValue || curr.purchasePrice || 0) * (curr.quantity || 1),
+      0
+    );
     
     // Check overdue inspections
     const today = new Date().toISOString().split('T')[0];
@@ -852,17 +858,39 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
                       {/* Financial Value */}
                       <td className="py-3 px-4 font-mono text-xs">
-                        {item.currentValue !== undefined ? (
-                          <div className="font-bold text-slate-900">
-                            {item.currentValue.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €
-                          </div>
-                        ) : item.purchasePrice !== undefined ? (
-                          <div className="font-bold text-slate-900">
-                            {item.purchasePrice.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €
-                          </div>
-                        ) : (
-                          <span className="text-slate-400">–</span>
-                        )}
+                        {(() => {
+                          // Preise werden pro Stück erfasst. Bei Positionen mit
+                          // mehr als einem Stück wird zusätzlich der Gesamtwert
+                          // der Position ausgewiesen.
+                          const unitValue = item.currentValue ?? item.purchasePrice;
+                          if (unitValue === undefined) {
+                            return <span className="text-slate-400">–</span>;
+                          }
+                          const qty = item.quantity || 1;
+                          return (
+                            <>
+                              <div className="font-bold text-slate-900">
+                                {unitValue.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €
+                                {qty > 1 && (
+                                  <span className="font-normal text-slate-400"> /Stück</span>
+                                )}
+                              </div>
+                              {qty > 1 && (
+                                <div
+                                  className="text-[10px] font-semibold text-emerald-700"
+                                  title="Gesamtwert dieser Position"
+                                >
+                                  × {qty} ={' '}
+                                  {(unitValue * qty).toLocaleString('de-DE', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                  })}{' '}
+                                  €
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                         {item.purchasePrice !== undefined && item.currentValue !== undefined && item.purchasePrice !== item.currentValue && (
                           <div className="text-[10px] text-slate-400">
                             Kauf: {item.purchasePrice.toFixed(2)} €
@@ -921,7 +949,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             <div>
               Gesamtwert der gefilterten Liste:{' '}
               <span className="font-bold text-emerald-700">
-                {filteredInventory.reduce((sum, item) => sum + (item.currentValue || item.purchasePrice || 0), 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                {filteredInventory
+                  .reduce(
+                    (sum, item) =>
+                      sum + (item.currentValue || item.purchasePrice || 0) * (item.quantity || 1),
+                    0
+                  )
+                  .toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
               </span>
             </div>
             {stats.overdueCount > 0 && (

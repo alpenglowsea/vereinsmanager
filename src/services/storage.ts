@@ -3656,7 +3656,10 @@ export const StorageService = {
           { field: 'feeAmount', label: 'Beitrag', oldValue: '–', newValue: `${newMember.feeAmount.toFixed(2)} € (${newMember.feePeriod})` }
         ]
       };
-      await this.saveAuditLog(auditLog);
+      await putItemToStore(STORES.AUDIT_LOGS, auditLog);
+      if (this.isCloudActive()) {
+        CloudStorageService.saveAuditLog(auditLog).catch(() => {});
+      }
     } catch (e) {
       console.warn('Audit log creation error:', e);
     }

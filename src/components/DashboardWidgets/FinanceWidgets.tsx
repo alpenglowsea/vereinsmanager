@@ -158,7 +158,9 @@ export const WgbLimitWidget: React.FC<WgbLimitWidgetProps> = ({ transactions, on
     >
       <div>
         <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-          <span className="text-xs font-bold uppercase tracking-wider">§ 64 AO Freigrenze</span>
+          <span className="text-xs font-bold uppercase tracking-wider">
+            § 64 AO Freigrenze {currentYear}
+          </span>
           <div className="p-2 bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 rounded-xl group-hover:bg-rose-600 group-hover:text-white transition-colors">
             <Percent className="w-4 h-4" />
           </div>
@@ -229,7 +231,9 @@ export const TaxSpheresWidget: React.FC<TaxSpheresWidgetProps> = ({ transactions
               <h2 className="text-base font-bold text-slate-900 dark:text-white">
                 Steuerliche 4 Sphären (SKR 42)
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Gemeinnützigkeitsrechtliche Aufteilung</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Gemeinnützigkeitsrechtliche Aufteilung · Geschäftsjahr {currentYear}
+              </p>
             </div>
           </div>
           <button
