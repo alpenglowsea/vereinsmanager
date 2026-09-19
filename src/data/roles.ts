@@ -1,21 +1,8 @@
 import { AppUser, SecuritySettings, UserPermissions } from '../types';
+import { ALL_AREAS_EDIT, permissionsFrom } from '../utils/permissions';
 
-export const FULL_PERMISSIONS: UserPermissions = {
-  canViewMembers: true,
-  canEditMembers: true,
-  canViewFinances: true,
-  canEditFinances: true,
-  canExecuteSepa: true,
-  canManageDonations: true,
-  canManageDocuments: true,
-  canManageInventory: true,
-  canManageSettings: true,
-  canManageSurveys: true,
-  canManageContacts: true,
-  canManageMeetings: true,
-  canManageUsers: true,
-  canManageCalendar: true
-};
+/** Vollzugriff auf alle Bereiche. Auswertungen bleiben lesend. */
+export const FULL_PERMISSIONS: UserPermissions = ALL_AREAS_EDIT;
 
 export const INITIAL_USERS: AppUser[] = [
   {
@@ -36,22 +23,8 @@ export const INITIAL_USERS: AppUser[] = [
     name: 'Sabine Weber',
     password: 'kasse',
     customRoleName: 'Schatzmeisterin',
-    permissions: {
-      canViewMembers: true,
-      canEditMembers: true,
-      canViewFinances: true,
-      canEditFinances: true,
-      canExecuteSepa: true,
-      canManageDonations: true,
-      canManageDocuments: true,
-      canManageInventory: true,
-      canManageSettings: false,
-      canManageSurveys: true,
-      canManageContacts: true,
-      canManageMeetings: true,
-      canManageUsers: false,
-      canManageCalendar: true
-    },
+    // Alles ausser Benutzerverwaltung; Einstellungen nur einsehbar.
+    permissions: permissionsFrom('edit', { settings: 'view', users: 'none' }),
     isActive: true,
     createdAt: '2025-01-01T08:00:00.000Z'
   },
@@ -62,22 +35,9 @@ export const INITIAL_USERS: AppUser[] = [
     name: 'Klaus Meier',
     password: 'pruef',
     customRoleName: 'Kassenprüfer (Nur Lesen)',
-    permissions: {
-      canViewMembers: true,
-      canEditMembers: false,
-      canViewFinances: true,
-      canEditFinances: false,
-      canExecuteSepa: false,
-      canManageDonations: false,
-      canManageDocuments: true,
-      canManageInventory: true,
-      canManageSettings: false,
-      canManageSurveys: false,
-      canManageContacts: true,
-      canManageMeetings: true,
-      canManageUsers: false,
-      canManageCalendar: true
-    },
+    // Sieht alles Prüfungsrelevante, kann aber nichts ändern — auch keine
+    // Mitglieder anlegen oder bearbeiten.
+    permissions: permissionsFrom('view', { users: 'none' }),
     isActive: true,
     createdAt: '2025-01-01T08:00:00.000Z'
   }

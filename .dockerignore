@@ -1,0 +1,45 @@
+# ============================================================
+# Was NICHT in den Docker-Build wandern darf.
+#
+# Ohne diese Datei kopiert "COPY . ." alles mit, was gerade im
+# Projektordner liegt — auch die .env mit den API-Schlüsseln. Die
+# landet dann dauerhaft in einer Schicht des fertigen Images und
+# ist für jeden lesbar, der das Image bekommt.
+# ============================================================
+
+# Abhängigkeiten: werden im Container frisch installiert. Die
+# Fassung vom Windows-Rechner passt ohnehin nicht zu Alpine Linux.
+node_modules/
+
+# Ergebnisse früherer Builds: werden im Container neu erzeugt.
+dist/
+build/
+server.js
+src-tauri/target/
+src-tauri/gen/
+
+# Zugangsdaten. Gehören zur Laufzeit als Umgebungsvariable an den
+# Container, nicht in das Image.
+.env
+.env.*
+!.env.example
+*.local
+
+# Die Konfiguration der Entwicklungsmaschine (SMTP-Zugangsdaten samt
+# Schlüssel). Käme sie in das Image, trüge jeder Container die
+# Zugangsdaten zum Postfach des Entwicklers mit sich herum.
+daten/
+
+# Nichts davon wird zum Bauen gebraucht.
+.git/
+.github/
+coverage/
+__pycache__/
+*.tsbuildinfo
+.eslintcache
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

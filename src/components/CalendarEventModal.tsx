@@ -76,7 +76,10 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
   const [recFrequency, setRecFrequency] = useState<RecurrenceFrequency>(
     event?.recurrence?.frequency || 'weekly'
   );
-  const [recInterval, setRecInterval] = useState<number>(event?.recurrence?.interval || 1);
+  // Kein Bedienelement vorhanden: Der Wert steht beim Öffnen fest und lässt
+  // sich nicht ändern. Die Änderungsfunktion ist deshalb entfernt — sie zu
+  // behalten täuschte eine Einstellmöglichkeit vor, die es nicht gibt.
+  const [recInterval] = useState<number>(event?.recurrence?.interval || 1);
   const [recDaysOfWeek, setRecDaysOfWeek] = useState<number[]>(
     event?.recurrence?.daysOfWeek || [1]
   );

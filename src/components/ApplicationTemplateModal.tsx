@@ -32,7 +32,10 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
   const [notificationEmail, setNotificationEmail] = useState(
     templateSettings.notificationEmail || settings.email || 'vorstand@musterverein.de'
   );
-  const [headerText, setHeaderText] = useState(
+  // Kein Bedienelement vorhanden: Der Wert steht beim Öffnen fest und lässt
+  // sich nicht ändern. Die Änderungsfunktion ist deshalb entfernt — sie zu
+  // behalten täuschte eine Einstellmöglichkeit vor, die es nicht gibt.
+  const [headerText] = useState(
     templateSettings.headerText || 'Herzlich willkommen im Verein! Bitte füllen Sie das Beitrittsformular sorgfältig aus.'
   );
   const [fullFee, setFullFee] = useState<number>(templateSettings.defaultFeeRules?.full ?? 18.0);

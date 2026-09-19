@@ -90,6 +90,17 @@ export default tseslint.config(
           argsIgnorePattern: '^_',
           varsIgnorePattern: '^_',
           caughtErrorsIgnorePattern: '^_',
+          // "Alles ausser diesen Feldern" ist ein gängiges und gut lesbares
+          // Muster:
+          //
+          //   const { is_split, splits, ...rest } = zeile;
+          //
+          // Die beiden genannten Namen sind hier gerade deshalb da, weil sie
+          // NICHT weiterverwendet werden sollen — sie zu melden, dreht die
+          // Absicht um. Genau für diesen Fall gibt es diese Einstellung.
+          // Sie gilt nur für Namen, neben denen ein "...rest" steht;
+          // gewöhnliche ungenutzte Variablen meldet die Regel weiterhin.
+          ignoreRestSiblings: true,
         },
       ],
 

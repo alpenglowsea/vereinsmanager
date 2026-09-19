@@ -694,10 +694,13 @@ services:
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-2">
                   <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                     <Laptop className="w-4 h-4 text-amber-600" />
-                    <span>Hybrid: Desktop + Cloud</span>
+                    <span>Desktop-App mit Cloud-Datenbank</span>
                   </div>
                   <p className="text-2xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Sie können auch die lokale Desktop-App mit der Supabase-Cloud verbinden und haben so eine native App mit Vorstandssynchronisation!
+                    Die Desktop-App lässt sich auf die Cloud-Datenbank einstellen: Mehrere
+                    Vorstandsmitglieder arbeiten dann an denselben Daten. Die App braucht
+                    dafür durchgehend eine Internetverbindung — ein Offline-Betrieb mit
+                    späterem Abgleich ist noch nicht möglich.
                   </p>
                 </div>
               </div>
@@ -732,8 +735,12 @@ services:
                   Modus 3: Betrieb auf eigenem Vereinsheim-Server, NAS oder Linux vServer
                 </div>
                 <div className="mt-1 leading-relaxed">
-                  Mit Docker betreiben Sie den VereinsManager komplett autonom auf Ihrer eigenen Hardware. 
+                  Mit Docker betreiben Sie den VereinsManager komplett autonom auf Ihrer eigenen Hardware.
                   Alle Daten bleiben im Vereinsheim oder auf Ihrem gemieteten Server – ideal für maximale digitale Souveränität.
+                  Wichtig zu wissen: In diesem Modus liegen die Vereinsdaten im Browser des jeweiligen Anwenders,
+                  nicht auf dem Server. Jeder arbeitet also mit seinem eigenen Datenbestand. Sollen mehrere
+                  Personen gemeinsam an denselben Daten arbeiten, richten Sie zusätzlich eine PostgreSQL-Datenbank
+                  (Supabase) auf Ihrem Server ein und tragen sie unter „Cloud-Setup“ ein.
                 </div>
               </div>
             </div>

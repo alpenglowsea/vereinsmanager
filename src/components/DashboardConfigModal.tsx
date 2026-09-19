@@ -159,40 +159,10 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
   };
 
   // Move widget up in order
-  const handleMoveUp = (id: string) => {
-    const sorted = [...activeWidgets];
-    const index = sorted.findIndex((w) => w.id === id);
-    if (index <= 0) return;
-
-    const current = sorted[index];
-    const prev = sorted[index - 1];
-
-    setLocalWidgets((all) =>
-      all.map((w) => {
-        if (w.id === current.id) return { ...w, order: prev.order };
-        if (w.id === prev.id) return { ...w, order: current.order };
-        return w;
-      })
-    );
-  };
+  // Auch hier lag eine fertige, nie aufgerufene Verschiebelogik für die
+  // Reihenfolge der Kacheln. Siehe git log -S handleMoveUp.
 
   // Move widget down in order
-  const handleMoveDown = (id: string) => {
-    const sorted = [...activeWidgets];
-    const index = sorted.findIndex((w) => w.id === id);
-    if (index === -1 || index >= sorted.length - 1) return;
-
-    const current = sorted[index];
-    const next = sorted[index + 1];
-
-    setLocalWidgets((all) =>
-      all.map((w) => {
-        if (w.id === current.id) return { ...w, order: next.order };
-        if (w.id === next.id) return { ...w, order: current.order };
-        return w;
-      })
-    );
-  };
 
   // Apply a Preset
   const handleApplyPreset = (preset: DashboardPreset) => {

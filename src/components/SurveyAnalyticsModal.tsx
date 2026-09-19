@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { LoadingState } from './LoadingState';
 import { MemberSurvey, MemberSurveyResponse, MemberSurveyToken, ClubSettings } from '../types';
 import { StorageService } from '../services/storage';
 import { SurveyPdfService } from '../services/surveyPdfService';
@@ -31,16 +32,9 @@ export const SurveyAnalyticsModal: React.FC<SurveyAnalyticsModalProps> = ({
   const [tokens, setTokens] = useState<MemberSurveyToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'charts' | 'responses'>('charts');
-  const [textSearchQuery, setTextSearchQuery] = useState('');
   const [expandedResponseId, setExpandedResponseId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      loadData();
-    }
-  }, [isOpen, survey.id]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [respList, tokenList] = await Promise.all([
@@ -54,7 +48,14 @@ export const SurveyAnalyticsModal: React.FC<SurveyAnalyticsModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [survey.id]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadData();
+    }
+  }, [isOpen, loadData]);
+
 
   const totalResponses = responses.length;
   const totalInvited = survey.useTokens && tokens.length > 0 ? tokens.length : totalResponses;
@@ -194,8 +195,12 @@ export const SurveyAnalyticsModal: React.FC<SurveyAnalyticsModalProps> = ({
             </div>
           </div>
 
+          {loading && (
+            <LoadingState label="Antworten werden ausgewertet …" />
+          )}
+
           {/* TAB 1: CHARTS & METRICS */}
-          {activeTab === 'charts' && (
+          {!loading && activeTab === 'charts' && (
             <div className="space-y-6">
               {totalResponses === 0 ? (
                 <div className="p-12 text-center text-slate-400 space-y-3 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-200 dark:border-slate-700">
@@ -312,10 +317,6 @@ export const SurveyAnalyticsModal: React.FC<SurveyAnalyticsModalProps> = ({
                       {/* 2. Scale 0-10 (NPS) */}
                       {q.type === 'scale_10' && (() => {
                         const numericAnswers = rawAnswers.map(a => Number(a)).filter(n => !isNaN(n) && n >= 0 && n <= 10);
-                        const avg = numericAnswers.length > 0
-                          ? (numericAnswers.reduce((a, b) => a + b, 0) / numericAnswers.length).toFixed(1)
-                          : '0.0';
-
                         const promoters = numericAnswers.filter(n => n >= 9).length;
                         const passives = numericAnswers.filter(n => n >= 7 && n <= 8).length;
                         const detractors = numericAnswers.filter(n => n <= 6).length;
@@ -496,7 +497,7 @@ export const SurveyAnalyticsModal: React.FC<SurveyAnalyticsModalProps> = ({
           )}
 
           {/* TAB 2: INDIVIDUAL RESPONSES LOG */}
-          {activeTab === 'responses' && (
+          {!loading && activeTab === 'responses' && (
             <div className="space-y-3">
               <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
                 <div className="overflow-x-auto">

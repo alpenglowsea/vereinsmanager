@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   Upload,
   FileText,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { OnlineMembershipApplication, ClubSettings, ExtractedApplicationData } from '../types';
 import { AiBookingService } from '../services/aiBookingService';
+import { apiFetch } from '../services/apiClient';
 
 interface ApplicationPdfImporterModalProps {
   isOpen: boolean;
@@ -199,6 +200,22 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
     reader.readAsDataURL(selectedFile);
   };
 
+  // Verweis auf die jeweils aktuelle Fassung von handleProcessFile.
+  //
+  // handleDrop darf sich nicht bei jedem Rendern ändern — es hängt an der
+  // Ablagefläche für Dateien. handleProcessFile entsteht aber bei jedem
+  // Rendern neu. Stünde es in der Abhängigkeitsliste, wäre der Zweck der
+  // Merkfunktion dahin; ließe man es weg, behielte handleDrop für immer die
+  // allererste Fassung samt der Werte vom ersten Rendern — die hochgeladene
+  // Datei würde dann mit veralteten Vereinsstammdaten ausgewertet.
+  //
+  // Die Referenz ist unveränderlich und gehört deshalb in keine
+  // Abhängigkeitsliste, zeigt aber immer auf die neueste Fassung.
+  const verarbeiteDateiRef = useRef(handleProcessFile);
+  useEffect(() => {
+    verarbeiteDateiRef.current = handleProcessFile;
+  });
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -217,7 +234,7 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
         setScanError('Bitte laden Sie eine PDF-Datei (.pdf) oder ein Foto/Scan (JPG, PNG, WEBP) des Antrags hoch.');
         return;
       }
-      handleProcessFile(droppedFile);
+      verarbeiteDateiRef.current(droppedFile);
     }
   }, []);
 
@@ -312,7 +329,7 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
 
     // Step 1: Try backend endpoint first
     try {
-      const response = await fetch('/api/scan-application-pdf', {
+      const response = await apiFetch('/api/scan-application-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

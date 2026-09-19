@@ -1,7 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { AppUser, ClubSettings, DeploymentMode } from '../types';
 import { AuthService } from '../services/authService';
 import { StorageService } from '../services/storage';
+import { isCloudSetupPending } from '../services/supabaseClient';
+import { BackupImportDialog } from './BackupImportDialog';
+import { BereichsVergleich, ImportArt, SicherungsKopf } from '../services/backupContents';
 import {
   Lock,
   User,
@@ -51,11 +54,48 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [regPassword, setRegPassword] = useState('');
   const [regPasswordConfirm, setRegPasswordConfirm] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
+  // Nur im Cloud-Betrieb: der Code aus dem Skript supabase_rls.sql
+  const [regSetupCode, setRegSetupCode] = useState('');
+  const isCloudRegistration = deploymentMode === 'cloud';
+  /**
+   * Der Import auf dem Anmeldebildschirm ist für den Lokalbetrieb gedacht:
+   * Bestand auf einen Stick, am anderen Rechner wieder einlesen. Im
+   * Cloud-Betrieb liegen die Daten in der Vereinsdatenbank; ein Import würde
+   * dort nur die Browser-Datenbank füllen und beim nächsten Laden wieder
+   * überschrieben.
+   */
+  const importMoeglich = deploymentMode !== 'cloud';
+  // Noch kein Benutzer in der Cloud-Datenbank? Dann richtet dieser Mensch den
+  // Verein ein und braucht den Code aus dem SQL-Skript. Sonst ist er
+  // eingeladen worden und hat einen Einladungscode vom Vorstand.
+  const [cloudSetupPending, setCloudSetupPending] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!isCloudRegistration) return;
+    let abgebrochen = false;
+    isCloudSetupPending().then(pending => {
+      if (!abgebrochen) setCloudSetupPending(pending);
+    });
+    return () => {
+      abgebrochen = true;
+    };
+  }, [isCloudRegistration]);
 
   // Import State
   const [isDragging, setIsDragging] = useState(false);
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /**
+   * Die gelesene, aber noch nicht eingespielte Datei samt Abgleich. Solange
+   * hier etwas steht, ist der Bestätigungsdialog offen und am Datenbestand
+   * wurde noch nichts verändert.
+   */
+  const [importVorschau, setImportVorschau] = useState<{
+    dateiName: string;
+    text: string;
+    kopf: SicherungsKopf;
+    vergleich: BereichsVergleich[];
+  } | null>(null);
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -148,7 +188,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         email: regEmail,
         username: regUsername,
         password: regPassword,
-        customRoleName: '1. Vorsitzender (Admin)'
+        customRoleName: '1. Vorsitzender (Admin)',
+        setupCode: regSetupCode
       });
 
       if (res.success && res.user) {
@@ -158,6 +199,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         setTimeout(() => {
           onLoginSuccess(res.user!);
         }, 600);
+      } else if (res.requiresEmailConfirmation) {
+        // Kein Fehler, sondern ein Zwischenschritt: Das Konto steht, es fehlt
+        // nur die Bestätigung per E-Mail.
+        setSuccessMsg(res.message || 'Bitte bestätigen Sie die E-Mail und melden Sie sich dann an.');
+        setActiveTab('login');
+        setUsernameInput(regEmail.trim().toLowerCase());
       } else {
         setErrorMsg(res.message || 'Registrierung fehlgeschlagen.');
       }
@@ -168,6 +215,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
   };
 
+  /**
+   * Erster Schritt: Datei lesen, prüfen und mit dem vorhandenen Bestand
+   * abgleichen. Eingespielt wird hier noch nichts — das Ergebnis geht in den
+   * Bestätigungsdialog.
+   *
+   * Bis Fassung 1.2 wurde an dieser Stelle sofort überschrieben. Eine falsch
+   * erwischte Datei genügte, und der Bestand des Vereins war weg.
+   */
   const processBackupFile = async (file: File) => {
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -180,8 +235,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setImporting(true);
     try {
       const text = await file.text();
-      const res = await StorageService.importFullBackup(text, 'live');
-      
+      const { kopf, vergleich } = await StorageService.analysiereSicherung(text);
+      setImportVorschau({ dateiName: file.name, text, kopf, vergleich });
+    } catch (err: any) {
+      console.error('Import-Vorschau fehlgeschlagen:', err);
+      setErrorMsg(err?.message || 'Die Datei konnte nicht gelesen werden.');
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  /** Zweiter Schritt: Der Anwender hat im Dialog bestätigt. */
+  const fuehreImportAus = async (art: ImportArt) => {
+    if (!importVorschau) return;
+
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setImporting(true);
+
+    try {
+      const res = await StorageService.importFullBackup(importVorschau.text, 'live', art);
+      setImportVorschau(null);
+
       const newSettings = await StorageService.getSettings();
       if (onSettingsReload && newSettings) {
         onSettingsReload(newSettings);
@@ -190,18 +268,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       // Switch to login tab
       setActiveTab('login');
 
+      const hinweisKopie = res.sicherheitskopie
+        ? ''
+        : ' Achtung: Die Sicherheitskopie des vorherigen Bestands konnte nicht angelegt werden.';
+      const wasGeschah = art === 'ersetzen' ? 'eingespielt' : 'ergänzt';
+
       if (res.usersCount > 0) {
         const firstUser = res.restoredUsers?.[0]?.username || 'admin';
         setUsernameInput(firstUser);
         setPasswordInput('');
         setSuccessMsg(
-          `Datensicherung von „${res.clubName || 'Verein'}“ erfolgreich wiederhergestellt! (${res.membersCount} Mitglieder, ${res.transactionsCount} Buchungen, ${res.usersCount} Benutzerkonto/en wiederhergestellt). Sie können sich jetzt direkt mit Ihren Zugangsdaten anmelden.`
+          `Datensicherung von „${res.clubName || 'Verein'}“ erfolgreich ${wasGeschah}! (${res.membersCount} Mitglieder, ${res.transactionsCount} Buchungen, ${res.usersCount} Benutzerkonto/en). Sie können sich jetzt direkt mit Ihren Zugangsdaten anmelden.${hinweisKopie}`
         );
       } else {
         setUsernameInput('admin');
         setPasswordInput('');
         setSuccessMsg(
-          `Datensicherung von „${res.clubName || 'Verein'}“ erfolgreich eingespielt (${res.membersCount} Mitglieder, ${res.transactionsCount} Buchungen). Hinweis: Da in dieser älteren Sicherung noch keine Benutzerkonten exportiert waren, können Sie sich mit dem Standard-Konto „admin“ (Passwort: „admin“) anmelden.`
+          `Datensicherung von „${res.clubName || 'Verein'}“ erfolgreich ${wasGeschah} (${res.membersCount} Mitglieder, ${res.transactionsCount} Buchungen). Hinweis: Da in dieser älteren Sicherung noch keine Benutzerkonten exportiert waren, können Sie sich mit dem Standard-Konto „admin“ (Passwort: „admin“) anmelden.${hinweisKopie}`
         );
       }
     } catch (err: any) {
@@ -209,9 +292,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       setErrorMsg(`Fehler beim Einspielen der Datensicherung: ${err?.message || 'Ungültige Datei'}`);
     } finally {
       setImporting(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
   };
 
@@ -280,7 +360,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             </p>
 
             {/* Tab Switcher */}
-            <div className="mt-5 grid grid-cols-3 p-1 bg-slate-800/80 border border-slate-700/60 rounded-xl gap-1">
+            <div
+              className={`mt-5 grid ${
+                importMoeglich ? 'grid-cols-3' : 'grid-cols-2'
+              } p-1 bg-slate-800/80 border border-slate-700/60 rounded-xl gap-1`}
+            >
               <button
                 type="button"
                 onClick={() => {
@@ -312,23 +396,29 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <UserPlus className="w-3.5 h-3.5 shrink-0" />
                 <span>Registrieren</span>
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('import');
-                  setErrorMsg(null);
-                  setSuccessMsg(null);
-                }}
-                className={`py-1.5 px-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                  activeTab === 'import'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-                title="Datensicherung (.json) einspielen"
-              >
-                <Upload className="w-3.5 h-3.5 shrink-0" />
-                <span>Importieren</span>
-              </button>
+              {/* Im Cloud-Betrieb gibt es diesen Weg bewusst nicht: Dort
+                  schreibt ein Import nur in die Datenbank des Browsers, und
+                  beim nächsten Laden überschreibt Supabase das wieder. Der
+                  Anwender sähe eine Erfolgsmeldung und hätte nichts gewonnen. */}
+              {importMoeglich && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('import');
+                    setErrorMsg(null);
+                    setSuccessMsg(null);
+                  }}
+                  className={`py-1.5 px-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                    activeTab === 'import'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Datensicherung (.json) einspielen"
+                >
+                  <Upload className="w-3.5 h-3.5 shrink-0" />
+                  <span>Importieren</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -584,6 +674,40 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     />
                   </div>
 
+                  {/* Einrichtungscode — nur im Cloud-Betrieb */}
+                  {isCloudRegistration && (
+                    <div className="space-y-1 pt-1">
+                      <label className="block text-xs font-bold text-slate-700">
+                        {cloudSetupPending === false ? 'Einladungscode *' : 'Einrichtungscode *'}
+                      </label>
+                      <input
+                        type="text"
+                        value={regSetupCode}
+                        onChange={(e) => setRegSetupCode(e.target.value)}
+                        placeholder="ABCD-1234-EF56"
+                        required
+                        autoComplete="off"
+                        spellCheck={false}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono tracking-wider text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none uppercase"
+                      />
+                      {cloudSetupPending === false ? (
+                        <p className="text-2xs text-slate-500 leading-snug">
+                          Für diesen Verein ist bereits ein Vorstand eingetragen. Sie brauchen
+                          daher einen <strong>Einladungscode</strong>, den Ihnen der Vorstand
+                          gibt. Melden Sie sich mit genau der E-Mail-Adresse an, an die die
+                          Einladung ausgestellt wurde.
+                        </p>
+                      ) : (
+                        <p className="text-2xs text-slate-500 leading-snug">
+                          Der Code steht am Ende der Ausgabe, wenn Sie
+                          <strong> supabase_rls.sql</strong> im Supabase SQL-Editor
+                          ausführen. Er gilt genau einmal und stellt sicher, dass nur
+                          Ihr Verein den ersten Vorstand einträgt.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {/* Submit Button */}
                   <button
                     type="submit"
@@ -700,6 +824,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <>
                     <Cloud className="w-3.5 h-3.5 text-blue-600" />
                     <span className="font-semibold text-slate-700">Cloud (Supabase EU)</span>
+                    <span
+                      className="text-slate-400"
+                      title="Im Cloud-Betrieb liegen die Daten in der Vereinsdatenbank. Eine Datensicherung wird dort nach der Anmeldung unter Einstellungen → Datensicherung eingespielt."
+                    >
+                      · Datensicherung nach der Anmeldung
+                    </span>
                   </>
                 )}
                 {deploymentMode === 'selfhosted' && (
@@ -723,6 +853,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           )}
         </div>
       </div>
+
+      {/* Bestätigung vor dem Einspielen. Solange dieser Dialog offen ist,
+          wurde am Datenbestand noch nichts verändert. */}
+      <BackupImportDialog
+        isOpen={Boolean(importVorschau)}
+        dateiName={importVorschau?.dateiName || ''}
+        kopf={importVorschau?.kopf || {}}
+        vergleich={importVorschau?.vergleich || []}
+        laeuft={importing}
+        onAbbrechen={() => setImportVorschau(null)}
+        onBestaetigen={fuehreImportAus}
+      />
     </div>
   );
 };

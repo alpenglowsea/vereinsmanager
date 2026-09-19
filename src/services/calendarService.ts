@@ -47,7 +47,6 @@ export class CalendarService {
     rangeEnd: string
   ): ExpandedEventInstance[] {
     const instances: ExpandedEventInstance[] = [];
-    const startDateObj = this.parseLocalDate(rangeStart);
     const endDateObj = this.parseLocalDate(rangeEnd);
 
     for (const event of events) {
@@ -72,7 +71,7 @@ export class CalendarService {
         const eventEnd = event.endDate ? this.parseLocalDate(event.endDate) : eventStart;
         const durationDays = Math.max(0, Math.round((eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24)));
 
-        let cur = new Date(eventStart);
+        const cur = new Date(eventStart);
         let count = 0;
         const maxOccurrences = rec.count || 300; // safety ceiling
 

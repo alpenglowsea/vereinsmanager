@@ -21,6 +21,7 @@ import {
   ApplicationTemplateSettings
 } from '../types';
 import { UserDashboardConfig } from '../types/dashboard';
+import { mapSettingsToDb, mapSettingsFromDb } from './settingsMapping';
 
 // ==========================================
 // MAPPERS: TypeScript (camelCase) <-> Supabase (snake_case)
@@ -1110,48 +1111,27 @@ export const CloudStorageService = {
   },
 
   // Settings
+  //
+  // Die Zuordnung der Felder steht in settingsMapping.ts und nicht mehr hier.
+  // Grund: An dieser Stelle waren 13 Felder von Hand aufgezaehlt, die uebrigen
+  // fehlten. Vorstandsmitglieder, Vereinslogo, Freistellungsdaten und der
+  // KI-Schluessel gingen im Cloud-Betrieb damit stillschweigend verloren.
+  // In der eigenen Datei erzwingt TypeScript die Vollstaendigkeit.
   async getSettings(): Promise<ClubSettings | null> {
     const client = getSupabaseClient();
     if (!client) return null;
     const { data, error } = await client.from('settings').select('*').eq('id', 'main').single();
     if (error || !data) return null;
 
-    return {
-      clubName: data.club_name,
-      associationNumber: data.association_number || '',
-      taxNumber: data.tax_number || '',
-      creditorId: data.creditor_id || '',
-      creditorIban: data.creditor_iban || undefined,
-      creditorBic: data.creditor_bic || undefined,
-      creditorAccountId: data.creditor_account_id || undefined,
-      address: data.address || '',
-      chairman: data.chairman || '',
-      treasurer: data.treasurer || '',
-      email: data.email || '',
-      departments: data.departments || []
-    };
+    return mapSettingsFromDb(data);
   },
 
   async saveSettings(settings: ClubSettings): Promise<void> {
     const client = getSupabaseClient();
     if (!client) return;
-    const dbPayload = {
-      id: 'main',
-      club_name: settings.clubName,
-      association_number: settings.associationNumber,
-      tax_number: settings.taxNumber,
-      creditor_id: settings.creditorId,
-      creditor_iban: settings.creditorIban || null,
-      creditor_bic: settings.creditorBic || null,
-      creditor_account_id: settings.creditorAccountId || null,
-      address: settings.address,
-      chairman: settings.chairman,
-      treasurer: settings.treasurer,
-      email: settings.email,
-      departments: settings.departments,
-      updated_at: new Date().toISOString()
-    };
-    const { error } = await client.from('settings').upsert(dbPayload, { onConflict: 'id' });
+    const { error } = await client
+      .from('settings')
+      .upsert(mapSettingsToDb(settings), { onConflict: 'id' });
     if (error) throw new Error(`Supabase saveSettings Fehler: ${error.message}`);
   },
 
@@ -1198,7 +1178,13 @@ export const CloudStorageService = {
     const client = getSupabaseClient();
     if (!client) return;
     const dbPayload = mapAuditLogToDb(log);
-    const { error } = await client.from('audit_logs').upsert(dbPayload, { onConflict: 'id' });
+    // ignoreDuplicates, weil das Änderungsprotokoll in der Cloud-Datenbank
+    // nur beschrieben, aber nicht mehr überschrieben werden darf. Ein
+    // erneutes Senden desselben Eintrags (etwa nach einem Verbindungsabbruch)
+    // soll ihn stehen lassen statt am Zugriffsschutz zu scheitern.
+    const { error } = await client
+      .from('audit_logs')
+      .upsert(dbPayload, { onConflict: 'id', ignoreDuplicates: true });
     if (error) throw new Error(`Supabase saveAuditLog Fehler: ${error.message}`);
   },
 
@@ -1590,11 +1576,28 @@ export const CloudStorageService = {
     return mapOnlineAppFromDb(data);
   },
 
-  async saveOnlineApplication(app: OnlineMembershipApplication): Promise<void> {
+  /**
+   * @param options.asVisitor  Der Antrag kommt aus dem öffentlichen Formular,
+   *   also von jemandem ohne Anmeldung.
+   *
+   *   Das muss unterschieden werden, weil "upsert" in der Datenbank ein
+   *   "INSERT ... ON CONFLICT DO UPDATE" ist. PostgreSQL verlangt dafür
+   *   ÄNDERUNGSrechte — auch dann, wenn gar keine Zeile kollidiert und in
+   *   Wahrheit nur eingefügt wird. Ein Besucher hat bewusst nur das Recht
+   *   einzufügen, damit er einen eingereichten Antrag nicht nachträglich
+   *   umschreiben kann. Für ihn muss es deshalb ein reines INSERT sein,
+   *   sonst weist die Datenbank jeden Antrag ab.
+   */
+  async saveOnlineApplication(
+    app: OnlineMembershipApplication,
+    options?: { asVisitor?: boolean }
+  ): Promise<void> {
     const client = getSupabaseClient();
     if (!client) return;
     const dbPayload = mapOnlineAppToDb(app);
-    const { error } = await client.from('online_applications').upsert(dbPayload, { onConflict: 'id' });
+    const { error } = options?.asVisitor
+      ? await client.from('online_applications').insert(dbPayload)
+      : await client.from('online_applications').upsert(dbPayload, { onConflict: 'id' });
     if (error) throw new Error(`Supabase saveOnlineApplication Fehler: ${error.message}`);
   },
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ClubInvoice, ClubSettings, InvoiceTemplateSettings } from '../types';
+import { ClubInvoice } from '../types';
 import { formatCurrency } from '../services/invoicePdfService';
 import {
   X,
@@ -22,26 +22,20 @@ interface InvoiceDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   invoice: ClubInvoice | null;
-  clubSettings: ClubSettings;
-  templateSettings: InvoiceTemplateSettings;
   onEdit: (invoice: ClubInvoice) => void;
   onDelete: (id: string) => void;
   onDownloadPdf: (invoice: ClubInvoice) => void;
   onToggleStatus?: (invoice: ClubInvoice, newStatus: ClubInvoice['status']) => void;
-  onShowInDocuments?: (docId: string) => void;
 }
 
 export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
   isOpen,
   onClose,
   invoice,
-  clubSettings,
-  templateSettings,
   onEdit,
   onDelete,
   onDownloadPdf,
-  onToggleStatus,
-  onShowInDocuments
+  onToggleStatus
 }) => {
   if (!isOpen || !invoice) return null;
 

@@ -1,23 +1,133 @@
-version: '3.8'
+# ==========================================================
+#  VereinsManager auf einem eigenen Server / NAS
+#
+#  Starten:   docker compose up -d --build
+#  Erreichbar unter:  http://[Server-IP]:8080
+#  Anhalten:  docker compose down
+#
+#  Werte für GEMINI_API_KEY und die Supabase-Daten liest Docker
+#  Compose automatisch aus einer Datei namens ".env" neben dieser
+#  Datei. Vorlage dafür ist ".env.example".
+# ==========================================================
+
+# Die frühere Zeile "version: '3.8'" ist entfallen: Sie wird von
+# heutigen Docker-Fassungen ignoriert und nur noch als veraltet
+# angemahnt.
 
 services:
   vereinsmanager:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Nur nötig, wenn der Verein den Cloud-/Team-Modus nutzen
+        # will UND die Zugangsdaten fest einbauen möchte. Sonst
+        # leer lassen und in der App unter Einstellungen →
+        # Cloud-Synchronisation eintragen.
+        #
+        # Diese Werte MÜSSEN hier unter "args" stehen und nicht
+        # unten unter "environment": Sie werden beim Bauen in das
+        # Browser-JavaScript geschrieben. Unten hätten sie keine
+        # Wirkung. Zu beachten: Wer sie hier einträgt, muss nach
+        # jeder Änderung neu bauen (--build).
+        VITE_SUPABASE_URL: "${VITE_SUPABASE_URL:-}"
+        VITE_SUPABASE_ANON_KEY: "${VITE_SUPABASE_ANON_KEY:-}"
+        VITE_DEPLOYMENT_MODE: "${VITE_DEPLOYMENT_MODE:-local}"
+
     container_name: vereinsmanager_app
     restart: unless-stopped
+
     ports:
-      - "8080:80"
+      # Links der Port auf dem Server, rechts der im Container.
+      # Ist 8080 schon belegt (auf einer Synology häufig der Fall),
+      # einfach die linke Zahl ändern, z. B. "8081:3000".
+      - "8080:3000"
+
     environment:
-      - NODE_ENV=production
-      # Optional: Supabase EU Cloud backend keys (falls im Cloud-Modus betrieben)
-      # - VITE_SUPABASE_URL=https://your-project.supabase.co
-      # - VITE_SUPABASE_ANON_KEY=your-anon-key
-      # - VITE_DEPLOYMENT_MODE=cloud
+      NODE_ENV: production
+      PORT: 3000
+      # API-Schlüssel für die KI-Funktionen. Ohne ihn läuft die App
+      # vollständig, nur Belegerkennung, Buchungsvorschläge und
+      # Protokollauswertung bleiben aus. Anders als die VITE_-Werte
+      # oben wird dieser Schlüssel NICHT in die Oberfläche
+      # eingebaut; er bleibt auf dem Server.
+      GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
+
+      # Nur nötig, wenn der Mailserver des Vereins ein selbst
+      # ausgestelltes Zertifikat verwendet (kommt bei Mailservern im
+      # eigenen Haus vor). Sonst weglassen: Ohne Zertifikatsprüfung
+      # könnte sich jemand im selben Netz zwischen Server und
+      # Mailanbieter schieben und das Passwort mitlesen.
+      # VM_SMTP_ALLOW_SELF_SIGNED: "true"
+
+      # Zugriffsschlüssel für die /api-Endpunkte. Bleibt er leer, würfelt
+      # der Server beim ersten Start selbst einen aus und zeigt ihn an:
+      #
+      #     docker compose logs vereinsmanager | grep -A2 Zugriffs
+      #
+      # Er ist dann einmal je Browser unter Einstellungen → Allgemein
+      # einzutragen. Wer das vermeiden will, trägt hier einen eigenen
+      # Wert ein (mindestens 24 Zeichen) — dann bleibt er auch nach
+      # einem "docker compose down -v" derselbe.
+      VM_ACCESS_KEY: "${VM_ACCESS_KEY:-}"
+
+      # Nur für den Cloud-/Team-Betrieb: Mit diesen beiden Werten kann der
+      # Server das Anmeldetoken eines Benutzers bei Supabase nachprüfen.
+      # Dann genügt die normale Anmeldung in der App, und niemand muss
+      # einen Zugriffsschlüssel eintragen. Es sind dieselben Werte wie
+      # oben unter "args", hier aber für den Serverprozess.
+      SUPABASE_URL: "${VITE_SUPABASE_URL:-}"
+      SUPABASE_ANON_KEY: "${VITE_SUPABASE_ANON_KEY:-}"
+
+    volumes:
+      # Hier liegen die Zugangsdaten zum Postfach des Vereins und der
+      # Schlüssel, mit dem das Passwort verschlüsselt ist. Ohne dieses
+      # Volume wären sie nach jedem "docker compose up --build" weg und
+      # müssten neu eingetragen werden.
+      #
+      # Bewusst ein benanntes Volume und kein Ordner vom Server: Ein
+      # eingehängter Ordner behält die Rechte des Servers, und auf einer
+      # Synology passt die Benutzernummer meist nicht zu der im
+      # Container — der Server könnte dann nicht hineinschreiben.
+      #
+      # Hineinschauen:  docker compose exec vereinsmanager ls -l /app/daten
+      # Ganz entfernen: docker compose down -v
+      - vereinsmanager_daten:/app/daten
+
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
 
-# Für lokale Selbsthoster ohne externe Cloud:
-# Der VereinsManager speichert die Daten persistent und verschlüsselt
-# in der Browser-IndexedDB der Benutzer bzw. synchronisiert bei Bedarf mit Supabase.
+volumes:
+  vereinsmanager_daten:
+
+# ----------------------------------------------------------
+#  Wo liegen die Daten?
+#
+#  Dieser Container liefert die Anwendung aus und rechnet — eine
+#  Datenbank enthält er nicht. Das oben eingerichtete Volume fasst
+#  keine Vereinsdaten, sondern nur die Zugangsdaten zum Postfach.
+#  Wo die Vereinsdaten landen, entscheidet der Betriebsmodus, den die
+#  App unter Einstellungen → Cloud-Synchronisation kennt:
+#
+#  Lokalbetrieb (Vorgabe):
+#    Die Daten liegen in der IndexedDB des jeweiligen Browsers, also
+#    auf dem Rechner des Anwenders. Zwei Vorstandsmitglieder, die
+#    dieselbe Adresse aufrufen, arbeiten dann mit zwei getrennten
+#    Beständen. Und wer im Browser "Websitedaten löschen" wählt,
+#    löscht damit die Vereinsdaten.
+#
+#  Cloud-Betrieb (Supabase eingerichtet):
+#    Die Daten liegen in der Supabase-Datenbank. Alle Vorstands-
+#    mitglieder sehen denselben Bestand, jeder mit seinem eigenen
+#    Konto und den Rechten, die ihm zugeteilt wurden — unabhängig
+#    davon, von welchem Gerät er sich anmeldet. Die IndexedDB dient
+#    dann nur noch als Zwischenspeicher, damit die App auch bei
+#    kurzer Störung der Verbindung weiterläuft.
+#
+#  Wer also gemeinsam arbeiten will, braucht den Cloud-Betrieb — auch
+#  dann, wenn dieser Container auf dem eigenen NAS läuft. Ein eigener
+#  Server allein ersetzt die Datenbank nicht.
+#
+#  In beiden Fällen gilt: regelmäßig über Einstellungen →
+#  Datensicherung sichern.
+# ----------------------------------------------------------

@@ -20,13 +20,17 @@ import {
 } from 'lucide-react';
 
 // 1. Quick Actions Widget
+/**
+ * Schnellzugriff. Ein Knopf erscheint nur, wenn der Aufruf übergeben wurde —
+ * die Startseite lässt die Aufrufe weg, für die das Schreibrecht fehlt.
+ */
 interface QuickActionsWidgetProps {
-  onOpenCreateMember: () => void;
-  onOpenCreateTx: () => void;
+  onOpenCreateMember?: () => void;
+  onOpenCreateTx?: () => void;
   onOpenCreateInvoice?: () => void;
   onOpenCreateContact?: () => void;
   onOpenCreateEvent?: () => void;
-  onOpenCreateInventory: () => void;
+  onOpenCreateInventory?: () => void;
   onOpenNewDocument?: () => void;
 }
 
@@ -55,23 +59,27 @@ export const QuickActionsWidget: React.FC<QuickActionsWidgetProps> = ({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onOpenCreateMember}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all hover:scale-102 cursor-pointer active:scale-98"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Mitglied</span>
-        </button>
+        {onOpenCreateMember && (
+          <button
+            type="button"
+            onClick={onOpenCreateMember}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all hover:scale-102 cursor-pointer active:scale-98"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Mitglied</span>
+          </button>
+        )}
 
-        <button
-          type="button"
-          onClick={onOpenCreateTx}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all hover:scale-102 cursor-pointer active:scale-98"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Buchung</span>
-        </button>
+        {onOpenCreateTx && (
+          <button
+            type="button"
+            onClick={onOpenCreateTx}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all hover:scale-102 cursor-pointer active:scale-98"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Buchung</span>
+          </button>
+        )}
 
         {onOpenCreateInvoice && (
           <button
@@ -106,14 +114,16 @@ export const QuickActionsWidget: React.FC<QuickActionsWidgetProps> = ({
           </button>
         )}
 
-        <button
-          type="button"
-          onClick={onOpenCreateInventory}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all hover:scale-102 cursor-pointer active:scale-98"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Material</span>
-        </button>
+        {onOpenCreateInventory && (
+          <button
+            type="button"
+            onClick={onOpenCreateInventory}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all hover:scale-102 cursor-pointer active:scale-98"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Material</span>
+          </button>
+        )}
 
         {onOpenNewDocument && (
           <button
@@ -125,6 +135,18 @@ export const QuickActionsWidget: React.FC<QuickActionsWidgetProps> = ({
             <span>Dokument</span>
           </button>
         )}
+
+        {!onOpenCreateMember &&
+          !onOpenCreateTx &&
+          !onOpenCreateInvoice &&
+          !onOpenCreateContact &&
+          !onOpenCreateEvent &&
+          !onOpenCreateInventory &&
+          !onOpenNewDocument && (
+            <span className="text-xs text-slate-400 dark:text-slate-500">
+              Für Ihre Rolle ist hier nichts zu erfassen.
+            </span>
+          )}
       </div>
     </div>
   );

@@ -1269,7 +1269,7 @@ services:
                       1-Klick Komplettsicherung herunterladen
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                      Sichern Sie vor jedem Umzug alle Vereinsdaten in einer verschlüsselten JSON-Sicherungsdatei auf Ihrer Festplatte.
+                      Sichern Sie vor jedem Umzug alle Vereinsdaten in einer JSON-Sicherungsdatei auf Ihrer Festplatte. Diese Datei ist NICHT verschlüsselt und enthält Mitgliederdaten samt Bankverbindungen — bewahren Sie sie entsprechend auf und versenden Sie sie nicht per E-Mail.
                     </p>
                   </div>
                   <button

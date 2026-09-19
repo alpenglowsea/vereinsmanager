@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Member,
   Transaction,
@@ -26,13 +26,15 @@ import {
   ContactType,
   ClubInvoice,
   InvoiceTemplateSettings,
-  InvoiceStatus,
   Meeting,
   MeetingTemplateSettings
 } from './types';
 import { StorageService } from './services/storage';
+import { PublicClubInfo, fetchPublicClubInfo, isCloudModeActive } from './services/supabaseClient';
+import { CloudStorageService } from './services/cloudStorage';
 import { AuthService } from './services/authService';
-import { UserAuthSession } from './types';
+import { PermissionArea, UserAuthSession, UserPermissions } from './types';
+import { AREA_LABEL, canEdit, canView, migrateLegacyPermissions } from './utils/permissions';
 import { formatClubAddress } from './utils/clubAddress';
 import { UserDashboardConfig } from './types/dashboard';
 import { DEFAULT_DASHBOARD_CONFIG } from './data/defaultDashboard';
@@ -120,24 +122,13 @@ import {
   Vote
 } from 'lucide-react';
 
-type ActiveTab =
-  | 'dashboard'
-  | 'calendar'
-  | 'members'
-  | 'online_applications'
-  | 'member_analytics'
-  | 'member_surveys'
-  | 'sepa'
-  | 'finance'
-  | 'guv'
-  | 'invoices'
-  | 'finance_analytics'
-  | 'donations'
-  | 'contacts'
-  | 'meetings'
-  | 'inventory'
-  | 'documents'
-  | 'settings';
+/**
+ * Die Menüpunkte der Navigationsleiste. Absichtlich aus PermissionArea
+ * abgeleitet: So kann kein Menüpunkt entstehen, für den es keine
+ * Berechtigung gibt (und umgekehrt). 'users' ist kein eigener Menüpunkt,
+ * sondern ein Reiter innerhalb der Einstellungen.
+ */
+type ActiveTab = Exclude<PermissionArea, 'users'>;
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
@@ -182,6 +173,25 @@ export default function App() {
 
   // Authentication & RBAC State
   const [authSession, setAuthSession] = useState<UserAuthSession>(() => AuthService.getSession());
+
+  /** Meldung, wenn eine Aktion an der fehlenden Berechtigung scheitert. */
+  const [permissionNotice, setPermissionNotice] = useState<string | null>(null);
+
+  /**
+   * Vereinsangaben für das öffentliche Antragsformular.
+   *
+   * Im Cloud-Betrieb kommt ein Besucher ohne Anmeldung an keine Tabelle heran.
+   * Für das Formular reicht eine Handvoll Angaben — die liefert die Datenbank
+   * über eine eigene Funktion, die nur diese Felder herausgibt.
+   */
+  const [publicClubInfo, setPublicClubInfo] = useState<PublicClubInfo | null>(null);
+
+  // Hinweis von selbst wieder ausblenden.
+  useEffect(() => {
+    if (!permissionNotice) return;
+    const timer = setTimeout(() => setPermissionNotice(null), 6000);
+    return () => clearTimeout(timer);
+  }, [permissionNotice]);
   const [userManageOpen, setUserManageOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
@@ -201,7 +211,14 @@ export default function App() {
     requireHealthConfirmation: true
   });
   const [isPublicFormMode, setIsPublicFormMode] = useState<boolean>(() => {
-    return window.location.search.includes('antrag') || window.location.search.includes('form');
+    // Genau prüfen statt nur "enthält irgendwo das Wort": Seit das Formular
+    // ohne Anmeldung erreichbar ist, entscheidet dieser Wert darüber, ob ein
+    // Besucher das Antragsformular oder das Anmeldefenster sieht. Ein
+    // zufälliger Parameter wie "?platform=..." darf das nicht auslösen.
+    if (typeof window === 'undefined') return false;
+    const params = new URLSearchParams(window.location.search);
+    const view = (params.get('view') || '').toLowerCase();
+    return view === 'antrag' || view === 'form' || params.has('antrag');
   });
   const [publicSurveyParams, setPublicSurveyParams] = useState<{ surveyId: string; token?: string } | null>(() => {
     if (typeof window !== 'undefined') {
@@ -343,6 +360,19 @@ export default function App() {
 
   // Load initial data from local IndexedDB
   const loadData = async () => {
+    // Ein Besucher auf dem öffentlichen Antragsformular ist nicht angemeldet.
+    // Im Cloud-Betrieb weist die Datenbank ihn bei jeder Tabelle zurück — das
+    // wäre eine Bildschirmseite voller Fehlermeldungen für Daten, die er
+    // ohnehin nicht sehen soll. Für das Formular genügt vm_public_club_info().
+    if (
+      isPublicFormMode &&
+      !AuthService.getSession().isAuthenticated &&
+      StorageService.getDeploymentMode() === 'cloud'
+    ) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       await StorageService.init();
@@ -413,7 +443,47 @@ export default function App() {
     }
   };
 
+  // ---------------------------------------------------------------------
+  // Berechtigungen des angemeldeten Benutzers
+  //
+  // WICHTIG: Das ist eine Bedienhilfe, keine Sicherheitsgrenze. Alles läuft
+  // im Browser des Nutzers und lässt sich dort umgehen. Verbindlich schützen
+  // kann nur der Server (Supabase Row Level Security).
+  // ---------------------------------------------------------------------
+
+  /**
+   * Ohne angemeldeten Benutzer (Anmeldung abgeschaltet) gilt Vollzugriff —
+   * sonst wäre die Anwendung ohne Anmeldung unbedienbar. Gespeicherte Konten
+   * im alten Format werden beim Lesen übersetzt.
+   */
+  const userPermissions: UserPermissions = migrateLegacyPermissions(
+    authSession.user?.permissions
+  );
+
+  /** Darf der Benutzer diesen Menüpunkt öffnen? */
+  const mayAccess = (tab: ActiveTab): boolean => canView(userPermissions, tab);
+
+  /** Darf der Benutzer in diesem Bereich etwas ändern? */
+  const mayEdit = (area: PermissionArea): boolean => canEdit(userPermissions, area);
+
+  /**
+   * Schreibsperre. Steht als erste Zeile in jeder ändernden Funktion.
+   *
+   * Absichtlich hier und nicht an den Knöpfen: Ein übersehener Knopf wäre
+   * eine offene Tür. Hier kommt jeder Weg vorbei — auch der über eine
+   * Kachel, einen Querverweis oder eine Massenaktion.
+   */
+  const requireEdit = (area: PermissionArea): boolean => {
+    if (mayEdit(area)) return true;
+    setPermissionNotice(
+      `Keine Berechtigung zum Bearbeiten: ${AREA_LABEL[area]}. ` +
+        'Wenden Sie sich an den Vorstand, wenn Sie hier Änderungen vornehmen müssen.'
+    );
+    return false;
+  };
+
   const handleSaveMeeting = async (meeting: Meeting) => {
+    if (!requireEdit('meetings')) return;
     const saved = await StorageService.saveMeeting(meeting);
     setMeetings(prev => {
       const idx = prev.findIndex(m => m.id === saved.id);
@@ -427,14 +497,51 @@ export default function App() {
   };
 
   const handleDeleteMeeting = async (meetingId: string) => {
+    if (!requireEdit('meetings')) return;
     await StorageService.deleteMeeting(meetingId);
     setMeetings(prev => prev.filter(m => m.id !== meetingId));
   };
 
   const handleSaveMeetingTemplate = async (template: MeetingTemplateSettings) => {
+    if (!requireEdit('meetings')) return;
     const saved = await StorageService.saveMeetingTemplate(template);
     setMeetingTemplateSettings(saved);
   };
+
+  // Angaben für das öffentliche Antragsformular nachladen, sobald klar ist,
+  // dass ein Besucher ohne Anmeldung davorsteht.
+  useEffect(() => {
+    if (!isPublicFormMode || authSession.isAuthenticated) return;
+    if (StorageService.getDeploymentMode() !== 'cloud') return;
+
+    let abgebrochen = false;
+    fetchPublicClubInfo().then(info => {
+      if (!abgebrochen) setPublicClubInfo(info);
+    });
+    return () => {
+      abgebrochen = true;
+    };
+  }, [isPublicFormMode, authSession.isAuthenticated]);
+
+  // Verweis auf die jeweils aktuelle Fassung von loadData.
+  //
+  // Der Starteffekt weiter unten darf genau EINMAL laufen: Er meldet die
+  // Anmeldung an und hängt drei Ereignisbehandlungen ans Fenster. Liefe er
+  // erneut, kämen sie ein zweites Mal dazu.
+  //
+  // Damit darf loadData nicht in seiner Abhängigkeitsliste stehen — die
+  // Funktion entsteht bei jedem Rendern neu, der Effekt liefe also bei jedem
+  // Rendern. Sie einfach wegzulassen, wäre aber auch falsch: Der Effekt
+  // behielte für immer die allererste Fassung, mitsamt den Werten, die beim
+  // ersten Rendern galten.
+  //
+  // Die Referenz löst beides: Sie ist selbst unveränderlich (deshalb gehört
+  // sie in keine Abhängigkeitsliste), zeigt aber immer auf die neueste
+  // Fassung. Sie muss ÜBER dem Effekt stehen, der sie benutzt.
+  const loadDataRef = useRef(loadData);
+  useEffect(() => {
+    loadDataRef.current = loadData;
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -445,7 +552,7 @@ export default function App() {
       if (session.isAuthenticated) {
         setActiveTab('dashboard');
       }
-      await loadData();
+      await loadDataRef.current();
     });
 
     const unsubscribe = AuthService.onAuthStateChanged(async session => {
@@ -456,7 +563,7 @@ export default function App() {
         }
         return session;
       });
-      await loadData();
+      await loadDataRef.current();
     });
 
     const handleUserActivity = () => {
@@ -494,6 +601,7 @@ export default function App() {
 
   // Member CRUD handlers
   const handleSaveMember = async (memberData: Member, attachedDoc?: ClubDocument) => {
+    if (!requireEdit('members')) return;
     const isNew = !members.some(m => m.id === memberData.id);
     await StorageService.saveMember(memberData, isNew ? 'Mitglied neu angelegt' : 'Stammdaten aktualisiert');
     const updated = await StorageService.getMembers();
@@ -514,6 +622,7 @@ export default function App() {
   };
 
   const handleDeleteMember = async (id: string) => {
+    if (!requireEdit('members')) return;
     await StorageService.deleteMember(id);
     const updated = await StorageService.getMembers();
     setMembers(updated);
@@ -523,6 +632,7 @@ export default function App() {
   };
 
   const handleBulkUpdateMembers = async (ids: string[], updates: MemberBulkUpdates) => {
+    if (!requireEdit('members')) return;
     await StorageService.bulkUpdateMembers(ids, updates);
     const updated = await StorageService.getMembers();
     setMembers(updated);
@@ -533,6 +643,7 @@ export default function App() {
   };
 
   const handleBulkDeleteMembers = async (ids: string[]) => {
+    if (!requireEdit('members')) return;
     await StorageService.deleteMultipleMembers(ids);
     const updated = await StorageService.getMembers();
     setMembers(updated);
@@ -543,6 +654,7 @@ export default function App() {
 
   // Batch Member CSV Import
   const handleBatchMemberImport = async (importedMembers: Member[]) => {
+    if (!requireEdit('members')) return;
     await StorageService.batchSaveMembers(importedMembers);
     const updated = await StorageService.getMembers();
     setMembers(updated);
@@ -550,6 +662,7 @@ export default function App() {
 
   // Contact CRUD handlers
   const handleSaveContact = async (contactData: ClubContact) => {
+    if (!requireEdit('contacts')) return;
     await StorageService.saveContact(contactData);
     const updated = await StorageService.getContacts();
     setContacts(updated);
@@ -563,6 +676,7 @@ export default function App() {
   };
 
   const handleDeleteContact = async (id: string) => {
+    if (!requireEdit('contacts')) return;
     await StorageService.deleteContact(id);
     const updated = await StorageService.getContacts();
     setContacts(updated);
@@ -572,6 +686,7 @@ export default function App() {
   };
 
   const handleBulkDeleteContacts = async (ids: string[]) => {
+    if (!requireEdit('contacts')) return;
     for (const id of ids) {
       await StorageService.deleteContact(id);
     }
@@ -583,6 +698,7 @@ export default function App() {
   };
 
   const handleBatchImportContacts = async (importedContacts: ClubContact[]) => {
+    if (!requireEdit('contacts')) return;
     for (const c of importedContacts) {
       await StorageService.saveContact(c);
     }
@@ -591,6 +707,7 @@ export default function App() {
   };
 
   const handleQuickCreateContact = (initialName: string, initialType?: ContactType) => {
+    if (!requireEdit('contacts')) return;
     setEditingContact(null);
     setInitialContactFormName(initialName);
     setInitialContactFormType(initialType);
@@ -599,6 +716,7 @@ export default function App() {
 
   // Transaction CRUD handlers
   const handleSaveTransaction = async (txData: Transaction) => {
+    if (!requireEdit('finance')) return;
     await StorageService.saveTransaction(txData);
     const updated = await StorageService.getTransactions();
     setTransactions(updated);
@@ -607,18 +725,21 @@ export default function App() {
   };
 
   const handleDeleteTransaction = async (id: string) => {
+    if (!requireEdit('finance')) return;
     await StorageService.deleteTransaction(id);
     const updated = await StorageService.getTransactions();
     setTransactions(updated);
   };
 
   const handleBulkUpdateTransactions = async (ids: string[], updates: TransactionBulkUpdates) => {
+    if (!requireEdit('finance')) return;
     await StorageService.bulkUpdateTransactions(ids, updates);
     const updated = await StorageService.getTransactions();
     setTransactions(updated);
   };
 
   const handleBulkDeleteTransactions = async (ids: string[]) => {
+    if (!requireEdit('finance')) return;
     await StorageService.deleteMultipleTransactions(ids);
     const updated = await StorageService.getTransactions();
     setTransactions(updated);
@@ -626,6 +747,7 @@ export default function App() {
 
   // Camera Receipt Scanner Handlers
   const handleScannerLinkToTransaction = async (transactionId: string, receipt: ReceiptAttachment) => {
+    if (!requireEdit('finance')) return;
     const targetTx = transactions.find(t => t.id === transactionId);
     if (!targetTx) return;
     const updatedTx: Transaction = {
@@ -641,6 +763,7 @@ export default function App() {
   };
 
   const handleScannerCreateTransactionWithReceipt = (receipt: ReceiptAttachment) => {
+    if (!requireEdit('finance')) return;
     const newTxStub: Transaction = {
       id: `tx-${Date.now()}`,
       documentNumber: nextDocNumber,
@@ -664,12 +787,14 @@ export default function App() {
   };
 
   const handleQuickScanReceipt = (tx: Transaction) => {
+    if (!requireEdit('finance')) return;
     setScannerTargetTx(tx);
     setReceiptScannerOpen(true);
   };
 
   // Bank CSV Batch Import
   const handleBankImport = async (importedTxs: Transaction[]) => {
+    if (!requireEdit('finance')) return;
     await StorageService.batchSaveTransactions(importedTxs);
     const updated = await StorageService.getTransactions();
     setTransactions(updated);
@@ -677,6 +802,7 @@ export default function App() {
 
   // Excel & Google Sheets Batch Import
   const handleBatchTransactionImport = async (importedTxs: Transaction[]) => {
+    if (!requireEdit('finance')) return;
     await StorageService.batchSaveTransactions(importedTxs);
     const updated = await StorageService.getTransactions();
     setTransactions(updated);
@@ -684,18 +810,21 @@ export default function App() {
 
   // Account handlers
   const handleSaveAccount = async (account: FinancialAccount) => {
+    if (!requireEdit('finance')) return;
     await StorageService.saveAccount(account);
     const updated = await StorageService.getAccounts();
     setAccounts(updated);
   };
 
   const handleDeleteAccount = async (id: string) => {
+    if (!requireEdit('finance')) return;
     await StorageService.deleteAccount(id);
     const updated = await StorageService.getAccounts();
     setAccounts(updated);
   };
 
   const handleReorderAccounts = async (reordered: FinancialAccount[]) => {
+    if (!requireEdit('finance')) return;
     const withOrder = reordered.map((a, idx) => ({ ...a, order: idx }));
     setAccounts(withOrder);
     await StorageService.saveAccounts(withOrder);
@@ -703,6 +832,7 @@ export default function App() {
 
   // Inventory CRUD handlers
   const handleSaveInventoryItem = async (item: InventoryItem) => {
+    if (!requireEdit('inventory')) return;
     await StorageService.saveInventoryItem(item);
     const updated = await StorageService.getInventory();
     setInventory(updated);
@@ -711,18 +841,21 @@ export default function App() {
   };
 
   const handleDeleteInventoryItem = async (id: string) => {
+    if (!requireEdit('inventory')) return;
     await StorageService.deleteInventoryItem(id);
     const updated = await StorageService.getInventory();
     setInventory(updated);
   };
 
   const handleBulkUpdateInventoryItems = async (ids: string[], updates: InventoryBulkUpdates) => {
+    if (!requireEdit('inventory')) return;
     await StorageService.bulkUpdateInventoryItems(ids, updates);
     const updated = await StorageService.getInventory();
     setInventory(updated);
   };
 
   const handleBulkDeleteInventoryItems = async (ids: string[]) => {
+    if (!requireEdit('inventory')) return;
     await StorageService.deleteMultipleInventoryItems(ids);
     const updated = await StorageService.getInventory();
     setInventory(updated);
@@ -730,24 +863,28 @@ export default function App() {
 
   // Settings handler
   const handleSaveSettings = async (newSettings: ClubSettings) => {
+    if (!requireEdit('settings')) return;
     await StorageService.saveSettings(newSettings);
     setSettings(newSettings);
   };
 
   // Document Management handlers
   const handleSaveBatchDocuments = async (newDocs: ClubDocument[]) => {
+    if (!requireEdit('documents')) return;
     await StorageService.saveBatchDocuments(newDocs);
     const updated = await StorageService.getDocuments();
     setDocuments(updated);
   };
 
   const handleSaveSingleDocument = async (doc: ClubDocument) => {
+    if (!requireEdit('documents')) return;
     await StorageService.saveDocument(doc);
     const updated = await StorageService.getDocuments();
     setDocuments(updated);
   };
 
   const handleUpdateDocument = async (updatedDoc: ClubDocument) => {
+    if (!requireEdit('documents')) return;
     await StorageService.saveDocument(updatedDoc);
     const updated = await StorageService.getDocuments();
     setDocuments(updated);
@@ -757,6 +894,7 @@ export default function App() {
   };
 
   const handleDeleteDocument = async (id: string) => {
+    if (!requireEdit('documents')) return;
     await StorageService.deleteDocument(id);
     const updated = await StorageService.getDocuments();
     setDocuments(updated);
@@ -766,6 +904,7 @@ export default function App() {
   };
 
   const handleBatchDeleteDocuments = async (ids: string[]) => {
+    if (!requireEdit('documents')) return;
     await StorageService.deleteMultipleDocuments(ids);
     const updated = await StorageService.getDocuments();
     setDocuments(updated);
@@ -774,24 +913,20 @@ export default function App() {
     }
   };
 
-  const handleBatchMoveDocuments = async (ids: string[], targetCategory: DocumentCategory) => {
-    await StorageService.moveDocumentsToCategory(ids, targetCategory);
-    const updated = await StorageService.getDocuments();
-    setDocuments(updated);
-    if (docViewerItem && ids.includes(docViewerItem.id)) {
-      const refreshed = updated.find(d => d.id === docViewerItem.id);
-      if (refreshed) setDocViewerItem(refreshed);
-    }
-  };
+  // Diese beiden Griffe wurden an Ansichten übergeben, die sie nie
+  // entgegengenommen haben — sie konnten also nie ausgelöst werden.
+  // Siehe git log -S handleBatchMoveDocuments.
 
   // Folder CRUD handlers
   const handleSaveFolder = async (folderData: DocumentFolder) => {
+    if (!requireEdit('documents')) return;
     await StorageService.saveFolder(folderData);
     const updated = await StorageService.getFolders();
     setFolders(updated);
   };
 
   const handleDeleteFolder = async (folderId: string) => {
+    if (!requireEdit('documents')) return;
     await StorageService.deleteFolder(folderId);
     const [updatedFolders, updatedDocs] = await Promise.all([
       StorageService.getFolders(),
@@ -806,6 +941,7 @@ export default function App() {
     targetFolderId: string | null,
     targetCategory?: DocumentCategory
   ) => {
+    if (!requireEdit('documents')) return;
     await StorageService.batchMoveDocumentsToFolder(docIds, targetFolderId, targetCategory);
     const updated = await StorageService.getDocuments();
     setDocuments(updated);
@@ -826,6 +962,7 @@ export default function App() {
       targetAccountId?: string;
     }
   ) => {
+    if (!requireEdit('donations')) return;
     await StorageService.saveDonationReceipt(receipt, options);
     const [updatedDonations, updatedDocs, updatedTxs] = await Promise.all([
       StorageService.getDonations(),
@@ -840,6 +977,7 @@ export default function App() {
   };
 
   const handleDeleteDonationReceipt = async (id: string) => {
+    if (!requireEdit('donations')) return;
     await StorageService.deleteDonationReceipt(id);
     const [updatedDonations, updatedDocs] = await Promise.all([
       StorageService.getDonations(),
@@ -850,11 +988,13 @@ export default function App() {
   };
 
   const handleEditDonationReceipt = (receipt: DonationReceipt) => {
+    if (!requireEdit('donations')) return;
     setEditingDonation(receipt);
     setDonationFormOpen(true);
   };
 
   const handleOpenCreateDonation = () => {
+    if (!requireEdit('donations')) return;
     setEditingDonation(null);
     setDonationFormOpen(true);
   };
@@ -863,6 +1003,7 @@ export default function App() {
   const nextInvoiceNumber = `RE-${new Date().getFullYear()}-${String(invoices.length + 1).padStart(3, '0')}`;
 
   const handleSaveInvoice = async (invoice: ClubInvoice, saveToDocuments: boolean = true) => {
+    if (!requireEdit('invoices')) return;
     const toSave: ClubInvoice = { ...invoice };
     if (saveToDocuments) {
       try {
@@ -886,6 +1027,7 @@ export default function App() {
   };
 
   const handleDeleteInvoice = async (id: string) => {
+    if (!requireEdit('invoices')) return;
     await StorageService.deleteInvoice(id);
     const updatedInvoices = await StorageService.getInvoices();
     setInvoices(updatedInvoices);
@@ -895,6 +1037,7 @@ export default function App() {
   };
 
   const handleBulkDeleteInvoices = async (ids: string[]) => {
+    if (!requireEdit('invoices')) return;
     for (const id of ids) {
       await StorageService.deleteInvoice(id);
     }
@@ -902,28 +1045,16 @@ export default function App() {
     setInvoices(updatedInvoices);
   };
 
-  const handleToggleInvoiceStatus = async (invoice: ClubInvoice, newStatus: InvoiceStatus) => {
-    const updated: ClubInvoice = {
-      ...invoice,
-      status: newStatus,
-      paidAt: newStatus === 'paid' ? (invoice.paidAt || new Date().toISOString().split('T')[0]) : undefined,
-      updatedAt: new Date().toISOString()
-    };
-    await StorageService.saveInvoice(updated);
-    const updatedInvoices = await StorageService.getInvoices();
-    setInvoices(updatedInvoices);
-    if (detailsInvoice?.id === invoice.id) {
-      setDetailsInvoice(updated);
-    }
-  };
 
   const handleSaveInvoiceTemplate = async (newTemplate: InvoiceTemplateSettings) => {
+    if (!requireEdit('invoices')) return;
     await StorageService.saveInvoiceTemplate(newTemplate);
     setInvoiceTemplateSettings(newTemplate);
     setInvoiceTemplateModalOpen(false);
   };
 
   const handleCreateInvoiceForContact = (contact: ClubContact) => {
+    if (!requireEdit('invoices')) return;
     setEditingInvoice(null);
     setPrefillInvoiceRecipient({
       id: contact.id,
@@ -947,28 +1078,70 @@ export default function App() {
     setInvoiceFormOpen(true);
   };
 
-  const handleCreateInvoiceForMember = (member: Member) => {
-    setEditingInvoice(null);
-    setPrefillInvoiceRecipient({
-      id: member.id,
-      name: `${member.firstName} ${member.lastName}`,
-      type: 'member',
-      email: member.email,
-      address: member.address
-        ? {
-            street: member.address.street || '',
-            houseNumber: member.address.houseNumber || '',
-            zip: member.address.zip || '',
-            city: member.address.city || '',
-            country: member.address.country || 'Deutschland'
-          }
-        : undefined
-    });
-    setInvoiceFormOpen(true);
-  };
+  // Hier lag ein fertiger Griff, um aus der Mitgliederansicht heraus eine
+  // Rechnung für ein Mitglied anzulegen — aufgerufen wurde er nie.
+  // Siehe git log -S handleCreateInvoiceForMember.
 
   // Calendar Event Quick Action Handlers
+  // --- Online-Aufnahmeanträge -------------------------------------------
+
+  /**
+   * Antrag annehmen. Verlangt Schreibrecht auf die Anträge UND auf die
+   * Mitglieder, denn dabei entsteht ein neues Mitglied.
+   *
+   * Wirft bei fehlender Berechtigung eine Ausnahme statt still nichts zu
+   * tun: Die Maske wartet auf das angelegte Mitglied und zeigt den Text
+   * der Ausnahme als Fehlermeldung an.
+   */
+  const handleApproveApplication = async (
+    appId: string,
+    overrides: Partial<Member>,
+    author: string
+  ): Promise<{ member: Member; documentId: string }> => {
+    if (!mayEdit('online_applications') || !mayEdit('members')) {
+      throw new Error(
+        'Keine Berechtigung: Anträge annehmen setzt das Recht voraus, Mitglieder anzulegen.'
+      );
+    }
+    const res = await StorageService.approveOnlineApplication(
+      appId,
+      overrides,
+      author || currentUser?.name || 'Vorstand'
+    );
+    await loadData();
+    return res;
+  };
+
+  const handleRejectApplication = async (appId: string, reason: string, author: string) => {
+    if (!requireEdit('online_applications')) return;
+    await StorageService.rejectOnlineApplication(
+      appId,
+      reason,
+      author || currentUser?.name || 'Vorstand'
+    );
+    await loadData();
+  };
+
+  const handleDeleteApplication = async (id: string) => {
+    if (!requireEdit('online_applications')) return;
+    await StorageService.deleteOnlineApplication(id);
+    await loadData();
+  };
+
+  const handleSaveApplicationTemplate = async (newSettings: ApplicationTemplateSettings) => {
+    if (!requireEdit('online_applications')) return;
+    await StorageService.saveApplicationTemplateSettings(newSettings);
+    await loadData();
+  };
+
+  const handleAddApplication = async (newApp: OnlineMembershipApplication) => {
+    if (!requireEdit('online_applications')) return;
+    await StorageService.saveOnlineApplication(newApp);
+    await loadData();
+  };
+
   const handleOpenCreateCalendarEvent = async () => {
+    if (!requireEdit('calendar')) return;
     try {
       const cats = await StorageService.getCalendarCategories();
       setCalendarCategories(cats);
@@ -979,6 +1152,7 @@ export default function App() {
   };
 
   const handleSaveCalendarEvent = async (eventData: CalendarEvent) => {
+    if (!requireEdit('calendar')) return;
     await StorageService.saveCalendarEvent(eventData);
     setCalendarEventModalOpen(false);
     setCalendarRefreshKey(k => k + 1);
@@ -991,7 +1165,7 @@ export default function App() {
           <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
           <h2 className="text-lg font-bold text-white">VereinsManager</h2>
           <p className="text-xs text-slate-400">
-            Lade verschlüsselte lokale IndexedDB-Instanz...
+            Lade lokale Vereinsdatenbank...
           </p>
         </div>
       </div>
@@ -1015,6 +1189,64 @@ export default function App() {
     );
   }
 
+  // ---------------------------------------------------------------------
+  // Öffentlicher Aufnahmeantrag
+  //
+  // Ein Interessent, der den Link von der Vereinswebsite aufruft, ist nicht
+  // angemeldet und soll es auch nicht sein müssen. Deshalb steht dieser
+  // Abschnitt VOR der Anmeldesperre. Bisher landete genau dieser Mensch im
+  // Anmeldefenster — das Formular war zwar gebaut, aber unerreichbar.
+  //
+  // Angezeigt werden nur die Angaben, die die Datenbank für Besucher
+  // freigibt: Vereinsname, Abteilungen, Beiträge. An die Mitgliederdaten oder
+  // die Kontoverbindung kommt hier niemand.
+  // ---------------------------------------------------------------------
+  if (isPublicFormMode && !authSession.isAuthenticated) {
+    const publicSettings: ClubSettings = publicClubInfo
+      ? {
+          ...settings,
+          clubName: publicClubInfo.clubName || settings.clubName,
+          associationNumber: publicClubInfo.associationNumber || settings.associationNumber,
+          address: publicClubInfo.address || settings.address,
+          creditorId: publicClubInfo.creditorId || settings.creditorId,
+          departments: publicClubInfo.departments.length
+            ? publicClubInfo.departments
+            : settings.departments
+        }
+      : settings;
+
+    const publicTemplate: ApplicationTemplateSettings = publicClubInfo
+      ? { ...applicationSettings, ...publicClubInfo.template }
+      : applicationSettings;
+
+    return (
+      <div className="min-h-screen bg-slate-900">
+        <PublicApplicationForm
+          settings={publicSettings}
+          templateSettings={publicTemplate}
+          isStandalone
+          onSubmitApplication={async (app) => {
+            // Im Cloud-Betrieb geht der Antrag unmittelbar an die
+            // Vereinsdatenbank — bewusst ohne Zwischenspeicher im Browser
+            // des Interessenten. Zwei Gründe: Seine Daten haben dort nichts
+            // verloren, sobald er auf "Absenden" geklickt hat. Und käme die
+            // Übertragung nicht durch, läge in seinem Browser eine Kopie,
+            // von der der Verein nie erführe — der Antrag sähe abgeschickt
+            // aus, wäre es aber nicht.
+            if (isCloudModeActive()) {
+              await CloudStorageService.saveOnlineApplication(app, { asVisitor: true });
+              return;
+            }
+            // Ohne Cloud läuft das Formular auf dem Rechner des Vereins
+            // selbst, etwa bei der Anmeldung im Vereinsheim. Dann ist die
+            // lokale Ablage genau der richtige Ort.
+            await StorageService.saveOnlineApplication(app);
+          }}
+        />
+      </div>
+    );
+  }
+
   // Auth Gate: If user is not authenticated, show Login Screen
   if (!authSession.isAuthenticated) {
     return (
@@ -1034,63 +1266,14 @@ export default function App() {
   }
 
   const currentUser = authSession.user;
-  const userPermissions = currentUser?.permissions || {
-    canViewMembers: true,
-    canEditMembers: true,
-    canViewFinances: true,
-    canEditFinances: true,
-    canExecuteSepa: true,
-    canManageDonations: true,
-    canManageDocuments: true,
-    canManageInventory: true,
-    canManageSettings: true,
-    canManageSurveys: true,
-    canManageContacts: true,
-    canManageCalendar: true,
-    canManageMeetings: true,
-    canManageUsers: true
-  };
 
-  const canEditFinances = Boolean(userPermissions.canEditFinances);
-  const canEditMembers = Boolean(userPermissions.canEditMembers);
-  const canManageUsers = Boolean(userPermissions.canManageUsers);
+  const canEditFinances = mayEdit('finance');
+  const canEditMembers = mayEdit('members');
+  const canManageUsers = mayEdit('users');
   const isReadOnly = !canEditFinances && !canEditMembers;
 
-  // ---------------------------------------------------------------------
-  // Welcher Bereich verlangt welche Berechtigung?
-  //
-  // WICHTIG: Das ist eine Bedienhilfe, keine Sicherheitsgrenze. Alles läuft
-  // im Browser des Nutzers und lässt sich dort umgehen. Verbindlich schützen
-  // kann nur der Server (Supabase Row Level Security).
-  // ---------------------------------------------------------------------
-  const TAB_PERMISSION: Record<string, keyof UserPermissions | null> = {
-    dashboard: null, // immer zugänglich
-    members: 'canViewMembers',
-    online_applications: 'canEditMembers',
-    member_analytics: 'canViewMembers',
-    member_surveys: 'canManageSurveys',
-    finance: 'canViewFinances',
-    sepa: 'canExecuteSepa',
-    guv: 'canViewFinances',
-    invoices: 'canViewFinances',
-    donations: 'canManageDonations',
-    finance_analytics: 'canViewFinances',
-    contacts: 'canManageContacts',
-    calendar: 'canManageCalendar',
-    meetings: 'canManageMeetings',
-    inventory: 'canManageInventory',
-    documents: 'canManageDocuments',
-    settings: 'canManageSettings'
-  };
-
-  const mayAccess = (tab: string): boolean => {
-    const required = TAB_PERMISSION[tab];
-    if (!required) return true;
-    return Boolean(userPermissions[required]);
-  };
-
   /** Zusatzklassen für einen gesperrten Navigationseintrag. */
-  const navLockClass = (tab: string): string =>
+  const navLockClass = (tab: ActiveTab): string =>
     mayAccess(tab) ? '' : ' opacity-40 cursor-not-allowed';
 
   const NAV_LOCK_TITLE = 'Ihre Rolle hat für diesen Bereich keine Berechtigung';
@@ -1636,10 +1819,6 @@ export default function App() {
           {/* App Version Tile & 1-Klick Update Popover */}
           <AppVersionBadge
             currentMode={deploymentMode}
-            onOpenDeploymentHub={() => {
-              setSettingsActiveTab('deployment');
-              goToTab('settings');
-            }}
           />
         </div>
       </aside>
@@ -1905,6 +2084,7 @@ export default function App() {
                   setInventoryFormOpen(true);
                 }}
                 onOpenNewDocument={() => setNewDocChoiceOpen(true)}
+                userPermissions={userPermissions}
               />
             )}
 
@@ -1926,6 +2106,8 @@ export default function App() {
                 onBulkUpdateMembers={handleBulkUpdateMembers}
                 onBulkDeleteMembers={handleBulkDeleteMembers}
                 onOpenImport={() => setMemberImportOpen(true)}
+                canEdit={mayEdit('members')}
+                onLocked={() => requireEdit('members')}
               />
             )}
 
@@ -1937,30 +2119,14 @@ export default function App() {
                 settings={settings}
                 templateSettings={applicationSettings}
                 currentUser={currentUser?.name || 'Vorstand'}
-                onApproveApplication={async (appId, overrides, author) => {
-                  const res = await StorageService.approveOnlineApplication(appId, overrides, author || currentUser?.name || 'Vorstand');
-                  await loadData();
-                  return res;
-                }}
-                onRejectApplication={async (appId, reason, author) => {
-                  await StorageService.rejectOnlineApplication(appId, reason, author || currentUser?.name || 'Vorstand');
-                  await loadData();
-                }}
-                onDeleteApplication={async (id) => {
-                  await StorageService.deleteOnlineApplication(id);
-                  await loadData();
-                }}
-                onSaveTemplateSettings={async (newSettings) => {
-                  await StorageService.saveApplicationTemplateSettings(newSettings);
-                  await loadData();
-                }}
-                onSubmitNewApplication={async (newApp) => {
-                  await StorageService.saveOnlineApplication(newApp);
-                  await loadData();
-                }}
-                onNavigateToMembers={() => goToTab('members')}
-                onNavigateToDocuments={() => goToTab('documents')}
-              />
+                onApproveApplication={handleApproveApplication}
+                onRejectApplication={handleRejectApplication}
+                onDeleteApplication={handleDeleteApplication}
+                onSaveTemplateSettings={handleSaveApplicationTemplate}
+                onSubmitNewApplication={handleAddApplication}
+                canEdit={mayEdit('online_applications')}
+                onLocked={() => requireEdit('online_applications')}
+                />
             )}
 
             {/* Tab 2: Member Analytics */}
@@ -1978,7 +2144,9 @@ export default function App() {
                   setSettingsActiveTab('deployment');
                   goToTab('settings');
                 }}
-              />
+                canEdit={mayEdit('member_surveys')}
+                onLocked={() => requireEdit('member_surveys')}
+                />
             )}
 
             {/* Tab: SEPA Direct Debit & Contribution Run */}
@@ -1989,7 +2157,9 @@ export default function App() {
                 accounts={accounts}
                 onOpenSettings={() => goToTab('settings')}
                 onRefreshData={loadData}
-              />
+                canEdit={mayEdit('sepa')}
+                onLocked={() => requireEdit('sepa')}
+                />
             )}
 
             {/* Tab 3: Finance Management */}
@@ -2025,7 +2195,9 @@ export default function App() {
                   setActiveReceipt({ receipt, docNum, text });
                 }}
                 onReorderAccounts={handleReorderAccounts}
-              />
+                canEdit={mayEdit('finance')}
+                onLocked={() => requireEdit('finance')}
+                />
             )}
 
             {/* Tab 4: GuV / EÜR Report (4 Tax Spheres) */}
@@ -2057,8 +2229,9 @@ export default function App() {
                 onDeleteInvoice={handleDeleteInvoice}
                 onBulkDeleteInvoices={handleBulkDeleteInvoices}
                 onOpenTemplateConfig={() => setInvoiceTemplateModalOpen(true)}
-                onToggleStatus={handleToggleInvoiceStatus}
-              />
+                canEdit={mayEdit('invoices')}
+                onLocked={() => requireEdit('invoices')}
+                />
             )}
 
             {/* Tab 5: Finance Analytics */}
@@ -2073,22 +2246,21 @@ export default function App() {
             {activeTab === 'donations' && (
               <DonationsView
                 donations={donations}
-                members={members}
-                accounts={accounts}
                 settings={settings}
                 documents={documents}
                 onOpenCreateModal={handleOpenCreateDonation}
                 onEditReceipt={handleEditDonationReceipt}
                 onDeleteReceipt={handleDeleteDonationReceipt}
                 onViewDocument={(doc) => setDocViewerItem(doc)}
-              />
+                canEdit={mayEdit('donations')}
+                onLocked={() => requireEdit('donations')}
+                />
             )}
 
             {/* Tab: Contacts Management */}
             {activeTab === 'contacts' && (
               <ContactsView
                 contacts={contacts}
-                transactions={transactions}
                 clubName={settings.clubName}
                 onOpenCreate={() => {
                   setEditingContact(null);
@@ -2110,7 +2282,9 @@ export default function App() {
                 }}
                 onCreateInvoiceForContact={handleCreateInvoiceForContact}
                 onOpenImport={() => setContactImportOpen(true)}
-              />
+                canEdit={mayEdit('contacts')}
+                onLocked={() => requireEdit('contacts')}
+                />
             )}
 
             {/* Tab 6: Inventory Management */}
@@ -2131,7 +2305,9 @@ export default function App() {
                 onDeleteItem={handleDeleteInventoryItem}
                 onBulkUpdateItems={handleBulkUpdateInventoryItems}
                 onBulkDeleteItems={handleBulkDeleteInventoryItems}
-              />
+                canEdit={mayEdit('inventory')}
+                onLocked={() => requireEdit('inventory')}
+                />
             )}
 
             {/* Tab: Calendar & Events */}
@@ -2139,8 +2315,9 @@ export default function App() {
               <CalendarView
                 members={members}
                 settings={settings}
-                userPermissions={userPermissions}
-              />
+                canEdit={mayEdit('calendar')}
+                onLocked={() => requireEdit('calendar')}
+                />
             )}
 
             {/* Tab: Meetings & Protocol Management */}
@@ -2153,7 +2330,9 @@ export default function App() {
                 onSaveMeeting={handleSaveMeeting}
                 onDeleteMeeting={handleDeleteMeeting}
                 onSaveTemplate={handleSaveMeetingTemplate}
-              />
+                canEdit={mayEdit('meetings')}
+                onLocked={() => requireEdit('meetings')}
+                />
             )}
 
             {/* Tab 7: Documents Management */}
@@ -2161,8 +2340,6 @@ export default function App() {
               <DocumentsView
                 documents={documents}
                 folders={folders}
-                members={members}
-                transactions={transactions}
                 onOpenUpload={(cat, folderId) => {
                   setDocUploadCategory(cat);
                   setDocUploadFolderId(folderId || null);
@@ -2173,11 +2350,12 @@ export default function App() {
                 onOpenEdit={(doc) => setDocEditItem(doc)}
                 onDeleteDoc={handleDeleteDocument}
                 onBatchDelete={handleBatchDeleteDocuments}
-                onBatchMove={handleBatchMoveDocuments}
                 onSaveFolder={handleSaveFolder}
                 onDeleteFolder={handleDeleteFolder}
                 onBatchMoveToFolder={handleBatchMoveToFolder}
-              />
+                canEdit={mayEdit('documents')}
+                onLocked={() => requireEdit('documents')}
+                />
             )}
 
             {/* Tab 8: Dedicated Settings & Administration Page */}
@@ -2186,10 +2364,6 @@ export default function App() {
                 settings={settings}
                 onSaveSettings={handleSaveSettings}
                 onDataReload={loadData}
-                onOpenDeploymentHub={() => {
-                  setSettingsActiveTab('deployment');
-                  goToTab('settings');
-                }}
                 onOpenUserManage={() => setUserManageOpen(true)}
                 currentTheme={theme}
                 onThemeChange={(newTheme) => setTheme(newTheme)}
@@ -2197,7 +2371,12 @@ export default function App() {
                 onDeploymentModeChange={(newMode) => setDeploymentMode(newMode)}
                 initialTab={settingsActiveTab}
                 onTabChange={(tab) => setSettingsActiveTab(tab)}
-              />
+                canEdit={mayEdit('settings')}
+                onLocked={() => requireEdit('settings')}
+                canManageUsers={mayEdit('users')}
+                currentCloudUserId={authSession.loginMethod === 'supabase' ? currentUser?.id : undefined}
+                onUsersLocked={() => requireEdit('users')}
+                />
             )}
           </div>
         </div>
@@ -2300,7 +2479,6 @@ export default function App() {
         <InventoryFormModal
           item={editingInventoryItem}
           departments={settings.departments}
-          settings={settings}
           onSave={handleSaveInventoryItem}
           onClose={() => {
             setInventoryFormOpen(false);
@@ -2334,7 +2512,9 @@ export default function App() {
             setEditingMember(m);
             setMemberFormOpen(true);
           }}
-        />
+          canEdit={mayEdit('members')}
+                onLocked={() => requireEdit('members')}
+                />
       )}
 
       {/* Transaction Create/Edit Modal */}
@@ -2497,7 +2677,6 @@ export default function App() {
           invoice={editingInvoice}
           members={members}
           contacts={contacts}
-          clubSettings={settings}
           templateSettings={invoiceTemplateSettings}
           nextInvoiceNumber={nextInvoiceNumber}
           prefillRecipient={prefillInvoiceRecipient}
@@ -2512,8 +2691,6 @@ export default function App() {
           isOpen={Boolean(detailsInvoice)}
           onClose={() => setDetailsInvoice(null)}
           invoice={detailsInvoice}
-          clubSettings={settings}
-          templateSettings={invoiceTemplateSettings}
           onEdit={(inv) => {
             setDetailsInvoice(null);
             setEditingInvoice(inv);
@@ -2521,14 +2698,6 @@ export default function App() {
           }}
           onDelete={(id) => handleDeleteInvoice(id)}
           onDownloadPdf={(inv) => downloadInvoicePdf(inv, settings, invoiceTemplateSettings)}
-          onToggleStatus={(inv, newStatus) => handleToggleInvoiceStatus(inv, newStatus)}
-          onShowInDocuments={(docId) => {
-            const foundDoc = documents.find(d => d.id === docId);
-            if (foundDoc) {
-              setDocViewerItem(foundDoc);
-              goToTab('documents');
-            }
-          }}
         />
       )}
 
@@ -2651,6 +2820,24 @@ export default function App() {
                 onClose={() => setIsPublicFormMode(false)}
               />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hinweis bei fehlender Berechtigung */}
+      {permissionNotice && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] max-w-md w-[calc(100%-2rem)]">
+          <div className="bg-slate-900 text-white rounded-2xl shadow-2xl border border-slate-700 px-4 py-3 flex items-start gap-3">
+            <Lock className="w-4 h-4 mt-0.5 text-amber-400 shrink-0" />
+            <p className="text-xs leading-snug flex-1">{permissionNotice}</p>
+            <button
+              type="button"
+              onClick={() => setPermissionNotice(null)}
+              className="text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0"
+              title="Hinweis schließen"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}

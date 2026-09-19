@@ -35,12 +35,22 @@ if not exist "node_modules\" (
 )
 
 :: 3. Anwendung starten und Browser öffnen
+::
+:: Neu seit Fassung 1.3: Der Server beantwortet keine /api-Anfrage mehr ohne
+:: Zugriffsschluessel. Diesen erzeugt er beim ersten Start selbst und legt ihn
+:: in daten\konfiguration.json ab. Damit hier niemand etwas abtippen muss, wird
+:: er ausgelesen und an die Adresse angehaengt. Die App merkt ihn sich und
+:: entfernt ihn wieder aus der Adresszeile.
 echo.
 echo [*] Starte VereinsManager...
 echo [*] Oeffne Browser unter http://localhost:3000
 echo.
 
-start "" http://localhost:3000
+:: Der Browser wird von einem zweiten Fenster aus geoeffnet, sobald der Server
+:: die Konfigurationsdatei geschrieben hat. Der Server selbst laeuft in diesem
+:: Fenster weiter.
+start "VereinsManager - Browser" /min cmd /c ""%~dp0start-windows-browser.bat""
+
 npm run dev
 pause
 

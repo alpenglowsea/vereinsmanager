@@ -20,7 +20,6 @@ interface MembersKpiWidgetProps {
 export const MembersKpiWidget: React.FC<MembersKpiWidgetProps> = ({ members, onNavigate }) => {
   const activeMembers = useMemo(() => members.filter((m) => m.status === 'active'), [members]);
   const passiveMembers = useMemo(() => members.filter((m) => m.status === 'passive'), [members]);
-  const honoraryMembers = useMemo(() => members.filter((m) => m.status === 'honorary' || m.membershipType === 'honorary'), [members]);
   const currentMembers = useMemo(
     () => members.filter((m) => m.status !== 'terminated' && m.membershipType !== 'ausgetreten' && m.membershipType !== 'terminated'),
     [members]
@@ -69,11 +68,6 @@ export const OnlineApplicationsWidget: React.FC<OnlineApplicationsWidgetProps> =
   onNavigate
 }) => {
   const pending = useMemo(() => applications.filter((a) => a.status === 'pending'), [applications]);
-  const approvedThisMonth = useMemo(() => {
-    const now = new Date();
-    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    return applications.filter((a) => a.status === 'approved' && a.submittedAt?.startsWith(ym)).length;
-  }, [applications]);
 
   return (
     <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs h-full flex flex-col justify-between">
@@ -408,7 +402,7 @@ interface DemographicsWidgetProps {
 }
 
 export const DemographicsWidget: React.FC<DemographicsWidgetProps> = ({ members, onNavigate }) => {
-  const { youth, adults, seniors, unknown, male, female, other } = useMemo(() => {
+  const { youth, adults, seniors, male, female, other } = useMemo(() => {
     let y = 0, a = 0, s = 0, unk = 0;
     let m = 0, w = 0, d = 0;
     const currentYear = new Date().getFullYear();

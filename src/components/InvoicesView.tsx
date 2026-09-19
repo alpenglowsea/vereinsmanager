@@ -20,8 +20,10 @@ import {
   FileText,
   Sliders,
   X,
-  Sparkles
+  Sparkles,
+  Lock
 } from 'lucide-react';
+import { lockClass, lockTitle } from '../utils/uiLock';
 
 interface InvoicesViewProps {
   invoices: ClubInvoice[];
@@ -33,7 +35,10 @@ interface InvoicesViewProps {
   onDeleteInvoice: (id: string) => void;
   onBulkDeleteInvoices?: (ids: string[]) => Promise<void>;
   onOpenTemplateConfig: () => void;
-  onToggleStatus: (invoice: ClubInvoice, newStatus: InvoiceStatus) => void;
+  /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
+  canEdit?: boolean;
+  /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
+  onLocked?: () => void;
 }
 
 export const InvoicesView: React.FC<InvoicesViewProps> = ({
@@ -46,8 +51,18 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   onDeleteInvoice,
   onBulkDeleteInvoices,
   onOpenTemplateConfig,
-  onToggleStatus
+  canEdit = true,
+  onLocked
 }) => {
+  /**
+   * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
+   * Aktion ausgeführt, sondern der Hinweis gezeigt.
+   */
+  const guard = (action: () => void) => () => {
+    if (canEdit) action();
+    else if (onLocked) onLocked();
+  };
+
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | InvoiceStatus | 'overdue'>('all');
@@ -68,7 +83,15 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   const paidInvoices = invoices.filter(i => i.status === 'paid');
   const paidSumGross = paidInvoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0);
 
-  const now = new Date();
+  // Ein fester Zeitpunkt für den gesamten Besuch dieser Ansicht, statt bei
+  // jedem Zeichnen ein neuer. Zwei Gründe: Die Liste unten rechnet in einem
+  // useMemo damit, und ein bei jedem Rendern frisch erzeugtes Datum wäre
+  // jedes Mal ein anderer Wert — die Berechnung liefe dann immer neu und das
+  // useMemo wäre wirkungslos. Ausserdem sähen die Kennzahlen oben und die
+  // Kennzeichnung "überfällig" in der Liste sonst unter Umständen
+  // unterschiedliche Zeitpunkte. Wer die Ansicht über Mitternacht hinaus
+  // offen lässt, muss sie einmal neu laden — das ist der Preis dafür.
+  const now = useMemo(() => new Date(), []);
   const overdueInvoices = openInvoices.filter(i => new Date(i.dueDate) < now);
   const overdueSumGross = overdueInvoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0);
 
@@ -135,7 +158,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
       }
       return sortAsc ? comparison : -comparison;
     });
-  }, [invoices, searchQuery, statusFilter, taxSphereFilter, sortBy, sortAsc]);
+  }, [invoices, searchQuery, statusFilter, taxSphereFilter, sortBy, sortAsc, now]);
 
   // Bulk Selection Handlers
   const handleSelectAll = () => {
@@ -161,6 +184,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   };
 
   const handleBulkDelete = async () => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (!onBulkDeleteInvoices || selectedIds.size === 0) return;
     if (
       window.confirm(
@@ -268,6 +292,16 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150 relative pb-16">
+      {/* Hinweis auf reines Leserecht */}
+      {!canEdit && (
+        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5">
+          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
+          <p className="text-xs leading-snug">
+            <strong>Nur Leserecht.</strong> Sie können Rechnungen einsehen, als PDF herunterladen und exportieren. Erstellen, Ändern und Löschen sind für Ihre Rolle gesperrt — die betreffenden Knöpfe sind ausgegraut.
+          </p>
+        </div>
+      )}
+
       {/* Metric Cards: Rechnungen Gesamt, Offen, Bezahlt & Überfällig */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Kachel 1: Gesamt */}
@@ -424,7 +458,8 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
               <button
                 type="button"
                 onClick={handleBulkDelete}
-                className="bg-rose-600/90 hover:bg-rose-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                className={`bg-rose-600/90 hover:bg-rose-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer${lockClass(canEdit)}`}
+                title={lockTitle(canEdit, 'Alle markierten Rechnungen löschen')}
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Ausgewählte löschen</span>
@@ -483,9 +518,9 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
             {/* Requirement 3: Blanko-Vorlage konfigurieren / hochladen */}
             <button
               type="button"
-              onClick={onOpenTemplateConfig}
-              className="text-xs bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer"
-              title="Eigenes Vereins-Briefpapier (Blanko-Vorlage) hochladen oder DIN 5008 Vorlage anpassen"
+              onClick={guard(onOpenTemplateConfig)}
+              className={`text-xs bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer${lockClass(canEdit)}`}
+              title={lockTitle(canEdit, 'Eigenes Vereins-Briefpapier (Blanko-Vorlage) hochladen oder DIN 5008 Vorlage anpassen')}
             >
               <Sliders className="w-3.5 h-3.5 text-slate-600" />
               <span>Blanko-Vorlage konfigurieren</span>
@@ -504,8 +539,9 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
             {/* Requirement 2: Button zum Anlegen einer neuen Rechnung */}
             <button
               type="button"
-              onClick={onOpenCreate}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+              onClick={guard(onOpenCreate)}
+              className={`bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer${lockClass(canEdit)}`}
+              title={lockTitle(canEdit, 'Neue Rechnung anlegen')}
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Neue Rechnung</span>
@@ -628,8 +664,9 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                       {(!searchQuery && statusFilter === 'all' && taxSphereFilter === 'all') && (
                         <button
                           type="button"
-                          onClick={onOpenCreate}
-                          className="mt-2 text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
+                          onClick={guard(onOpenCreate)}
+                          className={`mt-2 text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer${lockClass(canEdit)}`}
+                          title={lockTitle(canEdit, 'Neue Rechnung anlegen')}
                         >
                           <Plus className="w-3.5 h-3.5" />
                           <span>Jetzt erste Rechnung erstellen</span>
@@ -790,9 +827,9 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           {/* Edit button */}
                           <button
                             type="button"
-                            onClick={() => onOpenEdit(inv)}
-                            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                            title="Rechnung bearbeiten"
+                            onClick={guard(() => onOpenEdit(inv))}
+                            className={`p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer${lockClass(canEdit)}`}
+                            title={lockTitle(canEdit, 'Rechnung bearbeiten')}
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
@@ -800,13 +837,13 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           {/* Delete button */}
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={guard(() => {
                               if (window.confirm(`Rechnung ${inv.invoiceNumber} wirklich löschen?`)) {
                                 onDeleteInvoice(inv.id);
                               }
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                            title="Rechnung löschen"
+                            })}
+                            className={`p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer${lockClass(canEdit)}`}
+                            title={lockTitle(canEdit, 'Rechnung löschen')}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>

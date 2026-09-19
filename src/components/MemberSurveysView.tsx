@@ -25,20 +25,37 @@ import {
   Archive,
   Play
 } from 'lucide-react';
+import { lockClass, lockTitle } from '../utils/uiLock';
+import { LoadingState } from './LoadingState';
 
 interface MemberSurveysViewProps {
   settings: ClubSettings;
   members: Member[];
   deploymentMode?: DeploymentMode;
   onNavigateToSettings?: () => void;
+  /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
+  canEdit?: boolean;
+  /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
+  onLocked?: () => void;
 }
 
 export const MemberSurveysView: React.FC<MemberSurveysViewProps> = ({
   settings,
   members,
   deploymentMode: propDeploymentMode,
-  onNavigateToSettings
+  onNavigateToSettings,
+  canEdit = true,
+  onLocked
 }) => {
+  /**
+   * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
+   * Aktion ausgeführt, sondern der Hinweis gezeigt.
+   */
+  const guard = (action: () => void) => () => {
+    if (canEdit) action();
+    else if (onLocked) onLocked();
+  };
+
   const [surveys, setSurveys] = useState<MemberSurvey[]>([]);
   const [responseCounts, setResponseCounts] = useState<Record<string, number>>({});
   const [tokenCounts, setTokenCounts] = useState<Record<string, { total: number; used: number }>>({});
@@ -95,11 +112,13 @@ export const MemberSurveysView: React.FC<MemberSurveysViewProps> = ({
   };
 
   const handleSaveSurvey = async (survey: MemberSurvey) => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     await StorageService.saveSurvey(survey);
     await loadSurveysData();
   };
 
   const handleDeleteSurvey = async (id: string, title: string) => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (!confirm(`Möchten Sie die Befragung "${title}" wirklich unwiderruflich löschen? Alle Antworten und Links werden dabei entfernt.`)) {
       return;
     }
@@ -108,6 +127,7 @@ export const MemberSurveysView: React.FC<MemberSurveysViewProps> = ({
   };
 
   const handleToggleStatus = async (survey: MemberSurvey) => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     const newStatus = survey.status === 'active' ? 'closed' : 'active';
     const updated: MemberSurvey = { ...survey, status: newStatus };
     await StorageService.saveSurvey(updated);
@@ -222,6 +242,16 @@ export const MemberSurveysView: React.FC<MemberSurveysViewProps> = ({
   // ----------------------------------------------------
   return (
     <div className="space-y-6">
+      {/* Hinweis auf reines Leserecht */}
+      {!canEdit && (
+        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5">
+          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
+          <p className="text-xs leading-snug">
+            <strong>Nur Leserecht.</strong> Sie können Befragungen und deren Ergebnisse einsehen. Anlegen, Ändern, Versenden und Löschen sind für Ihre Rolle gesperrt — die betreffenden Knöpfe sind ausgegraut.
+          </p>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -237,11 +267,12 @@ export const MemberSurveysView: React.FC<MemberSurveysViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => {
+            onClick={guard(() => {
               setSelectedSurveyForEdit(null);
               setBuilderOpen(true);
-            }}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+            })}
+            className={`px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer${lockClass(canEdit)}`}
+            title={lockTitle(canEdit, 'Neue Befragung erstellen')}
           >
             <Plus className="w-4 h-4" />
             <span>Neue Befragung erstellen</span>
@@ -330,7 +361,11 @@ export const MemberSurveysView: React.FC<MemberSurveysViewProps> = ({
       </div>
 
       {/* Surveys List Cards */}
-      {filteredSurveys.length === 0 ? (
+      {loading ? (
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700">
+          <LoadingState label="Befragungen werden geladen …" />
+        </div>
+      ) : filteredSurveys.length === 0 ? (
         <div className="p-12 text-center text-slate-400 space-y-3 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700">
           <Vote className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-600" />
           <h3 className="text-base font-bold text-slate-700 dark:text-slate-300">
@@ -343,11 +378,12 @@ export const MemberSurveysView: React.FC<MemberSurveysViewProps> = ({
           </p>
           <button
             type="button"
-            onClick={() => {
+            onClick={guard(() => {
               setSelectedSurveyForEdit(null);
               setBuilderOpen(true);
-            }}
-            className="mt-3 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-xs"
+            })}
+            className={`mt-3 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-xs${lockClass(canEdit)}`}
+            title={lockTitle(canEdit, 'Neue Befragung erstellen')}
           >
             <Plus className="w-4 h-4" />
             <span>Erste Befragung anlegen</span>
@@ -457,9 +493,9 @@ export const MemberSurveysView: React.FC<MemberSurveysViewProps> = ({
                   {/* 1. Einladungen & Verteiler */}
                   <button
                     type="button"
-                    onClick={() => setDistributionSurvey(survey)}
-                    className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
-                    title="Einladungslinks & WhatsApp-Versand öffnen"
+                    onClick={guard(() => setDistributionSurvey(survey))}
+                    className={`px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer${lockClass(canEdit)}`}
+                    title={lockTitle(canEdit, 'Einladungslinks & WhatsApp-Versand öffnen')}
                   >
                     <Share2 className="w-3.5 h-3.5" />
                     <span>Verteiler & Links</span>
@@ -489,12 +525,12 @@ export const MemberSurveysView: React.FC<MemberSurveysViewProps> = ({
                   {/* 4. Bearbeiten */}
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={guard(() => {
                       setSelectedSurveyForEdit(survey);
                       setBuilderOpen(true);
-                    }}
-                    className="p-2 bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
-                    title="Befragung & Fragen bearbeiten"
+                    })}
+                    className={`p-2 bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer${lockClass(canEdit)}`}
+                    title={lockTitle(canEdit, 'Befragung & Fragen bearbeiten')}
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
@@ -503,8 +539,8 @@ export const MemberSurveysView: React.FC<MemberSurveysViewProps> = ({
                   <button
                     type="button"
                     onClick={() => handleToggleStatus(survey)}
-                    className="p-2 bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
-                    title={survey.status === 'active' ? 'Befragung beenden' : 'Befragung aktivieren'}
+                    className={`p-2 bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer${lockClass(canEdit)}`}
+                    title={lockTitle(canEdit, survey.status === 'active' ? 'Befragung beenden' : 'Befragung aktivieren')}
                   >
                     {survey.status === 'active' ? <Archive className="w-4 h-4 text-amber-500" /> : <Play className="w-4 h-4 text-emerald-500" />}
                   </button>
@@ -513,8 +549,8 @@ export const MemberSurveysView: React.FC<MemberSurveysViewProps> = ({
                   <button
                     type="button"
                     onClick={() => handleDeleteSurvey(survey.id, survey.title)}
-                    className="p-2 bg-slate-100 dark:bg-slate-700/60 hover:bg-rose-100 dark:hover:bg-rose-950/60 text-slate-400 hover:text-rose-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
-                    title="Befragung löschen"
+                    className={`p-2 bg-slate-100 dark:bg-slate-700/60 hover:bg-rose-100 dark:hover:bg-rose-950/60 text-slate-400 hover:text-rose-600 rounded-xl text-xs font-bold transition-all cursor-pointer${lockClass(canEdit)}`}
+                    title={lockTitle(canEdit, 'Befragung löschen')}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

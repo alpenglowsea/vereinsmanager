@@ -20,13 +20,63 @@ if [ ! -d "node_modules" ]; then
     npm install
 fi
 
-# 3. Browser öffnen (Plattform-unabhängig)
+# 3. Browser öffnen, sobald der Server bereit ist
+#
+# Neu seit Fassung 1.3: Der Server beantwortet keine /api-Anfrage mehr ohne
+# Zugriffsschlüssel. Diesen erzeugt er beim ersten Start selbst und legt ihn in
+# daten/konfiguration.json ab. Damit im Lokalbetrieb niemand etwas abtippen
+# muss, wird er hier ausgelesen und an die Adresse angehängt, die im Browser
+# geöffnet wird. Die App merkt ihn sich und entfernt ihn wieder aus der
+# Adresszeile.
+#
+# Alles hinter dem Rautezeichen schickt der Browser NICHT an den Server; der
+# Schlüssel landet also in keinem Serverprotokoll.
 echo "[*] Starte VereinsManager auf http://localhost:3000 ..."
 
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    (sleep 2 && open http://localhost:3000) &
-elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    (sleep 2 && xdg-open http://localhost:3000 2>/dev/null || true) &
-fi
+oeffne_browser() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        open "$1"
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        xdg-open "$1" 2>/dev/null || true
+    fi
+}
+
+(
+    schluessel=""
+
+    # Wurde ein eigener Schlüssel vorgegeben, steht er nicht in der
+    # Konfigurationsdatei — dann gilt dieser.
+    if [ -n "$VM_ACCESS_KEY" ]; then
+        schluessel="$VM_ACCESS_KEY"
+    elif [ -f ".env" ]; then
+        schluessel=$(sed -n 's/^[[:space:]]*VM_ACCESS_KEY[[:space:]]*=[[:space:]]*//p' .env | tail -n 1 | tr -d "\"'")
+    fi
+
+    # Sonst warten, bis der Server die Konfigurationsdatei geschrieben hat.
+    # Beim allerersten Start dauert das einen Moment länger, weil Vite die
+    # Oberfläche erst übersetzen muss.
+    if [ -z "$schluessel" ]; then
+        for _versuch in $(seq 1 100); do
+            if [ -f "daten/konfiguration.json" ]; then
+                schluessel=$(sed -n 's/.*"accessKey"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' daten/konfiguration.json)
+                [ -n "$schluessel" ] && break
+            fi
+            sleep 0.3
+        done
+    fi
+
+    if [ -n "$schluessel" ]; then
+        oeffne_browser "http://localhost:3000/#zugriff=$schluessel"
+    else
+        echo ""
+        echo "[!] Der Zugriffsschlüssel des Servers konnte nicht gelesen werden."
+        echo "    Die App startet trotzdem. E-Mail-Versand, Belegerkennung und"
+        echo "    KI-Funktionen bleiben aber gesperrt. Der Schlüssel steht in der"
+        echo "    Ausgabe dieses Fensters und lässt sich in der App unter"
+        echo "    Einstellungen -> Allgemein eintragen."
+        echo ""
+        oeffne_browser "http://localhost:3000"
+    fi
+) &
 
 npm run dev

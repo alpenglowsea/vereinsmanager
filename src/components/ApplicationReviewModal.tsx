@@ -58,7 +58,12 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
   currentUser = 'Vorstand / Administrator'
 }) => {
 
-  const safeMembers = existingMembers || [];
+  // In ein useMemo gefasst, weil zwei useMemo weiter unten damit rechnen.
+  // Ohne das entstünde bei jedem Rendern ein neues leeres Array, sobald
+  // "existingMembers" fehlt — und beide Berechnungen liefen jedes Mal neu,
+  // obwohl sich nichts geändert hat. Bei einem Verein mit vielen Mitgliedern
+  // ist das die Art von Kleinigkeit, die eine Maske zäh macht.
+  const safeMembers = useMemo(() => existingMembers || [], [existingMembers]);
   const safeDepartments = settings?.departments?.length ? settings.departments : ['Hauptverein', 'Fußball', 'Tennis', 'Turnen'];
 
   // Next suggested member number

@@ -16,10 +16,10 @@ import {
   SKR42_STRUCTURE,
   getSkr42MainCategories,
   getSkr42SubCategories,
-  getAllSkr42MainCategories,
   findSkr42Main,
   findSkr42MainForSub
 } from '../data/taxSpheres';
+import { useSkr42 } from '../hooks/useSkr42';
 import { SearchableAccountSelect, SearchableAccountOption } from './SearchableAccountSelect';
 import { SplitBookingManager } from './SplitBookingManager';
 import { CreateAccountModal } from './CreateAccountModal';
@@ -77,7 +77,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   const effectiveInitialType: 'income' | 'expense' = initialType === 'transfer' ? 'expense' : initialType;
 
   // Detect main category across all SKR 42 structure
-  let detectedMain = transaction?.mainCategory
+  const detectedMain = transaction?.mainCategory
     ? findSkr42Main(transaction.mainCategory)
     : transaction?.subCategory || transaction?.category
     ? findSkr42MainForSub(transaction.subCategory || transaction.category)
@@ -96,19 +96,15 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   const [showAllSpheresInDropdown, setShowAllSpheresInDropdown] = useState<boolean>(true);
 
   // Custom accounts management state
-  const [customCategoriesVersion, setCustomCategoriesVersion] = useState(0);
   const [createAccountModalOpen, setCreateAccountModalOpen] = useState(false);
   const [createAccountMode, setCreateAccountMode] = useState<'main' | 'sub'>('main');
   const [createAccountInitialQuery, setCreateAccountInitialQuery] = useState('');
   const [accountCreatedToast, setAccountCreatedToast] = useState<string | null>(null);
 
-  useEffect(() => {
-    const handleUpdate = () => {
-      setCustomCategoriesVersion(v => v + 1);
-    };
-    window.addEventListener('vm_skr42_updated', handleUpdate);
-    return () => window.removeEventListener('vm_skr42_updated', handleUpdate);
-  }, []);
+  // Der Kontenrahmen als gewöhnlicher Wert. Legt der Kassenwart unten über
+  // "Konto anlegen" ein eigenes Konto an, kommt hier der neue Stand an und
+  // alle Auswahllisten rechnen neu — siehe src/data/skr42Store.ts.
+  const skr42 = useSkr42();
 
   const [isSplitBooking, setIsSplitBooking] = useState<boolean>(
     Boolean(transaction?.isSplit && transaction?.splits && transaction.splits.length > 0)
@@ -309,22 +305,19 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
 
   // Available SKR 42 categories for current sphere (showing all accounts: both income & expense)
   const mainCategories = useMemo(() => {
-    return getSkr42MainCategories(formData.sphere);
-  }, [formData.sphere, customCategoriesVersion]);
+    return getSkr42MainCategories(formData.sphere, undefined, skr42);
+  }, [formData.sphere, skr42]);
 
-  const allMainCategories = useMemo(() => {
-    return getAllSkr42MainCategories();
-  }, [customCategoriesVersion]);
 
   const subCategories = useMemo(() => {
-    return getSkr42SubCategories(formData.sphere, undefined, selectedMainCatId);
-  }, [formData.sphere, selectedMainCatId, customCategoriesVersion]);
+    return getSkr42SubCategories(formData.sphere, undefined, selectedMainCatId, skr42);
+  }, [formData.sphere, selectedMainCatId, skr42]);
 
   const mainCatOptions: SearchableAccountOption[] = useMemo(() => {
     if (showAllSpheresInDropdown) {
       const spheres: TaxSphere[] = ['ideell', 'vermoegen', 'zweckbetrieb', 'wirtschaftlich'];
       return spheres.flatMap(sph => {
-        const catsForSph = getSkr42MainCategories(sph);
+        const catsForSph = getSkr42MainCategories(sph, undefined, skr42);
         const groupName = TAX_SPHERES[sph]?.name || sph;
         return catsForSph.map(main => ({
           value: main.id,
@@ -345,7 +338,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
         isCustom: main.isCustom
       }));
     }
-  }, [showAllSpheresInDropdown, mainCategories, customCategoriesVersion]);
+  }, [showAllSpheresInDropdown, mainCategories, skr42]);
 
   const subCatOptions: SearchableAccountOption[] = useMemo(() => {
     return subCategories.map(sub => ({
@@ -356,7 +349,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
       vatRateDefault: sub.vatRateDefault,
       isCustom: sub.isCustom
     }));
-  }, [subCategories, customCategoriesVersion]);
+  }, [subCategories]);
 
   const handleAiCategorize = async (customText?: string) => {
     // Determine the most specific and valid text available

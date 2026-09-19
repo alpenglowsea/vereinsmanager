@@ -132,7 +132,10 @@ export const InvoicePdfService = {
     if (hasCustomBlanko && template.customBlankoDataUrl) {
       try {
         doc.addImage(template.customBlankoDataUrl, 'PNG', 0, 0, 210, 297);
-      } catch (e) {
+      } catch (_e) {
+        // Absichtlich ohne Meldung: Erst PNG versuchen, dann JPEG. Dass der
+        // erste Versuch scheitert, ist bei einem JPEG-Briefbogen der
+        // Normalfall. Scheitern beide, meldet der innere Block das.
         try {
           doc.addImage(template.customBlankoDataUrl, 'JPEG', 0, 0, 210, 297);
         } catch (err2) {

@@ -486,30 +486,44 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
 ];
 
 // Helper functions for SKR 42
-export const getAllSkr42MainCategories = (type?: 'income' | 'expense'): Skr42MainCategory[] => {
-  if (!type) return SKR42_STRUCTURE;
-  return SKR42_STRUCTURE.filter(m => m.type === type);
+//
+// Der letzte Parameter "source" ist neu und fast immer wegzulassen: Dann
+// arbeiten die Funktionen wie bisher auf SKR42_STRUCTURE. React-Masken
+// reichen dort den Stand durch, den ihnen useSkr42() geliefert hat. Dadurch
+// steht die Abhängigkeit sichtbar im Code, statt über einen Zähler
+// angedeutet zu werden — siehe src/data/skr42Store.ts.
+export const getAllSkr42MainCategories = (
+  type?: 'income' | 'expense',
+  source: readonly Skr42MainCategory[] = SKR42_STRUCTURE
+): Skr42MainCategory[] => {
+  if (!type) return source.slice();
+  return source.filter(m => m.type === type);
 };
 
-export const getSkr42MainCategories = (sphere: TaxSphere, type?: 'income' | 'expense'): Skr42MainCategory[] => {
+export const getSkr42MainCategories = (
+  sphere: TaxSphere,
+  type?: 'income' | 'expense',
+  source: readonly Skr42MainCategory[] = SKR42_STRUCTURE
+): Skr42MainCategory[] => {
   if (!type) {
-    return SKR42_STRUCTURE.filter(m => m.sphere === sphere);
+    return source.filter(m => m.sphere === sphere);
   }
-  return SKR42_STRUCTURE.filter(m => m.sphere === sphere && m.type === type);
+  return source.filter(m => m.sphere === sphere && m.type === type);
 };
 
 export const getSkr42SubCategories = (
   sphere: TaxSphere,
   type?: 'income' | 'expense',
-  mainCategoryId?: string
+  mainCategoryId?: string,
+  source: readonly Skr42MainCategory[] = SKR42_STRUCTURE
 ): Skr42SubCategory[] => {
   if (mainCategoryId) {
-    const found = SKR42_STRUCTURE.find(
+    const found = source.find(
       m => m.id === mainCategoryId || m.code === mainCategoryId || m.name === mainCategoryId || `${m.code} - ${m.name}` === mainCategoryId
     );
     if (found) return found.subCategories;
   }
-  const mains = getSkr42MainCategories(sphere, type);
+  const mains = getSkr42MainCategories(sphere, type, source);
   return mains.flatMap(m => m.subCategories);
 };
 

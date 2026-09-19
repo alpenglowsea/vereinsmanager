@@ -3,15 +3,28 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  /*
+   * Nur Schriften, die auf dem Gerät schon da sind. Keine Web-Schrift von
+   * einem fremden Server: das würde die IP-Adresse jedes Besuchers dorthin
+   * übertragen (LG München I, 2022, Az. 3 O 17493/20) und die App wäre
+   * offline nicht mehr vollständig. Die Reihenfolge sorgt dafür, dass jedes
+   * System die passendste eigene Schrift nimmt: macOS/iOS -apple-system,
+   * Windows 'Segoe UI', Android Roboto, Linux die Standardschrift.
+   */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
   --text-2xs: 0.6875rem;
   --text-3xs: 0.625rem;
 }
 
 :root {
   font-family: var(--font-sans);
-  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  /*
+   * 'cv02'/'cv03'/'cv04'/'cv11' waren Stilvarianten von Plus Jakarta Sans
+   * (andere Form von a, g, l, 1). Ohne diese Schrift haben sie keine Wirkung
+   * mehr und könnten in anderen Schriften ungewollte Zeichenformen auslösen —
+   * deshalb entfernt.
+   */
 }
 
 body {

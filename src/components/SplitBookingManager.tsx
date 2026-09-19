@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Plus,
   Trash2,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { TaxSphere, TransactionSplit } from '../types';
 import { TAX_SPHERES, getSkr42MainCategories, getSkr42SubCategories, SKR42_STRUCTURE } from '../data/taxSpheres';
+import { useSkr42 } from '../hooks/useSkr42';
 import { SearchableAccountSelect, SearchableAccountOption } from './SearchableAccountSelect';
 import { CreateAccountModal } from './CreateAccountModal';
 
@@ -44,15 +45,11 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
   const [createMode, setCreateMode] = useState<'main' | 'sub'>('main');
   const [activeSplitIndex, setActiveSplitIndex] = useState(0);
   const [initialQuery, setInitialQuery] = useState('');
-  const [customCatVer, setCustomCatVer] = useState(0);
-
-  useEffect(() => {
-    const handleUpdate = () => {
-      setCustomCatVer(v => v + 1);
-    };
-    window.addEventListener('vm_skr42_updated', handleUpdate);
-    return () => window.removeEventListener('vm_skr42_updated', handleUpdate);
-  }, []);
+  // Derselbe Kontenrahmen wie in der Buchungsmaske. Hier stand vorher ein
+  // Zähler, der hochgezählt, aber nirgends gelesen wurde — er diente allein
+  // dazu, ein erneutes Zeichnen auszulösen. Das ist jetzt der ausdrückliche
+  // Zweck des Hooks, und der Wert wird auch wirklich benutzt.
+  const skr42 = useSkr42();
 
   // Rechnerische Summe aller Teilbeträge
   const sumOfSplits = useMemo(() => {
@@ -68,7 +65,7 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
 
   // Helper to generate Main Category options for any sphere (showing both income & expense accounts)
   const getMainCatOptionsForSphere = (sphere: TaxSphere): SearchableAccountOption[] => {
-    const mains = getSkr42MainCategories(sphere);
+    const mains = getSkr42MainCategories(sphere, undefined, skr42);
     return mains.map(main => ({
       value: main.id,
       code: main.code,
@@ -81,7 +78,7 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
 
   // Helper to generate Sub Category options for a given main category and sphere
   const getSubCatOptions = (sphere: TaxSphere, mainCatId?: string): SearchableAccountOption[] => {
-    const subs = getSkr42SubCategories(sphere, undefined, mainCatId);
+    const subs = getSkr42SubCategories(sphere, undefined, mainCatId, skr42);
     return subs.map(sub => ({
       value: sub.label,
       code: sub.code,
@@ -96,7 +93,7 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
     const remainder = difference > 0 ? difference : 0;
     const lastSplit = splits[splits.length - 1];
     const defaultSphere = lastSplit?.sphere || 'ideell';
-    const mains = getSkr42MainCategories(defaultSphere);
+    const mains = getSkr42MainCategories(defaultSphere, undefined, skr42);
     const defaultMain = mains[0];
     const defaultSub = defaultMain?.subCategories[0];
 
@@ -130,7 +127,7 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
 
     // When sphere changes, ensure mainCategory & subCategory adapt to the new sphere
     if (updates.sphere && updates.sphere !== current.sphere) {
-      const mains = getSkr42MainCategories(updates.sphere);
+      const mains = getSkr42MainCategories(updates.sphere, undefined, skr42);
       const firstMain = mains[0];
       const firstSub = firstMain?.subCategories[0];
       merged.mainCategory = firstMain ? `${firstMain.code} - ${firstMain.name}` : '';
@@ -161,7 +158,7 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
 
   const handleSubCategoryChange = (index: number, subCatLabel: string) => {
     const current = splits[index];
-    const subs = getSkr42SubCategories(current.sphere, undefined, current.mainCategory);
+    const subs = getSkr42SubCategories(current.sphere, undefined, current.mainCategory, skr42);
     const subObj = subs.find(s => s.label === subCatLabel || s.code === subCatLabel || s.name === subCatLabel);
 
     handleUpdateSplit(index, {
@@ -323,7 +320,6 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                   {(['ideell', 'vermoegen', 'zweckbetrieb', 'wirtschaftlich'] as TaxSphere[]).map(sph => {
                     const isSelected = split.sphere === sph;
-                    const sphInfo = TAX_SPHERES[sph];
                     return (
                       <button
                         key={sph}

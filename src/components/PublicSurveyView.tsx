@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MemberSurvey, MemberSurveyToken, MemberSurveyResponse, ClubSettings } from '../types';
 import { StorageService } from '../services/storage';
 import {
@@ -39,11 +39,7 @@ export const PublicSurveyView: React.FC<PublicSurveyViewProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [tokenBlockedReason, setTokenBlockedReason] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadSurveyData();
-  }, [surveyId, rawToken]);
-
-  const loadSurveyData = async () => {
+  const loadSurveyData = useCallback(async () => {
     try {
       setLoading(true);
       const s = await StorageService.getSurvey(surveyId);
@@ -113,7 +109,12 @@ export const PublicSurveyView: React.FC<PublicSurveyViewProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [surveyId, rawToken, isPreview]);
+
+  useEffect(() => {
+    loadSurveyData();
+  }, [loadSurveyData]);
+
 
   const handleSingleChoice = (questionId: string, value: string) => {
     setAnswers(prev => ({ ...prev, [questionId]: value }));

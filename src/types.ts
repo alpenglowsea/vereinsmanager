@@ -243,24 +243,13 @@ export interface ClubSettings {
   aiApiKey?: string; // Allgemeiner API-Schlüssel für den gewählten Anbieter
   aiModel?: string; // Ausgewähltes Modell (z.B. 'gpt-4o-mini', 'claude-3-5-haiku-20241022')
   aiBaseUrl?: string; // Basis-URL für lokale / benutzerdefinierte KI (z.B. 'http://localhost:11434/v1')
-  // SMTP-Konfiguration für E-Mail-Versand (Sitzungsdienst, Einladungen, Protokolle)
-  smtpHost?: string; // z.B. 'smtp.ionos.de', 'smtp.strato.de', 'mail.gmx.net', 'smtp.gmail.com'
-  smtpPort?: number; // z.B. 587 (STARTTLS) oder 465 (SSL/TLS)
-  smtpSecure?: boolean; // true = Port 465 / SSL, false = Port 587 / STARTTLS
-  smtpUser?: string; // Benutzername / E-Mail für SMTP-Auth
-  smtpPassword?: string; // Passwort / App-Passwort
-  smtpFromEmail?: string; // Absender-Adresse (z.B. vorstand@tsv-musterstadt1890.de)
-  smtpFromName?: string; // Absender-Name (z.B. 'TSV Musterstadt 1890 e.V. Vorstand')
-}
-
-export interface SmtpConfig {
-  host?: string;
-  port?: number;
-  secure?: boolean;
-  user?: string;
-  password?: string;
-  fromEmail?: string;
-  fromName?: string;
+  // Hinweis zu den SMTP-Zugangsdaten:
+  // Sie standen hier früher mit drin — Hostname, Benutzer und Passwort im
+  // Klartext. Damit lagen sie in der IndexedDB jedes Browsers und in jeder
+  // Datensicherung. Seit Fassung 1.3 liegen sie auf dem Server dieser
+  // Installation (src/server/instanceConfig.ts) und werden über
+  // src/services/smtpConfigService.ts angesprochen. Das Passwort verlässt den
+  // Server nicht mehr.
 }
 
 export type AiProviderType = 'gemini' | 'openai' | 'anthropic' | 'custom';
@@ -456,22 +445,34 @@ export interface ClubDocument {
 export type DeploymentMode = 'local' | 'cloud' | 'selfhosted';
 
 // Benutzer & Rechteverwaltung
-export interface UserPermissions {
-  canViewMembers: boolean;
-  canEditMembers: boolean;
-  canManageSurveys: boolean;
-  canViewFinances: boolean;
-  canEditFinances: boolean;
-  canExecuteSepa: boolean;
-  canManageDonations: boolean;
-  canManageContacts: boolean;
-  canManageCalendar: boolean;
-  canManageMeetings: boolean;
-  canManageDocuments: boolean;
-  canManageInventory: boolean;
-  canManageSettings: boolean;
-  canManageUsers: boolean;
-}
+/**
+ * Zugriffsstufe je Bereich.
+ * 'none' = Menüpunkt gesperrt, 'view' = nur ansehen, 'edit' = ändern und löschen.
+ */
+export type AccessLevel = 'none' | 'view' | 'edit';
+
+/** Ein Eintrag der Navigationsleiste. Siehe src/utils/permissions.ts. */
+export type PermissionArea =
+  | 'dashboard'
+  | 'members'
+  | 'online_applications'
+  | 'member_analytics'
+  | 'member_surveys'
+  | 'finance'
+  | 'sepa'
+  | 'invoices'
+  | 'donations'
+  | 'guv'
+  | 'finance_analytics'
+  | 'contacts'
+  | 'calendar'
+  | 'meetings'
+  | 'inventory'
+  | 'documents'
+  | 'settings'
+  | 'users';
+
+export type UserPermissions = Record<PermissionArea, AccessLevel>;
 
 export interface AppUser {
   id: string;

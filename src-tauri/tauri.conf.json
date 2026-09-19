@@ -10,18 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [
-      {
-        "title": "VereinsManager • Revisionssichere Vereinsverwaltung",
-        "width": 1360,
-        "height": 860,
-        "minWidth": 960,
-        "minHeight": 640,
-        "resizable": true,
-        "fullscreen": false,
-        "center": true
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null
     }
@@ -29,6 +18,8 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "externalBin": ["binaries/vm-node"],
+    "resources": ["server-runtime/**/*"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

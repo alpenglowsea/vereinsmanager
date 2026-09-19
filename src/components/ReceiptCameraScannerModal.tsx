@@ -88,8 +88,11 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
   const [docNumber, setDocNumber] = useState<string>(
     prefillDocumentNumber || `BE-${new Date().getFullYear()}-${String(existingTransactions.length + 1).padStart(3, '0')}`
   );
-  const [docPartner, setDocPartner] = useState<string>(prefillPartner || '');
-  const [docText, setDocText] = useState<string>(prefillBookingText || '');
+  // Kein Bedienelement vorhanden: Der Wert steht beim Öffnen fest und lässt
+  // sich nicht ändern. Die Änderungsfunktion ist deshalb entfernt — sie zu
+  // behalten täuschte eine Einstellmöglichkeit vor, die es nicht gibt.
+  const [docPartner] = useState<string>(prefillPartner || '');
+  const [docText] = useState<string>(prefillBookingText || '');
 
   // Linking state
   const [linkSearchQuery, setLinkSearchQuery] = useState('');

@@ -33,7 +33,7 @@ export interface ParsedTransactionRow {
  */
 export function parseCSVToRows(text: string): { headers: string[]; rows: Record<string, string>[] } {
   // Strip BOM if present
-  let cleanText = text.replace(/^\uFEFF/, '').trim();
+  const cleanText = text.replace(/^\uFEFF/, '').trim();
   if (!cleanText) return { headers: [], rows: [] };
 
   // Detect delimiter from first 3 lines

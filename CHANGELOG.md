@@ -4,6 +4,186 @@ Alle relevanten Änderungen und Versionsstände des VereinsManagers werden in di
 
 ---
 
+## [unveröffentlicht]
+
+### 🖥️ Die Desktop-Fassung bringt den Server mit
+
+- **Bisher lief dort alles ins Leere, was einen Server braucht:** E-Mail-Versand,
+  Belegerkennung, Buchungsvorschläge, Protokollauswertung. Das Programm enthielt
+  nur die gebaute Oberfläche; ein Aufruf an `/api/...` fand niemanden.
+- **Jetzt wird derselbe Server mitgeliefert**, den auch der Docker-Betrieb
+  verwendet, zusammen mit der Node-Laufzeitumgebung. Das Paket wächst dadurch um
+  etwa 30 MB.
+- **Start in drei Schritten:** Server starten, auf dessen Bereitmeldung warten
+  (höchstens 30 s), dann das Fenster auf seine Adresse öffnen. Meldet er sich
+  nicht, öffnet sich das Fenster trotzdem — dann ohne Server, also genau wie die
+  bisherige Desktop-Fassung. Ein Programm, das gar nicht erst aufgeht, wäre das
+  schlechtere Ergebnis.
+- **Der Server weicht auf einen freien Port aus**, wenn 3000 belegt ist, und legt
+  seine Konfiguration im Datenverzeichnis der Anwendung ab statt neben dem
+  Programm, wo ein Update sie überschreiben könnte.
+- **macOS: nur noch Apple Silicon.** Die Universal-Fassung hätte künftig auch
+  eine zweite Node-Laufzeitumgebung für ältere Intel-Macs enthalten.
+- Der Server findet die Oberfläche jetzt neben seiner eigenen Datei und nicht
+  mehr nur im Arbeitsverzeichnis — in der Desktop-Fassung ist dieses
+  unvorhersehbar.
+
+### 💾 Datensicherung: vollständig, nachvollziehbar und umkehrbar
+
+- **Fünf Datenbereiche fehlten in der Sicherung.** Wer seinen Bestand auf einen
+  anderen Rechner mitnahm, verlor stillschweigend die Ordnerstruktur des
+  Dokumentenarchivs, sämtliche Befragungen samt Antworten und Teilnahme-Links
+  sowie die Ausgabe von Vereinsinventar an Mitglieder. Alle fünf sind jetzt
+  dabei.
+- **Der Compiler wacht künftig darüber.** Die Liste der Datenbereiche steht in
+  `src/services/backupContents.ts`; ein neuer Bereich, der dort fehlt, lässt
+  `npm run check` mit der Meldung fehlschlagen, welcher es ist. Ein vergessener
+  Bereich ist damit kein stiller Datenverlust mehr.
+- **Vor dem Einspielen wird gefragt.** Bisher genügte es, eine Datei auf den
+  Anmeldebildschirm zu ziehen — der gesamte Bestand war ersetzt, ohne Rückfrage
+  und ohne Weg zurück. Jetzt zeigt ein Dialog Verein, Datum und einen Abgleich
+  je Bereich (in der Datei / hier vorhanden / wird überschrieben) und verlangt
+  eine ausdrückliche Bestätigung.
+- **Zwei Importarten:** *alles ersetzen* (Umzug, Wiederherstellung) oder *nur
+  Fehlendes ergänzen* — dabei bleibt Vorhandenes unangetastet, und aus der Datei
+  kommt nur hinzu, was es hier noch nicht gibt. Benutzerkonten aus der Datei
+  bleiben draußen, wenn Kennung oder Anmeldename hier schon vergeben sind.
+- **Automatische Sicherheitskopie** des bisherigen Bestands vor jedem Import.
+  Sie liegt in einer eigenen Datenbank und ist über Einstellungen →
+  Datensicherung zurückholbar. Schlägt sie fehl, sagt die Erfolgsmeldung das.
+- **Bereiche, die in der Datei gar nicht vorkommen, bleiben unangetastet.** Eine
+  ältere Sicherung löscht damit nichts, was sie noch nicht kannte.
+- **Im Cloud-Betrieb ist der Reiter „Importieren" verschwunden.** Dort schrieb
+  er nur in die Browser-Datenbank, die beim nächsten Laden ohnehin von Supabase
+  überschrieben wurde — eine Erfolgsmeldung ohne Wirkung.
+- Dieselbe Bestätigung gilt jetzt auch für den Import unter Einstellungen →
+  Datensicherung; die knappe Rückfrage „Fortfahren?" entfällt.
+
+### 📦 Bundle-Größe gemessen und bewusst so belassen
+
+- **Gemessen am 19.09.2026:** Hauptbrocken 3.210 kB, nach Komprimierung 780 kB.
+  Mit Stilen, Bild und Startseite rund 1,0 MB über die Leitung.
+- **Keine Aufteilung in nachgeladene Teile.** Die Anwendung läuft am Rechner im
+  Haus, meist im eigenen Netz; das Megabyte fällt einmal beim ersten Aufruf an.
+  Die PDF-Bibliothek und ganze Programmteile nachzuladen, zöge sich durch neun
+  Dateien und jeden PDF-Weg — viel Verwicklung für einen Gewinn, den dort
+  niemand bemerkt.
+- **Stolperdraht statt Dauerwarnung:** `chunkSizeWarningLimit` steht jetzt knapp
+  über dem gemessenen Stand. Vites Vorgabe von 500 kB meldete sich bei jedem Bau
+  und war nur noch Rauschen. Wächst der Brocken spürbar, meldet sie sich wieder.
+- **Das Paket `motion` ist entfernt.** Es stand in der Paketliste, wurde aber von
+  keiner Datei importiert und landete deshalb ohnehin nie im Bundle. Es
+  verlängerte nur jedes `npm install` und den Docker-Bau.
+
+### 🧹 Die letzten beiden `exhaustive-deps`-Warnungen sind weg
+
+- **`App.tsx`** und **`ApplicationPdfImporterModal`** hielten jeweils eine
+  Funktion fest, die bei jedem Rendern neu entsteht — in einem Effekt bzw.
+  einer Merkfunktion, die genau einmal eingerichtet werden darf. Beide
+  arbeiteten damit dauerhaft mit dem Stand des allerersten Rendervorgangs.
+- Gelöst über eine Referenz, die immer auf die aktuelle Fassung zeigt. Sie ist
+  selbst unveränderlich und gehört deshalb in keine Abhängigkeitsliste. Die
+  Abhängigkeitsliste stimmt jetzt, ohne dass der Effekt mehrfach läuft.
+- **Unverändert bleiben die fünf Warnungen** in `ContactFormModal`,
+  `DonationFormModal`, `InvoiceFormModal`, `MemberFormModal` und
+  `MemberDetailsDrawer`. Dort füllen die Effekte Formulare beim Öffnen vor;
+  nähme man die geforderten Abhängigkeiten auf, liefen sie bei jedem
+  Tastendruck erneut und überschrieben das gerade Eingetippte. Aus einer
+  Warnung würde ein echter Fehler.
+
+### ☁️ Vereinsstammdaten gingen im Cloud-Betrieb verloren — behoben
+
+- **Von 29 Feldern wurden nur 13 nach Supabase übertragen.** Vorstandsmitglieder,
+  Vereinslogo, Anschrift als Objekt, Telefon, Web-Adresse, Finanzamt,
+  Freistellungsdaten, geförderte Zwecke, Währung, Datums- und
+  Geschäftsjahresangaben sowie sämtliche KI-Einstellungen fehlten in der
+  Zuordnung. Sie wurden beim Speichern verworfen und beim nächsten Laden auch
+  örtlich überschrieben — ohne Fehlermeldung.
+- **Die Zuordnung steht jetzt an einer Stelle** (`src/services/settingsMapping.ts`)
+  und ist über den Typ `Record<SynchronisierteFelder, string>` abgesichert: Ein
+  neues Feld in `ClubSettings`, das dort fehlt, lässt `npm run check`
+  fehlschlagen — statt still Daten zu verlieren.
+- **Beim Laden wird jetzt zusammengeführt statt ersetzt.** Was die Cloud nicht
+  führt, bleibt örtlich erhalten.
+- **Die Spalte `address` ist jetzt JSONB.** Die Vereinsanschrift darf als Text
+  oder als strukturiertes Objekt vorliegen; in der bisherigen TEXT-Spalte wurde
+  aus dem Objekt „[object Object]".
+- **Hell/Dunkel wird bewusst nicht synchronisiert** — die Einstellung gehört zum
+  Gerät, nicht zum Verein.
+- **`supabase_schema.sql` rüstet bestehende Datenbanken nach.** Der neue
+  Abschnitt 1b lässt sich gefahrlos mehrfach ausführen; er ergänzt die fehlenden
+  Spalten, stellt `address` um und entfernt etwaige SMTP-Spalten aus früheren
+  Fassungen. Geprüft gegen PostgreSQL 16: Eine nachgerüstete und eine frisch
+  angelegte Datenbank haben danach denselben Aufbau.
+- **Die öffentliche Vereinsauskunft `vm_public_club_info()`** setzte bei
+  fehlender Anschrift einen leeren Text ein. Mit der JSONB-Spalte ist das kein
+  gültiges JSON — die gesamte Schema-Datei brach an dieser Stelle ab. Korrigiert
+  und gegen PostgreSQL 16 geprüft: Die Datei läuft vollständig durch (24
+  Tabellen, 13 Funktionen), und die Auskunft liefert die Anschrift als Text, als
+  Objekt und bei fehlendem Datensatz jeweils korrekt.
+
+### 🔑 Die /api-Endpunkte verlangen einen Ausweis
+
+- **Bisher konnte sie jeder aufrufen, der die Adresse kannte.** Wer einen im
+  Internet erreichbaren Server fand, konnte über das Postfach des Vereins Mails
+  verschicken oder auf dessen Rechnung KI-Anfragen stellen. Die Ratenbegrenzung
+  begrenzte den Schaden, verhinderte ihn nicht.
+- **Zwei anerkannte Ausweise, einer genügt:**
+  - Der *Zugriffsschlüssel dieser Installation*. Er entsteht beim ersten Start
+    von selbst und wird in der Startausgabe angezeigt. Im Lokalbetrieb übergibt
+    ihn das Startskript automatisch an den Browser (`…#zugriff=…`), sodass
+    niemand etwas eintragen muss. Ein eigener Wert lässt sich über
+    `VM_ACCESS_KEY` vorgeben.
+  - Das *Anmeldetoken aus dem Cloud-Betrieb*. Sind `SUPABASE_URL` und
+    `SUPABASE_ANON_KEY` auch dem Server bekannt, prüft er das Token bei
+    Supabase nach; die normale Anmeldung in der App genügt dann.
+- **Neue Maske** unter *Einstellungen → Allgemein*: im Normalfall eine
+  einzeilige Bestätigung, bei fehlendem Zugriff eine Karte mit Eingabefeld und
+  der Erklärung, wo der Schlüssel zu finden ist.
+- **Die Statusseite `/api/health` bleibt offen**, damit die Überwachung des
+  Docker-Containers weiter funktioniert. Sie verrät nichts außer „Server läuft".
+- **Nicht betroffen:** das öffentliche Aufnahmeformular und die
+  Mitgliederbefragung. Beide sprechen direkt mit Supabase und haben dort ihre
+  eigenen Schutzregeln.
+
+### 🔐 SMTP-Zugangsdaten liegen nicht mehr in den Vereinsdaten
+
+- **Das Passwort zum Postfach wandert auf den Server.** Bisher stand es im
+  Klartext in den Vereinsstammdaten. Damit lag es in der Browser-Datenbank
+  jedes Geräts, in **jeder Datensicherung** und ging bei **jedem Versand** über
+  die Leitung. Jetzt liegt es in der Konfiguration der jeweiligen Installation
+  (Ordner `daten/`, im Docker-Betrieb das Volume `vereinsmanager_daten`),
+  verschlüsselt mit AES-256-GCM. Der Schlüssel dazu liegt in einer eigenen
+  Datei; beide sind nur für den Besitzer lesbar.
+- **Die Oberfläche kann das Passwort nur noch setzen, nicht lesen.** Vom Server
+  kommt lediglich die Auskunft, ob eines hinterlegt ist.
+- **Neue Endpunkte:** `GET`, `POST` und `DELETE` auf `/api/smtp/config`.
+  `POST /api/smtp/test` und `POST /api/meetings/send-email` nehmen keine
+  Zugangsdaten mehr entgegen, sondern verwenden die hinterlegten. Damit lässt
+  sich der Server nicht mehr auf einen fremden Mailserver zeigen und das
+  Passwort des Vereins dort abliefern.
+- **Beim ersten Start nach dem Update** werden die alten SMTP-Felder aus den
+  gespeicherten Vereinsstammdaten entfernt — auch beim Einspielen einer alten
+  Datensicherung. Die Zugangsdaten sind **einmalig neu einzutragen**; das
+  Passwort wird bewusst nicht übernommen.
+
+### 🐛 Behoben
+
+- **Der Mailversand meldete Erfolg, ohne etwas zu versenden.** Waren keine
+  SMTP-Zugangsdaten hinterlegt, erschien eine grüne Bestätigung
+  („Versandauftrag erfasst"), obwohl keine einzige Nachricht das Haus verlassen
+  hatte. Bei einer Einladung zur Mitgliederversammlung kann das die Ladungsfrist
+  betreffen und die Versammlung anfechtbar machen. Jetzt meldet die Anwendung
+  einen klaren Fehlschlag und weist auf den Versand über das lokale
+  E-Mail-Programm hin.
+- **Das Zertifikat des Mailservers wurde nicht geprüft** (`rejectUnauthorized:
+  false`). Damit konnte sich jemand im selben Netz zwischen Server und
+  Mailanbieter schieben und das Passwort mitlesen. Die Prüfung ist jetzt
+  eingeschaltet. Mailserver im eigenen Haus mit selbst ausgestelltem Zertifikat
+  brauchen `VM_SMTP_ALLOW_SELF_SIGNED=true`.
+
+---
+
 ## [v1.2.3] - 2026-09-14
 
 ### 🚀 Neue Features & Verbesserungen

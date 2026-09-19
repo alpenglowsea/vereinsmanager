@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { Meeting, Member, ClubSettings, MeetingTemplateSettings } from '../types';
 import { MeetingPdfService } from '../services/meetingPdfService';
+import { SmtpConfigService, SmtpConfigPublic } from '../services/smtpConfigService';
+import { apiFetch } from '../services/apiClient';
 
 interface MeetingEmailModalProps {
   isOpen: boolean;
@@ -99,7 +101,10 @@ export const MeetingEmailModal: React.FC<MeetingEmailModalProps> = ({
   }, [meeting, members]);
 
   const [recipients, setRecipients] = useState<RecipientOption[]>(initialRecipients);
-  const [searchFilter, setSearchFilter] = useState('');
+  // Kein Bedienelement vorhanden: Der Wert steht beim Öffnen fest und lässt
+  // sich nicht ändern. Die Änderungsfunktion ist deshalb entfernt — sie zu
+  // behalten täuschte eine Einstellmöglichkeit vor, die es nicht gibt.
+  const [searchFilter] = useState('');
   const [subject, setSubject] = useState('');
   const [bodyText, setBodyText] = useState('');
   const [pdfBase64, setPdfBase64] = useState<string | null>(null);
@@ -107,6 +112,22 @@ export const MeetingEmailModal: React.FC<MeetingEmailModalProps> = ({
   const [isSendingDirect, setIsSendingDirect] = useState(false);
   const [sendSuccessMessage, setSendSuccessMessage] = useState<string | null>(null);
   const [sendErrorMessage, setSendErrorMessage] = useState<string | null>(null);
+  // Die Zugangsdaten zum Postfach liegen auf dem Server. Hier kommt nur die
+  // Auskunft an, ob und womit versendet werden kann — nie das Passwort.
+  const [smtpStatus, setSmtpStatus] = useState<SmtpConfigPublic | null>(null);
+
+  // Beim Öffnen einmal den Stand vom Server holen. Bewusst ohne weitere
+  // Abhängigkeiten: Der Aufruf soll genau einmal je Öffnen laufen.
+  useEffect(() => {
+    if (!isOpen) return;
+    let abgebrochen = false;
+    SmtpConfigService.load().then(konfiguration => {
+      if (!abgebrochen) setSmtpStatus(konfiguration);
+    });
+    return () => {
+      abgebrochen = true;
+    };
+  }, [isOpen]);
 
   // Generate initial subject & body template
   useEffect(() => {
@@ -294,24 +315,18 @@ ${clubName}`
     try {
       const filename = `${isInvitation ? 'Einladung' : 'Protokoll'}_${meeting.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
 
-      const response = await fetch('/api/meetings/send-email', {
+      const response = await apiFetch('/api/meetings/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recipients: selectedRecipients.map(r => ({ email: r.email, name: r.name })),
           subject,
           bodyText,
-          senderName: clubSettings?.smtpFromName || clubSettings?.clubName || 'VereinsManager',
-          senderEmail: clubSettings?.smtpFromEmail || clubSettings?.email || 'vorstand@tsv-musterstadt1890.de',
-          smtpConfig: {
-            host: clubSettings?.smtpHost,
-            port: clubSettings?.smtpPort,
-            secure: clubSettings?.smtpSecure,
-            user: clubSettings?.smtpUser,
-            password: clubSettings?.smtpPassword,
-            fromEmail: clubSettings?.smtpFromEmail || clubSettings?.email,
-            fromName: clubSettings?.smtpFromName || clubSettings?.clubName
-          },
+          // Absenderangaben nur noch als Rückfalloption: Sind auf dem Server
+          // eigene hinterlegt, haben die Vorrang. Zugangsdaten schickt die
+          // Oberfläche überhaupt nicht mehr mit — die kennt sie nicht.
+          senderName: clubSettings?.clubName || 'VereinsManager',
+          senderEmail: clubSettings?.email || 'vorstand@tsv-musterstadt1890.de',
           meetingTitle: meeting.title,
           meetingDate: meeting.date,
           dispatchType: mode,
@@ -393,20 +408,26 @@ ${clubName}`
             <Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" />
             <span>
               Ausgangsserver:{' '}
-              {clubSettings?.smtpHost ? (
+              {smtpStatus?.configured ? (
                 <span className="font-semibold text-slate-800">
-                  {clubSettings.smtpHost}:{clubSettings.smtpPort || (clubSettings.smtpSecure ? 465 : 587)} ({clubSettings.smtpUser || clubSettings.smtpFromEmail || clubSettings.email})
+                  {smtpStatus.host}:{smtpStatus.port} ({smtpStatus.user || smtpStatus.fromEmail || clubSettings?.email})
                 </span>
               ) : (
                 <span className="text-amber-700 font-medium">
-                  Standard-Relay (Eigener SMTP-Server in Vereinsstammdaten konfigurierbar)
+                  Nicht eingerichtet — Zugangsdaten unter Einstellungen → Vereinsstammdaten hinterlegen
                 </span>
               )}
             </span>
           </div>
-          {clubSettings?.smtpHost && (
-            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md text-[10px] font-bold">
-              SMTP aktiv
+          {smtpStatus?.configured && (
+            <span
+              className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                smtpStatus.hasPassword
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : 'bg-amber-100 text-amber-800'
+              }`}
+            >
+              {smtpStatus.hasPassword ? 'SMTP aktiv' : 'Passwort fehlt'}
             </span>
           )}
         </div>

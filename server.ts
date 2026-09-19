@@ -1,6 +1,21 @@
 import express from "express";
+import compression from "compression";
 import path from "path";
-import { createServer as createViteServer } from "vite";
+import fs from "node:fs";
+import crypto from "node:crypto";
+import { RateLimiter } from "./src/utils/rateLimit";
+import {
+  readSmtpConfigPublic,
+  readSmtpCredentials,
+  writeSmtpConfig,
+  deleteSmtpConfig,
+  readAccessKey,
+} from "./src/server/instanceConfig";
+import {
+  ZUGRIFF_HEADER,
+  pruefeZugriff,
+  erstelleCloudPruefer,
+} from "./src/server/apiAuth";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
@@ -11,6 +26,165 @@ const app = express();
 // Port aus der Umgebung übernehmen (z. B. in Docker oder hinter einem
 // Reverse-Proxy), sonst 3000 als Standard.
 const PORT = Number(process.env.PORT) || 3000;
+
+// Hinter einem Reverse-Proxy (Traefik, nginx, Synology-Portalanmeldung)
+// steht die Adresse des Besuchers im Kopf "X-Forwarded-For"; ohne diese
+// Zeile sähe der Server nur immer wieder die Adresse des Proxys. Die "1"
+// bedeutet: genau einem vorgelagerten Proxy wird geglaubt. Das wird für
+// die geplante Ratenbegrenzung des öffentlichen Aufnahmeformulars
+// gebraucht — sonst würde entweder jeder oder niemand ausgebremst.
+app.set("trust proxy", 1);
+
+// Antworten unterwegs komprimieren. Das fertige Browser-Bundle ist
+// mehrere Megabyte groß und schrumpft dabei auf etwa ein Drittel. Früher
+// hat das der nginx im Container übernommen, den es nicht mehr gibt.
+app.use(compression());
+
+// Sicherheitskopfzeilen für alle Antworten.
+app.use((_req, res, next) => {
+  // Keine geratenen Dateitypen: Eine hochgeladene Datei, die wie ein
+  // Bild aussieht, darf nicht als Skript ausgeführt werden.
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  // Nicht in fremde Seiten einbetten lassen (Schutz vor Clickjacking).
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  // Beim Klick auf einen Link nach außen nicht die vollständige
+  // aufgerufene Adresse mitgeben — die kann Mitgliedsnummern enthalten.
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  next();
+});
+
+// ---------------------------------------------------------------------------
+// Ratenbegrenzung
+// ---------------------------------------------------------------------------
+//
+// Keiner der /api-Endpunkte verlangt eine Anmeldung. Stellt ein Verein
+// seinen Server ins Internet, kann ihn jeder aufrufen, der die Adresse
+// kennt. Drei Stufen, nach dem, was ein Missbrauch jeweils kostet:
+//
+//   allgemein — schützt den Server davor, unter Last zusammenzubrechen
+//   teuer     — KI-Aufrufe. Jeder einzelne kostet den Verein bares Geld
+//               über seinen API-Schlüssel.
+//   post      — E-Mail-Versand. Missbrauch bedeutet hier, dass im Namen
+//               des Vereins Nachrichten verschickt werden. Das kostet
+//               nicht nur Geld, sondern den Ruf der Absenderadresse.
+//
+// Die Zahlen sind so gewählt, dass normale Arbeit nicht auffällt: Wer
+// zwanzig Belege hintereinander einscannt, bleibt unter 30 je Stunde.
+const MINUTE = 60_000;
+const STUNDE = 60 * MINUTE;
+
+const bremseAllgemein = new RateLimiter({ limit: 120, windowMs: 5 * MINUTE });
+const bremseTeuer     = new RateLimiter({ limit: 30,  windowMs: STUNDE });
+const bremsePost      = new RateLimiter({ limit: 20,  windowMs: STUNDE });
+const bremseMeldung   = new RateLimiter({ limit: 5,   windowMs: STUNDE });
+
+// Die Kennung des Absenders. Hinter einem Reverse-Proxy liefert
+// req.ip dank "trust proxy" oben die echte Adresse des Aufrufers.
+// Sie wird nur im Arbeitsspeicher gezählt und nirgends gespeichert.
+const absender = (req: express.Request): string => req.ip || "unbekannt";
+
+const bremse =
+  (limiter: RateLimiter, was: string) =>
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const ergebnis = limiter.check(absender(req));
+    if (ergebnis.allowed) {
+      next();
+      return;
+    }
+    res.setHeader("Retry-After", String(ergebnis.retryAfterSeconds));
+    // 429 ist der dafür vorgesehene Statuscode. Wichtig, dass es nicht 500
+    // ist: Sonst hielte der Betreiber eine wirksame Bremse für einen Defekt.
+    res.status(429).json({
+      success: false,
+      error: `Zu viele Anfragen (${was}). Bitte in ${Math.ceil(
+        ergebnis.retryAfterSeconds / 60
+      )} Minute(n) noch einmal versuchen.`,
+      retryAfterSeconds: ergebnis.retryAfterSeconds,
+    });
+  };
+
+// Gilt für alles unter /api. Die Statusseite ist ausgenommen: Docker fragt
+// sie alle 30 Sekunden ab, und eine Bremse, die den eigenen Healthcheck
+// aussperrt, würde den Container in eine Neustartschleife schicken.
+app.use("/api", (req, res, next) => {
+  if (req.path === "/health") {
+    next();
+    return;
+  }
+  bremse(bremseAllgemein, "allgemein")(req, res, next);
+});
+
+// ---------------------------------------------------------------------------
+// Zugriffsschutz
+// ---------------------------------------------------------------------------
+//
+// Steht vor dem Einlesen des Anfragekörpers: Ein fremder Aufruf soll nicht
+// erst 50 MB Anhang hochladen dürfen, bevor er abgewiesen wird.
+//
+// Die Statusseite bleibt offen — Docker fragt sie alle 30 Sekunden ab und
+// kann keinen Schlüssel mitschicken. Sie verrät nichts außer "Server läuft".
+//
+// Einzelheiten zu den zwei anerkannten Ausweisen: src/server/apiAuth.ts
+
+const zugriffsschluessel = (() => {
+  try {
+    return readAccessKey();
+  } catch (fehler) {
+    // Lässt sich der Schlüssel nicht ablegen (etwa weil das Datenverzeichnis
+    // nicht beschreibbar ist), läuft der Server mit einem flüchtigen weiter,
+    // statt gar nicht zu starten. Er ändert sich dann bei jedem Neustart.
+    console.error(
+      "Der Zugriffsschlüssel konnte nicht gespeichert werden. Der Server " +
+        "arbeitet mit einem flüchtigen Schlüssel weiter, der sich bei jedem " +
+        "Neustart ändert. Abhilfe: VM_ACCESS_KEY setzen oder dafür sorgen, " +
+        "dass das Verzeichnis aus VM_DATA_DIR beschreibbar ist.",
+      fehler
+    );
+    return {
+      key: crypto.randomBytes(16).toString("hex"),
+      quelle: "datei" as const,
+      neuErzeugt: true,
+    };
+  }
+})();
+
+// Für die Prüfung von Supabase-Anmeldetoken braucht der Server eigene Werte.
+// Die VITE_-Variablen helfen hier nicht: Die werden beim Bauen in das
+// Browser-JavaScript geschrieben und existieren im Serverprozess nicht.
+const cloudPruefer = erstelleCloudPruefer(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
+
+app.use("/api", (req, res, next) => {
+  if (req.path === "/health") {
+    next();
+    return;
+  }
+
+  pruefeZugriff(
+    {
+      zugriffsschluessel: req.headers[ZUGRIFF_HEADER],
+      authorization: req.headers.authorization,
+    },
+    zugriffsschluessel.key,
+    cloudPruefer
+  )
+    .then((ergebnis) => {
+      if (ergebnis.erlaubt) {
+        next();
+        return;
+      }
+      res.status(401).json({
+        success: false,
+        error: ergebnis.grund,
+        // Daran erkennt die Oberfläche den Fall und kann gezielt nach dem
+        // Zugriffsschlüssel fragen, statt nur einen Fehler anzuzeigen.
+        code: "ZUGRIFF_VERWEIGERT",
+      });
+    })
+    .catch(next);
+});
 
 // Body parser for JSON and large payloads (PDF / Image Base64)
 app.use(express.json({ limit: "50mb" }));
@@ -53,7 +227,7 @@ app.get("/api/health", (req, res) => {
  * POST /api/submit-bugreport
  * Directly submits a bug report / support ticket to vereinsmanager@ik.me without needing an external mail program.
  */
-app.post("/api/submit-bugreport", async (req, res) => {
+app.post("/api/submit-bugreport", bremse(bremseMeldung, "Fehlermeldung"), async (req, res) => {
   try {
     const {
       subject,
@@ -109,7 +283,6 @@ app.post("/api/submit-bugreport", async (req, res) => {
     });
 
     let sentSuccessfully = false;
-    let transportMethod = "direct_inapp";
 
     // Attempt direct email delivery via FormSubmit HTTP API to vereinsmanager@ik.me
     try {
@@ -156,7 +329,7 @@ app.post("/api/submit-bugreport", async (req, res) => {
  * Validates whether an AI API key or connection is active and functional
  * Supports Google Gemini, OpenAI, Anthropic Claude, and Custom / Local OpenAI-compatible endpoints.
  */
-app.post(["/api/test-ai-key", "/api/test-gemini-key"], async (req, res) => {
+app.post(["/api/test-ai-key", "/api/test-gemini-key"], bremse(bremseTeuer, "KI"), async (req, res) => {
   try {
     const { apiKey, provider = "gemini", model, baseUrl } = req.body;
 
@@ -298,7 +471,7 @@ app.post(["/api/test-ai-key", "/api/test-gemini-key"], async (req, res) => {
  * Intelligent categorization of transactions according to German Non-Profit Tax Law (§§ 51 ff. AO)
  * and DATEV Standardkontenrahmen für Vereine (SKR 42).
  */
-app.post("/api/categorize-booking", async (req, res) => {
+app.post("/api/categorize-booking", bremse(bremseTeuer, "KI"), async (req, res) => {
   try {
     const { description, bookingText, partner, amount, type, userApiKey, aiProvider = "gemini", aiModel, aiBaseUrl } = req.body;
 
@@ -497,7 +670,7 @@ Gib ausschließlich valides JSON mit diesem Format aus:
  * Analyzes a scanned / photographed / digital membership application (PDF or image)
  * and extracts all form fields, signatures, and checkboxes using Gemini 3.7 Flash multimodal vision.
  */
-app.post("/api/scan-application-pdf", async (req, res) => {
+app.post("/api/scan-application-pdf", bremse(bremseTeuer, "KI"), async (req, res) => {
   try {
     const { fileDataUrl, mimeType, fileName, userApiKey } = req.body;
 
@@ -687,7 +860,7 @@ Falls ein Feld nicht auf dem Dokument steht oder unleserlich ist, setze einen le
  * Analyzes uploaded notes (PDF, JPEG, PNG, WEBP) such as handwritten notes, whiteboard photos,
  * printed drafts, or scanned minutes and structures them into a complete meeting protocol with TOPs and resolutions.
  */
-app.post("/api/meetings/analyze-notes", async (req, res) => {
+app.post("/api/meetings/analyze-notes", bremse(bremseTeuer, "KI"), async (req, res) => {
   try {
     const { fileDataUrl, mimeType, fileName, meetingContext, userApiKey } = req.body;
 
@@ -870,7 +1043,7 @@ Falls bestimmte Angaben auf den Notizen nicht vorhanden sind, ergänze sinnvolle
  * Transcribes and analyzes audio recordings (Vorstandssitzungen, Ausschüsse, etc.)
  * Strictly forbidden for Mitgliederversammlungen (general_assembly, extraordinary_assembly) for privacy reasons.
  */
-app.post("/api/meetings/analyze-audio", async (req, res) => {
+app.post("/api/meetings/analyze-audio", bremse(bremseTeuer, "KI"), async (req, res) => {
   try {
     const { audioDataUrl, mimeType, fileName, meetingContext, userApiKey } = req.body;
 
@@ -1035,7 +1208,7 @@ AUFGABE:
  * - suggest_agenda: proposes structured agenda based on meeting purpose
  * - summarize_meeting: generates an executive summary
  */
-app.post("/api/meetings/ai-assist", async (req, res) => {
+app.post("/api/meetings/ai-assist", bremse(bremseTeuer, "KI"), async (req, res) => {
   try {
     const { action, input, context, userApiKey } = req.body;
 
@@ -1181,51 +1354,171 @@ Gib eine Liste strukturierter Tagesordnungspunkte (TOP 1, TOP 2, ...) mit Titel 
   }
 });
 
+// ---------------------------------------------------------------------------
+// SMTP-Zugangsdaten
+// ---------------------------------------------------------------------------
+//
+// Die Zugangsdaten zum Postfach des Vereins liegen auf dem Server, nicht in
+// den Vereinsstammdaten. Damit stehen sie weder in der IndexedDB des Browsers
+// noch in einer Datensicherung, und sie gehen bei keinem Versand über die
+// Leitung. Einzelheiten in src/server/instanceConfig.ts.
+//
+// Das Passwort bewegt sich nur in eine Richtung: Es kommt beim Speichern
+// herein und wird nie wieder herausgegeben.
+
 /**
- * POST /api/smtp/test
- * Testet die Verbindung zu einem angegebenen SMTP-Server und validiert die Anmeldedaten.
+ * Baut den Versandweg zum Mailserver auf. Eine Stelle für Test und Versand,
+ * damit getestet wird, was später auch tatsächlich verschickt wird.
+ *
+ * Zu rejectUnauthorized: Voreingestellt ist die Prüfung des Zertifikats. Ein
+ * Mailserver im eigenen Haus hat manchmal ein selbst ausgestelltes Zertifikat,
+ * das keine Prüfstelle bestätigt. Für diesen Fall — und nur für ihn — gibt es
+ * VM_SMTP_ALLOW_SELF_SIGNED=true. Ohne Prüfung könnte sich jemand im selben
+ * Netz zwischen Server und Mailanbieter schieben und das Passwort mitlesen.
  */
-app.post("/api/smtp/test", async (req, res) => {
+function createSmtpTransport(zugangsdaten: {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  password: string;
+}) {
+  const selbstSigniertErlaubt = process.env.VM_SMTP_ALLOW_SELF_SIGNED === "true";
+  return nodemailer.createTransport({
+    host: zugangsdaten.host,
+    port: zugangsdaten.port,
+    secure: zugangsdaten.secure || zugangsdaten.port === 465,
+    auth: zugangsdaten.user
+      ? {
+          user: zugangsdaten.user,
+          pass: zugangsdaten.password,
+        }
+      : undefined,
+    tls: {
+      rejectUnauthorized: !selbstSigniertErlaubt,
+    },
+    connectionTimeout: 15000,
+    greetingTimeout: 10000,
+  });
+}
+
+/**
+ * GET /api/smtp/config
+ * Auskunft über die hinterlegten Zugangsdaten — ohne das Passwort. Ob eines
+ * hinterlegt ist, verrät das Feld hasPassword.
+ */
+app.get("/api/smtp/config", (_req, res) => {
   try {
-    const { host, port, secure, user, password, fromEmail, testRecipient } = req.body;
-    if (!host || typeof host !== "string" || !host.trim()) {
-      return res.status(400).json({ success: false, error: "Kein SMTP-Host angegeben (z.B. smtp.ionos.de)." });
+    return res.json({ success: true, config: readSmtpConfigPublic() });
+  } catch (error: any) {
+    console.error("Fehler beim Lesen der SMTP-Konfiguration:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Die hinterlegten Zugangsdaten konnten nicht gelesen werden.",
+    });
+  }
+});
+
+/**
+ * POST /api/smtp/config
+ * Speichert die Zugangsdaten.
+ *
+ * Fehlt das Feld "password", bleibt ein hinterlegtes Passwort unverändert.
+ * Das ist der Normalfall, denn die Oberfläche kennt es nicht und kann es
+ * folglich nicht mitschicken. Ein leerer Text entfernt das Passwort.
+ */
+app.post("/api/smtp/config", bremse(bremsePost, "E-Mail"), (req, res) => {
+  try {
+    const { host, port, secure, user, fromEmail, fromName, password } = req.body ?? {};
+
+    if (typeof host !== "string" || !host.trim()) {
+      return res.status(400).json({ success: false, error: "Kein SMTP-Host angegeben (z. B. smtp.ionos.de)." });
+    }
+    const portNum = Number(port) || (secure ? 465 : 587);
+    if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535) {
+      return res.status(400).json({ success: false, error: "Der Port muss eine ganze Zahl zwischen 1 und 65535 sein." });
+    }
+    if (password !== undefined && password !== null && typeof password !== "string") {
+      return res.status(400).json({ success: false, error: "Ungültige Angabe beim Passwort." });
     }
 
-    const hostTrimmed = host.trim();
-    const portNum = Number(port) || (secure ? 465 : 587);
-    const isSecure = Boolean(secure) || portNum === 465;
-
-    const transporter = nodemailer.createTransport({
-      host: hostTrimmed,
+    const config = writeSmtpConfig({
+      host,
       port: portNum,
-      secure: isSecure,
-      auth: user?.trim() ? {
-        user: user.trim(),
-        pass: password || "",
-      } : undefined,
-      tls: {
-        rejectUnauthorized: false,
-      },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
+      secure: Boolean(secure) || portNum === 465,
+      user: typeof user === "string" ? user : "",
+      fromEmail: typeof fromEmail === "string" ? fromEmail : "",
+      fromName: typeof fromName === "string" ? fromName : "",
+      password,
     });
 
+    // Bewusst ohne Passwort im Protokoll.
+    console.info(
+      `SMTP-Zugangsdaten gespeichert: ${config.host}:${config.port}, Passwort hinterlegt: ${config.hasPassword ? "ja" : "nein"}`
+    );
+    return res.json({ success: true, config });
+  } catch (error: any) {
+    console.error("Fehler beim Speichern der SMTP-Konfiguration:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Die Zugangsdaten konnten nicht gespeichert werden.",
+    });
+  }
+});
+
+/**
+ * DELETE /api/smtp/config
+ * Entfernt die Zugangsdaten vollständig. Der Schlüssel bleibt liegen.
+ */
+app.delete("/api/smtp/config", bremse(bremsePost, "E-Mail"), (_req, res) => {
+  try {
+    const config = deleteSmtpConfig();
+    console.info("SMTP-Zugangsdaten entfernt.");
+    return res.json({ success: true, config });
+  } catch (error: any) {
+    console.error("Fehler beim Entfernen der SMTP-Konfiguration:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Die Zugangsdaten konnten nicht entfernt werden.",
+    });
+  }
+});
+
+/**
+ * POST /api/smtp/test
+ * Prüft die auf dem Server hinterlegten Zugangsdaten. Es werden keine
+ * Zugangsdaten entgegengenommen — geprüft wird genau das, was später auch
+ * beim Versand verwendet wird. Optional geht eine echte Testnachricht raus.
+ */
+app.post("/api/smtp/test", bremse(bremsePost, "E-Mail"), async (req, res) => {
+  try {
+    const { testRecipient } = req.body ?? {};
+    const zugangsdaten = readSmtpCredentials();
+
+    if (!zugangsdaten) {
+      return res.status(400).json({
+        success: false,
+        error: "Es sind noch keine SMTP-Zugangsdaten hinterlegt. Bitte zuerst speichern, dann testen.",
+      });
+    }
+
+    const transporter = createSmtpTransport(zugangsdaten);
     await transporter.verify();
 
     if (testRecipient && typeof testRecipient === "string" && testRecipient.includes("@")) {
-      const senderAddr = fromEmail?.trim() || user?.trim() || "noreply@vereinsmanager.app";
+      const senderAddr = zugangsdaten.fromEmail || zugangsdaten.user || "noreply@vereinsmanager.app";
       await transporter.sendMail({
         from: `"VereinsManager SMTP-Test" <${senderAddr}>`,
         to: testRecipient.trim(),
         subject: "VereinsManager: SMTP-Verbindungstest erfolgreich",
-        text: `Hallo,\n\ndiese Testnachricht bestätigt, dass Ihre SMTP-Konfiguration auf dem Server ${hostTrimmed}:${portNum} erfolgreich verbunden und authentifiziert werden konnte.\n\nSitzungseinladungen und Protokolle können ab sofort direkt aus der Anwendung versendet werden.\n\nHerzliche Grüße,\nIhr VereinsManager`,
+        text: `Hallo,\n\ndiese Testnachricht bestätigt, dass Ihre SMTP-Konfiguration auf dem Server ${zugangsdaten.host}:${zugangsdaten.port} erfolgreich verbunden und authentifiziert werden konnte.\n\nSitzungseinladungen und Protokolle können ab sofort direkt aus der Anwendung versendet werden.\n\nHerzliche Grüße,\nIhr VereinsManager`,
       });
     }
 
+    const verschluesselung = zugangsdaten.secure || zugangsdaten.port === 465 ? "SSL/TLS" : "STARTTLS";
     return res.json({
       success: true,
-      message: `Verbindung zu SMTP-Server (${hostTrimmed}:${portNum}, ${isSecure ? 'SSL/TLS' : 'STARTTLS'}) erfolgreich aufgebaut und verifiziert.`,
+      message: `Verbindung zu SMTP-Server (${zugangsdaten.host}:${zugangsdaten.port}, ${verschluesselung}) erfolgreich aufgebaut und verifiziert.`,
     });
   } catch (error: any) {
     console.error("Fehler beim SMTP-Verbindungstest:", error);
@@ -1241,7 +1534,7 @@ app.post("/api/smtp/test", async (req, res) => {
  * Versendet Sitzungseinladungen oder Protokolle per E-Mail an die Teilnehmer / Mitglieder.
  * Unterstützt echte Zustellung über SMTP (falls konfiguriert) oder liefert einen Zustellungsnachweis (DSGVO-konform mit BCC).
  */
-app.post("/api/meetings/send-email", async (req, res) => {
+app.post("/api/meetings/send-email", bremse(bremsePost, "E-Mail"), async (req, res) => {
   try {
     const {
       recipients,
@@ -1252,10 +1545,12 @@ app.post("/api/meetings/send-email", async (req, res) => {
       senderEmail,
       attachment,
       meetingTitle,
-      meetingDate,
       dispatchType,
-      smtpConfig,
     } = req.body;
+
+    // Zugangsdaten dieser Installation. Kommt hier null zurück, ist noch
+    // nichts eingerichtet.
+    const zugangsdaten = readSmtpCredentials();
 
     if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
       return res.status(400).json({ error: "Keine Empfänger für den E-Mail-Versand angegeben." });
@@ -1286,32 +1581,19 @@ app.post("/api/meetings/send-email", async (req, res) => {
       recipientCount: validRecipients.length,
       subject,
       hasAttachment: Boolean(attachment?.filename),
-      hasSmtpConfig: Boolean(smtpConfig?.host),
+      hasSmtpConfig: Boolean(zugangsdaten),
     });
 
-    // Falls SMTP konfiguriert ist, versenden wir die Mail direkt über Nodemailer
-    if (smtpConfig && smtpConfig.host && smtpConfig.host.trim()) {
+    // Die Zugangsdaten kommen aus der Serverkonfiguration, nicht mehr aus der
+    // Anfrage. Ein Aufrufer kann den Server damit nicht mehr auf einen
+    // fremden Mailserver zeigen lassen — und das Passwort des Vereins dort
+    // abliefern lassen.
+    if (zugangsdaten) {
       try {
-        const hostTrimmed = smtpConfig.host.trim();
-        const portNum = Number(smtpConfig.port) || (smtpConfig.secure ? 465 : 587);
-        const isSecure = Boolean(smtpConfig.secure) || portNum === 465;
+        const transporter = createSmtpTransport(zugangsdaten);
 
-        const transporter = nodemailer.createTransport({
-          host: hostTrimmed,
-          port: portNum,
-          secure: isSecure,
-          auth: smtpConfig.user?.trim() ? {
-            user: smtpConfig.user.trim(),
-            pass: smtpConfig.password || "",
-          } : undefined,
-          tls: {
-            rejectUnauthorized: false,
-          },
-          connectionTimeout: 15000,
-        });
-
-        const fromAddress = smtpConfig.fromEmail?.trim() || senderEmail?.trim() || "vorstand@tsv-musterstadt1890.de";
-        const fromNameStr = smtpConfig.fromName?.trim() || senderName?.trim() || "VereinsManager";
+        const fromAddress = zugangsdaten.fromEmail || senderEmail?.trim() || "vorstand@tsv-musterstadt1890.de";
+        const fromNameStr = zugangsdaten.fromName || senderName?.trim() || "VereinsManager";
         const fromHeader = `"${fromNameStr.replace(/"/g, '')}" <${fromAddress}>`;
 
         const bccList = validRecipients.map((r: any) => r.email);
@@ -1344,7 +1626,7 @@ app.post("/api/meetings/send-email", async (req, res) => {
           meetingTitle: meetingTitle || "Sitzung",
           attachmentName: attachment?.filename || null,
           method: "smtp",
-          message: `Erfolgreich über SMTP-Server (${hostTrimmed}) an ${validRecipients.length} Empfänger versendet (DSGVO-Blindkopie BCC).`,
+          message: `Erfolgreich über SMTP-Server (${zugangsdaten.host}) an ${validRecipients.length} Empfänger versendet (DSGVO-Blindkopie BCC).`,
         });
       } catch (smtpErr: any) {
         console.error("Fehler beim Versand über konfigurierten SMTP-Server:", smtpErr);
@@ -1355,17 +1637,20 @@ app.post("/api/meetings/send-email", async (req, res) => {
       }
     }
 
-    // Fallback: Wenn noch kein SMTP konfiguriert ist, wird der Auftrag im System protokolliert
-    return res.json({
-      success: true,
-      dispatchId,
-      sentCount: validRecipients.length,
-      recipients: validRecipients,
-      timestamp,
-      meetingTitle: meetingTitle || "Sitzung",
-      attachmentName: attachment?.filename || null,
-      method: "direct_relay",
-      message: `Versandauftrag erfasst: E-Mail für ${validRecipients.length} Empfänger vorbereitet (${dispatchType === "invitation" ? "Einladung" : "Protokoll"}) mit DSGVO-konformer Blindkopie (BCC). Tipp: Hinterlegen Sie Ihre SMTP-Zugangsdaten in den Vereinsstammdaten für die direkte Serverauslieferung.`,
+    // Ohne hinterlegte Zugangsdaten kann der Server nichts verschicken.
+    //
+    // Frühere Fassungen meldeten hier "Versandauftrag erfasst" und gaben
+    // success: true zurück. In der Oberfläche erschien daraufhin eine grüne
+    // Erfolgsmeldung, obwohl keine einzige Mail das Haus verlassen hatte. Bei
+    // einer Einladung zur Mitgliederversammlung kann das teuer werden: Der
+    // Vorstand hält die Ladungsfrist für gewahrt, und die Versammlung ist
+    // anfechtbar. Deshalb ist das hier jetzt ein klarer Fehlschlag.
+    return res.status(400).json({
+      success: false,
+      error:
+        "Es sind keine SMTP-Zugangsdaten hinterlegt, deshalb wurde nichts versendet. " +
+        "Bitte unter Einstellungen → Vereinsstammdaten die Zugangsdaten zum Postfach eintragen. " +
+        "Alternativ lässt sich die Nachricht über den Knopf \"Im E-Mail-Programm öffnen\" mit Thunderbird oder Outlook verschicken.",
     });
   } catch (error: any) {
     console.error("Fehler beim E-Mail-Versand:", error);
@@ -1378,22 +1663,137 @@ app.post("/api/meetings/send-email", async (req, res) => {
 
 // Vite middleware & SPA serving
 async function startServer() {
+  // Ein /api/-Aufruf, den es nicht gibt, muss als solcher erkennbar sein.
+  // Ohne diese Zeilen fiele er unten in die SPA-Weiche und bekäme die
+  // HTML-Startseite zurück; in der App käme dann die verwirrende Meldung
+  // an, die Antwort des Servers sei kein gültiges JSON. Diese Weiche muss
+  // hinter allen echten /api/-Routen und vor der Auslieferung der
+  // Oberfläche stehen.
+  app.use("/api", (req, res) => {
+    res.status(404).json({
+      success: false,
+      error: `Unbekannter Server-Endpunkt: ${req.method} ${req.originalUrl}`,
+    });
+  });
+
   if (process.env.NODE_ENV !== "production") {
+    // Vite wird bewusst erst HIER geladen und nicht oben als normaler
+    // Import. Vite ist ein reines Entwicklungswerkzeug und steckt im
+    // fertigen Container nicht mit drin. Stünde der Import oben, würde
+    // Node ihn beim Start immer ausführen — auch im Produktivbetrieb,
+    // wo es das Paket nicht gibt. Der Server käme dann gar nicht erst
+    // hoch, mit der Meldung "Cannot find module 'vite'".
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+    // Wo liegt die gebaute Oberfläche?
+    //
+    // Im Docker-Betrieb und beim Start aus dem Projektordner liegt sie unter
+    // "dist" neben dem Arbeitsverzeichnis. In der Desktop-Fassung startet der
+    // Server aber als mitgeliefertes Programm, und das Arbeitsverzeichnis ist
+    // dann unvorhersehbar. Deshalb wird zuerst neben der Server-Datei selbst
+    // gesucht und erst danach im Arbeitsverzeichnis.
+    //
+    // __dirname gibt es nur in der gebauten Fassung (esbuild erzeugt CommonJS).
+    // Beim Entwickeln mit tsx läuft die Datei als ES-Modul, dort fehlt es —
+    // deshalb die Abfrage.
+    const eigenerOrdner = typeof __dirname !== "undefined" ? __dirname : process.cwd();
+    const nebenDerServerDatei = path.join(eigenerOrdner, "dist");
+    const distPath = fs.existsSync(path.join(nebenDerServerDatei, "index.html"))
+      ? nebenDerServerDatei
+      : path.join(process.cwd(), "dist");
+
+    console.log(`Oberfläche wird ausgeliefert aus: ${distPath}`);
+
+    app.use(
+      express.static(distPath, {
+        setHeaders: (res, filePath) => {
+          // Alles in dist/assets/ trägt eine Prüfsumme im Dateinamen.
+          // Ändert sich der Inhalt, ändert sich der Name — solche
+          // Dateien darf der Browser beliebig lange behalten.
+          if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+            res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+          } else {
+            // Alles andere (vor allem index.html) jedes Mal neu
+            // erfragen. Sonst sehen Anwender nach einem Update
+            // wochenlang die alte Fassung.
+            res.setHeader("Cache-Control", "no-cache");
+          }
+        },
+      })
+    );
     app.get("*", (req, res) => {
+      res.setHeader("Cache-Control", "no-cache");
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`VereinsManager Server running on port ${PORT}`);
+  starteLauscher(PORT, 10);
+}
+
+/**
+ * Nimmt den Betrieb auf einem Port auf — und weicht aus, wenn er belegt ist.
+ *
+ * Das Ausweichen ist für die Desktop-Fassung nötig: Dort startet der Server
+ * mit dem Programm, und Port 3000 kann von etwas ganz anderem belegt sein.
+ * Ohne Ausweichen bliebe die Anwendung schwarz, und niemand wüsste warum.
+ *
+ * Die letzte Zeile der Startausgabe ist bewusst maschinenlesbar:
+ *
+ *     VM_SERVER_BEREIT http://127.0.0.1:3000
+ *
+ * Die Desktop-Fassung wartet auf genau diese Zeile, bevor sie ihr Fenster
+ * öffnet — sonst zeigte sie eine Fehlerseite, weil der Server noch startet.
+ */
+function starteLauscher(port: number, versucheUebrig: number): void {
+  const lauscher = app.listen(port, "0.0.0.0", () => {
+    console.log(`VereinsManager Server running on port ${port}`);
+
+    // Der Zugriffsschlüssel wird beim Start ausgegeben, weil es sonst keinen
+    // Weg gäbe, an ihn heranzukommen: Im Docker-Betrieb liegt die
+    // Konfigurationsdatei im Volume, und niemand öffnet dort eine Datei. Wer
+    // die Ausgabe des Servers lesen kann, hat ohnehin Zugriff auf den Server.
+    if (zugriffsschluessel.quelle === "umgebung") {
+      console.log("Zugriffsschlüssel: aus VM_ACCESS_KEY übernommen.");
+    } else {
+      console.log("");
+      console.log("  Zugriffsschlüssel dieser Installation:");
+      console.log(`      ${zugriffsschluessel.key}`);
+      console.log("");
+      console.log("  Wird beim Start über das mitgelieferte Skript automatisch an den");
+      console.log("  Browser übergeben. Nur wenn die App von einem anderen Rechner aus");
+      console.log("  geöffnet wird (Docker, NAS), ist er dort einmalig unter");
+      console.log("  Einstellungen → Allgemein einzutragen.");
+      if (zugriffsschluessel.neuErzeugt) {
+        console.log("  (soeben neu erzeugt)");
+      }
+      console.log("");
+    }
+
+    if (!cloudPruefer) {
+      console.log(
+        "Hinweis: SUPABASE_URL und SUPABASE_ANON_KEY sind auf dem Server nicht " +
+          "gesetzt. Anmeldetoken aus dem Cloud-Betrieb können deshalb nicht geprüft " +
+          "werden; es gilt allein der Zugriffsschlüssel."
+      );
+    }
+
+    // Muss die letzte Zeile sein: Die Desktop-Fassung wartet darauf.
+    console.log(`VM_SERVER_BEREIT http://127.0.0.1:${port}`);
+  });
+
+  lauscher.on("error", (fehler: NodeJS.ErrnoException) => {
+    if (fehler.code === "EADDRINUSE" && versucheUebrig > 0) {
+      console.warn(`Port ${port} ist belegt — versuche es mit ${port + 1}.`);
+      starteLauscher(port + 1, versucheUebrig - 1);
+      return;
+    }
+    console.error("Der Server konnte nicht gestartet werden:", fehler);
+    process.exit(1);
   });
 }
 

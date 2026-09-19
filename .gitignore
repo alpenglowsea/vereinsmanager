@@ -8,6 +8,13 @@ server.js
 src-tauri/target/
 src-tauri/gen/
 
+# Wird beim Bauen der Desktop-Fassung zusammengestellt (siehe
+# .github/workflows/release-desktop.yml): die Node-Laufzeitumgebung und der
+# Server samt seiner Pakete. Beides gehört nicht ins Repository — es sind
+# mehrere hundert Megabyte, die bei jedem Bau neu entstehen.
+src-tauri/binaries/
+src-tauri/server-runtime/
+
 # Tests & Werkzeuge
 coverage/
 *.tsbuildinfo
@@ -17,6 +24,11 @@ coverage/
 .env*
 !.env.example
 *.local
+
+# Konfiguration dieser einen Installation: SMTP-Zugangsdaten und der
+# Schlüssel, mit dem das Passwort darin verschlüsselt ist. Gehört
+# niemandem außer diesem Rechner und darf niemals ins Repository.
+daten/
 
 # Editor & Betriebssystem
 .DS_Store

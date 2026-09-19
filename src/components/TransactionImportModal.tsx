@@ -308,7 +308,6 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
     onClose();
   };
 
-  const accountMap = useMemo(() => new Map<string, FinancialAccount>(accounts.map(a => [a.id, a])), [accounts]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-150">
@@ -1105,7 +1104,6 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                       ) : (
                         filteredPreview.map((item) => {
                           const tx = item.transaction;
-                          const acc = accountMap.get(tx.accountId);
                           const isIncome = tx.amount >= 0;
                           const availableMain = SKR42_STRUCTURE.filter(c => c.sphere === tx.sphere && c.type === (isIncome ? 'income' : 'expense'));
                           const selectedMain = availableMain.find(c => c.name === tx.category) || availableMain[0];

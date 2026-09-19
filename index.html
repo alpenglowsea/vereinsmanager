@@ -10,9 +10,17 @@
     <meta property="og:description" content="DSGVO-konforme Vereinsverwaltung für Mitglieder, Kontaktverwaltung, Finanzen, SEPA-Lastschriften und Inventar." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400..800;1,400..800&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet" />
+    <!--
+      Bewusst KEINE Schriften von Google Fonts (oder einem anderen CDN):
+      Beim Laden würde der Browser jedes Besuchers dessen IP-Adresse an einen
+      Server in den USA übertragen. Das LG München I hat das 2022 (Az. 3 O
+      17493/20) als DSGVO-Verstoß gewertet und Schadensersatz zugesprochen.
+      Seit das Aufnahmeformular öffentlich erreichbar ist, träfe das nicht nur
+      den Vorstand, sondern jeden Interessenten, der das Formular von der
+      Vereinsseite aus öffnet. Die App verwendet deshalb ausschließlich
+      Schriften, die auf dem Gerät bereits vorhanden sind (siehe src/index.css).
+      Sie funktioniert damit auch vollständig offline.
+    -->
   </head>
   <body>
     <div id="root"></div>

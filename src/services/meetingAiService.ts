@@ -1,4 +1,5 @@
 import { MeetingType, MeetingAgendaItem, MeetingResolution } from '../types';
+import { apiFetch } from './apiClient';
 import { AiBookingService } from './aiBookingService';
 
 export interface MeetingExtractedData {
@@ -57,7 +58,7 @@ export class MeetingAiService {
 
     const userApiKey = AiBookingService.getStoredApiKey();
 
-    const response = await fetch('/api/meetings/analyze-notes', {
+    const response = await apiFetch('/api/meetings/analyze-notes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -111,7 +112,7 @@ export class MeetingAiService {
 
     const userApiKey = AiBookingService.getStoredApiKey();
 
-    const response = await fetch('/api/meetings/analyze-audio', {
+    const response = await apiFetch('/api/meetings/analyze-audio', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -145,7 +146,7 @@ export class MeetingAiService {
   ): Promise<T> {
     const userApiKey = AiBookingService.getStoredApiKey();
 
-    const response = await fetch('/api/meetings/ai-assist', {
+    const response = await apiFetch('/api/meetings/ai-assist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

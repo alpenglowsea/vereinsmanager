@@ -13,6 +13,8 @@ import {
   Meeting
 } from '../types';
 import { UserDashboardConfig, WidgetColSpan } from '../types/dashboard';
+import { PermissionArea, UserPermissions } from '../types';
+import { canEdit, canView } from '../utils/permissions';
 import { AVAILABLE_DASHBOARD_WIDGETS } from '../data/defaultDashboard';
 import { WidgetWrapper } from './DashboardWidgets/WidgetWrapper';
 import {
@@ -55,6 +57,38 @@ import {
   ArrowRight
 } from 'lucide-react';
 
+/**
+ * Welche Kachel gehört zu welchem Menüpunkt?
+ *
+ * Kacheln ohne Eintrag (Vereinskopf, Schnellzugriff) bleiben immer sichtbar;
+ * der Schnellzugriff blendet seine Knöpfe selbst nach Rechten aus.
+ */
+const WIDGET_AREA: Record<string, PermissionArea | undefined> = {
+  members_kpi: 'members',
+  departments_distribution: 'members',
+  upcoming_birthdays: 'members',
+  recent_members: 'members',
+  demographics_distribution: 'member_analytics',
+  online_applications_kpi: 'online_applications',
+  total_liquidity: 'finance',
+  annual_balance: 'finance',
+  recent_journal_transactions: 'finance',
+  cashflow_chart: 'finance_analytics',
+  wgb_limit_monitor: 'guv',
+  tax_spheres_overview: 'guv',
+  sepa_debit_monitor: 'sepa',
+  donations_summary: 'donations',
+  invoices_overview: 'invoices',
+  invoices_kpi: 'invoices',
+  contacts_summary: 'contacts',
+  contacts_kpi: 'contacts',
+  meetings_summary: 'meetings',
+  meetings_kpi: 'meetings',
+  upcoming_events: 'calendar',
+  inventory_overview: 'inventory',
+  documents_archive_kpi: 'documents'
+};
+
 interface DashboardViewProps {
   members: Member[];
   transactions: Transaction[];
@@ -81,6 +115,8 @@ interface DashboardViewProps {
   onOpenNewDocument?: () => void;
   /** Wird hochgezählt, wenn ein Termin gespeichert wurde. */
   calendarRefreshKey?: number;
+  /** Rechte des angemeldeten Benutzers. Fehlt sie, gilt Vollzugriff. */
+  userPermissions?: UserPermissions;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -107,7 +143,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenCreateEvent,
   onOpenCreateInventory,
   onOpenNewDocument,
-  calendarRefreshKey
+  calendarRefreshKey,
+  userPermissions
 }) => {
   // Widget definitions lookup
   const definitionsMap = useMemo(() => {
@@ -121,12 +158,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return (applications || []).filter((a) => a.status === 'pending');
   }, [applications]);
 
-  // Sorted enabled widgets
+  // Sorted enabled widgets — Kacheln aus gesperrten Bereichen fallen weg.
+  //
+  // Sonst stünden auf der Startseite genau die Zahlen, die der Menüpunkt
+  // daneben verweigert: Mitgliederzahl, Kontostand, offene Rechnungen.
   const enabledWidgets = useMemo(() => {
+    const perms = userPermissions;
     return [...(dashboardConfig.widgets || [])]
       .filter((w) => w.enabled)
+      .filter((w) => {
+        if (!perms) return true;
+        const area = WIDGET_AREA[w.id];
+        return !area || canView(perms, area);
+      })
       .sort((a, b) => a.order - b.order);
-  }, [dashboardConfig]);
+  }, [dashboardConfig, userPermissions]);
+
+  /** Darf der Benutzer in diesem Bereich etwas anlegen? */
+  const mayEdit = (area: PermissionArea): boolean =>
+    !userPermissions || canEdit(userPermissions, area);
 
   const hasClubHeader = useMemo(() => {
     return enabledWidgets.some((w) => w.id === 'club_header');
@@ -221,13 +271,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       case 'quick_actions':
         return (
           <QuickActionsWidget
-            onOpenCreateMember={onOpenCreateMember}
-            onOpenCreateTx={onOpenCreateTx}
-            onOpenCreateInvoice={onOpenCreateInvoice}
-            onOpenCreateContact={onOpenCreateContact}
-            onOpenCreateEvent={onOpenCreateEvent}
-            onOpenCreateInventory={onOpenCreateInventory}
-            onOpenNewDocument={onOpenNewDocument}
+            onOpenCreateMember={mayEdit('members') ? onOpenCreateMember : undefined}
+            onOpenCreateTx={mayEdit('finance') ? onOpenCreateTx : undefined}
+            onOpenCreateInvoice={mayEdit('invoices') ? onOpenCreateInvoice : undefined}
+            onOpenCreateContact={mayEdit('contacts') ? onOpenCreateContact : undefined}
+            onOpenCreateEvent={mayEdit('calendar') ? onOpenCreateEvent : undefined}
+            onOpenCreateInventory={mayEdit('inventory') ? onOpenCreateInventory : undefined}
+            onOpenNewDocument={mayEdit('documents') ? onOpenNewDocument : undefined}
           />
         );
       case 'club_header':
@@ -265,7 +315,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <InvoicesOverviewWidget
             invoices={invoices}
             onNavigate={onNavigate}
-            onOpenCreateInvoice={onOpenCreateInvoice}
+            onOpenCreateInvoice={mayEdit('invoices') ? onOpenCreateInvoice : undefined}
           />
         );
       case 'invoices_kpi':
@@ -275,7 +325,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <ContactsSummaryWidget
             contacts={contacts}
             onNavigate={onNavigate}
-            onOpenCreateContact={onOpenCreateContact}
+            onOpenCreateContact={mayEdit('contacts') ? onOpenCreateContact : undefined}
           />
         );
       case 'contacts_kpi':
@@ -285,7 +335,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <MeetingsSummaryWidget
             meetings={meetings}
             onNavigate={onNavigate}
-            onOpenCreateMeeting={onOpenCreateMeeting}
+            onOpenCreateMeeting={mayEdit('meetings') ? onOpenCreateMeeting : undefined}
           />
         );
       case 'meetings_kpi':
@@ -294,7 +344,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         return (
           <UpcomingEventsWidget
             onNavigate={onNavigate}
-            onOpenCreateEvent={onOpenCreateEvent}
+            onOpenCreateEvent={mayEdit('calendar') ? onOpenCreateEvent : undefined}
             refreshKey={calendarRefreshKey}
           />
         );
@@ -353,7 +403,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           )}
 
-          {enabledWidgets.map((widget, index) => {
+          {enabledWidgets.map((widget) => {
             const def = definitionsMap.get(widget.id);
             if (!def) return null;
 
@@ -363,8 +413,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <React.Fragment key={widget.id}>
                 <WidgetWrapper
                   id={widget.id}
-                  title={def.title}
-                  categoryLabel={def.categoryLabel}
                   colSpan={widget.colSpan}
                   isDragging={draggedWidgetId === widget.id}
                   isDragOver={dragOverWidgetId === widget.id}
@@ -374,7 +422,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   onDrop={handleDrop}
                   onRemove={() => handleRemoveWidget(widget.id)}
                   onChangeColSpan={(newSpan) => handleChangeColSpan(widget.id, newSpan)}
-                  onNavigate={() => {}}
                 >
                   {renderWidgetContent(widget.id)}
                 </WidgetWrapper>

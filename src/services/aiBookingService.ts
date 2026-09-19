@@ -1,4 +1,5 @@
 import { AiConfig, AiProviderType, BookingAiSuggestion, TaxSphere } from '../types';
+import { apiFetch } from './apiClient';
 import { findSkr42MainForSub, getSkr42MainCategories } from '../data/taxSpheres';
 
 const STORAGE_KEY_GEMINI_KEY = 'vm_gemini_api_key';
@@ -100,7 +101,7 @@ export class AiBookingService {
 
     // 1. Try server endpoint first
     try {
-      const res = await fetch('/api/test-ai-key', {
+      const res = await apiFetch('/api/test-ai-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -253,7 +254,7 @@ export class AiBookingService {
 
     // 1. Try Backend API first (/api/categorize-booking)
     try {
-      const response = await fetch('/api/categorize-booking', {
+      const response = await apiFetch('/api/categorize-booking', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -398,7 +399,7 @@ Gib ausschließlich valides JSON mit diesem Schema aus:
         m.name.toLowerCase().includes((raw.mainCategoryName || '').toLowerCase())
     );
 
-    let subCode = String(raw.subCategoryCode || '');
+    const subCode = String(raw.subCategoryCode || '');
     let matchedSub = mainCats
       .flatMap(m => m.subCategories)
       .find(

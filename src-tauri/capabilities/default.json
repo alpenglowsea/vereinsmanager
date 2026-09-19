@@ -1,0 +1,18 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Rechte der Desktop-Fassung. Bewusst knapp gehalten: Die Oberfläche ruft keine Tauri-Schnittstellen auf, sie spricht ausschließlich mit dem mitgelieferten Server über HTTP.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "binaries/vm-node",
+          "sidecar": true
+        }
+      ]
+    }
+  ]
+}

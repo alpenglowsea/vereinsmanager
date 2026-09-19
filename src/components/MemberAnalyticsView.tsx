@@ -131,7 +131,6 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
     filteredExits,
     netChange,
     monthlyBreakdown,
-    yearlyBreakdown,
     multiYearTrend,
     allTimelineEvents
   } = useMemo(() => {
@@ -211,30 +210,10 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
       };
     });
 
-    // Multi-year comparison trend for all recorded years (chronological for chart, reverse for table)
-    const sortedYearsAsc = [...availableYears].sort((a, b) => a - b);
-    const yearlyBreakdown = sortedYearsAsc.map((yr) => {
-      const yEntries = members.filter((m) => {
-        if (selectedDepartment !== 'all' && m.department !== selectedDepartment) return false;
-        return extractYear(m.entryDate) === yr;
-      }).length;
-
-      const yExits = members.filter((m) => {
-        if (selectedDepartment !== 'all' && m.department !== selectedDepartment) return false;
-        if (m.exitDate) return extractYear(m.exitDate) === yr;
-        if (m.status === 'terminated') return extractYear(m.updatedAt || m.createdAt) === yr;
-        return false;
-      }).length;
-
-      return {
-        year: yr,
-        label: yr.toString(),
-        fullName: `Jahr ${yr}`,
-        entries: yEntries,
-        exits: yExits,
-        net: yEntries - yExits
-      };
-    });
+    // Hier wurde eine Auswertung je Jahr (Eintritte, Austritte, Saldo über
+    // alle erfassten Jahre) berechnet und zurückgegeben — angezeigt hat sie
+    // niemand. Der Mehrjahresvergleich weiter unten ist eine andere,
+    // tatsächlich benutzte Berechnung. Siehe git log -S yearlyBreakdown.
 
     const recentYears = availableYears.slice(0, 5).reverse();
     const multiYear = recentYears.map((yr) => {
@@ -284,11 +263,10 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
       filteredExits: exits,
       netChange: net,
       monthlyBreakdown: monthly,
-      yearlyBreakdown,
       multiYearTrend: multiYear,
       allTimelineEvents: combined
     };
-  }, [members, selectedYear, selectedDepartment, availableYears, currentYear]);
+  }, [members, selectedYear, selectedDepartment, availableYears]);
 
   // Filtered list events based on tab and search
   const displayedEvents = useMemo(() => {

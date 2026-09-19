@@ -1,5 +1,6 @@
 import { TaxSphere, Skr42MainCategory, Skr42SubCategory } from '../types';
 import { SKR42_STRUCTURE } from '../data/taxSpheres';
+import { notifySkr42Changed } from '../data/skr42Store';
 
 const STORAGE_KEY_CUSTOM_ACCOUNTS = 'vm_custom_skr42_accounts';
 
@@ -84,6 +85,15 @@ class CustomCategoryService {
   }
 
   private notifyListeners() {
+    // Der Weg für React-Masken: ausdrücklich, ohne Umweg über das Fenster,
+    // und auch dann vorhanden, wenn es gar kein Fenster gibt (Tests).
+    notifySkr42Changed();
+
+    // Das Fenster-Ereignis bleibt zusätzlich bestehen. Es kostet nichts und
+    // deckt den Fall ab, dass irgendwo noch etwas darauf horcht — innerhalb
+    // dieses Projekts derzeit nichts mehr, aber ein Verein darf die Software
+    // anpassen, und ein stillschweigend entferntes Ereignis wäre eine
+    // unangenehme Überraschung.
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('vm_skr42_updated'));
     }

@@ -63,7 +63,10 @@ function createDemoPdf(title: string, subtitle: string, lines: string[]): string
     doc.text('Seite 1 von 1', 175, 282);
     
     return doc.output('datauristring');
-  } catch (err) {
+  } catch (_err) {
+    // Absichtlich ohne Meldung: Diese Funktion läuft auch beim Bauen, wo
+    // jsPDF nicht zur Verfügung steht. Der Ausweichweg ist hier der
+    // erwartete Normalfall, keine Störung.
     // Fallback if jsPDF is unavailable in build-time context
     return 'data:application/pdf;base64,JVBERi0xLjcKCjEgMCBvYmogICU=';
   }

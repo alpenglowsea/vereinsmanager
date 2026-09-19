@@ -80,15 +80,124 @@ Falls Sie die Anwendung zusätzlich als geschützte Web-App im Browser unter Ihr
 git clone https://github.com/ihr-verein/vereinsmanager.git
 cd vereinsmanager
 
-# 2. Container starten
+# 2. Optional: Konfiguration anlegen
+#    Nur nötig, wenn die KI-Funktionen genutzt werden sollen.
+cp .env.example .env
+#    In der .env den GEMINI_API_KEY eintragen.
+
+# 3. Container bauen und starten
 docker compose up -d --build
 ```
 Die Anwendung ist danach unter `http://[Server-IP]:8080` erreichbar.
+
+Nützliche Befehle danach:
+```bash
+docker compose logs -f      # Protokoll mitlesen
+docker compose restart      # neu starten
+docker compose down         # anhalten
+docker compose up -d --build  # nach einem Update neu bauen
+```
+
+Ob alles läuft, zeigt die Statusseite: `http://[Server-IP]:8080/api/health`
+gibt `{"status":"ok", …}` zurück. Kommt dort stattdessen eine HTML-Seite,
+läuft nur die Oberfläche und nicht der Serverteil.
 
 ### Einrichtung auf Synology DiskStation (Container Manager):
 1. Öffnen Sie im DSM den **Container Manager** &rarr; **Projekt** &rarr; **Erstellen**.
 2. Projektname vergeben (z. B. `vereinsmanager`) und den Quellcode-Ordner zuweisen.
 3. Die `docker-compose.yml` hinterlegen und auf **Starten** klicken.
+
+> **Hinweis zu Port 8080:** Auf einer Synology ist dieser Port häufig schon
+> vom DSM selbst belegt. In dem Fall in der `docker-compose.yml` die linke
+> Zahl unter `ports` ändern, z. B. auf `"8081:3000"`.
+
+### ⚠️ Wo liegen die Daten?
+
+Der Container liefert die Anwendung aus und rechnet — **eine Datenbank
+enthält er nicht.** Wo die Vereinsdaten landen, entscheidet der
+Betriebsmodus in der App unter **Einstellungen &rarr;
+Cloud-Synchronisation**:
+
+| | **Lokalbetrieb** (Vorgabe) | **Cloud-Betrieb** (Supabase eingerichtet) |
+| :--- | :--- | :--- |
+| Daten liegen | in der IndexedDB des jeweiligen Browsers | in der Supabase-Datenbank |
+| Zwei Vorstandsmitglieder an zwei Geräten | sehen **zwei getrennte Bestände** | sehen **denselben Bestand** |
+| Anmeldung | Benutzer nur auf diesem Gerät | eigenes Konto je Person, Rechte serverseitig geprüft |
+| Gerätewechsel | nur über Datensicherung + Rückspielen | einfach anmelden |
+| „Websitedaten löschen“ im Browser | löscht die Vereinsdaten | löscht nur den Zwischenspeicher |
+
+Wer gemeinsam an einem Datenbestand arbeiten will, braucht also den
+**Cloud-Betrieb** — auch dann, wenn dieser Container auf dem eigenen NAS
+läuft. Der eigene Server hostet die Anwendung, nicht die Daten; die
+Datenbank ersetzt er nicht.
+
+> **Offene Baustelle:** Ein echter Zwischenweg — Daten auf dem eigenen
+> Server statt bei Supabase, mit mehreren Anwendern — existiert derzeit
+> nicht. Er steht auf der Liste, ist aber ein eigenes Vorhaben.
+
+Und in beiden Fällen: regelmäßig über **Einstellungen &rarr;
+Datensicherung** sichern.
+
+### 🛡️ Schutz vor Missbrauch
+
+Zwei Stellen sind von aussen erreichbar, ohne dass sich jemand anmelden
+muss. Beide sind begrenzt:
+
+**Das öffentliche Aufnahmeformular** (nur im Cloud-Betrieb). Die Datenbank
+nimmt höchstens 20 Anträge je Stunde, 60 je Tag und 3 je E-Mail-Adresse und
+Tag an. Wer darüber liegt, bekommt einen freundlichen Hinweis mit der Bitte,
+sich direkt an den Verein zu wenden. Für den Vorstand gelten diese Grenzen
+nicht — er kann jederzeit Papieranträge nacherfassen.
+
+Dabei wird **die IP-Adresse des Absenders nicht gespeichert**, auch nicht
+als Prüfsumme. Gezählt wird nur, wie viele Anträge insgesamt eingegangen
+sind. Für die Datenschutzerklärung des Vereins ist hier also nichts
+nachzutragen. Der Preis dieser Entscheidung: Wer die Stundengrenze mutwillig
+ausschöpft, sperrt damit für den Rest der Stunde auch echte Interessenten
+aus. Die Grenzen lassen sich in `supabase_rls.sql`, Abschnitt 7d, anpassen.
+
+**Die /api-Endpunkte** des Servers (KI-Funktionen, E-Mail-Versand) sind seit
+Fassung 1.3 nicht mehr frei zugänglich. Wer sie aufrufen will, braucht einen
+von zwei Ausweisen:
+
+* **Den Zugriffsschlüssel dieser Installation.** Der Server würfelt ihn beim
+  ersten Start selbst aus und zeigt ihn in seiner Startausgabe an
+  (`docker compose logs vereinsmanager`). Im Lokalbetrieb übergibt ihn das
+  Startskript automatisch an den Browser; nur wer die App von einem anderen
+  Rechner aus öffnet, trägt ihn einmalig unter *Einstellungen → Allgemein*
+  ein. Ein eigener Wert lässt sich über `VM_ACCESS_KEY` vorgeben — dann
+  bleibt er auch nach einem Neuaufbau des Containers derselbe.
+* **Das Anmeldetoken aus dem Cloud-Betrieb.** Sind `SUPABASE_URL` und
+  `SUPABASE_ANON_KEY` auch als Umgebungsvariablen des Servers gesetzt, prüft
+  er das Token bei Supabase nach. Dann genügt die normale Anmeldung in der
+  App, und niemand muss einen Schlüssel eintragen.
+
+Die Statusseite `/api/health` bleibt bewusst offen, damit Docker den
+Container überwachen kann. Sie verrät nichts ausser „Server läuft".
+
+Die Ratenbegrenzung gilt zusätzlich weiter: 120 Aufrufe je 5 Minuten
+allgemein, 30 je Stunde für KI-Aufrufe (die kosten den Verein über seinen
+API-Schlüssel Geld) und 20 je Stunde für den E-Mail-Versand. Gezählt wird je
+IP-Adresse, ausschliesslich im Arbeitsspeicher — ein Neustart setzt die
+Zähler zurück, und gespeichert wird nichts.
+
+> **Was dieser Schutz nicht leistet:** Im Lokalbetrieb benutzen alle
+> Vorstandsmitglieder denselben Zugriffsschlüssel. Er hält Fremde draussen,
+> unterscheidet aber die eigenen Leute nicht voneinander. Wer das braucht,
+> betreibt die Anwendung im Cloud-Modus mit persönlichen Konten.
+
+### Verschlüsselte Adresse (HTTPS)
+
+Soll die Anwendung über das Internet erreichbar sein, gehört ein
+Reverse-Proxy davor, der das Zertifikat übernimmt — etwa der in DSM
+eingebaute, Traefik, Caddy oder ein nginx. Eine kommentierte nginx-Vorlage
+liegt im Projekt unter `nginx.conf`.
+
+Das ist nicht nur eine Frage des Datenschutzes: Ohne HTTPS stellt der
+Browser die Funktion `crypto.subtle` nicht bereit, mit der die Passwörter
+gesichert werden. Die App weicht dann auf ein langsameres eigenes
+Verfahren aus. Die Ausnahme ist `http://localhost` — das gilt dem Browser
+als sicher.
 
 ---
 

@@ -4,7 +4,6 @@ import {
   InvoiceItem,
   Member,
   ClubContact,
-  ClubSettings,
   InvoiceTemplateSettings,
   TaxSphere
 } from '../types';
@@ -32,7 +31,6 @@ interface InvoiceFormModalProps {
   invoice: ClubInvoice | null;
   members: Member[];
   contacts: ClubContact[];
-  clubSettings: ClubSettings;
   templateSettings: InvoiceTemplateSettings;
   nextInvoiceNumber?: string;
   prefillRecipient?: {
@@ -60,7 +58,6 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
   invoice,
   members,
   contacts,
-  clubSettings,
   templateSettings,
   nextInvoiceNumber = 'RE-2026-001',
   prefillRecipient,
@@ -465,7 +462,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e: React.DragEvent, index: number) => {
+  const handleDragOver = (e: React.DragEvent, _index: number) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };

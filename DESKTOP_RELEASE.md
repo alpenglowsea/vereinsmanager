@@ -32,8 +32,71 @@ Nachdem GitHub Actions den Build abgeschlossen hat (dauert ca. 3–5 Minuten):
    - 🪟 **Windows:**
      - `VereinsManager_1.0.0_x64-setup.exe` (NSIS-Installer: Installiert wahlweise für alle Benutzer in `C:\Programme\VereinsManager` oder lokal)
      - `VereinsManager_1.0.0_x64_de-DE.msi` (Offizielles Windows MSI-Paket – besonders empfohlen für Firmen-/Schul-PCs)
-   - 🍏 **macOS:** `VereinsManager_1.0.0_universal.dmg` (Intel & Apple Silicon M1/M2/M3/M4)
+   - 🍏 **macOS:** `VereinsManager_1.0.0_aarch64.dmg` (Apple Silicon: M1 und neuer)
    - 🐧 **Linux:** `VereinsManager_1.0.0_amd64.AppImage` oder `.deb`
+
+> **Seit Fassung 1.3 nur noch Apple Silicon.** Die frühere Universal-Fassung
+> enthielt zusätzlich die Bauform für ältere Intel-Macs — und damit auch eine
+> zweite Node-Laufzeitumgebung. Das ist doppelter Platzbedarf für Geräte, die
+> nicht mehr unterstützt werden sollen.
+
+---
+
+## 🧩 Was seit Fassung 1.3 mitgeliefert wird
+
+Bis Fassung 1.2 enthielt das Desktop-Programm **nur die gebaute Oberfläche**.
+Alles, was einen Server braucht, lief dort ins Leere: E-Mail-Versand,
+Belegerkennung, Buchungsvorschläge, Protokollauswertung. Ein Aufruf an
+`/api/...` fand schlicht niemanden, der antwortet.
+
+Jetzt bringt das Programm denselben Server mit, den auch der Docker-Betrieb
+verwendet. Im fertigen Paket stecken deshalb zusätzlich:
+
+| Was | Wofür |
+|---|---|
+| `binaries/vm-node-<plattform>` | die Node-Laufzeitumgebung, ohne die der Server nicht läuft |
+| `server-runtime/server.cjs` | der Server selbst |
+| `server-runtime/dist/` | die Oberfläche, die er ausliefert |
+| `server-runtime/node_modules/` | die Pakete, die er zur Laufzeit lädt |
+
+**Beides entsteht beim Bauen** (siehe die Schritte *„Node-Laufzeitumgebung als
+Sidecar bereitstellen"* und *„Server-Laufzeit zusammenstellen"* im Workflow)
+und liegt bewusst **nicht** im Repository — es sind mehrere hundert Megabyte,
+die bei jedem Bau ohnehin neu entstehen.
+
+Als Node-Laufzeitumgebung wird genau die genommen, die beim Bauen ohnehin auf
+dem Bau-Rechner steht. Das erspart einen zusätzlichen Download samt Prüfsumme
+und stellt sicher, dass ausgeliefert wird, womit auch gebaut wurde.
+
+### Was das kostet
+
+Das Paket wächst um **etwa 30 MB** (gemessen an der komprimierten
+Node-Programmdatei), auf der Platte um gut 120 MB. Die Alternative wäre
+gewesen, die Serverdienste ein zweites Mal in Rust nachzubauen — dann gäbe es
+zwei Fassungen derselben Logik in zwei Sprachen, die für immer synchron
+gehalten werden müssten. Der Platz ist das kleinere Übel.
+
+### Wie der Start abläuft
+
+1. Das Programm startet den mitgelieferten Server und liest dessen Ausgabe mit.
+2. Es wartet auf die Zeile `VM_SERVER_BEREIT <adresse>` (höchstens 30 Sekunden).
+3. Erst dann öffnet es sein Fenster — auf genau dieser Adresse.
+
+Deshalb steht in `tauri.conf.json` **keine Fensterdefinition** mehr: Ein dort
+eingetragenes Fenster ginge sofort beim Start auf und zeigte eine Fehlerseite,
+solange der Server noch hochfährt. Größe, Titel und Adresse stehen jetzt in
+`src-tauri/src/main.rs`.
+
+Der Server sucht sich einen freien Port, falls 3000 belegt ist, und legt seine
+Konfiguration im Datenverzeichnis der Anwendung ab — nicht neben dem Programm,
+wo ein Update sie überschreiben könnte.
+
+**Wenn der Server nicht startet**, öffnet sich das Fenster trotzdem, dann mit
+der mitgelieferten Oberfläche ohne Server. Die Anwendung verhält sich in diesem
+Fall genau wie die bisherige Desktop-Fassung: Mitglieder, Finanzen und alles
+Übrige arbeiten normal weiter, nur E-Mail-Versand und KI-Funktionen fehlen.
+Lieber das als ein Programm, das gar nicht erst aufgeht. Was schiefging, steht
+in der Konsolenausgabe des Programms.
 
 ---
 

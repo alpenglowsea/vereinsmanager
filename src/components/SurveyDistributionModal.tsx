@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { LoadingState } from './LoadingState';
 import { MemberSurvey, MemberSurveyToken, Member, ClubSettings } from '../types';
 import { StorageService } from '../services/storage';
 import { SurveyPdfService } from '../services/surveyPdfService';
@@ -47,13 +48,7 @@ export const SurveyDistributionModal: React.FC<SurveyDistributionModalProps> = (
     ? `${window.location.origin}${window.location.pathname}`
     : 'https://vereinsmanager.app';
 
-  useEffect(() => {
-    if (isOpen) {
-      loadTokens();
-    }
-  }, [isOpen, survey.id]);
-
-  const loadTokens = async () => {
+  const loadTokens = useCallback(async () => {
     try {
       setLoading(true);
       const existing = await StorageService.getSurveyTokens(survey.id);
@@ -63,7 +58,14 @@ export const SurveyDistributionModal: React.FC<SurveyDistributionModalProps> = (
     } finally {
       setLoading(false);
     }
-  };
+  }, [survey.id]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadTokens();
+    }
+  }, [isOpen, loadTokens]);
+
 
   // Filter target members based on survey department
   const targetMembers = useMemo(() => {
@@ -221,6 +223,10 @@ export const SurveyDistributionModal: React.FC<SurveyDistributionModalProps> = (
 
         {/* Modal Body */}
         <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-6">
+          {loading && (
+            <LoadingState label="Einladungslinks werden geladen …" />
+          )}
+
           {/* Survey Mode Banner */}
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3">

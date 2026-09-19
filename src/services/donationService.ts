@@ -68,7 +68,7 @@ export function numberToGermanWords(amount: number): string {
 
   let result = `${wordEuro} Euro`;
   if (cents > 0) {
-    let wordCents = convertNumber(cents);
+    const wordCents = convertNumber(cents);
     result += ` und ${wordCents} Cent`;
   }
   return result;
@@ -252,7 +252,7 @@ export function generateBmfDonationReceiptPdf(receipt: DonationReceipt, settings
   const splitPart1 = doc.splitTextToSize(textPart1, 178);
   doc.text(splitPart1, 16, currentY + 11);
 
-  let nextInnerY = currentY + 11 + splitPart1.length * 3.6 + 3;
+  const nextInnerY = currentY + 11 + splitPart1.length * 3.6 + 3;
 
   doc.setFont('helvetica', 'bold');
   doc.text('Verwendungszweck-Bestätigung:', 16, nextInnerY);

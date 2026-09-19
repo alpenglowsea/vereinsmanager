@@ -31,10 +31,6 @@ export const MoveToFolderModal: React.FC<MoveToFolderModalProps> = ({
   if (!isOpen || documentsToMove.length === 0) return null;
 
   // Build hierarchical folder list
-  const filteredFolders = allFolders.filter(f =>
-    searchFilter ? f.name.toLowerCase().includes(searchFilter.toLowerCase()) : true
-  );
-
   const getFolderHierarchy = () => {
     const list: { folder: DocumentFolder; depth: number }[] = [];
     const visited = new Set<string>();

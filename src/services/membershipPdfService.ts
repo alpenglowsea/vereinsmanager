@@ -378,6 +378,11 @@ export function generateMembershipApplicationPdf(
     try {
       doc.addImage(app.applicantSignature, 'PNG', margin + 3, y + 5, signBoxWidth - 6, signBoxHeight - 9);
     } catch (e) {
+      // Statt der Unterschrift steht dann nur "[Digital signiert]" im
+      // Antrag. Das ist eine stille Verschlechterung an einem Dokument,
+      // auf das es ankommt — also mindestens protokollieren. Die dritte
+      // Fundstelle weiter unten macht es bereits so.
+      console.warn('Unterschrift des Antragstellers konnte nicht eingebettet werden - der Antrag entsteht OHNE Bild der Signatur:', e);
       doc.text('[Digital signiert]', margin + 5, y + 14);
     }
   }
@@ -409,6 +414,7 @@ export function generateMembershipApplicationPdf(
     try {
       doc.addImage(secondSig, 'PNG', rightBoxX + 3, y + 5, signBoxWidth - 6, signBoxHeight - 9);
     } catch (e) {
+      console.warn('Zweite Unterschrift konnte nicht eingebettet werden - der Antrag entsteht OHNE Bild der Signatur:', e);
       doc.text('[Digital signiert]', rightBoxX + 5, y + 14);
     }
   } else if (app.applicantSignature && !isMinorSign) {

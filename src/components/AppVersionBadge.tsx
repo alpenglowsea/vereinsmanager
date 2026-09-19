@@ -20,12 +20,10 @@ import {
 
 interface AppVersionBadgeProps {
   currentMode: DeploymentMode;
-  onOpenDeploymentHub?: () => void;
 }
 
 export const AppVersionBadge: React.FC<AppVersionBadgeProps> = ({
-  currentMode,
-  onOpenDeploymentHub
+  currentMode
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);

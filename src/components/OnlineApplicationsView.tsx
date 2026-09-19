@@ -13,7 +13,8 @@ import {
   Download,
   Trash2,
   Sparkles,
-  PenTool
+  PenTool,
+  Lock
 } from 'lucide-react';
 import {
   OnlineMembershipApplication,
@@ -26,6 +27,7 @@ import { ApplicationTemplateModal } from './ApplicationTemplateModal';
 import { PublicApplicationForm } from './PublicApplicationForm';
 import { ApplicationPdfImporterModal } from './ApplicationPdfImporterModal';
 import { generateMembershipApplicationPdf } from '../services/membershipPdfService';
+import { lockClass, lockTitle } from '../utils/uiLock';
 
 interface OnlineApplicationsViewProps {
   applications: OnlineMembershipApplication[];
@@ -42,8 +44,10 @@ interface OnlineApplicationsViewProps {
   onSubmitNewApplication: (app: OnlineMembershipApplication) => Promise<void>;
   onSaveTemplateSettings: (updated: ApplicationTemplateSettings) => Promise<void>;
   currentUser?: string;
-  onNavigateToMembers?: () => void;
-  onNavigateToDocuments?: () => void;
+  /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
+  canEdit?: boolean;
+  /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
+  onLocked?: () => void;
 }
 
 export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
@@ -57,9 +61,18 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
   onSubmitNewApplication,
   onSaveTemplateSettings,
   currentUser = 'Vorstand / Administrator',
-  onNavigateToMembers,
-  onNavigateToDocuments
+  canEdit = true,
+  onLocked
 }) => {
+  /**
+   * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
+   * Aktion ausgeführt, sondern der Hinweis gezeigt.
+   */
+  const guard = (action: () => void) => () => {
+    if (canEdit) action();
+    else if (onLocked) onLocked();
+  };
+
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
@@ -127,6 +140,7 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
   // Delete with confirm
   const handleDelete = async (appId: string, name: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (confirm(`Möchten Sie den Antrag von ${name} wirklich löschen?`)) {
       await onDeleteApplication(appId);
     }
@@ -134,6 +148,16 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Hinweis auf reines Leserecht */}
+      {!canEdit && (
+        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5">
+          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
+          <p className="text-xs leading-snug">
+            <strong>Nur Leserecht.</strong> Sie können eingegangene Anträge einsehen und als PDF herunterladen. Annehmen, Ablehnen und Löschen sind für Ihre Rolle gesperrt — die betreffenden Knöpfe sind ausgegraut.
+          </p>
+        </div>
+      )}
+
       {/* 1. Header & Actions Card */}
       <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-2xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -158,8 +182,9 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setIsPdfImporterModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-300 shadow-2xs transition-all cursor-pointer"
+              onClick={guard(() => setIsPdfImporterModalOpen(true))}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-300 shadow-2xs transition-all cursor-pointer${lockClass(canEdit)}`}
+              title={lockTitle(canEdit, 'Ausgefüllten PDF-Antrag oder Scan einlesen')}
             >
               <Sparkles className="w-4 h-4 text-emerald-600" />
               <span>PDF-Antrag / Scan importieren</span>
@@ -167,8 +192,9 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
 
             <button
               type="button"
-              onClick={() => setIsTemplateModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl border border-slate-300 shadow-2xs transition-colors cursor-pointer"
+              onClick={guard(() => setIsTemplateModalOpen(true))}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl border border-slate-300 shadow-2xs transition-colors cursor-pointer${lockClass(canEdit)}`}
+              title={lockTitle(canEdit, 'PDF-Vorlage und Gebühren einstellen')}
             >
               <Settings className="w-4 h-4 text-slate-500" />
               <span>PDF-Vorlage & Gebühren</span>
@@ -500,8 +526,8 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
                         <button
                           type="button"
                           onClick={e => handleDelete(app.id, `${app.firstName} ${app.lastName}`, e)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 rounded-lg border border-slate-200 hover:border-rose-200 transition-colors"
-                          title="Antrag löschen"
+                          className={`p-1.5 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 rounded-lg border border-slate-200 hover:border-rose-200 transition-colors${lockClass(canEdit)}`}
+                          title={lockTitle(canEdit, 'Antrag löschen')}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

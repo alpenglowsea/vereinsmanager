@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { InventoryItem, InventoryCategory, ItemCondition, ClubSettings } from '../types';
+import { InventoryItem, InventoryCategory, ItemCondition } from '../types';
 import { INVENTORY_CATEGORIES, CONDITION_OPTIONS, INVENTORY_UNITS } from '../data/inventoryCategories';
 import {
   X,
@@ -26,7 +26,6 @@ import {
 interface InventoryFormModalProps {
   item: InventoryItem | null; // null = neu anlegen
   departments: string[];
-  settings: ClubSettings;
   onSave: (item: InventoryItem) => void;
   onClose: () => void;
 }
@@ -34,7 +33,6 @@ interface InventoryFormModalProps {
 export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
   item,
   departments,
-  settings,
   onSave,
   onClose
 }) => {

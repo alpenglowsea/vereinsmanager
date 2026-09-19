@@ -46,6 +46,18 @@ import { CloudStorageService } from './cloudStorage';
 import { getDonationPdfDataUrl } from './donationService';
 import { getMembershipApplicationPdfDataUrl } from './membershipPdfService';
 import { AuthService } from './authService';
+import {
+  STORES,
+  SicherungsDaten,
+  SicherungsKopf,
+  BereichsVergleich,
+  ImportArt,
+  leseSicherung,
+  vergleicheSicherung,
+  ergaenzeListe,
+  ergaenzeBenutzer,
+  ergaenzeEinzelstueck
+} from './backupContents';
 
 const STORAGE_KEY_MODE = 'vm_deployment_mode';
 
@@ -117,32 +129,9 @@ function getStorePrefix(): string {
   return isDemoModeActive() ? 'vm_demo_' : 'vm_live_';
 }
 
-const STORES = {
-  MEMBERS: 'members',
-  TRANSACTIONS: 'transactions',
-  ACCOUNTS: 'accounts',
-  AUDIT_LOGS: 'audit_logs',
-  SETTINGS: 'settings',
-  INVENTORY: 'inventory',
-  SEPA_RUNS: 'sepa_runs',
-  DOCUMENTS: 'documents',
-  DONATIONS: 'donations',
-  FOLDERS: 'folders',
-  CALENDAR_EVENTS: 'calendar_events',
-  CALENDAR_CATEGORIES: 'calendar_categories',
-  ONLINE_APPLICATIONS: 'online_applications',
-  APPLICATION_SETTINGS: 'application_settings',
-  DASHBOARD_CONFIG: 'dashboard_config',
-  CONTACTS: 'contacts',
-  INVOICES: 'invoices',
-  INVOICE_TEMPLATES: 'invoice_templates',
-  MEETINGS: 'meetings',
-  MEETING_TEMPLATES: 'meeting_templates',
-  MEMBER_INVENTORY: 'member_inventory',
-  SURVEYS: 'surveys',
-  SURVEY_RESPONSES: 'survey_responses',
-  SURVEY_TOKENS: 'survey_tokens'
-};
+// Die Liste der Datenbereiche steht seit Fassung 1.3 in backupContents.ts.
+// Dort wacht der Compiler darüber, dass jeder Bereich auch in der
+// Datensicherung landet — genau das war jahrelang nicht der Fall.
 
 const DEFAULT_SETTINGS: ClubSettings = {
   clubName: 'TSV Musterstadt 1890 e.V.',
@@ -166,15 +155,41 @@ const DEFAULT_SETTINGS: ClubSettings = {
     { id: 'bm-4', role: 'Schriftführerin', name: 'Claudia Schmidt' }
   ],
   email: 'vorstand@tsv-musterstadt1890.de',
-  departments: DEFAULT_DEPARTMENTS,
-  smtpHost: 'smtp.ionos.de',
-  smtpPort: 587,
-  smtpSecure: false,
-  smtpUser: 'vorstand@tsv-musterstadt1890.de',
-  smtpPassword: '',
-  smtpFromEmail: 'vorstand@tsv-musterstadt1890.de',
-  smtpFromName: 'TSV Musterstadt 1890 e.V. Vorstand'
+  departments: DEFAULT_DEPARTMENTS
 };
+
+/**
+ * Felder, die bis Fassung 1.2 in den Vereinsstammdaten standen und dort das
+ * Passwort zum Postfach im Klartext mitführten. Sie liegen jetzt auf dem
+ * Server (src/server/instanceConfig.ts).
+ *
+ * Diese Liste wird beim Lesen UND beim Schreiben angewandt. Beim Schreiben
+ * deshalb, weil beim Einspielen einer alten Datensicherung sonst genau das
+ * Passwort zurückkäme, das wir gerade entfernt haben.
+ */
+const VERALTETE_SMTP_FELDER = [
+  'smtpHost',
+  'smtpPort',
+  'smtpSecure',
+  'smtpUser',
+  'smtpPassword',
+  'smtpFromEmail',
+  'smtpFromName'
+] as const;
+
+function ohneVeralteteSmtpFelder<T extends Record<string, unknown>>(
+  daten: T
+): { bereinigt: T; warVeraltet: boolean } {
+  const bereinigt = { ...daten };
+  let warVeraltet = false;
+  for (const feld of VERALTETE_SMTP_FELDER) {
+    if (feld in bereinigt) {
+      delete bereinigt[feld];
+      warVeraltet = true;
+    }
+  }
+  return { bereinigt, warVeraltet };
+}
 
 const DEFAULT_APPLICATION_SETTINGS: ApplicationTemplateSettings = {
   headerText: 'Herzlich willkommen beim TSV Musterstadt 1890 e.V.! Füllen Sie den Online-Aufnahmeantrag bitte vollständig aus.',
@@ -985,7 +1000,11 @@ async function getAllFromStore<T>(storeName: string, dbNameOverride?: string): P
       req.onerror = () => reject(req.error);
     });
   } catch (err) {
-    // Fallback to localStorage
+    // Ausweichweg auf localStorage. Der ist auf 5 MB begrenzt, während die
+    // IndexedDB praktisch unbegrenzt ist — wer nicht erfährt, dass hier
+    // ausgewichen wurde, sucht einen späteren Datenverlust an der völlig
+    // falschen Stelle.
+    console.warn(`IndexedDB nicht verfügbar beim Lesen von "${storeName}" - weiche auf den begrenzten localStorage aus:`, err);
     const local = localStorage.getItem(`${prefix}${storeName}`);
     return local ? JSON.parse(local) : [];
   }
@@ -1032,7 +1051,6 @@ async function saveAllToStore<T extends { id: string }>(storeName: string, items
 }
 
 async function getItemFromStore<T>(storeName: string, id: string, dbNameOverride?: string): Promise<T | null> {
-  const prefix = dbNameOverride ? (dbNameOverride === DEMO_DB_NAME ? 'vm_demo_' : 'vm_live_') : getStorePrefix();
   try {
     const db = await openDB(dbNameOverride);
     if (!db.objectStoreNames.contains(storeName)) {
@@ -1047,13 +1065,13 @@ async function getItemFromStore<T>(storeName: string, id: string, dbNameOverride
       req.onerror = () => reject(req.error);
     });
   } catch (err) {
+    console.warn(`IndexedDB nicht verfügbar beim Lesen eines Eintrags aus "${storeName}" - weiche auf den begrenzten localStorage aus:`, err);
     const items = await getAllFromStore<T & { id: string }>(storeName, dbNameOverride);
     return items.find(i => i.id === id) || null;
   }
 }
 
 async function putItemToStore<T extends { id: string }>(storeName: string, item: T, dbNameOverride?: string): Promise<void> {
-  const prefix = dbNameOverride ? (dbNameOverride === DEMO_DB_NAME ? 'vm_demo_' : 'vm_live_') : getStorePrefix();
   try {
     const db = await openDB(dbNameOverride);
     if (!db.objectStoreNames.contains(storeName)) {
@@ -1076,6 +1094,7 @@ async function putItemToStore<T extends { id: string }>(storeName: string, item:
       tx.onerror = () => reject(tx.error);
     });
   } catch (err) {
+    console.warn(`IndexedDB nicht verfügbar beim Speichern in "${storeName}" - weiche auf den begrenzten localStorage aus:`, err);
     const items = await getAllFromStore<T>(storeName, dbNameOverride);
     const idx = items.findIndex(i => i.id === item.id);
     if (idx >= 0) items[idx] = item;
@@ -1106,6 +1125,7 @@ async function deleteItemFromStore(storeName: string, id: string): Promise<void>
       tx.onerror = () => reject(tx.error);
     });
   } catch (err) {
+    console.warn(`IndexedDB nicht verfügbar beim Löschen aus "${storeName}" - weiche auf den begrenzten localStorage aus:`, err);
     const items = await getAllFromStore<{ id: string }>(storeName);
     const filtered = items.filter(i => i.id !== id);
     await saveAllToStore(storeName, filtered);
@@ -1205,6 +1225,36 @@ export const StorageService = {
   }> {
     if (!getStoredSupabaseConfig().isConfigured) {
       throw new Error('Supabase ist noch nicht mit URL und Anon Key konfiguriert.');
+    }
+
+    // Seit der Absicherung der Cloud-Datenbank (Row Level Security) nimmt sie
+    // nur noch Daten von angemeldeten Benutzern mit Schreibrecht an. Ohne
+    // diese Prüfung liefe der Umzug ins Leere: Jede einzelne Zeile würde
+    // abgewiesen, und der Verein stünde vor einer leeren Cloud in dem Glauben,
+    // alles sei übertragen.
+    const client = getSupabaseClient();
+    if (!client) {
+      throw new Error('Die Cloud-Datenbank ist nicht erreichbar.');
+    }
+    const { data: authData } = await client.auth.getUser();
+    if (!authData?.user) {
+      throw new Error(
+        'Für den Umzug müssen Sie in der Cloud angemeldet sein. Legen Sie zuerst ' +
+          'über "Registrieren" mit dem Einrichtungscode den Vorstandszugang an.'
+      );
+    }
+    const { data: mayWrite, error: permError } = await client.rpc('vm_can_edit', { area: 'members' });
+    if (permError) {
+      throw new Error(
+        'Der Zugriffsschutz der Datenbank ist nicht eingerichtet. Bitte zuerst das ' +
+          'Skript supabase_rls.sql im Supabase SQL-Editor ausführen.'
+      );
+    }
+    if (mayWrite !== true) {
+      throw new Error(
+        'Ihr Cloud-Zugang hat kein Schreibrecht für die Vereinsdaten. Der Umzug ' +
+          'muss vom Vorstandszugang aus erfolgen.'
+      );
     }
 
     const [
@@ -2525,7 +2575,7 @@ export const StorageService = {
   },
 
   async getSurveyResponses(surveyId: string): Promise<MemberSurveyResponse[]> {
-    let list = await getAllFromStore<MemberSurveyResponse>(STORES.SURVEY_RESPONSES);
+    const list = await getAllFromStore<MemberSurveyResponse>(STORES.SURVEY_RESPONSES);
     let surveyResponses = list.filter(r => r.surveyId === surveyId);
     if (surveyResponses.length === 0 && surveyId === 'survey-satisfaction-2026' && INITIAL_SURVEY_RESPONSES.length > 0) {
       for (const r of INITIAL_SURVEY_RESPONSES) {
@@ -2572,8 +2622,31 @@ export const StorageService = {
       try {
         const cloudSettings = await CloudStorageService.getSettings();
         if (cloudSettings) {
-          putItemToStore(STORES.SETTINGS, { id: 'main', ...cloudSettings }).catch(() => {});
-          return cloudSettings;
+          // Zusammenführen statt ersetzen.
+          //
+          // Früher wurde der örtliche Datensatz durch den aus der Cloud
+          // ersetzt. Trug dieser ein Feld nicht mit — und das taten die
+          // meisten —, war es damit auch örtlich weg. Ein einzelner
+          // vergessener Eintrag in der Zuordnung löschte so Daten.
+          //
+          // Die Cloud hat weiterhin Vorrang bei allem, was sie kennt. Was sie
+          // nicht führt (etwa das Erscheinungsbild hell/dunkel, das zum Gerät
+          // gehört), bleibt erhalten.
+          const lokal = await getItemFromStore<ClubSettings & { id: string }>(
+            STORES.SETTINGS,
+            'main'
+          );
+          const lokaleFelder: Record<string, unknown> = { ...(lokal || {}) };
+          delete lokaleFelder.id;
+
+          const { bereinigt } = ohneVeralteteSmtpFelder({
+            ...lokaleFelder,
+            ...cloudSettings
+          } as Record<string, unknown>);
+          const zusammengefuehrt = bereinigt as unknown as ClubSettings;
+
+          putItemToStore(STORES.SETTINGS, { id: 'main', ...zusammengefuehrt }).catch(() => {});
+          return zusammengefuehrt;
         }
       } catch (err) {
         console.warn('Cloud getSettings error:', err);
@@ -2582,15 +2655,35 @@ export const StorageService = {
     const res = await getItemFromStore<ClubSettings & { id: string }>(STORES.SETTINGS, 'main');
     if (res) {
       const { id, ...rest } = res;
-      return rest as ClubSettings;
+      const { bereinigt, warVeraltet } = ohneVeralteteSmtpFelder(rest as Record<string, unknown>);
+
+      // Einmalige Bereinigung: Stammt der Datenbestand noch aus Fassung 1.2,
+      // steht hier ein SMTP-Passwort im Klartext. Es wird jetzt aus dem
+      // Speicher entfernt. Bewusst NICHT auf den Server übernommen: Die
+      // Zugangsdaten gehören zur Installation und werden dort einmal neu
+      // eingetragen.
+      if (warVeraltet) {
+        putItemToStore(STORES.SETTINGS, { id: 'main', ...bereinigt }).catch(() => {});
+        console.info(
+          'Die SMTP-Zugangsdaten wurden aus den Vereinsstammdaten entfernt. ' +
+            'Sie liegen jetzt auf dem Server und müssen einmalig unter ' +
+            'Einstellungen → Vereinsstammdaten neu eingetragen werden.'
+        );
+      }
+
+      return bereinigt as unknown as ClubSettings;
     }
     return DEFAULT_SETTINGS;
   },
 
   async saveSettings(settings: ClubSettings): Promise<void> {
-    await putItemToStore(STORES.SETTINGS, { id: 'main', ...settings });
+    // Auch beim Schreiben bereinigen: Eine alte Datensicherung oder ein
+    // veralteter Aufrufer brächte die Felder sonst zurück.
+    const { bereinigt } = ohneVeralteteSmtpFelder(settings as unknown as Record<string, unknown>);
+    const sauber = bereinigt as unknown as ClubSettings;
+    await putItemToStore(STORES.SETTINGS, { id: 'main', ...sauber });
     if (this.isCloudActive()) {
-      await CloudStorageService.saveSettings(settings);
+      await CloudStorageService.saveSettings(sauber);
     }
   },
 
@@ -3620,7 +3713,7 @@ export const StorageService = {
     await this.saveMember(newMember);
 
     // 2. Aufnahmeantrag PDF erzeugen & im Dokumentenarchiv ablegen (bevorzugt Original-PDF falls vorhanden)
-    let documentId = `doc-app-${app.id}`;
+    const documentId = `doc-app-${app.id}`;
     try {
       const pdfDataUrl = app.pdfDataUrl || getMembershipApplicationPdfDataUrl(app, clubSettings);
       const isOriginalUploadedPdf = Boolean(app.pdfDataUrl);
@@ -3757,42 +3850,111 @@ export const StorageService = {
       this.getSettings()
     ]);
 
+    // Bis Fassung 1.2 fehlten die folgenden fünf Bereiche in der Sicherung.
+    // Wer seinen Bestand auf einen anderen Rechner mitnahm, verlor die
+    // Ordnerstruktur des Archivs, sämtliche Befragungen samt Antworten und
+    // Teilnahme-Links sowie die Ausgabe von Inventar an Mitglieder.
+    //
+    // Die Antworten und Teilnahme-Links werden bewusst unmittelbar aus dem
+    // Speicher gelesen und nicht über getSurveyResponses(): Diese Funktion
+    // liefert nur die Einträge zu EINER Befragung. Für eine Sicherung braucht
+    // es alle.
+    const [folders, surveys, surveyResponses, surveyTokens, memberInventory] = await Promise.all([
+      this.getFolders(),
+      this.getSurveys(),
+      getAllFromStore<MemberSurveyResponse>(STORES.SURVEY_RESPONSES),
+      getAllFromStore<MemberSurveyToken>(STORES.SURVEY_TOKENS),
+      getAllFromStore<MemberInventoryAssignment>(STORES.MEMBER_INVENTORY)
+    ]);
+
     const users = AuthService.getUsers();
     const securitySettings = AuthService.getSecuritySettings();
+
+    // Der Typ SicherungsDaten verlangt jeden Bereich aus SICHERUNGS_BEREICHE.
+    // Wer künftig einen Datenbereich hinzufügt und ihn hier vergisst, bekommt
+    // beim `npm run check` einen Fehler — statt eine unvollständige Sicherung.
+    const daten: SicherungsDaten = {
+      members,
+      transactions,
+      accounts,
+      auditLogs,
+      inventory,
+      memberInventory,
+      sepaRuns,
+      documents,
+      folders,
+      donations,
+      contacts,
+      invoices,
+      invoiceTemplate,
+      meetings,
+      meetingTemplate,
+      dashboardConfig,
+      calendarEvents,
+      calendarCategories,
+      onlineApplications,
+      applicationSettings,
+      surveys,
+      surveyResponses,
+      surveyTokens,
+      settings,
+      users,
+      securitySettings
+    };
 
     const backup = {
       app: 'VereinsManager Lokal',
       version: '1.2.3',
       exportedAt: new Date().toISOString(),
-      data: {
-        members,
-        transactions,
-        accounts,
-        auditLogs,
-        inventory,
-        sepaRuns,
-        documents,
-        donations,
-        contacts,
-        invoices,
-        invoiceTemplate,
-        meetings,
-        meetingTemplate,
-        dashboardConfig,
-        calendarEvents,
-        calendarCategories,
-        onlineApplications,
-        applicationSettings,
-        settings,
-        users,
-        securitySettings
-      }
+      data: daten
     };
 
     return JSON.stringify(backup, null, 2);
   },
 
-  async importFullBackup(jsonString: string, targetEnv: 'auto' | 'live' = 'live'): Promise<{
+  /**
+   * Liest den eigenen Bestand in derselben Form wie eine Sicherungsdatei.
+   * Grundlage für den Abgleich vor dem Einspielen.
+   */
+  async sammleBestandFuerAbgleich(): Promise<Partial<SicherungsDaten>> {
+    const roh = await this.exportFullBackup();
+    return (JSON.parse(roh).data || {}) as Partial<SicherungsDaten>;
+  },
+
+  /**
+   * Prüft eine Sicherungsdatei und vergleicht sie mit dem vorhandenen Bestand,
+   * OHNE etwas zu verändern. Damit kann die Oberfläche vor dem Einspielen
+   * zeigen, was passieren würde.
+   */
+  async analysiereSicherung(jsonString: string): Promise<{
+    kopf: SicherungsKopf;
+    vergleich: BereichsVergleich[];
+  }> {
+    const { kopf, daten } = leseSicherung(jsonString);
+    const bestand = await this.sammleBestandFuerAbgleich();
+    return { kopf, vergleich: vergleicheSicherung(daten, bestand) };
+  },
+
+  /**
+   * Spielt eine Datensicherung ein.
+   *
+   * `art` entscheidet, was mit dem vorhandenen Bestand geschieht:
+   *
+   *   ersetzen  — der bisherige Bestand wird durch die Datei ersetzt
+   *   ergaenzen — Vorhandenes bleibt unangetastet, aus der Datei kommt nur
+   *               hinzu, was es hier noch nicht gibt
+   *
+   * Vor dem ersten Schreibvorgang wird eine Sicherheitskopie des jetzigen
+   * Bestands angelegt. Sie liegt in einer eigenen Datenbank und lässt sich
+   * unter Einstellungen → Datensicherung zurückholen. Ohne sie wäre jeder
+   * Import eine Einbahnstraße — ein falsch gewählter Dateiname genügte, und
+   * die Mitgliederdaten des Vereins wären weg.
+   */
+  async importFullBackup(
+    jsonString: string,
+    targetEnv: 'auto' | 'live' = 'live',
+    art: ImportArt = 'ersetzen'
+  ): Promise<{
     membersCount: number;
     transactionsCount: number;
     inventoryCount: number;
@@ -3805,25 +3967,51 @@ export const StorageService = {
     usersCount: number;
     clubName?: string;
     restoredUsers: AppUser[];
+    /** Wurde die Sicherheitskopie angelegt? */
+    sicherheitskopie: boolean;
+    art: ImportArt;
   }> {
+    // Erst prüfen, dann anfassen: leseSicherung wirft bei einer Datei, die
+    // keine Sicherung ist — vor dem ersten Schreibvorgang.
+    const { daten } = leseSicherung(jsonString);
+    // Der Inhalt einer fremden Datei ist per Definition ungeprüft. Die
+    // Bereiche werden unten einzeln mit Vorgabewerten entpackt; deshalb hier
+    // bewusst eine offene Form statt eines vorgetäuschten Typs.
+    const data = daten as Record<string, any>;
+    const parsed = JSON.parse(jsonString);
+
+    // Sicherheitskopie des jetzigen Bestands, bevor irgendetwas überschrieben
+    // wird. Schlägt sie fehl, läuft der Import trotzdem weiter — das Ergebnis
+    // sagt es aber, damit die Oberfläche darauf hinweisen kann.
+    let sicherheitskopie = false;
+    try {
+      const { SnapshotService } = await import('./snapshotService');
+      const kopie = await SnapshotService.createSnapshot(
+        'manual',
+        `Sicherheitskopie vor dem Einspielen einer Datensicherung (${
+          art === 'ersetzen' ? 'alles ersetzen' : 'nur ergänzen'
+        })`
+      );
+      sicherheitskopie = Boolean(kopie);
+    } catch (err) {
+      console.warn('Sicherheitskopie vor dem Import fehlgeschlagen:', err);
+    }
+
     // Free up any bloated localStorage entries before importing
     purgeBloatedLocalStorage();
     isImportingBackup = true;
 
     try {
-      const parsed = JSON.parse(jsonString);
-      const data = parsed.data || parsed;
-      if (!data) {
-        throw new Error('Ungültiges Sicherungsformat');
-      }
       const {
         members = [],
         transactions = [],
         accounts = [],
         auditLogs = [],
         inventory = [],
+        memberInventory = [],
         sepaRuns = [],
         documents = [],
+        folders = [],
         donations = [],
         contacts = [],
         invoices = [],
@@ -3835,6 +4023,9 @@ export const StorageService = {
         calendarCategories = [],
         onlineApplications = [],
         applicationSettings,
+        surveys = [],
+        surveyResponses = [],
+        surveyTokens = [],
         settings,
         users = [],
         securitySettings
@@ -3843,64 +4034,116 @@ export const StorageService = {
       // By default target the Live DB so that restored data is available for real usage
       const dbTarget = targetEnv === 'live' ? LIVE_DB_NAME : undefined;
 
-      await saveAllToStore(STORES.MEMBERS, members, dbTarget);
-      await saveAllToStore(STORES.TRANSACTIONS, transactions, dbTarget);
-      await saveAllToStore(STORES.ACCOUNTS, accounts, dbTarget);
-      await saveAllToStore(STORES.AUDIT_LOGS, auditLogs, dbTarget);
-      await saveAllToStore(STORES.INVENTORY, inventory, dbTarget);
-      await saveAllToStore(STORES.SEPA_RUNS, sepaRuns, dbTarget);
-      await saveAllToStore(STORES.DOCUMENTS, documents, dbTarget);
-      await saveAllToStore(STORES.DONATIONS, donations, dbTarget);
-      if (contacts.length > 0) {
-        await saveAllToStore(STORES.CONTACTS, contacts, dbTarget);
-      }
-      if (invoices.length > 0) {
-        await saveAllToStore(STORES.INVOICES, invoices, dbTarget);
-      }
-      if (invoiceTemplate) {
-        await putItemToStore(STORES.INVOICE_TEMPLATES, { id: 'main_template', ...invoiceTemplate }, dbTarget);
-      }
-      if (meetings.length > 0) {
-        await saveAllToStore(STORES.MEETINGS, meetings, dbTarget);
-      }
-      if (meetingTemplate) {
-        await putItemToStore(STORES.MEETING_TEMPLATES, { id: 'main_template', ...meetingTemplate }, dbTarget);
-      }
-      if (dashboardConfig) {
-        await putItemToStore(STORES.DASHBOARD_CONFIG, { id: 'main_dashboard', ...dashboardConfig }, dbTarget);
-      }
-      if (calendarCategories.length > 0) {
-        await saveAllToStore(STORES.CALENDAR_CATEGORIES, calendarCategories, dbTarget);
-      }
-      await saveAllToStore(STORES.CALENDAR_EVENTS, calendarEvents, dbTarget);
-      if (onlineApplications.length > 0) {
-        await saveAllToStore(STORES.ONLINE_APPLICATIONS, onlineApplications, dbTarget);
-      }
-      if (applicationSettings) {
-        await putItemToStore(STORES.APPLICATION_SETTINGS, { id: 'main', ...applicationSettings }, dbTarget);
-      }
+      /**
+       * Übernimmt eine Liste aus der Datei.
+       *
+       * Bereiche, die in der Datei gar nicht vorkommen, werden übersprungen —
+       * eine alte Sicherung, die die Befragungen noch nicht kennt, darf die
+       * hier vorhandenen nicht löschen. Eine ausdrücklich leere Liste ist
+       * dagegen eine Aussage und wird beim Ersetzen auch übernommen.
+       */
+      const uebernehmeListe = async (
+        store: string,
+        ausDatei: unknown,
+        vorhandenErmitteln?: () => Promise<{ id: string }[]>
+      ): Promise<void> => {
+        if (ausDatei === undefined || ausDatei === null) return;
+        const liste = (Array.isArray(ausDatei) ? ausDatei : []) as { id: string }[];
+
+        if (art === 'ergaenzen') {
+          if (liste.length === 0) return;
+          const vorhanden = vorhandenErmitteln
+            ? await vorhandenErmitteln()
+            : await getAllFromStore<{ id: string }>(store, dbTarget);
+          await saveAllToStore(store, ergaenzeListe(liste, vorhanden), dbTarget);
+          return;
+        }
+
+        await saveAllToStore(store, liste, dbTarget);
+      };
+
+      /**
+       * Übernimmt einen Einzeldatensatz (Vorlagen, Stammdaten, Startseite).
+       * Beim Ergänzen behält ein hier vorhandener Datensatz den Vorrang.
+       */
+      const uebernehmeEinzelstueck = async (
+        store: string,
+        id: string,
+        ausDatei: unknown
+      ): Promise<void> => {
+        if (!ausDatei) return;
+        if (art === 'ergaenzen') {
+          const vorhanden = await getItemFromStore<Record<string, unknown>>(store, id, dbTarget);
+          const gewaehlt = ergaenzeEinzelstueck(ausDatei as Record<string, unknown>, vorhanden);
+          if (!gewaehlt || vorhanden) return; // Vorhandenes bleibt unangetastet
+          await putItemToStore(store, { id, ...gewaehlt }, dbTarget);
+          return;
+        }
+        await putItemToStore(store, { id, ...(ausDatei as Record<string, unknown>) }, dbTarget);
+      };
+
+      await uebernehmeListe(STORES.MEMBERS, members);
+      await uebernehmeListe(STORES.TRANSACTIONS, transactions);
+      await uebernehmeListe(STORES.ACCOUNTS, accounts);
+      await uebernehmeListe(STORES.AUDIT_LOGS, auditLogs);
+      await uebernehmeListe(STORES.INVENTORY, inventory);
+      await uebernehmeListe(STORES.MEMBER_INVENTORY, memberInventory);
+      await uebernehmeListe(STORES.SEPA_RUNS, sepaRuns);
+      await uebernehmeListe(STORES.DOCUMENTS, documents);
+      await uebernehmeListe(STORES.FOLDERS, folders);
+      await uebernehmeListe(STORES.DONATIONS, donations);
+      await uebernehmeListe(STORES.CONTACTS, contacts);
+      await uebernehmeListe(STORES.INVOICES, invoices);
+      await uebernehmeListe(STORES.MEETINGS, meetings);
+      await uebernehmeListe(STORES.CALENDAR_CATEGORIES, calendarCategories);
+      await uebernehmeListe(STORES.CALENDAR_EVENTS, calendarEvents);
+      await uebernehmeListe(STORES.ONLINE_APPLICATIONS, onlineApplications);
+      await uebernehmeListe(STORES.SURVEYS, surveys);
+      await uebernehmeListe(STORES.SURVEY_RESPONSES, surveyResponses);
+      await uebernehmeListe(STORES.SURVEY_TOKENS, surveyTokens);
+
+      await uebernehmeEinzelstueck(STORES.INVOICE_TEMPLATES, 'main_template', invoiceTemplate);
+      await uebernehmeEinzelstueck(STORES.MEETING_TEMPLATES, 'main_template', meetingTemplate);
+      await uebernehmeEinzelstueck(STORES.DASHBOARD_CONFIG, 'main_dashboard', dashboardConfig);
+      await uebernehmeEinzelstueck(STORES.APPLICATION_SETTINGS, 'main', applicationSettings);
 
       if (settings) {
-        await putItemToStore(STORES.SETTINGS, { id: 'main', ...settings }, dbTarget);
+        // Alte Sicherungen führen die SMTP-Zugangsdaten im Klartext mit.
+        // Sie werden hier verworfen, statt sie wieder einzuspielen.
+        const { bereinigt: settingsBereinigt } = ohneVeralteteSmtpFelder(
+          settings as Record<string, unknown>
+        );
+        await uebernehmeEinzelstueck(STORES.SETTINGS, 'main', settingsBereinigt);
       }
 
       // Restore Users & Security Settings
       let usersCount = 0;
-      const resolvedUsers: AppUser[] = Array.isArray(users) && users.length > 0
+      const ausDateiUsers: AppUser[] = Array.isArray(users) && users.length > 0
         ? users
         : (Array.isArray(parsed.users) && parsed.users.length > 0 ? parsed.users : []);
-      
+
+      // Beim Ergänzen bleiben die hier vorhandenen Konten unverändert; aus der
+      // Datei kommen nur solche hinzu, deren Kennung UND Anmeldename hier noch
+      // nicht vergeben sind. Zwei Konten mit demselben Anmeldenamen wären bei
+      // der Anmeldung nicht mehr auseinanderzuhalten.
+      const resolvedUsers: AppUser[] =
+        art === 'ergaenzen' ? ergaenzeBenutzer(ausDateiUsers, AuthService.getUsers()) : ausDateiUsers;
+
       if (resolvedUsers.length > 0) {
         AuthService.saveUsers(resolvedUsers);
         usersCount = resolvedUsers.length;
       }
 
       const resolvedSecurity = securitySettings || parsed.securitySettings;
-      if (resolvedSecurity) {
+      if (resolvedSecurity && art === 'ersetzen') {
         AuthService.saveSecuritySettings(resolvedSecurity);
       }
 
-      if (this.isCloudActive()) {
+      // Der Abgleich mit der Cloud läuft nur beim Ersetzen. Beim Ergänzen gilt
+      // "Vorhandenes gewinnt" — die Datei in die Cloud zu schieben, würde
+      // genau das umdrehen und dort Datensätze überschreiben, die gerade
+      // ausdrücklich behalten werden sollten.
+      if (this.isCloudActive() && art === 'ersetzen') {
         if (members.length > 0) await CloudStorageService.batchSaveMembers(members);
         if (transactions.length > 0) await CloudStorageService.batchSaveTransactions(transactions);
         if (accounts.length > 0) await CloudStorageService.batchSaveAccounts(accounts);
@@ -3932,7 +4175,9 @@ export const StorageService = {
         contactsCount: contacts.length,
         usersCount,
         clubName: settings?.clubName,
-        restoredUsers: resolvedUsers
+        restoredUsers: resolvedUsers,
+        sicherheitskopie,
+        art
       };
     } finally {
       isImportingBackup = false;

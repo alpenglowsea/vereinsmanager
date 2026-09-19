@@ -31,7 +31,10 @@ export const OpenStreetMapModal: React.FC<OpenStreetMapModalProps> = ({
   const [currentLng, setCurrentLng] = useState<number | undefined>(lng);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
-  const [zoomLevel, setZoomLevel] = useState<number>(16);
+  // Kein Bedienelement vorhanden: Der Wert steht beim Öffnen fest und lässt
+  // sich nicht ändern. Die Änderungsfunktion ist deshalb entfernt — sie zu
+  // behalten täuschte eine Einstellmöglichkeit vor, die es nicht gibt.
+  const [zoomLevel] = useState<number>(16);
 
   useEffect(() => {
     if (!isOpen) return;

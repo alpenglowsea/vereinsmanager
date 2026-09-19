@@ -489,7 +489,71 @@ Für den automatischen Versand von Sitzungseinladungen und Protokollen:
    * **Host:** z. B. `smtp.ionos.de`
    * **Port:** `587` (STARTTLS) oder `465` (SSL)
    * **Benutzer & Passwort:** Ihre E-Mail-Zugangsdaten
-4. Klicken Sie auf **SMTP-Verbindung testen**, um die Funktionsfähigkeit sofort zu verifizieren.
+4. Klicken Sie auf **Zugangsdaten auf dem Server speichern** und anschließend auf
+   **Speichern & Verbindung testen**, um die Funktionsfähigkeit sofort zu verifizieren.
+
+**Wo diese Zugangsdaten liegen — und warum nicht bei den Vereinsdaten**
+
+Seit Fassung 1.3 speichert die Anwendung diese Angaben auf dem Server, auf dem sie
+läuft (Ordner `daten/`, per `VM_DATA_DIR` verlegbar; im Docker-Betrieb im Volume
+`vereinsmanager_daten`). Das Passwort wird dort mit AES-256-GCM verschlüsselt
+abgelegt; der Schlüssel liegt in einer eigenen Datei daneben, beide nur für den
+Besitzer lesbar.
+
+Das hat drei Folgen, die Sie kennen sollten:
+
+* Das Passwort steht **in keiner Datensicherung** und in keiner Browser-Datenbank.
+  Es verlässt den Server auch beim Versand nicht mehr.
+* Die Anwendung kann es **nicht wieder anzeigen** — nur ersetzen oder entfernen.
+* Nach einer Neuinstallation, einem Umzug oder einem `docker compose down -v`
+  müssen die Zugangsdaten **einmalig neu eingetragen** werden.
+
+Wer vollen Zugriff auf den Server hat, kann das Passwort weiterhin auslesen: Der
+Server muss es im Klartext verwenden, um sich beim Mailanbieter anzumelden.
+Hashen wie bei den Benutzerkonten der Anwendung ist deshalb nicht möglich.
+
+In der **Desktop-Fassung (Tauri)** ist kein Server enthalten. Dort lassen sich
+keine Zugangsdaten hinterlegen, und der Direktversand steht nicht zur Verfügung;
+der Versand über das lokale E-Mail-Programm funktioniert weiterhin.
+
+---
+
+### Zugriffsschlüssel des Servers
+
+Der Server beantwortet seit Fassung 1.3 keinen `/api`-Aufruf mehr ohne Ausweis.
+Betroffen sind E-Mail-Versand, Belegerkennung und alle KI-Funktionen. Ohne
+diesen Schutz könnte jeder, der die Adresse eines im Internet erreichbaren
+Servers kennt, über das Postfach des Vereins Mails verschicken oder auf dessen
+Rechnung KI-Anfragen stellen.
+
+Es genügt einer von zwei Ausweisen:
+
+**1. Der Zugriffsschlüssel dieser Installation.** Er entsteht beim ersten Start
+von selbst und steht in der Startausgabe des Servers:
+
+```bash
+docker compose logs vereinsmanager    # Docker / NAS
+```
+
+* **Lokalbetrieb:** Das mitgelieferte Startskript liest ihn aus und hängt ihn
+  an die Adresse an, die es im Browser öffnet. Hier ist nichts zu tun.
+* **Docker / NAS:** Einmalig je Browser unter *Einstellungen → Allgemein*
+  eintragen. Alternativ `VM_ACCESS_KEY` in der `.env` setzen — dann bleibt der
+  Schlüssel auch nach einem Neuaufbau des Containers derselbe.
+
+**2. Das Anmeldetoken aus dem Cloud-Betrieb.** Sind `SUPABASE_URL` und
+`SUPABASE_ANON_KEY` zusätzlich als Umgebungsvariablen des **Servers** gesetzt
+(nicht nur als `VITE_`-Werte, die gelten allein für den Browser), prüft der
+Server das Anmeldetoken bei Supabase nach. Dann genügt die normale Anmeldung
+in der App.
+
+Die Statusseite `/api/health` bleibt offen, damit Docker den Container
+überwachen kann.
+
+> Im Lokalbetrieb benutzen alle Vorstandsmitglieder denselben
+> Zugriffsschlüssel. Er hält Fremde draußen, unterscheidet aber die eigenen
+> Leute nicht voneinander — dafür gibt es den Cloud-Betrieb mit persönlichen
+> Konten.
 
 ---
 

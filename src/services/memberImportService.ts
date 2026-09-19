@@ -46,7 +46,7 @@ export interface ParsedMemberRow {
 // CSV Parser Helper supporting quotes, multiline values, and separators (;, \t, ,)
 export function parseCSVToRows(text: string): { headers: string[]; rows: Record<string, string>[] } {
   // Strip BOM if present
-  let cleanText = text.replace(/^\uFEFF/, '').trim();
+  const cleanText = text.replace(/^\uFEFF/, '').trim();
   if (!cleanText) return { headers: [], rows: [] };
 
   // Detect delimiter from first 3 lines
@@ -545,7 +545,7 @@ export function convertRowsToMembers(
     const feePeriod = normalizeFeePeriod(mapping.feePeriod ? row[mapping.feePeriod] : undefined);
 
     // Bank & IBAN
-    let iban = mapping.iban ? (row[mapping.iban] || '').replace(/\s/g, '').toUpperCase() : '';
+    const iban = mapping.iban ? (row[mapping.iban] || '').replace(/\s/g, '').toUpperCase() : '';
     const bic = mapping.bic ? (row[mapping.bic] || '').replace(/\s/g, '').toUpperCase() : '';
     const bankName = mapping.bankName ? row[mapping.bankName] || '' : '';
     const accountHolder = mapping.accountHolder ? row[mapping.accountHolder] || `${firstName} ${lastName}`.trim() : `${firstName} ${lastName}`.trim();

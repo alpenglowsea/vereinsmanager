@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import { AppUser, SecuritySettings, UserPermissions } from '../types';
 import { AuthService } from '../services/authService';
-import { FULL_PERMISSIONS } from '../data/roles';
+import {
+  AREA_DEFINITIONS,
+  canEdit,
+  canView,
+  migrateLegacyPermissions,
+  permissionsFrom
+} from '../utils/permissions';
+import { PermissionMatrix } from './PermissionMatrix';
+import { MIN_PASSWORD_LENGTH } from '../services/passwordService';
 import {
   X,
   UserPlus,
@@ -25,130 +33,8 @@ interface UserManageModalProps {
   onUserChanged?: () => void;
 }
 
-interface PermissionItem {
-  key: keyof UserPermissions;
-  label: string;
-  category:
-    | 'Mitglieder'
-    | 'Finanzen & SEPA'
-    | 'Kontakte, Termine & Sitzungen'
-    | 'Dokumente & Inventar'
-    | 'System & Verwaltung';
-  description: string;
-}
-
-const PERMISSION_ITEMS: PermissionItem[] = [
-  // Mitglieder
-  {
-    key: 'canViewMembers',
-    label: 'Mitglieder einsehen',
-    category: 'Mitglieder',
-    description: 'Zugriff auf Mitgliederliste, Kontaktdaten und Jubiläen'
-  },
-  {
-    key: 'canEditMembers',
-    label: 'Mitglieder anlegen & bearbeiten',
-    category: 'Mitglieder',
-    description: 'Neueintritte erfassen, Daten ändern und Kündigungen verarbeiten'
-  },
-  {
-    key: 'canManageSurveys',
-    label: 'Mitgliederbefragungen durchführen',
-    category: 'Mitglieder',
-    description: 'Umfragen und Meinungsbilder anlegen, versenden und auswerten'
-  },
-
-  // Finanzen
-  {
-    key: 'canViewFinances',
-    label: 'Finanzen & Kassenbuch einsehen',
-    category: 'Finanzen & SEPA',
-    description: 'Einsicht in Buchungsjournal, Kontenstände und EÜR/GuV'
-  },
-  {
-    key: 'canEditFinances',
-    label: 'Buchungen erfassen & ändern',
-    category: 'Finanzen & SEPA',
-    description: 'Neue Einnahmen/Ausgaben anlegen, Belege zuordnen und stornieren'
-  },
-  {
-    key: 'canExecuteSepa',
-    label: 'SEPA-Beitragslauf ausführen',
-    category: 'Finanzen & SEPA',
-    description: 'SEPA-Lastschrift-XML generieren und Buchungen erzeugen'
-  },
-  {
-    key: 'canManageDonations',
-    label: 'Spendenbescheinigungen ausstellen',
-    category: 'Finanzen & SEPA',
-    description: 'Geld- und Sachzuwendungsbestätigungen nach BMF-Muster erstellen'
-  },
-
-  // Kontakte, Termine & Sitzungen
-  {
-    key: 'canManageContacts',
-    label: 'Kontakte & Partner verwalten',
-    category: 'Kontakte, Termine & Sitzungen',
-    description: 'Lieferanten, Sponsoren, Spender und Partner pflegen'
-  },
-  {
-    key: 'canManageCalendar',
-    label: 'Vereinskalender verwalten',
-    category: 'Kontakte, Termine & Sitzungen',
-    description: 'Termine anlegen, ändern und Einladungen versenden'
-  },
-  {
-    key: 'canManageMeetings',
-    label: 'Sitzungsdienst & Beschlussbuch',
-    category: 'Kontakte, Termine & Sitzungen',
-    description: 'Sitzungen planen, Protokolle führen und Beschlüsse erfassen'
-  },
-
-  // Dokumente & Inventar
-  {
-    key: 'canManageDocuments',
-    label: 'Dokumentenarchiv & Belege verwalten',
-    category: 'Dokumente & Inventar',
-    description: 'Dateien hochladen, Ordner erstellen und Belege archivieren'
-  },
-  {
-    key: 'canManageInventory',
-    label: 'Inventar & Material verwalten',
-    category: 'Dokumente & Inventar',
-    description: 'Vereinsausstattung, Geräte und Wartungsintervalle pflegen'
-  },
-
-  // System
-  {
-    key: 'canManageSettings',
-    label: 'Vereinseinstellungen ändern',
-    category: 'System & Verwaltung',
-    description: 'Stammdaten, Bankkonten, Beitragsstaffeln und Datenschutz verwalten'
-  },
-  {
-    key: 'canManageUsers',
-    label: 'Benutzerkonten & Rechte verwalten',
-    category: 'System & Verwaltung',
-    description: 'Benutzer anlegen, Passwörter vergeben und Berechtigungen festlegen'
-  }
-];
-
-const DEFAULT_BLANK_PERMISSIONS: UserPermissions = {
-  canViewMembers: true,
-  canEditMembers: false,
-  canViewFinances: false,
-  canEditFinances: false,
-  canExecuteSepa: false,
-  canManageDonations: false,
-  canManageDocuments: false,
-  canManageInventory: false,
-  canManageSettings: false,
-  canManageSurveys: false,
-  canManageContacts: true,
-  canManageCalendar: true,
-  canManageMeetings: false,
-  canManageUsers: false
-};
+/** Neue Benutzer starten gesperrt — freigeschaltet wird bewusst. */
+const DEFAULT_BLANK_PERMISSIONS: UserPermissions = permissionsFrom('none', { dashboard: 'view' });
 
 export const UserManageModal: React.FC<UserManageModalProps> = ({
   currentUserId,
@@ -191,7 +77,7 @@ export const UserManageModal: React.FC<UserManageModalProps> = ({
     setFormPassword('');
     setFormCustomRoleName('Mitarbeiter');
     setFormIsActive(true);
-    setFormPermissions({ ...DEFAULT_BLANK_PERMISSIONS, canViewMembers: true });
+    setFormPermissions({ ...DEFAULT_BLANK_PERMISSIONS });
     setShowPassword(false);
   };
 
@@ -201,13 +87,12 @@ export const UserManageModal: React.FC<UserManageModalProps> = ({
     setFormUsername(user.username);
     setFormName(user.name);
     setFormEmail(user.email);
-    setFormPassword(user.password || '');
+    // Das Passwort lässt sich nicht mehr anzeigen — gespeichert ist nur ein
+    // Prüfwert. Leer lassen heisst: bleibt unverändert.
+    setFormPassword('');
     setFormCustomRoleName(user.customRoleName || '');
     setFormIsActive(user.isActive);
-    setFormPermissions({
-      ...DEFAULT_BLANK_PERMISSIONS,
-      ...(user.permissions || {})
-    });
+    setFormPermissions(migrateLegacyPermissions(user.permissions));
     setShowPassword(false);
   };
 
@@ -216,82 +101,8 @@ export const UserManageModal: React.FC<UserManageModalProps> = ({
     setEditingUserId(null);
   };
 
-  // Toggle single permission
-  const togglePermission = (key: keyof UserPermissions) => {
-    setFormPermissions(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
-  };
-
-  // Quick Preset Handlers
-  const applyPreset = (preset: 'all' | 'finance' | 'read_only' | 'members' | 'none') => {
-    switch (preset) {
-      case 'all':
-        setFormPermissions({ ...FULL_PERMISSIONS });
-        break;
-      case 'finance':
-        setFormPermissions({
-          canViewMembers: true,
-          canEditMembers: true,
-          canViewFinances: true,
-          canEditFinances: true,
-          canExecuteSepa: true,
-          canManageDonations: true,
-          canManageDocuments: true,
-          canManageInventory: true,
-          canManageSettings: false,
-          canManageSurveys: true,
-          canManageContacts: true,
-          canManageCalendar: true,
-          canManageMeetings: true,
-          canManageUsers: false
-        });
-        break;
-      case 'read_only':
-        setFormPermissions({
-          canViewMembers: true,
-          canEditMembers: false,
-          canViewFinances: true,
-          canEditFinances: false,
-          canExecuteSepa: false,
-          canManageDonations: false,
-          canManageDocuments: true,
-          canManageInventory: true,
-          canManageSettings: false,
-          canManageSurveys: false,
-          canManageContacts: true,
-          canManageCalendar: true,
-          canManageMeetings: true,
-          canManageUsers: false
-        });
-        break;
-      case 'members':
-        setFormPermissions({
-          canViewMembers: true,
-          canEditMembers: true,
-          canViewFinances: false,
-          canEditFinances: false,
-          canExecuteSepa: false,
-          canManageDonations: false,
-          canManageDocuments: true,
-          canManageInventory: true,
-          canManageSettings: false,
-          canManageSurveys: true,
-          canManageContacts: true,
-          canManageCalendar: true,
-          canManageMeetings: true,
-          canManageUsers: false
-        });
-        break;
-      case 'none':
-        setFormPermissions({ ...DEFAULT_BLANK_PERMISSIONS });
-        break;
-    }
-  };
-
   // Save User
-  const handleSaveUser = (e: React.FormEvent) => {
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatusMsg(null);
 
@@ -323,7 +134,8 @@ export const UserManageModal: React.FC<UserManageModalProps> = ({
       username: cleanUsername,
       name: formName.trim(),
       email: formEmail.trim(),
-      password: formPassword.trim(),
+      // Das Passwort setzt saveUserWithPassword — hier steht nie Klartext.
+      password: '',
       customRoleName: formCustomRoleName.trim() || 'Benutzer',
       isActive: formIsActive,
       permissions: { ...formPermissions },
@@ -331,7 +143,12 @@ export const UserManageModal: React.FC<UserManageModalProps> = ({
       updatedAt: new Date().toISOString()
     };
 
-    AuthService.saveUser(userToSave);
+    const res = await AuthService.saveUserWithPassword(userToSave, formPassword);
+    if (!res.success) {
+      setStatusMsg({ type: 'error', text: res.message || 'Speichern fehlgeschlagen.' });
+      return;
+    }
+
     reloadUsers();
     cancelEdit();
     setStatusMsg({ type: 'success', text: `Benutzer "${userToSave.name}" erfolgreich gespeichert.` });
@@ -380,8 +197,10 @@ export const UserManageModal: React.FC<UserManageModalProps> = ({
   };
 
   // Count active permissions for summary
+  /** Zahl der freigeschalteten Bereiche (ansehen oder bearbeiten). */
   const countPermissions = (perms: UserPermissions) => {
-    return Object.values(perms || {}).filter(Boolean).length;
+    const p = migrateLegacyPermissions(perms);
+    return AREA_DEFINITIONS.filter(a => canView(p, a.id)).length;
   };
 
   return (
@@ -489,14 +308,19 @@ export const UserManageModal: React.FC<UserManageModalProps> = ({
 
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Passwort *
+                        {isCreating ? 'Passwort *' : 'Neues Passwort'}
                       </label>
                       <div className="relative">
                         <input
                           type={showPassword ? 'text' : 'password'}
                           value={formPassword}
                           onChange={(e) => setFormPassword(e.target.value)}
-                          placeholder="Passwort eingeben..."
+                          placeholder={
+                            isCreating
+                              ? `Mindestens ${MIN_PASSWORD_LENGTH} Zeichen`
+                              : 'Leer lassen, um das bisherige zu behalten'
+                          }
+                          autoComplete="new-password"
                           required={isCreating}
                           className="w-full px-3 py-2 pr-9 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                         />
@@ -574,100 +398,15 @@ export const UserManageModal: React.FC<UserManageModalProps> = ({
                           Individuelle Zugriffsrechte für diesen Benutzer
                         </h4>
                         <p className="text-2xs text-slate-500">
-                          Keine starren Rollen – wählen Sie genau die Module, die dieser Benutzer sehen oder bearbeiten darf.
+                          Für jeden Menüpunkt einzeln: gesperrt, nur ansehen oder bearbeiten.
                         </p>
                       </div>
-
-                      {/* Quick Presets */}
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <span className="text-2xs text-slate-400 font-bold mr-1">Schnellwahl:</span>
-                        <button
-                          type="button"
-                          onClick={() => applyPreset('all')}
-                          className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded text-2xs font-semibold transition-colors cursor-pointer"
-                        >
-                          Vollzugriff
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => applyPreset('finance')}
-                          className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded text-2xs font-semibold transition-colors cursor-pointer"
-                        >
-                          Finanzen & Kasse
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => applyPreset('read_only')}
-                          className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded text-2xs font-semibold transition-colors cursor-pointer"
-                        >
-                          Prüfer (Nur Lesen)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => applyPreset('members')}
-                          className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded text-2xs font-semibold transition-colors cursor-pointer"
-                        >
-                          Mitglieder
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => applyPreset('none')}
-                          className="px-2 py-1 bg-white hover:bg-slate-100 text-rose-600 border border-slate-200 rounded text-2xs font-semibold transition-colors cursor-pointer"
-                        >
-                          Alle abwählen
-                        </button>
-                      </div>
                     </div>
 
-                    {/* Permissions Grid Grouped by Category */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {(
-                        [
-                          'Mitglieder',
-                          'Finanzen & SEPA',
-                          'Kontakte, Termine & Sitzungen',
-                          'Dokumente & Inventar',
-                          'System & Verwaltung'
-                        ] as const
-                      ).map(cat => {
-                        const items = PERMISSION_ITEMS.filter(p => p.category === cat);
-                        return (
-                          <div key={cat} className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-2.5 shadow-2xs">
-                            <div className="text-2xs font-extrabold uppercase tracking-wider text-slate-400">
-                              {cat}
-                            </div>
-                            <div className="space-y-2">
-                              {items.map(item => {
-                                const isChecked = Boolean(formPermissions[item.key]);
-                                return (
-                                  <label
-                                    key={item.key}
-                                    className={`flex items-start gap-2.5 p-2 rounded-lg cursor-pointer transition-colors ${
-                                      isChecked ? 'bg-blue-50/60 border border-blue-200/60' : 'hover:bg-slate-50 border border-transparent'
-                                    }`}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={() => togglePermission(item.key)}
-                                      className="mt-0.5 rounded text-blue-600 focus:ring-blue-500 w-4 h-4 shrink-0"
-                                    />
-                                    <div className="min-w-0">
-                                      <div className="text-xs font-bold text-slate-800 leading-tight">
-                                        {item.label}
-                                      </div>
-                                      <div className="text-2xs text-slate-500 mt-0.5 leading-snug">
-                                        {item.description}
-                                      </div>
-                                    </div>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <PermissionMatrix
+                      value={formPermissions}
+                      onChange={setFormPermissions}
+                    />
                   </div>
 
                   {/* Actions */}
@@ -712,6 +451,7 @@ export const UserManageModal: React.FC<UserManageModalProps> = ({
                   {/* List of Users */}
                   <div className="space-y-3">
                     {users.map(user => {
+                      const perms = migrateLegacyPermissions(user.permissions);
                       const permCount = countPermissions(user.permissions);
                       const isCurrent = user.id === currentUserId;
 
@@ -729,9 +469,9 @@ export const UserManageModal: React.FC<UserManageModalProps> = ({
                             {/* Left User Details */}
                             <div className="flex items-start gap-3">
                               <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs group-hover:scale-105 transition-transform ${
-                                user.permissions.canManageUsers
+                                canEdit(perms, 'users')
                                   ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                                  : user.permissions.canEditFinances
+                                  : canEdit(perms, 'finance')
                                   ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                                   : 'bg-blue-100 text-blue-700 border border-blue-200'
                               }`}>
@@ -765,39 +505,44 @@ export const UserManageModal: React.FC<UserManageModalProps> = ({
                                   {user.email && <span className="hidden sm:inline">• {user.email}</span>}
                                 </div>
 
-                                {/* Permissions Chips */}
+                                {/* Freigeschaltete Bereiche */}
                                 <div className="flex items-center gap-1.5 flex-wrap mt-2">
                                   <span className="text-2xs text-slate-400 font-medium mr-1">
-                                    Rechte ({permCount}/10):
+                                    Bereiche ({permCount}/{AREA_DEFINITIONS.length}):
                                   </span>
-                                  {user.permissions.canManageUsers && (
+                                  {canEdit(perms, 'users') && (
                                     <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded text-2xs font-semibold">
-                                      Admin / Benutzer
+                                      Benutzerverwaltung
                                     </span>
                                   )}
-                                  {user.permissions.canEditFinances && (
+                                  {canEdit(perms, 'finance') && (
                                     <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-2xs font-semibold">
                                       Kassenbuch & Buchungen
                                     </span>
                                   )}
-                                  {user.permissions.canExecuteSepa && (
+                                  {canEdit(perms, 'sepa') && (
                                     <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-2xs font-semibold">
                                       SEPA
                                     </span>
                                   )}
-                                  {user.permissions.canEditMembers && (
+                                  {canEdit(perms, 'members') && (
                                     <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-2xs font-semibold">
                                       Mitglieder
                                     </span>
                                   )}
-                                  {user.permissions.canManageDonations && (
+                                  {canEdit(perms, 'donations') && (
                                     <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded text-2xs font-semibold">
                                       Spenden
                                     </span>
                                   )}
-                                  {!user.permissions.canEditFinances && user.permissions.canViewFinances && (
+                                  {!canEdit(perms, 'finance') && canView(perms, 'finance') && (
                                     <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-2xs font-semibold">
                                       Kassenprüfung (Lesen)
+                                    </span>
+                                  )}
+                                  {permCount === 0 && (
+                                    <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded text-2xs font-semibold">
+                                      Kein Zugriff
                                     </span>
                                   )}
                                 </div>

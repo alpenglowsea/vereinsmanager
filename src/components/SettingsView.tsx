@@ -5,7 +5,25 @@ import { AuthService } from '../services/authService';
 import { AiBookingService } from '../services/aiBookingService';
 import { SnapshotService, AutoSnapshot } from '../services/snapshotService';
 import { CURRENT_APP_VERSION } from '../services/updateService';
-import { FULL_PERMISSIONS } from '../data/roles';
+import { PermissionMatrix } from './PermissionMatrix';
+import { CloudUserAdminPanel } from './CloudUserAdminPanel';
+import { usesNativeCrypto } from '../services/passwordService';
+import {
+  SmtpConfigService,
+  SmtpConfigPublic,
+  LEERE_SMTP_KONFIGURATION
+} from '../services/smtpConfigService';
+import { apiFetch } from '../services/apiClient';
+import { ServerAccessKeyPanel } from './ServerAccessKeyPanel';
+import { BackupImportDialog } from './BackupImportDialog';
+import { BereichsVergleich, ImportArt, SicherungsKopf } from '../services/backupContents';
+import {
+  AREA_DEFINITIONS,
+  canEdit as areaCanEdit,
+  canView as areaCanView,
+  migrateLegacyPermissions,
+  permissionsFrom
+} from '../utils/permissions';
 import { DeploymentHubSettingsPanel } from './DeploymentHubSettingsPanel';
 import { openExternalUrl } from '../utils/externalLink';
 import { saveBlobWithLocationPicker } from '../utils/fileExportHelper';
@@ -59,8 +77,10 @@ import {
   Clock,
   Archive,
   GripVertical,
-  Plus
+  Plus,
+  Lock
 } from 'lucide-react';
+import { lockClass, lockTitle } from '../utils/uiLock';
 
 interface ProviderMeta {
   id: AiProviderType;
@@ -142,7 +162,6 @@ interface SettingsViewProps {
   settings: ClubSettings;
   onSaveSettings: (settings: ClubSettings) => void;
   onDataReload?: () => void;
-  onOpenDeploymentHub?: () => void;
   onOpenUserManage?: () => void;
   currentTheme: 'light' | 'dark' | 'system';
   onThemeChange: (theme: 'light' | 'dark' | 'system') => void;
@@ -150,101 +169,20 @@ interface SettingsViewProps {
   onDeploymentModeChange?: (mode: DeploymentMode) => void;
   initialTab?: SettingsTab;
   onTabChange?: (tab: SettingsTab) => void;
+  /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
+  canEdit?: boolean;
+  /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
+  onLocked?: () => void;
+  /** Eigenes Recht: Benutzerkonten und Rechte verwalten. */
+  canManageUsers?: boolean;
+  /** Hinweis, wenn die Benutzerverwaltung gesperrt ist. */
+  onUsersLocked?: () => void;
+  /** Kennung des angemeldeten Cloud-Benutzers (nur im Cloud-Betrieb gesetzt). */
+  currentCloudUserId?: string;
 }
 
-interface PermissionItem {
-  key: keyof UserPermissions;
-  label: string;
-  category: 'Mitglieder' | 'Finanzen & SEPA' | 'Dokumente & Inventar' | 'System & Verwaltung';
-  description: string;
-}
-
-const PERMISSION_ITEMS: PermissionItem[] = [
-  // Mitglieder
-  {
-    key: 'canViewMembers',
-    label: 'Mitglieder einsehen',
-    category: 'Mitglieder',
-    description: 'Zugriff auf Mitgliederliste, Kontaktdaten und Jubiläen'
-  },
-  {
-    key: 'canEditMembers',
-    label: 'Mitglieder anlegen & bearbeiten',
-    category: 'Mitglieder',
-    description: 'Neueintritte erfassen, Daten ändern und Kündigungen verarbeiten'
-  },
-
-  // Finanzen
-  {
-    key: 'canViewFinances',
-    label: 'Finanzen & Kassenbuch einsehen',
-    category: 'Finanzen & SEPA',
-    description: 'Einsicht in Buchungsjournal, Kontenstände und EÜR/GuV'
-  },
-  {
-    key: 'canEditFinances',
-    label: 'Buchungen erfassen & ändern',
-    category: 'Finanzen & SEPA',
-    description: 'Neue Einnahmen/Ausgaben anlegen, Belege zuordnen und stornieren'
-  },
-  {
-    key: 'canExecuteSepa',
-    label: 'SEPA-Beitragslauf ausführen',
-    category: 'Finanzen & SEPA',
-    description: 'SEPA-Lastschrift-XML generieren und Buchungen erzeugen'
-  },
-  {
-    key: 'canManageDonations',
-    label: 'Spendenbescheinigungen ausstellen',
-    category: 'Finanzen & SEPA',
-    description: 'Geld- und Sachzuwendungsbestätigungen nach BMF-Muster erstellen'
-  },
-
-  // Dokumente & Inventar
-  {
-    key: 'canManageDocuments',
-    label: 'Dokumentenarchiv & Belege verwalten',
-    category: 'Dokumente & Inventar',
-    description: 'Dateien hochladen, Ordner erstellen und Belege archivieren'
-  },
-  {
-    key: 'canManageInventory',
-    label: 'Inventar & Material verwalten',
-    category: 'Dokumente & Inventar',
-    description: 'Vereinsausstattung, Geräte und Wartungsintervalle pflegen'
-  },
-
-  // System
-  {
-    key: 'canManageSettings',
-    label: 'Vereinseinstellungen ändern',
-    category: 'System & Verwaltung',
-    description: 'Stammdaten, Bankkonten, Beitragsstaffeln und Systemoptionen verwalten'
-  },
-  {
-    key: 'canManageUsers',
-    label: 'Benutzerkonten & Rechte verwalten',
-    category: 'System & Verwaltung',
-    description: 'Benutzer anlegen, Passwörter vergeben und Berechtigungen festlegen'
-  }
-];
-
-const DEFAULT_BLANK_PERMISSIONS: UserPermissions = {
-  canViewMembers: true,
-  canEditMembers: false,
-  canViewFinances: false,
-  canEditFinances: false,
-  canExecuteSepa: false,
-  canManageDonations: false,
-  canManageDocuments: false,
-  canManageInventory: false,
-  canManageSettings: false,
-  canManageSurveys: false,
-  canManageContacts: true,
-  canManageCalendar: true,
-  canManageMeetings: false,
-  canManageUsers: false
-};
+/** Neue Benutzer starten gesperrt — freigeschaltet wird bewusst. */
+const DEFAULT_BLANK_PERMISSIONS: UserPermissions = permissionsFrom('none', { dashboard: 'view' });
 
 export const parseClubAddress = (addr: Address | string | undefined): Address => {
   if (!addr) return { street: '', houseNumber: '', zip: '', city: '', country: 'Deutschland' };
@@ -314,13 +252,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
   onSaveSettings,
   onDataReload,
-  onOpenDeploymentHub,
   currentTheme,
   onThemeChange,
   deploymentMode,
   onDeploymentModeChange,
   initialTab,
-  onTabChange
+  onTabChange,
+  canEdit = true,
+  onLocked,
+  canManageUsers = true,
+  onUsersLocked,
+  currentCloudUserId
 }) => {
   const [currentDepMode, setCurrentDepMode] = useState<DeploymentMode>(
     deploymentMode || StorageService.getDeploymentMode()
@@ -333,6 +275,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   }, [deploymentMode]);
 
   const handleModeChange = (mode: DeploymentMode) => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     setCurrentDepMode(mode);
     onDeploymentModeChange?.(mode);
   };
@@ -344,6 +287,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // 5. Betriebsmodi
   // 6. Projekt unterstützen
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || 'general');
+
+  /** Läuft die Anwendung gegen eine Cloud-Datenbank? */
+  const isCloudMode = deploymentMode === 'cloud';
   const prevInitialTabRef = useRef(initialTab);
 
   const switchTab = (tab: SettingsTab) => {
@@ -443,74 +389,136 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [isTestingKey, setIsTestingKey] = useState(false);
   const [keyTestResult, setKeyTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // SMTP Configuration State (Sitzungsdienst & Vereinskorrespondenz)
+  // ------------------------------------------------------------------
+  // SMTP-Zugangsdaten (Sitzungsdienst & Vereinskorrespondenz)
+  //
+  // Diese Angaben stehen NICHT in den Vereinsstammdaten und damit auch nicht
+  // in formData. Sie liegen auf dem Server dieser Installation und werden
+  // über SmtpConfigService angesprochen. Das Passwort geht nur hinaus, nie
+  // herein: Vom Server kommt lediglich die Auskunft, ob eines hinterlegt ist.
+  // ------------------------------------------------------------------
   const [showSmtpPassword, setShowSmtpPassword] = useState(false);
   const [isTestingSmtp, setIsTestingSmtp] = useState(false);
   const [smtpTestResult, setSmtpTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [smtpTestEmailInput, setSmtpTestEmailInput] = useState('');
   const [showSmtpTestInput, setShowSmtpTestInput] = useState(false);
 
+  /** Die Eingabefelder. Ohne Passwort — das steht in smtpPasswordInput. */
+  const [smtpForm, setSmtpForm] = useState<SmtpConfigPublic>(LEERE_SMTP_KONFIGURATION);
+  /** Leer = unverändert lassen. Was hier steht, ersetzt beim Speichern. */
+  const [smtpPasswordInput, setSmtpPasswordInput] = useState('');
+  const [isSavingSmtp, setIsSavingSmtp] = useState(false);
+  const [smtpSaveResult, setSmtpSaveResult] = useState<{ success: boolean; message: string } | null>(null);
+  /** null = noch nicht geladen; false = Server antwortet nicht (Desktop-Fassung). */
+  const [smtpServerErreichbar, setSmtpServerErreichbar] = useState<boolean | null>(null);
+
+  /**
+   * Gelesene, aber noch nicht eingespielte Datensicherung samt Abgleich.
+   * Solange hier etwas steht, ist der Bestätigungsdialog offen und am
+   * Datenbestand wurde noch nichts verändert.
+   */
+  const [importVorschau, setImportVorschau] = useState<{
+    dateiName: string;
+    text: string;
+    kopf: SicherungsKopf;
+    vergleich: BereichsVergleich[];
+  } | null>(null);
+  const [importLaeuft, setImportLaeuft] = useState(false);
+
+  // Einmal beim Öffnen der Einstellungen den Stand vom Server holen.
+  useEffect(() => {
+    let abgebrochen = false;
+    SmtpConfigService.load().then(konfiguration => {
+      if (abgebrochen) return;
+      setSmtpServerErreichbar(konfiguration !== null);
+      if (konfiguration) setSmtpForm(konfiguration);
+    });
+    return () => {
+      abgebrochen = true;
+    };
+  }, []);
+
   const applySmtpPreset = (preset: 'ionos' | 'strato' | 'gmail' | 'gmx' | 'webde' | 'telekom') => {
-    switch (preset) {
-      case 'ionos':
-        setFormData(prev => ({
-          ...prev,
-          smtpHost: 'smtp.ionos.de',
-          smtpPort: 587,
-          smtpSecure: false,
-          smtpFromName: prev.smtpFromName || prev.clubName || 'TSV Musterstadt 1890 e.V.'
-        }));
-        break;
-      case 'strato':
-        setFormData(prev => ({
-          ...prev,
-          smtpHost: 'smtp.strato.de',
-          smtpPort: 465,
-          smtpSecure: true,
-          smtpFromName: prev.smtpFromName || prev.clubName || 'TSV Musterstadt 1890 e.V.'
-        }));
-        break;
-      case 'gmail':
-        setFormData(prev => ({
-          ...prev,
-          smtpHost: 'smtp.gmail.com',
-          smtpPort: 587,
-          smtpSecure: false,
-          smtpFromName: prev.smtpFromName || prev.clubName || 'TSV Musterstadt 1890 e.V.'
-        }));
-        break;
-      case 'gmx':
-        setFormData(prev => ({
-          ...prev,
-          smtpHost: 'mail.gmx.net',
-          smtpPort: 587,
-          smtpSecure: false,
-          smtpFromName: prev.smtpFromName || prev.clubName || 'TSV Musterstadt 1890 e.V.'
-        }));
-        break;
-      case 'webde':
-        setFormData(prev => ({
-          ...prev,
-          smtpHost: 'smtp.web.de',
-          smtpPort: 587,
-          smtpSecure: false,
-          smtpFromName: prev.smtpFromName || prev.clubName || 'TSV Musterstadt 1890 e.V.'
-        }));
-        break;
-      case 'telekom':
-        setFormData(prev => ({
-          ...prev,
-          smtpHost: 'securesmtp.t-online.de',
-          smtpPort: 587,
-          smtpSecure: false,
-          smtpFromName: prev.smtpFromName || prev.clubName || 'TSV Musterstadt 1890 e.V.'
-        }));
-        break;
-    }
+    const vorlagen: Record<typeof preset, { host: string; port: number; secure: boolean }> = {
+      ionos: { host: 'smtp.ionos.de', port: 587, secure: false },
+      strato: { host: 'smtp.strato.de', port: 465, secure: true },
+      gmail: { host: 'smtp.gmail.com', port: 587, secure: false },
+      gmx: { host: 'mail.gmx.net', port: 587, secure: false },
+      webde: { host: 'smtp.web.de', port: 587, secure: false },
+      telekom: { host: 'securesmtp.t-online.de', port: 587, secure: false }
+    };
+    const vorlage = vorlagen[preset];
+    setSmtpForm(prev => ({
+      ...prev,
+      host: vorlage.host,
+      port: vorlage.port,
+      secure: vorlage.secure,
+      fromName: prev.fromName || formData.clubName || ''
+    }));
   };
 
+  const handleSaveSmtp = async (): Promise<boolean> => {
+    if (!smtpForm.host.trim()) {
+      setSmtpSaveResult({ success: false, message: 'Bitte zuerst einen SMTP-Hostnamen angeben (z. B. smtp.ionos.de).' });
+      return false;
+    }
+
+    setIsSavingSmtp(true);
+    setSmtpSaveResult(null);
+    setSmtpTestResult(null);
+
+    const ergebnis = await SmtpConfigService.save({
+      host: smtpForm.host,
+      port: smtpForm.port,
+      secure: smtpForm.secure,
+      user: smtpForm.user,
+      fromEmail: smtpForm.fromEmail,
+      fromName: smtpForm.fromName,
+      // Leeres Feld heißt "nicht angefasst". Zum Entfernen gibt es den
+      // eigenen Knopf; sonst würde ein versehentlich geleertes Feld das
+      // hinterlegte Passwort löschen.
+      password: smtpPasswordInput ? smtpPasswordInput : undefined
+    });
+
+    if (ergebnis.success && ergebnis.config) {
+      setSmtpForm(ergebnis.config);
+      setSmtpPasswordInput('');
+      setSmtpSaveResult({
+        success: true,
+        message: ergebnis.config.hasPassword
+          ? 'Zugangsdaten auf dem Server gespeichert. Sie stehen in keiner Datensicherung.'
+          : 'Zugangsdaten gespeichert. Achtung: Es ist noch kein Passwort hinterlegt.'
+      });
+    } else {
+      setSmtpSaveResult({ success: false, message: ergebnis.error || 'Speichern fehlgeschlagen.' });
+    }
+    setIsSavingSmtp(false);
+    return ergebnis.success;
+  };
+
+  const handleDeleteSmtp = async () => {
+    setIsSavingSmtp(true);
+    setSmtpTestResult(null);
+    const ergebnis = await SmtpConfigService.remove();
+    if (ergebnis.success) {
+      setSmtpForm(LEERE_SMTP_KONFIGURATION);
+      setSmtpPasswordInput('');
+      setSmtpSaveResult({ success: true, message: 'Die Zugangsdaten wurden vom Server entfernt.' });
+    } else {
+      setSmtpSaveResult({ success: false, message: ergebnis.error || 'Löschen fehlgeschlagen.' });
+    }
+    setIsSavingSmtp(false);
+  };
+
+  /**
+   * Geprüft werden die auf dem Server hinterlegten Zugangsdaten — nicht das,
+   * was gerade in den Feldern steht. Sonst bestünde die Gefahr, dass der Test
+   * gelingt und der spätere Versand trotzdem scheitert, weil zwischendurch
+   * niemand gespeichert hat. Ungespeicherte Änderungen werden deshalb hier
+   * zuerst gespeichert.
+   */
   const handleTestSmtp = async () => {
-    if (!formData.smtpHost?.trim()) {
+    if (!smtpForm.host.trim()) {
       setSmtpTestResult({
         success: false,
         message: 'Bitte geben Sie zuerst einen SMTP-Hostnamen an (z.B. smtp.ionos.de).'
@@ -521,41 +529,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setIsTestingSmtp(true);
     setSmtpTestResult(null);
 
-    try {
-      const res = await fetch('/api/smtp/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host: formData.smtpHost.trim(),
-          port: formData.smtpPort || (formData.smtpSecure ? 465 : 587),
-          secure: Boolean(formData.smtpSecure),
-          user: formData.smtpUser?.trim(),
-          password: formData.smtpPassword,
-          fromEmail: formData.smtpFromEmail?.trim() || formData.email,
-          testRecipient: smtpTestEmailInput.trim() || undefined
-        })
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setSmtpTestResult({
-          success: true,
-          message: data.message || 'SMTP-Verbindung erfolgreich aufgebaut und authentifiziert.'
-        });
-      } else {
-        setSmtpTestResult({
-          success: false,
-          message: data.error || 'SMTP-Verbindung fehlgeschlagen. Bitte Zugangsdaten und Port überprüfen.'
-        });
-      }
-    } catch (err: any) {
-      setSmtpTestResult({
-        success: false,
-        message: err.message || 'Netzwerkfehler beim Verbindungstest zum Server.'
-      });
-    } finally {
+    const gespeichert = await handleSaveSmtp();
+    if (!gespeichert) {
       setIsTestingSmtp(false);
+      return;
     }
+
+    const ergebnis = await SmtpConfigService.test(smtpTestEmailInput);
+    setSmtpTestResult(ergebnis);
+    setIsTestingSmtp(false);
   };
 
   // External Link Confirmation Modal State (Requirement 5)
@@ -659,7 +641,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     try {
       // 1. First attempt: In-App Backend API route /api/submit-bugreport
       try {
-        const response = await fetch('/api/submit-bugreport', {
+        const response = await apiFetch('/api/submit-bugreport', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify(reportPayload),
@@ -813,6 +795,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         text: 'Fehlerbericht in die Zwischenablage kopiert! Sie können den Text direkt in Ihre E-Mail einfügen.'
       });
     } catch (err) {
+      // Häufigste Ursache: Der Browser gibt die Zwischenablage nur über
+      // eine verschlüsselte Verbindung frei. Ohne diese Zeile bleibt das
+      // im Dunkeln.
+      console.warn('Zugriff auf die Zwischenablage fehlgeschlagen:', err);
       setStatusMsg({ type: 'error', text: 'Kopieren fehlgeschlagen. Bitte markieren Sie den Text manuell.' });
     }
   };
@@ -865,79 +851,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setUserMsg(null);
   };
 
-  const toggleUserPermission = (key: keyof UserPermissions) => {
-    setUserFormPermissions(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
-  };
-
-  const applyPreset = (preset: 'all' | 'finance' | 'read_only' | 'members' | 'none') => {
-    switch (preset) {
-      case 'all':
-        setUserFormPermissions({ ...FULL_PERMISSIONS });
-        break;
-      case 'finance':
-        setUserFormPermissions({
-          canViewMembers: true,
-          canEditMembers: false,
-          canViewFinances: true,
-          canEditFinances: true,
-          canExecuteSepa: true,
-          canManageDonations: true,
-          canManageDocuments: true,
-          canManageInventory: true,
-          canManageSettings: false,
-          canManageSurveys: false,
-          canManageContacts: true,
-          canManageCalendar: true,
-          canManageMeetings: true,
-          canManageUsers: false
-        });
-        break;
-      case 'read_only':
-        setUserFormPermissions({
-          canViewMembers: true,
-          canEditMembers: false,
-          canViewFinances: true,
-          canEditFinances: false,
-          canExecuteSepa: false,
-          canManageDonations: false,
-          canManageDocuments: true,
-          canManageInventory: true,
-          canManageSettings: false,
-          canManageSurveys: false,
-          canManageContacts: true,
-          canManageCalendar: true,
-          canManageMeetings: true,
-          canManageUsers: false
-        });
-        break;
-      case 'members':
-        setUserFormPermissions({
-          canViewMembers: true,
-          canEditMembers: true,
-          canViewFinances: false,
-          canEditFinances: false,
-          canExecuteSepa: false,
-          canManageDonations: false,
-          canManageDocuments: true,
-          canManageInventory: false,
-          canManageSettings: false,
-          canManageSurveys: true,
-          canManageContacts: true,
-          canManageCalendar: true,
-          canManageMeetings: true,
-          canManageUsers: false
-        });
-        break;
-      case 'none':
-        setUserFormPermissions({ ...DEFAULT_BLANK_PERMISSIONS });
-        break;
-    }
-  };
-
-  const handleSaveUserForm = (e: React.FormEvent) => {
+  const handleSaveUserForm = async (e: React.FormEvent) => {
+    if (!canManageUsers) { if (onUsersLocked) onUsersLocked(); return; }
     e.preventDefault();
     if (!userFormUsername.trim() || !userFormName.trim()) {
       setUserMsg({ type: 'error', text: 'Benutzername und vollständiger Name sind Pflichtfelder.' });
@@ -955,13 +870,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           username: userFormUsername.trim().toLowerCase(),
           name: userFormName.trim(),
           email: userFormEmail.trim(),
-          password: userFormPassword.trim(),
+          // Klartext hat im Speicher nichts verloren — das übernimmt
+          // saveUserWithPassword und legt nur einen Prüfwert ab.
+          password: '',
           customRoleName: userFormRole.trim() || 'Benutzer',
           permissions: userFormPermissions,
           isActive: userFormIsActive,
           createdAt: new Date().toISOString()
         };
-        AuthService.saveUser(newUser);
+        const res = await AuthService.saveUserWithPassword(newUser, userFormPassword);
+        if (!res.success) {
+          setUserMsg({ type: 'error', text: res.message || 'Fehler beim Anlegen des Benutzers.' });
+          return;
+        }
         setUsersList(AuthService.getUsers());
         setIsCreatingUser(false);
         setUserMsg({ type: 'success', text: `Benutzer "${userFormName}" erfolgreich angelegt.` });
@@ -978,14 +899,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           username: userFormUsername.trim().toLowerCase(),
           name: userFormName.trim(),
           email: userFormEmail.trim(),
-          password: userFormPassword.trim() || (existing?.password || ''),
+          password: '',
           customRoleName: userFormRole.trim() || 'Benutzer',
           permissions: userFormPermissions,
           isActive: userFormIsActive,
           createdAt: existing?.createdAt || new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
-        AuthService.saveUser(updatedUser);
+        // Leeres Feld heisst: bisheriges Passwort behalten.
+        const res = await AuthService.saveUserWithPassword(updatedUser, userFormPassword);
+        if (!res.success) {
+          setUserMsg({ type: 'error', text: res.message || 'Fehler beim Aktualisieren des Benutzers.' });
+          return;
+        }
         setUsersList(AuthService.getUsers());
         setEditingUserId(null);
         setUserMsg({ type: 'success', text: `Benutzer "${userFormName}" erfolgreich aktualisiert.` });
@@ -998,6 +924,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleDeleteUser = (user: AppUser) => {
+    if (!canManageUsers) { if (onUsersLocked) onUsersLocked(); return; }
     if (usersList.length <= 1) {
       alert('Der letzte verbleibende Administrator kann nicht gelöscht werden.');
       return;
@@ -1015,6 +942,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleSaveClub = async (e: React.FormEvent) => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     e.preventDefault();
     setIsSavingClub(true);
     setClubSaveSuccess(false);
@@ -1073,6 +1001,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // Board Members Handlers
   const handleAddBoardMember = () => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     const newId = `bm-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     setBoardMembers(prev => [
       ...prev,
@@ -1087,12 +1016,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleUpdateBoardMember = (id: string, field: keyof BoardMember, value: string) => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     setBoardMembers(prev =>
       prev.map(bm => (bm.id === id ? { ...bm, [field]: value } : bm))
     );
   };
 
   const handleRemoveBoardMember = (id: string) => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (boardMembers.length <= 1) {
       alert('Mindestens ein Vorstandsmitglied muss hinterlegt sein.');
       return;
@@ -1116,6 +1047,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleBoardDrop = (e: React.DragEvent, targetIndex: number) => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     e.preventDefault();
     if (draggedBoardIndex === null || draggedBoardIndex === targetIndex) {
       setDraggedBoardIndex(null);
@@ -1137,17 +1069,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setDragOverBoardIndex(null);
   };
 
-  const handleMoveBoardMember = (index: number, direction: 'up' | 'down') => {
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= boardMembers.length) return;
-    setBoardMembers(prev => {
-      const next = [...prev];
-      const temp = next[index];
-      next[index] = next[targetIndex];
-      next[targetIndex] = temp;
-      return next;
-    });
-  };
+  // Hier standen zwei Funktionen, die Vorstandsposten und Sparten per Pfeil
+  // nach oben und unten verschoben hätten. Sie waren fertig, aber es gab
+  // keinen Knopf, der sie aufgerufen hätte — toter Code seit dem ersten Tag.
+  // Bewusst entfernt statt fertiggebaut; wer die Sortierung will, findet den
+  // Ansatz in der Versionsgeschichte (git log -S handleMoveBoardMember).
 
   // Department Drag and Drop Handlers
   const handleDeptDragStart = (e: React.DragEvent, index: number) => {
@@ -1165,6 +1091,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleDeptDrop = (e: React.DragEvent, targetIndex: number) => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     e.preventDefault();
     if (draggedDeptIndex === null || draggedDeptIndex === targetIndex) {
       setDraggedDeptIndex(null);
@@ -1186,17 +1113,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setDragOverDeptIndex(null);
   };
 
-  const handleMoveDepartment = (index: number, direction: 'up' | 'down') => {
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= formData.departments.length) return;
-    setFormData(prev => {
-      const next = [...prev.departments];
-      const temp = next[index];
-      next[index] = next[targetIndex];
-      next[targetIndex] = temp;
-      return { ...prev, departments: next };
-    });
-  };
 
   const handleTestAiKey = async () => {
     setIsTestingKey(true);
@@ -1225,6 +1141,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleSaveAiConfigOnly = () => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     const trimmedKey = aiApiKey.trim();
     AiBookingService.setAiConfig({
       provider: aiProvider,
@@ -1277,6 +1194,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -1308,6 +1226,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleRemoveLogo = () => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     const updated = { ...formData, clubLogoUrl: undefined };
     setFormData(updated);
     onSaveSettings(updated);
@@ -1316,6 +1235,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleAddDepartment = () => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (!newDepartment.trim()) return;
     if (formData.departments.includes(newDepartment.trim())) return;
     const updatedDepts = [...formData.departments, newDepartment.trim()];
@@ -1327,6 +1247,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleRemoveDepartment = (dept: string) => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (formData.departments.length <= 1) {
       alert('Mindestens eine Sparte/Abteilung muss vorhanden sein.');
       return;
@@ -1376,23 +1297,45 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // Full Backup Import
   const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!window.confirm('Achtung: Durch das Einspielen der Sicherung werden die aktuellen lokalen Daten überschrieben. Fortfahren?')) {
-      e.target.value = '';
-      return;
-    }
-
+    // Statt einer knappen Rückfrage ("Fortfahren?") wird die Datei erst
+    // gelesen und mit dem vorhandenen Bestand abgeglichen. Der Dialog zeigt
+    // dann, was tatsächlich passieren würde, und lässt die Wahl zwischen
+    // Ersetzen und Ergänzen.
     try {
       const text = await file.text();
-      const result = await StorageService.importFullBackup(text);
+      const { kopf, vergleich } = await StorageService.analysiereSicherung(text);
+      setImportVorschau({ dateiName: file.name, text, kopf, vergleich });
+    } catch (err: any) {
+      console.error('Sicherung konnte nicht gelesen werden:', err);
+      setStatusMsg({
+        type: 'error',
+        text: err?.message || 'Die Datei konnte nicht gelesen werden.'
+      });
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const fuehreImportAus = async (art: ImportArt) => {
+    if (!importVorschau) return;
+    setImportLaeuft(true);
+
+    try {
+      const result = await StorageService.importFullBackup(importVorschau.text, 'live', art);
+      setImportVorschau(null);
       onDataReload?.();
+      const hinweisKopie = result.sicherheitskopie
+        ? ''
+        : ' Achtung: Die Sicherheitskopie des vorherigen Bestands konnte nicht angelegt werden.';
       setStatusMsg({
         type: 'success',
-        text: `Sicherung erfolgreich wiederhergestellt (${result.membersCount} Mitglieder, ${result.transactionsCount} Buchungen${result.usersCount ? `, ${result.usersCount} Benutzerkonten` : ''}).`
+        text: `Sicherung erfolgreich ${art === 'ersetzen' ? 'eingespielt' : 'ergänzt'} (${result.membersCount} Mitglieder, ${result.transactionsCount} Buchungen${result.usersCount ? `, ${result.usersCount} Benutzerkonten` : ''}).${hinweisKopie}`
       });
-      setTimeout(() => setStatusMsg(null), 4000);
+      setTimeout(() => setStatusMsg(null), 6000);
     } catch (err: any) {
       console.error('Fehler beim Import:', err);
       const isQuota = err?.name === 'QuotaExceededError' || (err?.message && err.message.toLowerCase().includes('quota'));
@@ -1403,12 +1346,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           : `Fehler beim Import: ${err.message || 'Ungültige Datei'}`
       });
     } finally {
-      e.target.value = '';
+      setImportLaeuft(false);
     }
   };
 
   // Reset to Demo
   const handleResetToDemo = async () => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (window.confirm('Möchten Sie die Datenbank wirklich auf die Muster-Vereinsdaten zurücksetzen?')) {
       await StorageService.resetToDemoData();
       onDataReload?.();
@@ -1419,6 +1363,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // Wipe All
   const handleWipeAll = async () => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (window.confirm('ACHTUNG: Möchten Sie wirklich ALLE Mitglieder, Buchungen und Konten löschen? Diese Aktion kann nicht rückgängig gemacht werden!')) {
       await StorageService.clearAllData();
       onDataReload?.();
@@ -1452,6 +1397,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   }, [activeTab]);
 
   const handleCreateManualSnapshot = async () => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     try {
       const snap = await SnapshotService.createSnapshot('manual', 'Manuell gesicherter Snapshot');
       if (snap) {
@@ -1462,11 +1408,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       }
       setTimeout(() => setStatusMsg(null), 3500);
     } catch (e: any) {
+      // Datensicherung: Hier die Ursache zu verschlucken ist besonders
+      // misslich — wer nicht weiss, warum die Sicherung scheitert, kann
+      // es auch nicht abstellen.
+      console.error('Datensicherung konnte nicht erstellt werden:', e);
       setStatusMsg({ type: 'error', text: 'Fehler beim Erstellen des Snapshots.' });
     }
   };
 
   const handleRestoreSnapshot = async (snapId: string, label: string) => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (!window.confirm(`Möchten Sie diesen Snapshot ("${label}") wirklich wiederherstellen? Aktuelle Daten werden auf diesen Stand zurückgesetzt.`)) {
       return;
     }
@@ -1484,11 +1435,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       }
       setTimeout(() => setStatusMsg(null), 4000);
     } catch (e: any) {
+      console.error('Wiederherstellung aus der Datensicherung fehlgeschlagen:', e);
       setStatusMsg({ type: 'error', text: 'Fehler bei der Wiederherstellung.' });
     }
   };
 
   const handleDeleteSnapshot = async (snapId: string) => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (!window.confirm('Möchten Sie diesen Snapshot wirklich löschen?')) return;
     await SnapshotService.deleteSnapshot(snapId);
     loadSnapshotsList();
@@ -1528,6 +1481,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      {/* Hinweis auf reines Leserecht */}
+      {!canEdit && (
+        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5">
+          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
+          <p className="text-xs leading-snug">
+            <strong>Nur Leserecht.</strong> Sie können die Vereinseinstellungen einsehen und Sicherungen herunterladen. Ändern, Zurücksetzen und Einspielen sind für Ihre Rolle gesperrt — die betreffenden Knöpfe sind ausgegraut.
+          </p>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-7 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -1687,6 +1650,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* TAB 1: ALLGEMEINE EINSTELLUNGEN (inkl. Dark Mode Funktion) */}
       {activeTab === 'general' && (
         <div className="space-y-6 animate-in fade-in duration-150">
+          {/* Zugriffsschlüssel des Servers. Im Normalfall nur eine einzeilige
+              Bestätigung; zur vollen Karte wird das erst, wenn der Server
+              diesen Browser nicht anerkennt. */}
+          <ServerAccessKeyPanel />
+
           {/* Dark Mode & Erscheinungsbild Card */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-5">
             <div className="flex items-center justify-between">
@@ -1915,7 +1883,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                className={`px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer${lockClass(canEdit)}`}
+                title={lockTitle(canEdit, 'Allgemeine Einstellungen speichern')}
               >
                 Allgemeine Einstellungen speichern
               </button>
@@ -2585,9 +2554,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
                         SMTP-Server für den Sitzungsdienst & E-Mail-Versand
                       </h4>
-                      {formData.smtpHost ? (
+                      {smtpForm.configured && smtpForm.hasPassword ? (
                         <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded-md text-[10px] font-bold border border-emerald-300/60 dark:border-emerald-800/60 flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" /> Konfiguriert
+                        </span>
+                      ) : smtpForm.configured ? (
+                        <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 rounded-md text-[10px] font-bold border border-amber-300/60 dark:border-amber-800/60">
+                          Passwort fehlt
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 rounded-md text-[10px] font-bold border border-amber-300/60 dark:border-amber-800/60">
@@ -2598,6 +2571,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 max-w-2xl">
                       Ermöglicht das direkte, DSGVO-konforme Versenden von Sitzungseinladungen, Tagesordnungen und genehmigten Protokollen samt PDF-Anhang direkt aus der App.
                     </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
+                      Diese Zugangsdaten werden <strong>auf dem Server dieser Installation</strong> gespeichert,
+                      nicht in den Vereinsdaten. Sie stehen damit in keiner Datensicherung und müssen nach
+                      einer Neuinstallation oder einem Umzug einmalig neu eingetragen werden. Das Passwort
+                      verlässt den Server nicht wieder — die App kann es nur setzen, nicht auslesen.
+                    </p>
+                    {smtpServerErreichbar === false && (
+                      <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-1 max-w-2xl font-medium">
+                        Der Server antwortet nicht. Entweder läuft keiner — in der Desktop-Fassung
+                        ist das der Normalzustand —, oder es fehlt der Zugriffsschlüssel. Was davon
+                        zutrifft, steht unter Einstellungen → Allgemein ganz oben.
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -2659,8 +2645,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </label>
                   <input
                     type="text"
-                    value={formData.smtpHost || ''}
-                    onChange={e => setFormData({ ...formData, smtpHost: e.target.value })}
+                    value={smtpForm.host}
+                    onChange={e => setSmtpForm({ ...smtpForm, host: e.target.value })}
                     placeholder="z.B. smtp.ionos.de oder mail.ihrverein.de"
                     className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                   />
@@ -2672,8 +2658,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </label>
                   <input
                     type="number"
-                    value={formData.smtpPort ?? 587}
-                    onChange={e => setFormData({ ...formData, smtpPort: parseInt(e.target.value, 10) || 587 })}
+                    value={smtpForm.port}
+                    onChange={e => setSmtpForm({ ...smtpForm, port: parseInt(e.target.value, 10) || 587 })}
                     placeholder="587 oder 465"
                     className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                   />
@@ -2684,13 +2670,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     Verschlüsselung
                   </label>
                   <select
-                    value={formData.smtpSecure ? 'ssl' : 'starttls'}
+                    value={smtpForm.secure ? 'ssl' : 'starttls'}
                     onChange={e => {
                       const isSsl = e.target.value === 'ssl';
-                      setFormData({
-                        ...formData,
-                        smtpSecure: isSsl,
-                        smtpPort: isSsl ? 465 : 587
+                      setSmtpForm({
+                        ...smtpForm,
+                        secure: isSsl,
+                        port: isSsl ? 465 : 587
                       });
                     }}
                     className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
@@ -2706,8 +2692,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </label>
                   <input
                     type="text"
-                    value={formData.smtpUser || ''}
-                    onChange={e => setFormData({ ...formData, smtpUser: e.target.value })}
+                    value={smtpForm.user}
+                    onChange={e => setSmtpForm({ ...smtpForm, user: e.target.value })}
                     placeholder="z.B. vorstand@tsv-musterstadt1890.de"
                     className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                   />
@@ -2720,9 +2706,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <div className="relative">
                     <input
                       type={showSmtpPassword ? 'text' : 'password'}
-                      value={formData.smtpPassword || ''}
-                      onChange={e => setFormData({ ...formData, smtpPassword: e.target.value })}
-                      placeholder="••••••••••••"
+                      value={smtpPasswordInput}
+                      onChange={e => setSmtpPasswordInput(e.target.value)}
+                      placeholder={
+                        smtpForm.hasPassword
+                          ? 'Hinterlegt — zum Ersetzen neues Passwort eingeben'
+                          : 'Noch kein Passwort hinterlegt'
+                      }
                       className="w-full pl-3 pr-9 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-mono"
                     />
                     <button
@@ -2734,6 +2724,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       {showSmtpPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                    {smtpForm.hasPassword
+                      ? 'Ein Passwort ist hinterlegt. Es kann nicht angezeigt, nur ersetzt oder entfernt werden.'
+                      : 'Ohne Passwort kann der Server keine E-Mails versenden.'}
+                  </p>
                 </div>
 
                 <div className="sm:col-span-6">
@@ -2742,8 +2737,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </label>
                   <input
                     type="email"
-                    value={formData.smtpFromEmail || ''}
-                    onChange={e => setFormData({ ...formData, smtpFromEmail: e.target.value })}
+                    value={smtpForm.fromEmail}
+                    onChange={e => setSmtpForm({ ...smtpForm, fromEmail: e.target.value })}
                     placeholder={formData.email || 'vorstand@tsv-musterstadt1890.de'}
                     className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                   />
@@ -2755,8 +2750,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </label>
                   <input
                     type="text"
-                    value={formData.smtpFromName || ''}
-                    onChange={e => setFormData({ ...formData, smtpFromName: e.target.value })}
+                    value={smtpForm.fromName}
+                    onChange={e => setSmtpForm({ ...smtpForm, fromName: e.target.value })}
                     placeholder={formData.clubName || 'TSV Musterstadt 1890 e.V. Vorstand'}
                     className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                   />
@@ -2769,8 +2764,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <div className="flex items-center gap-2 flex-wrap">
                     <button
                       type="button"
+                      onClick={handleSaveSmtp}
+                      disabled={isSavingSmtp || isTestingSmtp || !smtpForm.host.trim() || smtpServerErreichbar === false}
+                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
+                    >
+                      {isSavingSmtp ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Wird gespeichert...</span>
+                        </>
+                      ) : (
+                        <span>Zugangsdaten auf dem Server speichern</span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={handleTestSmtp}
-                      disabled={isTestingSmtp || !formData.smtpHost}
+                      disabled={isTestingSmtp || isSavingSmtp || !smtpForm.host.trim() || smtpServerErreichbar === false}
                       className="px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700/80 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
                     >
                       {isTestingSmtp ? (
@@ -2781,10 +2792,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       ) : (
                         <>
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>SMTP-Verbindung testen</span>
+                          <span>Speichern & Verbindung testen</span>
                         </>
                       )}
                     </button>
+
+                    {smtpForm.configured && (
+                      <button
+                        type="button"
+                        onClick={handleDeleteSmtp}
+                        disabled={isSavingSmtp || isTestingSmtp}
+                        className="px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-slate-700 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800/80 rounded-xl text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
+                      >
+                        Zugangsdaten entfernen
+                      </button>
+                    )}
 
                     <button
                       type="button"
@@ -2825,6 +2847,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 )}
 
                 {/* Test Feedback Message */}
+                {smtpSaveResult && (
+                  <div
+                    className={`p-3 rounded-xl border text-xs flex items-start gap-2 ${
+                      smtpSaveResult.success
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                        : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                    }`}
+                  >
+                    {smtpSaveResult.success ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <span className="font-bold block">
+                        {smtpSaveResult.success ? 'Gespeichert:' : 'Nicht gespeichert:'}
+                      </span>
+                      <span>{smtpSaveResult.message}</span>
+                    </div>
+                  </div>
+                )}
+
                 {smtpTestResult && (
                   <div
                     className={`p-3 rounded-xl border text-xs flex items-start gap-2 ${
@@ -2980,7 +3024,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   clubSaveSuccess
                     ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-400/60 shadow-emerald-600/20'
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
-                }`}
+                }${lockClass(canEdit)}`}
+                title={lockTitle(canEdit, 'Vereinsstammdaten speichern')}
               >
                 {isSavingClub ? (
                   <>
@@ -3005,8 +3050,56 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       )}
 
       {/* TAB 3: BENUTZER & RECHTE */}
-      {activeTab === 'users' && (
+      {/*
+        Im Cloud-Betrieb liegt die Benutzerliste in der Datenbank, nicht im
+        Browser — und neue Konten entstehen dort über Einladungen. Deshalb eine
+        eigene Maske statt der lokalen Liste; sonst würde der Vorstand Benutzer
+        anlegen, die in der Cloud niemand kennt.
+      */}
+      {activeTab === 'users' && isCloudMode && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs animate-in fade-in duration-150">
+          <CloudUserAdminPanel
+            currentUserId={currentCloudUserId}
+            canManage={canManageUsers}
+            onLocked={onUsersLocked}
+          />
+        </div>
+      )}
+
+      {activeTab === 'users' && !isCloudMode && (
         <div className="space-y-6 animate-in fade-in duration-150">
+          {/* Was der Passwortschutz im lokalen Betrieb leistet — und was nicht.
+              Ohne diesen Hinweis hält ein Verein die Anmeldung leicht für einen
+              Schutz der Daten, der sie nicht ist. */}
+          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 rounded-2xl p-4 flex items-start gap-3">
+            <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <div className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed space-y-1.5">
+              <p>
+                <strong>Passwörter</strong> werden nicht mehr im Klartext gespeichert, sondern
+                nur noch als Prüfwert, aus dem sich das Passwort nicht zurückrechnen lässt.
+                Bestehende Konten wurden beim ersten Start umgestellt — niemand muss etwas
+                neu vergeben.
+              </p>
+              <p>
+                <strong>Die Vereinsdaten selbst</strong> — Mitglieder, Bankverbindungen,
+                Kassenbuch — liegen auf diesem Gerät unverschlüsselt. Wer an den Rechner
+                kommt, kommt an die Daten, auch ohne Passwort. Die Anmeldung regelt, wer
+                womit arbeiten darf; sie ersetzt keinen Schutz des Geräts. Dafür sorgt die
+                Festplattenverschlüsselung Ihres Betriebssystems (Windows: BitLocker bzw.
+                „Geräteverschlüsselung"), und ein Bildschirmschoner mit Kennwort.
+              </p>
+              {!usesNativeCrypto() && (
+                <p className="font-semibold">
+                  Hinweis: Dieser Browser stellt keine gesicherte Kryptographie bereit —
+                  das passiert, wenn die Anwendung über „http://" statt „https://"
+                  ausgeliefert wird. Die Passwörter werden dann mit einem schwächeren
+                  Ersatzverfahren gesichert. Über „https://" oder direkt auf dem Gerät ist
+                  der Schutz deutlich besser.
+                </p>
+              )}
+            </div>
+          </div>
+
           {/* Feedback Alert if present */}
           {userMsg && (
             <div
@@ -3152,84 +3245,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
               </div>
 
-              {/* 1-Click Role Presets */}
-              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    1-Klick Rollen-Vorlagen:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => applyPreset('all')}
-                      className="px-2.5 py-1 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-lg text-2xs font-bold transition-colors cursor-pointer"
-                    >
-                      Admin (Vollzugriff)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyPreset('finance')}
-                      className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-2xs font-bold transition-colors cursor-pointer"
-                    >
-                      Kassenwart (Finanzen & SEPA)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyPreset('members')}
-                      className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg text-2xs font-bold transition-colors cursor-pointer"
-                    >
-                      Mitgliederwart (Pflege)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyPreset('read_only')}
-                      className="px-2.5 py-1 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-lg text-2xs font-bold transition-colors cursor-pointer"
-                    >
-                      Kassenprüfer (Nur Lesen)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyPreset('none')}
-                      className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg text-2xs font-bold transition-colors cursor-pointer"
-                    >
-                      Zurücksetzen
-                    </button>
+              {/* Rechte je Menüpunkt */}
+              <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div>
+                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    Zugriffsrechte je Menüpunkt
                   </div>
+                  <p className="text-2xs text-slate-500 dark:text-slate-400">
+                    Für jeden Bereich einzeln: gesperrt, nur ansehen oder bearbeiten.
+                  </p>
                 </div>
-              </div>
-
-              {/* Granular Permissions Matrix */}
-              <div className="space-y-3 pt-2">
-                <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  Granulare Funktionsberechtigungen:
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {PERMISSION_ITEMS.map((item) => (
-                    <label
-                      key={item.key}
-                      className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer select-none ${
-                        userFormPermissions[item.key]
-                          ? 'bg-blue-50/50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800/80 text-blue-950 dark:text-blue-200'
-                          : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60 text-slate-600 dark:text-slate-400 hover:border-slate-300'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={userFormPermissions[item.key]}
-                        onChange={() => toggleUserPermission(item.key)}
-                        className="mt-0.5 rounded text-blue-600 focus:ring-blue-500 w-4 h-4 shrink-0 cursor-pointer"
-                      />
-                      <div>
-                        <div className="text-xs font-bold leading-tight">
-                          {item.label}
-                        </div>
-                        <div className="text-2xs opacity-75 mt-0.5">
-                          {item.description}
-                        </div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
+                <PermissionMatrix
+                  value={userFormPermissions}
+                  onChange={setUserFormPermissions}
+                />
               </div>
 
               {/* Form Buttons */}
@@ -3243,7 +3272,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-xs"
+                  className={`px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-xs${lockClass(canManageUsers)}`}
+                  title={lockTitle(canManageUsers, 'Benutzerkonto speichern')}
                 >
                   {isCreatingUser ? 'Konto anlegen' : 'Änderungen speichern'}
                 </button>
@@ -3279,8 +3309,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               {/* Users List */}
               <div className="space-y-3">
                 {usersList.map((user) => {
-                  const permCount = Object.values(user.permissions).filter(Boolean).length;
-                  const isFullAdmin = user.permissions.canManageUsers && user.permissions.canManageSettings;
+                  const perms = migrateLegacyPermissions(user.permissions);
+                  const permCount = AREA_DEFINITIONS.filter(a => areaCanView(perms, a.id)).length;
+                  const isFullAdmin = areaCanEdit(perms, 'users') && areaCanEdit(perms, 'settings');
 
                   return (
                     <div
@@ -3291,7 +3322,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs ${
                           isFullAdmin
                             ? 'bg-rose-600 text-white'
-                            : user.permissions.canEditFinances
+                            : areaCanEdit(perms, 'finance')
                             ? 'bg-emerald-600 text-white'
                             : 'bg-blue-600 text-white'
                         }`}>
@@ -3323,7 +3354,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                       <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                         <span className="text-[11px] px-2.5 py-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-600 dark:text-slate-300 font-medium">
-                          {isFullAdmin ? 'Vollzugriff (Admin)' : `${permCount} Rechte aktiv`}
+                          {isFullAdmin ? 'Vollzugriff (Admin)' : `${permCount} von ${AREA_DEFINITIONS.length} Bereichen`}
                         </span>
                         <button
                           type="button"
@@ -4371,6 +4402,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Bestätigung vor dem Einspielen einer Datensicherung. Solange dieser
+          Dialog offen ist, wurde am Datenbestand noch nichts verändert. */}
+      <BackupImportDialog
+        isOpen={Boolean(importVorschau)}
+        dateiName={importVorschau?.dateiName || ''}
+        kopf={importVorschau?.kopf || {}}
+        vergleich={importVorschau?.vergleich || []}
+        laeuft={importLaeuft}
+        onAbbrechen={() => setImportVorschau(null)}
+        onBestaetigen={fuehreImportAus}
+      />
     </div>
   );
 };

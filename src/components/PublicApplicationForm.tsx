@@ -34,6 +34,50 @@ import {
   getFeePeriodLabel
 } from '../services/membershipPdfService';
 
+/**
+ * Übersetzt einen Fehler beim Absenden in einen Satz, den ein Interessent
+ * versteht.
+ *
+ * Hintergrund: Der Server bremst das öffentliche Formular, damit niemand es
+ * mit Scheinanträgen fluten kann (siehe Abschnitt 7d in supabase_rls.sql).
+ * Die Datenbank meldet das mit einer technischen Kennung. Ohne diese
+ * Übersetzung stünde sie wörtlich auf dem Bildschirm eines Menschen, der
+ * nur in einen Verein eintreten wollte.
+ *
+ * Wichtig ist dabei die Botschaft: Der Antrag ist nicht abgelehnt und nicht
+ * verloren — er kam nur gerade nicht durch. Deshalb wird, wenn der Verein
+ * eine Kontaktadresse hinterlegt hat, auf diesen zweiten Weg verwiesen.
+ */
+export function absendeFehlerText(err: unknown, kontaktEmail?: string): string {
+  const meldung = err instanceof Error ? err.message : String(err ?? '');
+  const kontakt = kontaktEmail?.trim()
+    ? ` Sie erreichen den Verein direkt unter ${kontaktEmail.trim()}.`
+    : ' Bitte wenden Sie sich direkt an den Verein.';
+
+  if (meldung.includes('VM_ANTRAG_LIMIT_MAIL')) {
+    return (
+      'Von dieser E-Mail-Adresse wurden in den letzten 24 Stunden bereits mehrere Anträge ' +
+      'gestellt. Falls Ihr Antrag noch nicht angekommen ist, melden Sie sich bitte kurz.' +
+      kontakt
+    );
+  }
+
+  if (meldung.includes('VM_ANTRAG_LIMIT_GESAMT')) {
+    return (
+      'Das Formular nimmt gerade keine weiteren Anträge an — es sind in kurzer Zeit ' +
+      'ungewöhnlich viele eingegangen. Bitte versuchen Sie es in etwa einer Stunde noch ' +
+      'einmal; Ihre Eingaben bleiben so lange stehen.' +
+      kontakt
+    );
+  }
+
+  if (!meldung) {
+    return 'Beim Absenden des Antrags ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.' + kontakt;
+  }
+
+  return meldung;
+}
+
 interface PublicApplicationFormProps {
   settings: ClubSettings;
   templateSettings?: ApplicationTemplateSettings;
@@ -102,7 +146,11 @@ export const PublicApplicationForm: React.FC<PublicApplicationFormProps> = ({
   // Signatures (PNG Base64)
   const [applicantSignature, setApplicantSignature] = useState<string | undefined>(undefined);
   const [guardianSignature, setGuardianSignature] = useState<string | undefined>(undefined);
-  const [sepaSignature, setSepaSignature] = useState<string | undefined>(undefined);
+  // Hier lag ein zweites, eigenes Unterschriftsfeld für das SEPA-Mandat.
+  // Benutzt wurde es nie: Das Mandat übernimmt weiter unten die Unterschrift
+  // des Antragstellers (sepaSignature: applicantSignature), was bei einem
+  // kombinierten Formular üblich ist. Wer ein getrenntes Mandat mit eigener
+  // Unterschrift braucht, findet den Ansatz unter git log -S setSepaSignature.
 
   // Age calculation
   const age = useMemo(() => calculateAge(birthDate), [birthDate]);
@@ -322,7 +370,7 @@ export const PublicApplicationForm: React.FC<PublicApplicationFormProps> = ({
       setStep(6); // Success screen
     } catch (err: any) {
       console.error('Fehler beim Absenden des Antrags:', err);
-      setErrorMsg(err.message || 'Beim Absenden des Antrags ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.');
+      setErrorMsg(absendeFehlerText(err, templateSettings?.contactEmail));
     } finally {
       setIsSubmitting(false);
     }

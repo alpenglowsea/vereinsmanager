@@ -92,7 +92,6 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
   filteredTxs.filter(t => t.amount > 0).forEach(t => {
     incomeCatMap[t.category] = (incomeCatMap[t.category] || 0) + t.amount;
   });
-  const topIncomeCategories = Object.entries(incomeCatMap).sort((a, b) => b[1] - a[1]).slice(0, 6);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">

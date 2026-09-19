@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Member,
   ClubSettings,
@@ -29,8 +29,11 @@ import {
   Trash2,
   BookOpen,
   Eye,
-  X
+  X,
+  Lock
 } from 'lucide-react';
+import { lockClass, lockTitle } from '../utils/uiLock';
+import { LoadingState } from './LoadingState';
 
 interface SepaRunViewProps {
   members: Member[];
@@ -38,6 +41,10 @@ interface SepaRunViewProps {
   accounts: FinancialAccount[];
   onOpenSettings: () => void;
   onRefreshData?: () => void;
+  /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
+  canEdit?: boolean;
+  /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
+  onLocked?: () => void;
 }
 
 export const SepaRunView: React.FC<SepaRunViewProps> = ({
@@ -45,7 +52,9 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
   settings,
   accounts,
   onOpenSettings,
-  onRefreshData
+  onRefreshData,
+  canEdit = true,
+  onLocked
 }) => {
   const [activeTab, setActiveTab] = useState<'create' | 'history'>('create');
 
@@ -94,7 +103,6 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
   const [selectedTargetAccountId, setSelectedTargetAccountId] = useState<string>(
     accounts[0]?.id || ''
   );
-  const [lastExecutedRun, setLastExecutedRun] = useState<SepaRunHistory | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
   // Calculate default run title
@@ -124,7 +132,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
   }, [customTitle, periodFilter, targetMonth, targetYear, targetQuarter]);
 
   // Re-generate collection items whenever criteria changes
-  const refreshCollectionItems = () => {
+  const refreshCollectionItems = useCallback(() => {
     const config: Partial<SepaRunConfig> = {
       periodFilter,
       targetYear,
@@ -136,11 +144,11 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
 
     const built = SepaService.buildCollectionItems(members, config);
     setItems(built);
-  };
+  }, [members, periodFilter, targetYear, targetMonth, targetQuarter, executionDate, remittanceTemplate]);
 
   useEffect(() => {
     refreshCollectionItems();
-  }, [members, periodFilter, targetYear, targetMonth, targetQuarter, executionDate, remittanceTemplate]);
+  }, [refreshCollectionItems]);
 
   // Load SEPA Runs history
   const loadHistory = async () => {
@@ -250,6 +258,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
 
   // Generate XML and trigger download
   const handleGenerateAndDownloadXml = async () => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     const validItems = items.filter(i => i.selected && i.isValid);
     if (validItems.length === 0) {
       alert('Keine gültigen Lastschriftposten ausgewählt.');
@@ -281,7 +290,6 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
       };
 
       await StorageService.saveSepaRun(runRecord);
-      setLastExecutedRun(runRecord);
       await loadHistory();
 
       setSuccessToast(`SEPA-XML "${filename}" erfolgreich generiert & heruntergeladen.`);
@@ -327,6 +335,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
 
   // Book SEPA run to Accounting
   const handleBookToLedger = async (run: SepaRunHistory) => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (!selectedTargetAccountId) {
       alert('Bitte wählen Sie ein Vereinskonto für die Gutschrift aus.');
       return;
@@ -363,6 +372,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
   };
 
   const handleDeleteHistoryRun = async (id: string) => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (window.confirm('Diesen archivierten Beitragslauf aus der Historie entfernen?')) {
       await StorageService.deleteSepaRun(id);
       await loadHistory();
@@ -371,6 +381,16 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150 relative pb-16">
+      {/* Hinweis auf reines Leserecht */}
+      {!canEdit && (
+        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5">
+          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
+          <p className="text-xs leading-snug">
+            <strong>Nur Leserecht.</strong> Sie können den Beitragslauf und das Lastschrift-Archiv einsehen. Lastschriftdatei erzeugen, ins Kassenbuch übernehmen und Läufe löschen sind für Ihre Rolle gesperrt — die betreffenden Knöpfe sind ausgegraut.
+          </p>
+        </div>
+      )}
+
       {/* Toast Notification */}
       {successToast && (
         <div className="fixed bottom-6 right-6 z-50 bg-emerald-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-emerald-700 flex items-center gap-3 animate-in slide-in-from-bottom-5">
@@ -694,6 +714,33 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                   placeholder="z.B. Beitrag {month}/{year}"
                 />
               </div>
+
+              {/*
+                Eigener Name für diesen Lauf. Bleibt das Feld leer, bildet
+                die Anwendung den Namen aus Zeitraum und Jahr — das ist der
+                Normalfall. Gebraucht wird das Feld für alles, was daneben
+                liegt: eine Sonderumlage, ein Nachzahlungslauf, eine
+                Korrektur. In der Historie stehen sonst drei Einträge
+                "Monatsbeitrag Januar 2026" untereinander und niemand weiss
+                mehr, welcher davon was war.
+              */}
+              <div className="sm:col-span-2">
+                <label htmlFor="sepa-eigener-titel" className="block text-xs font-bold text-slate-700 mb-1">
+                  Eigener Name für diesen Lauf (optional)
+                </label>
+                <input
+                  id="sepa-eigener-titel"
+                  type="text"
+                  value={customTitle}
+                  onChange={e => setCustomTitle(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                  placeholder={computedTitle}
+                />
+                <p className="text-2xs text-slate-500 mt-1">
+                  Leer lassen für den automatischen Namen. Er erscheint in der
+                  Historie und im Dateinamen der XML-Datei.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -761,7 +808,8 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                   type="button"
                   onClick={handleGenerateAndDownloadXml}
                   disabled={stats.validSelectedCount === 0 || !isCreditorConfigured}
-                  className="flex-1 bg-white hover:bg-blue-50 text-blue-900 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`flex-1 bg-white hover:bg-blue-50 text-blue-900 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed${lockClass(canEdit)}`}
+                  title={lockTitle(canEdit, 'SEPA-Lastschriftdatei erzeugen und herunterladen')}
                 >
                   <Download className="w-4 h-4 text-blue-600" />
                   <span>XML herunterladen</span>
@@ -1012,7 +1060,9 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
               </button>
             </div>
 
-            {historyRuns.length === 0 ? (
+            {loadingHistory ? (
+              <LoadingState label="Archivierte Beitragsläufe werden geladen …" />
+            ) : historyRuns.length === 0 ? (
               <div className="py-16 text-center text-slate-400">
                 <History className="w-12 h-12 mx-auto mb-3 opacity-30 text-blue-600" />
                 <h4 className="font-bold text-slate-700 text-sm">Noch keine Beitragsläufe exportiert</h4>
@@ -1119,7 +1169,8 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                               type="button"
                               onClick={() => handleBookToLedger(run)}
                               disabled={isBookingRunning}
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors shadow-2xs flex items-center gap-1.5"
+                              className={`px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors shadow-2xs flex items-center gap-1.5${lockClass(canEdit)}`}
+                              title={lockTitle(canEdit, 'Lastschriften als Einnahmen ins Kassenbuch übernehmen')}
                             >
                               <BookOpen className="w-3.5 h-3.5" />
                               <span>Verbuchen</span>
@@ -1131,8 +1182,8 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDeleteHistoryRun(run.id)}
-                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                          title="Aus Historie löschen"
+                          className={`p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors${lockClass(canEdit)}`}
+                          title={lockTitle(canEdit, 'Aus Historie löschen')}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

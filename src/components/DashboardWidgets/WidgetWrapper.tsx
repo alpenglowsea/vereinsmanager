@@ -8,8 +8,6 @@ import {
 
 interface WidgetWrapperProps {
   id: string;
-  title: string;
-  categoryLabel?: string;
   colSpan: WidgetColSpan;
   isDragging?: boolean;
   isDragOver?: boolean;
@@ -21,15 +19,11 @@ interface WidgetWrapperProps {
   onDrop?: (e: React.DragEvent, id: string) => void;
   onRemove?: () => void;
   onChangeColSpan?: (newSpan: WidgetColSpan) => void;
-  onNavigate?: () => void;
   children: React.ReactNode;
-  customHeader?: boolean;
 }
 
 export const WidgetWrapper: React.FC<WidgetWrapperProps> = ({
   id,
-  title,
-  categoryLabel,
   colSpan,
   isDragging,
   isDragOver,
@@ -41,9 +35,7 @@ export const WidgetWrapper: React.FC<WidgetWrapperProps> = ({
   onDrop,
   onRemove,
   onChangeColSpan,
-  onNavigate,
-  children,
-  customHeader = false
+  children
 }) => {
   const [isLocalDragOver, setIsLocalDragOver] = useState(false);
 
