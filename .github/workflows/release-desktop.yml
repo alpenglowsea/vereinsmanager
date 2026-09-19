@@ -22,8 +22,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # macOS: nur Apple Silicon. Die frühere Universal-Fassung enthielt
+          # zusätzlich die Intel-Bauform — und damit künftig auch eine zweite
+          # Node-Laufzeitumgebung. Doppelter Platzbedarf für Geräte, die nicht
+          # mehr unterstützt werden sollen.
           - platform: 'macos-latest'
-            args: '--target universal-apple-darwin'
+            args: '--target aarch64-apple-darwin'
           - platform: 'ubuntu-22.04'
             args: ''
           - platform: 'windows-latest'
@@ -45,7 +49,7 @@ jobs:
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin' || '' }}
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
@@ -59,12 +63,65 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
 
       - name: Install Frontend Dependencies
-        run: |
-          rm -f package-lock.json
-          npm install --no-audit
+        run: npm ci --no-audit
 
-      - name: Build Frontend
-        run: npm run build:ui
+      # Erzeugt dist/ (Oberfläche) UND dist/server.cjs (Server). Früher stand
+      # hier nur "build:ui" — den Server brauchte die Desktop-Fassung ja nicht.
+      - name: Build Frontend & Server
+        run: npm run build
+
+      # ------------------------------------------------------------------
+      # Die Node-Laufzeitumgebung als Sidecar bereitstellen
+      #
+      # Genommen wird schlicht das Node, das im Schritt "Setup Node.js" ohnehin
+      # auf dem Bau-Rechner steht. Das erspart einen Download samt Prüfsumme
+      # und stellt sicher, dass ausgeliefert wird, womit auch gebaut wurde.
+      #
+      # Tauri verlangt im Dateinamen die Plattformkennung ("target triple").
+      # rustc kennt sie; sie von Hand zu pflegen wäre eine Fehlerquelle.
+      # ------------------------------------------------------------------
+      - name: Node-Laufzeitumgebung als Sidecar bereitstellen
+        run: |
+          set -e
+          mkdir -p src-tauri/binaries
+          KENNUNG=$(rustc -vV | sed -n 's|^host: ||p')
+          QUELLE=$(node -p "process.execPath")
+          echo "Plattformkennung: $KENNUNG"
+          echo "Node-Programmdatei: $QUELLE"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp "$QUELLE" "src-tauri/binaries/vm-node-$KENNUNG.exe"
+          else
+            cp "$QUELLE" "src-tauri/binaries/vm-node-$KENNUNG"
+            chmod +x "src-tauri/binaries/vm-node-$KENNUNG"
+          fi
+          ls -l src-tauri/binaries
+
+      # ------------------------------------------------------------------
+      # Den Server mit allem zusammenstellen, was er zur Laufzeit braucht
+      #
+      # Die Produktionspakete werden in einem Nebenverzeichnis installiert,
+      # damit das node_modules des Bau-Vorgangs unangetastet bleibt: Der
+      # Tauri-Schritt danach braucht die Entwicklungspakete noch.
+      # ------------------------------------------------------------------
+      - name: Server-Laufzeit zusammenstellen
+        run: |
+          set -e
+          rm -rf src-tauri/server-runtime
+          mkdir -p src-tauri/server-runtime/dist
+          cp dist/server.cjs src-tauri/server-runtime/server.cjs
+          cp -r dist/. src-tauri/server-runtime/dist/
+          rm -f src-tauri/server-runtime/dist/server.cjs src-tauri/server-runtime/dist/server.cjs.map
+
+          NEBENAN="$RUNNER_TEMP/vm-prod"
+          rm -rf "$NEBENAN" && mkdir -p "$NEBENAN"
+          cp package.json package-lock.json "$NEBENAN/"
+          (cd "$NEBENAN" && npm ci --omit=dev --no-audit --ignore-scripts)
+          cp -r "$NEBENAN/node_modules" src-tauri/server-runtime/node_modules
+
+          echo "Inhalt der Server-Laufzeit:"
+          ls -l src-tauri/server-runtime
+          test -f src-tauri/server-runtime/dist/index.html
+          test -f src-tauri/server-runtime/server.cjs
 
       - name: Build Desktop Application (Tauri Action)
         uses: tauri-apps/tauri-action@v0
@@ -81,10 +138,15 @@ jobs:
             
             ### Downloads:
             - **Windows**: `.exe` (Installer / Standalone) oder `.msi`
-            - **macOS**: `.dmg` (Universal für Intel & Apple Silicon M1/M2/M3/M4)
+            - **macOS**: `.dmg` (Apple Silicon: M1 und neuer)
             - **Linux**: `.AppImage` oder `.deb`
             
             *Keine Installation von Node.js oder Webservern erforderlich. Einfach herunterladen und per Doppelklick starten.*
+
+            Seit dieser Fassung bringt das Programm den Anwendungsserver mit.
+            Dadurch funktionieren auch in der Desktop-Fassung der E-Mail-Versand,
+            die Belegerkennung und die KI-Funktionen. Das Paket ist dadurch um
+            etwa 30 MB gewachsen.
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
