@@ -129,7 +129,16 @@ async fn starte_server(app: &tauri::AppHandle) -> Option<String> {
         // Ohne diese Angabe legte der Server seine Konfiguration neben das
         // Programm — in der Desktop-Fassung ein Verzeichnis, in das er je nach
         // Betriebssystem gar nicht schreiben darf.
-        .env("VM_DATA_DIR", datenverzeichnis.to_string_lossy().to_string());
+        .env("VM_DATA_DIR", datenverzeichnis.to_string_lossy().to_string())
+        // Nur auf dem eigenen Rechner lauschen. Ohne diese Angabe nähme der
+        // Server Anfragen aus dem ganzen Netzwerk an — richtig für Docker,
+        // falsch für ein Programm auf einem Schreibtisch.
+        //
+        // Diese Angabe entscheidet zugleich darüber, ob der Server den
+        // Zugriffsschlüssel an seine Bereitschaftsmeldung anhängt. Genau daraus
+        // baut sich das Fenster unten seine Adresse — deshalb muss in der
+        // Desktop-Fassung niemand einen Schlüssel eintippen.
+        .env("VM_HOST", "127.0.0.1");
 
     let (mut ausgabe, kind) = match befehl.spawn() {
         Ok(ergebnis) => ergebnis,

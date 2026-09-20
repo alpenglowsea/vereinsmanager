@@ -27,6 +27,27 @@ const app = express();
 // Reverse-Proxy), sonst 3000 als Standard.
 const PORT = Number(process.env.PORT) || 3000;
 
+// Auf welcher Netzwerkadresse gelauscht wird.
+//
+// "0.0.0.0" heißt: auf allen — der Server ist dann aus dem ganzen Netzwerk
+// erreichbar. Für Docker und den NAS-Betrieb ist das richtig und nötig, denn
+// dort greifen andere Rechner zu.
+//
+// Die Desktop-Fassung setzt dagegen VM_HOST=127.0.0.1. Dann nimmt der Server
+// ausschließlich Anfragen vom eigenen Rechner an. Er gehört dort allein dem
+// Programm, das ihn gestartet hat; im WLAN eines Vereinsheims hat er nichts
+// zu suchen. Der Zugriffsschlüssel würde Fremde zwar abweisen — besser ist
+// aber, wenn ihre Anfragen gar nicht erst ankommen.
+const HOST = process.env.VM_HOST || "0.0.0.0";
+
+// Lauscht der Server nur auf dem eigenen Rechner, kann außer dem Programm,
+// das ihn gestartet hat, niemand mit ihm sprechen. Nur dann gibt er den
+// Zugriffsschlüssel in der Bereitschaftsmeldung mit aus (siehe
+// starteLauscher). Bei "0.0.0.0" unterbleibt das: Dort landete er in
+// Docker-Protokollen, die durchaus anderswo aufbewahrt werden.
+const NUR_EIGENER_RECHNER =
+  HOST === "127.0.0.1" || HOST === "localhost" || HOST === "::1";
+
 // Hinter einem Reverse-Proxy (Traefik, nginx, Synology-Portalanmeldung)
 // steht die Adresse des Besuchers im Kopf "X-Forwarded-For"; ohne diese
 // Zeile sähe der Server nur immer wieder die Adresse des Proxys. Die "1"
@@ -1744,14 +1765,29 @@ async function startServer() {
  *
  * Die letzte Zeile der Startausgabe ist bewusst maschinenlesbar:
  *
- *     VM_SERVER_BEREIT http://127.0.0.1:3000
+ *     VM_SERVER_BEREIT http://127.0.0.1:3000/#zugriff=<schlüssel>
  *
- * Die Desktop-Fassung wartet auf genau diese Zeile, bevor sie ihr Fenster
- * öffnet — sonst zeigte sie eine Fehlerseite, weil der Server noch startet.
+ * Die Desktop-Fassung wartet auf genau diese Zeile und öffnet ihr Fenster auf
+ * der genannten Adresse — sonst zeigte sie eine Fehlerseite, weil der Server
+ * noch startet.
+ *
+ * Der angehängte Zugriffsschlüssel ist der Grund, warum in der Desktop-Fassung
+ * niemand etwas eintippen muss: Die Oberfläche liest ihn beim Start aus der
+ * Adresse aus, merkt ihn sich und entfernt ihn wieder (siehe
+ * src/services/apiClient.ts). Genau denselben Weg nimmt das Startskript für
+ * den Browser-Betrieb.
+ *
+ * Er steht bewusst hinter dem Doppelkreuz: Alles danach ist ein "Fragment" und
+ * wird vom Browser NICHT an den Server geschickt. Der Schlüssel taucht deshalb
+ * in keinem Zugriffsprotokoll auf.
+ *
+ * Angehängt wird er nur, wenn der Server allein auf dem eigenen Rechner
+ * lauscht. Im Docker-Betrieb bliebe die Zeile sonst mitsamt Schlüssel in den
+ * Protokollen stehen.
  */
 function starteLauscher(port: number, versucheUebrig: number): void {
-  const lauscher = app.listen(port, "0.0.0.0", () => {
-    console.log(`VereinsManager Server running on port ${port}`);
+  const lauscher = app.listen(port, HOST, () => {
+    console.log(`VereinsManager Server running on ${HOST}:${port}`);
 
     // Der Zugriffsschlüssel wird beim Start ausgegeben, weil es sonst keinen
     // Weg gäbe, an ihn heranzukommen: Im Docker-Betrieb liegt die
@@ -1764,9 +1800,9 @@ function starteLauscher(port: number, versucheUebrig: number): void {
       console.log("  Zugriffsschlüssel dieser Installation:");
       console.log(`      ${zugriffsschluessel.key}`);
       console.log("");
-      console.log("  Wird beim Start über das mitgelieferte Skript automatisch an den");
-      console.log("  Browser übergeben. Nur wenn die App von einem anderen Rechner aus");
-      console.log("  geöffnet wird (Docker, NAS), ist er dort einmalig unter");
+      console.log("  Wird in der Desktop-Fassung und beim Start über das mitgelieferte");
+      console.log("  Skript automatisch übergeben. Nur wenn die App von einem anderen");
+      console.log("  Rechner aus geöffnet wird (Docker, NAS), ist er dort einmalig unter");
       console.log("  Einstellungen → Allgemein einzutragen.");
       if (zugriffsschluessel.neuErzeugt) {
         console.log("  (soeben neu erzeugt)");
@@ -1783,7 +1819,10 @@ function starteLauscher(port: number, versucheUebrig: number): void {
     }
 
     // Muss die letzte Zeile sein: Die Desktop-Fassung wartet darauf.
-    console.log(`VM_SERVER_BEREIT http://127.0.0.1:${port}`);
+    const fensterAdresse = NUR_EIGENER_RECHNER
+      ? `http://127.0.0.1:${port}/#zugriff=${encodeURIComponent(zugriffsschluessel.key)}`
+      : `http://127.0.0.1:${port}`;
+    console.log(`VM_SERVER_BEREIT ${fensterAdresse}`);
   });
 
   lauscher.on("error", (fehler: NodeJS.ErrnoException) => {

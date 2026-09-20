@@ -20,25 +20,82 @@ git push origin v1.0.0
 1. Öffnen Sie Ihr Repository auf GitHub.
 2. Klicken Sie oben auf den Tab **Actions**.
 3. Wählen Sie in der linken Seitenleiste den Workflow **„VereinsManager Desktop Release“** aus.
-4. Klicken Sie rechts auf **„Run workflow“**, geben Sie die gewünschte Versionsnummer ein (z. B. `v1.0.0`) und bestätigen Sie mit **„Run workflow“**.
+4. Klicken Sie rechts auf **„Run workflow“**. Dort stehen zwei Felder:
+   - *Release Version* — die Versionsnummer, z. B. `v0.9.0`
+   - *Als Release veröffentlichen?* — `ja` oder `nein`
+5. Bestätigen Sie mit **„Run workflow“**.
+
+---
+
+## 🧪 Bauen, ohne ein Release zu veröffentlichen
+
+Steht das zweite Feld auf **`nein`** (so ist es voreingestellt), entsteht im
+Repository nichts: **kein Release, keine Marke.** Gebaut wird trotzdem für alle
+drei Betriebssysteme.
+
+Die fertigen Pakete finden Sie anschließend in der Übersicht des Laufs ganz
+unten unter **„Artifacts“**, eine ZIP-Datei je Betriebssystem. Sie werden
+sieben Tage aufbewahrt und dann von selbst gelöscht.
+
+Dafür ist das gedacht: eine Änderung ausprobieren, ohne den Anwendern eine
+Fassung vorzusetzen, die noch gar keine sein soll. Erst wenn sich eine
+Änderung bewährt hat, lohnt ein echtes Release.
+
+> Weil die Pakete in einer ZIP-Datei stecken, ist eine daraus entpackte
+> `.AppImage` unter Linux wieder nicht ausführbar — siehe „Installation unter
+> Linux“ weiter unten.
+
+Wird der Bau dagegen durch das Veröffentlichen einer Marke ausgelöst
+(Methode 1), entsteht immer ein Release. Die Frage stellt sich dort nicht.
 
 ---
 
 ## 📦 Wo finden Dritte / Vorstände die fertigen Downloads?
 
-Nachdem GitHub Actions den Build abgeschlossen hat (dauert ca. 3–5 Minuten):
+Nachdem GitHub Actions den Build abgeschlossen hat (dauert ca. 15–20 Minuten,
+bei warmem Zwischenspeicher weniger):
 1. Öffnen Sie Ihr Repository auf GitHub und klicken Sie rechts auf **Releases**.
 2. Dort finden Sie die fertigen Pakete zum Direkt-Download:
    - 🪟 **Windows:**
-     - `VereinsManager_1.0.0_x64-setup.exe` (NSIS-Installer: Installiert wahlweise für alle Benutzer in `C:\Programme\VereinsManager` oder lokal)
-     - `VereinsManager_1.0.0_x64_de-DE.msi` (Offizielles Windows MSI-Paket – besonders empfohlen für Firmen-/Schul-PCs)
-   - 🍏 **macOS:** `VereinsManager_1.0.0_aarch64.dmg` (Apple Silicon: M1 und neuer)
-   - 🐧 **Linux:** `VereinsManager_1.0.0_amd64.AppImage` oder `.deb`
+     - `VereinsManager_0.9.0_x64-setup.exe` (NSIS-Installer: Installiert wahlweise für alle Benutzer in `C:\Programme\VereinsManager` oder lokal)
+     - `VereinsManager_0.9.0_x64_de-DE.msi` (Offizielles Windows MSI-Paket – besonders empfohlen für Firmen-/Schul-PCs)
+   - 🍏 **macOS:** `VereinsManager_0.9.0_aarch64.dmg` (Apple Silicon: M1 und neuer)
+   - 🐧 **Linux:** `VereinsManager_0.9.0_amd64.deb` (empfohlen) oder `.AppImage`
 
-> **Seit Fassung 1.3 nur noch Apple Silicon.** Die frühere Universal-Fassung
-> enthielt zusätzlich die Bauform für ältere Intel-Macs — und damit auch eine
-> zweite Node-Laufzeitumgebung. Das ist doppelter Platzbedarf für Geräte, die
-> nicht mehr unterstützt werden sollen.
+> **Nur noch Apple Silicon.** Die frühere Universal-Fassung enthielt zusätzlich
+> die Bauform für ältere Intel-Macs — und damit auch eine zweite
+> Node-Laufzeitumgebung. Das ist doppelter Platzbedarf für Geräte, die nicht
+> mehr unterstützt werden sollen.
+
+---
+
+## 🐧 Installation unter Linux: bitte die `.deb`
+
+**Empfohlen: `VereinsManager_0.9.0_amd64.deb`.** Doppelklick, installieren,
+fertig — danach steht VereinsManager im Startmenü wie jedes andere Programm.
+
+**Die `.AppImage` braucht einen zusätzlichen Handgriff.** Sie installiert sich
+nicht, sondern läuft, wie sie ist — dafür muss sie aber als „ausführbar"
+gekennzeichnet werden. Ein Browser tut das beim Herunterladen nicht, und kein
+Paket der Welt kann es mitbringen: Diese Kennzeichnung steckt nicht *in* der
+Datei, sondern ist eine Eigenschaft, die das Dateisystem daneben führt. Genau
+so soll es sein — sonst könnte jede heruntergeladene Datei von selbst starten.
+
+Ohne Terminal: **Rechtsklick → Eigenschaften → Zugriffsrechte → Haken bei
+„Datei als Programm ausführen"**. Danach genügt ein Doppelklick.
+
+Mit Terminal:
+
+```bash
+chmod +x VereinsManager_0.9.0_amd64.AppImage
+./VereinsManager_0.9.0_amd64.AppImage
+```
+
+Dieser Handgriff ist bei **jedem neuen Download** erneut nötig.
+
+Meldet die `.AppImage` etwas über `libfuse.so.2`, fehlt eine Systembibliothek,
+die manche Linux-Fassungen nicht mehr vorinstallieren:
+`sudo apt install libfuse2`. Die `.deb` braucht sie nicht.
 
 ---
 
@@ -90,6 +147,30 @@ solange der Server noch hochfährt. Größe, Titel und Adresse stehen jetzt in
 Der Server sucht sich einen freien Port, falls 3000 belegt ist, und legt seine
 Konfiguration im Datenverzeichnis der Anwendung ab — nicht neben dem Programm,
 wo ein Update sie überschreiben könnte.
+
+### Warum niemand einen Zugriffsschlüssel eintippen muss
+
+Die `/api`-Endpunkte verlangen einen Zugriffsschlüssel; ohne ihn weist der
+Server jeden Aufruf ab. In der Desktop-Fassung bekommt die Oberfläche ihn
+geschenkt: Der Server hängt ihn an seine Bereitschaftsmeldung an —
+
+```
+VM_SERVER_BEREIT http://127.0.0.1:3000/#zugriff=<schlüssel>
+```
+
+— und das Programm öffnet sein Fenster auf genau dieser Adresse. Die Oberfläche
+liest den Schlüssel beim Start aus, merkt ihn sich und entfernt ihn wieder aus
+der Adresszeile (`src/services/apiClient.ts`).
+
+Der Schlüssel steht dabei **hinter dem Doppelkreuz**. Alles danach ist ein
+sogenanntes Fragment und wird vom Browser nie an den Server geschickt — er
+taucht deshalb in keinem Zugriffsprotokoll auf.
+
+Angehängt wird er nur, wenn der Server ausschließlich auf dem eigenen Rechner
+lauscht. Das ist in der Desktop-Fassung der Fall: Sie setzt `VM_HOST=127.0.0.1`,
+damit der Server aus dem Netzwerk gar nicht erreichbar ist. Im Docker-Betrieb
+lauscht er weiterhin auf allen Adressen — dort unterbleibt das Anhängen, weil
+der Schlüssel sonst in Protokollen landete, die anderswo aufbewahrt werden.
 
 **Wenn der Server nicht startet**, öffnet sich das Fenster trotzdem, dann mit
 der mitgelieferten Oberfläche ohne Server. Die Anwendung verhält sich in diesem

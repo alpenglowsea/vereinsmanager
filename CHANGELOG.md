@@ -6,6 +6,49 @@ Alle relevanten Änderungen und Versionsstände des VereinsManagers werden in di
 
 ## [unveröffentlicht]
 
+### 🔑 Kein Zugriffsschlüssel mehr zum Abtippen — und ein Server, der nicht ins Netzwerk lauscht
+
+- **Die Desktop-Fassung verlangte den Zugriffsschlüssel von Hand.** Das
+  Startskript für den Browser-Betrieb übergab ihn längst automatisch über die
+  Adresszeile; beim Zusammenbau der Desktop-Fassung war genau dieser Handgriff
+  vergessen worden. Wer das Programm startete, musste den Schlüssel aus der
+  Konsolenausgabe abschreiben — für Anwender ohne Terminal-Kenntnisse
+  unzumutbar.
+- **Jetzt hängt der Server ihn an seine Bereitschaftsmeldung an**
+  (`VM_SERVER_BEREIT http://127.0.0.1:3000/#zugriff=…`), und das Programm öffnet
+  sein Fenster auf dieser Adresse. Die Oberfläche liest den Schlüssel aus, merkt
+  ihn sich und entfernt ihn wieder. Alles hinter dem Doppelkreuz ist ein
+  Fragment und wird vom Browser nie an den Server geschickt — der Schlüssel
+  steht deshalb in keinem Zugriffsprotokoll.
+- **Der Server lauschte auch in der Desktop-Fassung auf allen Netzwerkadressen.**
+  Für Docker ist das richtig, auf einem Schreibtischrechner nicht: Wer im selben
+  WLAN saß, konnte ihn ansprechen. Der Zugriffsschlüssel hätte ihn abgewiesen,
+  aber besser ist, wenn solche Anfragen gar nicht erst ankommen. Die
+  Desktop-Fassung setzt nun `VM_HOST=127.0.0.1`.
+- Dieselbe Angabe entscheidet, ob der Schlüssel überhaupt angehängt wird: nur
+  bei einem Server, der allein auf dem eigenen Rechner lauscht. Im
+  Docker-Betrieb unterbleibt es, sonst stünde er in Protokollen, die anderswo
+  aufbewahrt werden.
+
+### 🧪 Bauen, ohne ein Release zu veröffentlichen
+
+- Der Desktop-Workflow hat ein zweites Feld bekommen: *Als Release
+  veröffentlichen?* Steht es auf `nein` (die Vorgabe), entsteht weder Release
+  noch Marke; die fertigen Pakete hängen als „Artifacts" am Lauf und werden nach
+  sieben Tagen gelöscht. Eine kleine Änderung auszuprobieren kostet damit keine
+  Versionsnummer mehr.
+- Wird der Bau durch das Veröffentlichen einer Marke ausgelöst, entsteht wie
+  bisher immer ein Release.
+
+### 🐧 Linux: die `.deb` ist der empfohlene Weg
+
+- Eine heruntergeladene `.AppImage` ist nicht ausführbar — diese Kennzeichnung
+  steckt nicht in der Datei, sondern führt das Dateisystem daneben, und kein
+  Paket kann sie mitbringen. Die Anleitung nennt jetzt die `.deb` als
+  empfohlenen Weg (Doppelklick, installieren, fertig) und beschreibt für die
+  `.AppImage` den Weg über *Rechtsklick → Eigenschaften → Zugriffsrechte* statt
+  nur den Terminal-Befehl.
+
 ### 🖥️ Die Desktop-Fassung bringt den Server mit
 
 - **Bisher lief dort alles ins Leere, was einen Server braucht:** E-Mail-Versand,

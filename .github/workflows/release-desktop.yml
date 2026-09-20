@@ -10,6 +10,14 @@ on:
         description: 'Release Version (z. B. v0.9.0)'
         required: true
         default: 'v0.9.0'
+      veroeffentlichen:
+        description: 'Als Release veröffentlichen? "nein" = nur bauen, Pakete hängen am Lauf'
+        required: true
+        type: choice
+        options:
+          - 'nein'
+          - 'ja'
+        default: 'nein'
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
@@ -18,6 +26,14 @@ jobs:
   release:
     permissions:
       contents: write
+    env:
+      # Einmal an einer Stelle entschieden, statt die Bedingung unten dreimal
+      # auszuschreiben.
+      #
+      # Wird der Bau durch das Veröffentlichen einer Marke ausgelöst, soll immer
+      # ein Release entstehen — dann gibt es das Auswahlfeld gar nicht.
+      VM_VEROEFFENTLICHEN: ${{ github.event_name != 'workflow_dispatch' && 'ja' || github.event.inputs.veroeffentlichen }}
+      VM_MARKE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
     strategy:
       fail-fast: false
       matrix:
@@ -141,8 +157,12 @@ jobs:
           # — also "main" —, und weil der nie leer ist, wurde die eingetippte
           # Nummer gar nicht erst angeschaut. GitHub legte dann eine Marke
           # namens "main" an. Genau die hat uns beim Hochladen im Weg gestanden.
-          tagName: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
-          releaseName: "VereinsManager ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}"
+          #
+          # Bleiben beide Felder leer, legt tauri-action gar kein Release an und
+          # baut nur. Das ist der Testbau: Die Pakete hängt der Schritt darunter
+          # an den Lauf, und im Repository entsteht weder Marke noch Release.
+          tagName: ${{ env.VM_VEROEFFENTLICHEN == 'ja' && env.VM_MARKE || '' }}
+          releaseName: ${{ env.VM_VEROEFFENTLICHEN == 'ja' && format('VereinsManager {0}', env.VM_MARKE) || '' }}
           releaseBody: |
             ## VereinsManager Desktop — Vorabversion
 
@@ -170,3 +190,33 @@ jobs:
           # Glauben herunter, das sei die fertige Fassung.
           prerelease: true
           args: ${{ matrix.args }}
+
+      # ------------------------------------------------------------------
+      # Testbau: die fertigen Pakete an den Lauf hängen
+      #
+      # Sie stehen dann unter "Artifacts" am Ende der Lauf-Übersicht zum
+      # Herunterladen bereit — als ZIP, sieben Tage lang. Im Repository
+      # entsteht nichts: kein Release, keine Marke, nichts, was jemand
+      # versehentlich für die fertige Fassung halten könnte.
+      #
+      # Die zweite Pfadangabe ist für macOS: Wird mit "--target" gebaut, legt
+      # Tauri seine Pakete eine Ebene tiefer ab.
+      # ------------------------------------------------------------------
+      - name: Pakete an den Lauf hängen (nur beim Testbau)
+        if: env.VM_VEROEFFENTLICHEN != 'ja'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vereinsmanager-${{ matrix.platform }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            src-tauri/target/release/bundle/**/*.AppImage
+            src-tauri/target/release/bundle/**/*.deb
+            src-tauri/target/release/bundle/**/*.dmg
+            src-tauri/target/release/bundle/**/*.exe
+            src-tauri/target/release/bundle/**/*.msi
+            src-tauri/target/*/release/bundle/**/*.AppImage
+            src-tauri/target/*/release/bundle/**/*.deb
+            src-tauri/target/*/release/bundle/**/*.dmg
+            src-tauri/target/*/release/bundle/**/*.exe
+            src-tauri/target/*/release/bundle/**/*.msi
