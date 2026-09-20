@@ -1,6 +1,6 @@
 [package]
 name = "vereinsmanager"
-version = "1.0.1"
+version = "0.9.0"
 description = "VereinsManager - Revisionssichere Vereinsverwaltung"
 authors = ["VereinsManager Team"]
 license = "MIT"

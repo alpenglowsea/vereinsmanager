@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release Version (z. B. v1.0.0)'
+        description: 'Release Version (z. B. v0.9.0)'
         required: true
-        default: 'v1.0.0'
+        default: 'v0.9.0'
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
@@ -132,18 +132,32 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tauriScript: 'npm run tauri'
-          tagName: ${{ github.ref_name || github.event.inputs.version }}
-          releaseName: 'VereinsManager ${{ github.ref_name || github.event.inputs.version }}'
+          # Woher die Marke kommt, hängt davon ab, wie der Bau gestartet wurde:
+          # Beim Knopfdruck ("Run workflow") gilt die eingetippte Versionsnummer,
+          # sonst der Name der Marke, deren Veröffentlichung den Bau ausgelöst hat.
+          #
+          # Vorher stand hier "github.ref_name || github.event.inputs.version".
+          # Das war falsch herum: Beim Knopfdruck enthält ref_name den Branchnamen
+          # — also "main" —, und weil der nie leer ist, wurde die eingetippte
+          # Nummer gar nicht erst angeschaut. GitHub legte dann eine Marke
+          # namens "main" an. Genau die hat uns beim Hochladen im Weg gestanden.
+          tagName: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
+          releaseName: "VereinsManager ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}"
           releaseBody: |
-            ## VereinsManager Desktop-Release
-            
-            Offizielles Standalone-Paket für alle Betriebssysteme – 100% offline & lokal revisionssicher.
-            
+            ## VereinsManager Desktop — Vorabversion
+
+            **Das ist eine Vorabversion.** Die Anwendung wird noch entwickelt;
+            Fehler sind zu erwarten, und einzelne Funktionen können sich von
+            Fassung zu Fassung ändern. Für den Echtbetrieb eines Vereins ist sie
+            noch nicht gedacht.
+
+            Ein Standalone-Paket für alle Betriebssysteme, vollständig lokal.
+
             ### Downloads:
             - **Windows**: `.exe` (Installer / Standalone) oder `.msi`
             - **macOS**: `.dmg` (Apple Silicon: M1 und neuer)
             - **Linux**: `.AppImage` oder `.deb`
-            
+
             *Keine Installation von Node.js oder Webservern erforderlich. Einfach herunterladen und per Doppelklick starten.*
 
             Seit dieser Fassung bringt das Programm den Anwendungsserver mit.
@@ -151,5 +165,8 @@ jobs:
             die Belegerkennung und die KI-Funktionen. Das Paket ist dadurch um
             etwa 30 MB gewachsen.
           releaseDraft: false
-          prerelease: false
+          # Als Vorabversion gekennzeichnet: GitHub zeigt sie dann nicht als
+          # "Latest release" an, und niemand lädt sie versehentlich in dem
+          # Glauben herunter, das sei die fertige Fassung.
+          prerelease: true
           args: ${{ matrix.args }}

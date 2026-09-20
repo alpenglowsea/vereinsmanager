@@ -6,7 +6,7 @@ import {defineConfig} from 'vite';
 export default defineConfig(() => {
   return {
     define: {
-      'import.meta.env.VITE_APP_VERSION': JSON.stringify(process.env.npm_package_version || '1.2.0'),
+      'import.meta.env.VITE_APP_VERSION': JSON.stringify(process.env.npm_package_version || '0.9.0'),
     },
     plugins: [react(), tailwindcss()],
     resolve: {

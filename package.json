@@ -1,7 +1,7 @@
 {
   "name": "vereinsmanager",
   "private": true,
-  "version": "1.2.3",
+  "version": "0.9.0",
   "description": "DSGVO-konforme, revisionssichere Vereinsverwaltung für gemeinnützige Vereine (e.V.) in Deutschland.",
   "license": "UNLICENSED",
   "repository": {
