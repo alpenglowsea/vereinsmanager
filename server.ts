@@ -10,12 +10,25 @@ import {
   writeSmtpConfig,
   deleteSmtpConfig,
   readAccessKey,
+  readAiConfigPublic,
+  readAiCredentials,
+  writeAiConfig,
+  deleteAiConfig,
+  type AiProvider,
 } from "./src/server/instanceConfig";
 import {
   ZUGRIFF_HEADER,
   pruefeZugriff,
   erstelleCloudPruefer,
 } from "./src/server/apiAuth";
+import {
+  mistralText,
+  mistralOcr,
+  mistralTranskript,
+  mistralTest,
+  leseJson,
+  MISTRAL_MODELLE,
+} from "./src/server/mistral";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
@@ -211,17 +224,48 @@ app.use("/api", (req, res, next) => {
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Lazy initialize Gemini API client with optional custom API key
-let defaultAiClient: GoogleGenAI | null = null;
-function getGeminiClient(customApiKey?: string): GoogleGenAI {
-  const apiKey = customApiKey?.trim() || process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Kein Gemini API-Schlüssel gefunden. Bitte tragen Sie Ihren API-Schlüssel in den Einstellungen ein oder setzen Sie GEMINI_API_KEY.");
-  }
-  if (!customApiKey && defaultAiClient) {
-    return defaultAiClient;
-  }
-  const client = new GoogleGenAI({
+/**
+ * Der KI-Schlüssel kommt ausschließlich von diesem Server.
+ * ---------------------------------------------------------------------------
+ *
+ * Früher schickte die Oberfläche ihn bei jedem Aufruf mit (`userApiKey`), weil
+ * sie ihn selbst im Browser vorrätig hielt. Genau das ist der Grund, warum er
+ * in jeder Datensicherung stand. Seit Fassung 0.9 liegt er verschlüsselt in
+ * der Serverkonfiguration (src/server/instanceConfig.ts); ein Schlüssel im
+ * Anfragekörper wird nicht mehr angenommen.
+ *
+ * Belegerkennung, Protokollauswertung und Antragsübernahme gibt es in zwei
+ * Ausführungen, weil die beiden Anbieter verschieden gebaut sind: Gemini nimmt
+ * Datei und Auftrag in einem Aufruf entgegen, Mistral trennt Texterkennung
+ * (/v1/ocr) beziehungsweise Transkription (/v1/audio/transcriptions) von der
+ * Auswertung. Welcher Weg gilt, entscheidet allein der hinterlegte Anbieter.
+ *
+ * Ist Mistral eingestellt und wird dennoch ein Gemini-Zugang gebraucht, greift
+ * ersatzweise GEMINI_API_KEY aus der Umgebung; fehlt auch der, sagt die
+ * Fehlermeldung genau das.
+ */
+const KEIN_MISTRAL_SCHLUESSEL =
+  "Für die KI-Funktionen wird ein Mistral-Schlüssel gebraucht. Bitte in den " +
+  "Einstellungen unter KI einen hinterlegen.";
+
+const KEIN_GEMINI_SCHLUESSEL =
+  "Für diese Funktion wird ein Google-Gemini-Schlüssel gebraucht. Bitte in den " +
+  "Einstellungen unter KI einen Gemini-Schlüssel hinterlegen (oder auf dem Server " +
+  "GEMINI_API_KEY setzen).";
+
+function geminiSchluessel(): string {
+  const zugang = readAiCredentials();
+  if (zugang?.provider === "gemini" && zugang.apiKey) return zugang.apiKey;
+  return process.env.GEMINI_API_KEY?.trim() || "";
+}
+
+// Der Zugang wird zwischengespeichert, aber am Schlüssel festgemacht: Wird in
+// den Einstellungen ein neuer eingetragen, greift er sofort. Ein Zwischen-
+// speicher ohne diesen Vergleich arbeitete bis zum Neustart mit dem alten.
+let geminiZwischenspeicher: { schluessel: string; client: GoogleGenAI } | null = null;
+
+function baueGeminiClient(apiKey: string): GoogleGenAI {
+  return new GoogleGenAI({
     apiKey,
     httpOptions: {
       headers: {
@@ -229,9 +273,18 @@ function getGeminiClient(customApiKey?: string): GoogleGenAI {
       },
     },
   });
-  if (!customApiKey) {
-    defaultAiClient = client;
+}
+
+function getGeminiClient(): GoogleGenAI {
+  const apiKey = geminiSchluessel();
+  if (!apiKey) {
+    throw new Error(KEIN_GEMINI_SCHLUESSEL);
   }
+  if (geminiZwischenspeicher?.schluessel === apiKey) {
+    return geminiZwischenspeicher.client;
+  }
+  const client = baueGeminiClient(apiKey);
+  geminiZwischenspeicher = { schluessel: apiKey, client };
   return client;
 }
 
@@ -239,7 +292,10 @@ function getGeminiClient(customApiKey?: string): GoogleGenAI {
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
-    hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+    // Die Statusseite ist bewusst ohne Ausweis erreichbar (Docker fragt sie
+    // regelmäßig ab). Sie darf deshalb nur verraten, OB ein Schlüssel da ist.
+    hasGeminiKey: Boolean(geminiSchluessel()),
+    hasAiKey: readAiConfigPublic().configured,
     timestamp: new Date().toISOString(),
   });
 });
@@ -347,116 +403,61 @@ app.post("/api/submit-bugreport", bremse(bremseMeldung, "Fehlermeldung"), async 
 
 /**
  * POST /api/test-ai-key
- * Validates whether an AI API key or connection is active and functional
- * Supports Google Gemini, OpenAI, Anthropic Claude, and Custom / Local OpenAI-compatible endpoints.
+ *
+ * Prüft, ob sich mit den KI-Zugangsdaten tatsächlich etwas anfangen lässt.
+ * Unterstützt Google Gemini, OpenAI, Anthropic Claude und eigene Adressen
+ * (Ollama, Groq, OpenRouter und alles andere, was die OpenAI-Schnittstelle
+ * nachbildet).
+ *
+ * Dies ist der EINZIGE Endpunkt, der noch einen Schlüssel im Anfragekörper
+ * annimmt — und das mit gutem Grund: Wer in den Einstellungen einen neuen
+ * Schlüssel eintippt, soll ihn ausprobieren können, BEVOR er gespeichert wird.
+ * Ohne diesen Weg müsste man erst einen womöglich falschen Schlüssel ablegen.
+ *
+ * Bleibt das Feld leer, wird der hinterlegte geprüft. Das ist der Normalfall
+ * beim Knopf "Verbindung testen" an einer bereits eingerichteten Installation:
+ * Die Oberfläche kennt den Schlüssel dann gar nicht und kann ihn nicht senden.
  */
 app.post(["/api/test-ai-key", "/api/test-gemini-key"], bremse(bremseTeuer, "KI"), async (req, res) => {
   try {
-    const { apiKey, provider = "gemini", model, baseUrl } = req.body;
+    const hinterlegt = readAiCredentials();
+    const koerper = req.body || {};
 
-    // 1. OpenAI
-    if (provider === "openai") {
-      const keyToUse = apiKey?.trim() || process.env.OPENAI_API_KEY;
+    // Anbieter, Modell und Adresse schickt die Maske mit — der Anwender hat
+    // sie womöglich gerade umgestellt und noch nicht gespeichert.
+    const provider: AiProvider = koerper.provider || hinterlegt?.provider || "gemini";
+    const model: string = (koerper.model ?? "").trim() || hinterlegt?.model || "";
+    // Der hinterlegte Schlüssel wird nur dann herangezogen, wenn er zum
+    // geprüften Anbieter gehört. Sonst würde bei einem Anbieterwechsel ohne
+    // neue Eingabe der alte Schlüssel gegen den neuen Anbieter geprüft — und
+    // die Fehlermeldung ließe den Anwender im Dunkeln.
+    const passtZumHinterlegten = Boolean(hinterlegt && hinterlegt.provider === provider);
+    const apiKey: string =
+      (koerper.apiKey ?? "").trim() || (passtZumHinterlegten ? hinterlegt!.apiKey : "");
+
+    // 1. Mistral
+    if (provider === "mistral") {
+      const keyToUse = apiKey || process.env.MISTRAL_API_KEY;
       if (!keyToUse) {
-        return res.status(400).json({ success: false, error: "Kein OpenAI API-Schlüssel angegeben." });
+        return res.status(400).json({ success: false, error: "Kein Mistral-Schlüssel angegeben." });
       }
-      const modelToUse = model?.trim() || "gpt-4o-mini";
-      const openAiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${keyToUse}`,
-        },
-        body: JSON.stringify({
-          model: modelToUse,
-          messages: [{ role: "user", content: "Antworte kurz mit 'OK'." }],
-          max_tokens: 10,
-        }),
-      });
-
-      if (!openAiRes.ok) {
-        const errData = await openAiRes.json().catch(() => ({}));
-        return res.status(400).json({
-          success: false,
-          error: errData?.error?.message || `OpenAI Fehler HTTP ${openAiRes.status}`,
-        });
-      }
-
-      return res.json({
-        success: true,
-        message: `Verbindung zu OpenAI (${modelToUse}) erfolgreich hergestellt.`,
-      });
-    }
-
-    // 2. Anthropic Claude
-    if (provider === "anthropic") {
-      const keyToUse = apiKey?.trim() || process.env.ANTHROPIC_API_KEY;
-      if (!keyToUse) {
-        return res.status(400).json({ success: false, error: "Kein Anthropic API-Schlüssel angegeben." });
-      }
-      const modelToUse = model?.trim() || "claude-3-5-haiku-20241022";
-      const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": keyToUse,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: modelToUse,
-          max_tokens: 10,
-          messages: [{ role: "user", content: "Antworte kurz mit 'OK'." }],
-        }),
-      });
-
-      if (!claudeRes.ok) {
-        const errData = await claudeRes.json().catch(() => ({}));
-        return res.status(400).json({
-          success: false,
-          error: errData?.error?.message || `Anthropic Fehler HTTP ${claudeRes.status}`,
-        });
-      }
-
-      return res.json({
-        success: true,
-        message: `Verbindung zu Anthropic Claude (${modelToUse}) erfolgreich hergestellt.`,
-      });
-    }
-
-    // 3. Custom / Local OpenAI-compatible endpoint (Ollama, Groq, OpenRouter, etc.)
-    if (provider === "custom") {
-      const base = (baseUrl?.trim() || "http://localhost:11434/v1").replace(/\/+$/, "");
-      const modelToUse = model?.trim() || "llama3.2";
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (apiKey?.trim()) {
-        headers["Authorization"] = `Bearer ${apiKey.trim()}`;
-      }
-      const customRes = await fetch(`${base}/chat/completions`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          model: modelToUse,
-          messages: [{ role: "user", content: "Antworte kurz mit 'OK'." }],
-          max_tokens: 10,
-        }),
-      });
-
-      if (!customRes.ok) {
-        const errData = await customRes.json().catch(() => ({}));
-        return res.status(400).json({
-          success: false,
-          error: errData?.error?.message || `Endpunkt Fehler HTTP ${customRes.status}`,
-        });
-      }
-
-      return res.json({
-        success: true,
-        message: `Verbindung zum benutzerdefinierten KI-Endpunkt (${modelToUse}) erfolgreich hergestellt.`,
+      const ergebnis = await mistralTest(keyToUse, model || MISTRAL_MODELLE.text);
+      return res.status(ergebnis.success ? 200 : 400).json({
+        success: ergebnis.success,
+        message: ergebnis.success ? ergebnis.message : undefined,
+        error: ergebnis.success ? undefined : ergebnis.message,
       });
     }
 
     // 4. Default: Google Gemini
-    const client = getGeminiClient(apiKey);
+    const geminiKey = apiKey || process.env.GEMINI_API_KEY?.trim() || "";
+    if (!geminiKey) {
+      return res.status(400).json({ success: false, error: "Kein Gemini API-Schlüssel angegeben." });
+    }
+    // Bewusst ohne den Zwischenspeicher: Hier wird ein Schlüssel geprüft, der
+    // noch gar nicht gespeichert ist. Er darf den laufenden Betrieb nicht
+    // beeinflussen — weder beim Gelingen noch beim Scheitern.
+    const client = baueGeminiClient(geminiKey);
     const testModels = ["gemini-3.6-flash", "gemini-3.7-flash", "gemini-flash-latest", "gemini-2.5-flash"];
     let testResponse: any = null;
     let lastErr: any = null;
@@ -494,7 +495,15 @@ app.post(["/api/test-ai-key", "/api/test-gemini-key"], bremse(bremseTeuer, "KI")
  */
 app.post("/api/categorize-booking", bremse(bremseTeuer, "KI"), async (req, res) => {
   try {
-    const { description, bookingText, partner, amount, type, userApiKey, aiProvider = "gemini", aiModel, aiBaseUrl } = req.body;
+    const { description, bookingText, partner, amount, type } = req.body;
+
+    // Anbieter, Modell, Adresse und Schlüssel kommen ausschließlich aus der
+    // Serverkonfiguration. Früher schickte die Oberfläche sie mit — dafür
+    // musste sie den Schlüssel im Browser vorrätig halten.
+    const kiZugang = readAiCredentials();
+    const aiProvider: AiProvider = kiZugang?.provider || "gemini";
+    const aiModel = kiZugang?.model || "";
+    const userApiKey = kiZugang?.apiKey || "";
 
     const queryText = (description || bookingText || "").trim();
     if (!queryText && !partner) {
@@ -544,76 +553,23 @@ Gib ausschließlich valides JSON mit diesem Format aus:
   "reasoning": "Kurze 1-2 Satz Begründung nach Gemeinnützigkeitsrecht"
 }`;
 
-    // A. OpenAI or Custom provider
-    if (aiProvider === "openai" || aiProvider === "custom") {
-      const endpoint = aiProvider === "openai"
-        ? "https://api.openai.com/v1/chat/completions"
-        : `${(aiBaseUrl || "http://localhost:11434/v1").replace(/\/+$/, "")}/chat/completions`;
-      const modelToUse = aiModel?.trim() || (aiProvider === "openai" ? "gpt-4o-mini" : "llama3.2");
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      const token = userApiKey?.trim() || (aiProvider === "openai" ? process.env.OPENAI_API_KEY : undefined);
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      const aiResponse = await fetch(endpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          model: modelToUse,
-          messages: [
-            { role: "system", content: "Du bist ein Experte für deutsches Vereinssteuerrecht und SKR 42. Antworte ausschließlich mit reinem JSON." },
-            { role: "user", content: prompt }
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.2,
-        }),
+    // A. Mistral: ein Aufruf, Antwort im JSON-Modus.
+    if (aiProvider === "mistral") {
+      if (!userApiKey) throw new Error(KEIN_MISTRAL_SCHLUESSEL);
+      const antwort = await mistralText({
+        schluessel: userApiKey,
+        modell: aiModel,
+        system:
+          "Du bist ein Experte für deutsches Vereinssteuerrecht und DATEV SKR 42. " +
+          "Antworte ausschließlich mit reinem JSON.",
+        eingabe: prompt,
+        alsJson: true,
       });
-
-      if (!aiResponse.ok) {
-        const errJson = await aiResponse.json().catch(() => ({}));
-        throw new Error(errJson?.error?.message || `KI-Fehler HTTP ${aiResponse.status}`);
-      }
-
-      const resData = await aiResponse.json();
-      const content = resData.choices?.[0]?.message?.content || "{}";
-      const parsedData = JSON.parse(content);
-      return res.json({ success: true, data: parsedData });
-    }
-
-    // B. Anthropic Claude provider
-    if (aiProvider === "anthropic") {
-      const token = userApiKey?.trim() || process.env.ANTHROPIC_API_KEY;
-      if (!token) throw new Error("Kein Anthropic API-Schlüssel hinterlegt.");
-      const modelToUse = aiModel?.trim() || "claude-3-5-haiku-20241022";
-
-      const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": token,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: modelToUse,
-          max_tokens: 1000,
-          system: "Du bist ein Experte für deutsches Vereinssteuerrecht und DATEV SKR 42. Gib ausschließlich valides JSON ohne Markdown-Codeblöcke aus.",
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
-
-      if (!aiResponse.ok) {
-        const errJson = await aiResponse.json().catch(() => ({}));
-        throw new Error(errJson?.error?.message || `Claude HTTP ${aiResponse.status}`);
-      }
-
-      const resData = await aiResponse.json();
-      const textBlock = resData.content?.find((c: any) => c.type === "text")?.text || "{}";
-      const cleaned = textBlock.replace(/```json/g, "").replace(/```/g, "").trim();
-      const parsedData = JSON.parse(cleaned);
-      return res.json({ success: true, data: parsedData });
+      return res.json({ success: true, data: leseJson(antwort) });
     }
 
     // C. Default: Google Gemini
-    const ai = getGeminiClient(userApiKey);
+    const ai = getGeminiClient();
 
     const schemaConfig = {
       responseMimeType: "application/json",
@@ -693,7 +649,10 @@ Gib ausschließlich valides JSON mit diesem Format aus:
  */
 app.post("/api/scan-application-pdf", bremse(bremseTeuer, "KI"), async (req, res) => {
   try {
-    const { fileDataUrl, mimeType, fileName, userApiKey } = req.body;
+    const { fileDataUrl, mimeType, fileName } = req.body;
+
+    // Welcher Anbieter gilt, entscheidet allein die Serverkonfiguration.
+    const kiZugang = readAiCredentials();
 
     if (!fileDataUrl) {
       return res.status(400).json({ error: "Keine Datei (fileDataUrl) übermittelt." });
@@ -705,7 +664,6 @@ app.post("/api/scan-application-pdf", bremse(bremseTeuer, "KI"), async (req, res
     const detectedMimeType = mimeType || (fileDataUrl.startsWith("data:") ? fileDataUrl.substring(5, fileDataUrl.indexOf(";")) : "application/pdf");
 
     // Initialize Gemini with optional user API key
-    const ai = getGeminiClient(userApiKey);
 
     const prompt = `Du bist ein hochpräziser KI-Dokumenten-Parser für deutsche Vereins-Mitgliedsanträge und Aufnahmeformulare (sowohl handschriftlich ausgefüllt, gedruckt als auch digital ausgefüllt).
 
@@ -748,6 +706,27 @@ Extrahiere:
 18. rawExtractedTextSummary: Kurze stichpunktartige Zusammenfassung der Erkennung.
 
 Falls ein Feld nicht auf dem Dokument steht oder unleserlich ist, setze einen leeren String bzw. Standardwert ein. Erfinde keine Bankdaten oder Namen.`;
+
+    // Mistral geht zweistufig vor: erst die Datei in Text verwandeln
+    // (/v1/ocr), dann den Text auswerten. Das gilt fuer PDF wie fuer Foto.
+    if (kiZugang?.provider === "mistral") {
+      if (!kiZugang.apiKey) throw new Error(KEIN_MISTRAL_SCHLUESSEL);
+      const erkannt = await mistralOcr({
+        schluessel: kiZugang.apiKey,
+        dataUrl: fileDataUrl,
+        mimeType: detectedMimeType,
+      });
+      const antwort = await mistralText({
+        schluessel: kiZugang.apiKey,
+        modell: kiZugang.model,
+        system: "Du liest deutsche Vereins-Aufnahmeantraege aus. Antworte ausschliesslich mit reinem JSON.",
+        eingabe: `${prompt}\n\nINHALT DES ANTRAGS:\n${erkannt}`,
+        alsJson: true,
+      });
+      return res.json({ success: true, data: leseJson(antwort), fileName });
+    }
+    // Ab hier der Weg ueber Google Gemini: Datei und Auftrag in einem Aufruf.
+    const ai = getGeminiClient();
 
     const schemaConfig = {
       responseMimeType: "application/json",
@@ -883,7 +862,10 @@ Falls ein Feld nicht auf dem Dokument steht oder unleserlich ist, setze einen le
  */
 app.post("/api/meetings/analyze-notes", bremse(bremseTeuer, "KI"), async (req, res) => {
   try {
-    const { fileDataUrl, mimeType, fileName, meetingContext, userApiKey } = req.body;
+    const { fileDataUrl, mimeType, fileName, meetingContext } = req.body;
+
+    // Welcher Anbieter gilt, entscheidet allein die Serverkonfiguration.
+    const kiZugang = readAiCredentials();
 
     if (!fileDataUrl) {
       return res.status(400).json({ error: "Keine Datei mit Notizen übermittelt." });
@@ -893,7 +875,6 @@ app.post("/api/meetings/analyze-notes", bremse(bremseTeuer, "KI"), async (req, r
     const base64Data = commaIndex !== -1 ? fileDataUrl.substring(commaIndex + 1) : fileDataUrl;
     const detectedMimeType = mimeType || (fileDataUrl.startsWith("data:") ? fileDataUrl.substring(5, fileDataUrl.indexOf(";")) : "application/pdf");
 
-    const ai = getGeminiClient(userApiKey);
 
     const prompt = `Du bist ein hochqualifizierter Experte für deutsches Vereinsrecht (§§ 27, 32 BGB), Vereinsversammlungen und rechtssichere Protokollführung für gemeinnützige Sport- und Kulturvereine.
 Analysiere das beigefügte Dokument akribisch (es kann sich um handschriftliche Notizen, ein Foto eines Whiteboards / Flipcharts, einen getippten Entwurf oder ein eingescanntes Protokoll handeln).
@@ -936,6 +917,27 @@ Extrahiere alle erkennbaren Inhalte und überführe sie in eine saubere, struktu
 11. extractedRawSummary: Eine stichpunktartige Zusammenfassung der Notizen.
 
 Falls bestimmte Angaben auf den Notizen nicht vorhanden sind, ergänze sinnvolle Standardwerte bzw. lasse optionale Felder leer.`;
+
+    // Mistral geht zweistufig vor: erst die Datei in Text verwandeln
+    // (/v1/ocr), dann den Text auswerten.
+    if (kiZugang?.provider === "mistral") {
+      if (!kiZugang.apiKey) throw new Error(KEIN_MISTRAL_SCHLUESSEL);
+      const erkannt = await mistralOcr({
+        schluessel: kiZugang.apiKey,
+        dataUrl: fileDataUrl,
+        mimeType: detectedMimeType,
+      });
+      const antwort = await mistralText({
+        schluessel: kiZugang.apiKey,
+        modell: kiZugang.model,
+        system: "Du wertest Notizen und Unterlagen von Vereinssitzungen aus. Antworte ausschliesslich mit reinem JSON.",
+        eingabe: `${prompt}\n\nINHALT DES DOKUMENTS:\n${erkannt}`,
+        alsJson: true,
+      });
+      return res.json({ success: true, data: leseJson(antwort), fileName });
+    }
+    // Ab hier der Weg ueber Google Gemini: Datei und Auftrag in einem Aufruf.
+    const ai = getGeminiClient();
 
     const schemaConfig = {
       responseMimeType: "application/json",
@@ -1066,7 +1068,10 @@ Falls bestimmte Angaben auf den Notizen nicht vorhanden sind, ergänze sinnvolle
  */
 app.post("/api/meetings/analyze-audio", bremse(bremseTeuer, "KI"), async (req, res) => {
   try {
-    const { audioDataUrl, mimeType, fileName, meetingContext, userApiKey } = req.body;
+    const { audioDataUrl, mimeType, fileName, meetingContext } = req.body;
+
+    // Welcher Anbieter gilt, entscheidet allein die Serverkonfiguration.
+    const kiZugang = readAiCredentials();
 
     if (!audioDataUrl) {
       return res.status(400).json({ error: "Keine Audio-Aufnahme übermittelt." });
@@ -1085,7 +1090,6 @@ app.post("/api/meetings/analyze-audio", bremse(bremseTeuer, "KI"), async (req, r
     const base64Data = commaIndex !== -1 ? audioDataUrl.substring(commaIndex + 1) : audioDataUrl;
     const detectedMimeType = mimeType || (audioDataUrl.startsWith("data:") ? audioDataUrl.substring(5, audioDataUrl.indexOf(";")) : "audio/webm");
 
-    const ai = getGeminiClient(userApiKey);
 
     const prompt = `Du bist ein erfahrener juristischer Protokollführer für Vorstandssitzungen und Gremiensitzungen eines gemeinnützigen Sport- und Kulturvereins (§§ 27 ff. BGB).
 Höre die beigefügte Tonaufnahme der Sitzung sorgfältig an und erstelle daraus ein vollständiges, rechtssicheres Sitzungsprotokoll.
@@ -1107,6 +1111,29 @@ AUFGABE:
    - Verantwortlicher und Umsetzungsfrist
 4. Erfasse namentlich genannte Teilnehmer und ihre Funktionen.
 5. Gib eine kompakte Zusammenfassung / Transkript-Essenz der wichtigsten Sitzungsinhalte an.`;
+
+    // Mistral geht zweistufig vor: erst die Tonaufnahme mitschreiben, dann
+    // den Text auswerten. Der Zwischenschritt ist lesbar — schlaegt etwas
+    // fehl, sagt die Meldung, ob die Aufnahme oder die Auswertung schuld war.
+    if (kiZugang?.provider === "mistral") {
+      if (!kiZugang.apiKey) throw new Error(KEIN_MISTRAL_SCHLUESSEL);
+      const mitschrift = await mistralTranskript({
+        schluessel: kiZugang.apiKey,
+        dataUrl: audioDataUrl,
+        mimeType: detectedMimeType,
+        dateiName: fileName,
+      });
+      const antwort = await mistralText({
+        schluessel: kiZugang.apiKey,
+        modell: kiZugang.model,
+        system: "Du wertest Mitschriften von Vereinssitzungen aus. Antworte ausschliesslich mit reinem JSON.",
+        eingabe: `${prompt}\n\nMITSCHRIFT DER AUFNAHME:\n${mitschrift}`,
+        alsJson: true,
+      });
+      return res.json({ success: true, data: leseJson(antwort), fileName });
+    }
+    // Ab hier der Weg ueber Google Gemini: Datei und Auftrag in einem Aufruf.
+    const ai = getGeminiClient();
 
     const schemaConfig = {
       responseMimeType: "application/json",
@@ -1231,13 +1258,15 @@ AUFGABE:
  */
 app.post("/api/meetings/ai-assist", bremse(bremseTeuer, "KI"), async (req, res) => {
   try {
-    const { action, input, context, userApiKey } = req.body;
+    const { action, input, context } = req.body;
+
+    // Welcher Anbieter gilt, entscheidet allein die Serverkonfiguration.
+    const kiZugang = readAiCredentials();
 
     if (!action || !input) {
       return res.status(400).json({ error: "Aktion und Eingabetext sind erforderlich." });
     }
 
-    const ai = getGeminiClient(userApiKey);
     let prompt = "";
     let schemaConfig: any = null;
 
@@ -1323,6 +1352,29 @@ Gib eine Liste strukturierter Tagesordnungspunkte (TOP 1, TOP 2, ...) mit Titel 
     } else {
       return res.status(400).json({ error: `Unbekannte Aktion: ${action}` });
     }
+
+    // Mistral braucht hier nur einen Aufruf: reine Textarbeit, keine Datei.
+    // Verlangt die Aktion eine gegliederte Antwort (schemaConfig gesetzt),
+    // wird der JSON-Modus eingeschaltet, sonst kommt Fliesstext zurueck.
+    if (kiZugang?.provider === "mistral") {
+      if (!kiZugang.apiKey) throw new Error(KEIN_MISTRAL_SCHLUESSEL);
+      const antwort = await mistralText({
+        schluessel: kiZugang.apiKey,
+        modell: kiZugang.model,
+        system:
+          "Du bist ein juristischer Protokollfuehrer fuer deutsche Vereine." +
+          (schemaConfig ? " Antworte ausschliesslich mit reinem JSON." : ""),
+        eingabe: prompt,
+        alsJson: Boolean(schemaConfig),
+      });
+      return res.json({
+        success: true,
+        data: schemaConfig ? leseJson(antwort) : antwort,
+      });
+    }
+
+    // Ab hier der Weg ueber Google Gemini.
+    const ai = getGeminiClient();
 
     const aiConfig: any = {};
     if (schemaConfig) {
@@ -1483,6 +1535,86 @@ app.post("/api/smtp/config", bremse(bremsePost, "E-Mail"), (req, res) => {
     return res.status(500).json({
       success: false,
       error: error.message || "Die Zugangsdaten konnten nicht gespeichert werden.",
+    });
+  }
+});
+
+/**
+ * GET /api/ai/config
+ * Liefert Anbieter, Modell und Adresse — aber niemals den Schlüssel selbst,
+ * nur die Auskunft, ob einer hinterlegt ist und woher er stammt.
+ */
+app.get("/api/ai/config", (_req, res) => {
+  try {
+    return res.json({ success: true, config: readAiConfigPublic() });
+  } catch (error: any) {
+    console.error("Fehler beim Lesen der KI-Konfiguration:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Die hinterlegten KI-Einstellungen konnten nicht gelesen werden.",
+    });
+  }
+});
+
+/**
+ * POST /api/ai/config
+ * Speichert die KI-Einstellungen.
+ *
+ * Fehlt das Feld "apiKey", bleibt ein hinterlegter Schlüssel unverändert —
+ * der Normalfall, denn die Oberfläche kennt ihn nicht und kann ihn folglich
+ * nicht mitschicken. Ein leerer Text entfernt ihn.
+ */
+app.post("/api/ai/config", bremse(bremsePost, "KI-Einstellungen"), (req, res) => {
+  try {
+    const { provider, model, apiKey } = req.body ?? {};
+
+    const erlaubte: AiProvider[] = ["mistral", "gemini"];
+    if (!erlaubte.includes(provider)) {
+      return res.status(400).json({
+        success: false,
+        error: `Unbekannter KI-Anbieter. Möglich sind: ${erlaubte.join(", ")}.`,
+      });
+    }
+    if (apiKey !== undefined && apiKey !== null && typeof apiKey !== "string") {
+      return res.status(400).json({ success: false, error: "Ungültige Angabe beim Schlüssel." });
+    }
+
+    const config = writeAiConfig({
+      provider,
+      model: typeof model === "string" ? model : "",
+      apiKey,
+    });
+
+    // Bewusst ohne den Schlüssel im Protokoll.
+    console.info(
+      `KI-Einstellungen gespeichert: Anbieter ${config.provider}, ` +
+        `Modell ${config.model || "(Vorgabe)"}, Schlüssel hinterlegt: ${config.hasApiKey ? "ja" : "nein"}`
+    );
+    return res.json({ success: true, config });
+  } catch (error: any) {
+    console.error("Fehler beim Speichern der KI-Konfiguration:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Die KI-Einstellungen konnten nicht gespeichert werden.",
+    });
+  }
+});
+
+/**
+ * DELETE /api/ai/config
+ * Entfernt die KI-Einstellungen vollständig. Steht ein Schlüssel in der
+ * Umgebung des Servers, gilt danach wieder dieser.
+ */
+app.delete("/api/ai/config", bremse(bremsePost, "KI-Einstellungen"), (_req, res) => {
+  try {
+    const config = deleteAiConfig();
+    console.info("KI-Einstellungen entfernt.");
+    return res.json({ success: true, config });
+  } catch (error: any) {
+    console.error("Fehler beim Entfernen der KI-Konfiguration:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Die KI-Einstellungen konnten nicht entfernt werden.",
     });
   }
 });

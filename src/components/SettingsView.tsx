@@ -3,6 +3,12 @@ import { ClubSettings, AppUser, UserPermissions, DeploymentMode, Address, AiProv
 import { StorageService } from '../services/storage';
 import { AuthService } from '../services/authService';
 import { AiBookingService } from '../services/aiBookingService';
+import {
+  AiConfigService,
+  AiConfigPublic,
+  LEERE_KI_KONFIGURATION,
+  uebernehmeSchluesselAusBrowser,
+} from '../services/aiConfigService';
 import { SnapshotService, AutoSnapshot } from '../services/snapshotService';
 import { CURRENT_APP_VERSION } from '../services/updateService';
 import { PermissionMatrix } from './PermissionMatrix';
@@ -93,68 +99,43 @@ interface ProviderMeta {
   keyLinkLabel: string;
   defaultModel?: string;
   models?: { id: string; name: string }[];
-  needsBaseUrl?: boolean;
-  defaultBaseUrl?: string;
   description: string;
 }
 
 const AI_PROVIDERS: ProviderMeta[] = [
   {
+    id: 'mistral',
+    name: 'Mistral AI (Frankreich)',
+    badge: 'EU • Kostenloser Tarif',
+    badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
+    keyLabel: 'Mistral API-Schlüssel',
+    keyPlaceholder: 'Ihr Schlüssel von console.mistral.ai',
+    keyLinkUrl: 'https://console.mistral.ai/api-keys',
+    keyLinkLabel: 'Schlüssel in der Mistral-Konsole erstellen',
+    defaultModel: 'mistral-small-latest',
+    // Die Kennungen sind gegen die Modellliste eines echten Mistral-Kontos
+    // geprüft (GET /v1/models). Ein früher hier angebotenes
+    // "mistral-large-latest" gibt es dort nicht — die Auswahl hätte jede
+    // KI-Anfrage mit einer unverständlichen Meldung scheitern lassen.
+    models: [
+      { id: 'mistral-small-latest', name: 'Mistral Small (schnell, für die meisten Aufgaben ausreichend)' },
+      { id: 'mistral-medium-latest', name: 'Mistral Medium (gründlicher, langsamer)' },
+      { id: 'ministral-8b-latest', name: 'Ministral 8B (sparsamster Verbrauch)' },
+    ],
+    description:
+      'Französisches Unternehmen, Verarbeitung auf EU-Infrastruktur, Vertrag zur Auftragsverarbeitung verfügbar. Damit entfällt die Übermittlung in ein Drittland.',
+  },
+  {
     id: 'gemini',
     name: 'Google Gemini',
-    badge: 'Empfohlen • Kostenlos',
-    badgeColor: 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300',
+    badge: 'USA • Kostenloser Tarif',
+    badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300',
     keyLabel: 'Google Gemini API-Schlüssel',
     keyPlaceholder: 'AIzaSy...',
     keyLinkUrl: 'https://aistudio.google.com/app/apikey',
     keyLinkLabel: 'Kostenlosen Schlüssel generieren',
-    description: 'Dauerhaft kostenloser Tarif mit bis zu 15 Anfragen/Min. in Google AI Studio.',
-  },
-  {
-    id: 'openai',
-    name: 'OpenAI (ChatGPT)',
-    badge: 'GPT-4o & mini',
-    badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
-    keyLabel: 'OpenAI API-Schlüssel',
-    keyPlaceholder: 'sk-proj-...',
-    keyLinkUrl: 'https://platform.openai.com/api-keys',
-    keyLinkLabel: 'Schlüssel auf platform.openai.com erstellen',
-    defaultModel: 'gpt-4o-mini',
-    models: [
-      { id: 'gpt-4o-mini', name: 'GPT-4o mini (Sehr schnell & kostengünstig)' },
-      { id: 'gpt-4o', name: 'GPT-4o (Höchste Genauigkeit)' },
-    ],
-    description: 'Verbindung über Ihr OpenAI-Entwicklerkonto mit modernsten Modellen.',
-  },
-  {
-    id: 'anthropic',
-    name: 'Anthropic Claude',
-    badge: 'Claude 3.5',
-    badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300',
-    keyLabel: 'Anthropic Claude API-Schlüssel',
-    keyPlaceholder: 'sk-ant-...',
-    keyLinkUrl: 'https://console.anthropic.com/settings/keys',
-    keyLinkLabel: 'Schlüssel in Anthropic Console erstellen',
-    defaultModel: 'claude-3-5-haiku-20241022',
-    models: [
-      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku (Ultraschnell)' },
-      { id: 'claude-3-5-sonnet-latest', name: 'Claude 3.5 Sonnet (Rechtssichere Texte)' },
-    ],
-    description: 'Hervorragend geeignet für redaktionelle Protokolle und Beschlusstexte.',
-  },
-  {
-    id: 'custom',
-    name: 'Benutzerdefiniert / Lokal',
-    badge: 'Ollama & Groq',
-    badgeColor: 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300',
-    keyLabel: 'API-Schlüssel / Token (optional)',
-    keyPlaceholder: 'Optional (Bearer Token oder leer bei lokalem Ollama)',
-    keyLinkUrl: 'https://ollama.com',
-    keyLinkLabel: 'Ollama Dokumentation & Download',
-    needsBaseUrl: true,
-    defaultBaseUrl: 'http://localhost:11434/v1',
-    defaultModel: 'llama3.2',
-    description: 'Kompatibel mit lokalen Modellen (Ollama, LM Studio) oder Gateways (Groq, OpenRouter).',
+    description:
+      'Verarbeitung in den USA. Beim kostenlosen Tarif dürfen die übermittelten Inhalte laut Googles Bedingungen zur Produktverbesserung verwendet werden — und das lässt sich dort nicht abschalten.',
   },
 ];
 
@@ -371,20 +352,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [userMsg, setUserMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // AI Assistant State (Supporting Gemini, OpenAI, Anthropic, Custom/Ollama)
-  const initialAiConfig = AiBookingService.getAiConfig();
-  const [aiProvider, setAiProvider] = useState<AiProviderType>(
-    () => settings.aiProvider || initialAiConfig.provider || 'gemini'
-  );
-  const [aiApiKey, setAiApiKey] = useState<string>(
-    () => settings.aiApiKey || settings.geminiApiKey || initialAiConfig.apiKey || ''
-  );
-  const [aiModel, setAiModel] = useState<string>(
-    () => settings.aiModel || initialAiConfig.model || ''
-  );
-  const [aiBaseUrl, setAiBaseUrl] = useState<string>(
-    () => settings.aiBaseUrl || initialAiConfig.baseUrl || ''
-  );
+  // ------------------------------------------------------------------
+  // KI-Zugangsdaten
+  //
+  // Genau wie bei SMTP: Diese Angaben stehen NICHT in den Vereinsstammdaten
+  // und damit auch nicht in formData. Sie liegen auf dem Server dieser
+  // Installation und werden ueber AiConfigService angesprochen.
+  //
+  // Der Schluessel geht nur hinaus, nie herein. Vom Server kommt lediglich
+  // die Auskunft, ob einer hinterlegt ist — deshalb darf das Eingabefeld
+  // nicht vorbelegt werden, sondern zeigt "hinterlegt" an.
+  // ------------------------------------------------------------------
+  const [aiProvider, setAiProvider] = useState<AiProviderType>('gemini');
+  const [aiModel, setAiModel] = useState<string>('');
+  /** Leer = hinterlegten Schluessel unveraendert lassen. */
+  const [aiApiKey, setAiApiKey] = useState<string>('');
+  /** Was der Server ueber den hinterlegten Schluessel sagt. */
+  const [aiServerKonfiguration, setAiServerKonfiguration] =
+    useState<AiConfigPublic>(LEERE_KI_KONFIGURATION);
+  /** null = noch nicht geladen; false = Server antwortet nicht. */
+  const [aiServerErreichbar, setAiServerErreichbar] = useState<boolean | null>(null);
+  const [isSavingAi, setIsSavingAi] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [isTestingKey, setIsTestingKey] = useState(false);
   const [keyTestResult, setKeyTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -433,6 +421,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setSmtpServerErreichbar(konfiguration !== null);
       if (konfiguration) setSmtpForm(konfiguration);
     });
+    // Erst uebernehmen, dann laden. Wurde ein Schluessel aus den
+    // Vereinsstammdaten gerettet (siehe storage.ts), zieht er hier um — und
+    // die Maske zeigt ihn sofort als hinterlegt, ohne dass jemand die Seite
+    // neu laden muss.
+    uebernehmeSchluesselAusBrowser()
+      .catch(() => undefined)
+      .then(() => AiConfigService.load())
+      .then(konfiguration => {
+        if (abgebrochen) return;
+        setAiServerErreichbar(konfiguration !== null);
+        if (konfiguration) {
+          setAiServerKonfiguration(konfiguration);
+          setAiProvider(konfiguration.provider as AiProviderType);
+          setAiModel(konfiguration.model);
+        }
+      });
     return () => {
       abgebrochen = true;
     };
@@ -941,6 +945,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
+  /**
+   * Schreibt die KI-Angaben auf den Server.
+   *
+   * Ein leeres Schluesselfeld bedeutet "unveraendert lassen" — deshalb wird
+   * apiKey dann gar nicht erst mitgeschickt. Wer den hinterlegten Schluessel
+   * loswerden will, benutzt den Entfernen-Knopf.
+   */
+  const speichereKiAufServer = async (): Promise<{ success: boolean; error?: string }> => {
+    const eingetippt = aiApiKey.trim();
+    const ergebnis = await AiConfigService.save({
+      provider: aiProvider,
+      model: aiModel.trim(),
+      ...(eingetippt ? { apiKey: eingetippt } : {}),
+    });
+    if (ergebnis.success && ergebnis.config) {
+      setAiServerKonfiguration(ergebnis.config);
+      setAiServerErreichbar(true);
+      // Das Feld wird geleert: Der Schluessel ist jetzt beim Server, und die
+      // Maske soll ihn nicht weiter vorhalten.
+      setAiApiKey('');
+    }
+    return { success: ergebnis.success, error: ergebnis.error };
+  };
+
   const handleSaveClub = async (e: React.FormEvent) => {
     if (!canEdit) { if (onLocked) onLocked(); return; }
     e.preventDefault();
@@ -966,19 +994,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       chairman: finalChairman,
       treasurer: finalTreasurer,
       boardMembers: boardMembers,
-      aiProvider,
-      aiApiKey: aiApiKey.trim() || undefined,
-      aiModel: aiModel.trim() || undefined,
-      aiBaseUrl: aiBaseUrl.trim() || undefined,
-      geminiApiKey: aiProvider === 'gemini' ? aiApiKey.trim() || undefined : formData.geminiApiKey,
     };
     setFormData(updated);
-    AiBookingService.setAiConfig({
-      provider: aiProvider,
-      apiKey: aiApiKey.trim(),
-      model: aiModel.trim() || undefined,
-      baseUrl: aiBaseUrl.trim() || undefined,
-    });
+
+    // Die KI-Angaben gehoeren nicht mehr in die Vereinsstammdaten — sie
+    // liegen auf dem Server. Mitgespeichert werden sie hier trotzdem, damit
+    // der grosse Speichern-Knopf weiterhin alles sichert, was in der Maske
+    // steht. Schlaegt das fehl, ist das eine eigene Meldung wert.
+    const kiErgebnis = await speichereKiAufServer();
+    if (!kiErgebnis.success) {
+      setStatusMsg({
+        type: 'error',
+        text: `Die KI-Einstellungen konnten nicht gespeichert werden: ${kiErgebnis.error}`,
+      });
+      setTimeout(() => setStatusMsg(null), 5000);
+    }
 
     try {
       await onSaveSettings(updated);
@@ -1118,21 +1148,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setIsTestingKey(true);
     setKeyTestResult(null);
     try {
-      const res = await AiBookingService.testConnection(
-        aiApiKey.trim(),
-        aiProvider,
-        aiModel.trim() || undefined,
-        aiBaseUrl.trim() || undefined
-      );
-      setKeyTestResult(res);
-      if (res.success) {
-        AiBookingService.setAiConfig({
-          provider: aiProvider,
-          apiKey: aiApiKey.trim(),
-          model: aiModel.trim() || undefined,
-          baseUrl: aiBaseUrl.trim() || undefined,
+      // Der eingetippte Schluessel wird mitgeschickt, damit er sich pruefen
+      // laesst, BEVOR er gespeichert wird. Ist das Feld leer, prueft der
+      // Server den bei ihm hinterlegten — die Maske kennt ihn ja nicht.
+      const res = await AiBookingService.testConnection({
+        apiKey: aiApiKey.trim(),
+        provider: aiProvider,
+        model: aiModel.trim(),
         });
-      }
+      setKeyTestResult(res);
     } catch (err: any) {
       setKeyTestResult({ success: false, message: err?.message || 'Verbindungstest fehlgeschlagen.' });
     } finally {
@@ -1140,31 +1164,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const handleSaveAiConfigOnly = () => {
+  const handleSaveAiConfigOnly = async () => {
     if (!canEdit) { if (onLocked) onLocked(); return; }
-    const trimmedKey = aiApiKey.trim();
-    AiBookingService.setAiConfig({
-      provider: aiProvider,
-      apiKey: trimmedKey,
-      model: aiModel.trim() || undefined,
-      baseUrl: aiBaseUrl.trim() || undefined,
-    });
+    setIsSavingAi(true);
+    setKeyTestResult(null);
+    const ergebnis = await speichereKiAufServer();
+    setIsSavingAi(false);
+
     const selectedProvider = AI_PROVIDERS.find(p => p.id === aiProvider) || AI_PROVIDERS[0];
-    const updated: ClubSettings = {
-      ...formData,
-      aiProvider,
-      aiApiKey: trimmedKey || undefined,
-      aiModel: aiModel.trim() || undefined,
-      aiBaseUrl: aiBaseUrl.trim() || undefined,
-      geminiApiKey: aiProvider === 'gemini' ? trimmedKey || undefined : formData.geminiApiKey,
-    };
-    setFormData(updated);
-    onSaveSettings(updated);
-    setStatusMsg({
-      type: 'success',
-      text: `KI-Konfiguration (${selectedProvider.name}) wurde erfolgreich gespeichert.`
-    });
-    setTimeout(() => setStatusMsg(null), 3000);
+    setStatusMsg(
+      ergebnis.success
+        ? { type: 'success', text: `KI-Konfiguration (${selectedProvider.name}) wurde auf dem Server gespeichert.` }
+        : { type: 'error', text: ergebnis.error || 'Die KI-Einstellungen konnten nicht gespeichert werden.' }
+    );
+    setTimeout(() => setStatusMsg(null), 4000);
+  };
+
+  /** Entfernt den hinterlegten Schluessel samt Anbieterangaben vom Server. */
+  const handleRemoveAiConfig = async () => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
+    setIsSavingAi(true);
+    setKeyTestResult(null);
+    const ergebnis = await AiConfigService.remove();
+    setIsSavingAi(false);
+
+    if (ergebnis.success) {
+      if (ergebnis.config) setAiServerKonfiguration(ergebnis.config);
+      setAiApiKey('');
+      setStatusMsg({ type: 'success', text: 'Der hinterlegte KI-Schluessel wurde entfernt.' });
+    } else {
+      setStatusMsg({ type: 'error', text: ergebnis.error || 'Entfernen fehlgeschlagen.' });
+    }
+    setTimeout(() => setStatusMsg(null), 4000);
   };
 
   const handleCopyLink = (url: string) => {
@@ -1894,7 +1925,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* KI-Assistent Card */}
           {(() => {
             const currentProviderInfo = AI_PROVIDERS.find(p => p.id === aiProvider) || AI_PROVIDERS[0];
-            const isConfigured = Boolean(aiApiKey.trim() || (aiProvider === 'custom' && aiBaseUrl.trim()));
+            // Ob die KI arbeiten kann, weiss allein der Server — die Maske
+            // kennt den hinterlegten Schluessel nicht. Ein gerade eingetipptes
+            // Feld zaehlt noch nicht: gespeichert ist es erst nach dem Klick.
+            const isConfigured = aiServerKonfiguration.configured;
+            const schluesselAusUmgebung = aiServerKonfiguration.schluesselQuelle === 'umgebung';
 
             return (
               <div className="bg-white dark:bg-slate-900 border border-purple-200/80 dark:border-purple-900/40 rounded-3xl p-6 shadow-xs space-y-5">
@@ -1942,9 +1977,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               if (provider.defaultModel && (!aiModel || !provider.models?.some(m => m.id === aiModel))) {
                                 setAiModel(provider.defaultModel);
                               }
-                              if (provider.defaultBaseUrl && !aiBaseUrl) {
-                                setAiBaseUrl(provider.defaultBaseUrl);
-                              }
                             }}
                             className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
                               isSelected
@@ -1969,25 +2001,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       {currentProviderInfo.description}
                     </p>
                   </div>
-
-                  {/* Optional Custom Base URL */}
-                  {currentProviderInfo.needsBaseUrl && (
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        API-Basis-URL (OpenAI-kompatibel)
-                      </label>
-                      <input
-                        type="text"
-                        value={aiBaseUrl}
-                        onChange={e => setAiBaseUrl(e.target.value)}
-                        placeholder="http://localhost:11434/v1"
-                        className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:bg-white"
-                      />
-                      <p className="text-3xs text-slate-400 dark:text-slate-500 mt-1">
-                        Beispiel Ollama: http://localhost:11434/v1 • LM Studio: http://localhost:1234/v1 • Groq: https://api.groq.com/openai/v1
-                      </p>
-                    </div>
-                  )}
 
                   {/* Model Selection if options exist */}
                   {currentProviderInfo.models && (
@@ -2036,8 +2049,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           type={showApiKey ? 'text' : 'password'}
                           value={aiApiKey}
                           onChange={e => setAiApiKey(e.target.value)}
-                          placeholder={currentProviderInfo.keyPlaceholder}
-                          className="w-full pl-3 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:bg-white"
+                          placeholder={
+                            schluesselAusUmgebung
+                              ? 'Auf dem Server gesetzt (GEMINI_API_KEY o. ae.)'
+                              : aiServerKonfiguration.hasApiKey
+                                ? 'Hinterlegt — zum Ersetzen neuen Schluessel eingeben'
+                                : currentProviderInfo.keyPlaceholder
+                          }
+                          disabled={schluesselAusUmgebung}
+                          className="w-full pl-3 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:bg-white disabled:opacity-60"
                         />
                         <button
                           type="button"
@@ -2052,7 +2072,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <button
                           type="button"
                           onClick={handleTestAiKey}
-                          disabled={isTestingKey || (!aiApiKey.trim() && aiProvider !== 'custom')}
+                          disabled={
+                            isTestingKey ||
+                            // Ohne irgendetwas Pruefbares waere der Knopf sinnlos:
+                            // weder etwas eingetippt, noch etwas hinterlegt, noch
+                            // eine eigene Adresse.
+                            (!aiApiKey.trim() && !aiServerKonfiguration.hasApiKey)
+                          }
                           className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 disabled:opacity-40 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                         >
                           <RefreshCw className={`w-3.5 h-3.5 ${isTestingKey ? 'animate-spin' : ''}`} />
@@ -2061,13 +2087,42 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <button
                           type="button"
                           onClick={handleSaveAiConfigOnly}
-                          className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-xs"
+                          disabled={isSavingAi || schluesselAusUmgebung}
+                          className={`px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-xs disabled:opacity-40${lockClass(canEdit)}`}
+                          title={lockTitle(canEdit, 'KI-Einstellungen speichern')}
                         >
                           <Check className="w-3.5 h-3.5" />
-                          <span>Speichern</span>
+                          <span>{isSavingAi ? 'Speichere...' : 'Speichern'}</span>
                         </button>
+                        {aiServerKonfiguration.hasApiKey && !schluesselAusUmgebung && (
+                          <button
+                            type="button"
+                            onClick={handleRemoveAiConfig}
+                            disabled={isSavingAi}
+                            className={`px-4 py-2.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 rounded-xl text-xs font-bold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-40${lockClass(canEdit)}`}
+                            title={lockTitle(canEdit, 'Hinterlegten Schluessel entfernen')}
+                          >
+                            Entfernen
+                          </button>
+                        )}
                       </div>
                     </div>
+
+                    {/* Woher der Schluessel kommt und was das bedeutet */}
+                    {aiServerErreichbar === false && (
+                      <p className="mt-2 text-2xs text-amber-700 dark:text-amber-400">
+                        Der Server dieser Installation ist nicht erreichbar. KI-Funktionen
+                        brauchen ihn — ohne Server laesst sich hier nichts hinterlegen.
+                      </p>
+                    )}
+                    {schluesselAusUmgebung && (
+                      <p className="mt-2 text-2xs text-slate-500 dark:text-slate-400">
+                        Der Schluessel ist auf dem Server als Umgebungsvariable gesetzt
+                        (z. B. in der Docker-Konfiguration). Er laesst sich deshalb hier
+                        nicht aendern oder entfernen — das geschieht dort, wo der Server
+                        eingerichtet wurde.
+                      </p>
+                    )}
                   </div>
 
                   {/* Test Result Message */}
@@ -2094,7 +2149,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </div>
                     <ul className="list-disc pl-4 space-y-1 text-slate-600 dark:text-slate-400 leading-relaxed">
                       <li>
-                        <strong>Lokale Speicherung:</strong> Ihr API-Schlüssel wird ausschließlich lokal in Ihrer VereinsManager-Installation auf Ihrem PC bzw. im Browser gespeichert und zu keinem Zeitpunkt an fremde Dritte weitergegeben.
+                        <strong>Wo der Schlüssel liegt:</strong> verschlüsselt auf dem Server dieser Installation — nicht im Browser und nicht in den Vereinsstammdaten. Er steht deshalb in keiner Datensicherung und wird an niemanden weitergegeben außer an den KI-Anbieter, den Sie hier auswählen. Nach einer Neuinstallation ist er einmal neu einzutragen.
                       </li>
                       <li>
                         <strong>Freie Anbieterwahl:</strong> Nutzen Sie den dauerhaft kostenlosen Standard-Tarif von Google Gemini oder binden Sie eigene Zugänge von OpenAI, Anthropic oder lokale KI-Modelle (z. B. via Ollama) ohne Cloud-Kosten an.

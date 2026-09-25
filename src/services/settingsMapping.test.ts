@@ -43,12 +43,7 @@ const VOLLSTAENDIG: ClubSettings = {
   taxOffice: 'Finanzamt Musterstadt',
   taxExemptionDate: '10.01.2024',
   taxAssessmentPeriod: '2021 bis 2023',
-  promotedPurposes: 'Foerderung des Sports',
-  geminiApiKey: 'gemini-schluessel',
-  aiProvider: 'anthropic',
-  aiApiKey: 'ki-schluessel',
-  aiModel: 'claude-3-5-haiku-20241022',
-  aiBaseUrl: 'http://localhost:11434/v1'
+  promotedPurposes: 'Foerderung des Sports'
 };
 
 describe('Vereinsstammdaten: Zuordnung zu Supabase', () => {
@@ -122,5 +117,35 @@ describe('Vereinsstammdaten: Zuordnung zu Supabase', () => {
     expect(zurueck.boardMembers).toHaveLength(1);
     expect(zurueck.boardMembers?.[0].name).toBe('Dr. Michael Sommer');
     expect(zurueck.departments).toEqual(['Fussball', 'Tennis']);
+  });
+
+  it('traegt einen KI-Schluessel aus dem Altbestand nicht mehr in die Datenbank', () => {
+    // Seit Fassung 0.9 liegt der KI-Schluessel verschluesselt auf dem Server.
+    // In einer Datenbank oder Sicherung aus einer aelteren Fassung kann er
+    // aber noch in den Vereinsstammdaten stehen. Er darf von dort aus nicht
+    // erneut in die Cloud wandern.
+    const mitAltlast = {
+      ...VOLLSTAENDIG,
+      geminiApiKey: 'AIza-ALTLAST',
+      aiApiKey: 'sk-ALTLAST',
+      aiProvider: 'gemini',
+    } as unknown as ClubSettings;
+
+    const reihe = JSON.stringify(mapSettingsToDb(mitAltlast));
+    expect(reihe).not.toContain('AIza-ALTLAST');
+    expect(reihe).not.toContain('sk-ALTLAST');
+  });
+
+  it('kennt keine Spalte mehr fuer KI-Zugangsdaten', () => {
+    // Fiele eine dieser Spalten wieder in die Zuordnung, stuende der
+    // Schluessel wieder in der Cloud — ohne dass es jemandem auffiele.
+    const felder = Object.keys(SPALTEN);
+    const spalten = Object.values(SPALTEN);
+    for (const feld of ['geminiApiKey', 'aiApiKey', 'aiProvider', 'aiModel', 'aiBaseUrl']) {
+      expect(felder).not.toContain(feld);
+    }
+    for (const spalte of ['gemini_api_key', 'ai_api_key', 'ai_provider', 'ai_model', 'ai_base_url']) {
+      expect(spalten).not.toContain(spalte);
+    }
   });
 });

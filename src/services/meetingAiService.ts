@@ -1,6 +1,5 @@
 import { MeetingType, MeetingAgendaItem, MeetingResolution } from '../types';
 import { apiFetch } from './apiClient';
-import { AiBookingService } from './aiBookingService';
 
 export interface MeetingExtractedData {
   title?: string;
@@ -56,8 +55,6 @@ export class MeetingAiService {
       actualFileName = fileOrDataUrl.name;
     }
 
-    const userApiKey = AiBookingService.getStoredApiKey();
-
     const response = await apiFetch('/api/meetings/analyze-notes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -65,7 +62,6 @@ export class MeetingAiService {
         fileDataUrl,
         fileName: actualFileName,
         meetingContext,
-        userApiKey: userApiKey || undefined,
       }),
     });
 
@@ -110,8 +106,6 @@ export class MeetingAiService {
       }
     }
 
-    const userApiKey = AiBookingService.getStoredApiKey();
-
     const response = await apiFetch('/api/meetings/analyze-audio', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -119,7 +113,6 @@ export class MeetingAiService {
         audioDataUrl,
         fileName: actualFileName,
         meetingContext,
-        userApiKey: userApiKey || undefined,
       }),
     });
 
@@ -144,8 +137,6 @@ export class MeetingAiService {
     input: string,
     context?: any
   ): Promise<T> {
-    const userApiKey = AiBookingService.getStoredApiKey();
-
     const response = await apiFetch('/api/meetings/ai-assist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -153,7 +144,6 @@ export class MeetingAiService {
         action,
         input,
         context,
-        userApiKey: userApiKey || undefined,
       }),
     });
 

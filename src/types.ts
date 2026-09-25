@@ -238,11 +238,15 @@ export interface ClubSettings {
   taxExemptionDate?: string; // z.B. '10.01.2024'
   taxAssessmentPeriod?: string; // z.B. '2021 bis 2023'
   promotedPurposes?: string; // z.B. 'Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)'
-  geminiApiKey?: string; // Eigener Google Gemini API-Schlüssel für KI-Funktionen (Rückwärtskompatibilität)
-  aiProvider?: AiProviderType; // 'gemini' | 'openai' | 'anthropic' | 'custom'
-  aiApiKey?: string; // Allgemeiner API-Schlüssel für den gewählten Anbieter
-  aiModel?: string; // Ausgewähltes Modell (z.B. 'gpt-4o-mini', 'claude-3-5-haiku-20241022')
-  aiBaseUrl?: string; // Basis-URL für lokale / benutzerdefinierte KI (z.B. 'http://localhost:11434/v1')
+  // Hinweis zu den KI-Einstellungen:
+  // Anbieter, Modell, Adresse und vor allem der API-Schlüssel standen hier
+  // früher mit drin. Damit lagen sie in der IndexedDB jedes Browsers, in jeder
+  // Datensicherung und im Cloud-Betrieb zusätzlich in Supabase. Seit Fassung
+  // 0.9 liegen sie auf dem Server dieser Installation
+  // (src/server/instanceConfig.ts) und werden über
+  // src/services/aiConfigService.ts angesprochen. Der Schlüssel verlässt den
+  // Server nicht mehr.
+  //
   // Hinweis zu den SMTP-Zugangsdaten:
   // Sie standen hier früher mit drin — Hostname, Benutzer und Passwort im
   // Klartext. Damit lagen sie in der IndexedDB jedes Browsers und in jeder
@@ -252,14 +256,15 @@ export interface ClubSettings {
   // Server nicht mehr.
 }
 
-export type AiProviderType = 'gemini' | 'openai' | 'anthropic' | 'custom';
-
-export interface AiConfig {
-  provider: AiProviderType;
-  apiKey: string;
-  model?: string;
-  baseUrl?: string;
-}
+/**
+ * Die Anbieter, mit denen die KI-Funktionen sprechen können.
+ *
+ * Seit Fassung 0.9 nur noch zwei. OpenAI, Anthropic und „eigene Adresse" sind
+ * gegangen: Von fünf KI-Funktionen konnte genau eine mit ihnen arbeiten, die
+ * übrigen vier brauchten Google. Mistral ist dazugekommen — EU-Unternehmen,
+ * EU-Verarbeitung, und es beherrscht alle fünf.
+ */
+export type AiProviderType = 'mistral' | 'gemini';
 
 export interface BookingAiSuggestion {
   sphere: TaxSphere;

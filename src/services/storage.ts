@@ -167,6 +167,17 @@ const DEFAULT_SETTINGS: ClubSettings = {
  * deshalb, weil beim Einspielen einer alten Datensicherung sonst genau das
  * Passwort zurückkäme, das wir gerade entfernt haben.
  */
+/**
+ * Felder, die frueher in den Vereinsstammdaten standen und dort nicht mehr
+ * hingehoeren, weil sie Geheimnisse dieser einen Installation sind.
+ *
+ * Beide Gruppen liegen inzwischen verschluesselt auf dem Server
+ * (src/server/instanceConfig.ts). Was hier aufgeraeumt wird, sind Altbestaende:
+ * eine Datenbank, die noch aus einer aelteren Fassung stammt, oder eine
+ * eingespielte Datensicherung von damals. Ohne dieses Aufraeumen wanderten die
+ * Klartext-Geheimnisse bei jedem Speichern weiter mit — und im Cloud-Betrieb
+ * zusaetzlich nach Supabase.
+ */
 const VERALTETE_SMTP_FELDER = [
   'smtpHost',
   'smtpPort',
@@ -174,12 +185,68 @@ const VERALTETE_SMTP_FELDER = [
   'smtpUser',
   'smtpPassword',
   'smtpFromEmail',
-  'smtpFromName'
+  'smtpFromName',
+  // Seit Fassung 0.9: der KI-Schluessel und was dazugehoert.
+  'geminiApiKey',
+  'aiApiKey',
+  'aiProvider',
+  'aiModel',
+  'aiBaseUrl'
 ] as const;
+
+/**
+ * Rettet einen KI-Schluessel, bevor er geloescht wird.
+ *
+ * Der Unterschied zum SMTP-Passwort ist Absicht: Das Postfach-Passwort wird
+ * NICHT uebernommen, sondern einmal neu eingetragen — so war es abgesprochen.
+ * Der KI-Schluessel dagegen soll von selbst umziehen.
+ *
+ * Nur: Die Uebernahme (src/services/aiConfigService.ts) schaut in den
+ * Browser-Speicher, waehrend der Schluessel hier in den Vereinsstammdaten
+ * liegt. Ohne diese Bruecke wuerde er geloescht, bevor die Uebernahme ihn
+ * jemals zu Gesicht bekaeme — genau das ist beim ersten Anlauf passiert.
+ *
+ * Er landet deshalb kurz unter denselben Namen im Browser-Speicher, unter
+ * denen fruehere Fassungen ihn ohnehin gefuehrt haben. Die Uebernahme laedt
+ * ihn beim naechsten Start hoch und loescht ihn dort. Das ist keine neue
+ * Preisgabe: Er stand ohnehin unverschluesselt auf diesem Geraet.
+ */
+function retteKiSchluessel(daten: Record<string, unknown>): void {
+  const schluessel =
+    (typeof daten.aiApiKey === 'string' && daten.aiApiKey.trim()) ||
+    (typeof daten.geminiApiKey === 'string' && daten.geminiApiKey.trim()) ||
+    '';
+  if (!schluessel) return;
+
+  try {
+    // Nicht ueberschreiben, was dort schon steht: Ein Schluessel im
+    // Browser-Speicher ist der juengere.
+    if (!localStorage.getItem('vm_ai_api_key')) {
+      localStorage.setItem('vm_ai_api_key', schluessel);
+      if (typeof daten.aiProvider === 'string' && daten.aiProvider) {
+        localStorage.setItem('vm_ai_provider', daten.aiProvider);
+      }
+      if (typeof daten.aiModel === 'string' && daten.aiModel) {
+        localStorage.setItem('vm_ai_model', daten.aiModel);
+      }
+      if (typeof daten.aiBaseUrl === 'string' && daten.aiBaseUrl) {
+        localStorage.setItem('vm_ai_base_url', daten.aiBaseUrl);
+      }
+      console.info(
+        'Ein KI-Schluessel aus den Vereinsstammdaten wurde zur Uebernahme auf den ' +
+          'Server vorgemerkt. Er verschwindet damit aus Datensicherungen.'
+      );
+    }
+  } catch {
+    // Privater Modus oder gesperrte Website-Daten. Dann bleibt der Schluessel
+    // eben nicht erhalten; er ist beim Anbieter jederzeit neu abrufbar.
+  }
+}
 
 function ohneVeralteteSmtpFelder<T extends Record<string, unknown>>(
   daten: T
 ): { bereinigt: T; warVeraltet: boolean } {
+  retteKiSchluessel(daten);
   const bereinigt = { ...daten };
   let warVeraltet = false;
   for (const feld of VERALTETE_SMTP_FELDER) {

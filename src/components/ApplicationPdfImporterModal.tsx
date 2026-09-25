@@ -14,7 +14,6 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { OnlineMembershipApplication, ClubSettings, ExtractedApplicationData } from '../types';
-import { AiBookingService } from '../services/aiBookingService';
 import { apiFetch } from '../services/apiClient';
 
 interface ApplicationPdfImporterModalProps {
@@ -28,110 +27,19 @@ interface ApplicationPdfImporterModalProps {
 export type { ExtractedApplicationData };
 
 /**
- * Direct client-side multimodal extraction via Google Gemini REST API.
- * Essential for local apps (Tauri desktop / offline PWA) when no Node/Express server is listening.
+ * Hinweis zur Belegerkennung dieser Maske.
+ * ---------------------------------------------------------------------------
+ *
+ * Hier stand bis Fassung 0.9 ein zweiter Weg: Schlug der Server fehl, rief die
+ * Oberflaeche Google Gemini direkt aus dem Browser auf — mit dem Schluessel des
+ * Vereins im Aufruf. Genau dafuer musste der Schluessel im Browser liegen, und
+ * genau deshalb stand er am Ende auch in jeder Datensicherung.
+ *
+ * Der Weg ist entfallen. Die Erkennung laeuft ausschliesslich ueber
+ * /api/scan-application-pdf; den Schluessel kennt nur noch der Server. Wer
+ * keinen erreichbaren Server hat, erfasst den Antrag von Hand — der Knopf
+ * dafuer war ohnehin immer da.
  */
-async function directClientScanApplication(
-  dataUrl: string,
-  mimeType: string,
-  apiKey: string
-): Promise<ExtractedApplicationData> {
-  const commaIndex = dataUrl.indexOf(',');
-  const base64Data = commaIndex !== -1 ? dataUrl.substring(commaIndex + 1) : dataUrl;
-  const detectedMimeType = mimeType || (dataUrl.startsWith('data:') ? dataUrl.substring(5, dataUrl.indexOf(';')) : 'application/pdf');
-
-  const candidateModels = ['gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.1-flash-lite'];
-  let lastError: any = null;
-
-  const prompt = `Du bist ein hochpräziser KI-Dokumenten-Parser für deutsche Vereins-Mitgliedsanträge und Aufnahmeformulare (sowohl handschriftlich ausgefüllt, gedruckt als auch digital ausgefüllt).
-
-Analysiere das beigefügte Dokument akribisch und extrahiere alle relevanten Daten für die Vereinsmitgliederverwaltung.
-
-Extrahiere:
-1. Vorname und Nachname des Antragstellers
-2. Geschlecht ('m', 'w', 'd' oder 'none')
-3. Geburtsdatum im Format YYYY-MM-DD (falls erkennbar)
-4. Vollständige Anschrift: Straße, Hausnummer, Postleitzahl (PLZ, 5-stellig), Ort/Stadt, Land (Standard 'Deutschland')
-5. Kontaktdaten: Telefon / Mobilnummer, E-Mail-Adresse
-6. Gewünschte Sparte / Sportart / Abteilung (z.B. Fußball, Tennis, Turnen, Gymnastik, Schwimmen, etc.)
-7. Gewünschtes Eintrittsdatum im Format YYYY-MM-DD (falls nicht angegeben, heutiges Datum oder leer)
-8. Mitgliedsart ('full' für Vollzahler/Erwachsener, 'reduced' für Ermäßigt/Student/Rentner, 'youth' für Jugend/Kind, 'family' für Familie, 'supporting' für Förderer)
-9. Beitragsintervall ('monthly', 'quarterly', 'half_yearly', 'yearly')
-10. Beitragshöhe als Zahl (Euro), falls auf dem Formular vermerkt
-11. Zahlungsart: 'sepa' (Lastschrift), 'transfer' (Überweisung), 'cash' (Bar)
-12. Bankverbindung & SEPA-Lastschriftmandat:
-    - IBAN (ohne Leerzeichen, z.B. DE...)
-    - BIC (8 oder 11 Zeichen)
-    - Bankname / Kreditinstitut
-    - Kontoinhaber
-    - Mandatsdatum (YYYY-MM-DD)
-13. Minderjährigen-Prüfung & Gesetzliche Vertreter:
-    - isMinor: true wenn das Geburtsdatum < 18 Jahre ist oder ein Erziehungsberechtigter angegeben ist
-    - Name des Erziehungsberechtigten
-    - Telefon & E-Mail des Erziehungsberechtigten
-    - Verwandtschaftsverhältnis ('Mutter', 'Vater', 'Gesetzlicher Vormund')
-14. Einwilligungen & Checkboxen (true/false):
-    - dataPrivacyConsent (Datenschutz / DSGVO)
-    - statuteConsent (Satzung anerkannt)
-    - photoConsent (Foto-/Medieneinwilligung)
-    - healthConfirmation (Sporttauglichkeit)
-15. Unterschriften-Prüfung:
-    - hasApplicantSignature: true/false (ob eine handschriftliche oder digitale Unterschrift des Antragstellers sichtbar ist)
-    - hasGuardianSignature: true/false (ob eine Unterschrift des Erziehungsberechtigten sichtbar ist)
-    - hasSepaSignature: true/false (ob ein SEPA-Mandat unterschrieben ist)
-16. Bemerkungen / Notizen: Besondere Hinweise, Freitextnotizen auf dem Formular.
-17. confidence: Einschätzung der Lesbarkeit von 0.0 (sehr unscharf/unleserlich) bis 1.0 (perfekt lesbar).
-18. rawExtractedTextSummary: Kurze stichpunktartige Zusammenfassung der Erkennung.
-
-Falls ein Feld nicht auf dem Dokument steht oder unleserlich ist, setze einen leeren String bzw. Standardwert ein. Erfinde keine Bankdaten oder Namen.
-Antworte ausschließlich im validen JSON-Format.`;
-
-  for (const model of candidateModels) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  inlineData: {
-                    mimeType: detectedMimeType,
-                    data: base64Data,
-                  },
-                },
-                {
-                  text: prompt,
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            responseMimeType: 'application/json',
-          },
-        }),
-      });
-
-      if (res.ok) {
-        const json = await res.json();
-        const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          const cleanText = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-          return JSON.parse(cleanText) as ExtractedApplicationData;
-        }
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        lastError = new Error(errJson?.error?.message || `HTTP ${res.status} von Gemini (${model})`);
-      }
-    } catch (err: any) {
-      lastError = err;
-    }
-  }
-
-  throw lastError || new Error('Keine Antwort vom Google Gemini KI-Dienst erhalten.');
-}
 
 export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalProps> = ({
   isOpen,
@@ -317,13 +225,6 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
     setIsScanning(true);
     setScanError(null);
 
-    const userApiKey = (
-      settings.geminiApiKey ||
-      settings.aiApiKey ||
-      AiBookingService.getStoredApiKey() ||
-      ''
-    ).trim();
-
     let extracted: ExtractedApplicationData | null = null;
     let lastErrMsg = '';
 
@@ -336,7 +237,6 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
           fileDataUrl: dataUrl,
           mimeType: mimeType || 'application/pdf',
           fileName,
-          userApiKey: userApiKey || undefined,
         }),
       });
 
@@ -356,22 +256,17 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
       lastErrMsg = netErr?.message || 'Keine Serververbindung.';
     }
 
-    // Step 2: If backend is not available (common in local Tauri / standalone apps), try direct client Gemini API
-    if (!extracted && userApiKey) {
-      try {
-        extracted = await directClientScanApplication(dataUrl, mimeType, userApiKey);
-      } catch (clientErr: any) {
-        lastErrMsg = clientErr?.message || 'Direkte KI-Erkennung über Google Gemini fehlgeschlagen.';
-      }
-    }
-
     if (extracted) {
       setExtractedData(extracted);
       populateFormData(extracted, dataUrl, fileName);
     } else {
       let friendlyError = lastErrMsg;
-      if (!userApiKey && (lastErrMsg.includes('lokale Client-Umgebung') || lastErrMsg.includes('Keine Serververbindung') || lastErrMsg.includes('Kein Gemini API-Schlüssel'))) {
-        friendlyError = 'In der lokal installierten App ist für die automatische KI-Erkennung ein eigener Google Gemini API-Schlüssel erforderlich (einzutragen in den Einstellungen). Sie können den Antrag jetzt auch direkt ohne KI manuell erfassen und die PDF übernehmen.';
+      if (lastErrMsg.includes('lokale Client-Umgebung') || lastErrMsg.includes('Keine Serververbindung')) {
+        friendlyError =
+          'Die automatische Erkennung braucht den mitgelieferten Server — er ist gerade nicht erreichbar. Sie können den Antrag jetzt von Hand erfassen; die PDF wird trotzdem übernommen.';
+      } else if (lastErrMsg.includes('Gemini-Schlüssel') || lastErrMsg.includes('Kein Gemini API-Schlüssel')) {
+        friendlyError =
+          'Für die automatische Erkennung fehlt ein KI-Schlüssel. Ein Vorstandsmitglied kann ihn unter Einstellungen → KI hinterlegen. Sie können den Antrag jetzt von Hand erfassen; die PDF wird trotzdem übernommen.';
       } else if (lastErrMsg.includes('Unexpected token') || lastErrMsg.includes('is not valid JSON')) {
         friendlyError = 'Der Server konnte die Antrags-Datei nicht verarbeiten. Sie können die Daten jetzt direkt manuell erfassen und das Original-Dokument übernehmen.';
       }

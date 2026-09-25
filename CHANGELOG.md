@@ -6,6 +6,72 @@ Alle relevanten Änderungen und Versionsstände des VereinsManagers werden in di
 
 ## [unveröffentlicht]
 
+### 🇪🇺 Mistral AI statt vier halber Anbieter
+
+- **Die Auswahl versprach mehr, als dahintersteckte.** Von fünf KI-Funktionen
+  konnte genau eine — die Zuordnung von Buchungen — mit OpenAI, Anthropic oder
+  einer eigenen Adresse arbeiten. Belegerkennung, Antragsübernahme und beide
+  Protokollauswertungen riefen immer Google Gemini auf, gleichgültig was
+  eingestellt war. Wer brav OpenAI eintrug, bekam vier von fünf Funktionen
+  nicht zum Laufen und eine Fehlermeldung, die nicht sagte, warum.
+- **Neu: Mistral AI.** Französisches Unternehmen, Verarbeitung auf
+  EU-Infrastruktur, Vertrag zur Auftragsverarbeitung verfügbar — damit entfällt
+  die Übermittlung in ein Drittland. Und es beherrscht alle fünf Funktionen:
+  Texterkennung für Belege und Anträge über `/v1/ocr`, Mitschriften von
+  Tonaufnahmen über `/v1/audio/transcriptions`, alles Übrige über den
+  Textdienst.
+- **Zur Datenschutzfrage, die dahintersteht:** Beim kostenlosen Tarif dürfen
+  beide Anbieter die übermittelten Inhalte zum Training verwenden. Der
+  Unterschied: Bei Mistral lässt sich das in der Verwaltungskonsole
+  abschalten, bei Googles kostenlosem Tarif nicht. Für einen Verein, der
+  Aufnahmeanträge mit Namen, Anschrift und Bankverbindung durch die Erkennung
+  schickt, ist das der entscheidende Punkt. Die Anbieterauswahl benennt das
+  jetzt offen, statt beide als gleichwertig nebeneinanderzustellen.
+- **OpenAI, Anthropic und „eigene Adresse" sind entfallen.** Damit verschwindet
+  auch der Sonderfall, dass eine eigene KI-Adresse im Docker-Betrieb vom
+  Container aus aufgerufen worden wäre und nicht vom Rechner des Anwenders.
+- Mistral ist die Voreinstellung für neue Installationen.
+
+### 🔐 Der KI-Schlüssel liegt nicht mehr im Browser — und in keiner Datensicherung
+
+- **Er lag bisher an drei Stellen gleichzeitig:** im Browser-Speicher, in den
+  Vereinsstammdaten (und damit in jeder Datensicherung sowie im Cloud-Betrieb
+  zusätzlich in zwei Supabase-Spalten) und ersatzweise in der `.env` des
+  Servers. Wer seine Sicherung weitergab oder verlor, gab den Schlüssel mit —
+  und auf dessen Rechnung lässt sich Rechenzeit verbrauchen.
+- **Jetzt liegt er verschlüsselt auf dem Server dieser Installation**
+  (AES-256-GCM, Schlüsseldatei daneben), genau wie zuvor schon das
+  SMTP-Passwort. Drei neue Endpunkte `GET/POST/DELETE /api/ai/config`; die
+  Auskunft an die Oberfläche enthält nur, *ob* ein Schlüssel hinterlegt ist und
+  woher er stammt — nie den Schlüssel selbst.
+- **Die Direktaufrufe aus dem Browser sind entfallen.** Die Oberfläche rief
+  Google, OpenAI und Anthropic bisher notfalls selbst auf, mit dem Schlüssel im
+  Gepäck. Genau dafür musste er im Browser liegen. Alle KI-Aufrufe gehen jetzt
+  über den eigenen Server.
+- **Was das kostet:** KI-Funktionen brauchen künftig zwingend den
+  mitgelieferten Server. Bei Startskript, Docker und Desktop-Fassung läuft er
+  ohnehin mit; nur wer die gebaute Oberfläche auf einen reinen Dateispeicher
+  legt, steht ohne da — dort funktioniert seit dieser Fassung aber auch der
+  E-Mail-Versand nicht.
+- **Der Schlüssel gilt jetzt für die ganze Installation**, nicht mehr je
+  Browser. Es ist das Kontingent des Vereins, das verbraucht wird; es gehört an
+  eine Stelle.
+- **Bestehende Schlüssel ziehen von selbst um.** Beim ersten Start nach der
+  Aktualisierung wird ein noch im Browser liegender Schlüssel auf den Server
+  hochgeladen und lokal gelöscht — aber nur, wenn der Server das Speichern
+  bestätigt hat. Niemand muss etwas tun.
+- **Aus dem Buchungsdialog ist die Schlüsseleingabe verschwunden.** Dort ließ
+  sich der Schlüssel bisher nebenbei eintippen. Da er nun für die ganze
+  Installation gilt, gehört er in die Einstellungen; der Dialog verweist nur
+  noch dorthin.
+- **Aufgeräumt wird auch rückwirkend:** Ein Schlüssel, der noch in einer alten
+  Datenbank oder Datensicherung steht, wird beim Laden aus den
+  Vereinsstammdaten entfernt und nicht mehr in die Cloud übertragen. Die
+  Supabase-Spalten `gemini_api_key`, `ai_api_key`, `ai_provider`, `ai_model` und
+  `ai_base_url` werden beim Einspielen der Schemadatei gelöscht. Geprüft gegen
+  eine echte PostgreSQL-16-Instanz, einmal als Neuinstallation und einmal als
+  Aktualisierung einer Installation, in der der Schlüssel im Klartext stand.
+
 ### 🔑 Kein Zugriffsschlüssel mehr zum Abtippen — und ein Server, der nicht ins Netzwerk lauscht
 
 - **Die Desktop-Fassung verlangte den Zugriffsschlüssel von Hand.** Das

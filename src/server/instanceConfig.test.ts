@@ -9,6 +9,10 @@ import {
   writeSmtpConfig,
   deleteSmtpConfig,
   readAccessKey,
+  readAiConfigPublic,
+  readAiCredentials,
+  writeAiConfig,
+  deleteAiConfig,
 } from './instanceConfig';
 
 /**
@@ -18,6 +22,15 @@ import {
  */
 let verzeichnis: string;
 let alteWerte: { dataDir?: string; secretKey?: string };
+
+/**
+ * Die Schluessel der KI-Anbieter duerfen aus der Umgebung kommen. Waere auf dem
+ * Rechner, der die Tests ausfuehrt, zufaellig einer gesetzt, faenden die Tests
+ * ihn vor und schluegen fehl. Deshalb werden sie fuer die Dauer der Tests
+ * beiseitegelegt und danach zurueckgestellt.
+ */
+const KI_UMGEBUNG = ['MISTRAL_API_KEY', 'GEMINI_API_KEY'] as const;
+let alteKiUmgebung: Record<string, string | undefined> = {};
 
 const BEISPIEL = {
   host: 'smtp.ionos.de',
@@ -33,10 +46,20 @@ beforeEach(() => {
   verzeichnis = fs.mkdtempSync(path.join(os.tmpdir(), 'vm-test-'));
   process.env.VM_DATA_DIR = verzeichnis;
   delete process.env.VM_SECRET_KEY;
+
+  alteKiUmgebung = {};
+  for (const name of KI_UMGEBUNG) {
+    alteKiUmgebung[name] = process.env[name];
+    delete process.env[name];
+  }
 });
 
 afterEach(() => {
   fs.rmSync(verzeichnis, { recursive: true, force: true });
+  for (const name of KI_UMGEBUNG) {
+    if (alteKiUmgebung[name] === undefined) delete process.env[name];
+    else process.env[name] = alteKiUmgebung[name];
+  }
   if (alteWerte.dataDir === undefined) delete process.env.VM_DATA_DIR;
   else process.env.VM_DATA_DIR = alteWerte.dataDir;
   if (alteWerte.secretKey === undefined) delete process.env.VM_SECRET_KEY;
@@ -238,5 +261,118 @@ describe('Serverkonfiguration: Zugriffsschluessel', () => {
     expect(readAccessKey().key).toBe(vorher);
     deleteSmtpConfig();
     expect(readAccessKey().key).toBe(vorher);
+  });
+});
+
+describe('Serverkonfiguration: KI-Zugangsdaten', () => {
+  it('meldet eine frische Installation als nicht eingerichtet', () => {
+    const konfiguration = readAiConfigPublic();
+    expect(konfiguration.configured).toBe(false);
+    expect(konfiguration.hasApiKey).toBe(false);
+    expect(konfiguration.provider).toBe('mistral');
+    expect(konfiguration.schluesselQuelle).toBe('keine');
+    expect(readAiCredentials()).toBeNull();
+  });
+
+  it('legt den Schluessel verschluesselt ab — kein Klartext in der Datei', () => {
+    // Der eigentliche Zweck der ganzen Uebung. Schluege dieser Test fehl,
+    // waere alles Uebrige wertlos.
+    writeAiConfig({ provider: 'mistral', apiKey: 'streng-geheim-123', model: 'mistral-small-latest' });
+
+    const roh = fs.readFileSync(path.join(verzeichnis, 'konfiguration.json'), 'utf8');
+    expect(roh).not.toContain('streng-geheim-123');
+    expect(roh).toContain('apiKeyEncrypted');
+  });
+
+  it('gibt gespeicherte Zugangsdaten serverintern unveraendert zurueck', () => {
+    writeAiConfig({ provider: 'mistral', apiKey: 'streng-geheim-123', model: 'mistral-small-latest' });
+
+    const zugang = readAiCredentials();
+    expect(zugang).not.toBeNull();
+    expect(zugang!.apiKey).toBe('streng-geheim-123');
+    expect(zugang!.provider).toBe('mistral');
+    expect(zugang!.model).toBe('mistral-small-latest');
+    expect(zugang!.quelle).toBe('konfiguration');
+  });
+
+  it('gibt den Schluessel nie an die Oberflaeche heraus', () => {
+    const oeffentlich = writeAiConfig({ provider: 'gemini', apiKey: 'AIza-geheim' });
+    expect(oeffentlich.hasApiKey).toBe(true);
+    expect(oeffentlich.configured).toBe(true);
+    expect(JSON.stringify(oeffentlich)).not.toContain('AIza-geheim');
+    expect(JSON.stringify(readAiConfigPublic())).not.toContain('AIza-geheim');
+  });
+
+  it('laesst den Schluessel stehen, wenn nur das Modell gewechselt wird', () => {
+    writeAiConfig({ provider: 'gemini', apiKey: 'bleibt-erhalten' });
+    writeAiConfig({ provider: 'gemini', model: 'gemini-2.0-flash' });
+
+    expect(readAiCredentials()!.apiKey).toBe('bleibt-erhalten');
+    expect(readAiCredentials()!.model).toBe('gemini-2.0-flash');
+  });
+
+  it('entfernt den Schluessel bei leerer Eingabe', () => {
+    writeAiConfig({ provider: 'gemini', apiKey: 'weg-damit' });
+    writeAiConfig({ provider: 'gemini', apiKey: '' });
+
+    expect(readAiConfigPublic().hasApiKey).toBe(false);
+    expect(readAiCredentials()).toBeNull();
+  });
+
+  it('nimmt den Schluessel aus der Umgebung, wenn keiner hinterlegt ist', () => {
+    // Der Weg fuer den Docker-Betrieb: Der Schluessel steht dann in der
+    // Compose-Datei und landet ebenfalls in keiner Datensicherung.
+    process.env.MISTRAL_API_KEY = 'aus-der-umgebung';
+
+    const zugang = readAiCredentials();
+    expect(zugang!.apiKey).toBe('aus-der-umgebung');
+    expect(zugang!.quelle).toBe('umgebung');
+    expect(readAiConfigPublic().schluesselQuelle).toBe('umgebung');
+  });
+
+  it('gibt dem hinterlegten Schluessel den Vorrang vor der Umgebung', () => {
+    process.env.MISTRAL_API_KEY = 'aus-der-umgebung';
+    writeAiConfig({ provider: 'mistral', apiKey: 'aus-der-datei' });
+
+    expect(readAiCredentials()!.apiKey).toBe('aus-der-datei');
+    expect(readAiConfigPublic().schluesselQuelle).toBe('konfiguration');
+  });
+
+  it('behaelt beim Loeschen einen Schluessel aus der Umgebung', () => {
+    writeAiConfig({ provider: 'mistral', apiKey: 'weg-damit' });
+    process.env.MISTRAL_API_KEY = 'umgebung-bleibt';
+
+    const danach = deleteAiConfig();
+    expect(danach.hasApiKey).toBe(true);
+    expect(danach.schluesselQuelle).toBe('umgebung');
+
+    const roh = fs.readFileSync(path.join(verzeichnis, 'konfiguration.json'), 'utf8');
+    expect(roh).not.toContain('weg-damit');
+  });
+
+  it('ueberlebt das Speichern der SMTP-Zugangsdaten und umgekehrt', () => {
+    // Beide Abschnitte liegen in derselben Datei. Wird beim Einlesen ein Feld
+    // vergessen, faellt es beim naechsten Schreiben still unter den Tisch —
+    // genau dieser Fehler ist uns bei accessKey schon einmal unterlaufen.
+    writeAiConfig({ provider: 'mistral', apiKey: 'ki-schluessel' });
+    writeSmtpConfig({ ...BEISPIEL, password: 'mail-passwort' });
+
+    expect(readAiCredentials()!.apiKey).toBe('ki-schluessel');
+    expect(readSmtpCredentials()!.password).toBe('mail-passwort');
+
+    const zugriff = readAccessKey().key;
+    writeAiConfig({ provider: 'mistral', model: 'mistral-large-latest' });
+    expect(readAccessKey().key).toBe(zugriff);
+    expect(readSmtpCredentials()!.password).toBe('mail-passwort');
+  });
+
+  it('gilt als nicht hinterlegt, wenn die Schluesseldatei ausgetauscht wurde', () => {
+    writeAiConfig({ provider: 'gemini', apiKey: 'unlesbar-machen' });
+    fs.writeFileSync(path.join(verzeichnis, 'schluessel.key'), 'a'.repeat(64));
+
+    const warnung = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(readAiConfigPublic().hasApiKey).toBe(false);
+    expect(readAiCredentials()).toBeNull();
+    warnung.mockRestore();
   });
 });

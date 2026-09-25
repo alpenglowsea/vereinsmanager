@@ -74,12 +74,7 @@ export const SPALTEN: Record<SynchronisierteFelder, string> = {
   taxOffice: 'tax_office',
   taxExemptionDate: 'tax_exemption_date',
   taxAssessmentPeriod: 'tax_assessment_period',
-  promotedPurposes: 'promoted_purposes',
-  geminiApiKey: 'gemini_api_key',
-  aiProvider: 'ai_provider',
-  aiApiKey: 'ai_api_key',
-  aiModel: 'ai_model',
-  aiBaseUrl: 'ai_base_url'
+  promotedPurposes: 'promoted_purposes'
 };
 
 const FELD_PAARE = Object.entries(SPALTEN) as [SynchronisierteFelder, string][];

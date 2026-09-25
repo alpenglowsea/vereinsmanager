@@ -2,20 +2,22 @@
  * Serverseitige Konfiguration dieser Installation.
  * ---------------------------------------------------------------------------
  *
- * Hier liegen die Zugangsdaten zum Postfach des Vereins. Sie gehören bewusst
+ * Hier liegen die Geheimnisse dieser Installation: die Zugangsdaten zum
+ * Postfach des Vereins und der Schlüssel zum KI-Anbieter. Sie gehören bewusst
  * NICHT zu den Vereinsstammdaten:
  *
  *   - Vereinsstammdaten (Name, Anschrift, Vorstand) sind Daten des Vereins.
  *     Sie wandern in jede Datensicherung und bei einem Umzug mit.
- *   - Die Zugangsdaten zum Postfach gehören zu dieser einen Installation.
- *     Sie bleiben hier, tauchen in keiner Sicherung auf und müssen nach einer
- *     Neuinstallation einmalig neu eingetragen werden.
+ *   - Postfach-Zugangsdaten und KI-Schlüssel gehören zu dieser einen
+ *     Installation. Sie bleiben hier, tauchen in keiner Sicherung auf und
+ *     müssen nach einer Neuinstallation einmalig neu eingetragen werden.
  *
  * Warum überhaupt verschlüsseln, wenn der Schlüssel doch danebenliegt?
  * ---------------------------------------------------------------------------
- * Weil der Server das Passwort im Klartext braucht — er meldet sich damit beim
- * Mailanbieter an. Hashen wie bei den Benutzer-Passwörtern der App geht deshalb
- * nicht: aus einem Hash lässt sich das Passwort nicht zurückgewinnen.
+ * Weil der Server beides im Klartext braucht — er meldet sich damit beim
+ * Mailanbieter beziehungsweise beim KI-Anbieter an. Hashen wie bei den
+ * Benutzer-Passwörtern der App geht deshalb nicht: aus einem Hash lässt sich
+ * das Ursprüngliche nicht zurückgewinnen.
  *
  * Was die Verschlüsselung leistet, ist trotzdem viel: Sie schützt gegen die
  * Fälle, die in der Praxis wirklich vorkommen — jemand sichert den Ordner auf
@@ -78,6 +80,66 @@ export interface SmtpConfigPublic {
   configured: boolean;
 }
 
+/**
+ * Die Anbieter, mit denen die KI-Funktionen sprechen können.
+ *
+ * Es waren einmal vier. OpenAI, Anthropic und „eigene Adresse" sind wieder
+ * gegangen, weil die Unterstützung nur zur Hälfte echt war: Von fünf
+ * KI-Funktionen konnte genau eine mit ihnen arbeiten, die übrigen vier
+ * brauchten Google. Eine Auswahl, die mehr verspricht, als dahintersteckt,
+ * hilft einem Verein nicht.
+ *
+ * Mistral ist dazugekommen: ein französisches Unternehmen mit Verarbeitung auf
+ * EU-Infrastruktur und einem DSGVO-konformen Auftragsverarbeitungsvertrag. Für
+ * eine Vereinsverwaltung, die Mitgliederdaten durch eine Belegerkennung
+ * schickt, ist das der wesentliche Unterschied.
+ */
+export type AiProvider = 'mistral' | 'gemini';
+
+/**
+ * Vollständige KI-Zugangsdaten inklusive Klartext-Schlüssel. Nur serverintern —
+ * dieses Ergebnis darf niemals in eine HTTP-Antwort geraten.
+ */
+export interface AiCredentials {
+  provider: AiProvider;
+  apiKey: string;
+  model: string;
+  /**
+   * Woher der Schlüssel stammt. 'umgebung' heißt: aus GEMINI_API_KEY und
+   * Geschwistern, wie es der Docker-Betrieb erlaubt. Für Fehlermeldungen
+   * nützlich — "kein Schlüssel hinterlegt" hieße sonst zweierlei.
+   */
+  quelle: 'konfiguration' | 'umgebung';
+}
+
+/**
+ * Das, was die Oberfläche zu sehen bekommt. Der Schlüssel ist hier bewusst
+ * nicht enthalten — nur die Auskunft, ob einer hinterlegt ist.
+ */
+export interface AiConfigPublic {
+  provider: AiProvider;
+  model: string;
+  hasApiKey: boolean;
+  /** Woher ein vorhandener Schlüssel stammt; ohne Schlüssel 'keine'. */
+  schluesselQuelle: 'konfiguration' | 'umgebung' | 'keine';
+  /** true, sobald die KI-Funktionen tatsächlich arbeiten könnten. */
+  configured: boolean;
+}
+
+/** Eingabe beim Speichern. Zu apiKey siehe writeAiConfig(). */
+export interface AiConfigInput {
+  provider: AiProvider;
+  model?: string;
+  apiKey?: string | null;
+}
+
+interface StoredAi {
+  provider: AiProvider;
+  model?: string;
+  /** Verschlüsselt, Format siehe encrypt(). */
+  apiKeyEncrypted?: string;
+}
+
 /** Eingabe beim Speichern. Siehe writeSmtpConfig() zur Behandlung von password. */
 export interface SmtpConfigInput {
   host: string;
@@ -103,6 +165,7 @@ interface StoredSmtp {
 interface StoredConfig {
   version: number;
   smtp?: StoredSmtp;
+  ai?: StoredAi;
   /**
    * Zugriffsschlüssel für die /api-Endpunkte. Bewusst unverschlüsselt: Er ist
    * kein fremdes Geheimnis, sondern der Ausweis, den dieser Server selbst
@@ -284,12 +347,13 @@ function readStored(): StoredConfig {
     return {
       version: geparst.version ?? 1,
       smtp: geparst.smtp,
+      ai: geparst.ai,
       accessKey: geparst.accessKey,
     };
   } catch (fehler) {
     console.error(
       `Die Serverkonfiguration ${datei} ist nicht lesbar und wird ignoriert. ` +
-        'Die SMTP-Einstellungen müssen neu eingetragen werden.',
+        'Die SMTP-Einstellungen und der KI-Schlüssel müssen neu eingetragen werden.',
       fehler
     );
     return { version: 1 };
@@ -392,6 +456,140 @@ export function deleteSmtpConfig(): SmtpConfigPublic {
   delete vorhanden.smtp;
   writeStored({ ...vorhanden, version: 1 });
   return { ...LEERE_KONFIGURATION };
+}
+
+// ---------------------------------------------------------------------------
+// KI-Zugangsdaten
+// ---------------------------------------------------------------------------
+
+/**
+ * Welcher Anbieter gilt, solange nichts eingestellt ist.
+ *
+ * Mistral, weil es die Voreinstellung ist, die ein deutscher Verein am
+ * ehesten verantworten kann: EU-Unternehmen, EU-Verarbeitung, Vertrag zur
+ * Auftragsverarbeitung. Wer Google vorzieht, stellt es um.
+ */
+const VORGABE_ANBIETER: AiProvider = 'mistral';
+
+/**
+ * Der Schlüssel darf auch aus der Umgebung kommen — für den Docker- und
+ * Server-Betrieb ist das der bequemste Weg: Er steht dann in der Compose-Datei
+ * oder in den Geheimnissen der Betriebsumgebung und landet ebenfalls in keiner
+ * Datensicherung.
+ */
+function schluesselAusUmgebung(provider: AiProvider): string {
+  const namen: Record<AiProvider, string> = {
+    mistral: 'MISTRAL_API_KEY',
+    gemini: 'GEMINI_API_KEY',
+  };
+  return process.env[namen[provider]]?.trim() || '';
+}
+
+function kiZuOeffentlich(ai: StoredAi | undefined): AiConfigPublic {
+  const provider = ai?.provider || VORGABE_ANBIETER;
+  // Ein Schlüssel, der sich nicht mehr entschlüsseln lässt, gilt als nicht
+  // vorhanden. Sonst zeigte die Oberfläche "hinterlegt", und jeder KI-Aufruf
+  // schlüge trotzdem fehl.
+  const ausDatei = Boolean(ai?.apiKeyEncrypted && decrypt(ai.apiKeyEncrypted) !== null);
+  const ausUmgebung = !ausDatei && schluesselAusUmgebung(provider).length > 0;
+  const hasApiKey = ausDatei || ausUmgebung;
+
+  return {
+    provider,
+    model: ai?.model?.trim() || '',
+    hasApiKey,
+    schluesselQuelle: ausDatei ? 'konfiguration' : ausUmgebung ? 'umgebung' : 'keine',
+    configured: hasApiKey,
+  };
+}
+
+/** Was die Oberfläche abfragen darf. Enthält keinen Schlüssel. */
+export function readAiConfigPublic(): AiConfigPublic {
+  return kiZuOeffentlich(readStored().ai);
+}
+
+/**
+ * Vollständige KI-Zugangsdaten für den Aufruf beim Anbieter. Nur serverintern.
+ *
+ * Gibt null zurück, wenn gar nichts nutzbar hinterlegt ist. Die Reihenfolge:
+ * erst der verschlüsselt abgelegte Schlüssel, dann die Umgebungsvariable.
+ */
+export function readAiCredentials(): AiCredentials | null {
+  const { ai } = readStored();
+  const provider = ai?.provider || VORGABE_ANBIETER;
+
+  let apiKey = '';
+  let quelle: AiCredentials['quelle'] = 'konfiguration';
+
+  if (ai?.apiKeyEncrypted) {
+    const klar = decrypt(ai.apiKeyEncrypted);
+    if (klar === null) {
+      console.warn(
+        'Der hinterlegte KI-Schlüssel lässt sich nicht entschlüsseln. ' +
+          'Vermutlich wurde die Schlüsseldatei ausgetauscht oder gelöscht. ' +
+          'Bitte den Schlüssel in den Einstellungen neu eintragen.'
+      );
+    } else {
+      apiKey = klar;
+    }
+  }
+
+  if (!apiKey) {
+    const ausUmgebung = schluesselAusUmgebung(provider);
+    if (ausUmgebung) {
+      apiKey = ausUmgebung;
+      quelle = 'umgebung';
+    }
+  }
+
+  if (!apiKey) return null;
+
+  return {
+    provider,
+    apiKey,
+    model: ai?.model?.trim() || '',
+    quelle,
+  };
+}
+
+/**
+ * Speichert die KI-Einstellungen. Das Feld `apiKey` wird dreifach
+ * unterschieden, damit die Oberfläche den Schlüssel nie zurückbekommen muss:
+ *
+ *   undefined  → bestehender Schlüssel bleibt unverändert
+ *                (der Normalfall: jemand wechselt nur das Modell)
+ *   ''  / null → Schlüssel wird entfernt
+ *   Zeichen    → neuer Schlüssel, verschlüsselt abgelegt
+ */
+export function writeAiConfig(eingabe: AiConfigInput): AiConfigPublic {
+  const vorhanden = readStored();
+  const bisher = vorhanden.ai;
+
+  const neu: StoredAi = {
+    provider: eingabe.provider,
+    model: eingabe.model?.trim() || undefined,
+    apiKeyEncrypted: bisher?.apiKeyEncrypted,
+  };
+
+  if (eingabe.apiKey === null || eingabe.apiKey === '') {
+    delete neu.apiKeyEncrypted;
+  } else if (typeof eingabe.apiKey === 'string') {
+    neu.apiKeyEncrypted = encrypt(eingabe.apiKey);
+  }
+
+  writeStored({ ...vorhanden, version: 1, ai: neu });
+  return kiZuOeffentlich(neu);
+}
+
+/** Entfernt die KI-Zugangsdaten vollständig. Die Schlüsseldatei bleibt. */
+export function deleteAiConfig(): AiConfigPublic {
+  const vorhanden = readStored();
+  delete vorhanden.ai;
+  writeStored({ ...vorhanden, version: 1 });
+  // Nicht die leere Konfiguration zurückgeben, sondern neu berechnen: Steht
+  // ein Schlüssel in der Umgebung, ist nach dem Löschen eben dieser wieder
+  // maßgeblich — und die Oberfläche soll das anzeigen.
+  return kiZuOeffentlich(undefined);
 }
 
 // ---------------------------------------------------------------------------

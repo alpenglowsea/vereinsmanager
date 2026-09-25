@@ -43,11 +43,6 @@ CREATE TABLE IF NOT EXISTS public.settings (
   tax_exemption_date TEXT,
   tax_assessment_period TEXT,
   promoted_purposes TEXT,
-  gemini_api_key TEXT,
-  ai_provider TEXT,
-  ai_api_key TEXT,
-  ai_model TEXT,
-  ai_base_url TEXT,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -71,11 +66,6 @@ ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS tax_office TEXT;
 ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS tax_exemption_date TEXT;
 ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS tax_assessment_period TEXT;
 ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS promoted_purposes TEXT;
-ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS gemini_api_key TEXT;
-ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS ai_provider TEXT;
-ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS ai_api_key TEXT;
-ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS ai_model TEXT;
-ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS ai_base_url TEXT;
 
 -- Anschrift von TEXT auf JSONB umstellen. Ein vorhandener Text wird dabei zu
 -- einem JSON-Text ("Sportplatzweg 12") und bleibt damit lesbar. Steht die
@@ -102,6 +92,17 @@ ALTER TABLE public.settings DROP COLUMN IF EXISTS smtp_user;
 ALTER TABLE public.settings DROP COLUMN IF EXISTS smtp_password;
 ALTER TABLE public.settings DROP COLUMN IF EXISTS smtp_from_email;
 ALTER TABLE public.settings DROP COLUMN IF EXISTS smtp_from_name;
+
+-- Dasselbe fuer die KI-Einstellungen: Der Schluessel liegt seit Fassung 0.9
+-- verschluesselt auf dem Server dieser Installation. Stand er hier, konnte
+-- ihn jeder lesen, der Zugriff auf die Datenbank hat — und er wanderte in
+-- jede Datensicherung. Anbieter, Modell und Adresse gehen mit: Sie sind
+-- Einstellungen dieser Installation, nicht Daten des Vereins.
+ALTER TABLE public.settings DROP COLUMN IF EXISTS gemini_api_key;
+ALTER TABLE public.settings DROP COLUMN IF EXISTS ai_api_key;
+ALTER TABLE public.settings DROP COLUMN IF EXISTS ai_provider;
+ALTER TABLE public.settings DROP COLUMN IF EXISTS ai_model;
+ALTER TABLE public.settings DROP COLUMN IF EXISTS ai_base_url;
 
 -- 2. TABELLE: ACCOUNTS (Finanzkonten / Barkassen)
 CREATE TABLE IF NOT EXISTS public.accounts (

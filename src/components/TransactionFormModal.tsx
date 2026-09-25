@@ -47,7 +47,6 @@ import {
 } from 'lucide-react';
 import { ReceiptCameraScannerModal } from './ReceiptCameraScannerModal';
 import { AiBookingService } from '../services/aiBookingService';
-import { openExternalUrl } from '../utils/externalLink';
 
 interface TransactionFormModalProps {
   transaction: Transaction | null;
@@ -175,9 +174,12 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   const [aiCustomPrompt, setAiCustomPrompt] = useState('');
   const [showAiPromptInput, setShowAiPromptInput] = useState(false);
   const [aiAppliedBanner, setAiAppliedBanner] = useState(false);
-  const [showKeySetupInline, setShowKeySetupInline] = useState(false);
-  const [inlineApiKey, setInlineApiKey] = useState(AiBookingService.getStoredApiKey());
-  const [keySavedToast, setKeySavedToast] = useState(false);
+  // Bis Fassung 0.9 liess sich hier ein KI-Schluessel direkt eintippen. Das
+  // geht nicht mehr: Der Schluessel liegt auf dem Server und gilt fuer die
+  // ganze Installation — er gehoert damit in die Einstellungen und nicht in
+  // einen Buchungsdialog, den jedes Mitglied mit Buchungsrecht oeffnet.
+  // Fehlt er, steht hier jetzt nur noch, wo er hinterlegt wird.
+  const [zeigeSchluesselHinweis, setZeigeSchluesselHinweis] = useState(false);
 
   useEffect(() => {
     if (initialPartner && !transaction) {
@@ -385,8 +387,8 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
       console.error('AI categorization error:', err);
       const msg = err.message || 'Die KI-Kategorisierung konnte nicht durchgeführt werden.';
       setAiError(msg);
-      if (msg.includes('API-Schlüssel')) {
-        setShowKeySetupInline(true);
+      if (msg.includes('Schlüssel') || msg.includes('Schluessel')) {
+        setZeigeSchluesselHinweis(true);
       }
     } finally {
       setAiLoading(false);
@@ -441,17 +443,6 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     setTimeout(() => {
       setAiAppliedBanner(false);
     }, 4000);
-  };
-
-  const handleSaveInlineApiKey = () => {
-    if (inlineApiKey.trim()) {
-      AiBookingService.setStoredApiKey(inlineApiKey.trim());
-      setShowKeySetupInline(false);
-      setKeySavedToast(true);
-      setAiError(null);
-      setTimeout(() => setKeySavedToast(false), 3000);
-      handleAiCategorize();
-    }
   };
 
   const handleSphereChange = (sphere: TaxSphere) => {
@@ -1115,40 +1106,19 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                       </button>
                     </div>
 
-                    {showKeySetupInline && (
-                      <div className="pt-2 border-t border-rose-200/60 space-y-2">
+                    {zeigeSchluesselHinweis && (
+                      <div className="pt-2 border-t border-rose-200/60 space-y-1">
                         <p className="text-slate-700">
-                          Für die lokale KI-Unterstützung benötigen Sie einen kostenlosen Google Gemini API-Schlüssel:
+                          Für die KI-Unterstützung muss einmalig ein Schlüssel hinterlegt
+                          werden. Das geschieht unter{' '}
+                          <strong>Einstellungen → Allgemein → KI-Assistent</strong> und gilt
+                          dann für die ganze Installation.
                         </p>
-                        <div className="flex gap-2">
-                          <input
-                            type="password"
-                            value={inlineApiKey}
-                            onChange={e => setInlineApiKey(e.target.value)}
-                            placeholder="AIzaSy..."
-                            className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleSaveInlineApiKey}
-                            disabled={!inlineApiKey.trim()}
-                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer"
-                          >
-                            Speichern & Fortfahren
-                          </button>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={async (e) => {
-                            e.preventDefault();
-                            if (window.confirm('Hinweis: Sie verlassen nun die Vereinsverwaltung. Die Website von Google AI Studio wird in Ihrem Standard-Browser geöffnet, um einen API-Schlüssel zu erstellen. Fortfahren?')) {
-                              await openExternalUrl('https://aistudio.google.com/app/apikey');
-                            }
-                          }}
-                          className="inline-block text-3xs text-purple-700 dark:text-purple-400 hover:underline font-semibold text-left cursor-pointer"
-                        >
-                          ➔ Kostenlosen Google Gemini API-Schlüssel erstellen (Google AI Studio)
-                        </button>
+                        <p className="text-slate-500 text-3xs">
+                          Wenn Sie dort keinen Zugriff haben, wenden Sie sich an ein
+                          Vorstandsmitglied. Die Buchung können Sie in der Zwischenzeit
+                          ganz normal von Hand zuordnen.
+                        </p>
                       </div>
                     )}
                   </div>
@@ -1159,13 +1129,6 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                   <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs font-bold text-emerald-800 animate-fadeIn">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     <span>Sphäre, Haupt- & Unterkonto wurden erfolgreich eingetragen!</span>
-                  </div>
-                )}
-
-                {keySavedToast && (
-                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs font-bold text-emerald-800 animate-fadeIn">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>API-Schlüssel lokal gespeichert. Analyse wird gestartet...</span>
                   </div>
                 )}
 
