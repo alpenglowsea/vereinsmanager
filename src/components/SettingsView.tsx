@@ -1148,7 +1148,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         provider: aiProvider,
         model: aiModel.trim(),
         });
-      setKeyTestResult(res);
+      // Ein geglueckter Test mit einem nur eingetippten Schluessel sagt noch
+      // nichts darueber, ob dieser Schluessel auch hinterlegt ist. Ohne diesen
+      // Zusatz steht eine gruene Erfolgsmeldung direkt neben einem gesperrten
+      // Freigabe-Knopf, und niemand kann sich zusammenreimen, warum.
+      const nurEingetippt = Boolean(aiApiKey.trim());
+      setKeyTestResult(
+        res.success && nurEingetippt
+          ? {
+              ...res,
+              message: `${res.message} Hinterlegt ist er damit noch nicht — dafür auf „Speichern“ klicken.`
+            }
+          : res
+      );
     } catch (err: any) {
       setKeyTestResult({ success: false, message: err?.message || 'Verbindungstest fehlgeschlagen.' });
     } finally {
@@ -2136,6 +2148,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         brauchen ihn — ohne Server laesst sich hier nichts hinterlegen.
                       </p>
                     )}
+                    {/*
+                      Der Verbindungstest arbeitet mit dem, was hier im Feld steht —
+                      absichtlich, damit sich ein Schlüssel prüfen lässt, bevor er auf
+                      dem Server landet. Die Kehrseite: Ein geglückter Test sagt nichts
+                      darüber, ob gespeichert wurde. Genau daran ist schon jemand
+                      hängengeblieben, dem der Freigabe-Knopf danach gesperrt blieb.
+                    */}
+                    {Boolean(aiApiKey.trim()) && !schluesselAusUmgebung && (
+                      <p className="mt-2 text-2xs text-amber-700 dark:text-amber-400">
+                        Dieser Schlüssel ist noch nicht gespeichert. Bis dahin steht er nur
+                        in diesem Feld — auf dem Server liegt er nicht, und die Freigabe
+                        bleibt gesperrt.
+                      </p>
+                    )}
                     {schluesselAusUmgebung && (
                       <p className="mt-2 text-2xs text-slate-500 dark:text-slate-400">
                         Der Schluessel ist auf dem Server als Umgebungsvariable gesetzt
@@ -2210,9 +2236,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           <span>
                             {isConfigured
                               ? 'Ein Schlüssel ist hinterlegt. Bevor Daten des Vereins an den Anbieter gehen, muss ein Vorstandsmitglied die Nutzung ausdrücklich erlauben.'
-                              : 'Hinterlegen Sie zuerst einen Schlüssel. Danach lässt sich die Nutzung freigeben.'}
+                              : 'Tragen Sie zuerst einen Schlüssel ein und speichern Sie ihn. Ein Schlüssel, der nur im Feld steht, zählt nicht — auch dann nicht, wenn der Verbindungstest geglückt ist. Danach lässt sich die Nutzung freigeben.'}
                           </span>
                         </div>
+                        {/*
+                          Ein gesperrter Knopf muss sagen, warum. Die Rechtefrage geht
+                          dabei vor: Wer gar nicht bearbeiten darf, dem nützt der Hinweis
+                          aufs Speichern nichts.
+                        */}
                         <button
                           type="button"
                           onClick={() => {
@@ -2222,7 +2253,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           }}
                           disabled={!isConfigured || isSavingAi}
                           className={`px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer whitespace-nowrap shadow-xs disabled:opacity-40${lockClass(canEdit)}`}
-                          title={lockTitle(canEdit, 'KI-Funktionen freigeben')}
+                          title={
+                            !canEdit
+                              ? lockTitle(canEdit, 'KI-Funktionen freigeben')
+                              : isConfigured
+                                ? 'KI-Funktionen freigeben'
+                                : 'Erst einen Schlüssel eintragen und speichern — ohne hinterlegten Schlüssel gibt es nichts freizugeben.'
+                          }
                         >
                           KI-Funktionen freigeben …
                         </button>

@@ -202,12 +202,15 @@ app.use("/api", (req, res, next) => {
         next();
         return;
       }
+      // Der Statuscode bleibt für alle Ablehnungen 401. Der genaue Fall steht
+      // im "code": Nur bei ZUGRIFF_VERWEIGERT fragt die Oberfläche nach dem
+      // Zugriffsschlüssel — bei "nicht freigeschaltet" oder "Supabase nicht
+      // erreichbar" wäre diese Nachfrage ein Irrweg, weil kein Schlüssel der
+      // Welt das Problem löst. Dort zeigt sie nur den Text an.
       res.status(401).json({
         success: false,
         error: ergebnis.grund,
-        // Daran erkennt die Oberfläche den Fall und kann gezielt nach dem
-        // Zugriffsschlüssel fragen, statt nur einen Fehler anzuzeigen.
-        code: "ZUGRIFF_VERWEIGERT",
+        code: ergebnis.code || "ZUGRIFF_VERWEIGERT",
       });
     })
     .catch(next);
@@ -552,7 +555,16 @@ Gib ausschließlich valides JSON mit diesem Format aus:
           subCategoryCode: { type: Type.STRING },
           subCategoryName: { type: Type.STRING },
           subCategoryLabel: { type: Type.STRING },
-          vatRate: { type: Type.INTEGER, enum: [0, 7, 19] },
+          // Gemini akzeptiert bei "enum" ausschliesslich Zeichenketten, auch
+          // wenn "type" etwas anderes sagt (INTEGER, NUMBER, BOOLEAN). Ein
+          // enum aus Zahlen wie [0, 7, 19] weist die Anfrage mit 400
+          // INVALID_ARGUMENT zurueck: "Invalid value ... (TYPE_STRING), 0".
+          // Diese Einschraenkung steht in keiner Anleitung, ist aber
+          // wiederholt dokumentiert, u. a. hier:
+          // https://github.com/anomalyco/opencode/issues/12784
+          // Deshalb hier Zeichenketten anfordern und nach dem Einlesen der
+          // Antwort zurueck in eine Zahl wandeln (siehe unten).
+          vatRate: { type: Type.STRING, enum: ["0", "7", "19"] },
           suggestedBookingText: { type: Type.STRING },
           confidence: { type: Type.NUMBER },
           reasoning: { type: Type.STRING },
@@ -592,6 +604,13 @@ Gib ausschließlich valides JSON mit diesem Format aus:
     }
 
     const parsedData = JSON.parse(response.text || "{}");
+    // vatRate kam wegen der Gemini-Einschraenkung oben als Zeichenkette
+    // zurueck ("7" statt 7). Die Oberfläche erwartet weiterhin eine Zahl —
+    // sie rechnet damit (z. B. Umsatzsteuer aus dem Betrag).
+    if (typeof parsedData.vatRate === "string") {
+      const alsZahl = Number(parsedData.vatRate);
+      if (Number.isFinite(alsZahl)) parsedData.vatRate = alsZahl;
+    }
     return res.json({
       success: true,
       data: parsedData,

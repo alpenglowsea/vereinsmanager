@@ -57,13 +57,14 @@ describe('Zugriffsschutz: Entscheidung ueber einen Aufruf', () => {
     const ergebnis = await pruefeZugriff({}, SCHLUESSEL, null);
     expect(ergebnis.erlaubt).toBe(false);
     expect(ergebnis.grund).toContain('Zugriffsschlüssel');
+    expect(ergebnis.code).toBe('ZUGRIFF_VERWEIGERT');
   });
 
-  it('laesst ein gueltiges Cloud-Anmeldetoken durch', async () => {
+  it('laesst ein Vereinsmitglied mit gueltiger Anmeldung durch', async () => {
     const ergebnis = await pruefeZugriff(
       { authorization: 'Bearer gueltig' },
       SCHLUESSEL,
-      async () => true
+      async () => 'mitglied'
     );
     expect(ergebnis.erlaubt).toBe(true);
     expect(ergebnis.weg).toBe('cloud');
@@ -73,10 +74,48 @@ describe('Zugriffsschutz: Entscheidung ueber einen Aufruf', () => {
     const ergebnis = await pruefeZugriff(
       { authorization: 'Bearer abgelaufen' },
       SCHLUESSEL,
-      async () => false
+      async () => 'token-ungueltig'
     );
     expect(ergebnis.erlaubt).toBe(false);
     expect(ergebnis.grund).toContain('Anmeldung');
+    expect(ergebnis.code).toBe('ANMELDUNG_ABGELAUFEN');
+  });
+
+  it('lehnt eine echte Anmeldung ab, die nicht zum Verein gehoert', async () => {
+    // Der Kern dieser Stufe: Ein gueltiges Supabase-Konto ist noch keine
+    // Vereinszugehoerigkeit. Wer sich selbst registriert hat, kommt nicht an
+    // das Postfach und das KI-Kontingent des Vereins.
+    const ergebnis = await pruefeZugriff(
+      { authorization: 'Bearer fremder' },
+      SCHLUESSEL,
+      async () => 'kein-mitglied'
+    );
+    expect(ergebnis.erlaubt).toBe(false);
+    expect(ergebnis.code).toBe('NICHT_FREIGESCHALTET');
+    expect(ergebnis.grund).toContain('freigeschaltet');
+  });
+
+  it('nennt die fehlenden Schutzregeln beim Namen, statt "kein Mitglied" zu behaupten', async () => {
+    // Sonst suchte der Betreiber den Fehler bei seinen Benutzern, obwohl in
+    // der Datenbank nur supabase_rls.sql fehlt.
+    const ergebnis = await pruefeZugriff(
+      { authorization: 'Bearer egal' },
+      SCHLUESSEL,
+      async () => 'regeln-fehlen'
+    );
+    expect(ergebnis.erlaubt).toBe(false);
+    expect(ergebnis.code).toBe('SCHUTZREGELN_FEHLEN');
+    expect(ergebnis.grund).toContain('supabase_rls.sql');
+  });
+
+  it('unterscheidet "nicht geprueft" von "geprueft und abgelehnt"', async () => {
+    const ergebnis = await pruefeZugriff(
+      { authorization: 'Bearer egal' },
+      SCHLUESSEL,
+      async () => 'nicht-pruefbar'
+    );
+    expect(ergebnis.erlaubt).toBe(false);
+    expect(ergebnis.code).toBe('PRUEFUNG_FEHLGESCHLAGEN');
   });
 
   it('nutzt kein Anmeldetoken, wenn der Server es gar nicht pruefen kann', async () => {
@@ -87,7 +126,7 @@ describe('Zugriffsschutz: Entscheidung ueber einen Aufruf', () => {
   });
 
   it('zieht den Schluessel dem Token vor und fragt gar nicht erst nach', async () => {
-    const pruefer = vi.fn(async () => true);
+    const pruefer = vi.fn(async () => 'mitglied' as const);
     const ergebnis = await pruefeZugriff(
       { zugriffsschluessel: SCHLUESSEL, authorization: 'Bearer egal' },
       SCHLUESSEL,
@@ -99,6 +138,28 @@ describe('Zugriffsschutz: Entscheidung ueber einen Aufruf', () => {
 });
 
 describe('Zugriffsschutz: Rueckfrage bei Supabase', () => {
+  /**
+   * Stellt beide Supabase-Stellen nach: die Tokenpruefung und die Rueckfrage
+   * nach der Vereinszugehoerigkeit. Die Attrappe bekommt dieselben Parameter
+   * wie das echte fetch — ohne sie waere fuer TypeScript eine Funktion ohne
+   * Argumente hinterlegt, und die aufgezeichneten Aufrufe liessen sich nicht
+   * auswerten.
+   */
+  function stelleSupabaseNach(vorgabe: {
+    anmeldung?: number;
+    mitglied?: { status: number; koerper: string };
+  }) {
+    const abruf = vi.fn(async (adresse: string, _optionen?: RequestInit) => {
+      if (String(adresse).includes('/auth/v1/user')) {
+        return new Response('{}', { status: vorgabe.anmeldung ?? 200 });
+      }
+      const antwort = vorgabe.mitglied ?? { status: 200, koerper: 'true' };
+      return new Response(antwort.koerper, { status: antwort.status });
+    });
+    vi.stubGlobal('fetch', abruf);
+    return abruf;
+  }
+
   beforeEach(() => {
     leereTokenSpeicher();
   });
@@ -113,61 +174,98 @@ describe('Zugriffsschutz: Rueckfrage bei Supabase', () => {
     expect(erstelleCloudPruefer('', 'anon-schluessel')).toBeNull();
   });
 
-  it('fragt bei Supabase nach und akzeptiert eine gueltige Antwort', async () => {
-    // Die Attrappe bekommt dieselben Parameter wie das echte fetch. Ohne sie
-    // waere fuer TypeScript eine Funktion ohne Argumente hinterlegt, und die
-    // aufgezeichneten Aufrufe liessen sich nicht auswerten.
-    const abruf = vi.fn(
-      async (_adresse: string, _optionen?: RequestInit) => new Response('{}', { status: 200 })
-    );
-    vi.stubGlobal('fetch', abruf);
+  it('fragt beide Stellen und laesst ein Vereinsmitglied durch', async () => {
+    const abruf = stelleSupabaseNach({});
 
     const pruefer = erstelleCloudPruefer('https://projekt.supabase.co/', 'anon-schluessel')!;
-    expect(await pruefer('token-1')).toBe(true);
+    expect(await pruefer('token-1')).toBe('mitglied');
 
-    const [adresse, optionen] = abruf.mock.calls[0];
-    expect(adresse).toBe('https://projekt.supabase.co/auth/v1/user');
-    expect((optionen?.headers as Record<string, string>).Authorization).toBe('Bearer token-1');
+    expect(abruf).toHaveBeenCalledTimes(2);
+
+    const [adresse1, optionen1] = abruf.mock.calls[0];
+    expect(adresse1).toBe('https://projekt.supabase.co/auth/v1/user');
+    expect((optionen1?.headers as Record<string, string>).Authorization).toBe('Bearer token-1');
+
+    const [adresse2, optionen2] = abruf.mock.calls[1];
+    expect(adresse2).toBe('https://projekt.supabase.co/rest/v1/rpc/vm_is_member');
+    expect(optionen2?.method).toBe('POST');
+    expect((optionen2?.headers as Record<string, string>).apikey).toBe('anon-schluessel');
   });
 
-  it('lehnt ab, wenn Supabase das Token nicht anerkennt', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 401 })));
+  it('fragt nach der Mitgliedschaft gar nicht erst, wenn das Token nicht taugt', async () => {
+    const abruf = stelleSupabaseNach({ anmeldung: 401 });
 
     const pruefer = erstelleCloudPruefer('https://projekt.supabase.co', 'anon-schluessel')!;
-    expect(await pruefer('token-2')).toBe(false);
+    expect(await pruefer('token-2')).toBe('token-ungueltig');
+    expect(abruf).toHaveBeenCalledTimes(1);
+  });
+
+  it('weist ein gueltiges Konto ab, das nicht zum Verein gehoert', async () => {
+    stelleSupabaseNach({ mitglied: { status: 200, koerper: 'false' } });
+
+    const pruefer = erstelleCloudPruefer('https://projekt.supabase.co', 'anon-schluessel')!;
+    expect(await pruefer('token-3')).toBe('kein-mitglied');
+  });
+
+  it('erkennt eine Datenbank ohne die Schutzregeln', async () => {
+    // PostgREST antwortet auf eine unbekannte Funktion mit 404.
+    stelleSupabaseNach({
+      mitglied: { status: 404, koerper: '{"code":"PGRST202"}' }
+    });
+
+    const pruefer = erstelleCloudPruefer('https://projekt.supabase.co', 'anon-schluessel')!;
+    expect(await pruefer('token-4')).toBe('regeln-fehlen');
+  });
+
+  it('behauptet bei einer unerwarteten Antwort nichts', async () => {
+    stelleSupabaseNach({ mitglied: { status: 403, koerper: '{}' } });
+
+    const pruefer = erstelleCloudPruefer('https://projekt.supabase.co', 'anon-schluessel')!;
+    expect(await pruefer('token-5')).toBe('nicht-pruefbar');
+  });
+
+  it('haelt auch einen unverstaendlichen Koerper fuer keine Erlaubnis', async () => {
+    stelleSupabaseNach({ mitglied: { status: 200, koerper: '[{"vm_is_member":true}]' } });
+
+    const pruefer = erstelleCloudPruefer('https://projekt.supabase.co', 'anon-schluessel')!;
+    expect(await pruefer('token-6')).toBe('nicht-pruefbar');
   });
 
   it('lehnt ab, wenn Supabase nicht erreichbar ist', async () => {
     // Im Zweifel lieber eine Fehlermeldung als ein ungeprueft durchgelassener
     // Aufruf, der das KI-Kontingent des Vereins belastet.
-    vi.stubGlobal('fetch', vi.fn(async () => {
-      throw new Error('Netzwerk weg');
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('Netzwerk weg');
+      })
+    );
 
     const pruefer = erstelleCloudPruefer('https://projekt.supabase.co', 'anon-schluessel')!;
-    expect(await pruefer('token-3')).toBe(false);
+    expect(await pruefer('token-7')).toBe('nicht-pruefbar');
   });
 
   it('fragt fuer dasselbe Token nicht bei jedem Aufruf erneut nach', async () => {
-    const abruf = vi.fn(async () => new Response('{}', { status: 200 }));
-    vi.stubGlobal('fetch', abruf);
+    const abruf = stelleSupabaseNach({});
 
     const pruefer = erstelleCloudPruefer('https://projekt.supabase.co', 'anon-schluessel')!;
-    await pruefer('token-4');
-    await pruefer('token-4');
-    await pruefer('token-4');
+    await pruefer('token-8');
+    await pruefer('token-8');
+    await pruefer('token-8');
 
-    expect(abruf).toHaveBeenCalledTimes(1);
+    // Zwei Rueckfragen beim ersten Mal, danach keine mehr.
+    expect(abruf).toHaveBeenCalledTimes(2);
   });
 
   it('merkt sich einen abgelehnten Zugang nicht', async () => {
-    const abruf = vi.fn(async () => new Response('{}', { status: 401 }));
-    vi.stubGlobal('fetch', abruf);
+    // Sonst bliebe ein gerade freigeschaltetes Mitglied eine Minute lang
+    // ausgesperrt, ohne zu verstehen, warum.
+    const abruf = stelleSupabaseNach({ mitglied: { status: 200, koerper: 'false' } });
 
     const pruefer = erstelleCloudPruefer('https://projekt.supabase.co', 'anon-schluessel')!;
-    await pruefer('token-5');
-    await pruefer('token-5');
+    await pruefer('token-9');
+    await pruefer('token-9');
 
-    expect(abruf).toHaveBeenCalledTimes(2);
+    expect(abruf).toHaveBeenCalledTimes(4);
   });
 });

@@ -6,6 +6,68 @@ Alle relevanten Änderungen und Versionsstände des VereinsManagers werden in di
 
 ## [unveröffentlicht]
 
+### 🐛 Der Buchungsvorschlag scheiterte an der Mehrwertsteuer
+
+- **Google Gemini wies jede Anfrage der Buchungskategorisierung ab**, mit
+  `400 INVALID_ARGUMENT` und einem kryptischen Verweis auf
+  `response_schema.properties[7]`. Ursache: Das Schema verlangte für die
+  Mehrwertsteuer (`vatRate`) eine Auswahl aus den Zahlen `0`, `7` und `19`.
+  Gemini akzeptiert bei einer solchen Auswahl aber ausschließlich
+  Zeichenketten, gleich was der sonstige Feldtyp sagt — eine Einschränkung,
+  die in keiner Anleitung Googles steht, aber an anderer Stelle bereits
+  dokumentiert ist.
+  Dieser Fehler dürfte seit dem allerersten Bau der App bestanden haben; er
+  fiel erst jetzt auf, weil KI-Aufrufe zuvor gar nicht zuverlässig bei Gemini
+  ankamen (siehe oben).
+- Die Anfrage verlangt jetzt die Zeichenketten `"0"`, `"7"`, `"19"`; die
+  Antwort wird vor der Weitergabe an die Oberfläche zurück in eine Zahl
+  gewandelt, weil die App mit dem Wert rechnet.
+- Alle übrigen Auswahlfelder im Server wurden geprüft (elf Stellen) — hier war
+  es die einzige mit Zahlen statt Zeichenketten.
+
+### 🚪 Ein Supabase-Konto ist noch keine Vereinszugehörigkeit
+
+- **Der Server prüfte bisher nur, ob das Anmeldetoken echt ist.** Das beweist
+  aber lediglich, dass jemand ein Konto in diesem Supabase-Projekt hat — nicht,
+  dass er zum Verein gehört. Und Supabase erlaubt in der Grundeinstellung, dass
+  sich jeder selbst eines anlegt; genau dafür gibt es ja den Einrichtungscode
+  und die Einladungen, die über den Eintrag in `club_users` entscheiden.
+- **Die Oberfläche zog diese Grenze längst, der Server nicht.** Wer angemeldet,
+  aber nicht eingetragen ist, bekommt in der App „Noch nicht freigeschaltet"
+  und null Rechte. An den `/api`-Endpunkten kam er trotzdem vorbei und konnte
+  über das Postfach des Vereins Mails verschicken und dessen KI-Kontingent
+  verbrauchen. Dasselbe galt für ein Mitglied, dem der Vorstand den Zugang
+  gerade entzogen hatte: in der App ausgesperrt, sein Token aber noch gültig.
+- **Jetzt fragt der Server zweimal:** erst `GET /auth/v1/user` — ist das Token
+  echt? —, dann `POST /rest/v1/rpc/vm_is_member` — gehört diese Person zum
+  Verein? Die Funktion `vm_is_member()` steht seit jeher in `supabase_rls.sql`
+  und liefert genau das Gewünschte: eingetragen *und* aktiv.
+- **Ohne Generalschlüssel.** Der Server fragt mit dem Token des Anrufers, nicht
+  mit einem Service-Schlüssel. Er bekommt damit keine Vollmacht, die sich
+  missbrauchen ließe, und die Regel bleibt an einer einzigen Stelle: in der
+  Datenbank. Ein entzogener Zugang verliert den Serverzugriff binnen einer
+  Minute — so lange gilt die gemerkte Antwort.
+- **Warum nicht gleich nur die zweite Frage?** Weil PostgREST einem
+  unangemeldeten Aufrufer dieselbe Antwort gibt wie einer fehlenden Funktion —
+  es verbirgt, was jemand nicht benutzen darf. „Anmeldung abgelaufen" und
+  „`supabase_rls.sql` wurde nie eingespielt" wären dann nicht mehr zu
+  unterscheiden, und der Betreiber bekäme den falschen Rat.
+- **Vier unterscheidbare Absagen statt einer.** Die Antwort trägt jetzt einen
+  Schlüssel mit: `ANMELDUNG_ABGELAUFEN`, `NICHT_FREIGESCHALTET`,
+  `SCHUTZREGELN_FEHLEN`, `PRUEFUNG_FEHLGESCHLAGEN` — und weiterhin
+  `ZUGRIFF_VERWEIGERT`, wenn schlicht der Zugriffsschlüssel fehlt. Nur bei
+  Letzterem fragt die Oberfläche nach dem Schlüssel; in den übrigen Fällen wäre
+  diese Nachfrage ein Irrweg, weil kein Schlüssel das Problem löst.
+- **Nicht behaupten, was nicht geprüft wurde:** Ist Supabase gerade nicht
+  erreichbar oder antwortet unerwartet, wird der Aufruf abgelehnt — aber als
+  „konnte nicht geprüft werden", nicht als „gehört nicht zum Verein".
+- **Was das nicht leistet:** Der Server unterscheidet weiterhin nicht, *welche*
+  Bereiche ein Mitglied sehen darf — wer ohne Finanzrechte die Belegerkennung
+  anstößt, kommt durch. Dafür gäbe es `vm_can_view()`; das wäre ein eigener
+  Schritt. Im Lokalbetrieb ändert sich nichts: Dort gibt es keine Anmeldung,
+  die der Server nachschlagen könnte, und es bleibt beim gemeinsamen
+  Zugriffsschlüssel.
+
 ### 🛑 KI ist ab Werk aus — und wird nur mit Namen und Datum eingeschaltet
 
 - **Bisher lief die KI, sobald ein Schlüssel hinterlegt war.** Das ist die
