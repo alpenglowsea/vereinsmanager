@@ -140,8 +140,24 @@ export interface AiConfigPublic {
   hasApiKey: boolean;
   /** Woher ein vorhandener Schlüssel stammt; ohne Schlüssel 'keine'. */
   schluesselQuelle: 'konfiguration' | 'umgebung' | 'keine';
+  /**
+   * Hat der Verein die Nutzung ausdrücklich freigegeben?
+   *
+   * Ein hinterlegter Schlüssel genügt dafür bewusst NICHT. Bei jedem Aufruf
+   * verlassen Daten des Vereins das Haus — ein Beleg, ein Aufnahmeantrag mit
+   * Name, Anschrift und Bankverbindung, die Mitschrift einer Sitzung. Das ist
+   * eine Entscheidung, die jemand treffen muss, nicht eine, in die man
+   * hineinrutscht, weil ein Feld ausgefüllt wurde.
+   */
+  aktiviert: boolean;
+  /** Wer die Freigabe erteilt hat. Leer, solange niemand sie erteilt hat. */
+  bestaetigtVon: string;
+  /** Wann die Freigabe erteilt wurde (ISO-Datum). */
+  bestaetigtAm: string;
   /** true, sobald die KI-Funktionen tatsächlich arbeiten könnten. */
   configured: boolean;
+  /** true, wenn sie es dürfen UND könnten — nur dann arbeitet die KI. */
+  einsatzbereit: boolean;
 }
 
 /** Eingabe beim Speichern. Zu apiKey siehe writeAiConfig(). */
@@ -149,6 +165,13 @@ export interface AiConfigInput {
   provider: AiProvider;
   model?: string;
   apiKey?: string | null;
+  /**
+   * Die Freigabe. Weggelassen heißt "unverändert lassen" — sonst schaltete
+   * jedes Speichern eines neuen Modells die KI versehentlich ab.
+   */
+  aktiviert?: boolean;
+  /** Wer freigibt. Wird nur beim Einschalten ausgewertet. */
+  bestaetigtVon?: string;
 }
 
 interface StoredAi {
@@ -156,6 +179,14 @@ interface StoredAi {
   model?: string;
   /** Verschlüsselt, Format siehe encrypt(). */
   apiKeyEncrypted?: string;
+  /**
+   * Die Freigabe des Vereins. Fehlt sie, gilt "nicht freigegeben" — deshalb
+   * ist die KI in einer frischen Installation aus, ohne dass irgendwo ein
+   * `false` stehen muss.
+   */
+  aktiviert?: boolean;
+  bestaetigtVon?: string;
+  bestaetigtAm?: string;
 }
 
 /** Eingabe beim Speichern. Siehe writeSmtpConfig() zur Behandlung von password. */
@@ -505,12 +536,18 @@ function kiZuOeffentlich(ai: StoredAi | undefined): AiConfigPublic {
   const ausUmgebung = !ausDatei && schluesselAusUmgebung(provider).length > 0;
   const hasApiKey = ausDatei || ausUmgebung;
 
+  const aktiviert = ai?.aktiviert === true;
+
   return {
     provider,
     model: ai?.model?.trim() || '',
     hasApiKey,
     schluesselQuelle: ausDatei ? 'konfiguration' : ausUmgebung ? 'umgebung' : 'keine',
+    aktiviert,
+    bestaetigtVon: ai?.bestaetigtVon?.trim() || '',
+    bestaetigtAm: ai?.bestaetigtAm?.trim() || '',
     configured: hasApiKey,
+    einsatzbereit: hasApiKey && aktiviert,
   };
 }
 
@@ -525,8 +562,37 @@ export function readAiConfigPublic(): AiConfigPublic {
  * Gibt null zurück, wenn gar nichts nutzbar hinterlegt ist. Die Reihenfolge:
  * erst der verschlüsselt abgelegte Schlüssel, dann die Umgebungsvariable.
  */
+/**
+ * Vollständige KI-Zugangsdaten für den Aufruf beim Anbieter.
+ *
+ * Gibt auch dann null zurück, wenn zwar ein Schlüssel hinterlegt ist, der
+ * Verein die Nutzung aber nicht freigegeben hat. Die Freigabe wird damit nicht
+ * nur in der Oberfläche geprüft, sondern an der Stelle, an der die Daten
+ * tatsächlich das Haus verlassen würden. Eine Prüfung, die sich umgehen lässt,
+ * indem jemand den Aufruf von Hand schickt, wäre keine.
+ */
 export function readAiCredentials(): AiCredentials | null {
+  return leseZugang(true);
+}
+
+/**
+ * Dasselbe, aber ohne die Freigabe zu verlangen.
+ *
+ * Ausschließlich für den Verbindungstest gedacht. Der schickt „Antworte mit
+ * OK" und sonst nichts — keine Mitgliederdaten, kein Beleg, kein Protokoll.
+ * Ohne diesen Weg entstünde ein Henne-Ei-Problem: Man müsste die Nutzung
+ * freigeben, um herauszufinden, ob der Schlüssel überhaupt stimmt.
+ *
+ * Nicht für die eigentlichen KI-Funktionen verwenden. Dafür gibt es
+ * readAiCredentials(), und die fragt nach der Freigabe.
+ */
+export function readAiZugangFuerTest(): AiCredentials | null {
+  return leseZugang(false);
+}
+
+function leseZugang(freigabeNoetig: boolean): AiCredentials | null {
   const { ai } = readStored();
+  if (freigabeNoetig && ai?.aktiviert !== true) return null;
   const provider = ai?.provider || VORGABE_ANBIETER;
 
   let apiKey = '';
@@ -571,6 +637,11 @@ export function readAiCredentials(): AiCredentials | null {
  *                (der Normalfall: jemand wechselt nur das Modell)
  *   ''  / null → Schlüssel wird entfernt
  *   Zeichen    → neuer Schlüssel, verschlüsselt abgelegt
+ *
+ * Für `model` und `aktiviert` gilt dieselbe Regel: weggelassen heißt
+ * unverändert. Ein Aufruf, der nur eine Sache ändern will, muss nicht alle
+ * übrigen Felder kennen und mitschicken — sonst geht bei jedem Teil-Aufruf
+ * etwas verloren, das niemand anfassen wollte.
  */
 export function writeAiConfig(eingabe: AiConfigInput): AiConfigPublic {
   const vorhanden = readStored();
@@ -578,9 +649,31 @@ export function writeAiConfig(eingabe: AiConfigInput): AiConfigPublic {
 
   const neu: StoredAi = {
     provider: eingabe.provider,
-    model: eingabe.model?.trim() || undefined,
+    // Weggelassen heißt "unverändert lassen" — dieselbe Regel wie beim
+    // Schlüssel. Vorher war es "immer ersetzen", und das hatte eine hässliche
+    // Folge: Wer nur die Freigabe umlegte, verlor sein eingestelltes Modell,
+    // weil der Aufruf es nicht mitschickte. Ein leerer Text setzt es
+    // weiterhin auf die Vorgabe zurück.
+    model: eingabe.model === undefined ? bisher?.model : eingabe.model.trim() || undefined,
     apiKeyEncrypted: bisher?.apiKeyEncrypted,
+    aktiviert: bisher?.aktiviert,
+    bestaetigtVon: bisher?.bestaetigtVon,
+    bestaetigtAm: bisher?.bestaetigtAm,
   };
+
+  // Die Freigabe nur anfassen, wenn sie ausdrücklich mitgeschickt wurde.
+  // Sonst schaltete das Speichern eines neuen Modells die KI versehentlich ab.
+  if (eingabe.aktiviert === true) {
+    neu.aktiviert = true;
+    // Wer und wann wird beim EINSCHALTEN festgehalten, nicht beim Ausschalten:
+    // Die Frage, die später jemand stellt, lautet "wer hat das erlaubt?".
+    neu.bestaetigtVon = eingabe.bestaetigtVon?.trim() || 'unbekannt';
+    neu.bestaetigtAm = new Date().toISOString();
+  } else if (eingabe.aktiviert === false) {
+    neu.aktiviert = false;
+    delete neu.bestaetigtVon;
+    delete neu.bestaetigtAm;
+  }
 
   if (eingabe.apiKey === null || eingabe.apiKey === '') {
     delete neu.apiKeyEncrypted;

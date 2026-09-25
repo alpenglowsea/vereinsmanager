@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { MeetingType, MeetingResolution } from '../types';
 import { MeetingAiService } from '../services/meetingAiService';
+import { useKiStatus } from '../hooks/useKiStatus';
+import { kiClass, kiTitle } from '../utils/uiLock';
 
 interface MeetingAiAssistantModalProps {
   isOpen: boolean;
@@ -38,6 +40,11 @@ export const MeetingAiAssistantModal: React.FC<MeetingAiAssistantModalProps> = (
   onApplyDiscussion,
   onApplyAgenda,
 }) => {
+
+  // Ausgrauen, solange die KI nicht freigegeben ist. Die Sperre selbst sitzt
+  // im Server — hier geht es nur darum, dass niemand auf einen Knopf drueckt,
+  // der ohnehin nichts bewirkt.
+  const ki = useKiStatus();
   const [currentMode, setCurrentMode] = useState<'resolution' | 'discussion' | 'agenda'>(mode);
   const [inputText, setInputText] = useState(initialInput);
   const [isLoading, setIsLoading] = useState(false);
@@ -201,13 +208,14 @@ export const MeetingAiAssistantModal: React.FC<MeetingAiAssistantModalProps> = (
           <div className="flex justify-end">
             <button
               type="button"
-              disabled={isLoading || !inputText.trim()}
+              disabled={isLoading || !inputText.trim() || !ki.einsatzbereit}
               onClick={handleGenerate}
+              title={kiTitle(ki.einsatzbereit)}
               className={`px-4 py-2 text-xs font-bold rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer ${
                 isLoading || !inputText.trim()
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   : 'bg-rose-600 text-white hover:bg-rose-700'
-              }`}
+              }${kiClass(ki.einsatzbereit)}`}
             >
               {isLoading ? (
                 <>

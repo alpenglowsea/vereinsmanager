@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { MeetingType } from '../types';
 import { MeetingAiService, MeetingExtractedData } from '../services/meetingAiService';
+import { useKiStatus } from '../hooks/useKiStatus';
+import { kiClass, kiTitle } from '../utils/uiLock';
 
 interface MeetingNotesUploadModalProps {
   isOpen: boolean;
@@ -31,6 +33,11 @@ export const MeetingNotesUploadModal: React.FC<MeetingNotesUploadModalProps> = (
   onApplyExtractedData,
   currentMeetingContext,
 }) => {
+
+  // Ausgrauen, solange die KI nicht freigegeben ist. Die Sperre selbst sitzt
+  // im Server — hier geht es nur darum, dass niemand auf einen Knopf drueckt,
+  // der ohnehin nichts bewirkt.
+  const ki = useKiStatus();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<MeetingType>(currentMeetingContext?.type || 'board');
@@ -346,13 +353,14 @@ export const MeetingNotesUploadModal: React.FC<MeetingNotesUploadModalProps> = (
           {!extractedResult ? (
             <button
               type="button"
-              disabled={!selectedFile || isAnalyzing}
+              disabled={!selectedFile || isAnalyzing || !ki.einsatzbereit}
               onClick={handleStartAnalysis}
+              title={kiTitle(ki.einsatzbereit)}
               className={`px-5 py-2.5 text-xs font-bold rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer ${
                 !selectedFile || isAnalyzing
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   : 'bg-rose-600 text-white hover:bg-rose-700 shadow-rose-200'
-              }`}
+              }${kiClass(ki.einsatzbereit)}`}
             >
               {isAnalyzing ? (
                 <>

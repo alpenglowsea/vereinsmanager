@@ -47,6 +47,8 @@ import {
 } from 'lucide-react';
 import { ReceiptCameraScannerModal } from './ReceiptCameraScannerModal';
 import { AiBookingService } from '../services/aiBookingService';
+import { useKiStatus } from '../hooks/useKiStatus';
+import { kiClass, kiTitle } from '../utils/uiLock';
 
 interface TransactionFormModalProps {
   transaction: Transaction | null;
@@ -180,6 +182,11 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   // einen Buchungsdialog, den jedes Mitglied mit Buchungsrecht oeffnet.
   // Fehlt er, steht hier jetzt nur noch, wo er hinterlegt wird.
   const [zeigeSchluesselHinweis, setZeigeSchluesselHinweis] = useState(false);
+
+  // Ausgrauen, solange die KI nicht freigegeben ist. Die Sperre selbst sitzt
+  // im Server — hier geht es nur darum, dass niemand auf einen Knopf drueckt,
+  // der ohnehin nichts bewirkt.
+  const ki = useKiStatus();
 
   useEffect(() => {
     if (initialPartner && !transaction) {
@@ -900,9 +907,12 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                   <button
                     type="button"
                     onClick={() => handleAiCategorize(formData.bookingText)}
-                    disabled={aiLoading}
-                    className="text-2xs text-purple-700 hover:text-purple-900 flex items-center gap-1 font-semibold cursor-pointer"
-                    title="Diesen Buchungstext direkt per KI analysieren und Sphäre/Konto vorschlagen"
+                    disabled={aiLoading || !ki.einsatzbereit}
+                    className={`text-2xs text-purple-700 hover:text-purple-900 flex items-center gap-1 font-semibold cursor-pointer${kiClass(ki.einsatzbereit)}`}
+                    title={kiTitle(
+                      ki.einsatzbereit,
+                      'Diesen Buchungstext direkt per KI analysieren und Sphäre/Konto vorschlagen'
+                    )}
                   >
                     <Sparkles className="w-3 h-3 text-purple-600" />
                     <span>Diesen Text per KI kategorisieren</span>
@@ -1003,8 +1013,9 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                           }
                           handleAiCategorize(textToAnalyze);
                         }}
-                        disabled={aiLoading}
-                        className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                        disabled={aiLoading || !ki.einsatzbereit}
+                        title={kiTitle(ki.einsatzbereit)}
+                        className={`px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap${kiClass(ki.einsatzbereit)}`}
                       >
                         <Sparkles className="w-3 h-3" />
                         <span>{aiLoading ? 'Ermittle...' : 'Vorschlag ermitteln'}</span>

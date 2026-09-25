@@ -6,6 +6,51 @@ Alle relevanten Änderungen und Versionsstände des VereinsManagers werden in di
 
 ## [unveröffentlicht]
 
+### 🛑 KI ist ab Werk aus — und wird nur mit Namen und Datum eingeschaltet
+
+- **Bisher lief die KI, sobald ein Schlüssel hinterlegt war.** Das ist die
+  falsche Vorgabe für eine Vereinsverwaltung: Ein Kassenwart, der einen
+  Schlüssel einträgt, weil er die Belegerkennung sehen möchte, hat damit noch
+  keine Entscheidung darüber getroffen, dass Kontoauszüge und Aufnahmeanträge
+  des Vereins an Google gehen. Die Nutzung muss ein eigener, bewusster Schritt
+  sein.
+- **Deshalb gibt es jetzt drei Zustände statt zwei:** *Aus* (nichts
+  hinterlegt), *eingerichtet, aber nicht freigegeben* (Schlüssel liegt da, es
+  passiert nichts) und *in Betrieb*. Der mittlere Zustand ist neu und ist der,
+  in dem eine bestehende Installation nach der Aktualisierung landet — auch
+  wenn dort längst ein Schlüssel lag. Niemand wird ungefragt weiterbetrieben.
+- **Die Sperre sitzt im Server, nicht in der Oberfläche.** `readAiCredentials()`
+  gibt ohne Freigabe `null` zurück; jeder KI-Endpunkt bricht davor mit einer
+  eigenen Meldung ab (`KI_NICHT_FREIGEGEBEN`, zu unterscheiden von „kein
+  Schlüssel hinterlegt"). Auch der Ersatzweg über die Umgebungsvariable
+  `GEMINI_API_KEY` ist mitgesperrt — sonst hätte eine `.env` die Entscheidung
+  stillschweigend überstimmt. Wer die Oberfläche umgeht und die Endpunkte
+  direkt anspricht, kommt damit ebenfalls nicht durch.
+- **Einzige Ausnahme ist der Verbindungstest.** Er darf auch ohne Freigabe
+  laufen, sonst ließe sich ein Schlüssel nicht prüfen, bevor man ihn freigibt.
+  Er schickt einen Blindtext an den Anbieter, keine Vereinsdaten.
+- **Freigeben heißt: Name eintragen und einen Hinweis bestätigen.** Der Hinweis
+  benennt ohne Beschönigung, was geschieht — welche Daten den Server verlassen,
+  dass der kostenlose Tarif die Verwendung zum Training einschließt, dass der
+  Verein als Verantwortlicher im Sinne der DSGVO auftritt und dass dafür ein
+  Auftragsverarbeitungsvertrag nötig ist, den Google nur im kostenpflichtigen
+  Tarif anbietet. Wer bestätigt, steht mit Namen und Zeitpunkt in der
+  Konfiguration; das ist die Angabe, die im Zweifel gegenüber der
+  Mitgliederversammlung oder einer Aufsichtsbehörde zählt. Zurücknehmen geht
+  jederzeit und löscht diese Angabe wieder.
+- **Die KI-Knöpfe in den übrigen Masken bleiben sichtbar und werden ausgegraut**
+  — nach demselben Muster wie die Knöpfe des Rechtesystems. Beim Darüberfahren
+  erklären sie, warum sie gesperrt sind, und verweisen auf die Einstellungen.
+  Betroffen sind Buchungsvorschlag und Belegerkennung im Buchungsdialog, die
+  Entwurfshilfe, die Ton- und die Notizenauswertung bei den Protokollen sowie
+  die Antragsübernahme aus PDF — dort startet zusätzlich der automatische
+  Durchlauf beim Öffnen nicht mehr. Verschwundene Knöpfe erzeugen Ratlosigkeit;
+  gesperrte mit Begründung nicht.
+- **Ein Fehler, den erst der Regressionstest zeigte:** Das Umlegen der Freigabe
+  schrieb die Modellauswahl mit, weil „nicht mitgeschickt" und „auf leer setzen"
+  im Server nicht unterschieden wurden. Wer freigab, verlor sein eingestelltes
+  Modell. Behoben und mit einem eigenen Test festgenagelt.
+
 ### 🤖 Ein KI-Anbieter statt vier halber — und warum es nicht Mistral wurde
 
 - **Die Auswahl versprach mehr, als dahintersteckte.** Von fünf KI-Funktionen

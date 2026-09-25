@@ -12,6 +12,7 @@ import {
   readAccessKey,
   readAiConfigPublic,
   readAiCredentials,
+  readAiZugangFuerTest,
   writeAiConfig,
   deleteAiConfig,
   type AiProvider,
@@ -238,9 +239,18 @@ const KEIN_GEMINI_SCHLUESSEL =
   "Einstellungen unter KI einen Gemini-Schlüssel hinterlegen (oder auf dem Server " +
   "GEMINI_API_KEY setzen).";
 
+const KI_NICHT_FREIGEGEBEN =
+  "Die KI-Funktionen sind nicht freigegeben. Bei jedem Aufruf verlassen Daten des " +
+  "Vereins das Haus, deshalb muss ein Vorstandsmitglied die Nutzung zuerst " +
+  "ausdrücklich erlauben: Einstellungen → Allgemein → KI-Assistent.";
+
 function geminiSchluessel(): string {
   const zugang = readAiCredentials();
   if (zugang?.provider === "gemini" && zugang.apiKey) return zugang.apiKey;
+  // Die Umgebungsvariable ist ein Weg für den Docker-Betrieb, kein Weg an der
+  // Freigabe vorbei. Ohne Freigabe liefert readAiCredentials() null — dann
+  // darf auch GEMINI_API_KEY nicht greifen.
+  if (!readAiConfigPublic().aktiviert) return "";
   return process.env.GEMINI_API_KEY?.trim() || "";
 }
 
@@ -261,6 +271,13 @@ function baueGeminiClient(apiKey: string): GoogleGenAI {
 }
 
 function getGeminiClient(): GoogleGenAI {
+  // Die Reihenfolge der Prüfungen entscheidet über die Verständlichkeit:
+  // "nicht freigegeben" und "kein Schlüssel" sind zwei verschiedene Zustände
+  // und brauchen zwei verschiedene Sätze. Eine gemeinsame Meldung schickte
+  // den Anwender an die falsche Stelle.
+  if (!readAiConfigPublic().aktiviert) {
+    throw new Error(KI_NICHT_FREIGEGEBEN);
+  }
   const apiKey = geminiSchluessel();
   if (!apiKey) {
     throw new Error(KEIN_GEMINI_SCHLUESSEL);
@@ -280,7 +297,7 @@ app.get("/api/health", (req, res) => {
     // Die Statusseite ist bewusst ohne Ausweis erreichbar (Docker fragt sie
     // regelmäßig ab). Sie darf deshalb nur verraten, OB ein Schlüssel da ist.
     hasGeminiKey: Boolean(geminiSchluessel()),
-    hasAiKey: readAiConfigPublic().configured,
+    aiEinsatzbereit: readAiConfigPublic().einsatzbereit,
     timestamp: new Date().toISOString(),
   });
 });
@@ -405,7 +422,11 @@ app.post("/api/submit-bugreport", bremse(bremseMeldung, "Fehlermeldung"), async 
  */
 app.post(["/api/test-ai-key", "/api/test-gemini-key"], bremse(bremseTeuer, "KI"), async (req, res) => {
   try {
-    const hinterlegt = readAiCredentials();
+    // Bewusst der ungesperrte Zugang: Der Test schickt "Antworte mit OK" und
+    // sonst nichts. Er muss möglich sein, BEVOR jemand die Nutzung freigibt —
+    // sonst müsste man erst erlauben, um herauszufinden, ob der Schlüssel
+    // überhaupt stimmt.
+    const hinterlegt = readAiZugangFuerTest();
     const koerper = req.body || {};
 
     // Ein im Körper mitgeschickter Schlüssel hat Vorrang: Genau dafür ist
@@ -459,13 +480,9 @@ app.post("/api/categorize-booking", bremse(bremseTeuer, "KI"), async (req, res) 
   try {
     const { description, bookingText, partner, amount, type } = req.body;
 
-    // Anbieter, Modell, Adresse und Schlüssel kommen ausschließlich aus der
+    // Schlüssel und Modell holt sich getGeminiClient() selbst aus der
     // Serverkonfiguration. Früher schickte die Oberfläche sie mit — dafür
     // musste sie den Schlüssel im Browser vorrätig halten.
-    const kiZugang = readAiCredentials();
-    const aiProvider: AiProvider = kiZugang?.provider || "gemini";
-    const aiModel = kiZugang?.model || "";
-    const userApiKey = kiZugang?.apiKey || "";
 
     const queryText = (description || bookingText || "").trim();
     if (!queryText && !partner) {
@@ -597,8 +614,6 @@ app.post("/api/scan-application-pdf", bremse(bremseTeuer, "KI"), async (req, res
   try {
     const { fileDataUrl, mimeType, fileName } = req.body;
 
-    // Welcher Anbieter gilt, entscheidet allein die Serverkonfiguration.
-    const kiZugang = readAiCredentials();
 
     if (!fileDataUrl) {
       return res.status(400).json({ error: "Keine Datei (fileDataUrl) übermittelt." });
@@ -791,8 +806,6 @@ app.post("/api/meetings/analyze-notes", bremse(bremseTeuer, "KI"), async (req, r
   try {
     const { fileDataUrl, mimeType, fileName, meetingContext } = req.body;
 
-    // Welcher Anbieter gilt, entscheidet allein die Serverkonfiguration.
-    const kiZugang = readAiCredentials();
 
     if (!fileDataUrl) {
       return res.status(400).json({ error: "Keine Datei mit Notizen übermittelt." });
@@ -978,8 +991,6 @@ app.post("/api/meetings/analyze-audio", bremse(bremseTeuer, "KI"), async (req, r
   try {
     const { audioDataUrl, mimeType, fileName, meetingContext } = req.body;
 
-    // Welcher Anbieter gilt, entscheidet allein die Serverkonfiguration.
-    const kiZugang = readAiCredentials();
 
     if (!audioDataUrl) {
       return res.status(400).json({ error: "Keine Audio-Aufnahme übermittelt." });
@@ -1147,8 +1158,6 @@ app.post("/api/meetings/ai-assist", bremse(bremseTeuer, "KI"), async (req, res) 
   try {
     const { action, input, context } = req.body;
 
-    // Welcher Anbieter gilt, entscheidet allein die Serverkonfiguration.
-    const kiZugang = readAiCredentials();
 
     if (!action || !input) {
       return res.status(400).json({ error: "Aktion und Eingabetext sind erforderlich." });
@@ -1432,7 +1441,7 @@ app.get("/api/ai/config", (_req, res) => {
  */
 app.post("/api/ai/config", bremse(bremsePost, "KI-Einstellungen"), (req, res) => {
   try {
-    const { provider, model, apiKey } = req.body ?? {};
+    const { provider, model, apiKey, aktiviert, bestaetigtVon } = req.body ?? {};
 
     // Nur noch ein Anbieter. Die Prüfung bleibt trotzdem stehen: Sie hält
     // eine alte Oberfläche oder eine Datensicherung davon ab, einen Anbieter
@@ -1448,16 +1457,32 @@ app.post("/api/ai/config", bremse(bremsePost, "KI-Einstellungen"), (req, res) =>
       return res.status(400).json({ success: false, error: "Ungültige Angabe beim Schlüssel." });
     }
 
+    if (aktiviert !== undefined && typeof aktiviert !== "boolean") {
+      return res.status(400).json({ success: false, error: "Ungültige Angabe bei der Freigabe." });
+    }
+    // Eine Freigabe ohne Namen wird abgelehnt. Nicht aus Förmlichkeit: Die
+    // Frage, die einem Verein später gestellt wird, lautet "wer hat das
+    // erlaubt?" — und darauf muss die Anwendung antworten können.
+    if (aktiviert === true && !(typeof bestaetigtVon === "string" && bestaetigtVon.trim())) {
+      return res.status(400).json({
+        success: false,
+        error: "Für die Freigabe wird festgehalten, wer sie erteilt hat. Bitte einen Namen mitschicken.",
+      });
+    }
+
     const config = writeAiConfig({
       provider,
       model: typeof model === "string" ? model : "",
       apiKey,
+      aktiviert: typeof aktiviert === "boolean" ? aktiviert : undefined,
+      bestaetigtVon: typeof bestaetigtVon === "string" ? bestaetigtVon : undefined,
     });
 
     // Bewusst ohne den Schlüssel im Protokoll.
     console.info(
       `KI-Einstellungen gespeichert: Anbieter ${config.provider}, ` +
-        `Modell ${config.model || "(Vorgabe)"}, Schlüssel hinterlegt: ${config.hasApiKey ? "ja" : "nein"}`
+        `Modell ${config.model || "(Vorgabe)"}, Schlüssel hinterlegt: ${config.hasApiKey ? "ja" : "nein"}, ` +
+        `freigegeben: ${config.aktiviert ? `ja (${config.bestaetigtVon}, ${config.bestaetigtAm})` : "nein"}`
     );
     return res.json({ success: true, config });
   } catch (error: any) {

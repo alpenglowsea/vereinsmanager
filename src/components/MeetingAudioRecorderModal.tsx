@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { MeetingType } from '../types';
 import { MeetingAiService, MeetingExtractedData } from '../services/meetingAiService';
+import { useKiStatus } from '../hooks/useKiStatus';
+import { kiClass, kiTitle } from '../utils/uiLock';
 import { StorageService } from '../services/storage';
 
 interface MeetingAudioRecorderModalProps {
@@ -51,6 +53,11 @@ export const MeetingAudioRecorderModal: React.FC<MeetingAudioRecorderModalProps>
 }) => {
   const activeContext = meetingContext || currentMeetingContext;
   const effectiveApplyData = onApplyData || onApplyExtractedData;
+
+  // Ausgrauen, solange die KI nicht freigegeben ist. Die Sperre selbst sitzt
+  // im Server — hier geht es nur darum, dass niemand auf einen Knopf drueckt,
+  // der ohnehin nichts bewirkt.
+  const ki = useKiStatus();
   const [meetingType, setMeetingType] = useState<MeetingType>(activeContext?.type || 'board');
   const [tab, setTab] = useState<'record' | 'upload'>('record');
 
@@ -826,13 +833,14 @@ export const MeetingAudioRecorderModal: React.FC<MeetingAudioRecorderModalProps>
           {!isGeneralAssembly && !extractedResult && (
             <button
               type="button"
-              disabled={(!recordedAudioBlob && !uploadedAudioFile) || isRecording || isAnalyzing}
+              disabled={(!recordedAudioBlob && !uploadedAudioFile) || isRecording || isAnalyzing || !ki.einsatzbereit}
               onClick={handleStartAnalysis}
+              title={kiTitle(ki.einsatzbereit)}
               className={`px-5 py-2.5 text-xs font-bold rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer ${
                 (!recordedAudioBlob && !uploadedAudioFile) || isRecording || isAnalyzing
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   : 'bg-purple-600 text-white hover:bg-purple-700 shadow-purple-200'
-              }`}
+              }${kiClass(ki.einsatzbereit)}`}
             >
               {isAnalyzing ? (
                 <>

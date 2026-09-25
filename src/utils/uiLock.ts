@@ -25,3 +25,22 @@ export const lockClass = (allowed: boolean): string =>
 /** Hinweistext statt der üblichen Beschriftung, solange gesperrt. */
 export const lockTitle = (allowed: boolean, normal?: string): string | undefined =>
   allowed ? normal : LOCK_TITLE;
+
+/**
+ * Dasselbe fuer die KI-Funktionen.
+ *
+ * Bewusst ein eigener Hinweistext statt LOCK_TITLE: "Sie haben nur Leserecht"
+ * und "die KI ist nicht freigegeben" sind zwei verschiedene Zustaende. Wer den
+ * falschen Satz liest, sucht an der falschen Stelle — beim Rechtesystem statt
+ * in den Einstellungen.
+ */
+export const KI_AUS_TITLE =
+  'Die KI-Funktionen sind nicht freigegeben (Einstellungen → Allgemein → KI-Assistent)';
+
+/** Ausgrauen, wenn die KI nicht einsatzbereit ist. */
+export const kiClass = (einsatzbereit: boolean): string =>
+  einsatzbereit ? '' : ' opacity-40 grayscale cursor-not-allowed';
+
+/** Hinweistext statt der üblichen Beschriftung, solange die KI aus ist. */
+export const kiTitle = (einsatzbereit: boolean, normal?: string): string | undefined =>
+  einsatzbereit ? normal : KI_AUS_TITLE;

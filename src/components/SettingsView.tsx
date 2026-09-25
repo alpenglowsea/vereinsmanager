@@ -9,6 +9,7 @@ import {
   LEERE_KI_KONFIGURATION,
   uebernehmeSchluesselAusBrowser,
 } from '../services/aiConfigService';
+import { kiStatusNeuLaden } from '../hooks/useKiStatus';
 import { SnapshotService, AutoSnapshot } from '../services/snapshotService';
 import { CURRENT_APP_VERSION } from '../services/updateService';
 import { PermissionMatrix } from './PermissionMatrix';
@@ -360,6 +361,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   /** null = noch nicht geladen; false = Server antwortet nicht. */
   const [aiServerErreichbar, setAiServerErreichbar] = useState<boolean | null>(null);
   const [isSavingAi, setIsSavingAi] = useState(false);
+  /** Offen, solange die Freigabe bestätigt werden soll. */
+  const [freigabeDialogOffen, setFreigabeDialogOffen] = useState(false);
+  const [freigabeName, setFreigabeName] = useState('');
+  const [freigabeVerstanden, setFreigabeVerstanden] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [isTestingKey, setIsTestingKey] = useState(false);
   const [keyTestResult, setKeyTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -1151,6 +1156,60 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
+  /**
+   * Erteilt die Freigabe. Der Name wandert mit auf den Server und wird dort
+   * zusammen mit dem Datum festgehalten — die Anwendung soll später sagen
+   * können, wer entschieden hat.
+   */
+  const handleFreigabeErteilen = async () => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
+    const name = freigabeName.trim();
+    if (!name || !freigabeVerstanden) return;
+
+    setIsSavingAi(true);
+    const ergebnis = await AiConfigService.save({
+      provider: aiProvider,
+      model: aiModel.trim(),
+      aktiviert: true,
+      bestaetigtVon: name,
+    });
+    setIsSavingAi(false);
+
+    if (ergebnis.success && ergebnis.config) {
+      setAiServerKonfiguration(ergebnis.config);
+      // Die Knöpfe in den übrigen Masken hören darauf und grauen sich
+      // entsprechend aus — ohne dass jemand die Seite neu laden muss.
+      kiStatusNeuLaden();
+      setFreigabeDialogOffen(false);
+      setFreigabeVerstanden(false);
+      setStatusMsg({ type: 'success', text: 'Die KI-Funktionen sind jetzt freigegeben.' });
+    } else {
+      setStatusMsg({ type: 'error', text: ergebnis.error || 'Die Freigabe konnte nicht gespeichert werden.' });
+    }
+    setTimeout(() => setStatusMsg(null), 4000);
+  };
+
+  /** Nimmt die Freigabe zurück. Der Schlüssel bleibt liegen. */
+  const handleFreigabeZuruecknehmen = async () => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
+    setIsSavingAi(true);
+    const ergebnis = await AiConfigService.save({
+      provider: aiProvider,
+      model: aiModel.trim(),
+      aktiviert: false,
+    });
+    setIsSavingAi(false);
+
+    if (ergebnis.success && ergebnis.config) {
+      setAiServerKonfiguration(ergebnis.config);
+      kiStatusNeuLaden();
+      setStatusMsg({ type: 'success', text: 'Die KI-Funktionen sind jetzt gesperrt. Der Schlüssel bleibt hinterlegt.' });
+    } else {
+      setStatusMsg({ type: 'error', text: ergebnis.error || 'Das Zurücknehmen ist fehlgeschlagen.' });
+    }
+    setTimeout(() => setStatusMsg(null), 4000);
+  };
+
   const handleSaveAiConfigOnly = async () => {
     if (!canEdit) { if (onLocked) onLocked(); return; }
     setIsSavingAi(true);
@@ -1915,7 +1974,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             // Ob die KI arbeiten kann, weiss allein der Server — die Maske
             // kennt den hinterlegten Schluessel nicht. Ein gerade eingetipptes
             // Feld zaehlt noch nicht: gespeichert ist es erst nach dem Klick.
+            // Drei Zustaende, nicht zwei: nicht eingerichtet, eingerichtet
+            // aber nicht freigegeben, und in Betrieb. Der mittlere ist der
+            // wichtige — dort liegt ein Schluessel, und trotzdem geht nichts
+            // hinaus.
             const isConfigured = aiServerKonfiguration.configured;
+            const inBetrieb = aiServerKonfiguration.einsatzbereit;
             const schluesselAusUmgebung = aiServerKonfiguration.schluesselQuelle === 'umgebung';
 
             return (
@@ -1931,11 +1995,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           KI-Assistent
                         </h3>
                         <span className={`px-2 py-0.5 text-3xs font-bold rounded-full ${
-                          isConfigured
+                          inBetrieb
                             ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
-                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                            : isConfigured
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                              : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                         }`}>
-                          {isConfigured ? `Aktiviert (${currentProviderInfo.name})` : 'Optional'}
+                          {inBetrieb
+                            ? `In Betrieb (${currentProviderInfo.name})`
+                            : isConfigured
+                              ? 'Eingerichtet, aber nicht freigegeben'
+                              : 'Aus'}
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -2092,6 +2162,74 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </div>
                   )}
 
+                  {/* ----------------------------------------------------
+                      Die Freigabe.
+
+                      Bewusst UNTER dem Schluesselfeld und ueber dem
+                      Datenschutz-Kasten: Erst richtet man ein, dann liest man,
+                      was das bedeutet, dann entscheidet man. Ein Schalter ganz
+                      oben waere schneller zu finden und genau deshalb falsch —
+                      er wuerde umgelegt, bevor irgendjemand den Hinweis
+                      gelesen hat.
+                      ---------------------------------------------------- */}
+                  <div className={`rounded-2xl border p-4 ${
+                    aiServerKonfiguration.aktiviert
+                      ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40'
+                      : 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40'
+                  }`}>
+                    {aiServerKonfiguration.aktiviert ? (
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="text-2xs text-slate-700 dark:text-slate-300">
+                          <div className="font-bold text-emerald-800 dark:text-emerald-300 mb-0.5">
+                            Freigegeben
+                          </div>
+                          <span>
+                            Erteilt von <strong>{aiServerKonfiguration.bestaetigtVon || 'unbekannt'}</strong>
+                            {aiServerKonfiguration.bestaetigtAm
+                              ? ` am ${new Date(aiServerKonfiguration.bestaetigtAm).toLocaleDateString('de-DE')}`
+                              : ''}
+                            . Die KI-Funktionen stehen in der ganzen Anwendung zur Verfügung.
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleFreigabeZuruecknehmen}
+                          disabled={isSavingAi}
+                          className={`px-4 py-2.5 bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl text-xs font-bold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-40${lockClass(canEdit)}`}
+                          title={lockTitle(canEdit, 'Freigabe zurücknehmen')}
+                        >
+                          Freigabe zurücknehmen
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="text-2xs text-slate-700 dark:text-slate-300">
+                          <div className="font-bold text-amber-900 dark:text-amber-200 mb-0.5">
+                            Nicht freigegeben — die KI-Funktionen sind aus
+                          </div>
+                          <span>
+                            {isConfigured
+                              ? 'Ein Schlüssel ist hinterlegt. Bevor Daten des Vereins an den Anbieter gehen, muss ein Vorstandsmitglied die Nutzung ausdrücklich erlauben.'
+                              : 'Hinterlegen Sie zuerst einen Schlüssel. Danach lässt sich die Nutzung freigeben.'}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFreigabeName(AuthService.getCurrentUser()?.name || '');
+                            setFreigabeVerstanden(false);
+                            setFreigabeDialogOffen(true);
+                          }}
+                          disabled={!isConfigured || isSavingAi}
+                          className={`px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer whitespace-nowrap shadow-xs disabled:opacity-40${lockClass(canEdit)}`}
+                          title={lockTitle(canEdit, 'KI-Funktionen freigeben')}
+                        >
+                          KI-Funktionen freigeben …
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Information callout: Funktionsweise & Datenschutz */}
                   <div className="bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 rounded-2xl p-4 text-2xs text-slate-600 dark:text-slate-400 space-y-2">
                     <div className="font-bold text-purple-950 dark:text-purple-200 flex items-center gap-1.5">
@@ -2103,10 +2241,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <strong>Wo der Schlüssel liegt:</strong> verschlüsselt auf dem Server dieser Installation — nicht im Browser und nicht in den Vereinsstammdaten. Er steht deshalb in keiner Datensicherung und wird an niemanden weitergegeben außer an den KI-Anbieter, den Sie hier auswählen. Nach einer Neuinstallation ist er einmal neu einzutragen.
                       </li>
                       <li>
-                        <strong>Freie Anbieterwahl:</strong> Nutzen Sie den dauerhaft kostenlosen Standard-Tarif von Google Gemini oder binden Sie eigene Zugänge von OpenAI, Anthropic oder lokale KI-Modelle (z. B. via Ollama) ohne Cloud-Kosten an.
+                        <strong>Welche Daten hinausgehen:</strong> genau das, was Sie der jeweiligen Funktion geben — der Text einer Buchung, ein eingescannter Beleg, ein Aufnahmeantrag mit Name, Anschrift und Bankverbindung, die Tonaufnahme einer Sitzung. Diese Daten werden an Google übertragen und dort verarbeitet.
                       </li>
                       <li>
-                        <strong>App-weite Unterstützung:</strong> Der hinterlegte KI-Dienst steht automatisch in allen Bereichen der Vereinsverwaltung zur Verfügung (Finanzen & Belege, Sitzungen & Protokolle, Notizen sowie Mitgliedsanträge).
+                        <strong>Was der kostenlose Tarif bedeutet:</strong> Google darf die übermittelten Inhalte laut seinen Bedingungen zur Verbesserung der eigenen Produkte verwenden, und abschalten lässt sich das im kostenlosen Tarif nicht. Wer das ausschließen will, braucht den kostenpflichtigen Tarif — dort ist es vertraglich ausgeschlossen. Einen Anbieter, der beides bietet, haben wir nicht gefunden.
+                      </li>
+                      <li>
+                        <strong>Was der Verein selbst regeln muss:</strong> Für die Übermittlung personenbezogener Daten braucht der Verein eine Rechtsgrundlage und einen Auftragsverarbeitungsvertrag mit dem Anbieter. Das kann Ihnen diese Anwendung nicht abnehmen. Im Zweifel hilft ein Blick in die Datenschutzhinweise des Vereins oder eine kurze Rücksprache.
+                      </li>
+                      <li>
+                        <strong>Ohne Freigabe geht nichts:</strong> Solange die Nutzung nicht freigegeben ist, weist der Server jeden KI-Aufruf ab — auch dann, wenn ein Schlüssel hinterlegt ist. Die Sperre sitzt nicht in der Oberfläche, sondern dort, wo die Daten das Haus verlassen würden.
                       </li>
                     </ul>
                   </div>
@@ -4420,6 +4564,130 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         onAbbrechen={() => setImportVorschau(null)}
         onBestaetigen={fuehreImportAus}
       />
+
+      {/* --------------------------------------------------------------
+          Bestätigung der KI-Freigabe.
+
+          Der Text ist absichtlich lang. Es ist die einzige Stelle, an der
+          ein Verein erfährt, was bei der Nutzung tatsächlich passiert —
+          und es ist eine Entscheidung, die er einmal trifft und danach
+          nicht mehr ansieht. Ein knapper Satz wäre bequemer und würde
+          seinen Zweck verfehlen.
+          -------------------------------------------------------------- */}
+      {freigabeDialogOffen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
+              <div className="p-2.5 bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 rounded-2xl">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  KI-Funktionen freigeben
+                </h3>
+                <p className="text-2xs text-slate-500 dark:text-slate-400">
+                  Bitte einmal in Ruhe lesen — danach ist es erledigt.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+              <p>
+                Mit der Freigabe erlauben Sie, dass die Anwendung Daten des Vereins an{' '}
+                <strong>Google</strong> übermittelt, damit die KI-Funktionen arbeiten können.
+              </p>
+
+              <div>
+                <div className="font-bold text-slate-900 dark:text-white mb-1">Was übermittelt wird</div>
+                <p>
+                  Genau das, was Sie der jeweiligen Funktion geben: der Text einer Buchung,
+                  ein eingescannter Beleg, ein Aufnahmeantrag mit Name, Anschrift und
+                  Bankverbindung, die Tonaufnahme einer Sitzung. Nichts davon geht ohne Ihr
+                  Zutun hinaus — aber alles davon geht hinaus, sobald Sie die betreffende
+                  Funktion benutzen.
+                </p>
+              </div>
+
+              <div>
+                <div className="font-bold text-slate-900 dark:text-white mb-1">
+                  Was der kostenlose Tarif bedeutet
+                </div>
+                <p>
+                  Google darf die übermittelten Inhalte laut seinen Bedingungen zur
+                  Verbesserung der eigenen Produkte verwenden. Im kostenlosen Tarif lässt
+                  sich das nicht abschalten. Wer das ausschließen will, braucht den
+                  kostenpflichtigen Tarif — dort ist es vertraglich ausgeschlossen. Einen
+                  Anbieter, der kostenlos ist <em>und</em> nicht mitlernt, gibt es nach
+                  unserer Recherche nicht.
+                </p>
+              </div>
+
+              <div>
+                <div className="font-bold text-slate-900 dark:text-white mb-1">
+                  Was der Verein selbst regeln muss
+                </div>
+                <p>
+                  Für die Übermittlung personenbezogener Daten braucht der Verein eine
+                  Rechtsgrundlage und einen Auftragsverarbeitungsvertrag mit dem Anbieter.
+                  Das kann diese Anwendung Ihnen nicht abnehmen, und sie ist keine
+                  Rechtsberatung. Im Zweifel fragen Sie jemanden, der sich damit auskennt.
+                </p>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 space-y-3">
+                <p className="text-2xs text-slate-600 dark:text-slate-400">
+                  Es wird festgehalten, wer diese Freigabe erteilt hat. Nicht aus
+                  Förmlichkeit: Falls später jemand fragt, wer entschieden hat,
+                  Mitgliederdaten an einen KI-Anbieter zu geben, soll die Antwort
+                  auffindbar sein.
+                </p>
+                <div>
+                  <label className="block text-2xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Name der freigebenden Person
+                  </label>
+                  <input
+                    type="text"
+                    value={freigabeName}
+                    onChange={e => setFreigabeName(e.target.value)}
+                    placeholder="Vor- und Nachname"
+                    className="w-full px-3 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={freigabeVerstanden}
+                    onChange={e => setFreigabeVerstanden(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                  />
+                  <span className="text-2xs text-slate-700 dark:text-slate-300">
+                    Ich habe gelesen, welche Daten übermittelt werden, und erteile die
+                    Freigabe für diesen Verein.
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row gap-2.5 justify-end">
+              <button
+                type="button"
+                onClick={() => setFreigabeDialogOffen(false)}
+                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleFreigabeErteilen}
+                disabled={!freigabeName.trim() || !freigabeVerstanden || isSavingAi}
+                className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isSavingAi ? 'Speichere …' : 'Freigeben'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

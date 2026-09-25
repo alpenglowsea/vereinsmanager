@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { OnlineMembershipApplication, ClubSettings, ExtractedApplicationData } from '../types';
 import { apiFetch } from '../services/apiClient';
+import { useKiStatus } from '../hooks/useKiStatus';
+import { kiClass, kiTitle } from '../utils/uiLock';
 
 interface ApplicationPdfImporterModalProps {
   isOpen: boolean;
@@ -50,6 +52,12 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
 
   // State
   const [dragActive, setDragActive] = useState(false);
+
+  // Hier gibt es keinen Knopf zum Ausgrauen: Die Erkennung startet von selbst,
+  // sobald jemand eine Datei auswaehlt. Stattdessen wird sie gar nicht erst
+  // angestossen, wenn die KI nicht freigegeben ist — und die Maske sagt,
+  // woran es liegt. Von Hand erfassen geht weiterhin.
+  const ki = useKiStatus();
   const dragCounterRef = useRef(0);
   const [file, setFile] = useState<File | null>(null);
   const [fileDataUrl, setFileDataUrl] = useState<string | null>(null);
@@ -99,6 +107,17 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
     reader.onload = async (event) => {
       const dataUrl = event.target?.result as string;
       setFileDataUrl(dataUrl);
+      if (!ki.einsatzbereit) {
+        // Die Datei ist uebernommen, nur die Erkennung unterbleibt. Ein Aufruf
+        // an den Server wuerde ohnehin abgewiesen — und die Antwort waere fuer
+        // den Anwender nicht hilfreicher als dieser Satz.
+        setScanError(
+          'Die automatische Erkennung ist nicht freigegeben. Ein Vorstandsmitglied kann sie ' +
+            'unter Einstellungen → Allgemein → KI-Assistent freischalten. Sie können den ' +
+            'Antrag jetzt von Hand erfassen; die Datei ist bereits übernommen.'
+        );
+        return;
+      }
       // Automatically trigger AI extraction
       await runAiExtraction(dataUrl, selectedFile.type, selectedFile.name);
     };
@@ -478,7 +497,9 @@ export const ApplicationPdfImporterModal: React.FC<ApplicationPdfImporterModalPr
                     <button
                       type="button"
                       onClick={() => runAiExtraction(fileDataUrl, file.type, file.name)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-rose-300 hover:bg-rose-100 text-rose-800 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+                      disabled={!ki.einsatzbereit}
+                      title={kiTitle(ki.einsatzbereit)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-rose-300 hover:bg-rose-100 text-rose-800 rounded-xl text-xs font-semibold cursor-pointer transition-colors${kiClass(ki.einsatzbereit)}`}
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       <span>Erneut versuchen</span>

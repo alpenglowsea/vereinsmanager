@@ -40,8 +40,20 @@ export interface AiConfigPublic {
    * weder ändern noch entfernen, und die Maske sagt das.
    */
   schluesselQuelle: 'konfiguration' | 'umgebung' | 'keine';
-  /** true, sobald die KI-Funktionen tatsächlich arbeiten könnten. */
+  /**
+   * Hat der Verein die Nutzung ausdrücklich freigegeben? Ein hinterlegter
+   * Schlüssel genügt dafür bewusst nicht — bei jedem Aufruf verlassen Daten
+   * des Vereins das Haus.
+   */
+  aktiviert: boolean;
+  /** Wer die Freigabe erteilt hat; leer, solange niemand sie erteilt hat. */
+  bestaetigtVon: string;
+  /** Wann die Freigabe erteilt wurde (ISO-Datum). */
+  bestaetigtAm: string;
+  /** true, sobald ein Schlüssel hinterlegt ist. */
   configured: boolean;
+  /** true, wenn die KI arbeiten darf UND kann. Nur darauf kommt es an. */
+  einsatzbereit: boolean;
 }
 
 /**
@@ -54,6 +66,10 @@ export interface AiConfigInput {
   provider: AiProvider;
   model?: string;
   apiKey?: string;
+  /** Weggelassen heißt "unverändert lassen". */
+  aktiviert?: boolean;
+  /** Pflicht beim Einschalten: Der Server lehnt eine Freigabe ohne Namen ab. */
+  bestaetigtVon?: string;
 }
 
 export const LEERE_KI_KONFIGURATION: AiConfigPublic = {
@@ -61,7 +77,11 @@ export const LEERE_KI_KONFIGURATION: AiConfigPublic = {
   model: '',
   hasApiKey: false,
   schluesselQuelle: 'keine',
+  aktiviert: false,
+  bestaetigtVon: '',
+  bestaetigtAm: '',
   configured: false,
+  einsatzbereit: false,
 };
 
 async function antwortLesen(antwort: Response): Promise<any> {

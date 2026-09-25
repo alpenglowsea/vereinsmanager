@@ -11,6 +11,7 @@ import {
   readAccessKey,
   readAiConfigPublic,
   readAiCredentials,
+  readAiZugangFuerTest,
   writeAiConfig,
   deleteAiConfig,
 } from './instanceConfig';
@@ -264,6 +265,18 @@ describe('Serverkonfiguration: Zugriffsschluessel', () => {
   });
 });
 
+/**
+ * Gibt die KI-Nutzung frei.
+ *
+ * Seit es die Freigabe gibt, liefert readAiCredentials() ohne sie bewusst
+ * null. Die Pruefungen unten drehen sich aber um etwas anderes — darum, ob ein
+ * abgelegter Schluessel unbeschadet zurueckkommt. Sie muessen deshalb den
+ * Zustand herstellen, den eine Installation im Betrieb hat.
+ */
+function freigeben(): void {
+  writeAiConfig({ provider: 'gemini', aktiviert: true, bestaetigtVon: 'Testlauf' });
+}
+
 describe('Serverkonfiguration: KI-Zugangsdaten', () => {
   it('meldet eine frische Installation als nicht eingerichtet', () => {
     const konfiguration = readAiConfigPublic();
@@ -286,6 +299,7 @@ describe('Serverkonfiguration: KI-Zugangsdaten', () => {
 
   it('gibt gespeicherte Zugangsdaten serverintern unveraendert zurueck', () => {
     writeAiConfig({ provider: 'gemini', apiKey: 'streng-geheim-123', model: 'gemini-2.5-flash' });
+    freigeben();
 
     const zugang = readAiCredentials();
     expect(zugang).not.toBeNull();
@@ -305,6 +319,7 @@ describe('Serverkonfiguration: KI-Zugangsdaten', () => {
 
   it('laesst den Schluessel stehen, wenn nur das Modell gewechselt wird', () => {
     writeAiConfig({ provider: 'gemini', apiKey: 'bleibt-erhalten' });
+    freigeben();
     writeAiConfig({ provider: 'gemini', model: 'gemini-2.0-flash' });
 
     expect(readAiCredentials()!.apiKey).toBe('bleibt-erhalten');
@@ -323,6 +338,7 @@ describe('Serverkonfiguration: KI-Zugangsdaten', () => {
     // Der Weg fuer den Docker-Betrieb: Der Schluessel steht dann in der
     // Compose-Datei und landet ebenfalls in keiner Datensicherung.
     process.env.GEMINI_API_KEY = 'aus-der-umgebung';
+    freigeben();
 
     const zugang = readAiCredentials();
     expect(zugang!.apiKey).toBe('aus-der-umgebung');
@@ -333,6 +349,7 @@ describe('Serverkonfiguration: KI-Zugangsdaten', () => {
   it('gibt dem hinterlegten Schluessel den Vorrang vor der Umgebung', () => {
     process.env.GEMINI_API_KEY = 'aus-der-umgebung';
     writeAiConfig({ provider: 'gemini', apiKey: 'aus-der-datei' });
+    freigeben();
 
     expect(readAiCredentials()!.apiKey).toBe('aus-der-datei');
     expect(readAiConfigPublic().schluesselQuelle).toBe('konfiguration');
@@ -355,6 +372,7 @@ describe('Serverkonfiguration: KI-Zugangsdaten', () => {
     // vergessen, faellt es beim naechsten Schreiben still unter den Tisch —
     // genau dieser Fehler ist uns bei accessKey schon einmal unterlaufen.
     writeAiConfig({ provider: 'gemini', apiKey: 'ki-schluessel' });
+    freigeben();
     writeSmtpConfig({ ...BEISPIEL, password: 'mail-passwort' });
 
     expect(readAiCredentials()!.apiKey).toBe('ki-schluessel');
@@ -374,5 +392,107 @@ describe('Serverkonfiguration: KI-Zugangsdaten', () => {
     expect(readAiConfigPublic().hasApiKey).toBe(false);
     expect(readAiCredentials()).toBeNull();
     warnung.mockRestore();
+  });
+});
+
+describe('Serverkonfiguration: Freigabe der KI-Nutzung', () => {
+  it('hat die KI in einer frischen Installation aus', () => {
+    const stand = readAiConfigPublic();
+    expect(stand.aktiviert).toBe(false);
+    expect(stand.einsatzbereit).toBe(false);
+    expect(stand.bestaetigtVon).toBe('');
+  });
+
+  it('schaltet durch einen hinterlegten Schluessel allein NICHTS frei', () => {
+    // Der Kern der Sache. Ein ausgefuelltes Feld ist keine Entscheidung.
+    const stand = writeAiConfig({ provider: 'gemini', apiKey: 'AIza-geheim' });
+
+    expect(stand.hasApiKey).toBe(true);
+    expect(stand.aktiviert).toBe(false);
+    expect(stand.einsatzbereit).toBe(false);
+    expect(readAiCredentials()).toBeNull();
+  });
+
+  it('laesst auch GEMINI_API_KEY aus der Umgebung nicht an der Freigabe vorbei', () => {
+    process.env.GEMINI_API_KEY = 'aus-der-umgebung';
+
+    expect(readAiConfigPublic().aktiviert).toBe(false);
+    expect(readAiCredentials()).toBeNull();
+  });
+
+  it('haelt fest, wer die Freigabe erteilt hat', () => {
+    // Die Frage, die einem Verein spaeter gestellt wird, lautet nicht "ob",
+    // sondern "wer hat das erlaubt".
+    writeAiConfig({ provider: 'gemini', apiKey: 'AIza-geheim' });
+    const stand = writeAiConfig({
+      provider: 'gemini',
+      aktiviert: true,
+      bestaetigtVon: 'Erika Musterfrau',
+    });
+
+    expect(stand.aktiviert).toBe(true);
+    expect(stand.einsatzbereit).toBe(true);
+    expect(stand.bestaetigtVon).toBe('Erika Musterfrau');
+    expect(stand.bestaetigtAm).not.toBe('');
+    expect(readAiCredentials()!.apiKey).toBe('AIza-geheim');
+  });
+
+  it('schaltet die Freigabe nicht ab, wenn nur das Modell gewechselt wird', () => {
+    writeAiConfig({ provider: 'gemini', apiKey: 'AIza-geheim' });
+    writeAiConfig({ provider: 'gemini', aktiviert: true, bestaetigtVon: 'Erika' });
+
+    const stand = writeAiConfig({ provider: 'gemini', model: 'gemini-2.5-flash' });
+    expect(stand.aktiviert).toBe(true);
+    expect(stand.bestaetigtVon).toBe('Erika');
+  });
+
+  it('nimmt die Freigabe zurueck und loescht den Vermerk, laesst den Schluessel aber liegen', () => {
+    writeAiConfig({ provider: 'gemini', apiKey: 'AIza-geheim' });
+    writeAiConfig({ provider: 'gemini', aktiviert: true, bestaetigtVon: 'Erika' });
+
+    const stand = writeAiConfig({ provider: 'gemini', aktiviert: false });
+    expect(stand.aktiviert).toBe(false);
+    expect(stand.bestaetigtVon).toBe('');
+    expect(readAiCredentials()).toBeNull();
+    // Wer wieder einschaltet, soll den Schluessel nicht neu eintippen muessen.
+    expect(stand.hasApiKey).toBe(true);
+  });
+
+  it('laesst den Verbindungstest auch ohne Freigabe an den Schluessel', () => {
+    // Sonst entstuende ein Henne-Ei-Problem: Man muesste die Nutzung erlauben,
+    // um herauszufinden, ob der Schluessel ueberhaupt stimmt. Der Test schickt
+    // "Antworte mit OK" und keine Vereinsdaten.
+    writeAiConfig({ provider: 'gemini', apiKey: 'AIza-geheim' });
+
+    expect(readAiCredentials()).toBeNull();
+    expect(readAiZugangFuerTest()!.apiKey).toBe('AIza-geheim');
+  });
+
+  it('laesst die Freigabe das Speichern der SMTP-Zugangsdaten ueberleben', () => {
+    writeAiConfig({ provider: 'gemini', apiKey: 'AIza-geheim' });
+    writeAiConfig({ provider: 'gemini', aktiviert: true, bestaetigtVon: 'Erika' });
+
+    writeSmtpConfig({ ...BEISPIEL, password: 'geheim123' });
+    expect(readAiConfigPublic().aktiviert).toBe(true);
+  });
+
+  it('laesst das Modell stehen, wenn nur die Freigabe umgelegt wird', () => {
+    // Gefunden, nachdem die Freigabe eingebaut war: writeAiConfig ersetzte das
+    // Modell auch dann, wenn der Aufruf es gar nicht mitschickte. Wer nur
+    // freigab, verlor seine Modellwahl — ohne jede Meldung.
+    writeAiConfig({ provider: 'gemini', apiKey: 'AIza-geheim', model: 'gemini-2.5-flash' });
+    writeAiConfig({ provider: 'gemini', aktiviert: true, bestaetigtVon: 'Erika' });
+
+    expect(readAiConfigPublic().model).toBe('gemini-2.5-flash');
+    expect(readAiCredentials()!.model).toBe('gemini-2.5-flash');
+  });
+
+  it('nimmt beim Loeschen der KI-Einstellungen die Freigabe mit', () => {
+    writeAiConfig({ provider: 'gemini', apiKey: 'AIza-geheim' });
+    writeAiConfig({ provider: 'gemini', aktiviert: true, bestaetigtVon: 'Erika' });
+
+    const stand = deleteAiConfig();
+    expect(stand.aktiviert).toBe(false);
+    expect(readAiCredentials()).toBeNull();
   });
 });
