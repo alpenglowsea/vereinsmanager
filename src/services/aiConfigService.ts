@@ -22,7 +22,11 @@
 
 import { apiFetch } from './apiClient';
 
-export type AiProvider = 'mistral' | 'gemini';
+/**
+ * Der Anbieter, mit dem die KI-Funktionen sprechen. Nur noch einer; die
+ * Begründung steht ausführlich in src/server/instanceConfig.ts.
+ */
+export type AiProvider = 'gemini';
 
 /** Was der Server über die hinterlegten KI-Zugangsdaten preisgibt. */
 export interface AiConfigPublic {
@@ -32,8 +36,8 @@ export interface AiConfigPublic {
   hasApiKey: boolean;
   /**
    * Woher ein vorhandener Schlüssel stammt. 'umgebung' heißt: aus
-   * MISTRAL_API_KEY oder GEMINI_API_KEY auf dem Server — dann lässt er sich
-   * über die Oberfläche weder ändern noch entfernen, und die Maske sagt das.
+   * GEMINI_API_KEY auf dem Server — dann lässt er sich über die Oberfläche
+   * weder ändern noch entfernen, und die Maske sagt das.
    */
   schluesselQuelle: 'konfiguration' | 'umgebung' | 'keine';
   /** true, sobald die KI-Funktionen tatsächlich arbeiten könnten. */
@@ -53,7 +57,7 @@ export interface AiConfigInput {
 }
 
 export const LEERE_KI_KONFIGURATION: AiConfigPublic = {
-  provider: 'mistral',
+  provider: 'gemini',
   model: '',
   hasApiKey: false,
   schluesselQuelle: 'keine',
@@ -146,14 +150,14 @@ const ALTE_BROWSER_FELDER = {
 } as const;
 
 /**
- * Anbieter aus einer früheren Fassung, die es nicht mehr gibt. Ein von dort
- * übernommener Schlüssel wird als Gemini-Schlüssel eingetragen, wenn er von
- * Google stammte — sonst gar nicht, denn ein OpenAI-Schlüssel nützt bei
- * Mistral nichts und eine falsche Zuordnung führt nur zu einer
- * Fehlermeldung, die niemand versteht.
+ * Frühere Fassungen kannten mehrere Anbieter. Ein Schlüssel, der zu einem
+ * davon gehörte, wird NICHT übernommen — er nützt bei Google nichts und
+ * führte nur zu einer Fehlermeldung, die niemand versteht. Er wird dann
+ * lediglich aus dem Browser entfernt.
  */
 function anbieterNochGueltig(roh: string): AiProvider | null {
-  if (roh === 'mistral' || roh === 'gemini') return roh;
+  // Ein leerer Eintrag stammt aus einer Fassung, die nur Google kannte.
+  if (roh === 'gemini' || roh === '') return 'gemini';
   return null;
 }
 

@@ -21,14 +21,6 @@ import {
   pruefeZugriff,
   erstelleCloudPruefer,
 } from "./src/server/apiAuth";
-import {
-  mistralText,
-  mistralOcr,
-  mistralTranskript,
-  mistralTest,
-  leseJson,
-  MISTRAL_MODELLE,
-} from "./src/server/mistral";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
@@ -234,20 +226,13 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
  * der Serverkonfiguration (src/server/instanceConfig.ts); ein Schlüssel im
  * Anfragekörper wird nicht mehr angenommen.
  *
- * Belegerkennung, Protokollauswertung und Antragsübernahme gibt es in zwei
- * Ausführungen, weil die beiden Anbieter verschieden gebaut sind: Gemini nimmt
- * Datei und Auftrag in einem Aufruf entgegen, Mistral trennt Texterkennung
- * (/v1/ocr) beziehungsweise Transkription (/v1/audio/transcriptions) von der
- * Auswertung. Welcher Weg gilt, entscheidet allein der hinterlegte Anbieter.
+ * Google Gemini ist der einzige Anbieter. Es war zwischenzeitlich mehr als
+ * einer, und das hat sich nicht bewährt — die Begründung steht in
+ * src/server/instanceConfig.ts beim Typ AiProvider.
  *
- * Ist Mistral eingestellt und wird dennoch ein Gemini-Zugang gebraucht, greift
- * ersatzweise GEMINI_API_KEY aus der Umgebung; fehlt auch der, sagt die
- * Fehlermeldung genau das.
+ * Ist kein Schlüssel hinterlegt, greift ersatzweise GEMINI_API_KEY aus der
+ * Umgebung; fehlt auch der, sagt die Fehlermeldung genau das.
  */
-const KEIN_MISTRAL_SCHLUESSEL =
-  "Für die KI-Funktionen wird ein Mistral-Schlüssel gebraucht. Bitte in den " +
-  "Einstellungen unter KI einen hinterlegen.";
-
 const KEIN_GEMINI_SCHLUESSEL =
   "Für diese Funktion wird ein Google-Gemini-Schlüssel gebraucht. Bitte in den " +
   "Einstellungen unter KI einen Gemini-Schlüssel hinterlegen (oder auf dem Server " +
@@ -423,33 +408,10 @@ app.post(["/api/test-ai-key", "/api/test-gemini-key"], bremse(bremseTeuer, "KI")
     const hinterlegt = readAiCredentials();
     const koerper = req.body || {};
 
-    // Anbieter, Modell und Adresse schickt die Maske mit — der Anwender hat
-    // sie womöglich gerade umgestellt und noch nicht gespeichert.
-    const provider: AiProvider = koerper.provider || hinterlegt?.provider || "gemini";
-    const model: string = (koerper.model ?? "").trim() || hinterlegt?.model || "";
-    // Der hinterlegte Schlüssel wird nur dann herangezogen, wenn er zum
-    // geprüften Anbieter gehört. Sonst würde bei einem Anbieterwechsel ohne
-    // neue Eingabe der alte Schlüssel gegen den neuen Anbieter geprüft — und
-    // die Fehlermeldung ließe den Anwender im Dunkeln.
-    const passtZumHinterlegten = Boolean(hinterlegt && hinterlegt.provider === provider);
-    const apiKey: string =
-      (koerper.apiKey ?? "").trim() || (passtZumHinterlegten ? hinterlegt!.apiKey : "");
+    // Ein im Körper mitgeschickter Schlüssel hat Vorrang: Genau dafür ist
+    // dieser Endpunkt da. Ist das Feld leer, gilt der hinterlegte.
+    const apiKey: string = (koerper.apiKey ?? "").trim() || hinterlegt?.apiKey || "";
 
-    // 1. Mistral
-    if (provider === "mistral") {
-      const keyToUse = apiKey || process.env.MISTRAL_API_KEY;
-      if (!keyToUse) {
-        return res.status(400).json({ success: false, error: "Kein Mistral-Schlüssel angegeben." });
-      }
-      const ergebnis = await mistralTest(keyToUse, model || MISTRAL_MODELLE.text);
-      return res.status(ergebnis.success ? 200 : 400).json({
-        success: ergebnis.success,
-        message: ergebnis.success ? ergebnis.message : undefined,
-        error: ergebnis.success ? undefined : ergebnis.message,
-      });
-    }
-
-    // 4. Default: Google Gemini
     const geminiKey = apiKey || process.env.GEMINI_API_KEY?.trim() || "";
     if (!geminiKey) {
       return res.status(400).json({ success: false, error: "Kein Gemini API-Schlüssel angegeben." });
@@ -553,22 +515,6 @@ Gib ausschließlich valides JSON mit diesem Format aus:
   "reasoning": "Kurze 1-2 Satz Begründung nach Gemeinnützigkeitsrecht"
 }`;
 
-    // A. Mistral: ein Aufruf, Antwort im JSON-Modus.
-    if (aiProvider === "mistral") {
-      if (!userApiKey) throw new Error(KEIN_MISTRAL_SCHLUESSEL);
-      const antwort = await mistralText({
-        schluessel: userApiKey,
-        modell: aiModel,
-        system:
-          "Du bist ein Experte für deutsches Vereinssteuerrecht und DATEV SKR 42. " +
-          "Antworte ausschließlich mit reinem JSON.",
-        eingabe: prompt,
-        alsJson: true,
-      });
-      return res.json({ success: true, data: leseJson(antwort) });
-    }
-
-    // C. Default: Google Gemini
     const ai = getGeminiClient();
 
     const schemaConfig = {
@@ -707,25 +653,6 @@ Extrahiere:
 
 Falls ein Feld nicht auf dem Dokument steht oder unleserlich ist, setze einen leeren String bzw. Standardwert ein. Erfinde keine Bankdaten oder Namen.`;
 
-    // Mistral geht zweistufig vor: erst die Datei in Text verwandeln
-    // (/v1/ocr), dann den Text auswerten. Das gilt fuer PDF wie fuer Foto.
-    if (kiZugang?.provider === "mistral") {
-      if (!kiZugang.apiKey) throw new Error(KEIN_MISTRAL_SCHLUESSEL);
-      const erkannt = await mistralOcr({
-        schluessel: kiZugang.apiKey,
-        dataUrl: fileDataUrl,
-        mimeType: detectedMimeType,
-      });
-      const antwort = await mistralText({
-        schluessel: kiZugang.apiKey,
-        modell: kiZugang.model,
-        system: "Du liest deutsche Vereins-Aufnahmeantraege aus. Antworte ausschliesslich mit reinem JSON.",
-        eingabe: `${prompt}\n\nINHALT DES ANTRAGS:\n${erkannt}`,
-        alsJson: true,
-      });
-      return res.json({ success: true, data: leseJson(antwort), fileName });
-    }
-    // Ab hier der Weg ueber Google Gemini: Datei und Auftrag in einem Aufruf.
     const ai = getGeminiClient();
 
     const schemaConfig = {
@@ -918,25 +845,6 @@ Extrahiere alle erkennbaren Inhalte und überführe sie in eine saubere, struktu
 
 Falls bestimmte Angaben auf den Notizen nicht vorhanden sind, ergänze sinnvolle Standardwerte bzw. lasse optionale Felder leer.`;
 
-    // Mistral geht zweistufig vor: erst die Datei in Text verwandeln
-    // (/v1/ocr), dann den Text auswerten.
-    if (kiZugang?.provider === "mistral") {
-      if (!kiZugang.apiKey) throw new Error(KEIN_MISTRAL_SCHLUESSEL);
-      const erkannt = await mistralOcr({
-        schluessel: kiZugang.apiKey,
-        dataUrl: fileDataUrl,
-        mimeType: detectedMimeType,
-      });
-      const antwort = await mistralText({
-        schluessel: kiZugang.apiKey,
-        modell: kiZugang.model,
-        system: "Du wertest Notizen und Unterlagen von Vereinssitzungen aus. Antworte ausschliesslich mit reinem JSON.",
-        eingabe: `${prompt}\n\nINHALT DES DOKUMENTS:\n${erkannt}`,
-        alsJson: true,
-      });
-      return res.json({ success: true, data: leseJson(antwort), fileName });
-    }
-    // Ab hier der Weg ueber Google Gemini: Datei und Auftrag in einem Aufruf.
     const ai = getGeminiClient();
 
     const schemaConfig = {
@@ -1112,27 +1020,6 @@ AUFGABE:
 4. Erfasse namentlich genannte Teilnehmer und ihre Funktionen.
 5. Gib eine kompakte Zusammenfassung / Transkript-Essenz der wichtigsten Sitzungsinhalte an.`;
 
-    // Mistral geht zweistufig vor: erst die Tonaufnahme mitschreiben, dann
-    // den Text auswerten. Der Zwischenschritt ist lesbar — schlaegt etwas
-    // fehl, sagt die Meldung, ob die Aufnahme oder die Auswertung schuld war.
-    if (kiZugang?.provider === "mistral") {
-      if (!kiZugang.apiKey) throw new Error(KEIN_MISTRAL_SCHLUESSEL);
-      const mitschrift = await mistralTranskript({
-        schluessel: kiZugang.apiKey,
-        dataUrl: audioDataUrl,
-        mimeType: detectedMimeType,
-        dateiName: fileName,
-      });
-      const antwort = await mistralText({
-        schluessel: kiZugang.apiKey,
-        modell: kiZugang.model,
-        system: "Du wertest Mitschriften von Vereinssitzungen aus. Antworte ausschliesslich mit reinem JSON.",
-        eingabe: `${prompt}\n\nMITSCHRIFT DER AUFNAHME:\n${mitschrift}`,
-        alsJson: true,
-      });
-      return res.json({ success: true, data: leseJson(antwort), fileName });
-    }
-    // Ab hier der Weg ueber Google Gemini: Datei und Auftrag in einem Aufruf.
     const ai = getGeminiClient();
 
     const schemaConfig = {
@@ -1353,27 +1240,6 @@ Gib eine Liste strukturierter Tagesordnungspunkte (TOP 1, TOP 2, ...) mit Titel 
       return res.status(400).json({ error: `Unbekannte Aktion: ${action}` });
     }
 
-    // Mistral braucht hier nur einen Aufruf: reine Textarbeit, keine Datei.
-    // Verlangt die Aktion eine gegliederte Antwort (schemaConfig gesetzt),
-    // wird der JSON-Modus eingeschaltet, sonst kommt Fliesstext zurueck.
-    if (kiZugang?.provider === "mistral") {
-      if (!kiZugang.apiKey) throw new Error(KEIN_MISTRAL_SCHLUESSEL);
-      const antwort = await mistralText({
-        schluessel: kiZugang.apiKey,
-        modell: kiZugang.model,
-        system:
-          "Du bist ein juristischer Protokollfuehrer fuer deutsche Vereine." +
-          (schemaConfig ? " Antworte ausschliesslich mit reinem JSON." : ""),
-        eingabe: prompt,
-        alsJson: Boolean(schemaConfig),
-      });
-      return res.json({
-        success: true,
-        data: schemaConfig ? leseJson(antwort) : antwort,
-      });
-    }
-
-    // Ab hier der Weg ueber Google Gemini.
     const ai = getGeminiClient();
 
     const aiConfig: any = {};
@@ -1568,11 +1434,14 @@ app.post("/api/ai/config", bremse(bremsePost, "KI-Einstellungen"), (req, res) =>
   try {
     const { provider, model, apiKey } = req.body ?? {};
 
-    const erlaubte: AiProvider[] = ["mistral", "gemini"];
+    // Nur noch ein Anbieter. Die Prüfung bleibt trotzdem stehen: Sie hält
+    // eine alte Oberfläche oder eine Datensicherung davon ab, einen Anbieter
+    // einzutragen, den es hier nicht mehr gibt.
+    const erlaubte: AiProvider[] = ["gemini"];
     if (!erlaubte.includes(provider)) {
       return res.status(400).json({
         success: false,
-        error: `Unbekannter KI-Anbieter. Möglich sind: ${erlaubte.join(", ")}.`,
+        error: `Unbekannter KI-Anbieter. Möglich ist: ${erlaubte.join(", ")}.`,
       });
     }
     if (apiKey !== undefined && apiKey !== null && typeof apiKey !== "string") {

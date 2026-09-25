@@ -257,14 +257,10 @@ export interface ClubSettings {
 }
 
 /**
- * Die Anbieter, mit denen die KI-Funktionen sprechen können.
- *
- * Seit Fassung 0.9 nur noch zwei. OpenAI, Anthropic und „eigene Adresse" sind
- * gegangen: Von fünf KI-Funktionen konnte genau eine mit ihnen arbeiten, die
- * übrigen vier brauchten Google. Mistral ist dazugekommen — EU-Unternehmen,
- * EU-Verarbeitung, und es beherrscht alle fünf.
+ * Der Anbieter, mit dem die KI-Funktionen sprechen. Seit Fassung 0.9 nur noch
+ * einer; die ausführliche Begründung steht in src/server/instanceConfig.ts.
  */
-export type AiProviderType = 'mistral' | 'gemini';
+export type AiProviderType = 'gemini';
 
 export interface BookingAiSuggestion {
   sphere: TaxSphere;

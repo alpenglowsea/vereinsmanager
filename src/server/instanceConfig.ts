@@ -81,20 +81,38 @@ export interface SmtpConfigPublic {
 }
 
 /**
- * Die Anbieter, mit denen die KI-Funktionen sprechen können.
+ * Der Anbieter, mit dem die KI-Funktionen sprechen. Es ist nur noch einer —
+ * und dass hier trotzdem ein Typ mit einem einzigen Wert steht, ist Absicht:
+ * Käme je ein zweiter dazu, meldet der Compiler jede Stelle, die davon nichts
+ * weiß.
  *
- * Es waren einmal vier. OpenAI, Anthropic und „eigene Adresse" sind wieder
- * gegangen, weil die Unterstützung nur zur Hälfte echt war: Von fünf
- * KI-Funktionen konnte genau eine mit ihnen arbeiten, die übrigen vier
- * brauchten Google. Eine Auswahl, die mehr verspricht, als dahintersteckt,
- * hilft einem Verein nicht.
+ * Wie es dazu kam, weil die Frage sonst alle paar Monate neu gestellt wird:
  *
- * Mistral ist dazugekommen: ein französisches Unternehmen mit Verarbeitung auf
- * EU-Infrastruktur und einem DSGVO-konformen Auftragsverarbeitungsvertrag. Für
- * eine Vereinsverwaltung, die Mitgliederdaten durch eine Belegerkennung
- * schickt, ist das der wesentliche Unterschied.
+ *   Es waren einmal vier — Google, OpenAI, Anthropic und eine frei eintragbare
+ *   Adresse. Diese Auswahl war nur zur Hälfte echt: Von fünf KI-Funktionen
+ *   konnte genau eine mit den anderen dreien arbeiten, die übrigen vier
+ *   brauchten Google. Wer OpenAI eintrug, bekam vier Fehlermeldungen, die
+ *   nicht sagten, warum.
+ *
+ *   Dann kam Mistral AI dazu — französisches Unternehmen, Verarbeitung auf
+ *   EU-Infrastruktur, Auftragsverarbeitungsvertrag: fachlich die bessere Wahl
+ *   für eine deutsche Vereinsverwaltung, und als einziger Anbieter neben
+ *   Google in der Lage, alle fünf Funktionen zu bedienen. Der Umbau war
+ *   fertig und ist in Commit 4b0933b nachzulesen.
+ *
+ *   Gescheitert ist er an etwas, das in keiner Dokumentation stand: Mistrals
+ *   kostenloser Zugang teilt ohne hinterlegte Zahlungsdaten gar kein
+ *   Kontingent zu — der Server antwortet mit
+ *   `x-ratelimit-limit-req-minute: 0` und weist jede Anfrage ab. Einem
+ *   ehrenamtlichen Kassenwart Zahlungsdaten abzuverlangen, damit er eine
+ *   Belegerkennung ausprobieren kann, ist keine zumutbare Hürde.
+ *
+ * Bleibt Google Gemini — mit dem Nachteil, dass dessen kostenloser Tarif die
+ * übermittelten Inhalte zum Training verwenden darf und sich das dort nicht
+ * abschalten lässt. Deshalb sind die KI-Funktionen standardmäßig aus und
+ * verlangen beim Einschalten eine Bestätigung.
  */
-export type AiProvider = 'mistral' | 'gemini';
+export type AiProvider = 'gemini';
 
 /**
  * Vollständige KI-Zugangsdaten inklusive Klartext-Schlüssel. Nur serverintern —
@@ -462,14 +480,8 @@ export function deleteSmtpConfig(): SmtpConfigPublic {
 // KI-Zugangsdaten
 // ---------------------------------------------------------------------------
 
-/**
- * Welcher Anbieter gilt, solange nichts eingestellt ist.
- *
- * Mistral, weil es die Voreinstellung ist, die ein deutscher Verein am
- * ehesten verantworten kann: EU-Unternehmen, EU-Verarbeitung, Vertrag zur
- * Auftragsverarbeitung. Wer Google vorzieht, stellt es um.
- */
-const VORGABE_ANBIETER: AiProvider = 'mistral';
+/** Welcher Anbieter gilt, solange nichts eingestellt ist. */
+const VORGABE_ANBIETER: AiProvider = 'gemini';
 
 /**
  * Der Schlüssel darf auch aus der Umgebung kommen — für den Docker- und
@@ -479,7 +491,6 @@ const VORGABE_ANBIETER: AiProvider = 'mistral';
  */
 function schluesselAusUmgebung(provider: AiProvider): string {
   const namen: Record<AiProvider, string> = {
-    mistral: 'MISTRAL_API_KEY',
     gemini: 'GEMINI_API_KEY',
   };
   return process.env[namen[provider]]?.trim() || '';

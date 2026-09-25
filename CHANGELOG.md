@@ -6,31 +6,31 @@ Alle relevanten Änderungen und Versionsstände des VereinsManagers werden in di
 
 ## [unveröffentlicht]
 
-### 🇪🇺 Mistral AI statt vier halber Anbieter
+### 🤖 Ein KI-Anbieter statt vier halber — und warum es nicht Mistral wurde
 
 - **Die Auswahl versprach mehr, als dahintersteckte.** Von fünf KI-Funktionen
   konnte genau eine — die Zuordnung von Buchungen — mit OpenAI, Anthropic oder
   einer eigenen Adresse arbeiten. Belegerkennung, Antragsübernahme und beide
   Protokollauswertungen riefen immer Google Gemini auf, gleichgültig was
   eingestellt war. Wer brav OpenAI eintrug, bekam vier von fünf Funktionen
-  nicht zum Laufen und eine Fehlermeldung, die nicht sagte, warum.
-- **Neu: Mistral AI.** Französisches Unternehmen, Verarbeitung auf
-  EU-Infrastruktur, Vertrag zur Auftragsverarbeitung verfügbar — damit entfällt
-  die Übermittlung in ein Drittland. Und es beherrscht alle fünf Funktionen:
-  Texterkennung für Belege und Anträge über `/v1/ocr`, Mitschriften von
-  Tonaufnahmen über `/v1/audio/transcriptions`, alles Übrige über den
-  Textdienst.
-- **Zur Datenschutzfrage, die dahintersteht:** Beim kostenlosen Tarif dürfen
-  beide Anbieter die übermittelten Inhalte zum Training verwenden. Der
-  Unterschied: Bei Mistral lässt sich das in der Verwaltungskonsole
-  abschalten, bei Googles kostenlosem Tarif nicht. Für einen Verein, der
-  Aufnahmeanträge mit Namen, Anschrift und Bankverbindung durch die Erkennung
-  schickt, ist das der entscheidende Punkt. Die Anbieterauswahl benennt das
-  jetzt offen, statt beide als gleichwertig nebeneinanderzustellen.
-- **OpenAI, Anthropic und „eigene Adresse" sind entfallen.** Damit verschwindet
-  auch der Sonderfall, dass eine eigene KI-Adresse im Docker-Betrieb vom
-  Container aus aufgerufen worden wäre und nicht vom Rechner des Anwenders.
-- Mistral ist die Voreinstellung für neue Installationen.
+  nicht zum Laufen und eine Fehlermeldung, die nicht sagte, warum. Alle drei
+  sind entfallen.
+- **Mistral AI war gebaut und ist wieder ausgebaut.** Ein französisches
+  Unternehmen mit Verarbeitung auf EU-Infrastruktur wäre für eine deutsche
+  Vereinsverwaltung die bessere Wahl gewesen, und es beherrscht als einziger
+  Anbieter neben Google alle fünf Funktionen. Gescheitert ist es an etwas, das
+  in keiner Dokumentation stand: Der kostenlose Zugang teilt ohne hinterlegte
+  Zahlungsdaten gar kein Kontingent zu — der Server antwortet mit
+  `x-ratelimit-limit-req-minute: 0` und weist jede Anfrage ab. Einem
+  ehrenamtlichen Kassenwart Zahlungsdaten abzuverlangen, damit er eine
+  Belegerkennung ausprobieren kann, ist keine zumutbare Hürde. Der fertige
+  Umbau liegt in **Commit 4b0933b** und ist von dort holbar, falls Mistral
+  seinen Zugang eines Tages ändert.
+- **Was dabei herauskam und bleibt:** Bei jedem geprüften Anbieter gilt
+  dasselbe Muster — kostenlos heißt, die Daten dürfen zum Training verwendet
+  werden; wer das ausschließen will, hinterlegt Zahlungsdaten. Einen Weg mit
+  beidem gibt es nicht. Die Anwendung benennt das jetzt offen, statt einen
+  kostenlosen Tarif als sorglose Empfehlung darzustellen.
 
 ### 🔐 Der KI-Schlüssel liegt nicht mehr im Browser — und in keiner Datensicherung
 

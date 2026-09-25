@@ -29,7 +29,7 @@ let alteWerte: { dataDir?: string; secretKey?: string };
  * ihn vor und schluegen fehl. Deshalb werden sie fuer die Dauer der Tests
  * beiseitegelegt und danach zurueckgestellt.
  */
-const KI_UMGEBUNG = ['MISTRAL_API_KEY', 'GEMINI_API_KEY'] as const;
+const KI_UMGEBUNG = ['GEMINI_API_KEY'] as const;
 let alteKiUmgebung: Record<string, string | undefined> = {};
 
 const BEISPIEL = {
@@ -269,7 +269,7 @@ describe('Serverkonfiguration: KI-Zugangsdaten', () => {
     const konfiguration = readAiConfigPublic();
     expect(konfiguration.configured).toBe(false);
     expect(konfiguration.hasApiKey).toBe(false);
-    expect(konfiguration.provider).toBe('mistral');
+    expect(konfiguration.provider).toBe('gemini');
     expect(konfiguration.schluesselQuelle).toBe('keine');
     expect(readAiCredentials()).toBeNull();
   });
@@ -277,7 +277,7 @@ describe('Serverkonfiguration: KI-Zugangsdaten', () => {
   it('legt den Schluessel verschluesselt ab — kein Klartext in der Datei', () => {
     // Der eigentliche Zweck der ganzen Uebung. Schluege dieser Test fehl,
     // waere alles Uebrige wertlos.
-    writeAiConfig({ provider: 'mistral', apiKey: 'streng-geheim-123', model: 'mistral-small-latest' });
+    writeAiConfig({ provider: 'gemini', apiKey: 'streng-geheim-123', model: 'gemini-2.5-flash' });
 
     const roh = fs.readFileSync(path.join(verzeichnis, 'konfiguration.json'), 'utf8');
     expect(roh).not.toContain('streng-geheim-123');
@@ -285,13 +285,13 @@ describe('Serverkonfiguration: KI-Zugangsdaten', () => {
   });
 
   it('gibt gespeicherte Zugangsdaten serverintern unveraendert zurueck', () => {
-    writeAiConfig({ provider: 'mistral', apiKey: 'streng-geheim-123', model: 'mistral-small-latest' });
+    writeAiConfig({ provider: 'gemini', apiKey: 'streng-geheim-123', model: 'gemini-2.5-flash' });
 
     const zugang = readAiCredentials();
     expect(zugang).not.toBeNull();
     expect(zugang!.apiKey).toBe('streng-geheim-123');
-    expect(zugang!.provider).toBe('mistral');
-    expect(zugang!.model).toBe('mistral-small-latest');
+    expect(zugang!.provider).toBe('gemini');
+    expect(zugang!.model).toBe('gemini-2.5-flash');
     expect(zugang!.quelle).toBe('konfiguration');
   });
 
@@ -322,7 +322,7 @@ describe('Serverkonfiguration: KI-Zugangsdaten', () => {
   it('nimmt den Schluessel aus der Umgebung, wenn keiner hinterlegt ist', () => {
     // Der Weg fuer den Docker-Betrieb: Der Schluessel steht dann in der
     // Compose-Datei und landet ebenfalls in keiner Datensicherung.
-    process.env.MISTRAL_API_KEY = 'aus-der-umgebung';
+    process.env.GEMINI_API_KEY = 'aus-der-umgebung';
 
     const zugang = readAiCredentials();
     expect(zugang!.apiKey).toBe('aus-der-umgebung');
@@ -331,16 +331,16 @@ describe('Serverkonfiguration: KI-Zugangsdaten', () => {
   });
 
   it('gibt dem hinterlegten Schluessel den Vorrang vor der Umgebung', () => {
-    process.env.MISTRAL_API_KEY = 'aus-der-umgebung';
-    writeAiConfig({ provider: 'mistral', apiKey: 'aus-der-datei' });
+    process.env.GEMINI_API_KEY = 'aus-der-umgebung';
+    writeAiConfig({ provider: 'gemini', apiKey: 'aus-der-datei' });
 
     expect(readAiCredentials()!.apiKey).toBe('aus-der-datei');
     expect(readAiConfigPublic().schluesselQuelle).toBe('konfiguration');
   });
 
   it('behaelt beim Loeschen einen Schluessel aus der Umgebung', () => {
-    writeAiConfig({ provider: 'mistral', apiKey: 'weg-damit' });
-    process.env.MISTRAL_API_KEY = 'umgebung-bleibt';
+    writeAiConfig({ provider: 'gemini', apiKey: 'weg-damit' });
+    process.env.GEMINI_API_KEY = 'umgebung-bleibt';
 
     const danach = deleteAiConfig();
     expect(danach.hasApiKey).toBe(true);
@@ -354,14 +354,14 @@ describe('Serverkonfiguration: KI-Zugangsdaten', () => {
     // Beide Abschnitte liegen in derselben Datei. Wird beim Einlesen ein Feld
     // vergessen, faellt es beim naechsten Schreiben still unter den Tisch —
     // genau dieser Fehler ist uns bei accessKey schon einmal unterlaufen.
-    writeAiConfig({ provider: 'mistral', apiKey: 'ki-schluessel' });
+    writeAiConfig({ provider: 'gemini', apiKey: 'ki-schluessel' });
     writeSmtpConfig({ ...BEISPIEL, password: 'mail-passwort' });
 
     expect(readAiCredentials()!.apiKey).toBe('ki-schluessel');
     expect(readSmtpCredentials()!.password).toBe('mail-passwort');
 
     const zugriff = readAccessKey().key;
-    writeAiConfig({ provider: 'mistral', model: 'mistral-large-latest' });
+    writeAiConfig({ provider: 'gemini', model: 'gemini-flash-latest' });
     expect(readAccessKey().key).toBe(zugriff);
     expect(readSmtpCredentials()!.password).toBe('mail-passwort');
   });

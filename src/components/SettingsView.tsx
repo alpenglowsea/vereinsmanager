@@ -102,40 +102,27 @@ interface ProviderMeta {
   description: string;
 }
 
+/**
+ * Nur noch ein Anbieter. Warum, steht ausfuehrlich in
+ * src/server/instanceConfig.ts beim Typ AiProvider — kurz: Mistral AI waere
+ * fachlich die bessere Wahl gewesen, verlangt fuer seinen kostenlosen Zugang
+ * aber hinterlegte Zahlungsdaten.
+ *
+ * Die Liste bleibt als Liste bestehen, obwohl ein Eintrag darin steht: Kaeme
+ * je ein zweiter Anbieter dazu, ist die Maske darauf schon eingerichtet.
+ */
 const AI_PROVIDERS: ProviderMeta[] = [
-  {
-    id: 'mistral',
-    name: 'Mistral AI (Frankreich)',
-    badge: 'EU • Kostenloser Tarif',
-    badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
-    keyLabel: 'Mistral API-Schlüssel',
-    keyPlaceholder: 'Ihr Schlüssel von console.mistral.ai',
-    keyLinkUrl: 'https://console.mistral.ai/api-keys',
-    keyLinkLabel: 'Schlüssel in der Mistral-Konsole erstellen',
-    defaultModel: 'mistral-small-latest',
-    // Die Kennungen sind gegen die Modellliste eines echten Mistral-Kontos
-    // geprüft (GET /v1/models). Ein früher hier angebotenes
-    // "mistral-large-latest" gibt es dort nicht — die Auswahl hätte jede
-    // KI-Anfrage mit einer unverständlichen Meldung scheitern lassen.
-    models: [
-      { id: 'mistral-small-latest', name: 'Mistral Small (schnell, für die meisten Aufgaben ausreichend)' },
-      { id: 'mistral-medium-latest', name: 'Mistral Medium (gründlicher, langsamer)' },
-      { id: 'ministral-8b-latest', name: 'Ministral 8B (sparsamster Verbrauch)' },
-    ],
-    description:
-      'Französisches Unternehmen, Verarbeitung auf EU-Infrastruktur, Vertrag zur Auftragsverarbeitung verfügbar. Damit entfällt die Übermittlung in ein Drittland.',
-  },
   {
     id: 'gemini',
     name: 'Google Gemini',
-    badge: 'USA • Kostenloser Tarif',
+    badge: 'Kostenloser Tarif',
     badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300',
     keyLabel: 'Google Gemini API-Schlüssel',
     keyPlaceholder: 'AIzaSy...',
     keyLinkUrl: 'https://aistudio.google.com/app/apikey',
-    keyLinkLabel: 'Kostenlosen Schlüssel generieren',
+    keyLinkLabel: 'Kostenlosen Schlüssel erstellen',
     description:
-      'Verarbeitung in den USA. Beim kostenlosen Tarif dürfen die übermittelten Inhalte laut Googles Bedingungen zur Produktverbesserung verwendet werden — und das lässt sich dort nicht abschalten.',
+      'Verarbeitung in den USA. Beim kostenlosen Tarif dürfen die übermittelten Inhalte laut Googles Bedingungen zur Produktverbesserung verwendet werden; abschalten lässt sich das dort nicht.',
   },
 ];
 
@@ -1959,48 +1946,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
 
                 <div className="space-y-4">
-                  {/* Provider Selection */}
-                  <div>
-                    <label className="block text-2xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                      KI-Anbieter auswählen
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                      {AI_PROVIDERS.map(provider => {
-                        const isSelected = aiProvider === provider.id;
-                        return (
-                          <button
-                            key={provider.id}
-                            type="button"
-                            onClick={() => {
-                              setAiProvider(provider.id);
-                              setKeyTestResult(null);
-                              if (provider.defaultModel && (!aiModel || !provider.models?.some(m => m.id === aiModel))) {
-                                setAiModel(provider.defaultModel);
-                              }
-                            }}
-                            className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
-                              isSelected
-                                ? 'bg-purple-50/70 dark:bg-purple-950/40 border-purple-500 dark:border-purple-500 ring-2 ring-purple-500/20 shadow-xs'
-                                : 'bg-slate-50/60 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                                {provider.name}
-                              </span>
-                              {isSelected && <Check className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />}
-                            </div>
-                            <span className={`px-1.5 py-0.5 text-3xs font-semibold rounded-md w-fit ${provider.badgeColor}`}>
-                              {provider.badge}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <p className="text-2xs text-slate-500 dark:text-slate-400 mt-2">
-                      {currentProviderInfo.description}
-                    </p>
-                  </div>
+                  {/* Bei einem einzigen Anbieter waere eine Auswahl Zierrat.
+                      Was der Anwender wissen muss, steht im Hinweis darunter. */}
+                  <p className="text-2xs text-slate-500 dark:text-slate-400">
+                    Die KI-Funktionen arbeiten mit <strong>{currentProviderInfo.name}</strong>.{' '}
+                    {currentProviderInfo.description}
+                  </p>
 
                   {/* Model Selection if options exist */}
                   {currentProviderInfo.models && (
