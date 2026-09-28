@@ -4,20 +4,18 @@ import {
   Tag,
   Plus,
   X,
-  Check,
   AlertCircle,
   Trash2,
   Settings2
 } from 'lucide-react';
-import { TaxSphere, Skr42MainCategory, Skr42SubCategory } from '../types';
-import { TAX_SPHERES, SKR42_STRUCTURE } from '../data/taxSpheres';
+import { Skr42MainCategory, Skr42SubCategory } from '../types';
+import { SKR42_STRUCTURE } from '../data/taxSpheres';
 import { customCategoryService } from '../services/customCategoryService';
 
 export interface CreateAccountModalProps {
   isOpen: boolean;
   onClose: () => void;
   mode: 'main' | 'sub';
-  currentSphere: TaxSphere;
   currentType: 'income' | 'expense';
   currentMainCatIdOrCode?: string;
   initialQuery?: string;
@@ -29,7 +27,6 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   isOpen,
   onClose,
   mode: initialMode,
-  currentSphere,
   currentType,
   currentMainCatIdOrCode,
   initialQuery = '',
@@ -40,7 +37,6 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   const [mode, setMode] = useState<'main' | 'sub'>(initialMode);
 
   // Form State for Main Account
-  const [mainSphere, setMainSphere] = useState<TaxSphere>(currentSphere);
   const [mainType, setMainType] = useState<'income' | 'expense'>(currentType);
   const [mainCode, setMainCode] = useState('');
   const [mainName, setMainName] = useState('');
@@ -71,7 +67,6 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
       setMode(initialMode);
       setActiveTab('create');
       setError(null);
-      setMainSphere(currentSphere);
       setMainType(currentType);
       reloadCustomData();
 
@@ -79,40 +74,38 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
       const isNumericQuery = /^\d+$/.test(initialText);
 
       if (initialMode === 'main') {
-        const suggested = customCategoryService.suggestNextCode(currentSphere, currentType);
+        const suggested = customCategoryService.suggestNextCode(currentType);
         setMainCode(isNumericQuery ? initialText : suggested);
         setMainName(isNumericQuery ? '' : initialText);
-        setSubVatRate(currentSphere === 'wirtschaftlich' ? 19 : currentSphere === 'zweckbetrieb' ? 7 : 0);
+        setSubVatRate(0);
       } else {
-        const targetParent = currentMainCatIdOrCode || SKR42_STRUCTURE.find(m => m.sphere === currentSphere)?.code || '40000';
+        const targetParent = currentMainCatIdOrCode || SKR42_STRUCTURE.find(m => m.type === currentType)?.code || '40000';
         setParentMainId(targetParent);
-        const suggested = customCategoryService.suggestNextCode(currentSphere, currentType, targetParent);
+        const suggested = customCategoryService.suggestNextCode(currentType, targetParent);
         setSubCode(isNumericQuery ? initialText : suggested);
         setSubName(isNumericQuery ? '' : initialText);
-
-        const parentSphere = SKR42_STRUCTURE.find(m => m.id === targetParent || m.code === targetParent)?.sphere || currentSphere;
-        setSubVatRate(parentSphere === 'wirtschaftlich' ? 19 : parentSphere === 'zweckbetrieb' ? 7 : 0);
+        setSubVatRate(0);
       }
     }
-  }, [isOpen, initialMode, currentSphere, currentType, currentMainCatIdOrCode, initialQuery]);
+  }, [isOpen, initialMode, currentType, currentMainCatIdOrCode, initialQuery]);
 
-  // Update suggested code and VAT rate when main sphere or type changes
+  // Update suggested code when main type changes
   useEffect(() => {
     if (mode === 'main') {
-      const suggested = customCategoryService.suggestNextCode(mainSphere, mainType);
+      const suggested = customCategoryService.suggestNextCode(mainType);
       setMainCode(suggested);
-      setSubVatRate(mainSphere === 'wirtschaftlich' ? 19 : mainSphere === 'zweckbetrieb' ? 7 : 0);
+      setSubVatRate(0);
     }
-  }, [mainSphere, mainType, mode]);
+  }, [mainType, mode]);
 
   // Update suggested code when parent main category changes in sub mode
   useEffect(() => {
     if (mode === 'sub' && parentMainId) {
       const targetMain = SKR42_STRUCTURE.find(m => m.id === parentMainId || m.code === parentMainId);
       if (targetMain) {
-        const suggested = customCategoryService.suggestNextCode(targetMain.sphere, targetMain.type, targetMain.code);
+        const suggested = customCategoryService.suggestNextCode(targetMain.type, targetMain.code);
         setSubCode(suggested);
-        setSubVatRate(targetMain.sphere === 'wirtschaftlich' ? 19 : targetMain.sphere === 'zweckbetrieb' ? 7 : 0);
+        setSubVatRate(0);
       }
     }
   }, [parentMainId, mode]);
@@ -128,7 +121,6 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
         const newMain = customCategoryService.addCustomMainCategory({
           code: mainCode,
           name: mainName,
-          sphere: mainSphere,
           type: mainType,
           initialSubAccount: createInitialSub
             ? {
@@ -148,7 +140,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
         // Sub account
         const targetMain = SKR42_STRUCTURE.find(m => m.id === parentMainId || m.code === parentMainId);
         if (!targetMain) {
-          setError('Bitte wählen Sie ein übergeordnetes Hauptkonto aus.');
+          setError('Bitte wählen Sie einen übergeordneten Nummernkreis aus.');
           return;
         }
 
@@ -171,14 +163,14 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   };
 
   const handleDeleteMain = (codeOrId: string) => {
-    if (confirm('Möchten Sie dieses selbst angelegte Hauptkonto wirklich löschen?')) {
+    if (confirm('Möchten Sie diesen selbst angelegten Nummernkreis wirklich löschen?')) {
       customCategoryService.deleteCustomMainCategory(codeOrId);
       reloadCustomData();
     }
   };
 
   const handleDeleteSub = (mainCode: string, subCode: string) => {
-    if (confirm('Möchten Sie dieses selbst angelegte Unterkonto wirklich löschen?')) {
+    if (confirm('Möchten Sie dieses selbst angelegte Konto wirklich löschen?')) {
       customCategoryService.deleteCustomSubCategory(mainCode, subCode);
       reloadCustomData();
     }
@@ -201,15 +193,15 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                 {activeTab === 'manage'
                   ? 'Benutzerdefinierte Konten verwalten'
                   : mode === 'main'
-                  ? 'Neues Hauptkonto (SKR 42) anlegen'
-                  : 'Neues Nebenkonto / Unterkonto anlegen'}
+                  ? 'Neuen Nummernkreis (SKR 42) anlegen'
+                  : 'Neues Konto anlegen'}
               </h3>
               <p className="text-2xs text-slate-500">
                 {activeTab === 'manage'
-                  ? 'Übersicht aller selbst erstellten Haupt- und Unterkonten'
+                  ? 'Übersicht aller selbst erstellten Nummernkreise und Konten'
                   : mode === 'main'
-                  ? 'Erstellen Sie eine neue Hauptkategorie mit steuerlicher Sphäre gem. §§ 51 ff. AO'
-                  : 'Erstellen Sie ein neues Unterkonto für detaillierte Buchungen'}
+                  ? 'Erstellen Sie einen neuen Nummernkreis nach SKR 42'
+                  : 'Erstellen Sie ein neues Konto für detaillierte Buchungen'}
               </p>
             </div>
           </div>
@@ -263,7 +255,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                   }`}
                 >
                   <Layers className="w-3.5 h-3.5" />
-                  <span>1. Hauptkonto</span>
+                  <span>1. Nummernkreis</span>
                 </button>
                 <button
                   type="button"
@@ -275,48 +267,13 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                   }`}
                 >
                   <Tag className="w-3.5 h-3.5" />
-                  <span>2. Nebenkonto / Unterkonto</span>
+                  <span>2. Konto</span>
                 </button>
               </div>
 
-              {/* Mode 1: Hauptkonto anlegen */}
+              {/* Mode 1: Nummernkreis anlegen */}
               {mode === 'main' && (
                 <div className="space-y-4">
-                  {/* Sphere Selection */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      Steuerliche Sphäre gem. §§ 51 ff. AO *
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(['ideell', 'vermoegen', 'zweckbetrieb', 'wirtschaftlich'] as TaxSphere[]).map(sph => {
-                        const isSel = mainSphere === sph;
-                        const info = TAX_SPHERES[sph];
-                        return (
-                          <button
-                            key={sph}
-                            type="button"
-                            onClick={() => setMainSphere(sph)}
-                            className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                              isSel
-                                ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/20 shadow-xs'
-                                : 'border-slate-200 bg-white hover:bg-slate-50'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-xs font-bold text-slate-900 truncate">
-                                {info.name}
-                              </span>
-                              {isSel && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
-                            </div>
-                            <div className="text-3xs text-slate-500 truncate">
-                              {info.subtitle.split('(')[0]?.trim()}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
                   {/* Account Type Toggle: Einnahme vs Ausgabe */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5">
@@ -357,7 +314,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                         </label>
                         <button
                           type="button"
-                          onClick={() => setMainCode(customCategoryService.suggestNextCode(mainSphere, mainType))}
+                          onClick={() => setMainCode(customCategoryService.suggestNextCode(mainType))}
                           className="text-3xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
                         >
                           Vorschlag
@@ -379,7 +336,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
 
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Bezeichnung des Hauptkontos *
+                        Bezeichnung des Nummernkreises *
                       </label>
                       <input
                         type="text"
@@ -405,7 +362,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                         className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
                       />
                       <span className="text-xs font-bold text-slate-800">
-                        Sofort ein passendes 1. Unterkonto mit derselben Nummer erstellen
+                        Sofort ein passendes 1. Konto mit derselben Nummer erstellen
                       </span>
                     </label>
 
@@ -427,13 +384,13 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                 </div>
               )}
 
-              {/* Mode 2: Nebenkonto / Unterkonto anlegen */}
+              {/* Mode 2: Konto anlegen */}
               {mode === 'sub' && (
                 <div className="space-y-4">
                   {/* Parent Main Category Picker */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Übergeordnetes Hauptkonto (SKR 42) *
+                      Übergeordneter Nummernkreis (SKR 42) *
                     </label>
                     <select
                       value={parentMainId}
@@ -442,15 +399,13 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                     >
                       {SKR42_STRUCTURE.map(main => (
                         <option key={main.id} value={main.code}>
-                          [{main.code}] {main.name} ({TAX_SPHERES[main.sphere]?.name || main.sphere} • {main.type === 'income' ? 'Einnahmen' : 'Ausgaben'})
+                          [{main.code}] {main.name} ({main.type === 'income' ? 'Einnahmen' : 'Ausgaben'})
                         </option>
                       ))}
                     </select>
                     {parentMainObj && (
                       <div className="text-2xs text-slate-500 mt-1 flex items-center gap-2">
-                        <span>Sphäre: <strong>{TAX_SPHERES[parentMainObj.sphere]?.name || parentMainObj.sphere}</strong></span>
-                        <span>•</span>
-                        <span>{parentMainObj.subCategories.length} bestehende Unterkonten</span>
+                        <span>{parentMainObj.subCategories.length} bestehende Konten</span>
                       </div>
                     )}
                   </div>
@@ -466,7 +421,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                           type="button"
                           onClick={() => {
                             if (parentMainObj) {
-                              setSubCode(customCategoryService.suggestNextCode(parentMainObj.sphere, parentMainObj.type, parentMainObj.code));
+                              setSubCode(customCategoryService.suggestNextCode(parentMainObj.type, parentMainObj.code));
                             }
                           }}
                           className="text-3xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
@@ -484,13 +439,13 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                         maxLength={8}
                       />
                       <span className="text-3xs text-slate-400 mt-1 block">
-                        5-stellig (Unterkonto)
+                        5-stellig (Konto)
                       </span>
                     </div>
 
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Bezeichnung des Unterkontos *
+                        Bezeichnung des Kontos *
                       </label>
                       <input
                         type="text"
@@ -546,7 +501,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>
-                    {mode === 'main' ? 'Hauptkonto anlegen & auswählen' : 'Unterkonto anlegen & auswählen'}
+                    {mode === 'main' ? 'Nummernkreis anlegen & auswählen' : 'Konto anlegen & auswählen'}
                   </span>
                 </button>
               </div>
@@ -557,11 +512,11 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
               <div>
                 <h4 className="text-xs font-bold text-slate-800 mb-2 flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Selbst angelegte Hauptkonten ({customData.customMainCategories.length})</span>
+                  <span>Selbst angelegte Nummernkreise ({customData.customMainCategories.length})</span>
                 </h4>
                 {customData.customMainCategories.length === 0 ? (
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-400 text-2xs text-center">
-                    Bisher wurden keine eigenen Hauptkonten angelegt.
+                    Bisher wurden keine eigenen Nummernkreise angelegt.
                   </div>
                 ) : (
                   <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
@@ -577,14 +532,14 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                             </span>
                           </div>
                           <div className="text-3xs text-slate-500 mt-0.5">
-                            {TAX_SPHERES[main.sphere]?.name || main.sphere} • {main.type === 'income' ? 'Einnahmen' : 'Ausgaben'}
+                            {main.type === 'income' ? 'Einnahmen' : 'Ausgaben'}
                           </div>
                         </div>
                         <button
                           type="button"
                           onClick={() => handleDeleteMain(main.id)}
                           className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                          title="Dieses Hauptkonto löschen"
+                          title="Diesen Nummernkreis löschen"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -597,11 +552,11 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
               <div>
                 <h4 className="text-xs font-bold text-slate-800 mb-2 flex items-center gap-1.5">
                   <Tag className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Selbst angelegte Nebenkonten / Unterkonten ({customData.customSubCategories.length})</span>
+                  <span>Selbst angelegte Konten ({customData.customSubCategories.length})</span>
                 </h4>
                 {customData.customSubCategories.length === 0 ? (
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-400 text-2xs text-center">
-                    Bisher wurden keine eigenen Unterkonten angelegt.
+                    Bisher wurden keine eigenen Konten angelegt.
                   </div>
                 ) : (
                   <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
@@ -617,14 +572,14 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                             </span>
                           </div>
                           <div className="text-3xs text-slate-500 mt-0.5">
-                            Hauptkonto: {item.mainCatIdOrCode} • USt: {item.subCategory.vatRateDefault}%
+                            Nummernkreis: {item.mainCatIdOrCode} • USt: {item.subCategory.vatRateDefault}%
                           </div>
                         </div>
                         <button
                           type="button"
                           onClick={() => handleDeleteSub(item.mainCatIdOrCode, item.subCategory.code)}
                           className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                          title="Dieses Unterkonto löschen"
+                          title="Dieses Konto löschen"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

@@ -47,28 +47,43 @@
 
 ## 🏗️ Systemarchitektur & Betriebsmodi
 
-Die Anwendung vereint drei flexible Betriebsmodi in einer einzigen Codebasis:
+Die Anwendung vereint drei flexible Betriebsmodi in einer einzigen Codebasis
+— zusätzlich lässt sich die Oberfläche selbst wahlweise im Browser, als
+native Desktop-App (Tauri v2, Windows/macOS/Linux) oder in einer schlanken
+Mobil-Ansicht für unterwegs nutzen, mit identischer Anmeldung und
+identischen Rechten in allen dreien:
 
 ```text
-               ┌────────────────────────────────────────────────────────┐
-               │                VereinsManager Frontend                 │
-               │         (React 19 + TypeScript + Tailwind CSS)         │
-               └───────────┬────────────────────────┬───────────────────┘
-                           │                        │
-             Modus 1: Lokal│          Modus 2: Cloud│          Modus 3: Server
-                           ▼                        ▼                        ▼
-       ┌────────────────────────┐  ┌────────────────────────┐  ┌────────────────────────┐
-       │   Browser IndexedDB    │  │   Supabase (Postgres)  │  │  Node.js Express API   │
-       │ (100% Offline-First)   │  │ (Zwei-Wege-Sync & Team)│  │ (SMTP, OCR & KI-Proxy) │
-       └────────────────────────┘  └────────────────────────┘  └────────────────────────┘
+        ┌──────────────────────────────────────────────────────────────────────┐
+        │                        VereinsManager Frontend                       │
+        │              (React 19 + TypeScript + Tailwind CSS)                  │
+        └───────────────────┬─────────────────────┬──────────────────────┬─────┘
+                             │                     │                      │
+                     Modus 1:│             Modus 2:│              Modus 3:│
+                lokal allein │    lokal mit Supabase                gehostet
+                             ▼                     ▼                      ▼
+        ┌────────────────────────┐  ┌───────────────────────┐  ┌──────────────────────────┐
+        │    Browser IndexedDB   │  │  Supabase (Postgres)  │  │  Node.js Express API +   │
+        │  (100 % Offline-First) │  │ (Zwei-Wege-Sync & Team)│  │  eigene SQLite-Datenbank │
+        │                        │  │                        │  │  (eigene Konten & Rechte)│
+        └────────────────────────┘  └───────────────────────┘  └──────────────────────────┘
 ```
 
-1. **Modus 1: Lokal (Offline-First / IndexedDB)**  
+1. **Modus 1: lokal allein (Offline-First / IndexedDB)**  
    Daten werden ausschließlich im lokalen Browserspeicher gehalten. Perfekt für Einzel-Kassenwarte, die keine Serverinfrastruktur verwalten möchten.
-2. **Modus 2: Cloud-Sync (Supabase PostgreSQL)**  
-   Ermöglicht mehreren Vorstandsmitgliedern ortsunabhängiges Arbeiten mit bidirektionalem Datenabgleich, Konflikterkennung und Echtzeit-Statusanzeige.
-3. **Modus 3: Desktop-App (Tauri v2)**  
-   Native Desktop-Anwendung für Windows (.exe), macOS (.dmg) und Linux (.AppImage) mit Zugriff auf lokale Dateisysteme und Hardware-Drucker.
+2. **Modus 2: lokal mit Supabase (Cloud-Sync)**  
+   Ermöglicht mehreren Vorstandsmitgliedern ortsunabhängiges Arbeiten mit bidirektionalem Datenabgleich, Konflikterkennung und Echtzeit-Statusanzeige — Konten und Rollen werden über Supabase Auth verwaltet.
+3. **Modus 3: gehostet (eigener Server mit eigener Datenbank)**  
+   Der Verein betreibt einen eigenen Server (Docker, NAS, vServer) — Anwendung **und** Daten liegen dort, in einer eigenen SQLite-Datenbank. Eigene Konten je Person mit fein einstellbaren Rechten für 18 Bereiche, eigenem „Passwort vergessen" und ganz ohne Supabase. Details siehe [`DEPLOYMENT_GUIDE_DE.md`](DEPLOYMENT_GUIDE_DE.md).
+
+Zusätzlich, unabhängig vom Betriebsmodus: **Tauri v2** liefert native
+Installationspakete für Windows (.exe), macOS (.dmg) und Linux (.AppImage)
+mit Zugriff auf lokale Dateisysteme und Hardware-Drucker, und eine eigene,
+schlanke **Mobil-Ansicht** blendet sich auf schmalen Bildschirmen automatisch
+ein — mit denselben Daten, derselben Anmeldung und denselben Rechten wie am
+Desktop, nur auf die wichtigsten Aufgaben unterwegs zugeschnitten
+(Mitglied nachschlagen, Termine, Buchung mit Belegfoto erfassen,
+Sitzungsdienst, Dokumente).
 
 ---
 
@@ -345,7 +360,7 @@ Für rechtskonforme Vorstandssitzungen und Mitgliederversammlungen nach § 32 BG
 
 1. **Repository klonen:**
    ```bash
-   git clone https://github.com/strelitzerfc/vereinsmanager.git
+   git clone https://github.com/alpenglowsea/vereinsmanager.git
    cd vereinsmanager
    ```
 
@@ -384,94 +399,18 @@ Für den produktiven Einsatz auf einem vServer, Cloud Run oder Docker-Container:
 
 Wenn Sie im Vorstandsteam gemeinsam mit denselben Daten arbeiten möchten:
 
-1. Erstellen Sie ein kostenloses Projekt auf [supabase.com](https://supabase.com).
-2. Öffnen Sie in Supabase den **SQL Editor** und führen Sie das folgende Schema aus:
+1. Erstellen Sie ein kostenloses Projekt auf [supabase.com](https://supabase.com) — Region `Central EU (Frankfurt / eu-central-1)`, wichtig für die DSGVO.
+2. Öffnen Sie in Supabase den **SQL Editor**, fügen Sie den **vollständigen Inhalt** der Datei [`supabase_schema.sql`](supabase_schema.sql) aus diesem Repository ein und klicken Sie auf **Run**.
 
-```sql
--- VereinsManager Tabellen-Schema
-create table if not exists members (
-  id text primary key,
-  member_number text,
-  first_name text,
-  last_name text,
-  email text,
-  phone text,
-  status text default 'active',
-  membership_type text default 'full',
-  fee numeric default 0,
-  payment_interval text default 'yearly',
-  payment_method text default 'bank_transfer',
-  iban text,
-  bic text,
-  mandate_reference text,
-  mandate_date text,
-  join_date text,
-  birth_date text,
-  departments jsonb default '[]',
-  data jsonb,
-  updated_at timestamp with time zone default now()
-);
-
-create table if not exists transactions (
-  id text primary key,
-  document_number text,
-  date text,
-  booking_text text,
-  partner text,
-  amount numeric,
-  type text,
-  sphere text default 'ideell',
-  account_id text,
-  category text,
-  data jsonb,
-  updated_at timestamp with time zone default now()
-);
-
-create table if not exists accounts (
-  id text primary key,
-  name text,
-  type text,
-  account_number text,
-  balance numeric default 0,
-  data jsonb,
-  updated_at timestamp with time zone default now()
-);
-
-create table if not exists invoices (
-  id text primary key,
-  invoice_number text,
-  date text,
-  due_date text,
-  recipient_name text,
-  total_gross numeric,
-  status text default 'draft',
-  items jsonb default '[]',
-  data jsonb,
-  updated_at timestamp with time zone default now()
-);
-
-create table if not exists meetings (
-  id text primary key,
-  title text,
-  type text,
-  status text default 'draft',
-  date text,
-  agenda_items jsonb default '[]',
-  resolutions jsonb default '[]',
-  attendees jsonb default '[]',
-  data jsonb,
-  updated_at timestamp with time zone default now()
-);
-
-create table if not exists club_settings (
-  id text primary key default 'default',
-  club_name text,
-  data jsonb,
-  updated_at timestamp with time zone default now()
-);
-```
-
-3. Hinterlegen Sie Ihre Projekt-URL und den `anon`-Key in der `.env`-Datei oder in der Web-Oberfläche unter **Systemeinstellungen > 5. Betriebsmodi**:
+   Diese Datei ist die einzige, stets aktuelle Quelle für das Tabellen-Schema
+   — sie wächst mit jeder neuen Funktion mit. Ein einzelner SQL-Block an
+   dieser Stelle in der README würde bei jeder Erweiterung doppelt gepflegt
+   werden müssen und wäre über kurz oder lang veraltet; deshalb steht hier
+   bewusst kein eigenes Schema mehr, sondern nur der Verweis darauf.
+3. Für Zugriffsregeln (Row Level Security) und die Ratenbegrenzung des
+   öffentlichen Aufnahmeformulars zusätzlich [`supabase_rls.sql`](supabase_rls.sql)
+   im selben SQL Editor ausführen.
+4. Hinterlegen Sie Ihre Projekt-URL und den `anon`-Key in der `.env`-Datei oder in der Web-Oberfläche unter **Systemeinstellungen > 5. Betriebsmodi**:
    ```env
    VITE_SUPABASE_URL=https://ihr-projekt.supabase.co
    VITE_SUPABASE_ANON_KEY=ihr-anon-key
@@ -521,10 +460,11 @@ der Versand über das lokale E-Mail-Programm funktioniert weiterhin.
 ### Zugriffsschlüssel des Servers
 
 Der Server beantwortet seit Fassung 1.3 keinen `/api`-Aufruf mehr ohne Ausweis.
-Betroffen sind E-Mail-Versand, Belegerkennung und alle KI-Funktionen. Ohne
-diesen Schutz könnte jeder, der die Adresse eines im Internet erreichbaren
-Servers kennt, über das Postfach des Vereins Mails verschicken oder auf dessen
-Rechnung KI-Anfragen stellen.
+Betroffen sind E-Mail-Versand, Belegerkennung, alle KI-Funktionen und — im
+gehosteten Betrieb (Modus 3) — auch die eigenen Benutzerkonten und deren
+Rechteverwaltung. Ohne diesen Schutz könnte jeder, der die Adresse eines im
+Internet erreichbaren Servers kennt, über das Postfach des Vereins Mails
+verschicken oder auf dessen Rechnung KI-Anfragen stellen.
 
 Es genügt einer von zwei Ausweisen:
 
@@ -550,10 +490,12 @@ in der App.
 Die Statusseite `/api/health` bleibt offen, damit Docker den Container
 überwachen kann.
 
-> Im Lokalbetrieb benutzen alle Vorstandsmitglieder denselben
-> Zugriffsschlüssel. Er hält Fremde draußen, unterscheidet aber die eigenen
-> Leute nicht voneinander — dafür gibt es den Cloud-Betrieb mit persönlichen
-> Konten.
+> Der Zugriffsschlüssel allein hält Fremde draußen, unterscheidet aber die
+> eigenen Leute nicht voneinander. Dafür gibt es persönliche Konten — im
+> gehosteten Betrieb (Modus 3) mit eigenen, fein einstellbaren Rechten direkt
+> auf dem eigenen Server, im Cloud-Betrieb (Modus 2) über Supabase. Beide
+> Wege bestehen zusätzlich zum Zugriffsschlüssel, nicht anstelle davon —
+> Näheres dazu in [`DEPLOYMENT_GUIDE_DE.md`](DEPLOYMENT_GUIDE_DE.md).
 
 ---
 

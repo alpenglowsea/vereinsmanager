@@ -164,20 +164,18 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
   };
 
   // Inline edits in preview table
+  //
+  // Sphäre und Kontierung sind seit der DATEV-SKR42-Umstellung unabhängig
+  // voneinander (siehe Hinweis bei Skr42MainCategory in src/types.ts) — ein
+  // Sphärenwechsel ändert Nummernkreis/Konto darum nicht mehr mit.
   const updateRowSphere = (id: string, newSphere: TaxSphere) => {
     setParsedList(prev => prev.map(item => {
       if (item.id !== id) return item;
-      const isIncome = item.transaction.amount >= 0;
-      const availableMain = SKR42_STRUCTURE.filter(c => c.sphere === newSphere && c.type === (isIncome ? 'income' : 'expense'));
-      const defaultMain = availableMain[0]?.name || 'Allgemeine Buchung';
-      const defaultSub = availableMain[0]?.subCategories[0]?.label || '';
       return {
         ...item,
         transaction: {
           ...item.transaction,
-          sphere: newSphere,
-          category: defaultMain,
-          subCategory: defaultSub
+          sphere: newSphere
         }
       };
     }));
@@ -186,7 +184,8 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
   const updateRowCategory = (id: string, newCategory: string) => {
     setParsedList(prev => prev.map(item => {
       if (item.id !== id) return item;
-      const mainCat = SKR42_STRUCTURE.find(c => c.name === newCategory && c.sphere === item.transaction.sphere);
+      const isIncome = item.transaction.amount >= 0;
+      const mainCat = SKR42_STRUCTURE.find(c => c.name === newCategory && c.type === (isIncome ? 'income' : 'expense'));
       const defaultSub = mainCat?.subCategories[0]?.label || '';
       return {
         ...item,
@@ -231,7 +230,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
       const absAmount = Math.abs(item.transaction.amount);
       const newAmount = newType === 'expense' ? -absAmount : absAmount;
       const isIncome = newAmount >= 0;
-      const availableMain = SKR42_STRUCTURE.filter(c => c.sphere === item.transaction.sphere && c.type === (isIncome ? 'income' : 'expense'));
+      const availableMain = SKR42_STRUCTURE.filter(c => c.type === (isIncome ? 'income' : 'expense'));
       const defaultMain = availableMain[0]?.name || item.transaction.category;
       const defaultSub = availableMain[0]?.subCategories[0]?.label || item.transaction.subCategory || '';
       return {
@@ -1090,7 +1089,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                         <th className="p-3">Art</th>
                         <th className="p-3 text-right">Betrag (€)</th>
                         <th className="p-3">Sphäre (SKR 42)</th>
-                        <th className="p-3">Hauptkategorie & Konto</th>
+                        <th className="p-3">Nummernkreis & Konto</th>
                         <th className="p-3">Finanzkonto</th>
                       </tr>
                     </thead>
@@ -1105,7 +1104,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                         filteredPreview.map((item) => {
                           const tx = item.transaction;
                           const isIncome = tx.amount >= 0;
-                          const availableMain = SKR42_STRUCTURE.filter(c => c.sphere === tx.sphere && c.type === (isIncome ? 'income' : 'expense'));
+                          const availableMain = SKR42_STRUCTURE.filter(c => c.type === (isIncome ? 'income' : 'expense'));
                           const selectedMain = availableMain.find(c => c.name === tx.category) || availableMain[0];
 
                           return (

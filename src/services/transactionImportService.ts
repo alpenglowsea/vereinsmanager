@@ -451,17 +451,21 @@ export function detectTaxSphere(rawSphere: string, categoryName: string, subCate
 }
 
 /**
- * Intelligent Category & SKR 42 SubCategory matcher
+ * Intelligent Category & SKR 42 SubCategory matcher.
+ *
+ * Sucht seit der DATEV-SKR42-Umstellung unter ALLEN Nummernkreisen des
+ * jeweiligen Typs (Einnahme/Ausgabe) statt nur unter denen einer bestimmten
+ * Sphäre — Sphäre und Konto werden unabhängig voneinander vergeben (siehe
+ * Hinweis bei Skr42MainCategory in src/types.ts).
  */
 export function resolveSKR42Category(
-  sphere: TaxSphere,
   isIncome: boolean,
   rawCat: string,
   rawSubCat: string,
   bookingText: string
 ): { category: string; subCategory: string } {
   const type = isIncome ? 'income' : 'expense';
-  const availableMainCats = SKR42_STRUCTURE.filter(c => c.sphere === sphere && c.type === type);
+  const availableMainCats = SKR42_STRUCTURE.filter(c => c.type === type);
 
   if (availableMainCats.length === 0) {
     return {
@@ -505,7 +509,7 @@ export function resolveSKR42Category(
     }
   }
 
-  // Default to first available main category & subcategory for this sphere
+  // Default to first available main category & subcategory of this type
   const defaultMain = availableMainCats[0];
   const defaultSub = defaultMain?.subCategories[0];
   return {
@@ -629,7 +633,6 @@ export function convertRowsToTransactions(
 
     // 7. Category & Subcategory (SKR 42)
     const { category, subCategory } = resolveSKR42Category(
-      sphere,
       !isExpense,
       rawCat,
       rawSubCat,

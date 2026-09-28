@@ -340,14 +340,18 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
                       </div>
                       <div className="text-2xs text-slate-600 space-y-0.5 pt-1 border-t border-slate-100">
                         <div>
-                          <span className="text-slate-400">Hauptkonto: </span>
+                          <span className="text-slate-400">Nummernkreis: </span>
                           <span className="font-medium text-slate-800">{s.mainCategory}</span>
                         </div>
                         <div>
-                          <span className="text-slate-400">Nebenkonto: </span>
+                          <span className="text-slate-400">Konto: </span>
                           <span className="font-medium text-slate-800">
                             {s.skrAccount ? `${s.skrAccount} - ` : ''}{s.subCategory || s.category}
                           </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Sparte: </span>
+                          <span className="font-medium text-slate-800">{s.department || 'Gesamtverein'}</span>
                         </div>
                         {(s.bookingText || (s as any).note) && (
                           <p className="text-3xs text-slate-500 italic">Buchungstext: {s.bookingText || (s as any).note}</p>
@@ -381,6 +385,11 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
                   <div className="flex justify-between items-center py-1 border-b border-slate-200/80">
                     <span className="text-slate-500">Kategorie:</span>
                     <span className="font-bold text-slate-900">{transaction.category}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/80">
+                    <span className="text-slate-500">Sparte:</span>
+                    <span className="font-bold text-slate-900">{transaction.department || 'Gesamtverein'}</span>
                   </div>
 
                   <div className="flex justify-between items-center py-1 border-b border-slate-200/80">

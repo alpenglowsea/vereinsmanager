@@ -12,7 +12,6 @@ const testKonto = (code: string): Skr42MainCategory => ({
   id: `custom-${code}`,
   code,
   name: `Testkonto ${code}`,
-  sphere: 'ideell',
   type: 'income',
   isCustom: true,
   subCategories: []

@@ -2389,6 +2389,10 @@ export const StorageService = {
         copy.date = updates.date;
         changed = true;
       }
+      if (updates.department !== undefined && copy.department !== updates.department) {
+        copy.department = updates.department;
+        changed = true;
+      }
       if (updates.notesAction === 'replace') {
         copy.notes = updates.notesValue || '';
         changed = true;

@@ -26,7 +26,7 @@
 
 import { BookingAiSuggestion, TaxSphere } from '../types';
 import { apiFetch } from './apiClient';
-import { findSkr42MainForSub, getSkr42MainCategories } from '../data/taxSpheres';
+import { findSkr42MainForSub, getAllSkr42MainCategories } from '../data/taxSpheres';
 
 export interface CategorizeRequest {
   description: string;
@@ -136,7 +136,11 @@ export class AiBookingService {
         ? raw.type
         : fallbackType || 'expense';
 
-    const mainCats = getSkr42MainCategories(sphere, type);
+    // Die KI schlägt Sphäre und Konto unabhängig voneinander vor (siehe
+    // Hinweis bei Skr42MainCategory in src/types.ts) — das Konto wird darum
+    // unter allen Konten dieses Typs gesucht, nicht nur unter denen der
+    // vorgeschlagenen Sphäre.
+    const mainCats = getAllSkr42MainCategories(type);
 
     // Try finding matched main and sub
     let matchedMain = mainCats.find(

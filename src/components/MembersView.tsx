@@ -1,9 +1,14 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Member, ClubSettings, MemberBulkUpdates } from '../types';
 import { ExportService } from '../services/exportService';
 import { lockClass, lockTitle } from '../utils/uiLock';
 import { MemberBulkEditModal } from './MemberBulkEditModal';
 import { TablePagination, PageSizeOption } from './TablePagination';
+import { SortableResizableTh } from './SortableResizableTh';
+import { useResizableColumns, ColumnWidths } from '../hooks/useResizableColumns';
+import { useColumnOrder } from '../hooks/useColumnOrder';
+import { useColumnVisibility } from '../hooks/useColumnVisibility';
+import { ColumnVisibilityMenu } from './ColumnVisibilityMenu';
 import {
   Search,
   Plus,
@@ -21,7 +26,143 @@ import {
   X
 } from 'lucide-react';
 
-export type MemberSortField = 'number' | 'name' | 'status' | 'department' | 'entryDate' | 'city' | 'fee' | 'paymentMethod';
+export type MemberSortField =
+  | 'number'
+  | 'name'
+  | 'status'
+  | 'department'
+  | 'entryDate'
+  | 'city'
+  | 'fee'
+  | 'paymentMethod'
+  | 'phone'
+  | 'membershipType'
+  | 'gender'
+  | 'birthDate'
+  | 'exitDate'
+  | 'notes'
+  | 'dataPrivacyConsent'
+  | 'street'
+  | 'country'
+  | 'iban'
+  | 'bic'
+  | 'bankName'
+  | 'accountHolder'
+  | 'mandateDate'
+  | 'mandateReference'
+  | 'monthlyDueDay';
+
+// Feste Breiten für die Auswahl-Kästchen- und die Aktionsspalte — die
+// bleiben unverändert und sind nicht Teil der ziehbaren/gespeicherten
+// Spalten. Die übrigen Breiten sind nur ein sinnvoller Startwert; nach dem
+// ersten Ziehen bzw. Doppelklick merkt sich der Browser die eigene Wahl.
+const CHECKBOX_COL_WIDTH = 40;
+const ACTION_COL_WIDTH = 130;
+const DEFAULT_MEMBER_COLUMN_WIDTHS: ColumnWidths = {
+  number: 90,
+  name: 240,
+  status: 130,
+  department: 150,
+  entryDate: 100,
+  city: 150,
+  fee: 100,
+  paymentMethod: 130,
+  // Neu anbietbare Spalten (Stand: Wunsch von Johannes, alle bisher nur
+  // versteckt oder gar nicht angezeigten Felder). Standardmäßig
+  // ausgeblendet (siehe MEMBER_DEFAULT_HIDDEN_COLUMNS weiter unten), damit
+  // sich am bisherigen Erscheinungsbild nichts ändert, bis man sie über das
+  // Rechtsklick-Menü selbst einblendet.
+  phone: 130,
+  membershipType: 150,
+  gender: 100,
+  birthDate: 110,
+  exitDate: 110,
+  notes: 200,
+  dataPrivacyConsent: 110,
+  street: 200,
+  country: 110,
+  iban: 200,
+  bic: 110,
+  bankName: 160,
+  accountHolder: 180,
+  mandateDate: 120,
+  mandateReference: 180,
+  monthlyDueDay: 110
+};
+// Reihenfolge der Datenspalten, wie sie ohne eigene Anpassung erscheinen —
+// aus DEFAULT_MEMBER_COLUMN_WIDTHS abgeleitet, damit beide nie
+// auseinanderlaufen können.
+const MEMBER_COLUMN_KEYS = Object.keys(DEFAULT_MEMBER_COLUMN_WIDTHS);
+
+// Welche der oben neu hinzugekommenen Spalten sollen beim allerersten
+// Aufruf (noch nichts über das Menü verändert) ausgeblendet bleiben, damit
+// eine bestehende Tabelle nach diesem Update genauso aussieht wie vorher.
+// "phone" ist bewusst NICHT dabei — die wurde ausdrücklich als sofort
+// sichtbare neue Spalte gewünscht.
+const MEMBER_DEFAULT_HIDDEN_COLUMNS = [
+  'membershipType',
+  'gender',
+  'birthDate',
+  'exitDate',
+  'notes',
+  'dataPrivacyConsent',
+  'street',
+  'country',
+  'iban',
+  'bic',
+  'bankName',
+  'accountHolder',
+  'mandateDate',
+  'mandateReference',
+  'monthlyDueDay'
+];
+
+// Klartext-Beschriftungen aller wählbaren Spalten fürs Rechtsklick-Menü
+// (dort werden reine Textlabels gebraucht, keine fertigen Tabellenköpfe).
+const MEMBER_COLUMN_LABELS: Record<string, string> = {
+  number: 'ID',
+  name: 'Name',
+  status: 'Status',
+  department: 'Abteilung',
+  entryDate: 'Eintritt',
+  city: 'Wohnort',
+  fee: 'Beitrag',
+  paymentMethod: 'Zahlung',
+  phone: 'Telefon',
+  membershipType: 'Mitgliedstyp',
+  gender: 'Geschlecht',
+  birthDate: 'Geburtsdatum',
+  exitDate: 'Austritt',
+  notes: 'Notizen',
+  dataPrivacyConsent: 'Datenschutz-Einwilligung',
+  street: 'Straße',
+  country: 'Land',
+  iban: 'IBAN',
+  bic: 'BIC',
+  bankName: 'Bank',
+  accountHolder: 'Kontoinhaber',
+  mandateDate: 'Mandatsdatum',
+  mandateReference: 'Mandatsreferenz',
+  monthlyDueDay: 'Fälligkeitstag'
+};
+
+const MEMBERSHIP_TYPE_LABELS: Record<string, string> = {
+  full: 'Vollmitglied',
+  reduced: 'Ermäßigt',
+  youth: 'Jugend / Kinder',
+  family: 'Familie',
+  supporting: 'Förderer / Sponsor',
+  honorary: 'Ehrenmitglied',
+  ausgetreten: 'Ausgetreten',
+  terminated: 'Gekündigt'
+};
+
+const GENDER_LABELS: Record<string, string> = {
+  m: 'männlich',
+  w: 'weiblich',
+  d: 'divers',
+  none: '–'
+};
 
 interface MembersViewProps {
   members: Member[];
@@ -97,6 +238,420 @@ export const MembersView: React.FC<MembersViewProps> = ({
     }
   };
 
+  // Ziehbare, gespeicherte Spaltenbreiten der Tabelle (siehe useResizableColumns).
+  const tableRef = useRef<HTMLTableElement>(null);
+  const { widths: colWidths, startResize, autoFit } = useResizableColumns(
+    'vereinsmanager:colwidths:members',
+    DEFAULT_MEMBER_COLUMN_WIDTHS,
+    tableRef
+  );
+
+  // Per Drag & Drop änderbare, gespeicherte Reihenfolge der Datenspalten
+  // (Auswahl-Kästchen und Aktion bleiben fest am Anfang/Ende).
+  const {
+    order: columnOrder,
+    draggedKey,
+    dragOverKey,
+    handleColDragStart,
+    handleColDragOver,
+    handleColDrop,
+    handleColDragEnd
+  } = useColumnOrder('vereinsmanager:colorder:members', MEMBER_COLUMN_KEYS);
+
+  // Ein-/Ausblenden einzelner Spalten (unabhängig von Reihenfolge & Breite),
+  // bedienbar per Rechtsklick auf einen beliebigen Spaltenkopf.
+  const { hidden: hiddenColumns, toggle: toggleColumn } = useColumnVisibility(
+    'vereinsmanager:colhidden:members',
+    MEMBER_COLUMN_KEYS,
+    MEMBER_DEFAULT_HIDDEN_COLUMNS
+  );
+  const visibleColumnOrder = columnOrder.filter(key => !hiddenColumns.has(key));
+  const [columnMenuPos, setColumnMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const openColumnMenu = (e: React.MouseEvent<HTMLTableCellElement>) => {
+    e.preventDefault();
+    setColumnMenuPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const dragProps = (key: string) => ({
+    isDragging: draggedKey === key,
+    isDragOver: dragOverKey === key,
+    onColDragStart: handleColDragStart(key),
+    onColDragOver: handleColDragOver(key),
+    onColDrop: handleColDrop(key),
+    onColDragEnd: handleColDragEnd,
+    onContextMenu: openColumnMenu
+  });
+
+  // Spaltenköpfe je Schlüssel — werden weiter unten in der per Drag & Drop
+  // gewählten Reihenfolge (columnOrder) gerendert statt in fester
+  // Quelltext-Reihenfolge.
+  const memberHeaderDefs: Record<string, React.ReactNode> = {
+    number: (
+      <SortableResizableTh
+        key="number"
+        label="ID"
+        active={sortBy === 'number'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('number')}
+        sortTitle="Nach Mitgliedsnummer sortieren"
+        colKey="number"
+        width={colWidths.number}
+        onResizeStart={startResize('number')}
+        onAutoFit={() => autoFit('number')}
+        {...dragProps('number')}
+      />
+    ),
+    name: (
+      <SortableResizableTh
+        key="name"
+        label="Name"
+        active={sortBy === 'name'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('name')}
+        sortTitle="Nach Name sortieren"
+        colKey="name"
+        width={colWidths.name}
+        onResizeStart={startResize('name')}
+        onAutoFit={() => autoFit('name')}
+        {...dragProps('name')}
+      />
+    ),
+    status: (
+      <SortableResizableTh
+        key="status"
+        label="Status"
+        active={sortBy === 'status'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('status')}
+        sortTitle="Nach Status sortieren"
+        colKey="status"
+        width={colWidths.status}
+        onResizeStart={startResize('status')}
+        onAutoFit={() => autoFit('status')}
+        {...dragProps('status')}
+      />
+    ),
+    department: (
+      <SortableResizableTh
+        key="department"
+        label="Abteilung"
+        active={sortBy === 'department'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('department')}
+        sortTitle="Nach Sparte / Abteilung sortieren"
+        colKey="department"
+        width={colWidths.department}
+        onResizeStart={startResize('department')}
+        onAutoFit={() => autoFit('department')}
+        {...dragProps('department')}
+      />
+    ),
+    entryDate: (
+      <SortableResizableTh
+        key="entryDate"
+        label="Eintritt"
+        active={sortBy === 'entryDate'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('entryDate')}
+        sortTitle="Nach Eintrittsdatum sortieren"
+        colKey="entryDate"
+        width={colWidths.entryDate}
+        onResizeStart={startResize('entryDate')}
+        onAutoFit={() => autoFit('entryDate')}
+        {...dragProps('entryDate')}
+      />
+    ),
+    city: (
+      <SortableResizableTh
+        key="city"
+        label="Wohnort"
+        active={sortBy === 'city'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('city')}
+        sortTitle="Nach Wohnort / PLZ sortieren"
+        colKey="city"
+        width={colWidths.city}
+        onResizeStart={startResize('city')}
+        onAutoFit={() => autoFit('city')}
+        {...dragProps('city')}
+      />
+    ),
+    fee: (
+      <SortableResizableTh
+        key="fee"
+        label="Beitrag"
+        align="right"
+        active={sortBy === 'fee'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('fee')}
+        sortTitle="Nach Beitragshöhe sortieren"
+        colKey="fee"
+        width={colWidths.fee}
+        onResizeStart={startResize('fee')}
+        onAutoFit={() => autoFit('fee')}
+        {...dragProps('fee')}
+      />
+    ),
+    paymentMethod: (
+      <SortableResizableTh
+        key="paymentMethod"
+        label="Zahlung"
+        align="center"
+        active={sortBy === 'paymentMethod'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('paymentMethod')}
+        sortTitle="Nach Zahlungsmethode sortieren"
+        colKey="paymentMethod"
+        width={colWidths.paymentMethod}
+        onResizeStart={startResize('paymentMethod')}
+        onAutoFit={() => autoFit('paymentMethod')}
+        {...dragProps('paymentMethod')}
+      />
+    ),
+    phone: (
+      <SortableResizableTh
+        key="phone"
+        label="Telefon"
+        active={sortBy === 'phone'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('phone')}
+        sortTitle="Nach Telefonnummer sortieren"
+        colKey="phone"
+        width={colWidths.phone}
+        onResizeStart={startResize('phone')}
+        onAutoFit={() => autoFit('phone')}
+        {...dragProps('phone')}
+      />
+    ),
+    membershipType: (
+      <SortableResizableTh
+        key="membershipType"
+        label="Mitgliedstyp"
+        active={sortBy === 'membershipType'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('membershipType')}
+        sortTitle="Nach Mitgliedstyp sortieren"
+        colKey="membershipType"
+        width={colWidths.membershipType}
+        onResizeStart={startResize('membershipType')}
+        onAutoFit={() => autoFit('membershipType')}
+        {...dragProps('membershipType')}
+      />
+    ),
+    gender: (
+      <SortableResizableTh
+        key="gender"
+        label="Geschlecht"
+        active={sortBy === 'gender'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('gender')}
+        sortTitle="Nach Geschlecht sortieren"
+        colKey="gender"
+        width={colWidths.gender}
+        onResizeStart={startResize('gender')}
+        onAutoFit={() => autoFit('gender')}
+        {...dragProps('gender')}
+      />
+    ),
+    birthDate: (
+      <SortableResizableTh
+        key="birthDate"
+        label="Geburtsdatum"
+        active={sortBy === 'birthDate'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('birthDate')}
+        sortTitle="Nach Geburtsdatum sortieren"
+        colKey="birthDate"
+        width={colWidths.birthDate}
+        onResizeStart={startResize('birthDate')}
+        onAutoFit={() => autoFit('birthDate')}
+        {...dragProps('birthDate')}
+      />
+    ),
+    exitDate: (
+      <SortableResizableTh
+        key="exitDate"
+        label="Austritt"
+        active={sortBy === 'exitDate'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('exitDate')}
+        sortTitle="Nach Austrittsdatum sortieren"
+        colKey="exitDate"
+        width={colWidths.exitDate}
+        onResizeStart={startResize('exitDate')}
+        onAutoFit={() => autoFit('exitDate')}
+        {...dragProps('exitDate')}
+      />
+    ),
+    notes: (
+      <SortableResizableTh
+        key="notes"
+        label="Notizen"
+        active={sortBy === 'notes'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('notes')}
+        sortTitle="Nach Notizen sortieren"
+        colKey="notes"
+        width={colWidths.notes}
+        onResizeStart={startResize('notes')}
+        onAutoFit={() => autoFit('notes')}
+        {...dragProps('notes')}
+      />
+    ),
+    dataPrivacyConsent: (
+      <SortableResizableTh
+        key="dataPrivacyConsent"
+        label="Datenschutz"
+        align="center"
+        active={sortBy === 'dataPrivacyConsent'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('dataPrivacyConsent')}
+        sortTitle="Nach Datenschutz-Einwilligung sortieren"
+        colKey="dataPrivacyConsent"
+        width={colWidths.dataPrivacyConsent}
+        onResizeStart={startResize('dataPrivacyConsent')}
+        onAutoFit={() => autoFit('dataPrivacyConsent')}
+        {...dragProps('dataPrivacyConsent')}
+      />
+    ),
+    street: (
+      <SortableResizableTh
+        key="street"
+        label="Straße"
+        active={sortBy === 'street'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('street')}
+        sortTitle="Nach Straße sortieren"
+        colKey="street"
+        width={colWidths.street}
+        onResizeStart={startResize('street')}
+        onAutoFit={() => autoFit('street')}
+        {...dragProps('street')}
+      />
+    ),
+    country: (
+      <SortableResizableTh
+        key="country"
+        label="Land"
+        active={sortBy === 'country'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('country')}
+        sortTitle="Nach Land sortieren"
+        colKey="country"
+        width={colWidths.country}
+        onResizeStart={startResize('country')}
+        onAutoFit={() => autoFit('country')}
+        {...dragProps('country')}
+      />
+    ),
+    iban: (
+      <SortableResizableTh
+        key="iban"
+        label="IBAN"
+        active={sortBy === 'iban'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('iban')}
+        sortTitle="Nach IBAN sortieren"
+        colKey="iban"
+        width={colWidths.iban}
+        onResizeStart={startResize('iban')}
+        onAutoFit={() => autoFit('iban')}
+        {...dragProps('iban')}
+      />
+    ),
+    bic: (
+      <SortableResizableTh
+        key="bic"
+        label="BIC"
+        active={sortBy === 'bic'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('bic')}
+        sortTitle="Nach BIC sortieren"
+        colKey="bic"
+        width={colWidths.bic}
+        onResizeStart={startResize('bic')}
+        onAutoFit={() => autoFit('bic')}
+        {...dragProps('bic')}
+      />
+    ),
+    bankName: (
+      <SortableResizableTh
+        key="bankName"
+        label="Bank"
+        active={sortBy === 'bankName'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('bankName')}
+        sortTitle="Nach Bank sortieren"
+        colKey="bankName"
+        width={colWidths.bankName}
+        onResizeStart={startResize('bankName')}
+        onAutoFit={() => autoFit('bankName')}
+        {...dragProps('bankName')}
+      />
+    ),
+    accountHolder: (
+      <SortableResizableTh
+        key="accountHolder"
+        label="Kontoinhaber"
+        active={sortBy === 'accountHolder'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('accountHolder')}
+        sortTitle="Nach Kontoinhaber sortieren"
+        colKey="accountHolder"
+        width={colWidths.accountHolder}
+        onResizeStart={startResize('accountHolder')}
+        onAutoFit={() => autoFit('accountHolder')}
+        {...dragProps('accountHolder')}
+      />
+    ),
+    mandateDate: (
+      <SortableResizableTh
+        key="mandateDate"
+        label="Mandatsdatum"
+        active={sortBy === 'mandateDate'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('mandateDate')}
+        sortTitle="Nach Mandatsdatum sortieren"
+        colKey="mandateDate"
+        width={colWidths.mandateDate}
+        onResizeStart={startResize('mandateDate')}
+        onAutoFit={() => autoFit('mandateDate')}
+        {...dragProps('mandateDate')}
+      />
+    ),
+    mandateReference: (
+      <SortableResizableTh
+        key="mandateReference"
+        label="Mandatsreferenz"
+        active={sortBy === 'mandateReference'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('mandateReference')}
+        sortTitle="Nach Mandatsreferenz sortieren"
+        colKey="mandateReference"
+        width={colWidths.mandateReference}
+        onResizeStart={startResize('mandateReference')}
+        onAutoFit={() => autoFit('mandateReference')}
+        {...dragProps('mandateReference')}
+      />
+    ),
+    monthlyDueDay: (
+      <SortableResizableTh
+        key="monthlyDueDay"
+        label="Fälligkeitstag"
+        align="center"
+        active={sortBy === 'monthlyDueDay'}
+        direction={sortAsc ? 'asc' : 'desc'}
+        onSort={() => handleSort('monthlyDueDay')}
+        sortTitle="Nach Fälligkeitstag sortieren"
+        colKey="monthlyDueDay"
+        width={colWidths.monthlyDueDay}
+        onResizeStart={startResize('monthlyDueDay')}
+        onAutoFit={() => autoFit('monthlyDueDay')}
+        {...dragProps('monthlyDueDay')}
+      />
+    )
+  };
+
   // Multiple selection state
   const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
@@ -154,6 +709,38 @@ export const MembersView: React.FC<MembersViewProps> = ({
         comparison = a.feeAmount - b.feeAmount;
       } else if (sortBy === 'paymentMethod') {
         comparison = (a.paymentMethod || '').localeCompare(b.paymentMethod || '');
+      } else if (sortBy === 'phone') {
+        comparison = (a.phone || '').localeCompare(b.phone || '');
+      } else if (sortBy === 'membershipType') {
+        comparison = (MEMBERSHIP_TYPE_LABELS[a.membershipType] || '').localeCompare(MEMBERSHIP_TYPE_LABELS[b.membershipType] || '');
+      } else if (sortBy === 'gender') {
+        comparison = (a.gender || '').localeCompare(b.gender || '');
+      } else if (sortBy === 'birthDate') {
+        comparison = new Date(a.birthDate || 0).getTime() - new Date(b.birthDate || 0).getTime();
+      } else if (sortBy === 'exitDate') {
+        comparison = new Date(a.exitDate || 0).getTime() - new Date(b.exitDate || 0).getTime();
+      } else if (sortBy === 'notes') {
+        comparison = (a.notes || '').localeCompare(b.notes || '');
+      } else if (sortBy === 'dataPrivacyConsent') {
+        comparison = Number(a.dataPrivacyConsent) - Number(b.dataPrivacyConsent);
+      } else if (sortBy === 'street') {
+        comparison = `${a.address?.street || ''} ${a.address?.houseNumber || ''}`.localeCompare(`${b.address?.street || ''} ${b.address?.houseNumber || ''}`);
+      } else if (sortBy === 'country') {
+        comparison = (a.address?.country || '').localeCompare(b.address?.country || '');
+      } else if (sortBy === 'iban') {
+        comparison = (a.bankDetails?.iban || '').localeCompare(b.bankDetails?.iban || '');
+      } else if (sortBy === 'bic') {
+        comparison = (a.bankDetails?.bic || '').localeCompare(b.bankDetails?.bic || '');
+      } else if (sortBy === 'bankName') {
+        comparison = (a.bankDetails?.bankName || '').localeCompare(b.bankDetails?.bankName || '');
+      } else if (sortBy === 'accountHolder') {
+        comparison = (a.bankDetails?.accountHolder || '').localeCompare(b.bankDetails?.accountHolder || '');
+      } else if (sortBy === 'mandateDate') {
+        comparison = new Date(a.bankDetails?.mandateDate || 0).getTime() - new Date(b.bankDetails?.mandateDate || 0).getTime();
+      } else if (sortBy === 'mandateReference') {
+        comparison = (a.bankDetails?.mandateReference || '').localeCompare(b.bankDetails?.mandateReference || '');
+      } else if (sortBy === 'monthlyDueDay') {
+        comparison = (a.bankDetails?.monthlyDueDay || 0) - (b.bankDetails?.monthlyDueDay || 0);
       }
       return sortAsc ? comparison : -comparison;
     });
@@ -604,7 +1191,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
       )}
 
       {/* Main Table Card Container */}
-      <section className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col overflow-hidden">
+      <section className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col">
         {/* Table Top Header with Title and Action buttons */}
         <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
           <div className="flex items-center gap-2">
@@ -801,12 +1388,61 @@ export const MembersView: React.FC<MembersViewProps> = ({
         </div>
 
         {/* Table Body */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[11px] tracking-wider border-b border-slate-200">
+        {/* Jede Tabelle bekommt jetzt ihren EIGENEN, nach oben begrenzten
+            Scroll-Bereich (Breite UND Höhe), statt das seitliche Scrollen an
+            die ganze Seite abzugeben (das war der vorherige Versuch — siehe
+            Kommentar in App.tsx, warum der nicht funktioniert hat: Bei langen
+            Seiten landete der seitliche Scrollbalken ganz unten an der
+            Kante der GESAMTEN Seite, oft weit außerhalb des Bildschirms).
+            Jetzt gilt: Passen alle Zeilen in die Höchsthöhe, verhält sich die
+            Tabelle wie gewohnt (kein eigener Scrollbalken sichtbar, nur bei
+            Bedarf seitlich). Passen mehr Zeilen hinein, als Platz ist,
+            entsteht INNERHALB dieses Kastens ein eigener, senkrechter
+            Scrollbalken — der mitscrollende Kopf bezieht sich dann auf
+            diesen Kasten (nicht mehr auf die ganze Seite), bleibt darin aber
+            genauso sichtbar. Der Vorteil: Der seitliche Scrollbalken sitzt
+            dadurch IMMER direkt unter den Tabellenzeilen, unabhängig davon,
+            wie lang der Rest der Seite ist. */}
+        <div className="overflow-auto max-h-[65vh]">
+          <table
+            ref={tableRef}
+            className="text-left text-sm"
+            style={{
+              tableLayout: 'fixed',
+              width:
+                CHECKBOX_COL_WIDTH +
+                ACTION_COL_WIDTH +
+                visibleColumnOrder.reduce((sum, key) => sum + (colWidths[key] || 0), 0)
+            }}
+          >
+            {/* <colgroup> statt Breiten nur an den <th>-Elementen: Bei
+                table-layout:fixed übernehmen Browser die Spaltenbreiten aus
+                der ersten Zeile der Tabelle, also dem Tabellenkopf — das hat
+                für den Kopf selbst zuverlässig funktioniert, aber Firefox
+                hat sich beim Ziehen (eine reine Style-Änderung ohne neue
+                Zeilen) nicht immer dazu durchgerungen, diese einmal
+                ermittelten Spaltenbreiten auch für die Zellen der bereits
+                vorhandenen Tabellenzeilen im <tbody> neu zu berechnen — der
+                Kopf wurde breiter, die Zeilen darunter blieben auf der alten
+                Breite stehen und schnitten den Text weiter ab. Ein
+                <colgroup> mit einem <col> pro Spalte macht die Breite jeder
+                Spalte explizit und unabhängig vom Tabellenkopf, sodass sie
+                bei jeder Änderung für die ganze Spalte gilt — Kopf UND alle
+                Zeilen gleichzeitig. */}
+            <colgroup>
+              <col style={{ width: CHECKBOX_COL_WIDTH }} />
+              {visibleColumnOrder.map(key => (
+                <col key={key} style={{ width: colWidths[key] || 0 }} />
+              ))}
+              <col style={{ width: ACTION_COL_WIDTH }} />
+            </colgroup>
+            <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[11px] tracking-wider">
               <tr>
                 {/* Select All Checkbox Header */}
-                <th className="w-10 px-3 py-3 text-center">
+                <th
+                  style={{ width: CHECKBOX_COL_WIDTH, minWidth: CHECKBOX_COL_WIDTH }}
+                  className="px-3 py-3 text-center sticky top-0 z-10 bg-slate-50 border-b border-slate-200"
+                >
                   <input
                     type="checkbox"
                     checked={allFilteredSelected}
@@ -818,108 +1454,193 @@ export const MembersView: React.FC<MembersViewProps> = ({
                     className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
                   />
                 </th>
+                {/* Datenspalten in der per Drag & Drop gewählten Reihenfolge,
+                    ausgeblendete Spalten (siehe Rechtsklick-Menü) werden
+                    hier übersprungen. */}
+                {visibleColumnOrder.map(key => memberHeaderDefs[key])}
                 <th
-                  onClick={() => handleSort('number')}
-                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-800 transition-colors w-24"
-                  title="Nach Mitgliedsnummer sortieren"
+                  style={{ width: ACTION_COL_WIDTH, minWidth: ACTION_COL_WIDTH }}
+                  className="px-4 py-3 text-right sticky top-0 z-10 bg-slate-50 border-b border-slate-200"
                 >
-                  <div className="inline-flex items-center gap-1">
-                    <span>ID</span>
-                    <span className={`text-xs font-bold ${sortBy === 'number' ? 'text-blue-600' : 'text-slate-300'}`}>
-                      {sortBy === 'number' ? (sortAsc ? '↑' : '↓') : '↕'}
-                    </span>
-                  </div>
+                  Aktion
                 </th>
-                <th
-                  onClick={() => handleSort('name')}
-                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-800 transition-colors"
-                  title="Nach Name sortieren"
-                >
-                  <div className="inline-flex items-center gap-1">
-                    <span>Name</span>
-                    <span className={`text-xs font-bold ${sortBy === 'name' ? 'text-blue-600' : 'text-slate-300'}`}>
-                      {sortBy === 'name' ? (sortAsc ? '↑' : '↓') : '↕'}
-                    </span>
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort('status')}
-                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-800 transition-colors"
-                  title="Nach Status sortieren"
-                >
-                  <div className="inline-flex items-center gap-1">
-                    <span>Status</span>
-                    <span className={`text-xs font-bold ${sortBy === 'status' ? 'text-blue-600' : 'text-slate-300'}`}>
-                      {sortBy === 'status' ? (sortAsc ? '↑' : '↓') : '↕'}
-                    </span>
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort('department')}
-                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-800 transition-colors"
-                  title="Nach Sparte / Abteilung sortieren"
-                >
-                  <div className="inline-flex items-center gap-1">
-                    <span>Abteilung</span>
-                    <span className={`text-xs font-bold ${sortBy === 'department' ? 'text-blue-600' : 'text-slate-300'}`}>
-                      {sortBy === 'department' ? (sortAsc ? '↑' : '↓') : '↕'}
-                    </span>
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort('entryDate')}
-                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-800 transition-colors"
-                  title="Nach Eintrittsdatum sortieren"
-                >
-                  <div className="inline-flex items-center gap-1">
-                    <span>Eintritt</span>
-                    <span className={`text-xs font-bold ${sortBy === 'entryDate' ? 'text-blue-600' : 'text-slate-300'}`}>
-                      {sortBy === 'entryDate' ? (sortAsc ? '↑' : '↓') : '↕'}
-                    </span>
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort('city')}
-                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-800 transition-colors"
-                  title="Nach Wohnort / PLZ sortieren"
-                >
-                  <div className="inline-flex items-center gap-1">
-                    <span>Wohnort</span>
-                    <span className={`text-xs font-bold ${sortBy === 'city' ? 'text-blue-600' : 'text-slate-300'}`}>
-                      {sortBy === 'city' ? (sortAsc ? '↑' : '↓') : '↕'}
-                    </span>
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort('fee')}
-                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-800 transition-colors text-right"
-                  title="Nach Beitragshöhe sortieren"
-                >
-                  <div className="inline-flex items-center justify-end gap-1">
-                    <span>Beitrag</span>
-                    <span className={`text-xs font-bold ${sortBy === 'fee' ? 'text-blue-600' : 'text-slate-300'}`}>
-                      {sortBy === 'fee' ? (sortAsc ? '↑' : '↓') : '↕'}
-                    </span>
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort('paymentMethod')}
-                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-800 transition-colors text-center"
-                  title="Nach Zahlungsmethode sortieren"
-                >
-                  <div className="inline-flex items-center justify-center gap-1">
-                    <span>Zahlung</span>
-                    <span className={`text-xs font-bold ${sortBy === 'paymentMethod' ? 'text-blue-600' : 'text-slate-300'}`}>
-                      {sortBy === 'paymentMethod' ? (sortAsc ? '↑' : '↓') : '↕'}
-                    </span>
-                  </div>
-                </th>
-                <th className="px-4 py-3 text-right">Aktion</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {paginatedMembers.map((member) => {
                 const isSelected = selectedMemberIds.has(member.id);
+
+                // Zellinhalte je Schlüssel — werden weiter unten in der
+                // per Drag & Drop gewählten Reihenfolge gerendert.
+                const memberCellDefs: Record<string, React.ReactNode> = {
+                  number: (
+                    <td key="number" data-col-content="number" className="px-4 py-3 font-mono text-slate-400 font-medium text-xs overflow-hidden">
+                      {member.memberNumber}
+                    </td>
+                  ),
+                  name: (
+                    <td key="name" data-col-content="name" className="px-4 py-3 font-semibold text-slate-900 overflow-hidden">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                          {member.avatarUrl ? (
+                            <img
+                              src={member.avatarUrl}
+                              alt=""
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span>{member.firstName.charAt(0)}{member.lastName.charAt(0)}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-slate-900 group-hover:text-blue-600 transition-colors truncate">
+                            {member.lastName}, {member.firstName}
+                          </div>
+                          <div className="text-[11px] text-slate-400 font-normal truncate">
+                            {member.email || member.phone || 'Keine Kontaktdaten'}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  ),
+                  status: (
+                    <td key="status" data-col-content="status" className="px-4 py-3 whitespace-nowrap overflow-hidden">
+                      {getStatusBadge(member.status)}
+                    </td>
+                  ),
+                  department: (
+                    <td key="department" data-col-content="department" className="px-4 py-3 text-slate-600 font-medium text-xs truncate">
+                      {member.department}
+                    </td>
+                  ),
+                  entryDate: (
+                    <td key="entryDate" data-col-content="entryDate" className="px-4 py-3 text-slate-500 text-xs truncate">
+                      {member.entryDate ? new Date(member.entryDate).toLocaleDateString('de-DE') : '–'}
+                    </td>
+                  ),
+                  city: (
+                    <td key="city" data-col-content="city" className="px-4 py-3 text-slate-500 text-xs truncate">
+                      {member.address.zip} {member.address.city}
+                    </td>
+                  ),
+                  fee: (
+                    <td key="fee" data-col-content="fee" className="px-4 py-3 text-right font-mono font-bold text-slate-800 text-xs overflow-hidden">
+                      {member.paymentMethod === 'exempt' || member.feePeriod === 'none' || member.feeAmount === 0 ? (
+                        <span className="text-emerald-700 font-bold">0,00 €</span>
+                      ) : (
+                        `${member.feeAmount.toFixed(2)} €`
+                      )}
+                      <span className="text-[10px] text-slate-400 block font-normal">
+                        {member.feePeriod === 'none' || member.paymentMethod === 'exempt'
+                          ? 'beitragsfrei'
+                          : member.feePeriod === 'yearly'
+                          ? 'jährlich'
+                          : member.feePeriod === 'monthly'
+                          ? 'monatl.'
+                          : 'halbj.'}
+                      </span>
+                    </td>
+                  ),
+                  paymentMethod: (
+                    <td key="paymentMethod" data-col-content="paymentMethod" className="px-4 py-3 text-center overflow-hidden">
+                      {member.paymentMethod === 'exempt' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                          BEITRAGSFREI
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                          {member.paymentMethod.toUpperCase()}
+                        </span>
+                      )}
+                    </td>
+                  ),
+                  phone: (
+                    <td key="phone" data-col-content="phone" className="px-4 py-3 text-slate-600 text-xs truncate">
+                      {member.phone || '–'}
+                    </td>
+                  ),
+                  membershipType: (
+                    <td key="membershipType" data-col-content="membershipType" className="px-4 py-3 text-slate-600 text-xs truncate">
+                      {MEMBERSHIP_TYPE_LABELS[member.membershipType] || member.membershipType}
+                    </td>
+                  ),
+                  gender: (
+                    <td key="gender" data-col-content="gender" className="px-4 py-3 text-slate-600 text-xs truncate">
+                      {GENDER_LABELS[member.gender] || '–'}
+                    </td>
+                  ),
+                  birthDate: (
+                    <td key="birthDate" data-col-content="birthDate" className="px-4 py-3 text-slate-500 text-xs truncate">
+                      {member.birthDate ? new Date(member.birthDate).toLocaleDateString('de-DE') : '–'}
+                    </td>
+                  ),
+                  exitDate: (
+                    <td key="exitDate" data-col-content="exitDate" className="px-4 py-3 text-slate-500 text-xs truncate">
+                      {member.exitDate ? new Date(member.exitDate).toLocaleDateString('de-DE') : '–'}
+                    </td>
+                  ),
+                  notes: (
+                    <td key="notes" data-col-content="notes" className="px-4 py-3 text-slate-500 text-xs truncate" title={member.notes || undefined}>
+                      {member.notes || '–'}
+                    </td>
+                  ),
+                  dataPrivacyConsent: (
+                    <td key="dataPrivacyConsent" data-col-content="dataPrivacyConsent" className="px-4 py-3 text-center overflow-hidden">
+                      {member.dataPrivacyConsent ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">JA</span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700">NEIN</span>
+                      )}
+                    </td>
+                  ),
+                  street: (
+                    <td key="street" data-col-content="street" className="px-4 py-3 text-slate-500 text-xs truncate">
+                      {member.address?.street || member.address?.houseNumber
+                        ? `${member.address?.street || ''} ${member.address?.houseNumber || ''}`.trim()
+                        : '–'}
+                    </td>
+                  ),
+                  country: (
+                    <td key="country" data-col-content="country" className="px-4 py-3 text-slate-500 text-xs truncate">
+                      {member.address?.country || '–'}
+                    </td>
+                  ),
+                  iban: (
+                    <td key="iban" data-col-content="iban" className="px-4 py-3 font-mono text-slate-600 text-2xs truncate">
+                      {member.bankDetails?.iban || '–'}
+                    </td>
+                  ),
+                  bic: (
+                    <td key="bic" data-col-content="bic" className="px-4 py-3 font-mono text-slate-600 text-2xs truncate">
+                      {member.bankDetails?.bic || '–'}
+                    </td>
+                  ),
+                  bankName: (
+                    <td key="bankName" data-col-content="bankName" className="px-4 py-3 text-slate-500 text-xs truncate">
+                      {member.bankDetails?.bankName || '–'}
+                    </td>
+                  ),
+                  accountHolder: (
+                    <td key="accountHolder" data-col-content="accountHolder" className="px-4 py-3 text-slate-500 text-xs truncate">
+                      {member.bankDetails?.accountHolder || '–'}
+                    </td>
+                  ),
+                  mandateDate: (
+                    <td key="mandateDate" data-col-content="mandateDate" className="px-4 py-3 text-slate-500 text-xs truncate">
+                      {member.bankDetails?.mandateDate ? new Date(member.bankDetails.mandateDate).toLocaleDateString('de-DE') : '–'}
+                    </td>
+                  ),
+                  mandateReference: (
+                    <td key="mandateReference" data-col-content="mandateReference" className="px-4 py-3 font-mono text-slate-500 text-2xs truncate">
+                      {member.bankDetails?.mandateReference || '–'}
+                    </td>
+                  ),
+                  monthlyDueDay: (
+                    <td key="monthlyDueDay" data-col-content="monthlyDueDay" className="px-4 py-3 text-center text-slate-500 text-xs truncate">
+                      {member.bankDetails?.monthlyDueDay ? `${member.bankDetails.monthlyDueDay}.` : '–'}
+                    </td>
+                  )
+                };
 
                 return (
                   <tr
@@ -945,72 +1666,10 @@ export const MembersView: React.FC<MembersViewProps> = ({
                       />
                     </td>
 
-                    <td className="px-4 py-3 font-mono text-slate-400 font-medium text-xs">
-                      {member.memberNumber}
-                    </td>
+                    {/* Datenspalten in der per Drag & Drop gewählten Reihenfolge,
+                        ausgeblendete Spalten werden übersprungen. */}
+                    {visibleColumnOrder.map(key => memberCellDefs[key])}
 
-                    <td className="px-4 py-3 font-semibold text-slate-900">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center text-[10px] font-bold text-slate-600">
-                          {member.avatarUrl ? (
-                            <img
-                              src={member.avatarUrl}
-                              alt=""
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <span>{member.firstName.charAt(0)}{member.lastName.charAt(0)}</span>
-                          )}
-                        </div>
-                        <div>
-                          <div className="text-xs font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
-                            {member.lastName}, {member.firstName}
-                          </div>
-                          <div className="text-[11px] text-slate-400 font-normal">
-                            {member.email || member.phone || 'Keine Kontaktdaten'}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {getStatusBadge(member.status)}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 font-medium text-xs">
-                      {member.department}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500 text-xs">
-                      {member.entryDate ? new Date(member.entryDate).toLocaleDateString('de-DE') : '–'}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500 text-xs">
-                      {member.address.zip} {member.address.city}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono font-bold text-slate-800 text-xs">
-                      {member.paymentMethod === 'exempt' || member.feePeriod === 'none' || member.feeAmount === 0 ? (
-                        <span className="text-emerald-700 font-bold">0,00 €</span>
-                      ) : (
-                        `${member.feeAmount.toFixed(2)} €`
-                      )}
-                      <span className="text-[10px] text-slate-400 block font-normal">
-                        {member.feePeriod === 'none' || member.paymentMethod === 'exempt'
-                          ? 'beitragsfrei'
-                          : member.feePeriod === 'yearly'
-                          ? 'jährlich'
-                          : member.feePeriod === 'monthly'
-                          ? 'monatl.'
-                          : 'halbj.'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {member.paymentMethod === 'exempt' ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                          BEITRAGSFREI
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                          {member.paymentMethod.toUpperCase()}
-                        </span>
-                      )}
-                    </td>
                     <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         <button
@@ -1048,7 +1707,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
 
               {filteredMembers.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="p-8 text-center text-slate-400 text-xs">
+                  <td colSpan={visibleColumnOrder.length + 2} className="p-8 text-center text-slate-400 text-xs">
                     Keine Mitglieder für die aktuellen Filterkriterien gefunden.
                   </td>
                 </tr>
@@ -1056,9 +1715,18 @@ export const MembersView: React.FC<MembersViewProps> = ({
             </tbody>
           </table>
         </div>
+        {columnMenuPos && (
+          <ColumnVisibilityMenu
+            position={columnMenuPos}
+            columns={columnOrder.map(key => ({ key, label: MEMBER_COLUMN_LABELS[key] || key }))}
+            hidden={hiddenColumns}
+            onToggle={toggleColumn}
+            onClose={() => setColumnMenuPos(null)}
+          />
+        )}
 
         {/* Table Bottom Footer & Pagination */}
-        <div>
+        <div className="overflow-hidden rounded-b-xl">
           {selectedMemberIds.size > 0 && (
             <div className="px-6 py-2 bg-blue-50/60 border-t border-blue-100 text-xs text-blue-700 flex items-center justify-between">
               <span className="font-semibold">{selectedMemberIds.size} {selectedMemberIds.size === 1 ? 'Mitglied' : 'Mitglieder'} ausgewählt</span>

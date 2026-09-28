@@ -303,9 +303,12 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
   }, 0);
 
   // Department distribution
+  // Absichtlich nur currentMembers (aktiv/passiv, nicht ausgetreten) — sonst
+  // taucht eine Abteilung, aus der längst alle ausgetreten sind, hier
+  // trotzdem noch mit Kopfzahl und Beitragssumme auf.
   const deptMap: Record<string, number> = {};
   const deptFeeMap: Record<string, number> = {};
-  members.forEach((m) => {
+  currentMembers.forEach((m) => {
     deptMap[m.department] = (deptMap[m.department] || 0) + 1;
     const mult =
       m.feePeriod === 'monthly'
@@ -320,6 +323,12 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
   const deptList = Object.entries(deptMap).sort((a, b) => b[1] - a[1]);
 
   // Membership Type distribution
+  // "terminated" gab es hier früher zusätzlich zu "ausgetreten" — beide mit
+  // derselben Beschriftung "Ausgetreten". Das Mitgliedschaftstyp-Feld lässt
+  // sich aber nirgends im Programm (weder im Bearbeiten-Formular noch beim
+  // Import) auf "terminated" setzen, nur auf "ausgetreten" — die Auswahlliste
+  // im Formular bietet "terminated" gar nicht erst an. Die Kachel zeigte
+  // deshalb immer eine zweite, leere "Ausgetreten"-Kachel. Entfernt.
   const typeMap: Record<string, { label: string; count: number; color: string }> = {
     full: { label: 'Vollmitglied (Erwachsene)', count: 0, color: 'bg-blue-500' },
     youth: { label: 'Jugend / Kinder', count: 0, color: 'bg-emerald-500' },
@@ -327,8 +336,7 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
     family: { label: 'Familienbeitrag', count: 0, color: 'bg-indigo-500' },
     supporting: { label: 'Fördermitglied / Sponsor', count: 0, color: 'bg-purple-500' },
     honorary: { label: 'Ehrenmitglied', count: 0, color: 'bg-emerald-600' },
-    ausgetreten: { label: 'Ausgetreten', count: 0, color: 'bg-rose-500' },
-    terminated: { label: 'Ausgetreten', count: 0, color: 'bg-rose-500' }
+    ausgetreten: { label: 'Ausgetreten', count: 0, color: 'bg-rose-500' }
   };
   members.forEach((m) => {
     if (typeMap[m.membershipType]) {
@@ -337,23 +345,26 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
   });
 
   // Gender breakdown
+  // Auch hier absichtlich nur currentMembers — die Geschlechter-Filterknöpfe
+  // gehören zur Altersstruktur-Kachel und sollen dieselbe Grundgesamtheit
+  // zeigen wie die Altersgruppen darunter, nicht zusätzlich Ausgetretene.
   const genderMap = {
-    m: { label: 'Männlich', count: members.filter((m) => m.gender === 'm').length },
-    w: { label: 'Weiblich', count: members.filter((m) => m.gender === 'w').length },
-    d: { label: 'Divers', count: members.filter((m) => m.gender === 'd').length },
-    none: { label: 'Keine Angabe', count: members.filter((m) => m.gender === 'none' || !m.gender).length }
+    m: { label: 'Männlich', count: currentMembers.filter((m) => m.gender === 'm').length },
+    w: { label: 'Weiblich', count: currentMembers.filter((m) => m.gender === 'w').length },
+    d: { label: 'Divers', count: currentMembers.filter((m) => m.gender === 'd').length },
+    none: { label: 'Keine Angabe', count: currentMembers.filter((m) => m.gender === 'none' || !m.gender).length }
   };
 
   // Filtered members for Age Groups distribution (based on selectedGenderFilter)
   const ageFilteredMembers = useMemo(() => {
-    if (selectedGenderFilter === 'all') return members;
-    return members.filter((m) => {
+    if (selectedGenderFilter === 'all') return currentMembers;
+    return currentMembers.filter((m) => {
       if (selectedGenderFilter === 'none') {
         return !m.gender || m.gender === 'none';
       }
       return m.gender === selectedGenderFilter;
     });
-  }, [members, selectedGenderFilter]);
+  }, [currentMembers, selectedGenderFilter]);
 
   const ageFilteredTotal = ageFilteredMembers.length;
 
@@ -388,25 +399,29 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
   });
 
   // Payment Methods
+  // Wieder nur currentMembers: Ausgetretene stehen ohnehin fast immer auf
+  // "exempt" (siehe handleStatusChange in MemberFormModal.tsx), würden hier
+  // aber nirgends erscheinen und nur die Prozentanteile der übrigen
+  // Zahlungswege nach unten verzerren.
   const paymentMap = {
     sepa: {
       label: 'SEPA-Lastschrift',
-      count: members.filter((m) => m.paymentMethod === 'sepa').length,
+      count: currentMembers.filter((m) => m.paymentMethod === 'sepa').length,
       color: 'bg-blue-600'
     },
     transfer: {
       label: 'Überweisung / Selbstzahler',
-      count: members.filter((m) => m.paymentMethod === 'transfer').length,
+      count: currentMembers.filter((m) => m.paymentMethod === 'transfer').length,
       color: 'bg-indigo-500'
     },
     standing_order: {
       label: 'Dauerauftrag',
-      count: members.filter((m) => m.paymentMethod === 'standing_order').length,
+      count: currentMembers.filter((m) => m.paymentMethod === 'standing_order').length,
       color: 'bg-emerald-500'
     },
     cash: {
       label: 'Barzahlung',
-      count: members.filter((m) => m.paymentMethod === 'cash').length,
+      count: currentMembers.filter((m) => m.paymentMethod === 'cash').length,
       color: 'bg-amber-500'
     }
   };

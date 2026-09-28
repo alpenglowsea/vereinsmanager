@@ -78,6 +78,7 @@ export interface MemberBulkUpdates {
 export interface TransactionBulkUpdates {
   accountId?: string;
   sphere?: TaxSphere;
+  department?: string;
   category?: string;
   mainCategory?: string;
   subCategory?: string;
@@ -162,7 +163,15 @@ export interface Skr42MainCategory {
   id: string; // e.g. 'HK-3100'
   code: string; // e.g. '3100'
   name: string; // e.g. 'Echte Mitgliedsbeiträge & Aufnahmegebühren'
-  sphere: TaxSphere;
+  // Hinweis: Bis Fassung 1.x stand hier ein festes "sphere"-Feld, weil wir
+  // angenommen hatten, die steuerliche Sphäre hänge am Nummernkreis. Der
+  // offizielle DATEV-Kontenrahmen SKR 42 (Vereine, Stiftungen, gGmbHs,
+  // Seite 31 der Erläuterungen) sieht das anders: Die Sphäre wird über ein
+  // eigenes Kostenstellen-Merkmal (KOST1) je Buchung vergeben, unabhängig
+  // vom Konto. Ein Nummernkreis wie "Vereinsgaststätte" kann je nach
+  // Einzelfall ideell, Vermögensverwaltung, Zweckbetrieb oder wirtschaftlich
+  // sein. Die Sphäre steht daher nur noch an der Buchung selbst
+  // (Transaction.sphere / TransactionSplit.sphere), nie am Konto.
   type: 'income' | 'expense';
   subCategories: Skr42SubCategory[];
   isCustom?: boolean;
@@ -172,9 +181,10 @@ export interface TransactionSplit {
   id: string;
   amount: number; // Teilbetrag (positiver Betrag)
   bookingText?: string; // Eigener Teil-Buchungstext / Verwendungszweck
-  sphere: TaxSphere; // Steuerliche Sphäre (1. Ideell, 2. Vermögen, 3. Zweckbetrieb, 4. Wirtschaftlich)
-  mainCategory?: string; // Hauptkategorie e.g. '40000 - Mitgliedsbeiträge & Aufnahmegebühren'
-  subCategory?: string;  // Nebenkategorie e.g. '40000 - Echte Mitgliedsbeiträge (laufend)'
+  sphere: TaxSphere; // Steuerliche Sphäre (1. Ideell, 2. Vermögen, 3. Zweckbetrieb, 4. Wirtschaftlich) — frei wählbar, unabhängig vom Konto
+  department?: string; // Sparte/Abteilung dieser Teilbuchung, z.B. "Fußball" oder unbenannt = Gesamtverein
+  mainCategory?: string; // Nummernkreis e.g. '40000 - Mitgliedsbeiträge & Aufnahmegebühren'
+  subCategory?: string;  // Konto e.g. '40000 - Echte Mitgliedsbeiträge (laufend)'
   skrAccount?: string;   // SKR 42 Kontonummer e.g. '40000'
   category: string;      // Backwards-compatible label
   vatRate: 0 | 7 | 19;
@@ -190,11 +200,12 @@ export interface Transaction {
   documentNumber: string;
   bookingText: string;
   partner: string; // Zahlungsempfänger / Einzahler
-  sphere: TaxSphere;
-  mainCategory?: string; // e.g. '3100 - Echte Mitgliedsbeiträge & Aufnahmegebühren'
-  subCategory?: string;  // e.g. '3110 - Laufende Mitgliedsbeiträge'
+  sphere: TaxSphere; // Steuerliche Sphäre — frei wählbar, unabhängig vom Konto (siehe Skr42MainCategory)
+  department?: string; // Sparte/Abteilung dieser Buchung, z.B. "Fußball"; leer = Gesamtverein
+  mainCategory?: string; // Nummernkreis e.g. '3100 - Echte Mitgliedsbeiträge & Aufnahmegebühren'
+  subCategory?: string;  // Konto e.g. '3110 - Laufende Mitgliedsbeiträge'
   skrAccount?: string;   // e.g. '3110'
-  category: string;      // Backwards compatible combined name / Nebenkategorie
+  category: string;      // Backwards compatible combined name / Konto
   vatRate: 0 | 7 | 19;
   isSplit?: boolean;     // Ob die Buchung in mehrere Teilsummen zerlegt ist
   splits?: TransactionSplit[]; // Die einzelnen Teilbuchungs-Zeilen
@@ -487,6 +498,14 @@ export interface AppUser {
   lastLogin?: string;
   createdAt: string;
   updatedAt?: string;
+  /**
+   * Nur im gehosteten Betrieb (Betriebsart "selfhosted", eigener Server mit
+   * SQLite): Ein vom Vorstand neu angelegtes Konto bekommt ein
+   * Anfangspasswort und muss es bei der ersten Anmeldung selbst ändern,
+   * bevor es weiterarbeiten kann. In den anderen Betriebsarten bleibt das
+   * Feld leer/false — dort gibt es dieses Konzept nicht.
+   */
+  mustChangePassword?: boolean;
 }
 
 export interface SecuritySettings {
@@ -503,7 +522,7 @@ export interface SupabaseConfig {
 export interface UserAuthSession {
   user: AppUser | null;
   isAuthenticated: boolean;
-  loginMethod?: 'user' | 'demo' | 'supabase';
+  loginMethod?: 'user' | 'demo' | 'supabase' | 'localserver';
   loginTime?: string;
 }
 

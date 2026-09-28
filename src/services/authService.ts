@@ -10,11 +10,44 @@ import {
   isCloudModeActive,
   isCloudSetupPending
 } from './supabaseClient';
+import {
+  eigenesKontoLesen as leseEigenesKontoVomEigenenServer,
+  eigenesPasswortAendern as aendereEigenesPasswortAmEigenenServer,
+  ersteinrichtung as richteEigenenServerEin,
+  hatLocalServerSitzung,
+  login as meldeAmEigenenServerAn,
+  logout as meldeVomEigenenServerAb,
+  type LocalServerUser
+} from './localServerAuth';
 
 const STORAGE_KEY_USERS = 'vm_users_v2';
 const STORAGE_KEY_SECURITY = 'vm_security_settings_v2';
 const STORAGE_KEY_CURRENT_SESSION = 'vm_auth_session_v2';
 const STORAGE_KEY_SETUP = 'vm_cloud_setup_pending';
+const STORAGE_KEY_MODE = 'vm_deployment_mode';
+
+/**
+ * Ist der gehostete Betrieb (eigener Server mit SQLite) aktiv?
+ *
+ * Bewusst OHNE Import von StorageService: storage.ts importiert seinerseits
+ * AuthService (für AuthService.isDemoMode()/getUsers()) — ein Import in die
+ * andere Richtung ergäbe einen Kreis. Diese Zeilen bilden deshalb genau die
+ * Vorrangfolge von StorageService.getDeploymentMode() nach (gespeicherter
+ * Wert vor Umgebungsvariable), nur eigenständig und ohne den dortigen
+ * abschließenden Rückgriff auf die Supabase-Konfiguration — der wäre hier
+ * ohnehin bedeutungslos, weil er nur zwischen 'cloud' und 'local' entscheidet
+ * und 'selfhosted' nie liefert.
+ */
+function istGehosteterBetriebAktiv(): boolean {
+  try {
+    const gespeichert = localStorage.getItem(STORAGE_KEY_MODE);
+    if (gespeichert) return gespeichert === 'selfhosted';
+  } catch {
+    // Kein gespeicherter Wert lesbar — dann zählt nur noch die Umgebungsvariable.
+  }
+  const envMode = (import.meta as any).env?.VITE_DEPLOYMENT_MODE;
+  return envMode === 'selfhosted';
+}
 
 /**
  * Ergänzt Berechtigungen, die es zum Zeitpunkt der Speicherung noch nicht gab.
@@ -35,8 +68,83 @@ export class AuthService {
   private static listeners: Array<(session: UserAuthSession) => void> = [];
   private static inactivityTimer: any = null;
 
+  /**
+   * Bildet ein Konto des eigenen Servers (LocalServerUser, siehe
+   * localServerAuth.ts) auf die Form ab, die die restliche Oberfläche
+   * kennt (AppUser) — derselbe Zweck wie das "matchedUser" in
+   * loginWithSupabase() unten, nur für Betriebsart 3 statt 2.
+   *
+   * password bleibt bewusst leer: Der Prüfwert liegt beim Server, nicht im
+   * Browser, und AppUser.password wird für diese Betriebsart nirgends
+   * gelesen (siehe saveUser()/saveUserWithPassword(), die nur für die
+   * browserbasierten Betriebsarten gelten).
+   */
+  private static mapLocalServerUser(u: LocalServerUser): AppUser {
+    return {
+      id: u.id,
+      username: u.email.split('@')[0],
+      email: u.email,
+      name: u.name,
+      password: '',
+      customRoleName: u.customRoleName,
+      permissions: u.permissions,
+      isActive: u.isActive,
+      lastLogin: u.lastLogin,
+      createdAt: u.createdAt,
+      updatedAt: u.updatedAt,
+      mustChangePassword: u.mustChangePassword
+    };
+  }
+
+  /**
+   * init() im gehosteten Betrieb: Die Anmeldung steht beim Server, nicht im
+   * Browser — anders als beim generischen Weg unten (der die gespeicherte
+   * Sitzung gegen this.getUsers(), also die LOKALE Kontoliste, abgleicht).
+   * Für ein Konto des eigenen Servers wäre dieser Abgleich immer negativ
+   * (dessen id steht nie in der lokalen Liste) und würde die Sitzung bei
+   * jedem Neuladen der Seite fälschlich beenden. Deshalb ein eigener,
+   * unabhängiger Weg: Gibt es ein gespeichertes Sitzungstoken, wird es beim
+   * Server nachgeprüft (der validiert dabei auch gleich, ob das Konto noch
+   * aktiv ist) — alles andere bedeutet "nicht angemeldet".
+   */
+  private static async initSelfhosted(): Promise<UserAuthSession> {
+    if (!hatLocalServerSitzung()) {
+      this.currentSession = { user: null, isAuthenticated: false };
+      this.persistSession(this.currentSession);
+      return this.currentSession;
+    }
+
+    const konto = await leseEigenesKontoVomEigenenServer();
+    if (!konto) {
+      // Entweder gab es nie eine gültige Sitzung, oder der Server ist im
+      // Moment nicht erreichbar — leseEigenesKontoVomEigenenServer()
+      // unterscheidet das bereits (siehe dortiger Kommentar) und löscht das
+      // Token nur im ersten Fall. Für die Oberfläche bedeutet beides hier
+      // "nicht angemeldet"; bei einem bloß kurz nicht erreichbaren Server
+      // zeigt ein erneuter Aufruf von init() (z. B. nach einem Neuladen)
+      // wieder den richtigen Zustand, ohne dass die Sitzung verloren wäre.
+      this.currentSession = { user: null, isAuthenticated: false };
+      this.persistSession(this.currentSession);
+      return this.currentSession;
+    }
+
+    this.currentSession = {
+      user: this.mapLocalServerUser(konto),
+      isAuthenticated: true,
+      loginMethod: 'localserver',
+      loginTime: new Date().toISOString()
+    };
+    this.persistSession(this.currentSession);
+    this.startInactivityTracker();
+    return this.currentSession;
+  }
+
   // Initialize Auth Service
   public static async init(): Promise<UserAuthSession> {
+    if (istGehosteterBetriebAktiv()) {
+      return this.initSelfhosted();
+    }
+
     const sec = this.getSecuritySettings();
 
     // Ensure users exist
@@ -460,6 +568,34 @@ export class AuthService {
       return { success: true, user: this.currentSession?.user || undefined };
     }
 
+    // Im gehosteten Betrieb (eigener Server) entscheidet genauso der
+    // Server, nicht die lokale Liste — dieselbe Begründung wie beim
+    // Cloud-Zweig oben, nur gegen die eigene SQLite-Datenbank statt gegen
+    // Supabase.
+    if (istGehosteterBetriebAktiv()) {
+      if (!term.includes('@')) {
+        return {
+          success: false,
+          message: 'Im gehosteten Betrieb melden Sie sich mit Ihrer E-Mail-Adresse an.'
+        };
+      }
+      const res = await meldeAmEigenenServerAn(term, pass);
+      if (!res.success) {
+        return { success: false, message: res.message };
+      }
+      const appUser = this.mapLocalServerUser(res.user);
+      this.currentSession = {
+        user: appUser,
+        isAuthenticated: true,
+        loginMethod: 'localserver',
+        loginTime: new Date().toISOString()
+      };
+      this.persistSession(this.currentSession);
+      this.startInactivityTracker();
+      this.notifyListeners();
+      return { success: true, user: appUser };
+    }
+
     const users = this.getUsers();
     const user = users.find(u => 
       (u.username.toLowerCase() === term || u.email.toLowerCase() === term)
@@ -531,6 +667,74 @@ export class AuthService {
     this.notifyListeners();
 
     return { success: true, user: admin };
+  }
+
+  /**
+   * Richtet im gehosteten Betrieb das allererste Konto ein und meldet es
+   * gleich an — das Gegenstück zu registerCloud() unten, nur für Betriebsart
+   * 3. Bewusst eine eigene Methode statt eines weiteren Zweigs in register():
+   * Jene Methode verlangt Vereinsname und Benutzername, die hier gar nicht
+   * anfallen (der Verein selbst wird weiterhin ganz normal im Browser
+   * verwaltet, siehe StorageService — nur die KONTEN dieser einen
+   * Betriebsart liegen jetzt auf dem Server). Ruft der Server ab, ob schon
+   * ein Konto besteht: statusAbfragen() in localServerAuth.ts, von der
+   * Anmeldemaske aus VOR dieser Methode aufgerufen.
+   */
+  public static async setupSelfhosted(
+    email: string,
+    name: string,
+    password: string
+  ): Promise<{ success: boolean; message?: string; user?: AppUser }> {
+    const res = await richteEigenenServerEin(email.trim(), name.trim(), password);
+    if (!res.success) {
+      return { success: false, message: res.message };
+    }
+
+    const appUser = this.mapLocalServerUser(res.user);
+    this.currentSession = {
+      user: appUser,
+      isAuthenticated: true,
+      loginMethod: 'localserver',
+      loginTime: new Date().toISOString()
+    };
+    this.persistSession(this.currentSession);
+    this.startInactivityTracker();
+    this.notifyListeners();
+    return { success: true, user: appUser };
+  }
+
+  /**
+   * Ändert im gehosteten Betrieb das eigene Passwort — u. a. für die
+   * Pflichtänderung nach einem vom Vorstand vergebenen Anfangspasswort
+   * (AppUser.mustChangePassword). Der Server beendet dabei die bestehende
+   * Sitzung (siehe setPassword in repositories/localUsers.ts); damit die
+   * Person sich nicht ein zweites Mal von Hand anmelden muss, meldet diese
+   * Methode am Ende gleich mit dem neuen Passwort erneut an.
+   */
+  public static async changePasswordSelfhosted(
+    currentPassword: string,
+    newPassword: string
+  ): Promise<{ success: boolean; message?: string }> {
+    const email = this.currentSession?.user?.email;
+    if (!email) {
+      return { success: false, message: 'Nicht angemeldet.' };
+    }
+
+    const res = await aendereEigenesPasswortAmEigenenServer(currentPassword, newPassword);
+    if (!res.success) {
+      return { success: false, message: res.message };
+    }
+
+    const erneuteAnmeldung = await this.login(email, newPassword);
+    if (!erneuteAnmeldung.success) {
+      return {
+        success: false,
+        message:
+          'Das Passwort wurde geändert, die anschließende erneute Anmeldung ist aber ' +
+          'fehlgeschlagen. Bitte manuell mit dem neuen Passwort anmelden.'
+      };
+    }
+    return { success: true };
   }
 
   // Cloud Supabase Login (optional if configured)
@@ -613,6 +817,17 @@ export class AuthService {
 
   // Logout / Lock Session
   public static logout() {
+    // Beendet zusätzlich die Sitzung beim eigenen Server, damit das
+    // Sitzungstoken nicht als "noch angemeldet" liegen bleibt. Bewusst ohne
+    // await: logout() war schon immer eine synchrone Methode (an vielen
+    // Stellen als onClick={() => AuthService.logout()} verdrahtet), und
+    // meldeVomEigenenServerAb() löscht das Token synchron zu Beginn seines
+    // Ablaufs (vor dem ersten await) — der Netzwerkaufruf danach läuft im
+    // Hintergrund zu Ende, ohne dass die Oberfläche darauf warten müsste.
+    if (this.currentSession?.loginMethod === 'localserver') {
+      meldeVomEigenenServerAb();
+    }
+
     this.currentSession = {
       user: null,
       isAuthenticated: false

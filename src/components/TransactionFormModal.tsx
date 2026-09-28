@@ -14,10 +14,11 @@ import { CONTACT_TYPE_MAP } from '../data/contactConstants';
 import {
   TAX_SPHERES,
   SKR42_STRUCTURE,
-  getSkr42MainCategories,
-  getSkr42SubCategories,
+  getAllSkr42MainCategories,
+  getAllSkr42SubCategories,
   findSkr42Main,
-  findSkr42MainForSub
+  findSkr42MainForSub,
+  DEFAULT_DEPARTMENTS
 } from '../data/taxSpheres';
 import { useSkr42 } from '../hooks/useSkr42';
 import { SearchableAccountSelect, SearchableAccountOption } from './SearchableAccountSelect';
@@ -57,6 +58,7 @@ interface TransactionFormModalProps {
   contacts?: ClubContact[];
   members?: Member[];
   initialPartner?: string;
+  departments?: string[];
   onQuickCreateContact?: (initialName: string, initialType?: ContactType) => void;
   onSave: (tx: Transaction) => void;
   onClose: () => void;
@@ -69,6 +71,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   contacts = [],
   members = [],
   initialPartner,
+  departments = DEFAULT_DEPARTMENTS,
   onQuickCreateContact,
   onSave,
   onClose
@@ -84,8 +87,11 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     ? findSkr42MainForSub(transaction.subCategory || transaction.category)
     : undefined;
 
-  const initialSphere: TaxSphere = detectedMain?.sphere || transaction?.sphere || 'ideell';
-  const initialMainCats = getSkr42MainCategories(initialSphere, effectiveInitialType);
+  // Die Sphäre kommt seit der Entkopplung von Konto und Sphäre nur noch von
+  // der Buchung selbst, nie vom gefundenen Konto (das hat gar keine Sphäre
+  // mehr, siehe Hinweis bei Skr42MainCategory in src/types.ts).
+  const initialSphere: TaxSphere = transaction?.sphere || 'ideell';
+  const initialMainCats = getAllSkr42MainCategories(effectiveInitialType);
   const initialMainCatId = detectedMain?.id || initialMainCats[0]?.id || (effectiveInitialType === 'income' ? 'HK-40000' : 'HK-68000-IDE');
   const currentMainObj = SKR42_STRUCTURE.find(m => m.id === initialMainCatId) || initialMainCats[0];
   const initialSubCat = transaction?.subCategory || transaction?.category || currentMainObj?.subCategories[0]?.label || '';
@@ -94,7 +100,6 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   ) || currentMainObj?.subCategories[0];
 
   const [selectedMainCatId, setSelectedMainCatId] = useState<string>(initialMainCatId);
-  const [showAllSpheresInDropdown, setShowAllSpheresInDropdown] = useState<boolean>(true);
 
   // Custom accounts management state
   const [createAccountModalOpen, setCreateAccountModalOpen] = useState(false);
@@ -122,6 +127,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
         amount: initAmt,
         bookingText: transaction?.bookingText || '',
         sphere: initialSphere,
+        department: transaction?.department,
         mainCategory: transaction?.mainCategory || (currentMainObj ? `${currentMainObj.code} - ${currentMainObj.name}` : ''),
         subCategory: initialSubCat,
         category: initialSubCat,
@@ -153,6 +159,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     bookingText: transaction?.bookingText || '',
     partner: transaction?.partner || initialPartner || '',
     sphere: initialSphere,
+    department: transaction?.department,
     mainCategory: transaction?.mainCategory || (currentMainObj ? `${currentMainObj.code} - ${currentMainObj.name}` : ''),
     subCategory: initialSubCat,
     category: initialSubCat,
@@ -312,42 +319,27 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     setShowPartnerSuggestions(false);
   };
 
-  // Available SKR 42 categories for current sphere (showing all accounts: both income & expense)
+  // SKR-42-Konten: seit der Entkopplung von Konto und Sphäre unabhängig von
+  // der gewählten Sphäre — jeder Nummernkreis steht für jede Sphäre zur
+  // Verfügung (siehe Hinweis bei Skr42MainCategory in src/types.ts).
   const mainCategories = useMemo(() => {
-    return getSkr42MainCategories(formData.sphere, undefined, skr42);
-  }, [formData.sphere, skr42]);
-
+    return getAllSkr42MainCategories(undefined, skr42);
+  }, [skr42]);
 
   const subCategories = useMemo(() => {
-    return getSkr42SubCategories(formData.sphere, undefined, selectedMainCatId, skr42);
-  }, [formData.sphere, selectedMainCatId, skr42]);
+    return getAllSkr42SubCategories(undefined, selectedMainCatId, skr42);
+  }, [selectedMainCatId, skr42]);
 
   const mainCatOptions: SearchableAccountOption[] = useMemo(() => {
-    if (showAllSpheresInDropdown) {
-      const spheres: TaxSphere[] = ['ideell', 'vermoegen', 'zweckbetrieb', 'wirtschaftlich'];
-      return spheres.flatMap(sph => {
-        const catsForSph = getSkr42MainCategories(sph, undefined, skr42);
-        const groupName = TAX_SPHERES[sph]?.name || sph;
-        return catsForSph.map(main => ({
-          value: main.id,
-          code: main.code,
-          name: main.name,
-          label: `${main.code} - ${main.name}`,
-          group: `${groupName} • ${main.type === 'income' ? 'Einnahmen' : 'Ausgaben'}`,
-          isCustom: main.isCustom
-        }));
-      });
-    } else {
-      return mainCategories.map(main => ({
-        value: main.id,
-        code: main.code,
-        name: main.name,
-        label: `${main.code} - ${main.name}`,
-        group: main.type === 'income' ? 'Einnahmen-Konten (Erträge / Erlöse)' : 'Ausgaben-Konten (Kosten / Aufwand)',
-        isCustom: main.isCustom
-      }));
-    }
-  }, [showAllSpheresInDropdown, mainCategories, skr42]);
+    return mainCategories.map(main => ({
+      value: main.id,
+      code: main.code,
+      name: main.name,
+      label: `${main.code} - ${main.name}`,
+      group: main.type === 'income' ? 'Einnahmen-Konten (Erträge / Erlöse)' : 'Ausgaben-Konten (Kosten / Aufwand)',
+      isCustom: main.isCustom
+    }));
+  }, [mainCategories]);
 
   const subCatOptions: SearchableAccountOption[] = useMemo(() => {
     return subCategories.map(sub => ({
@@ -404,8 +396,11 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
 
   const applyAiSuggestion = (suggestion: BookingAiSuggestion) => {
     const targetType = suggestion.type;
-    const mains = getSkr42MainCategories(suggestion.sphere, targetType);
-    
+    // Die KI schlägt Sphäre und Konto unabhängig voneinander vor; das Konto
+    // wird darum unter allen Konten dieses Typs gesucht, nicht nur unter
+    // denen der vorgeschlagenen Sphäre.
+    const mains = getAllSkr42MainCategories(targetType);
+
     const matchedMain = mains.find(
       m => m.code === suggestion.mainCategoryCode || m.id === suggestion.mainCategoryId || m.name.toLowerCase().includes(suggestion.mainCategoryName.toLowerCase())
     ) || mains[0];
@@ -452,22 +447,15 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     }, 4000);
   };
 
+  // Die Sphäre ist seit der Entkopplung unabhängig vom Konto: Ihre Änderung
+  // rührt am gewählten Nummernkreis/Konto nicht mehr — nur noch am
+  // Sphäre-Feld der Buchung selbst.
   const handleSphereChange = (sphere: TaxSphere) => {
-    const mains = getSkr42MainCategories(sphere);
-    const newMain = mains[0];
-    const newSub = newMain?.subCategories[0];
-    if (newMain) {
-      setSelectedMainCatId(newMain.id);
-    }
-    setFormData(prev => ({
-      ...prev,
-      sphere,
-      mainCategory: newMain ? `${newMain.code} - ${newMain.name}` : '',
-      subCategory: newSub?.label || '',
-      category: newSub?.label || '',
-      skrAccount: newSub?.code || '',
-      vatRate: newSub?.vatRateDefault ?? (sphere === 'wirtschaftlich' ? 19 : sphere === 'zweckbetrieb' ? 7 : 0)
-    }));
+    setFormData(prev => ({ ...prev, sphere }));
+  };
+
+  const handleDepartmentChange = (department: string) => {
+    setFormData(prev => ({ ...prev, department: department || undefined }));
   };
 
   const handleTypeChange = (type: 'income' | 'expense' | 'transfer') => {
@@ -484,12 +472,14 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     const firstSub = main.subCategories[0];
     setFormData(prev => ({
       ...prev,
-      sphere: main.sphere, // Automatically update sphere when selecting any Hauptkonto!
+      // Die Sphäre bleibt unverändert — Konto und Sphäre sind seit der
+      // Entkopplung unabhängige Felder (siehe Hinweis bei Skr42MainCategory
+      // in src/types.ts).
       mainCategory: `${main.code} - ${main.name}`,
       subCategory: firstSub?.label || '',
       category: firstSub?.label || '',
       skrAccount: firstSub?.code || '',
-      vatRate: firstSub?.vatRateDefault ?? (main.sphere === 'wirtschaftlich' ? 19 : main.sphere === 'zweckbetrieb' ? 7 : 0)
+      vatRate: firstSub?.vatRateDefault ?? 0
     }));
   };
 
@@ -576,6 +566,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
           amount: Math.abs(s.amount)
         })),
         sphere: primarySplit.sphere,
+        department: primarySplit.department,
         mainCategory: primarySplit.mainCategory,
         subCategory: primarySplit.subCategory,
         category: primarySplit.category,
@@ -1139,7 +1130,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                 {aiAppliedBanner && (
                   <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs font-bold text-emerald-800 animate-fadeIn">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>Sphäre, Haupt- & Unterkonto wurden erfolgreich eingetragen!</span>
+                    <span>Sphäre, Nummernkreis & Konto wurden erfolgreich eingetragen!</span>
                   </div>
                 )}
 
@@ -1160,6 +1151,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                     totalAmount={formData.amount}
                     transactionType={formData.type}
                     splits={splitLines}
+                    departments={departments}
                     onChange={setSplitLines}
                     onCancelSplit={() => setIsSplitBooking(false)}
                     error={errors.splits}
@@ -1220,53 +1212,42 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                       label={
                         <>
                           <Layers className="w-3 h-3 text-blue-600 shrink-0" />
-                          <span>Hauptkategorie (SKR 42) *</span>
+                          <span>Nummernkreis (SKR 42) *</span>
                         </>
                       }
                       headerRight={
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCreateAccountMode('main');
-                              setCreateAccountInitialQuery('');
-                              setCreateAccountModalOpen(true);
-                            }}
-                            className="text-3xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer flex items-center gap-0.5"
-                            title="Neues Hauptkonto erstellen"
-                          >
-                            <Plus className="w-2.5 h-2.5" />
-                            <span>Neu</span>
-                          </button>
-                          <span className="text-slate-300">•</span>
-                          <button
-                            type="button"
-                            onClick={() => setShowAllSpheresInDropdown(prev => !prev)}
-                            className="text-3xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer underline"
-                            title="Umschalten zwischen Anzeige aller gängigen SKR 42 Hauptkonten aller 4 Sphären oder nur der aktuell gewählten Sphäre"
-                          >
-                            {showAllSpheresInDropdown ? 'Nur gewählte Sphäre' : 'Alle 4 Sphären'}
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCreateAccountMode('main');
+                            setCreateAccountInitialQuery('');
+                            setCreateAccountModalOpen(true);
+                          }}
+                          className="text-3xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer flex items-center gap-0.5"
+                          title="Neuen Nummernkreis erstellen"
+                        >
+                          <Plus className="w-2.5 h-2.5" />
+                          <span>Neu</span>
+                        </button>
                       }
                       value={selectedMainCatId}
                       onChange={handleMainCatChange}
                       options={mainCatOptions}
-                      placeholder="Hauptkonto auswählen..."
-                      searchPlaceholder="Nummer oder Hauptkonto tippen (z.B. 40000, Spenden)..."
+                      placeholder="Nummernkreis auswählen..."
+                      searchPlaceholder="Nummer oder Nummernkreis tippen (z.B. 40000, Spenden)..."
                       onAddNew={(query) => {
                         setCreateAccountMode('main');
                         setCreateAccountInitialQuery(query || '');
                         setCreateAccountModalOpen(true);
                       }}
-                      addNewLabel="Neues Hauptkonto anlegen..."
+                      addNewLabel="Neuen Nummernkreis anlegen..."
                     />
 
                     <SearchableAccountSelect
                       label={
                         <>
                           <Tag className="w-3 h-3 text-emerald-600 shrink-0" />
-                          <span>Nebenkategorie / Unterkonto (SKR 42) *</span>
+                          <span>Konto (SKR 42) *</span>
                         </>
                       }
                       headerRight={
@@ -1279,29 +1260,48 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                               setCreateAccountModalOpen(true);
                             }}
                             className="text-3xs text-emerald-600 hover:text-emerald-800 font-semibold cursor-pointer flex items-center gap-0.5"
-                            title="Neues Unterkonto erstellen"
+                            title="Neues Konto erstellen"
                           >
                             <Plus className="w-2.5 h-2.5" />
                             <span>Neu</span>
                           </button>
                           <span className="text-slate-300">•</span>
                           <span className="text-3xs text-slate-400 font-normal">
-                            {subCategories.length} {subCategories.length === 1 ? 'Unterkonto' : 'Unterkonten'}
+                            {subCategories.length} {subCategories.length === 1 ? 'Konto' : 'Konten'}
                           </span>
                         </div>
                       }
                       value={formData.subCategory || formData.category}
                       onChange={handleSubCatChange}
                       options={subCatOptions}
-                      placeholder="Unterkonto auswählen..."
+                      placeholder="Konto auswählen..."
                       searchPlaceholder="Nummer oder Begriff tippen (z.B. 40000, 60040, Übungsleiter)..."
                       onAddNew={(query) => {
                         setCreateAccountMode('sub');
                         setCreateAccountInitialQuery(query || '');
                         setCreateAccountModalOpen(true);
                       }}
-                      addNewLabel="Neues Unterkonto anlegen..."
+                      addNewLabel="Neues Konto anlegen..."
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                      Sparte / Abteilung
+                    </label>
+                    <select
+                      value={formData.department || ''}
+                      onChange={e => handleDepartmentChange(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 font-medium text-slate-900"
+                    >
+                      <option value="">Gesamtverein (keine Sparte)</option>
+                      {departments.map(dept => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))}
+                    </select>
+                    <span className="text-3xs text-slate-400 mt-1 block">
+                      Optional — für die Auswertung nach Sparten in der Finanzübersicht
+                    </span>
                   </div>
 
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200">
@@ -1311,6 +1311,9 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                       </span>
                       <span className="text-slate-500">
                         Sphäre: <strong className="text-slate-700">{TAX_SPHERES[formData.sphere]?.name || formData.sphere}</strong>
+                      </span>
+                      <span className="text-slate-500">
+                        Sparte: <strong className="text-slate-700">{formData.department || 'Gesamtverein'}</strong>
                       </span>
                     </div>
 
@@ -1507,20 +1510,19 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
         isOpen={createAccountModalOpen}
         onClose={() => setCreateAccountModalOpen(false)}
         mode={createAccountMode}
-        currentSphere={formData.sphere}
         currentType={formData.type === 'transfer' ? 'expense' : formData.type}
         currentMainCatIdOrCode={selectedMainCatId}
         initialQuery={createAccountInitialQuery}
         onCreatedMain={(newMain) => {
           setSelectedMainCatId(newMain.id);
           handleMainCatChange(newMain.id);
-          setAccountCreatedToast(`Hauptkonto [${newMain.code}] ${newMain.name} erfolgreich angelegt und ausgewählt!`);
+          setAccountCreatedToast(`Nummernkreis [${newMain.code}] ${newMain.name} erfolgreich angelegt und ausgewählt!`);
           setTimeout(() => setAccountCreatedToast(null), 5000);
         }}
         onCreatedSub={(newSub, parentMain) => {
           setSelectedMainCatId(parentMain.id);
           handleSubCatChange(newSub.label);
-          setAccountCreatedToast(`Unterkonto [${newSub.code}] ${newSub.name} erfolgreich angelegt und ausgewählt!`);
+          setAccountCreatedToast(`Konto [${newSub.code}] ${newSub.name} erfolgreich angelegt und ausgewählt!`);
           setTimeout(() => setAccountCreatedToast(null), 5000);
         }}
       />

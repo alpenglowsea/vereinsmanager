@@ -1,7 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { ClubContact, ContactType, ContactPersonType } from '../types';
 import { CONTACT_TYPES_LIST, CONTACT_TYPE_MAP } from '../data/contactConstants';
 import { ExportService } from '../services/exportService';
+import { SortableResizableTh } from './SortableResizableTh';
+import { ColumnVisibilityMenu } from './ColumnVisibilityMenu';
+import { useResizableColumns, ColumnWidths } from '../hooks/useResizableColumns';
+import { useSortableColumns } from '../hooks/useSortableColumns';
+import { useColumnOrder } from '../hooks/useColumnOrder';
+import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import {
   Search,
   Plus,
@@ -23,6 +29,87 @@ import {
   Lock
 } from 'lucide-react';
 import { lockClass, lockTitle } from '../utils/uiLock';
+
+type ContactSortField =
+  | 'number'
+  | 'name'
+  | 'types'
+  | 'communication'
+  | 'city'
+  | 'iban'
+  | 'dateOfBirth'
+  | 'mobile'
+  | 'website'
+  | 'taxId'
+  | 'commercialRegister'
+  | 'creditorOrDebtorNumber'
+  | 'notes'
+  | 'bic'
+  | 'accountHolder'
+  | 'tags';
+
+// Feste Breiten für Auswahl-Kästchen- und Aktionsspalte (letztere ist
+// breiter als bei Mitgliedern/Buchungsjournal, weil hier bis zu fünf
+// Knöpfe nebeneinander stehen können: +Buchung, +Rechnung, Details,
+// Bearbeiten, Löschen). Die übrigen Breiten sind nur ein sinnvoller
+// Startwert; nach dem ersten Ziehen bzw. Doppelklick merkt sich der
+// Browser die eigene Wahl (siehe useResizableColumns).
+const CHECKBOX_COL_WIDTH = 40;
+const ACTION_COL_WIDTH = 380;
+const DEFAULT_CONTACT_COLUMN_WIDTHS: ColumnWidths = {
+  number: 100,
+  name: 260,
+  types: 170,
+  communication: 200,
+  city: 170,
+  iban: 160,
+  dateOfBirth: 120,
+  mobile: 130,
+  website: 170,
+  taxId: 140,
+  commercialRegister: 190,
+  creditorOrDebtorNumber: 170,
+  notes: 200,
+  bic: 120,
+  accountHolder: 170,
+  tags: 170
+};
+const CONTACT_COLUMN_KEYS = Object.keys(DEFAULT_CONTACT_COLUMN_WIDTHS);
+
+// Spalten, die es erst seit dem Ein-/Ausblenden-Menü gibt und die beim
+// allerersten Aufruf ausgeblendet starten (siehe useColumnVisibility). BIC,
+// Kontoinhaber und Tags hat Johannes ausdrücklich als eigene, sofort
+// sichtbare Spalten gewünscht; der Rest ist Teil der allgemeinen Erweiterung
+// und startet wie bei den Mitgliedern ausgeblendet.
+const CONTACT_DEFAULT_HIDDEN_COLUMNS = [
+  'dateOfBirth',
+  'mobile',
+  'website',
+  'taxId',
+  'commercialRegister',
+  'creditorOrDebtorNumber',
+  'notes'
+];
+
+// Beschriftungen für das Ein-/Ausblenden-Menü.
+const CONTACT_COLUMN_LABELS: Record<string, string> = {
+  number: 'Kontakt-Nr.',
+  name: 'Name / Firma',
+  types: 'Kontakttypen',
+  communication: 'Kommunikation',
+  city: 'Ort / Anschrift',
+  iban: 'Bank / IBAN',
+  dateOfBirth: 'Geburtsdatum',
+  mobile: 'Mobiltelefon',
+  website: 'Webseite',
+  taxId: 'Steuernummer',
+  commercialRegister: 'Handelsregister-Nr.',
+  creditorOrDebtorNumber: 'Debitoren-/Kreditorennummer',
+  notes: 'Notizen',
+  bic: 'BIC',
+  accountHolder: 'Kontoinhaber',
+  tags: 'Tags'
+};
 
 interface ContactsViewProps {
   contacts: ClubContact[];
@@ -68,11 +155,299 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [personTypeFilter, setPersonTypeFilter] = useState<'all' | ContactPersonType>('all');
   const [contactTypeFilter, setContactTypeFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'name' | 'number' | 'city' | 'createdAt'>('name');
-  const [sortAsc, setSortAsc] = useState(true);
+  const { sortBy, sortDirection, handleSort } = useSortableColumns<ContactSortField>('name');
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Ziehbare, gespeicherte Spaltenbreiten der Tabelle (siehe useResizableColumns).
+  const tableRef = useRef<HTMLTableElement>(null);
+  const { widths: colWidths, startResize, autoFit } = useResizableColumns(
+    'vereinsmanager:colwidths:contacts',
+    DEFAULT_CONTACT_COLUMN_WIDTHS,
+    tableRef
+  );
+
+  // Per Drag & Drop änderbare Spaltenreihenfolge (siehe useColumnOrder).
+  const {
+    order: columnOrder,
+    draggedKey,
+    dragOverKey,
+    handleColDragStart,
+    handleColDragOver,
+    handleColDrop,
+    handleColDragEnd
+  } = useColumnOrder('vereinsmanager:colorder:contacts', CONTACT_COLUMN_KEYS);
+
+  // Ein-/Ausblenden einzelner Spalten (unabhängig von Reihenfolge & Breite),
+  // bedienbar per Rechtsklick auf einen beliebigen Spaltenkopf.
+  const { hidden: hiddenColumns, toggle: toggleColumn } = useColumnVisibility(
+    'vereinsmanager:colhidden:contacts',
+    CONTACT_COLUMN_KEYS,
+    CONTACT_DEFAULT_HIDDEN_COLUMNS
+  );
+  const visibleColumnOrder = columnOrder.filter(key => !hiddenColumns.has(key));
+  const [columnMenuPos, setColumnMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const openColumnMenu = (e: React.MouseEvent<HTMLTableCellElement>) => {
+    e.preventDefault();
+    setColumnMenuPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const dragProps = (key: string) => ({
+    isDragging: draggedKey === key,
+    isDragOver: dragOverKey === key,
+    onColDragStart: handleColDragStart(key),
+    onColDragOver: handleColDragOver(key),
+    onColDrop: handleColDrop(key),
+    onColDragEnd: handleColDragEnd,
+    onContextMenu: openColumnMenu
+  });
+
+  // Spaltenkopf-Definitionen je Spaltenschlüssel — werden in der per Drag &
+  // Drop gewählten Reihenfolge (columnOrder) gerendert statt in fester
+  // Quelltext-Reihenfolge.
+  const contactHeaderDefs: Record<string, React.ReactNode> = {
+    number: (
+      <SortableResizableTh
+        key="number"
+        label="Kontakt-Nr."
+        active={sortBy === 'number'}
+        direction={sortDirection}
+        onSort={() => handleSort('number')}
+        sortTitle="Nach Kontaktnummer sortieren"
+        colKey="number"
+        width={colWidths.number}
+        onResizeStart={startResize('number')}
+        onAutoFit={() => autoFit('number')}
+        {...dragProps('number')}
+      />
+    ),
+    name: (
+      <SortableResizableTh
+        key="name"
+        label="Name / Firma"
+        active={sortBy === 'name'}
+        direction={sortDirection}
+        onSort={() => handleSort('name')}
+        sortTitle="Nach Name / Firma sortieren"
+        colKey="name"
+        width={colWidths.name}
+        onResizeStart={startResize('name')}
+        onAutoFit={() => autoFit('name')}
+        {...dragProps('name')}
+      />
+    ),
+    types: (
+      <SortableResizableTh
+        key="types"
+        label="Kontakttypen"
+        active={sortBy === 'types'}
+        direction={sortDirection}
+        onSort={() => handleSort('types')}
+        sortTitle="Nach Kontakttypen sortieren"
+        colKey="types"
+        width={colWidths.types}
+        onResizeStart={startResize('types')}
+        onAutoFit={() => autoFit('types')}
+        {...dragProps('types')}
+      />
+    ),
+    communication: (
+      <SortableResizableTh
+        key="communication"
+        label="Kommunikation"
+        active={sortBy === 'communication'}
+        direction={sortDirection}
+        onSort={() => handleSort('communication')}
+        sortTitle="Nach E-Mail / Telefon sortieren"
+        colKey="communication"
+        width={colWidths.communication}
+        onResizeStart={startResize('communication')}
+        onAutoFit={() => autoFit('communication')}
+        {...dragProps('communication')}
+      />
+    ),
+    city: (
+      <SortableResizableTh
+        key="city"
+        label="Ort / Anschrift"
+        active={sortBy === 'city'}
+        direction={sortDirection}
+        onSort={() => handleSort('city')}
+        sortTitle="Nach Ort sortieren"
+        colKey="city"
+        width={colWidths.city}
+        onResizeStart={startResize('city')}
+        onAutoFit={() => autoFit('city')}
+        {...dragProps('city')}
+      />
+    ),
+    iban: (
+      <SortableResizableTh
+        key="iban"
+        label="Bank / IBAN"
+        active={sortBy === 'iban'}
+        direction={sortDirection}
+        onSort={() => handleSort('iban')}
+        sortTitle="Nach IBAN sortieren"
+        colKey="iban"
+        width={colWidths.iban}
+        onResizeStart={startResize('iban')}
+        onAutoFit={() => autoFit('iban')}
+        {...dragProps('iban')}
+      />
+    ),
+    dateOfBirth: (
+      <SortableResizableTh
+        key="dateOfBirth"
+        label="Geburtsdatum"
+        active={sortBy === 'dateOfBirth'}
+        direction={sortDirection}
+        onSort={() => handleSort('dateOfBirth')}
+        sortTitle="Nach Geburtsdatum sortieren"
+        colKey="dateOfBirth"
+        width={colWidths.dateOfBirth}
+        onResizeStart={startResize('dateOfBirth')}
+        onAutoFit={() => autoFit('dateOfBirth')}
+        {...dragProps('dateOfBirth')}
+      />
+    ),
+    mobile: (
+      <SortableResizableTh
+        key="mobile"
+        label="Mobiltelefon"
+        active={sortBy === 'mobile'}
+        direction={sortDirection}
+        onSort={() => handleSort('mobile')}
+        sortTitle="Nach Mobiltelefon sortieren"
+        colKey="mobile"
+        width={colWidths.mobile}
+        onResizeStart={startResize('mobile')}
+        onAutoFit={() => autoFit('mobile')}
+        {...dragProps('mobile')}
+      />
+    ),
+    website: (
+      <SortableResizableTh
+        key="website"
+        label="Webseite"
+        active={sortBy === 'website'}
+        direction={sortDirection}
+        onSort={() => handleSort('website')}
+        sortTitle="Nach Webseite sortieren"
+        colKey="website"
+        width={colWidths.website}
+        onResizeStart={startResize('website')}
+        onAutoFit={() => autoFit('website')}
+        {...dragProps('website')}
+      />
+    ),
+    taxId: (
+      <SortableResizableTh
+        key="taxId"
+        label="Steuernummer"
+        active={sortBy === 'taxId'}
+        direction={sortDirection}
+        onSort={() => handleSort('taxId')}
+        sortTitle="Nach Steuernummer sortieren"
+        colKey="taxId"
+        width={colWidths.taxId}
+        onResizeStart={startResize('taxId')}
+        onAutoFit={() => autoFit('taxId')}
+        {...dragProps('taxId')}
+      />
+    ),
+    commercialRegister: (
+      <SortableResizableTh
+        key="commercialRegister"
+        label="Handelsregister-Nr."
+        active={sortBy === 'commercialRegister'}
+        direction={sortDirection}
+        onSort={() => handleSort('commercialRegister')}
+        sortTitle="Nach Handelsregister-Nr. sortieren"
+        colKey="commercialRegister"
+        width={colWidths.commercialRegister}
+        onResizeStart={startResize('commercialRegister')}
+        onAutoFit={() => autoFit('commercialRegister')}
+        {...dragProps('commercialRegister')}
+      />
+    ),
+    creditorOrDebtorNumber: (
+      <SortableResizableTh
+        key="creditorOrDebtorNumber"
+        label="Debitoren-/Kreditorennummer"
+        active={sortBy === 'creditorOrDebtorNumber'}
+        direction={sortDirection}
+        onSort={() => handleSort('creditorOrDebtorNumber')}
+        sortTitle="Nach Debitoren-/Kreditorennummer sortieren"
+        colKey="creditorOrDebtorNumber"
+        width={colWidths.creditorOrDebtorNumber}
+        onResizeStart={startResize('creditorOrDebtorNumber')}
+        onAutoFit={() => autoFit('creditorOrDebtorNumber')}
+        {...dragProps('creditorOrDebtorNumber')}
+      />
+    ),
+    notes: (
+      <SortableResizableTh
+        key="notes"
+        label="Notizen"
+        active={sortBy === 'notes'}
+        direction={sortDirection}
+        onSort={() => handleSort('notes')}
+        sortTitle="Nach Notizen sortieren"
+        colKey="notes"
+        width={colWidths.notes}
+        onResizeStart={startResize('notes')}
+        onAutoFit={() => autoFit('notes')}
+        {...dragProps('notes')}
+      />
+    ),
+    bic: (
+      <SortableResizableTh
+        key="bic"
+        label="BIC"
+        active={sortBy === 'bic'}
+        direction={sortDirection}
+        onSort={() => handleSort('bic')}
+        sortTitle="Nach BIC sortieren"
+        colKey="bic"
+        width={colWidths.bic}
+        onResizeStart={startResize('bic')}
+        onAutoFit={() => autoFit('bic')}
+        {...dragProps('bic')}
+      />
+    ),
+    accountHolder: (
+      <SortableResizableTh
+        key="accountHolder"
+        label="Kontoinhaber"
+        active={sortBy === 'accountHolder'}
+        direction={sortDirection}
+        onSort={() => handleSort('accountHolder')}
+        sortTitle="Nach Kontoinhaber sortieren"
+        colKey="accountHolder"
+        width={colWidths.accountHolder}
+        onResizeStart={startResize('accountHolder')}
+        onAutoFit={() => autoFit('accountHolder')}
+        {...dragProps('accountHolder')}
+      />
+    ),
+    tags: (
+      <SortableResizableTh
+        key="tags"
+        label="Tags"
+        active={sortBy === 'tags'}
+        direction={sortDirection}
+        onSort={() => handleSort('tags')}
+        sortTitle="Nach Tags sortieren"
+        colKey="tags"
+        width={colWidths.tags}
+        onResizeStart={startResize('tags')}
+        onAutoFit={() => autoFit('tags')}
+        {...dragProps('tags')}
+      />
+    )
+  };
 
   // Quick stats
   const totalCount = contacts.length;
@@ -147,12 +522,38 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
         comparison = (a.contactNumber || '').localeCompare(b.contactNumber || '', 'de', { numeric: true });
       } else if (sortBy === 'city') {
         comparison = (a.address?.city || '').localeCompare(b.address?.city || '', 'de');
-      } else if (sortBy === 'createdAt') {
-        comparison = new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      } else if (sortBy === 'types') {
+        const labelsA = a.types.map(t => CONTACT_TYPE_MAP.get(t)?.label || t).join(', ');
+        const labelsB = b.types.map(t => CONTACT_TYPE_MAP.get(t)?.label || t).join(', ');
+        comparison = labelsA.localeCompare(labelsB, 'de');
+      } else if (sortBy === 'communication') {
+        comparison = (a.email || a.phone || '').localeCompare(b.email || b.phone || '', 'de');
+      } else if (sortBy === 'iban') {
+        comparison = (a.bankDetails?.iban || '').localeCompare(b.bankDetails?.iban || '', 'de');
+      } else if (sortBy === 'dateOfBirth') {
+        comparison = (a.dateOfBirth || '').localeCompare(b.dateOfBirth || '', 'de');
+      } else if (sortBy === 'mobile') {
+        comparison = (a.mobile || '').localeCompare(b.mobile || '', 'de');
+      } else if (sortBy === 'website') {
+        comparison = (a.website || '').localeCompare(b.website || '', 'de');
+      } else if (sortBy === 'taxId') {
+        comparison = (a.taxId || '').localeCompare(b.taxId || '', 'de');
+      } else if (sortBy === 'commercialRegister') {
+        comparison = (a.commercialRegister || '').localeCompare(b.commercialRegister || '', 'de');
+      } else if (sortBy === 'creditorOrDebtorNumber') {
+        comparison = (a.creditorOrDebtorNumber || '').localeCompare(b.creditorOrDebtorNumber || '', 'de');
+      } else if (sortBy === 'notes') {
+        comparison = (a.notes || '').localeCompare(b.notes || '', 'de');
+      } else if (sortBy === 'bic') {
+        comparison = (a.bankDetails?.bic || '').localeCompare(b.bankDetails?.bic || '', 'de');
+      } else if (sortBy === 'accountHolder') {
+        comparison = (a.bankDetails?.accountHolder || '').localeCompare(b.bankDetails?.accountHolder || '', 'de');
+      } else if (sortBy === 'tags') {
+        comparison = (a.tags || []).join(', ').localeCompare((b.tags || []).join(', '), 'de');
       }
-      return sortAsc ? comparison : -comparison;
+      return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [contacts, searchQuery, personTypeFilter, contactTypeFilter, sortBy, sortAsc]);
+  }, [contacts, searchQuery, personTypeFilter, contactTypeFilter, sortBy, sortDirection]);
 
   // Bulk actions handlers
   const handleSelectAll = () => {
@@ -437,7 +838,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
       )}
 
       {/* Main Table Card Container (genau wie in der Mitgliederverwaltung) */}
-      <section className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col overflow-hidden">
+      <section className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col">
         {/* Table Top Header with Title and Action buttons in their own row */}
         <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
           <div className="flex items-center gap-2">
@@ -547,27 +948,6 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
             ))}
           </select>
 
-          {/* Sort By */}
-          <select
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value as any)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="name">Sortierung: Name</option>
-            <option value="number">Sortierung: Kontakt-Nr.</option>
-            <option value="city">Sortierung: Ort</option>
-            <option value="createdAt">Sortierung: Erstellt</option>
-          </select>
-
-          <button
-            type="button"
-            onClick={() => setSortAsc(!sortAsc)}
-            className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-            title={sortAsc ? 'Aufsteigend' : 'Absteigend'}
-          >
-            {sortAsc ? 'A → Z' : 'Z → A'}
-          </button>
-
           {/* Reset Filter Button */}
           {(personTypeFilter !== 'all' || contactTypeFilter !== 'all' || searchQuery) && (
             <button
@@ -586,11 +966,41 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
         </div>
 
         {/* Tabular Contacts List */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[11px] tracking-wider border-b border-slate-200">
+        {/* Eigener, nach oben begrenzter Scroll-Bereich (Breite UND Höhe) —
+            der seitliche Scrollbalken sitzt dadurch immer direkt unter den
+            Zeilen, auch bei langen Seiten (siehe ausführlicher Kommentar in
+            MembersView.tsx bzw. in App.tsx, warum der vorherige Versuch
+            nicht funktioniert hat). */}
+        <div className="overflow-auto max-h-[65vh]">
+          <table
+            ref={tableRef}
+            className="text-left border-collapse text-sm"
+            style={{
+              tableLayout: 'fixed',
+              width:
+                CHECKBOX_COL_WIDTH +
+                ACTION_COL_WIDTH +
+                visibleColumnOrder.reduce((sum, key) => sum + (colWidths[key] || 0), 0)
+            }}
+          >
+            {/* <colgroup> statt Breiten nur an den <th>-Elementen — macht
+                die Spaltenbreite unabhängig vom Tabellenkopf, damit sie sich
+                beim Ziehen auch in den Zeilen darunter ändert (siehe
+                ausführlicher Kommentar in MembersView.tsx, wo dasselbe
+                Problem in Firefox auftrat). */}
+            <colgroup>
+              <col style={{ width: CHECKBOX_COL_WIDTH }} />
+              {visibleColumnOrder.map(key => (
+                <col key={key} style={{ width: colWidths[key] || 0 }} />
+              ))}
+              <col style={{ width: ACTION_COL_WIDTH }} />
+            </colgroup>
+            <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[11px] tracking-wider">
               <tr>
-                <th className="w-10 px-3 py-3 text-center">
+                <th
+                  style={{ width: CHECKBOX_COL_WIDTH, minWidth: CHECKBOX_COL_WIDTH }}
+                  className="px-3 py-3 text-center sticky top-0 z-10 bg-slate-50 border-b border-slate-200"
+                >
                   <button
                     type="button"
                     onClick={handleSelectAll}
@@ -604,13 +1014,13 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                     )}
                   </button>
                 </th>
-                <th className="px-3 py-3 w-24 whitespace-nowrap">Kontakt-Nr.</th>
-                <th className="px-4 py-3">Name / Firma</th>
-                <th className="px-3 py-3">Kontakttypen</th>
-                <th className="px-3 py-3">Kommunikation</th>
-                <th className="px-3 py-3">Ort / Anschrift</th>
-                <th className="px-3 py-3">Bank / IBAN</th>
-                <th className="px-4 py-3 text-right whitespace-nowrap">Aktionen</th>
+                {visibleColumnOrder.map(key => contactHeaderDefs[key])}
+                <th
+                  style={{ width: ACTION_COL_WIDTH, minWidth: ACTION_COL_WIDTH }}
+                  className="px-4 py-3 text-right whitespace-nowrap sticky top-0 z-10 bg-slate-50 border-b border-slate-200"
+                >
+                  Aktionen
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
@@ -647,166 +1057,265 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                         </button>
                       </td>
 
-                      {/* Kontaktnummer */}
-                      <td className="py-3.5 px-3 font-mono font-semibold text-slate-700">
-                        {contact.contactNumber}
-                      </td>
+                      {(() => {
+                        const contactCellDefs: Record<string, React.ReactNode> = {
+                          number: (
+                            <td key="number" data-col-content="number" className="py-3.5 px-3 font-mono font-semibold text-slate-700 truncate">
+                              {contact.contactNumber}
+                            </td>
+                          ),
+                          name: (
+                            <td key="name" data-col-content="name" className="py-3.5 px-4 overflow-hidden">
+                              <div className="flex items-start gap-2.5">
+                                <div
+                                  className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${
+                                    isCompany
+                                      ? 'bg-blue-50 text-blue-600'
+                                      : 'bg-slate-100 text-slate-600'
+                                  }`}
+                                >
+                                  {isCompany ? (
+                                    <Building2 className="w-4 h-4" />
+                                  ) : (
+                                    <User className="w-4 h-4" />
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                                    <span>{contact.displayName}</span>
+                                    {contact.legalForm && (
+                                      <span className="text-2xs font-normal text-slate-400">
+                                        ({contact.legalForm})
+                                      </span>
+                                    )}
+                                  </div>
 
-                      {/* Name / Firma */}
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-start gap-2.5">
-                          <div
-                            className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${
-                              isCompany
-                                ? 'bg-blue-50 text-blue-600'
-                                : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            {isCompany ? (
-                              <Building2 className="w-4 h-4" />
-                            ) : (
-                              <User className="w-4 h-4" />
-                            )}
-                          </div>
-                          <div>
-                            <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                              <span>{contact.displayName}</span>
-                              {contact.legalForm && (
-                                <span className="text-2xs font-normal text-slate-400">
-                                  ({contact.legalForm})
-                                </span>
-                              )}
-                            </div>
+                                  {/* Ansprechpartner if company */}
+                                  {isCompany && contact.contactPerson && (
+                                    <div className="text-2xs text-slate-500 flex items-center gap-1 mt-0.5">
+                                      <span className="text-slate-400">AP:</span>
+                                      <span>
+                                        {[
+                                          contact.contactPerson.firstName,
+                                          contact.contactPerson.lastName
+                                        ]
+                                          .filter(Boolean)
+                                          .join(' ')}
+                                        {contact.contactPerson.roleOrPosition &&
+                                          ` • ${contact.contactPerson.roleOrPosition}`}
+                                      </span>
+                                    </div>
+                                  )}
 
-                            {/* Ansprechpartner if company */}
-                            {isCompany && contact.contactPerson && (
-                              <div className="text-2xs text-slate-500 flex items-center gap-1 mt-0.5">
-                                <span className="text-slate-400">AP:</span>
-                                <span>
-                                  {[
-                                    contact.contactPerson.firstName,
-                                    contact.contactPerson.lastName
-                                  ]
-                                    .filter(Boolean)
-                                    .join(' ')}
-                                  {contact.contactPerson.roleOrPosition &&
-                                    ` • ${contact.contactPerson.roleOrPosition}`}
-                                </span>
+                                  {/* Tags */}
+                                  {contact.tags && contact.tags.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {contact.tags.slice(0, 2).map(tag => (
+                                        <span
+                                          key={tag}
+                                          className="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-3xs font-medium"
+                                        >
+                                          #{tag}
+                                        </span>
+                                      ))}
+                                      {contact.tags.length > 2 && (
+                                        <span className="text-3xs text-slate-400">
+                                          +{contact.tags.length - 2}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            )}
-
-                            {/* Tags */}
-                            {contact.tags && contact.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {contact.tags.slice(0, 2).map(tag => (
-                                  <span
-                                    key={tag}
-                                    className="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-3xs font-medium"
+                            </td>
+                          ),
+                          types: (
+                            <td key="types" data-col-content="types" className="py-3.5 px-3 overflow-hidden">
+                              <div className="flex flex-wrap gap-1">
+                                {contact.types.map(t => {
+                                  const meta = CONTACT_TYPE_MAP.get(t);
+                                  return (
+                                    <span
+                                      key={t}
+                                      className={`px-2 py-0.5 rounded-full text-2xs font-semibold border ${
+                                        meta?.badgeBg || 'bg-slate-100'
+                                      } ${meta?.badgeText || 'text-slate-700'} ${
+                                        meta?.badgeBorder || 'border-slate-200'
+                                      }`}
+                                    >
+                                      {meta?.label || t}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </td>
+                          ),
+                          communication: (
+                            <td key="communication" data-col-content="communication" className="py-3.5 px-3 overflow-hidden">
+                              <div className="space-y-1">
+                                {contact.email ? (
+                                  <a
+                                    href={`mailto:${contact.email}`}
+                                    onClick={e => e.stopPropagation()}
+                                    className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                                    title={contact.email}
                                   >
-                                    #{tag}
-                                  </span>
-                                ))}
-                                {contact.tags.length > 2 && (
-                                  <span className="text-3xs text-slate-400">
-                                    +{contact.tags.length - 2}
-                                  </span>
+                                    <Mail className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                                    <span className="truncate">
+                                      {contact.email}
+                                    </span>
+                                  </a>
+                                ) : (
+                                  <span className="text-slate-300 text-2xs">Keine Mail</span>
+                                )}
+
+                                {contact.phone && (
+                                  <a
+                                    href={`tel:${contact.phone}`}
+                                    onClick={e => e.stopPropagation()}
+                                    className="text-2xs text-slate-600 hover:text-blue-600 flex items-center gap-1"
+                                  >
+                                    <Phone className="w-3 h-3 shrink-0 text-slate-400" />
+                                    <span>{contact.phone}</span>
+                                  </a>
                                 )}
                               </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Kontakttypen */}
-                      <td className="py-3.5 px-3">
-                        <div className="flex flex-wrap gap-1">
-                          {contact.types.map(t => {
-                            const meta = CONTACT_TYPE_MAP.get(t);
-                            return (
-                              <span
-                                key={t}
-                                className={`px-2 py-0.5 rounded-full text-2xs font-semibold border ${
-                                  meta?.badgeBg || 'bg-slate-100'
-                                } ${meta?.badgeText || 'text-slate-700'} ${
-                                  meta?.badgeBorder || 'border-slate-200'
-                                }`}
-                              >
-                                {meta?.label || t}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </td>
-
-                      {/* Kommunikation */}
-                      <td className="py-3.5 px-3">
-                        <div className="space-y-1">
-                          {contact.email ? (
-                            <a
-                              href={`mailto:${contact.email}`}
-                              onClick={e => e.stopPropagation()}
-                              className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-                              title={contact.email}
+                            </td>
+                          ),
+                          city: (
+                            <td key="city" data-col-content="city" className="py-3.5 px-3 text-slate-700 overflow-hidden">
+                              {contact.address?.city ? (
+                                <div>
+                                  <div className="font-medium text-slate-900">
+                                    {contact.address.zip} {contact.address.city}
+                                  </div>
+                                  {contact.address.street && (
+                                    <div className="text-2xs text-slate-400">
+                                      {contact.address.street}{' '}
+                                      {contact.address.houseNumber}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-slate-300 text-2xs">-</span>
+                              )}
+                            </td>
+                          ),
+                          iban: (
+                            <td key="iban" data-col-content="iban" className="py-3.5 px-3 overflow-hidden">
+                              {contact.bankDetails?.iban ? (
+                                <div className="font-mono text-2xs text-slate-700">
+                                  <span>
+                                    {contact.bankDetails.iban.slice(0, 4)} ...{' '}
+                                    {contact.bankDetails.iban.slice(-4)}
+                                  </span>
+                                  {contact.bankDetails.bankName && (
+                                    <div className="text-3xs text-slate-400 truncate">
+                                      {contact.bankDetails.bankName}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-slate-300 text-2xs">-</span>
+                              )}
+                            </td>
+                          ),
+                          dateOfBirth: (
+                            <td key="dateOfBirth" data-col-content="dateOfBirth" className="py-3.5 px-3 text-slate-600 whitespace-nowrap overflow-hidden">
+                              {contact.dateOfBirth
+                                ? new Date(contact.dateOfBirth).toLocaleDateString('de-DE')
+                                : <span className="text-slate-300 text-2xs">-</span>}
+                            </td>
+                          ),
+                          mobile: (
+                            <td key="mobile" data-col-content="mobile" className="py-3.5 px-3 overflow-hidden">
+                              {contact.mobile ? (
+                                <a
+                                  href={`tel:${contact.mobile}`}
+                                  onClick={e => e.stopPropagation()}
+                                  className="text-xs text-slate-700 hover:text-blue-600 truncate"
+                                >
+                                  {contact.mobile}
+                                </a>
+                              ) : (
+                                <span className="text-slate-300 text-2xs">-</span>
+                              )}
+                            </td>
+                          ),
+                          website: (
+                            <td key="website" data-col-content="website" className="py-3.5 px-3 overflow-hidden">
+                              {contact.website ? (
+                                <a
+                                  href={contact.website.startsWith('http') ? contact.website : `https://${contact.website}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={e => e.stopPropagation()}
+                                  className="text-xs text-blue-600 hover:underline truncate block"
+                                  title={contact.website}
+                                >
+                                  {contact.website}
+                                </a>
+                              ) : (
+                                <span className="text-slate-300 text-2xs">-</span>
+                              )}
+                            </td>
+                          ),
+                          taxId: (
+                            <td key="taxId" data-col-content="taxId" className="py-3.5 px-3 font-mono text-xs text-slate-600 truncate overflow-hidden">
+                              {contact.taxId || <span className="text-slate-300 font-sans text-2xs">-</span>}
+                            </td>
+                          ),
+                          commercialRegister: (
+                            <td key="commercialRegister" data-col-content="commercialRegister" className="py-3.5 px-3 text-xs text-slate-600 truncate overflow-hidden">
+                              {contact.commercialRegister || <span className="text-slate-300 text-2xs">-</span>}
+                            </td>
+                          ),
+                          creditorOrDebtorNumber: (
+                            <td key="creditorOrDebtorNumber" data-col-content="creditorOrDebtorNumber" className="py-3.5 px-3 font-mono text-xs text-slate-600 truncate overflow-hidden">
+                              {contact.creditorOrDebtorNumber || <span className="text-slate-300 font-sans text-2xs">-</span>}
+                            </td>
+                          ),
+                          notes: (
+                            <td
+                              key="notes"
+                              data-col-content="notes"
+                              className="py-3.5 px-3 text-slate-500 text-xs truncate overflow-hidden"
+                              title={contact.notes || undefined}
                             >
-                              <Mail className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                              <span className="truncate max-w-[160px]">
-                                {contact.email}
-                              </span>
-                            </a>
-                          ) : (
-                            <span className="text-slate-300 text-2xs">Keine Mail</span>
-                          )}
-
-                          {contact.phone && (
-                            <a
-                              href={`tel:${contact.phone}`}
-                              onClick={e => e.stopPropagation()}
-                              className="text-2xs text-slate-600 hover:text-blue-600 flex items-center gap-1"
-                            >
-                              <Phone className="w-3 h-3 shrink-0 text-slate-400" />
-                              <span>{contact.phone}</span>
-                            </a>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Ort / Anschrift */}
-                      <td className="py-3.5 px-3 text-slate-700">
-                        {contact.address?.city ? (
-                          <div>
-                            <div className="font-medium text-slate-900">
-                              {contact.address.zip} {contact.address.city}
-                            </div>
-                            {contact.address.street && (
-                              <div className="text-2xs text-slate-400">
-                                {contact.address.street}{' '}
-                                {contact.address.houseNumber}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-slate-300 text-2xs">-</span>
-                        )}
-                      </td>
-
-                      {/* Bank / IBAN */}
-                      <td className="py-3.5 px-3">
-                        {contact.bankDetails?.iban ? (
-                          <div className="font-mono text-2xs text-slate-700">
-                            <span>
-                              {contact.bankDetails.iban.slice(0, 4)} ...{' '}
-                              {contact.bankDetails.iban.slice(-4)}
-                            </span>
-                            {contact.bankDetails.bankName && (
-                              <div className="text-3xs text-slate-400 truncate max-w-[120px]">
-                                {contact.bankDetails.bankName}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-slate-300 text-2xs">-</span>
-                        )}
-                      </td>
+                              {contact.notes || <span className="text-slate-300 text-2xs">-</span>}
+                            </td>
+                          ),
+                          bic: (
+                            <td key="bic" data-col-content="bic" className="py-3.5 px-3 font-mono text-xs text-slate-600 truncate overflow-hidden">
+                              {contact.bankDetails?.bic || <span className="text-slate-300 font-sans text-2xs">-</span>}
+                            </td>
+                          ),
+                          accountHolder: (
+                            <td key="accountHolder" data-col-content="accountHolder" className="py-3.5 px-3 text-xs text-slate-600 truncate overflow-hidden">
+                              {contact.bankDetails?.accountHolder || <span className="text-slate-300 text-2xs">-</span>}
+                            </td>
+                          ),
+                          tags: (
+                            <td key="tags" data-col-content="tags" className="py-3.5 px-3 overflow-hidden">
+                              {contact.tags && contact.tags.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {contact.tags.map(tag => (
+                                    <span
+                                      key={tag}
+                                      className="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-3xs font-medium"
+                                    >
+                                      #{tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-slate-300 text-2xs">-</span>
+                              )}
+                            </td>
+                          )
+                        };
+                        return visibleColumnOrder.map(key => contactCellDefs[key]);
+                      })()}
 
                       {/* Aktionen */}
                       <td
@@ -885,7 +1394,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                 })
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                  <td colSpan={visibleColumnOrder.length + 2} className="py-12 text-center text-slate-400">
                     <Building2 className="w-10 h-10 mx-auto text-slate-300 mb-2" />
                     <p className="font-semibold text-sm text-slate-700">
                       Keine Kontakte gefunden
@@ -912,9 +1421,18 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
             </tbody>
           </table>
         </div>
+        {columnMenuPos && (
+          <ColumnVisibilityMenu
+            position={columnMenuPos}
+            columns={columnOrder.map(key => ({ key, label: CONTACT_COLUMN_LABELS[key] || key }))}
+            hidden={hiddenColumns}
+            onToggle={toggleColumn}
+            onClose={() => setColumnMenuPos(null)}
+          />
+        )}
 
         {/* Footer pagination / stats */}
-        <div className="px-4 py-3 bg-slate-50/80 border-t border-slate-200 flex items-center justify-between text-2xs text-slate-500">
+        <div className="px-4 py-3 bg-slate-50/80 border-t border-slate-200 flex items-center justify-between text-2xs text-slate-500 rounded-b-xl overflow-hidden">
           <span>
             Zeige {filteredContacts.length} von {contacts.length} Kontakten
           </span>

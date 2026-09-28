@@ -73,7 +73,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-40000',
     code: '40000',
     name: 'Mitgliedsbeiträge & Aufnahmegebühren',
-    sphere: 'ideell',
     type: 'income',
     subCategories: [
       { code: '40000', name: 'Echte Mitgliedsbeiträge (laufend)', label: '40000 - Echte Mitgliedsbeiträge (laufend)', vatRateDefault: 0 },
@@ -93,7 +92,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-40400',
     code: '40400',
     name: 'Spenden, Schenkungen & Zuwendungen',
-    sphere: 'ideell',
     type: 'income',
     subCategories: [
       { code: '40400', name: 'Spenden & Zuwendungen allgemein', label: '40400 - Spenden & Zuwendungen allgemein', vatRateDefault: 0 },
@@ -110,7 +108,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-40700',
     code: '40700',
     name: 'Zuschüsse & öffentliche Förderungen',
-    sphere: 'ideell',
     type: 'income',
     subCategories: [
       { code: '40700', name: 'Öffentliche Zuschüsse & Beihilfen allgemein', label: '40700 - Öffentliche Zuschüsse allgemein', vatRateDefault: 0 },
@@ -127,7 +124,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-40800',
     code: '40800',
     name: 'Sonstige ideelle Erlöse & Bußgelder',
-    sphere: 'ideell',
     type: 'income',
     subCategories: [
       { code: '40800', name: 'Bußgelder & gerichtliche Geldauflagen', label: '40800 - Gerichtsauflagen & Bußgelder', vatRateDefault: 0 },
@@ -145,7 +141,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-50000-IDE',
     code: '50000',
     name: 'Satzungsmäßige Förderungen & Zuwendungen',
-    sphere: 'ideell',
     type: 'expense',
     subCategories: [
       { code: '50010', name: 'Mittelweiterleitung an steuerbegünstigte Körperschaften (§ 58 Nr. 1 AO)', label: '50010 - Mittelweiterleitung gem. § 58 Nr. 1 AO', vatRateDefault: 0 },
@@ -158,7 +153,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-68000-IDE',
     code: '68000',
     name: 'Verwaltung, Verband & ideeller Aufwand',
-    sphere: 'ideell',
     type: 'expense',
     subCategories: [
       { code: '66100', name: 'Beiträge an Fachverbände & Landessportbund', label: '66100 - Verbandsabgaben & LSB-Beiträge', vatRateDefault: 0 },
@@ -177,7 +171,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-69000-IDE',
     code: '69000',
     name: 'Abschreibungen ideeller Bereich',
-    sphere: 'ideell',
     type: 'expense',
     subCategories: [
       { code: '69010', name: 'Abschreibungen auf Software & immaterielle Werte (ideell)', label: '69010 - AfA Software / immaterielle Werte', vatRateDefault: 0 },
@@ -193,7 +186,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-46000',
     code: '46000',
     name: 'Mieten, Pachten & Immobilienerträge',
-    sphere: 'vermoegen',
     type: 'income',
     subCategories: [
       { code: '46100', name: 'Mieteinnahmen & Pachten Vereinsheim / Vereinsgaststätte (langfristig)', label: '46100 - Pacht & Miete Vereinsheim/Gaststätte', vatRateDefault: 0 },
@@ -207,7 +199,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-47000',
     code: '47000',
     name: 'Zinsen, Dividenden & Kapitalerträge',
-    sphere: 'vermoegen',
     type: 'income',
     subCategories: [
       { code: '47000', name: 'Zinserträge aus Bankguthaben (Tagesgeld, Festgeld, Sparbuch)', label: '47000 - Zinserträge Bankkonten / Festgeld', vatRateDefault: 0 },
@@ -225,7 +216,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-62000-VER',
     code: '62000',
     name: 'Bewirtschaftung & Erhaltung Vermögen',
-    sphere: 'vermoegen',
     type: 'expense',
     subCategories: [
       { code: '62150', name: 'Instandhaltung & Reparaturen vermieteter Immobilien', label: '62150 - Instandhaltung vermietete Liegenschaften', vatRateDefault: 0 },
@@ -236,10 +226,11 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     ]
   },
   {
+    // Nummer geändert von 69000 auf 69050 (Kollision mit HK-69000-IDE,
+    // HK-69000-ZWB und HK-69000-WGB, siehe Kommentar bei HK-50000-WGB oben).
     id: 'HK-69000-VER',
-    code: '69000',
+    code: '69050',
     name: 'Abschreibungen Vermögensverwaltung',
-    sphere: 'vermoegen',
     type: 'expense',
     subCategories: [
       { code: '69050', name: 'Abschreibungen auf vermietete Gebäude & Außenanlagen', label: '69050 - AfA vermietete Gebäude', vatRateDefault: 0 },
@@ -254,7 +245,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-41000',
     code: '41000',
     name: 'Sportlicher Zweckbetrieb (Eintritt & Kurse)',
-    sphere: 'zweckbetrieb',
     type: 'income',
     subCategories: [
       { code: '41000', name: 'Erlöse sportlicher Zweckbetrieb allgemein (7% USt)', label: '41000 - Erlöse sportlicher Zweckbetrieb (7% USt)', vatRateDefault: 7 },
@@ -270,7 +260,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-42000',
     code: '42000',
     name: 'Kulturelle, bildende & sonstige Zweckbetriebe',
-    sphere: 'zweckbetrieb',
     type: 'income',
     subCategories: [
       { code: '42000', name: 'Erlöse kulturelle Veranstaltungen & Aufführungen (7% USt)', label: '42000 - Kulturelle Veranstaltungen (7% USt)', vatRateDefault: 7 },
@@ -288,7 +277,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-60000-ZWB',
     code: '60000',
     name: 'Sportliches Personal & Aufwandsentschädigungen',
-    sphere: 'zweckbetrieb',
     type: 'expense',
     subCategories: [
       { code: '60020', name: 'Ehrenamtspauschale gem. § 3 Nr. 26a EStG (bis 840 €/Jahr)', label: '60020 - Ehrenamtspauschale (§ 3 Nr. 26a EStG)', vatRateDefault: 0 },
@@ -300,10 +288,11 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     ]
   },
   {
+    // Nummer geändert von 62000 auf 62100 (Kollision mit HK-62000-VER, siehe
+    // Kommentar bei HK-50000-WGB oben).
     id: 'HK-62000-ZWB',
-    code: '62000',
+    code: '62100',
     name: 'Sportstätten, Hallen & Platzpflege',
-    sphere: 'zweckbetrieb',
     type: 'expense',
     subCategories: [
       { code: '62100', name: 'Hallenmieten, Sportplatzmieten & Nutzungsentgelte', label: '62100 - Hallen- & Platzmieten Sportstätten', vatRateDefault: 0 },
@@ -318,7 +307,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-63000-ZWB',
     code: '63000',
     name: 'Reisekosten, Fahrten & Trainingslager',
-    sphere: 'zweckbetrieb',
     type: 'expense',
     subCategories: [
       { code: '63100', name: 'Fahrtkostenerstattung Sportler & Trainer (Auswärtsspiele)', label: '63100 - Fahrtkosten Sportler & Trainer', vatRateDefault: 0 },
@@ -333,7 +321,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-65000-ZWB',
     code: '65000',
     name: 'Spielbetrieb, Sportgeräte & Trikots',
-    sphere: 'zweckbetrieb',
     type: 'expense',
     subCategories: [
       { code: '65100', name: 'Sportgeräte & Trainingsmaterial (Bälle, Hütchen, Netze, Matten)', label: '65100 - Sportgeräte & Trainingsmaterial', vatRateDefault: 0 },
@@ -347,7 +334,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-66000-ZWB',
     code: '66000',
     name: 'Startgelder, Meldegelder & Lizenzen',
-    sphere: 'zweckbetrieb',
     type: 'expense',
     subCategories: [
       { code: '66150', name: 'Startgelder & Meldegelder für Verbandswettkämpfe & Turniere', label: '66150 - Startgelder Verband & Turniere', vatRateDefault: 0 },
@@ -357,10 +343,11 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     ]
   },
   {
+    // Nummer geändert von 69000 auf 69100 (Kollision, siehe Kommentar bei
+    // HK-50000-WGB oben).
     id: 'HK-69000-ZWB',
-    code: '69000',
+    code: '69100',
     name: 'Abschreibungen Zweckbetrieb',
-    sphere: 'zweckbetrieb',
     type: 'expense',
     subCategories: [
       { code: '69100', name: 'Abschreibungen auf Sportanlagen, Flutlicht & Großgeräte', label: '69100 - AfA Sportanlagen & Großgeräte', vatRateDefault: 0 },
@@ -376,7 +363,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-43000',
     code: '43000',
     name: 'Gastronomie, Kiosk & Vereinsfeste',
-    sphere: 'wirtschaftlich',
     type: 'income',
     subCategories: [
       { code: '43000', name: 'Erlöse Gastronomie & Kioskbetrieb allgemein (19% USt)', label: '43000 - Erlöse Gastronomie allgemein (19% USt)', vatRateDefault: 19 },
@@ -391,7 +377,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-44000',
     code: '44000',
     name: 'Werbung, Sponsoring & Marketing',
-    sphere: 'wirtschaftlich',
     type: 'income',
     subCategories: [
       { code: '44000', name: 'Werbeeinnahmen & Sponsoring allgemein (19% USt)', label: '44000 - Sponsoring & Werbung allgemein (19% USt)', vatRateDefault: 19 },
@@ -407,7 +392,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-45000',
     code: '45000',
     name: 'Merchandising & sonstige wirtschaftliche Betriebe',
-    sphere: 'wirtschaftlich',
     type: 'income',
     subCategories: [
       { code: '45100', name: 'Verkauf von Fanartikeln, Schals & Merchandising (19% USt)', label: '45100 - Merchandising & Fanartikelverkauf (19% USt)', vatRateDefault: 19 },
@@ -421,10 +405,14 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
   // 4. WIRTSCHAFTLICHER GESCHÄFTSBETRIEB - AUSGABEN (Klasse 5, 6 & 7)
   // =========================================================================
   {
+    // Nummer geändert von 50000 auf 51000 (bis Fassung 1.x nur durch die
+    // inzwischen entfallene Sphäre von HK-50000-IDE unterschieden — beide
+    // trugen die gleiche Nummer). 51000 ist die erste eigene Unterkonto-
+    // Nummer dieser Gruppe, wie bei den übrigen Hauptkonten in dieser Datei
+    // üblich. Die id bleibt zur besseren Nachvollziehbarkeit unverändert.
     id: 'HK-50000-WGB',
-    code: '50000',
+    code: '51000',
     name: 'Wareneinsatz Gastronomie, Kiosk & Feste',
-    sphere: 'wirtschaftlich',
     type: 'expense',
     subCategories: [
       { code: '51000', name: 'Wareneinkauf Speisen (Bratwurst, Brötchen, Pommes) (7% Vorsteuer)', label: '51000 - Wareneinkauf Speisen (7% Vorsteuer)', vatRateDefault: 7 },
@@ -435,10 +423,11 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     ]
   },
   {
+    // Nummer geändert von 60000 auf 60200 (Kollision mit HK-60000-ZWB, siehe
+    // Kommentar bei HK-50000-WGB oben).
     id: 'HK-60000-WGB',
-    code: '60000',
+    code: '60200',
     name: 'Personal wirtschaftlicher Geschäftsbetrieb',
-    sphere: 'wirtschaftlich',
     type: 'expense',
     subCategories: [
       { code: '60200', name: 'Löhne & Aushilfskräfte Kiosk, Kantine & Thekendienst', label: '60200 - Aushilfslöhne Kiosk & Thekendienst', vatRateDefault: 0 },
@@ -450,7 +439,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-67000-WGB',
     code: '67000',
     name: 'Aufwand für Werbung & Sponsorenbetreuung',
-    sphere: 'wirtschaftlich',
     type: 'expense',
     subCategories: [
       { code: '67100', name: 'Herstellungskosten für Werbebanden, Banner & Schilder', label: '67100 - Herstellung Werbebanden & Schilder', vatRateDefault: 19 },
@@ -463,7 +451,6 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     id: 'HK-73000-WGB',
     code: '73000',
     name: 'Ertragssteuern & Abgaben wirtschaftlicher Betrieb',
-    sphere: 'wirtschaftlich',
     type: 'expense',
     subCategories: [
       { code: '73100', name: 'Körperschaftsteuer & Solidaritätszuschlag', label: '73100 - Körperschaftsteuer & Soli', vatRateDefault: 0 },
@@ -473,10 +460,11 @@ export const SKR42_STRUCTURE: Skr42MainCategory[] = [
     ]
   },
   {
+    // Nummer geändert von 69000 auf 69300 (Kollision, siehe Kommentar bei
+    // HK-50000-WGB oben).
     id: 'HK-69000-WGB',
-    code: '69000',
+    code: '69300',
     name: 'Abschreibungen wirtschaftlicher Betrieb',
-    sphere: 'wirtschaftlich',
     type: 'expense',
     subCategories: [
       { code: '69300', name: 'Abschreibungen auf Gastronomieausstattung (Zapfanlage, Kühlschränke, Grill)', label: '69300 - AfA Gastronomieausstattung', vatRateDefault: 0 },
@@ -500,19 +488,14 @@ export const getAllSkr42MainCategories = (
   return source.filter(m => m.type === type);
 };
 
-export const getSkr42MainCategories = (
-  sphere: TaxSphere,
-  type?: 'income' | 'expense',
-  source: readonly Skr42MainCategory[] = SKR42_STRUCTURE
-): Skr42MainCategory[] => {
-  if (!type) {
-    return source.filter(m => m.sphere === sphere);
-  }
-  return source.filter(m => m.sphere === sphere && m.type === type);
-};
-
-export const getSkr42SubCategories = (
-  sphere: TaxSphere,
+// Bis Fassung 1.x nahmen getSkr42MainCategories()/getSkr42SubCategories()
+// zusätzlich eine Sphäre entgegen und filterten die Konten danach — weil wir
+// dachten, ein Nummernkreis gehöre fest zu einer Sphäre. Das war falsch (s.
+// Hinweis bei Skr42MainCategory in src/types.ts). Beide Funktionen sind
+// deshalb entfallen; an ihre Stelle treten die sphärenlosen Varianten
+// unten, die alle Konten eines Typs liefern, unabhängig von der Sphäre der
+// jeweiligen Buchung.
+export const getAllSkr42SubCategories = (
   type?: 'income' | 'expense',
   mainCategoryId?: string,
   source: readonly Skr42MainCategory[] = SKR42_STRUCTURE
@@ -523,7 +506,7 @@ export const getSkr42SubCategories = (
     );
     if (found) return found.subCategories;
   }
-  const mains = getSkr42MainCategories(sphere, type, source);
+  const mains = getAllSkr42MainCategories(type, source);
   return mains.flatMap(m => m.subCategories);
 };
 
@@ -667,25 +650,14 @@ export const findSkr42SubCategory = (codeOrLabel: string): { sub: Skr42SubCatego
 };
 
 /**
- * Legacy compatibility: Flat category lists per sphere
+ * Flache Kategorie-Listen für einfache Dropdowns (z.B. Bankimport), die nur
+ * nach Einnahme/Ausgabe unterscheiden. Bis Fassung 1.x hieß das
+ * SPHERE_CATEGORIES und filterte zusätzlich nach Sphäre — entfallen aus dem
+ * gleichen Grund wie getSkr42MainCategories()/getSkr42SubCategories() oben.
  */
-export const SPHERE_CATEGORIES: Record<TaxSphere, { income: string[]; expense: string[] }> = {
-  ideell: {
-    income: SKR42_STRUCTURE.filter(m => m.sphere === 'ideell' && m.type === 'income').flatMap(m => m.subCategories.map(s => s.label)),
-    expense: SKR42_STRUCTURE.filter(m => m.sphere === 'ideell' && m.type === 'expense').flatMap(m => m.subCategories.map(s => s.label))
-  },
-  vermoegen: {
-    income: SKR42_STRUCTURE.filter(m => m.sphere === 'vermoegen' && m.type === 'income').flatMap(m => m.subCategories.map(s => s.label)),
-    expense: SKR42_STRUCTURE.filter(m => m.sphere === 'vermoegen' && m.type === 'expense').flatMap(m => m.subCategories.map(s => s.label))
-  },
-  zweckbetrieb: {
-    income: SKR42_STRUCTURE.filter(m => m.sphere === 'zweckbetrieb' && m.type === 'income').flatMap(m => m.subCategories.map(s => s.label)),
-    expense: SKR42_STRUCTURE.filter(m => m.sphere === 'zweckbetrieb' && m.type === 'expense').flatMap(m => m.subCategories.map(s => s.label))
-  },
-  wirtschaftlich: {
-    income: SKR42_STRUCTURE.filter(m => m.sphere === 'wirtschaftlich' && m.type === 'income').flatMap(m => m.subCategories.map(s => s.label)),
-    expense: SKR42_STRUCTURE.filter(m => m.sphere === 'wirtschaftlich' && m.type === 'expense').flatMap(m => m.subCategories.map(s => s.label))
-  }
+export const ALL_ACCOUNT_CATEGORIES: { income: string[]; expense: string[] } = {
+  income: SKR42_STRUCTURE.filter(m => m.type === 'income').flatMap(m => m.subCategories.map(s => s.label)),
+  expense: SKR42_STRUCTURE.filter(m => m.type === 'expense').flatMap(m => m.subCategories.map(s => s.label))
 };
 
 export const DEFAULT_DEPARTMENTS = [
@@ -700,3 +672,13 @@ export const DEFAULT_DEPARTMENTS = [
   'Vorstand & Verwaltung',
   'Ehrenmitglieder'
 ];
+
+/**
+ * Der Nummernkreis "Spenden, Schenkungen & Zuwendungen" (Hauptkonto 40400,
+ * SKR 42). Die Finanz-Auswertungen (FinanceAnalyticsView) zählen Buchungen
+ * auf diesem Nummernkreis als "Spenden" und nehmen sie aus "Einnahmen"
+ * heraus, damit eine Spende nicht doppelt gezählt wird — einmal als
+ * Einnahme, einmal als Spende. Das gilt unabhängig von der Sphäre der
+ * einzelnen Buchung.
+ */
+export const SPENDEN_HAUPTKONTO_CODE = '40400';

@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Transaction,
+  TransactionSplit,
   FinancialAccount,
   ClubSettings,
   TaxSphere,
@@ -14,6 +15,11 @@ import { StorageService } from '../services/storage';
 import { TransactionDetailsModal } from './TransactionDetailsModal';
 import { TransactionBulkEditModal } from './TransactionBulkEditModal';
 import { TablePagination, PageSizeOption } from './TablePagination';
+import { SortableResizableTh } from './SortableResizableTh';
+import { ColumnVisibilityMenu } from './ColumnVisibilityMenu';
+import { useResizableColumns, ColumnWidths } from '../hooks/useResizableColumns';
+import { useColumnOrder } from '../hooks/useColumnOrder';
+import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import {
   Plus,
   Search,
@@ -29,9 +35,6 @@ import {
   Camera,
   UserPlus,
   GripVertical,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
   SlidersHorizontal,
   FileDown,
   X,
@@ -47,7 +50,77 @@ export type TransactionSortField =
   | 'sphere'
   | 'category'
   | 'receipt'
-  | 'amount';
+  | 'amount'
+  | 'department'
+  | 'notes'
+  | 'txType'
+  | 'skr42'
+  | 'vatRate';
+
+// Feste Breiten für Auswahl-Kästchen- und Aktionsspalte — die übrigen sind
+// nur ein sinnvoller Startwert; nach dem ersten Ziehen bzw. Doppelklick
+// merkt sich der Browser die eigene Wahl (siehe useResizableColumns).
+const CHECKBOX_COL_WIDTH = 40;
+const ACTION_COL_WIDTH = 90;
+const DEFAULT_TRANSACTION_COLUMN_WIDTHS: ColumnWidths = {
+  date: 110,
+  documentNumber: 110,
+  partner: 260,
+  sphere: 150,
+  category: 190,
+  receipt: 110,
+  amount: 130,
+  department: 140,
+  notes: 200,
+  txType: 110,
+  skr42: 200,
+  vatRate: 100
+};
+const FINANCE_COLUMN_KEYS = Object.keys(DEFAULT_TRANSACTION_COLUMN_WIDTHS);
+
+// Spalten, die es erst seit dem Ein-/Ausblenden-Menü gibt und die beim
+// allerersten Aufruf ausgeblendet starten (siehe useColumnVisibility).
+// "Nummernkreis & SKR42-Konto" und "Steuersatz" bleiben sichtbar — Johannes
+// hat sie ausdrücklich als eigene, sofort sichtbare Spalten gewünscht;
+// Abteilung/Sparte, Notizen und Buchungsart sind Teil der allgemeinen
+// Erweiterung und starten wie bei den Mitgliedern ausgeblendet.
+const FINANCE_DEFAULT_HIDDEN_COLUMNS = ['department', 'notes', 'txType'];
+
+// Beschriftungen für das Ein-/Ausblenden-Menü.
+const FINANCE_COLUMN_LABELS: Record<string, string> = {
+  date: 'Datum',
+  documentNumber: 'Beleg-Nr.',
+  partner: 'Zahlungspartner & Buchungstext',
+  sphere: 'Steuer-Sphäre',
+  category: 'Kategorie / Konto',
+  receipt: 'Beleg',
+  amount: 'Betrag (€)',
+  department: 'Abteilung/Sparte',
+  notes: 'Notizen',
+  txType: 'Buchungsart',
+  skr42: 'Nummernkreis & SKR42-Konto',
+  vatRate: 'Steuersatz'
+};
+
+/**
+ * Liest ein Feld, das sowohl auf der Buchung selbst als auch (bei einer
+ * Splittbuchung) auf jeder einzelnen Teilbuchung getrennt vorkommen kann.
+ * Ohne Splitt: einfach der Wert der Buchung. Mit Splitt: Sind sich alle
+ * Teilbuchungen einig, gilt dieser gemeinsame Wert — sonst gilt das Feld als
+ * "gemischt" (kein einzelner Wert mehr aussagekräftig).
+ */
+function splitAwareValue<T>(
+  tx: Transaction,
+  getValue: (source: Transaction | TransactionSplit) => T
+): { value: T; mixed: boolean } {
+  if (!tx.isSplit || !tx.splits || tx.splits.length === 0) {
+    return { value: getValue(tx), mixed: false };
+  }
+  const values = tx.splits.map(getValue);
+  const first = values[0];
+  const allSame = values.every(v => v === first);
+  return { value: first, mixed: !allSame };
+}
 
 interface FinanceViewProps {
   transactions: Transaction[];
@@ -177,6 +250,238 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
     }
   };
 
+  // Ziehbare, gespeicherte Spaltenbreiten der Tabelle (siehe useResizableColumns).
+  const tableRef = useRef<HTMLTableElement>(null);
+  const { widths: colWidths, startResize, autoFit } = useResizableColumns(
+    'vereinsmanager:colwidths:finance',
+    DEFAULT_TRANSACTION_COLUMN_WIDTHS,
+    tableRef
+  );
+
+  // Per Drag & Drop änderbare Spaltenreihenfolge (siehe useColumnOrder).
+  const {
+    order: columnOrder,
+    draggedKey,
+    dragOverKey,
+    handleColDragStart,
+    handleColDragOver,
+    handleColDrop,
+    handleColDragEnd
+  } = useColumnOrder('vereinsmanager:colorder:finance', FINANCE_COLUMN_KEYS);
+
+  // Ein-/Ausblenden einzelner Spalten (unabhängig von Reihenfolge & Breite),
+  // bedienbar per Rechtsklick auf einen beliebigen Spaltenkopf.
+  const { hidden: hiddenColumns, toggle: toggleColumn } = useColumnVisibility(
+    'vereinsmanager:colhidden:finance',
+    FINANCE_COLUMN_KEYS,
+    FINANCE_DEFAULT_HIDDEN_COLUMNS
+  );
+  const visibleColumnOrder = columnOrder.filter(key => !hiddenColumns.has(key));
+  const [columnMenuPos, setColumnMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const openColumnMenu = (e: React.MouseEvent<HTMLTableCellElement>) => {
+    e.preventDefault();
+    setColumnMenuPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const dragProps = (key: string) => ({
+    isDragging: draggedKey === key,
+    isDragOver: dragOverKey === key,
+    onColDragStart: handleColDragStart(key),
+    onColDragOver: handleColDragOver(key),
+    onColDrop: handleColDrop(key),
+    onColDragEnd: handleColDragEnd,
+    onContextMenu: openColumnMenu
+  });
+
+  // Spaltenkopf-Definitionen je Spaltenschlüssel — werden in der per Drag &
+  // Drop gewählten Reihenfolge (columnOrder) gerendert statt in fester
+  // Quelltext-Reihenfolge.
+  const financeHeaderDefs: Record<string, React.ReactNode> = {
+    date: (
+      <SortableResizableTh
+        key="date"
+        label="Datum"
+        active={sortField === 'date'}
+        direction={sortDirection}
+        onSort={() => handleSort('date')}
+        sortTitle="Nach Datum sortieren"
+        colKey="date"
+        width={colWidths.date}
+        onResizeStart={startResize('date')}
+        onAutoFit={() => autoFit('date')}
+        {...dragProps('date')}
+      />
+    ),
+    documentNumber: (
+      <SortableResizableTh
+        key="documentNumber"
+        label="Beleg-Nr."
+        active={sortField === 'documentNumber'}
+        direction={sortDirection}
+        onSort={() => handleSort('documentNumber')}
+        sortTitle="Nach Belegnummer sortieren"
+        colKey="documentNumber"
+        width={colWidths.documentNumber}
+        onResizeStart={startResize('documentNumber')}
+        onAutoFit={() => autoFit('documentNumber')}
+        {...dragProps('documentNumber')}
+      />
+    ),
+    partner: (
+      <SortableResizableTh
+        key="partner"
+        label="Zahlungspartner & Buchungstext"
+        active={sortField === 'partner'}
+        direction={sortDirection}
+        onSort={() => handleSort('partner')}
+        sortTitle="Nach Zahlungspartner & Buchungstext sortieren"
+        colKey="partner"
+        width={colWidths.partner}
+        onResizeStart={startResize('partner')}
+        onAutoFit={() => autoFit('partner')}
+        {...dragProps('partner')}
+      />
+    ),
+    sphere: (
+      <SortableResizableTh
+        key="sphere"
+        label="Steuer-Sphäre"
+        active={sortField === 'sphere'}
+        direction={sortDirection}
+        onSort={() => handleSort('sphere')}
+        sortTitle="Nach Steuer-Sphäre sortieren"
+        colKey="sphere"
+        width={colWidths.sphere}
+        onResizeStart={startResize('sphere')}
+        onAutoFit={() => autoFit('sphere')}
+        {...dragProps('sphere')}
+      />
+    ),
+    category: (
+      <SortableResizableTh
+        key="category"
+        label="Kategorie / Konto"
+        active={sortField === 'category'}
+        direction={sortDirection}
+        onSort={() => handleSort('category')}
+        sortTitle="Nach Kategorie / Konto sortieren"
+        colKey="category"
+        width={colWidths.category}
+        onResizeStart={startResize('category')}
+        onAutoFit={() => autoFit('category')}
+        {...dragProps('category')}
+      />
+    ),
+    receipt: (
+      <SortableResizableTh
+        key="receipt"
+        label="Beleg"
+        align="center"
+        active={sortField === 'receipt'}
+        direction={sortDirection}
+        onSort={() => handleSort('receipt')}
+        sortTitle="Nach Beleg (vorhanden / fehlend) sortieren"
+        colKey="receipt"
+        width={colWidths.receipt}
+        onResizeStart={startResize('receipt')}
+        onAutoFit={() => autoFit('receipt')}
+        {...dragProps('receipt')}
+      />
+    ),
+    amount: (
+      <SortableResizableTh
+        key="amount"
+        label="Betrag (€)"
+        align="right"
+        active={sortField === 'amount'}
+        direction={sortDirection}
+        onSort={() => handleSort('amount')}
+        sortTitle="Nach Betrag sortieren"
+        colKey="amount"
+        width={colWidths.amount}
+        onResizeStart={startResize('amount')}
+        onAutoFit={() => autoFit('amount')}
+        {...dragProps('amount')}
+      />
+    ),
+    department: (
+      <SortableResizableTh
+        key="department"
+        label="Abteilung/Sparte"
+        active={sortField === 'department'}
+        direction={sortDirection}
+        onSort={() => handleSort('department')}
+        sortTitle="Nach Abteilung/Sparte sortieren"
+        colKey="department"
+        width={colWidths.department}
+        onResizeStart={startResize('department')}
+        onAutoFit={() => autoFit('department')}
+        {...dragProps('department')}
+      />
+    ),
+    notes: (
+      <SortableResizableTh
+        key="notes"
+        label="Notizen"
+        active={sortField === 'notes'}
+        direction={sortDirection}
+        onSort={() => handleSort('notes')}
+        sortTitle="Nach Notizen sortieren"
+        colKey="notes"
+        width={colWidths.notes}
+        onResizeStart={startResize('notes')}
+        onAutoFit={() => autoFit('notes')}
+        {...dragProps('notes')}
+      />
+    ),
+    txType: (
+      <SortableResizableTh
+        key="txType"
+        label="Buchungsart"
+        active={sortField === 'txType'}
+        direction={sortDirection}
+        onSort={() => handleSort('txType')}
+        sortTitle="Nach Buchungsart sortieren"
+        colKey="txType"
+        width={colWidths.txType}
+        onResizeStart={startResize('txType')}
+        onAutoFit={() => autoFit('txType')}
+        {...dragProps('txType')}
+      />
+    ),
+    skr42: (
+      <SortableResizableTh
+        key="skr42"
+        label="Nummernkreis & SKR42-Konto"
+        active={sortField === 'skr42'}
+        direction={sortDirection}
+        onSort={() => handleSort('skr42')}
+        sortTitle="Nach Nummernkreis & SKR42-Konto sortieren"
+        colKey="skr42"
+        width={colWidths.skr42}
+        onResizeStart={startResize('skr42')}
+        onAutoFit={() => autoFit('skr42')}
+        {...dragProps('skr42')}
+      />
+    ),
+    vatRate: (
+      <SortableResizableTh
+        key="vatRate"
+        label="Steuersatz"
+        align="right"
+        active={sortField === 'vatRate'}
+        direction={sortDirection}
+        onSort={() => handleSort('vatRate')}
+        sortTitle="Nach Steuersatz sortieren"
+        colKey="vatRate"
+        width={colWidths.vatRate}
+        onResizeStart={startResize('vatRate')}
+        onAutoFit={() => autoFit('vatRate')}
+        {...dragProps('vatRate')}
+      />
+    )
+  };
+
   // Pagination state (25, 50, 100, or 'all')
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<PageSizeOption>(25);
@@ -299,6 +604,23 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           break;
         case 'amount':
           comparison = a.amount - b.amount;
+          break;
+        case 'department':
+          comparison = (a.department || '').localeCompare(b.department || '');
+          break;
+        case 'notes':
+          comparison = (a.notes || '').localeCompare(b.notes || '');
+          break;
+        case 'txType':
+          comparison = (a.type || '').localeCompare(b.type || '');
+          break;
+        case 'skr42':
+          comparison = (a.mainCategory || a.subCategory || a.skrAccount || '').localeCompare(
+            b.mainCategory || b.subCategory || b.skrAccount || ''
+          );
+          break;
+        case 'vatRate':
+          comparison = a.vatRate - b.vatRate;
           break;
         default:
           comparison = 0;
@@ -430,27 +752,6 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
     return (
       <span className={`inline-flex items-center px-2 py-0.5 rounded text-3xs font-semibold border ${badgeClass}`}>
         {info.name.split('.')[1]}
-      </span>
-    );
-  };
-
-  const renderSortIndicator = (field: TransactionSortField) => {
-    const isActive = sortField === field;
-    return (
-      <span
-        className={`inline-flex items-center text-xs ml-1 transition-colors ${
-          isActive ? 'text-blue-600 font-bold' : 'text-slate-300 opacity-60 group-hover/th:opacity-100'
-        }`}
-      >
-        {isActive ? (
-          sortDirection === 'asc' ? (
-            <ArrowUp className="w-3.5 h-3.5" />
-          ) : (
-            <ArrowDown className="w-3.5 h-3.5" />
-          )
-        ) : (
-          <ArrowUpDown className="w-3 h-3" />
-        )}
       </span>
     );
   };
@@ -639,7 +940,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
       )}
 
       {/* Main Journal Container */}
-      <section className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col overflow-hidden">
+      <section className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col">
         {/* Header toolbar */}
         <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
           <div className="flex items-center gap-2">
@@ -815,11 +1116,41 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
         </div>
 
         {/* Transactions Journal Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[11px] tracking-wider border-b border-slate-200">
+        {/* Eigener, nach oben begrenzter Scroll-Bereich (Breite UND Höhe) —
+            der seitliche Scrollbalken sitzt dadurch immer direkt unter den
+            Zeilen, auch bei langen Seiten (siehe ausführlicher Kommentar in
+            MembersView.tsx bzw. in App.tsx, warum der vorherige Versuch
+            nicht funktioniert hat). */}
+        <div className="overflow-auto max-h-[65vh]">
+          <table
+            ref={tableRef}
+            className="text-left text-sm"
+            style={{
+              tableLayout: 'fixed',
+              width:
+                CHECKBOX_COL_WIDTH +
+                ACTION_COL_WIDTH +
+                visibleColumnOrder.reduce((sum, key) => sum + (colWidths[key] || 0), 0)
+            }}
+          >
+            {/* <colgroup> statt Breiten nur an den <th>-Elementen — macht
+                die Spaltenbreite unabhängig vom Tabellenkopf, damit sie sich
+                beim Ziehen auch in den Zeilen darunter ändert (siehe
+                ausführlicher Kommentar in MembersView.tsx, wo dasselbe
+                Problem in Firefox auftrat). */}
+            <colgroup>
+              <col style={{ width: CHECKBOX_COL_WIDTH }} />
+              {visibleColumnOrder.map(key => (
+                <col key={key} style={{ width: colWidths[key] || 0 }} />
+              ))}
+              <col style={{ width: ACTION_COL_WIDTH }} />
+            </colgroup>
+            <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[11px] tracking-wider">
               <tr>
-                <th className="w-10 px-3 py-3 text-center">
+                <th
+                  style={{ width: CHECKBOX_COL_WIDTH, minWidth: CHECKBOX_COL_WIDTH }}
+                  className="px-3 py-3 text-center sticky top-0 z-10 bg-slate-50 border-b border-slate-200"
+                >
                   <input
                     type="checkbox"
                     checked={allFilteredSelected}
@@ -831,77 +1162,13 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                     className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
                   />
                 </th>
+                {visibleColumnOrder.map(key => financeHeaderDefs[key])}
                 <th
-                  onClick={() => handleSort('date')}
-                  className="px-4 py-3 w-28 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-900 transition-colors group/th"
-                  title="Nach Datum sortieren"
+                  style={{ width: ACTION_COL_WIDTH, minWidth: ACTION_COL_WIDTH }}
+                  className="px-4 py-3 text-right sticky top-0 z-10 bg-slate-50 border-b border-slate-200"
                 >
-                  <div className="inline-flex items-center gap-1">
-                    <span>Datum</span>
-                    {renderSortIndicator('date')}
-                  </div>
+                  Aktionen
                 </th>
-                <th
-                  onClick={() => handleSort('documentNumber')}
-                  className="px-4 py-3 w-28 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-900 transition-colors group/th"
-                  title="Nach Belegnummer sortieren"
-                >
-                  <div className="inline-flex items-center gap-1">
-                    <span>Beleg-Nr.</span>
-                    {renderSortIndicator('documentNumber')}
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort('partner')}
-                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-900 transition-colors group/th"
-                  title="Nach Zahlungspartner & Buchungstext sortieren"
-                >
-                  <div className="inline-flex items-center gap-1">
-                    <span>Zahlungspartner & Buchungstext</span>
-                    {renderSortIndicator('partner')}
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort('sphere')}
-                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-900 transition-colors group/th"
-                  title="Nach Steuer-Sphäre sortieren"
-                >
-                  <div className="inline-flex items-center gap-1">
-                    <span>Steuer-Sphäre</span>
-                    {renderSortIndicator('sphere')}
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort('category')}
-                  className="px-4 py-3 cursor-pointer select-none hover:bg-slate-100 hover:text-slate-900 transition-colors group/th"
-                  title="Nach Kategorie / Konto sortieren"
-                >
-                  <div className="inline-flex items-center gap-1">
-                    <span>Kategorie / Konto</span>
-                    {renderSortIndicator('category')}
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort('receipt')}
-                  className="px-4 py-3 text-center cursor-pointer select-none hover:bg-slate-100 hover:text-slate-900 transition-colors group/th"
-                  title="Nach Beleg (vorhanden / fehlend) sortieren"
-                >
-                  <div className="inline-flex items-center justify-center gap-1">
-                    <span>Beleg</span>
-                    {renderSortIndicator('receipt')}
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort('amount')}
-                  className="px-4 py-3 text-right cursor-pointer select-none hover:bg-slate-100 hover:text-slate-900 transition-colors group/th"
-                  title="Nach Betrag sortieren"
-                >
-                  <div className="inline-flex items-center justify-end gap-1">
-                    <span>Betrag (€)</span>
-                    {renderSortIndicator('amount')}
-                  </div>
-                </th>
-                <th className="px-4 py-3 text-right">Aktionen</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -930,137 +1197,235 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                         className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
                       />
                     </td>
-                    <td className="px-4 py-3 font-mono text-slate-500 whitespace-nowrap text-xs">
-                      {new Date(tx.date).toLocaleDateString('de-DE')}
-                    </td>
-                    <td className="px-4 py-3 font-mono font-bold text-slate-800 whitespace-nowrap text-xs">
-                      {tx.documentNumber}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-bold text-slate-900 text-xs truncate max-w-xs">
-                          {tx.partner}
-                        </span>
-                        {tx.isSplit && (
-                          <span
-                            className="inline-flex items-center gap-1 px-1.5 py-0.2 text-3xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 rounded"
-                            title={`Splittbuchung: ${tx.splits?.length || 0} Teilbuchungen`}
-                          >
-                            <Split className="w-2.5 h-2.5 text-indigo-600" />
-                            <span>Splitt ({tx.splits?.length || 0})</span>
-                          </span>
-                        )}
-                        {(() => {
-                          if (!tx.partner || tx.type === 'transfer') return null;
-                          const trimmed = tx.partner.trim().toLowerCase();
-                          const existingContact = contacts.find(
-                            c =>
-                              (c.displayName || '').trim().toLowerCase() === trimmed ||
-                              (c.companyName || '').trim().toLowerCase() === trimmed
-                          );
-
-                          if (existingContact) {
-                            return (
-                              <span
-                                className="inline-flex items-center gap-0.5 px-1.5 py-0.2 text-3xs font-medium bg-orange-50 text-orange-700 border border-orange-200/80 rounded"
-                                title={`Gespeicherter Kontakt: ${existingContact.displayName}`}
-                              >
-                                <Building2 className="w-2.5 h-2.5" />
-                                <span>Kontakt</span>
+                    {(() => {
+                      const financeCellDefs: Record<string, React.ReactNode> = {
+                        date: (
+                          <td key="date" data-col-content="date" className="px-4 py-3 font-mono text-slate-500 whitespace-nowrap text-xs overflow-hidden">
+                            {new Date(tx.date).toLocaleDateString('de-DE')}
+                          </td>
+                        ),
+                        documentNumber: (
+                          <td key="documentNumber" data-col-content="documentNumber" className="px-4 py-3 font-mono font-bold text-slate-800 whitespace-nowrap text-xs overflow-hidden">
+                            {tx.documentNumber}
+                          </td>
+                        ),
+                        partner: (
+                          <td key="partner" data-col-content="partner" className="px-4 py-3 overflow-hidden">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-slate-900 text-xs truncate">
+                                {tx.partner}
                               </span>
-                            );
-                          }
+                              {tx.isSplit && (
+                                <span
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.2 text-3xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 rounded"
+                                  title={`Splittbuchung: ${tx.splits?.length || 0} Teilbuchungen`}
+                                >
+                                  <Split className="w-2.5 h-2.5 text-indigo-600" />
+                                  <span>Splitt ({tx.splits?.length || 0})</span>
+                                </span>
+                              )}
+                              {(() => {
+                                if (!tx.partner || tx.type === 'transfer') return null;
+                                const trimmed = tx.partner.trim().toLowerCase();
+                                const existingContact = contacts.find(
+                                  c =>
+                                    (c.displayName || '').trim().toLowerCase() === trimmed ||
+                                    (c.companyName || '').trim().toLowerCase() === trimmed
+                                );
 
-                          if (onOpenCreateContactFromTx) {
-                            return (
+                                if (existingContact) {
+                                  return (
+                                    <span
+                                      className="inline-flex items-center gap-0.5 px-1.5 py-0.2 text-3xs font-medium bg-orange-50 text-orange-700 border border-orange-200/80 rounded"
+                                      title={`Gespeicherter Kontakt: ${existingContact.displayName}`}
+                                    >
+                                      <Building2 className="w-2.5 h-2.5" />
+                                      <span>Kontakt</span>
+                                    </span>
+                                  );
+                                }
+
+                                if (onOpenCreateContactFromTx) {
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        guard(() => onOpenCreateContactFromTx(tx.partner, tx.type === 'income'))();
+                                      }}
+                                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-3xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded transition-colors cursor-pointer${lockClass(canEdit)}`}
+                                      title={lockTitle(canEdit, `»${tx.partner}« ist noch nicht als Kontakt erfasst. Klicken zum Anlegen.`)}
+                                    >
+                                      <UserPlus className="w-2.5 h-2.5 text-amber-600" />
+                                      <span>+ Kontakt</span>
+                                    </button>
+                                  );
+                                }
+                                return null;
+                              })()}
+                            </div>
+                            <div className="text-2xs text-slate-500 truncate">
+                              {tx.bookingText}
+                            </div>
+                          </td>
+                        ),
+                        sphere: (
+                          <td key="sphere" data-col-content="sphere" className="px-4 py-3 whitespace-nowrap overflow-hidden">
+                            {getSphereBadge(tx.sphere)}
+                          </td>
+                        ),
+                        category: (
+                          // Bewusst KEIN max-w-[…] auf den Textelementen dieser Zelle
+                          // (und ebenso in den anderen Tabellen entfernt): Eine solche
+                          // feste Höchstbreite schneidet den Text unabhängig von der
+                          // tatsächlichen, ziehbaren Spaltenbreite ab — der Text blieb
+                          // dann auch bei einer sehr breit gezogenen Spalte bei z.B.
+                          // "Sportgeräte & Trainingsmate…" stehen. Ohne max-w richtet
+                          // sich truncate nach der wirklichen Breite der Zelle (siehe
+                          // <colgroup> oben), wächst also beim Ziehen mit.
+                          <td key="category" data-col-content="category" className="px-4 py-3 overflow-hidden">
+                            {tx.isSplit && tx.splits && tx.splits.length > 0 ? (
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-950">
+                                  <Split className="w-3 h-3 text-indigo-600 shrink-0" />
+                                  <span>{tx.splits.length} Teilbuchungen</span>
+                                </div>
+                                <div className="text-3xs text-slate-500 font-mono truncate" title={tx.splits.map(s => `${s.amount.toFixed(2)} €: ${s.subCategory || s.category}`).join(' | ')}>
+                                  {tx.splits.map(s => `${s.amount.toFixed(2)} €`).join(' + ')}
+                                </div>
+                                <div className="text-[11px] text-slate-400">
+                                  {acc?.name || tx.accountId}
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="text-xs font-semibold text-slate-800 truncate">
+                                  {tx.category}
+                                </div>
+                                <div className="text-[11px] text-slate-400 flex items-center gap-1">
+                                  <span>{acc?.name || tx.accountId}</span>
+                                  {tx.vatRate > 0 && <span className="text-slate-500 font-mono">({tx.vatRate}% USt)</span>}
+                                </div>
+                              </>
+                            )}
+                          </td>
+                        ),
+                        receipt: (
+                          <td key="receipt" data-col-content="receipt" className="px-4 py-3 text-center overflow-hidden">
+                            {tx.receipt ? (
                               <button
                                 type="button"
                                 onClick={e => {
                                   e.stopPropagation();
-                                  guard(() => onOpenCreateContactFromTx(tx.partner, tx.type === 'income'))();
+                                  onOpenReceiptViewer(tx.receipt!, tx.documentNumber, tx.bookingText);
                                 }}
-                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-3xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded transition-colors cursor-pointer${lockClass(canEdit)}`}
-                                title={lockTitle(canEdit, `»${tx.partner}« ist noch nicht als Kontakt erfasst. Klicken zum Anlegen.`)}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded font-semibold text-2xs transition-colors"
+                                title="Beleg anzeigen (PDF/Bild)"
                               >
-                                <UserPlus className="w-2.5 h-2.5 text-amber-600" />
-                                <span>+ Kontakt</span>
+                                <Paperclip className="w-3 h-3" />
+                                Beleg
                               </button>
-                            );
-                          }
-                          return null;
-                        })()}
-                      </div>
-                      <div className="text-2xs text-slate-500 truncate max-w-md">
-                        {tx.bookingText}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {getSphereBadge(tx.sphere)}
-                    </td>
-                    <td className="px-4 py-3">
-                      {tx.isSplit && tx.splits && tx.splits.length > 0 ? (
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-950">
-                            <Split className="w-3 h-3 text-indigo-600 shrink-0" />
-                            <span>{tx.splits.length} Teilbuchungen</span>
-                          </div>
-                          <div className="text-3xs text-slate-500 font-mono truncate max-w-[200px]" title={tx.splits.map(s => `${s.amount.toFixed(2)} €: ${s.subCategory || s.category}`).join(' | ')}>
-                            {tx.splits.map(s => `${s.amount.toFixed(2)} €`).join(' + ')}
-                          </div>
-                          <div className="text-[11px] text-slate-400">
-                            {acc?.name || tx.accountId}
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="text-xs font-semibold text-slate-800 truncate max-w-[180px]">
-                            {tx.category}
-                          </div>
-                          <div className="text-[11px] text-slate-400 flex items-center gap-1">
-                            <span>{acc?.name || tx.accountId}</span>
-                            {tx.vatRate > 0 && <span className="text-slate-500 font-mono">({tx.vatRate}% USt)</span>}
-                          </div>
-                        </>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {tx.receipt ? (
-                        <button
-                          type="button"
-                          onClick={e => {
-                            e.stopPropagation();
-                            onOpenReceiptViewer(tx.receipt!, tx.documentNumber, tx.bookingText);
-                          }}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded font-semibold text-2xs transition-colors"
-                          title="Beleg anzeigen (PDF/Bild)"
-                        >
-                          <Paperclip className="w-3 h-3" />
-                          Beleg
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={e => {
-                            e.stopPropagation();
-                            guard(() => {
-                              if (onQuickScanReceipt) {
-                                onQuickScanReceipt(tx);
-                              } else {
-                                onOpenEditTx(tx);
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  guard(() => {
+                                    if (onQuickScanReceipt) {
+                                      onQuickScanReceipt(tx);
+                                    } else {
+                                      onOpenEditTx(tx);
+                                    }
+                                  })();
+                                }}
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded text-2xs transition-colors border border-dashed border-slate-200 hover:border-emerald-300${lockClass(canEdit)}`}
+                                title={lockTitle(canEdit, 'Beleg mit Kamera scannen & verknüpfen')}
+                              >
+                                <Camera className="w-2.5 h-2.5 text-emerald-600" />
+                                <span className="text-[10px]">Scannen</span>
+                              </button>
+                            )}
+                          </td>
+                        ),
+                        amount: (
+                          <td key="amount" data-col-content="amount" className={`px-4 py-3 text-right font-mono font-bold text-xs whitespace-nowrap overflow-hidden ${isIncome ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {isIncome ? '+' : ''}{tx.amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                          </td>
+                        ),
+                        department: (
+                          <td key="department" data-col-content="department" className="px-4 py-3 text-slate-600 text-xs truncate overflow-hidden">
+                            {(() => {
+                              const { value, mixed } = splitAwareValue(tx, s => s.department || '');
+                              if (mixed) {
+                                const all = (tx.splits || []).map(s => s.department || '(Gesamtverein)');
+                                return <span title={all.join(', ')}>Gemischt</span>;
                               }
-                            })();
-                          }}
-                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded text-2xs transition-colors border border-dashed border-slate-200 hover:border-emerald-300${lockClass(canEdit)}`}
-                          title={lockTitle(canEdit, 'Beleg mit Kamera scannen & verknüpfen')}
-                        >
-                          <Camera className="w-2.5 h-2.5 text-emerald-600" />
-                          <span className="text-[10px]">Scannen</span>
-                        </button>
-                      )}
-                    </td>
-                    <td className={`px-4 py-3 text-right font-mono font-bold text-xs whitespace-nowrap ${isIncome ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {isIncome ? '+' : ''}{tx.amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                    </td>
+                              return value || '–';
+                            })()}
+                          </td>
+                        ),
+                        notes: (
+                          <td
+                            key="notes"
+                            data-col-content="notes"
+                            className="px-4 py-3 text-slate-500 text-xs truncate overflow-hidden"
+                            title={tx.notes || undefined}
+                          >
+                            {tx.notes || '–'}
+                          </td>
+                        ),
+                        txType: (
+                          <td key="txType" data-col-content="txType" className="px-4 py-3 overflow-hidden">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-3xs font-semibold border ${
+                                tx.type === 'income'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : tx.type === 'expense'
+                                  ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                  : 'bg-slate-100 text-slate-600 border-slate-200'
+                              }`}
+                            >
+                              {tx.type === 'income' ? 'Einnahme' : tx.type === 'expense' ? 'Ausgabe' : 'Umbuchung'}
+                            </span>
+                          </td>
+                        ),
+                        skr42: (
+                          <td key="skr42" data-col-content="skr42" className="px-4 py-3 overflow-hidden">
+                            {tx.isSplit && tx.splits && tx.splits.length > 0 ? (
+                              <span className="text-2xs text-slate-400 italic">
+                                {tx.splits.length} Teilbuchungen (siehe Kategorie)
+                              </span>
+                            ) : tx.mainCategory || tx.subCategory || tx.skrAccount ? (
+                              <>
+                                <div className="text-xs text-slate-700 truncate">
+                                  {tx.mainCategory || '–'}
+                                </div>
+                                {(tx.subCategory || tx.skrAccount) && (
+                                  <div className="text-2xs text-slate-400 truncate">
+                                    {tx.subCategory || tx.skrAccount}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-slate-400">–</span>
+                            )}
+                          </td>
+                        ),
+                        vatRate: (
+                          <td key="vatRate" data-col-content="vatRate" className="px-4 py-3 text-right font-mono text-xs text-slate-600 overflow-hidden">
+                            {(() => {
+                              const { value, mixed } = splitAwareValue(tx, s => s.vatRate);
+                              if (mixed) {
+                                const all = Array.from(new Set((tx.splits || []).map(s => `${s.vatRate}%`)));
+                                return <span title={all.join(', ')}>gemischt</span>;
+                              }
+                              return `${value}%`;
+                            })()}
+                          </td>
+                        )
+                      };
+                      return visibleColumnOrder.map(key => financeCellDefs[key]);
+                    })()}
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
@@ -1097,7 +1462,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
 
               {sortedTransactions.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="p-8 text-center text-slate-400 text-xs">
+                  <td colSpan={visibleColumnOrder.length + 2} className="p-8 text-center text-slate-400 text-xs">
                     Keine Buchungen für die aktuellen Filterkriterien vorhanden.
                   </td>
                 </tr>
@@ -1105,16 +1470,27 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             </tbody>
           </table>
         </div>
+        {columnMenuPos && (
+          <ColumnVisibilityMenu
+            position={columnMenuPos}
+            columns={columnOrder.map(key => ({ key, label: FINANCE_COLUMN_LABELS[key] || key }))}
+            hidden={hiddenColumns}
+            onToggle={toggleColumn}
+            onClose={() => setColumnMenuPos(null)}
+          />
+        )}
 
         {/* Table Bottom Footer & Pagination */}
-        <TablePagination
-          totalItems={sortedTransactions.length}
-          currentPage={currentPage}
-          pageSize={pageSize}
-          onPageChange={setCurrentPage}
-          onPageSizeChange={setPageSize}
-          itemName="Buchungen"
-        />
+        <div className="overflow-hidden rounded-b-xl">
+          <TablePagination
+            totalItems={sortedTransactions.length}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemName="Buchungen"
+          />
+        </div>
       </section>
 
       {/* Transaction Details Modal */}
@@ -1154,6 +1530,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           accounts={accounts}
           onSave={handleBulkUpdate}
           onClose={() => setIsBulkEditOpen(false)}
+          departments={settings.departments}
         />
       )}
 

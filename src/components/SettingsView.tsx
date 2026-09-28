@@ -14,6 +14,7 @@ import { SnapshotService, AutoSnapshot } from '../services/snapshotService';
 import { CURRENT_APP_VERSION } from '../services/updateService';
 import { PermissionMatrix } from './PermissionMatrix';
 import { CloudUserAdminPanel } from './CloudUserAdminPanel';
+import { LocalServerUserAdminPanel } from './LocalServerUserAdminPanel';
 import { usesNativeCrypto } from '../services/passwordService';
 import {
   SmtpConfigService,
@@ -34,7 +35,7 @@ import {
 import { DeploymentHubSettingsPanel } from './DeploymentHubSettingsPanel';
 import { openExternalUrl } from '../utils/externalLink';
 import { saveBlobWithLocationPicker } from '../utils/fileExportHelper';
-import paypalQrImage from '../assets/paypal-original.jpg';
+import QRCode from 'qrcode';
 import {
   Settings,
   Building,
@@ -127,6 +128,21 @@ const AI_PROVIDERS: ProviderMeta[] = [
   },
 ];
 
+/**
+ * Freiwillige Unterstützung des Projekts (Tab "Projekt unterstützen").
+ * ---------------------------------------------------------------------------
+ * Gilt für JEDEN Verein, der VereinsManager installiert — es unterstützt den
+ * Ersteller der Software, nicht den jeweiligen Verein. Gehört deshalb bewusst
+ * NICHT in ClubSettings (das sind die Vereinsstammdaten, die jeder Verein für
+ * sich selbst pflegt), sondern ist ein reiner Code-Wert wie dieser hier.
+ *
+ * Früher stand dieser Link doppelt im Code (einmal in der Haupt-Kachel,
+ * einmal im Vergrößerungs-Dialog) — dabei ist offenbar eine der beiden
+ * Stellen versehentlich auf einen fremden PayPal-Account (paypal.me/strelitzerfc)
+ * geändert worden. Jetzt gibt es nur noch diese eine Stelle.
+ */
+const PROJECT_SUPPORT_URL = 'https://liberapay.com/alpenglowsea/';
+
 interface SettingsViewProps {
   settings: ClubSettings;
   onSaveSettings: (settings: ClubSettings) => void;
@@ -148,6 +164,8 @@ interface SettingsViewProps {
   onUsersLocked?: () => void;
   /** Kennung des angemeldeten Cloud-Benutzers (nur im Cloud-Betrieb gesetzt). */
   currentCloudUserId?: string;
+  /** Kennung des angemeldeten Benutzers (nur im gehosteten Betrieb gesetzt). */
+  currentLocalServerUserId?: string;
 }
 
 /** Neue Benutzer starten gesperrt — freigeschaltet wird bewusst. */
@@ -231,7 +249,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onLocked,
   canManageUsers = true,
   onUsersLocked,
-  currentCloudUserId
+  currentCloudUserId,
+  currentLocalServerUserId
 }) => {
   const [currentDepMode, setCurrentDepMode] = useState<DeploymentMode>(
     deploymentMode || StorageService.getDeploymentMode()
@@ -259,6 +278,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   /** Läuft die Anwendung gegen eine Cloud-Datenbank? */
   const isCloudMode = deploymentMode === 'cloud';
+  /** Läuft die Anwendung gegen den eigenen Server (Betriebsart 3, SQLite)? */
+  const isSelfhostedMode = deploymentMode === 'selfhosted';
   const prevInitialTabRef = useRef(initialTab);
 
   const switchTab = (tab: SettingsTab) => {
@@ -326,6 +347,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   } | null>(null);
   const [usersList, setUsersList] = useState<AppUser[]>(() => AuthService.getUsers());
   const [qrModalOpen, setQrModalOpen] = useState(false);
+
+  // QR-Code für die freiwillige Projektunterstützung (Tab 6): wird aus
+  // PROJECT_SUPPORT_URL selbst erzeugt statt als Bilddatei mitgeliefert zu
+  // werden — Link und QR-Code können dadurch nie mehr auseinanderlaufen, wie
+  // es dem alten PayPal-Screenshot passiert ist.
+  const [projectSupportQrUrl, setProjectSupportQrUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let abgebrochen = false;
+    QRCode.toDataURL(PROJECT_SUPPORT_URL, {
+      width: 480,
+      margin: 1,
+      color: { dark: '#0f172a', light: '#ffffff' }
+    })
+      .then(url => {
+        if (!abgebrochen) setProjectSupportQrUrl(url);
+      })
+      .catch(fehler => {
+        console.error('QR-Code für die Projektunterstützung konnte nicht erzeugt werden:', fehler);
+      });
+    return () => {
+      abgebrochen = true;
+    };
+  }, []);
 
   // User In-Place Editing State
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -3253,7 +3297,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       )}
 
-      {activeTab === 'users' && !isCloudMode && (
+      {/*
+        Im gehosteten Betrieb (Betriebsart 3, eigener Server) liegen die
+        Konten ebenfalls nicht im Browser, sondern in der SQLite-Datenbank
+        des Servers — eine dritte, eigene Maske aus demselben Grund wie beim
+        Cloud-Betrieb oben: Die lokale Liste unten kennt diese Konten gar
+        nicht.
+      */}
+      {activeTab === 'users' && isSelfhostedMode && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs animate-in fade-in duration-150">
+          <LocalServerUserAdminPanel
+            currentUserId={currentLocalServerUserId}
+            canManage={canManageUsers}
+            onLocked={onUsersLocked}
+          />
+        </div>
+      )}
+
+      {activeTab === 'users' && !isCloudMode && !isSelfhostedMode && (
         <div className="space-y-6 animate-in fade-in duration-150">
           {/* Was der Passwortschutz im lokalen Betrieb leistet — und was nicht.
               Ohne diesen Hinweis hält ein Verein die Anmeldung leicht für einen
@@ -3869,7 +3930,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           {/* Main Content Grid: QR-Code Card + Info Card */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left: PayPal QR Code Card (5 cols) */}
+            {/* Left: Liberapay QR Code Card (5 cols) */}
             <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs flex flex-col items-center text-center space-y-5">
               <div className="w-full flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
@@ -3877,7 +3938,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <QrCode className="w-4 h-4" />
                   </div>
                   <span className="text-xs font-bold text-slate-800 dark:text-white">
-                    PayPal Spenden-QR-Code
+                    Liberapay Spenden-QR-Code
                   </span>
                 </div>
                 <span className="text-2xs font-semibold px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
@@ -3892,11 +3953,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 title="Klicken, um den QR-Code vergrößert anzuzeigen"
               >
                 <img
-                  src={paypalQrImage}
-                  alt="PayPal QR Code zur finanziellen Projektunterstützung"
+                  src={projectSupportQrUrl ?? undefined}
+                  alt="Liberapay QR Code zur finanziellen Projektunterstützung"
                   className="w-full h-full object-contain rounded-xl select-none pointer-events-none"
                 />
-                
+
                 {/* Hover Overlay Badge */}
                 <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-xl flex flex-col items-center justify-center gap-1.5 text-white">
                   <div className="p-2.5 bg-white/20 backdrop-blur-md rounded-full shadow-md">
@@ -3911,23 +3972,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               {/* Instructions */}
               <div className="space-y-1.5">
                 <p className="text-xs font-bold text-slate-800 dark:text-white">
-                  Mit Smartphone oder PayPal-App scannen
+                  Mit Smartphone scannen
                 </p>
                 <p className="text-2xs text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">
-                  Öffnen Sie Ihre Smartphone-Kamera oder die PayPal-App und richten Sie sie auf den QR-Code, um einen beliebigen Betrag zu spenden.
+                  Öffnen Sie Ihre Smartphone-Kamera und richten Sie sie auf den QR-Code, um über Liberapay einen beliebigen Betrag zu spenden.
                 </p>
               </div>
 
               {/* Action Buttons */}
               <div className="w-full pt-3 flex flex-col sm:flex-row gap-2 border-t border-slate-100 dark:border-slate-800">
                 <a
-                  href="https://paypal.me/strelitzerfc"
+                  href={PROJECT_SUPPORT_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Direkt zu PayPal</span>
+                  <span>Direkt zu Liberapay</span>
                 </a>
                 <button
                   type="button"
@@ -3939,8 +4000,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <span>Großansicht</span>
                 </button>
                 <a
-                  href={paypalQrImage}
-                  download="paypal-original.jpg"
+                  href={projectSupportQrUrl ?? undefined}
+                  download="liberapay-qr-code.png"
                   className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center cursor-pointer"
                   title="QR-Code herunterladen"
                 >
@@ -4473,21 +4534,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="space-y-1">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-bold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                 <QrCode className="w-3.5 h-3.5" />
-                <span>PayPal Spenden-QR-Code</span>
+                <span>Liberapay Spenden-QR-Code</span>
               </div>
               <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                Direkt mit PayPal scannen
+                Direkt mit dem Smartphone scannen
               </h3>
               <p className="text-2xs text-slate-500 dark:text-slate-400">
-                Richten Sie die Smartphone-Kamera oder die PayPal-App auf das Bild.
+                Richten Sie die Smartphone-Kamera auf das Bild, um zu Liberapay zu gelangen.
               </p>
             </div>
 
             {/* High-Resolution Large QR Display */}
             <div className="w-72 h-72 sm:w-80 sm:h-80 bg-white p-3 rounded-2xl border-2 border-slate-200 dark:border-slate-700 shadow-inner flex items-center justify-center">
               <img
-                src={paypalQrImage}
-                alt="PayPal QR Code vergrößert"
+                src={projectSupportQrUrl ?? undefined}
+                alt="Liberapay QR Code vergrößert"
                 className="w-full h-full object-contain rounded-xl select-none"
               />
             </div>
@@ -4495,17 +4556,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             {/* Action Buttons */}
             <div className="w-full flex flex-col sm:flex-row gap-3 pt-2">
               <a
-                href="https://paypal.me/strelitzerfc"
+                href={PROJECT_SUPPORT_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
               >
                 <ExternalLink className="w-4 h-4" />
-                <span>Auf PayPal öffnen</span>
+                <span>Auf Liberapay öffnen</span>
               </a>
               <a
-                href={paypalQrImage}
-                download="paypal-original.jpg"
+                href={projectSupportQrUrl ?? undefined}
+                download="liberapay-qr-code.png"
                 className="py-3 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Download className="w-4 h-4" />

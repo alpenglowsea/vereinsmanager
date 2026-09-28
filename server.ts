@@ -22,13 +22,46 @@ import {
   pruefeZugriff,
   erstelleCloudPruefer,
 } from "./src/server/apiAuth";
+import {
+  listMembers,
+  getMember,
+  createMember,
+  updateMember,
+  deleteMember,
+} from "./src/server/db/repositories/members";
+import {
+  SITZUNG_HEADER,
+  ersteEinrichtung,
+  anmelden,
+  abmelden,
+  pruefeSitzung,
+  istEinrichtungAusstehend,
+  passwortVergessenAnfrage,
+  passwortZuruecksetzen,
+} from "./src/server/localAuth";
+import {
+  createUser as legeBenutzerAn,
+  listUsers as listeBenutzer,
+  setActive as setzeBenutzerAktiv,
+  setPassword as setzeBenutzerPasswort,
+  setPermissions as setzeBenutzerRechte,
+  verifyCredentials as pruefeZugangsdaten,
+  BenutzerAnlegenFehler,
+} from "./src/server/db/repositories/localUsers";
+import { canView, canEdit, AREA_LABEL } from "./src/utils/permissions";
+import type { PermissionArea } from "./src/types";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
 
 dotenv.config();
 
-const app = express();
+// Exportiert (nur) für src/server/serverRoutes.test.ts: Echte Tests gegen
+// die tatsächlichen Routen brauchen Zugriff auf "app", ohne dabei über
+// startServer() weiter unten einen echten Port zu belegen oder einen
+// Vite-Entwicklungsserver zu starten — siehe die Bedingung um den Aufruf von
+// startServer() am Dateiende.
+export const app = express();
 // Port aus der Umgebung übernehmen (z. B. in Docker oder hinter einem
 // Reverse-Proxy), sonst 3000 als Standard.
 const PORT = Number(process.env.PORT) || 3000;
@@ -84,9 +117,10 @@ app.use((_req, res, next) => {
 // Ratenbegrenzung
 // ---------------------------------------------------------------------------
 //
-// Keiner der /api-Endpunkte verlangt eine Anmeldung. Stellt ein Verein
-// seinen Server ins Internet, kann ihn jeder aufrufen, der die Adresse
-// kennt. Drei Stufen, nach dem, was ein Missbrauch jeweils kostet:
+// Der Zugriffsschlüssel weiter unten ("Zugriffsschutz") hält Fremde
+// draussen, unterscheidet aber niemanden voneinander, der ihn kennt — und
+// diese Ratenbegrenzung hier greift zusätzlich, unabhängig davon, WER
+// aufruft. Drei Stufen, nach dem, was ein Missbrauch jeweils kostet:
 //
 //   allgemein — schützt den Server davor, unter Last zusammenzubrechen
 //   teuer     — KI-Aufrufe. Jeder einzelne kostet den Verein bares Geld
@@ -104,6 +138,10 @@ const bremseAllgemein = new RateLimiter({ limit: 120, windowMs: 5 * MINUTE });
 const bremseTeuer     = new RateLimiter({ limit: 30,  windowMs: STUNDE });
 const bremsePost      = new RateLimiter({ limit: 20,  windowMs: STUNDE });
 const bremseMeldung   = new RateLimiter({ limit: 5,   windowMs: STUNDE });
+// Eng begrenzt wie bremseMeldung: "Passwort vergessen" verschickt eine
+// E-Mail und ist ein sicherheitsrelevanter Vorgang — beides Gründe, hier
+// keine 20 oder gar 120 Versuche je Stunde zuzulassen.
+const bremsePasswortReset = new RateLimiter({ limit: 5, windowMs: STUNDE });
 
 // Die Kennung des Absenders. Hinter einem Reverse-Proxy liefert
 // req.ip dank "trust proxy" oben die echte Adresse des Aufrufers.
@@ -1727,6 +1765,487 @@ app.post("/api/meetings/send-email", bremse(bremsePost, "E-Mail"), async (req, r
   }
 });
 
+// ---------------------------------------------------------------------------
+// Eigener Server (Betriebsart 3): lokale Datenhaltung in SQLite
+// ---------------------------------------------------------------------------
+//
+// Umbau aus der Übergabe: Wer nicht bei Supabase arbeiten will, soll seine
+// Vereinsdaten stattdessen auf diesem Server selbst halten können — in einer
+// einzigen Datei, ohne fremden Anbieter.
+//
+// Seit Stufe 2 kennt dieser Server dafür eigene Benutzerkonten (siehe
+// src/server/localAuth.ts). Zum bestehenden Zugriffsschlüssel der
+// Installation (siehe oben, "Zugriffsschutz") kommt für die Routen unter
+// /api/local-server/* jetzt eine zweite Hürde: eine gültige Anmeldung. Der
+// Zugriffsschlüssel entscheidet weiterhin "darf diese Anfrage den Server
+// überhaupt erreichen", die Anmeldung zusätzlich "als wer".
+//
+// Seit Stufe 3 kommt als dritte Hürde die Rechteprüfung selbst dazu
+// (erfordertRecht unten): Angemeldet zu sein reicht jetzt nicht mehr, das
+// Konto muss laut seinen Berechtigungen (local_users.permissions, dieselben
+// 18 Bereiche wie in der Oberfläche von Betriebsart 1/2, siehe
+// utils/permissions.ts) auch das jeweilige Mindestrecht haben. Zwei Routen
+// bleiben davon ausgenommen, weil sie nicht "was darf dieses Konto", sondern
+// "wer ist dieses Konto" beantworten — Selbstauskunft und Passwortänderung
+// prüft niemand gegen einen Bereich, jedes angemeldete Konto darf beides mit
+// sich selbst.
+//
+// Die Datenbankdatei entsteht dabei bewusst erst beim ERSTEN Aufruf einer
+// dieser Routen (getLocalDb() öffnet sie beim ersten Zugriff, siehe
+// src/server/db/localDb.ts). Ein Verein, der Betriebsart 1 (lokal im
+// Browser) oder 2 (Supabase) nutzt und diese Routen nie aufruft, bekommt
+// also auch nie eine "daten/vereinsdaten.sqlite" angelegt.
+//
+// Absichtlich noch OHNE dass die Oberfläche diese Routen überhaupt kennt —
+// das folgt erst in einer späteren Stufe, wenn eine dritte Betriebsart
+// tatsächlich auswählbar wird. Bis dahin ist das hier ein für sich
+// funktionsfähiges, aber noch unsichtbares Fundament.
+
+/**
+ * Verlangt eine gültige Sitzung (siehe SITZUNG_HEADER). Hängt bei Erfolg den
+ * angemeldeten Benutzer als `lokalerBenutzer` an die Anfrage — Routen, die
+ * wissen müssen, wer da schreibt (z. B. "Passwort ändern"), lesen es dort.
+ */
+function erfordertAnmeldung(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const befund = pruefeSitzung(req.headers[SITZUNG_HEADER]);
+  if (!befund.angemeldet || !befund.benutzer) {
+    return res.status(401).json({ success: false, error: befund.grund, code: "ANMELDUNG_ERFORDERLICH" });
+  }
+  (req as any).lokalerBenutzer = befund.benutzer;
+  next();
+}
+
+/**
+ * Verlangt zusätzlich das angegebene Mindestrecht in einem der 18 Bereiche
+ * (AREA_DEFINITIONS in utils/permissions.ts) — muss auf jeder Route HINTER
+ * erfordertAnmeldung stehen, weil sie (req as any).lokalerBenutzer liest,
+ * das erst dort gesetzt wird.
+ *
+ * "view" lässt auch ein Konto mit "edit" in diesem Bereich durch (canView
+ * ist so gebaut, siehe utils/permissions.ts) — wer bearbeiten darf, darf
+ * auch lesen.
+ */
+function erfordertRecht(bereich: PermissionArea, mindestens: "view" | "edit") {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const benutzer = (req as any).lokalerBenutzer;
+    const erlaubt =
+      mindestens === "edit" ? canEdit(benutzer.permissions, bereich) : canView(benutzer.permissions, bereich);
+    if (!erlaubt) {
+      return res.status(403).json({
+        success: false,
+        error: `Für "${AREA_LABEL[bereich]}" fehlt die Berechtigung.`,
+        code: "RECHT_FEHLT",
+      });
+    }
+    next();
+  };
+}
+
+/**
+ * Sagt der Oberfläche, ob sie die Ersteinrichtungsmaske oder die normale
+ * Anmeldemaske zeigen soll — ohne Anmeldung abrufbar (dafür gibt es ja noch
+ * gar kein Konto, im ausstehenden Fall), aber wie jede /api-Route weiterhin
+ * hinter dem Zugriffsschlüssel der Installation (siehe "Zugriffsschutz"
+ * oben, das gilt global für alles unter /api).
+ */
+app.get("/api/local-server/auth/status", (_req, res) => {
+  return res.json({ success: true, setupPending: istEinrichtungAusstehend() });
+});
+
+app.post("/api/local-server/auth/setup", async (req, res) => {
+  try {
+    const { email, name, password } = req.body ?? {};
+    if (typeof email !== "string" || typeof name !== "string" || typeof password !== "string") {
+      return res.status(400).json({ success: false, error: "E-Mail-Adresse, Name und Passwort werden benötigt." });
+    }
+    const ergebnis = await ersteEinrichtung({ email, name, password });
+    if (!ergebnis.erfolg || !ergebnis.benutzer || !ergebnis.sitzungsToken) {
+      return res.status(400).json({ success: false, error: ergebnis.grund });
+    }
+    return res.status(201).json({
+      success: true,
+      user: ergebnis.benutzer,
+      sessionToken: ergebnis.sitzungsToken,
+    });
+  } catch (error: any) {
+    if (error instanceof BenutzerAnlegenFehler) {
+      return res.status(400).json({ success: false, error: error.message });
+    }
+    console.error("Fehler bei der Ersteinrichtung des eigenen Servers:", error);
+    return res.status(500).json({ success: false, error: error.message || "Die Einrichtung ist fehlgeschlagen." });
+  }
+});
+
+app.post("/api/local-server/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body ?? {};
+    if (typeof email !== "string" || typeof password !== "string") {
+      return res.status(400).json({ success: false, error: "E-Mail-Adresse und Passwort werden benötigt." });
+    }
+    const ergebnis = await anmelden(email, password);
+    if (!ergebnis.erfolg || !ergebnis.benutzer || !ergebnis.sitzungsToken) {
+      return res.status(401).json({ success: false, error: ergebnis.grund });
+    }
+    return res.json({ success: true, user: ergebnis.benutzer, sessionToken: ergebnis.sitzungsToken });
+  } catch (error: any) {
+    console.error("Fehler bei der Anmeldung am eigenen Server:", error);
+    return res.status(500).json({ success: false, error: error.message || "Die Anmeldung ist fehlgeschlagen." });
+  }
+});
+
+/**
+ * POST /api/local-server/auth/request-password-reset
+ * ---------------------------------------------------------------------------
+ * "Passwort vergessen" — für JEDES Konto auf diesem Server, nicht nur für
+ * den Vorstand: Bislang gab es keinen Weg zurück ins eigene Konto außer der
+ * eigenen Erinnerung ans Passwort (siehe PUT .../auth/password, das ein
+ * bekanntes Passwort voraussetzt) oder einem anderen Konto mit dem Recht
+ * "Benutzer & Rechte", das aber nur die Berechtigungen ändern kann, nicht
+ * das Passwort selbst.
+ *
+ * Zwei Antworten sind bewusst UNTERSCHIEDLICH aussagekräftig:
+ *
+ *   - Fehlt der E-Mail-Versand auf diesem Server komplett (kein SMTP
+ *     eingerichtet), ist das eine ehrliche Auskunft über die ganze
+ *     Installation, nicht über ein einzelnes Konto — die verrät nichts
+ *     darüber, ob "email" zu einem Konto gehört, und bleibt deshalb ohne
+ *     Bedenken sichtbar.
+ *   - Ob "email" tatsächlich zu einem (aktiven) Konto gehört, bleibt dagegen
+ *     IMMER verborgen: Die Antwort ist in diesem Fall in jedem Fall
+ *     dieselbe generische Bestätigung — dieselbe Überlegung wie bei
+ *     anmelden() in localAuth.ts ("E-Mail-Adresse oder Passwort falsch"
+ *     statt zwei unterscheidbaren Meldungen).
+ */
+app.post(
+  "/api/local-server/auth/request-password-reset",
+  bremse(bremsePasswortReset, "Passwort-Zurücksetzen"),
+  async (req, res) => {
+    try {
+      const { email } = req.body ?? {};
+      if (typeof email !== "string" || !email.trim() || !email.includes("@")) {
+        return res.status(400).json({ success: false, error: "Bitte eine gültige E-Mail-Adresse angeben." });
+      }
+
+      const zugangsdaten = readSmtpCredentials();
+      if (!zugangsdaten) {
+        return res.status(400).json({
+          success: false,
+          code: "KEIN_SMTP",
+          error:
+            "Auf diesem Server ist noch kein E-Mail-Versand eingerichtet. Ein Zurücksetzen per Link ist deshalb " +
+            "gerade nicht möglich — bitte an ein Vorstandsmitglied mit Zugriff auf die Servereinstellungen wenden.",
+        });
+      }
+
+      const anfrage = passwortVergessenAnfrage(email);
+      if (anfrage) {
+        try {
+          const transporter = createSmtpTransport(zugangsdaten);
+          const linkParams = new URLSearchParams();
+          linkParams.set("reset-passwort", anfrage.token);
+          // Der Zugriffsschlüssel gehört mit in den Link: Ruft die Person
+          // diesen Server zum ersten Mal von einem neuen Gerät auf, käme sie
+          // ohne ihn nicht einmal bis zur Anmeldemaske (siehe "Zugriffsschutz"
+          // oben, gilt für ALLE /api-Routen). Wer diese E-Mail liest, hat
+          // ohnehin ein Konto auf diesem Server.
+          linkParams.set("zugriff", zugriffsschluessel.key);
+          const basis = `${req.protocol}://${req.get("host")}`;
+          const link = `${basis}/#${linkParams.toString()}`;
+          const senderAddr = zugangsdaten.fromEmail || zugangsdaten.user || "noreply@vereinsmanager.app";
+          const absenderName = zugangsdaten.fromName || "VereinsManager";
+
+          await transporter.sendMail({
+            from: `"${absenderName.replace(/"/g, "")}" <${senderAddr}>`,
+            to: anfrage.email,
+            subject: "VereinsManager: Passwort zurücksetzen",
+            text:
+              `Hallo ${anfrage.name},\n\n` +
+              `für Ihr Konto wurde soeben ein neues Passwort angefordert. Über den folgenden Link können Sie in ` +
+              `der nächsten Stunde ein neues Passwort vergeben:\n\n${link}\n\n` +
+              `Der Link funktioniert nur einmal. Haben Sie das nicht selbst angefordert, können Sie diese ` +
+              `Nachricht ignorieren — an Ihrem Konto ändert sich dann nichts.\n\n` +
+              `Herzliche Grüße,\nIhr VereinsManager`,
+          });
+        } catch (fehler) {
+          // Bewusst NICHT an die Oberfläche durchgereicht (siehe unten, warum
+          // immer dieselbe Antwort kommt) — nur ins Server-Protokoll, damit
+          // ein Vorstandsmitglied mit Zugriff auf den Server den Fehlschlag
+          // trotzdem finden kann.
+          console.error("Passwort-Zurücksetzen: E-Mail-Versand fehlgeschlagen:", fehler);
+        }
+      }
+
+      return res.json({
+        success: true,
+        message: "Falls zu dieser Adresse ein Konto besteht, wurde soeben eine E-Mail mit einem Link zum Zurücksetzen verschickt.",
+      });
+    } catch (error: any) {
+      console.error("Fehler bei /api/local-server/auth/request-password-reset:", error);
+      return res.status(500).json({ success: false, error: "Unerwarteter Fehler." });
+    }
+  }
+);
+
+/**
+ * POST /api/local-server/auth/reset-password
+ * Löst einen per E-Mail verschickten Link ein und setzt das neue Passwort.
+ */
+app.post(
+  "/api/local-server/auth/reset-password",
+  bremse(bremsePasswortReset, "Passwort-Zurücksetzen"),
+  async (req, res) => {
+    try {
+      const { token, newPassword } = req.body ?? {};
+      if (typeof token !== "string" || !token.trim()) {
+        return res.status(400).json({ success: false, error: "Der Link ist unvollständig oder ungültig." });
+      }
+      if (typeof newPassword !== "string" || !newPassword) {
+        return res.status(400).json({ success: false, error: "Bitte ein neues Passwort angeben." });
+      }
+
+      const ergebnis = await passwortZuruecksetzen(token.trim(), newPassword);
+      if (!ergebnis.erfolg) {
+        return res.status(400).json({ success: false, error: ergebnis.grund });
+      }
+      return res.json({ success: true, message: "Das Passwort wurde geändert. Sie können sich jetzt damit anmelden." });
+    } catch (error: any) {
+      console.error("Fehler bei /api/local-server/auth/reset-password:", error);
+      return res.status(500).json({ success: false, error: "Unerwarteter Fehler." });
+    }
+  }
+);
+
+app.post("/api/local-server/auth/logout", (req, res) => {
+  const token = req.headers[SITZUNG_HEADER];
+  if (typeof token === "string" && token.trim()) {
+    abmelden(token.trim());
+  }
+  // Auch ohne (noch) gültige Sitzung antwortet das mit Erfolg — nach einer
+  // Abmeldung ist "schon abgemeldet" kein Fehler.
+  return res.json({ success: true });
+});
+
+app.get("/api/local-server/auth/me", erfordertAnmeldung, (req, res) => {
+  return res.json({ success: true, user: (req as any).lokalerBenutzer });
+});
+
+app.put("/api/local-server/auth/password", erfordertAnmeldung, async (req, res) => {
+  try {
+    const benutzer = (req as any).lokalerBenutzer;
+    const { currentPassword, newPassword } = req.body ?? {};
+    if (typeof currentPassword !== "string" || typeof newPassword !== "string") {
+      return res.status(400).json({ success: false, error: "Bisheriges und neues Passwort werden benötigt." });
+    }
+
+    const pruefung = await pruefeZugangsdaten(benutzer.email, currentPassword);
+    if (!pruefung.ok) {
+      return res.status(401).json({ success: false, error: "Das bisherige Passwort ist nicht korrekt." });
+    }
+
+    await setzeBenutzerPasswort(benutzer.id, newPassword);
+    // setzeBenutzerPasswort beendet dabei alle Sitzungen dieses Kontos,
+    // auch die aktuelle (siehe repositories/localUsers.ts) — die Oberfläche
+    // muss sich also mit dem neuen Passwort erneut anmelden.
+    return res.json({
+      success: true,
+      message: "Passwort geändert. Bitte mit dem neuen Passwort erneut anmelden.",
+    });
+  } catch (error: any) {
+    if (error instanceof BenutzerAnlegenFehler) {
+      return res.status(400).json({ success: false, error: error.message });
+    }
+    console.error("Fehler beim Ändern eines Passworts (eigener Server):", error);
+    return res.status(500).json({ success: false, error: error.message || "Das Passwort konnte nicht geändert werden." });
+  }
+});
+
+app.get("/api/local-server/users", erfordertAnmeldung, erfordertRecht("users", "view"), (_req, res) => {
+  try {
+    return res.json({ success: true, users: listeBenutzer() });
+  } catch (error: any) {
+    console.error("Fehler beim Lesen der Benutzerliste (eigener Server):", error);
+    return res.status(500).json({ success: false, error: error.message || "Die Benutzerliste konnte nicht gelesen werden." });
+  }
+});
+
+/**
+ * Legt ein weiteres Konto an. Verlangt "edit" im Bereich "users" — derselbe
+ * Bereich, den die Oberfläche in Betriebsart 1/2 unter "Benutzer & Rechte"
+ * zeigt (siehe AREA_DEFINITIONS in utils/permissions.ts).
+ *
+ * Neue Konten bekommen bewusst keine Rechte (ALL_AREAS_NONE) und müssen ihr
+ * Anfangspasswort bei der ersten Anmeldung ändern (mustChangePassword) — der
+ * Vorstand vergibt die passenden Rechte anschließend über die Route unten.
+ */
+app.post("/api/local-server/users", erfordertAnmeldung, erfordertRecht("users", "edit"), async (req, res) => {
+  try {
+    const { email, name, password, customRoleName } = req.body ?? {};
+    if (typeof email !== "string" || typeof name !== "string" || typeof password !== "string") {
+      return res.status(400).json({ success: false, error: "E-Mail-Adresse, Name und ein Anfangspasswort werden benötigt." });
+    }
+    const benutzer = await legeBenutzerAn({
+      email,
+      name,
+      password,
+      customRoleName: typeof customRoleName === "string" ? customRoleName : undefined,
+      mustChangePassword: true,
+    });
+    return res.status(201).json({ success: true, user: benutzer });
+  } catch (error: any) {
+    if (error instanceof BenutzerAnlegenFehler) {
+      return res.status(400).json({ success: false, error: error.message });
+    }
+    console.error("Fehler beim Anlegen eines Benutzers (eigener Server):", error);
+    return res.status(500).json({ success: false, error: error.message || "Das Konto konnte nicht angelegt werden." });
+  }
+});
+
+/**
+ * Setzt die Berechtigungen eines bestehenden Kontos vollständig neu (alle
+ * Bereiche auf einmal, siehe setPermissions in repositories/localUsers.ts).
+ * Verlangt ebenfalls "edit" im Bereich "users".
+ *
+ * Seit der Rückmeldung von Johannes vom 27.09. mit eingebautem Schutz gegen
+ * das versehentliche Sperren des letzten Kontos mit "users"-Rechten — siehe
+ * die Prüfung in setPermissions() selbst (repositories/localUsers.ts), die
+ * unabhängig von dieser Route greift.
+ */
+app.put("/api/local-server/users/:id/permissions", erfordertAnmeldung, erfordertRecht("users", "edit"), (req, res) => {
+  try {
+    const aktualisiert = setzeBenutzerRechte(req.params.id, req.body?.permissions);
+    if (!aktualisiert) {
+      return res.status(404).json({ success: false, error: `Kein Konto mit der id ${req.params.id}.` });
+    }
+    return res.json({ success: true, user: aktualisiert });
+  } catch (error: any) {
+    if (error instanceof BenutzerAnlegenFehler) {
+      return res.status(400).json({ success: false, error: error.message });
+    }
+    console.error("Fehler beim Setzen von Berechtigungen (eigener Server):", error);
+    return res.status(500).json({ success: false, error: error.message || "Die Berechtigungen konnten nicht gesetzt werden." });
+  }
+});
+
+/**
+ * Aktiviert oder deaktiviert ein Konto. Verlangt ebenfalls "edit" im Bereich
+ * "users" — dasselbe Recht wie für die Rechtevergabe, weil eine Deaktivierung
+ * denselben Schutzbedarf hat.
+ *
+ * Wer die Änderung vornimmt (der angemeldete Benutzer, nicht der aus der
+ * URL) geht als drittes Argument in setActive() ein — dort sitzt die
+ * Prüfung, dass sich niemand selbst deaktivieren kann.
+ */
+app.put("/api/local-server/users/:id/active", erfordertAnmeldung, erfordertRecht("users", "edit"), (req, res) => {
+  try {
+    const { isActive } = req.body ?? {};
+    if (typeof isActive !== "boolean") {
+      return res.status(400).json({ success: false, error: "isActive (true/false) wird benötigt." });
+    }
+    const ausfuehrender = (req as any).lokalerBenutzer;
+    const aktualisiert = setzeBenutzerAktiv(req.params.id, isActive, ausfuehrender.id);
+    if (!aktualisiert) {
+      return res.status(404).json({ success: false, error: `Kein Konto mit der id ${req.params.id}.` });
+    }
+    return res.json({ success: true, user: aktualisiert });
+  } catch (error: any) {
+    if (error instanceof BenutzerAnlegenFehler) {
+      return res.status(400).json({ success: false, error: error.message });
+    }
+    console.error("Fehler beim Sperren/Freigeben eines Kontos (eigener Server):", error);
+    return res.status(500).json({ success: false, error: error.message || "Das Konto konnte nicht geändert werden." });
+  }
+});
+
+app.get("/api/local-server/members", erfordertAnmeldung, erfordertRecht("members", "view"), (_req, res) => {
+  try {
+    return res.json({ success: true, members: listMembers() });
+  } catch (error: any) {
+    console.error("Fehler beim Lesen der Mitgliederliste (eigener Server):", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Die Mitgliederliste konnte nicht gelesen werden.",
+    });
+  }
+});
+
+app.get("/api/local-server/members/:id", erfordertAnmeldung, erfordertRecht("members", "view"), (req, res) => {
+  try {
+    const mitglied = getMember(req.params.id);
+    if (!mitglied) {
+      return res.status(404).json({ success: false, error: `Kein Mitglied mit der id ${req.params.id}.` });
+    }
+    return res.json({ success: true, member: mitglied });
+  } catch (error: any) {
+    console.error("Fehler beim Lesen eines Mitglieds (eigener Server):", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Das Mitglied konnte nicht gelesen werden.",
+    });
+  }
+});
+
+app.post("/api/local-server/members", erfordertAnmeldung, erfordertRecht("members", "edit"), (req, res) => {
+  try {
+    const eingabe = req.body ?? {};
+    if (typeof eingabe.memberNumber !== "string" || !eingabe.memberNumber.trim()) {
+      return res.status(400).json({ success: false, error: "Keine Mitgliedsnummer angegeben." });
+    }
+    if (typeof eingabe.firstName !== "string" || !eingabe.firstName.trim()) {
+      return res.status(400).json({ success: false, error: "Kein Vorname angegeben." });
+    }
+    if (typeof eingabe.lastName !== "string" || !eingabe.lastName.trim()) {
+      return res.status(400).json({ success: false, error: "Kein Nachname angegeben." });
+    }
+    if (typeof eingabe.entryDate !== "string" || !eingabe.entryDate.trim()) {
+      return res.status(400).json({ success: false, error: "Kein Eintrittsdatum angegeben." });
+    }
+    if (typeof eingabe.department !== "string" || !eingabe.department.trim()) {
+      return res.status(400).json({ success: false, error: "Keine Abteilung angegeben." });
+    }
+
+    const mitglied = createMember(eingabe);
+    return res.status(201).json({ success: true, member: mitglied });
+  } catch (error: any) {
+    console.error("Fehler beim Anlegen eines Mitglieds (eigener Server):", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Das Mitglied konnte nicht angelegt werden.",
+    });
+  }
+});
+
+app.put("/api/local-server/members/:id", erfordertAnmeldung, erfordertRecht("members", "edit"), (req, res) => {
+  try {
+    const mitglied = updateMember(req.params.id, req.body ?? {});
+    if (!mitglied) {
+      return res.status(404).json({ success: false, error: `Kein Mitglied mit der id ${req.params.id}.` });
+    }
+    return res.json({ success: true, member: mitglied });
+  } catch (error: any) {
+    console.error("Fehler beim Ändern eines Mitglieds (eigener Server):", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Das Mitglied konnte nicht geändert werden.",
+    });
+  }
+});
+
+app.delete("/api/local-server/members/:id", erfordertAnmeldung, erfordertRecht("members", "edit"), (req, res) => {
+  try {
+    const geloescht = deleteMember(req.params.id);
+    if (!geloescht) {
+      return res.status(404).json({ success: false, error: `Kein Mitglied mit der id ${req.params.id}.` });
+    }
+    return res.json({ success: true });
+  } catch (error: any) {
+    console.error("Fehler beim Löschen eines Mitglieds (eigener Server):", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Das Mitglied konnte nicht gelöscht werden.",
+    });
+  }
+});
+
 // Vite middleware & SPA serving
 async function startServer() {
   // Ein /api/-Aufruf, den es nicht gibt, muss als solcher erkennbar sein.
@@ -1881,4 +2400,14 @@ function starteLauscher(port: number, versucheUebrig: number): void {
   });
 }
 
-startServer();
+// VM_TEST_NO_LISTEN ist ausschließlich für serverRoutes.test.ts gedacht,
+// genau wie VM_DATA_DIR es bereits ist (siehe dort). Ohne diese Bedingung
+// würde schon das bloße Importieren dieser Datei in einem Test einen echten
+// Netzwerk-Port belegen und einen Vite-Entwicklungsserver hochfahren — beides
+// unerwünscht und bei parallel laufenden Testdateien eine Quelle für
+// Port-Kollisionen. Jeder bisherige Startweg (npm run dev, der gebaute
+// Server, die Desktop-Fassung) setzt diese Variable nicht und startet
+// deshalb unverändert wie zuvor.
+if (process.env.VM_TEST_NO_LISTEN !== "1") {
+  startServer();
+}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FinancialAccount, Transaction, TaxSphere } from '../types';
 import { BankImportService, ParsedBankRow } from '../services/bankImport';
-import { SPHERE_CATEGORIES } from '../data/taxSpheres';
+import { ALL_ACCOUNT_CATEGORIES } from '../data/taxSpheres';
 import {
   X,
   Upload,
@@ -58,9 +58,11 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
     setParsedRows(prev => prev.map(r => r.id === id ? { ...r, selected: !r.selected } : r));
   };
 
+  // Sphäre und Kategorie sind seit der DATEV-SKR42-Umstellung unabhängig
+  // voneinander (siehe Hinweis bei Skr42MainCategory in src/types.ts) — ein
+  // Sphärenwechsel ändert die gewählte Kategorie darum nicht mehr mit.
   const updateRowSphere = (id: string, sphere: TaxSphere) => {
-    const defaultCat = SPHERE_CATEGORIES[sphere].income[0] || '';
-    setParsedRows(prev => prev.map(r => r.id === id ? { ...r, suggestedSphere: sphere, suggestedCategory: defaultCat } : r));
+    setParsedRows(prev => prev.map(r => r.id === id ? { ...r, suggestedSphere: sphere } : r));
   };
 
   const updateRowCategory = (id: string, category: string) => {
@@ -246,7 +248,7 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
                             onChange={e => updateRowCategory(row.id, e.target.value)}
                             className="w-full px-2 py-1 border border-slate-300 rounded text-2xs bg-white"
                           >
-                            {(row.amount >= 0 ? SPHERE_CATEGORIES[row.suggestedSphere].income : SPHERE_CATEGORIES[row.suggestedSphere].expense).map(c => (
+                            {(row.amount >= 0 ? ALL_ACCOUNT_CATEGORIES.income : ALL_ACCOUNT_CATEGORIES.expense).map(c => (
                               <option key={c} value={c}>{c}</option>
                             ))}
                           </select>

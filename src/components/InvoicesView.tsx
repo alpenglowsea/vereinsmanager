@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   ClubInvoice,
   InvoiceStatus,
@@ -7,6 +7,12 @@ import {
   InvoiceTemplateSettings
 } from '../types';
 import { formatCurrency, generateInvoicePdf } from '../services/invoicePdfService';
+import { SortableResizableTh } from './SortableResizableTh';
+import { ColumnVisibilityMenu } from './ColumnVisibilityMenu';
+import { useResizableColumns, ColumnWidths } from '../hooks/useResizableColumns';
+import { useSortableColumns } from '../hooks/useSortableColumns';
+import { useColumnOrder } from '../hooks/useColumnOrder';
+import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import {
   Search,
   Plus,
@@ -24,6 +30,101 @@ import {
   Lock
 } from 'lucide-react';
 import { lockClass, lockTitle } from '../utils/uiLock';
+
+type InvoiceSortField =
+  | 'status'
+  | 'date'
+  | 'recipient'
+  | 'subject'
+  | 'sphere'
+  | 'dueDate'
+  | 'amount'
+  | 'deliveryDate'
+  | 'paymentTermsDays'
+  | 'paidAt'
+  | 'paymentMethod'
+  | 'totalVat'
+  | 'notes'
+  | 'recipientContact';
+
+// Beschriftungen der Zahlungsart — dieselben deutschen Begriffe wie an den
+// anderen Stellen der App (siehe services/storage.ts), nur "exempt" heißt
+// hier "Befreit" statt "Beitragsfrei" — das Wort "Beitrag" passt nur bei
+// Mitgliedsbeiträgen, nicht bei einer Rechnung.
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  sepa: 'SEPA-Lastschrift',
+  transfer: 'Überweisung',
+  cash: 'Bargeld',
+  standing_order: 'Dauerauftrag',
+  exempt: 'Befreit'
+};
+
+// Reihenfolge, in der Status bzw. Steuer-Sphäre als "sortiert" gelten —
+// eine alphabetische Sortierung wäre hier (anders als bei Text- oder
+// Zahlenspalten) nicht sinnvoll ablesbar. "overdue" kommt im Typ InvoiceStatus
+// vor, wird von dieser Ansicht aber nie als gespeicherter Status vergeben —
+// sie berechnet "überfällig" live aus offen + Fälligkeitsdatum (siehe
+// renderStatusBadge). Trotzdem muss die Zuordnung hier vollständig sein,
+// sonst meckert TypeScript (Record<InvoiceStatus, number> verlangt alle
+// fünf Werte) — daher hier mit aufgenommen, eingeordnet zwischen "offen"
+// und "bezahlt".
+const STATUS_SORT_ORDER: Record<InvoiceStatus, number> = { draft: 0, open: 1, overdue: 2, paid: 3, cancelled: 4 };
+const SPHERE_SORT_ORDER: Record<TaxSphere, number> = { ideell: 0, vermoegen: 1, zweckbetrieb: 2, wirtschaftlich: 3 };
+
+// Feste Breiten für Auswahl-Kästchen- und Aktionsspalte. Die übrigen
+// Breiten sind nur ein sinnvoller Startwert; nach dem ersten Ziehen bzw.
+// Doppelklick merkt sich der Browser die eigene Wahl (siehe
+// useResizableColumns).
+const CHECKBOX_COL_WIDTH = 40;
+const ACTION_COL_WIDTH = 150;
+const DEFAULT_INVOICE_COLUMN_WIDTHS: ColumnWidths = {
+  status: 110,
+  date: 140,
+  recipient: 220,
+  subject: 220,
+  sphere: 140,
+  dueDate: 120,
+  amount: 130,
+  deliveryDate: 140,
+  paymentTermsDays: 110,
+  paidAt: 120,
+  paymentMethod: 150,
+  totalVat: 110,
+  notes: 200,
+  recipientContact: 200
+};
+const INVOICE_COLUMN_KEYS = Object.keys(DEFAULT_INVOICE_COLUMN_WIDTHS);
+
+// Alle neuen Spalten sind Teil der allgemeinen Erweiterung ("alles neu
+// anbieten") ohne besondere Vorgabe zur Standard-Sichtbarkeit — sie starten
+// deshalb wie bei den Mitgliedern ausgeblendet (siehe useColumnVisibility).
+const INVOICE_DEFAULT_HIDDEN_COLUMNS = [
+  'deliveryDate',
+  'paymentTermsDays',
+  'paidAt',
+  'paymentMethod',
+  'totalVat',
+  'notes',
+  'recipientContact'
+];
+
+// Beschriftungen für das Ein-/Ausblenden-Menü.
+const INVOICE_COLUMN_LABELS: Record<string, string> = {
+  status: 'Status',
+  date: 'Nr. & Datum',
+  recipient: 'Empfänger',
+  subject: 'Betreff / Verwendung',
+  sphere: 'Sphäre',
+  dueDate: 'Fälligkeit',
+  amount: 'Betrag (Brutto)',
+  deliveryDate: 'Liefer-/Leistungsdatum',
+  paymentTermsDays: 'Zahlungsziel',
+  paidAt: 'Bezahlt am',
+  paymentMethod: 'Zahlungsart',
+  totalVat: 'Gesamt-USt',
+  notes: 'Notizen',
+  recipientContact: 'Empfänger-E-Mail/Telefon'
+};
 
 interface InvoicesViewProps {
   invoices: ClubInvoice[];
@@ -67,11 +168,286 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | InvoiceStatus | 'overdue'>('all');
   const [taxSphereFilter, setTaxSphereFilter] = useState<'all' | TaxSphere>('all');
-  const [sortBy, setSortBy] = useState<'date' | 'dueDate' | 'number' | 'recipient' | 'amount'>('date');
-  const [sortAsc, setSortAsc] = useState(false); // Newest first by default
+  const { sortBy, sortDirection, handleSort } = useSortableColumns<InvoiceSortField>('date', 'desc'); // neueste zuerst
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Ziehbare, gespeicherte Spaltenbreiten der Tabelle (siehe useResizableColumns).
+  const tableRef = useRef<HTMLTableElement>(null);
+  const { widths: colWidths, startResize, autoFit } = useResizableColumns(
+    'vereinsmanager:colwidths:invoices',
+    DEFAULT_INVOICE_COLUMN_WIDTHS,
+    tableRef
+  );
+
+  // Per Drag & Drop änderbare Spaltenreihenfolge (siehe useColumnOrder).
+  const {
+    order: columnOrder,
+    draggedKey,
+    dragOverKey,
+    handleColDragStart,
+    handleColDragOver,
+    handleColDrop,
+    handleColDragEnd
+  } = useColumnOrder('vereinsmanager:colorder:invoices', INVOICE_COLUMN_KEYS);
+
+  // Ein-/Ausblenden einzelner Spalten (unabhängig von Reihenfolge & Breite),
+  // bedienbar per Rechtsklick auf einen beliebigen Spaltenkopf.
+  const { hidden: hiddenColumns, toggle: toggleColumn } = useColumnVisibility(
+    'vereinsmanager:colhidden:invoices',
+    INVOICE_COLUMN_KEYS,
+    INVOICE_DEFAULT_HIDDEN_COLUMNS
+  );
+  const visibleColumnOrder = columnOrder.filter(key => !hiddenColumns.has(key));
+  const [columnMenuPos, setColumnMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const openColumnMenu = (e: React.MouseEvent<HTMLTableCellElement>) => {
+    e.preventDefault();
+    setColumnMenuPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const dragProps = (key: string) => ({
+    isDragging: draggedKey === key,
+    isDragOver: dragOverKey === key,
+    onColDragStart: handleColDragStart(key),
+    onColDragOver: handleColDragOver(key),
+    onColDrop: handleColDrop(key),
+    onColDragEnd: handleColDragEnd,
+    onContextMenu: openColumnMenu
+  });
+
+  // Spaltenkopf-Definitionen je Spaltenschlüssel — werden in der per Drag &
+  // Drop gewählten Reihenfolge (columnOrder) gerendert statt in fester
+  // Quelltext-Reihenfolge.
+  const invoiceHeaderDefs: Record<string, React.ReactNode> = {
+    status: (
+      <SortableResizableTh
+        key="status"
+        label="Status"
+        active={sortBy === 'status'}
+        direction={sortDirection}
+        onSort={() => handleSort('status')}
+        sortTitle="Nach Status sortieren"
+        colKey="status"
+        width={colWidths.status}
+        onResizeStart={startResize('status')}
+        onAutoFit={() => autoFit('status')}
+        headerBg="bg-slate-100"
+        {...dragProps('status')}
+      />
+    ),
+    date: (
+      <SortableResizableTh
+        key="date"
+        label="Nr. & Datum"
+        active={sortBy === 'date'}
+        direction={sortDirection}
+        onSort={() => handleSort('date')}
+        sortTitle="Nach Rechnungsdatum sortieren"
+        colKey="date"
+        width={colWidths.date}
+        onResizeStart={startResize('date')}
+        onAutoFit={() => autoFit('date')}
+        headerBg="bg-slate-100"
+        {...dragProps('date')}
+      />
+    ),
+    recipient: (
+      <SortableResizableTh
+        key="recipient"
+        label="Empfänger"
+        active={sortBy === 'recipient'}
+        direction={sortDirection}
+        onSort={() => handleSort('recipient')}
+        sortTitle="Nach Empfänger sortieren"
+        colKey="recipient"
+        width={colWidths.recipient}
+        onResizeStart={startResize('recipient')}
+        onAutoFit={() => autoFit('recipient')}
+        headerBg="bg-slate-100"
+        {...dragProps('recipient')}
+      />
+    ),
+    subject: (
+      <SortableResizableTh
+        key="subject"
+        label="Betreff / Verwendung"
+        active={sortBy === 'subject'}
+        direction={sortDirection}
+        onSort={() => handleSort('subject')}
+        sortTitle="Nach Betreff sortieren"
+        colKey="subject"
+        width={colWidths.subject}
+        onResizeStart={startResize('subject')}
+        onAutoFit={() => autoFit('subject')}
+        headerBg="bg-slate-100"
+        {...dragProps('subject')}
+      />
+    ),
+    sphere: (
+      <SortableResizableTh
+        key="sphere"
+        label="Sphäre"
+        active={sortBy === 'sphere'}
+        direction={sortDirection}
+        onSort={() => handleSort('sphere')}
+        sortTitle="Nach Steuer-Sphäre sortieren"
+        colKey="sphere"
+        width={colWidths.sphere}
+        onResizeStart={startResize('sphere')}
+        onAutoFit={() => autoFit('sphere')}
+        headerBg="bg-slate-100"
+        {...dragProps('sphere')}
+      />
+    ),
+    dueDate: (
+      <SortableResizableTh
+        key="dueDate"
+        label="Fälligkeit"
+        active={sortBy === 'dueDate'}
+        direction={sortDirection}
+        onSort={() => handleSort('dueDate')}
+        sortTitle="Nach Fälligkeit sortieren"
+        colKey="dueDate"
+        width={colWidths.dueDate}
+        onResizeStart={startResize('dueDate')}
+        onAutoFit={() => autoFit('dueDate')}
+        headerBg="bg-slate-100"
+        {...dragProps('dueDate')}
+      />
+    ),
+    amount: (
+      <SortableResizableTh
+        key="amount"
+        label="Betrag (Brutto)"
+        align="right"
+        active={sortBy === 'amount'}
+        direction={sortDirection}
+        onSort={() => handleSort('amount')}
+        sortTitle="Nach Bruttobetrag sortieren"
+        colKey="amount"
+        width={colWidths.amount}
+        onResizeStart={startResize('amount')}
+        onAutoFit={() => autoFit('amount')}
+        headerBg="bg-slate-100"
+        {...dragProps('amount')}
+      />
+    ),
+    deliveryDate: (
+      <SortableResizableTh
+        key="deliveryDate"
+        label="Liefer-/Leistungsdatum"
+        active={sortBy === 'deliveryDate'}
+        direction={sortDirection}
+        onSort={() => handleSort('deliveryDate')}
+        sortTitle="Nach Liefer-/Leistungsdatum sortieren"
+        colKey="deliveryDate"
+        width={colWidths.deliveryDate}
+        onResizeStart={startResize('deliveryDate')}
+        onAutoFit={() => autoFit('deliveryDate')}
+        headerBg="bg-slate-100"
+        {...dragProps('deliveryDate')}
+      />
+    ),
+    paymentTermsDays: (
+      <SortableResizableTh
+        key="paymentTermsDays"
+        label="Zahlungsziel"
+        align="right"
+        active={sortBy === 'paymentTermsDays'}
+        direction={sortDirection}
+        onSort={() => handleSort('paymentTermsDays')}
+        sortTitle="Nach Zahlungsziel sortieren"
+        colKey="paymentTermsDays"
+        width={colWidths.paymentTermsDays}
+        onResizeStart={startResize('paymentTermsDays')}
+        onAutoFit={() => autoFit('paymentTermsDays')}
+        headerBg="bg-slate-100"
+        {...dragProps('paymentTermsDays')}
+      />
+    ),
+    paidAt: (
+      <SortableResizableTh
+        key="paidAt"
+        label="Bezahlt am"
+        active={sortBy === 'paidAt'}
+        direction={sortDirection}
+        onSort={() => handleSort('paidAt')}
+        sortTitle="Nach Bezahldatum sortieren"
+        colKey="paidAt"
+        width={colWidths.paidAt}
+        onResizeStart={startResize('paidAt')}
+        onAutoFit={() => autoFit('paidAt')}
+        headerBg="bg-slate-100"
+        {...dragProps('paidAt')}
+      />
+    ),
+    paymentMethod: (
+      <SortableResizableTh
+        key="paymentMethod"
+        label="Zahlungsart"
+        active={sortBy === 'paymentMethod'}
+        direction={sortDirection}
+        onSort={() => handleSort('paymentMethod')}
+        sortTitle="Nach Zahlungsart sortieren"
+        colKey="paymentMethod"
+        width={colWidths.paymentMethod}
+        onResizeStart={startResize('paymentMethod')}
+        onAutoFit={() => autoFit('paymentMethod')}
+        headerBg="bg-slate-100"
+        {...dragProps('paymentMethod')}
+      />
+    ),
+    totalVat: (
+      <SortableResizableTh
+        key="totalVat"
+        label="Gesamt-USt"
+        align="right"
+        active={sortBy === 'totalVat'}
+        direction={sortDirection}
+        onSort={() => handleSort('totalVat')}
+        sortTitle="Nach Gesamt-USt sortieren"
+        colKey="totalVat"
+        width={colWidths.totalVat}
+        onResizeStart={startResize('totalVat')}
+        onAutoFit={() => autoFit('totalVat')}
+        headerBg="bg-slate-100"
+        {...dragProps('totalVat')}
+      />
+    ),
+    notes: (
+      <SortableResizableTh
+        key="notes"
+        label="Notizen"
+        active={sortBy === 'notes'}
+        direction={sortDirection}
+        onSort={() => handleSort('notes')}
+        sortTitle="Nach Notizen sortieren"
+        colKey="notes"
+        width={colWidths.notes}
+        onResizeStart={startResize('notes')}
+        onAutoFit={() => autoFit('notes')}
+        headerBg="bg-slate-100"
+        {...dragProps('notes')}
+      />
+    ),
+    recipientContact: (
+      <SortableResizableTh
+        key="recipientContact"
+        label="Empfänger-E-Mail/Telefon"
+        active={sortBy === 'recipientContact'}
+        direction={sortDirection}
+        onSort={() => handleSort('recipientContact')}
+        sortTitle="Nach Empfänger-E-Mail/Telefon sortieren"
+        colKey="recipientContact"
+        width={colWidths.recipientContact}
+        onResizeStart={startResize('recipientContact')}
+        onAutoFit={() => autoFit('recipientContact')}
+        headerBg="bg-slate-100"
+        {...dragProps('recipientContact')}
+      />
+    )
+  };
 
   // Quick stats calculation
   const totalCount = invoices.length;
@@ -149,16 +525,37 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         comparison = new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime();
       } else if (sortBy === 'dueDate') {
         comparison = new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime();
-      } else if (sortBy === 'number') {
-        comparison = (a.invoiceNumber || '').localeCompare(b.invoiceNumber || '', 'de', { numeric: true });
       } else if (sortBy === 'recipient') {
         comparison = (a.recipientName || '').localeCompare(b.recipientName || '', 'de');
+      } else if (sortBy === 'subject') {
+        comparison = (a.subject || '').localeCompare(b.subject || '', 'de');
+      } else if (sortBy === 'status') {
+        comparison = STATUS_SORT_ORDER[a.status] - STATUS_SORT_ORDER[b.status];
+      } else if (sortBy === 'sphere') {
+        comparison = SPHERE_SORT_ORDER[a.taxSphere] - SPHERE_SORT_ORDER[b.taxSphere];
       } else if (sortBy === 'amount') {
         comparison = (a.totalAmount || 0) - (b.totalAmount || 0);
+      } else if (sortBy === 'deliveryDate') {
+        comparison = new Date(a.deliveryDate || 0).getTime() - new Date(b.deliveryDate || 0).getTime();
+      } else if (sortBy === 'paymentTermsDays') {
+        comparison = (a.paymentTermsDays || 0) - (b.paymentTermsDays || 0);
+      } else if (sortBy === 'paidAt') {
+        comparison = new Date(a.paidAt || 0).getTime() - new Date(b.paidAt || 0).getTime();
+      } else if (sortBy === 'paymentMethod') {
+        comparison = (a.paymentMethod || '').localeCompare(b.paymentMethod || '', 'de');
+      } else if (sortBy === 'totalVat') {
+        comparison = (a.totalVat || 0) - (b.totalVat || 0);
+      } else if (sortBy === 'notes') {
+        comparison = (a.notes || '').localeCompare(b.notes || '', 'de');
+      } else if (sortBy === 'recipientContact') {
+        comparison = (a.recipientEmail || a.recipientPhone || '').localeCompare(
+          b.recipientEmail || b.recipientPhone || '',
+          'de'
+        );
       }
-      return sortAsc ? comparison : -comparison;
+      return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [invoices, searchQuery, statusFilter, taxSphereFilter, sortBy, sortAsc, now]);
+  }, [invoices, searchQuery, statusFilter, taxSphereFilter, sortBy, sortDirection, now]);
 
   // Bulk Selection Handlers
   const handleSelectAll = () => {
@@ -491,7 +888,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
       )}
 
       {/* Main Table Card Container (Exaktes Layout analog zur Mitglieder- und Kontakttabelle) */}
-      <section className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col overflow-hidden">
+      <section className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col">
         {/* Table Top Header with Title and Action buttons */}
         <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
           <div className="flex items-center gap-2">
@@ -598,37 +995,44 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
             <option value="vermoegen">Vermögensverwaltung</option>
             <option value="ideell">Ideeller Bereich</option>
           </select>
-
-          {/* Sort By */}
-          <select
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value as any)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="date">Sortieren: Rechnungsdatum</option>
-            <option value="dueDate">Sortieren: Fälligkeit</option>
-            <option value="number">Sortieren: Rechnungsnr.</option>
-            <option value="recipient">Sortieren: Empfänger</option>
-            <option value="amount">Sortieren: Gesamtbetrag</option>
-          </select>
-
-          {/* Sort Direction Toggle */}
-          <button
-            type="button"
-            onClick={() => setSortAsc(!sortAsc)}
-            className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-            title={sortAsc ? 'Aufsteigend' : 'Absteigend'}
-          >
-            {sortAsc ? '↑ Aufsteigend' : '↓ Absteigend'}
-          </button>
         </div>
 
         {/* Data Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left border-collapse">
-            <thead className="bg-slate-100 text-slate-600 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200 select-none">
+        {/* Eigener, nach oben begrenzter Scroll-Bereich (Breite UND Höhe) —
+            der seitliche Scrollbalken sitzt dadurch immer direkt unter den
+            Zeilen, auch bei langen Seiten (siehe ausführlicher Kommentar in
+            MembersView.tsx bzw. in App.tsx, warum der vorherige Versuch
+            nicht funktioniert hat). */}
+        <div className="overflow-auto max-h-[65vh]">
+          <table
+            ref={tableRef}
+            className="text-xs text-left border-collapse"
+            style={{
+              tableLayout: 'fixed',
+              width:
+                CHECKBOX_COL_WIDTH +
+                ACTION_COL_WIDTH +
+                visibleColumnOrder.reduce((sum, key) => sum + (colWidths[key] || 0), 0)
+            }}
+          >
+            {/* <colgroup> statt Breiten nur an den <th>-Elementen — macht
+                die Spaltenbreite unabhängig vom Tabellenkopf, damit sie sich
+                beim Ziehen auch in den Zeilen darunter ändert (siehe
+                ausführlicher Kommentar in MembersView.tsx, wo dasselbe
+                Problem in Firefox auftrat). */}
+            <colgroup>
+              <col style={{ width: CHECKBOX_COL_WIDTH }} />
+              {visibleColumnOrder.map(key => (
+                <col key={key} style={{ width: colWidths[key] || 0 }} />
+              ))}
+              <col style={{ width: ACTION_COL_WIDTH }} />
+            </colgroup>
+            <thead className="bg-slate-100 text-slate-600 font-semibold uppercase text-[10px] tracking-wider select-none">
               <tr>
-                <th className="w-9 px-3 py-3 text-center">
+                <th
+                  style={{ width: CHECKBOX_COL_WIDTH, minWidth: CHECKBOX_COL_WIDTH }}
+                  className="px-3 py-3 text-center sticky top-0 z-10 bg-slate-100 border-b border-slate-200"
+                >
                   <input
                     type="checkbox"
                     checked={filteredInvoices.length > 0 && selectedIds.size === filteredInvoices.length}
@@ -637,20 +1041,19 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                     className="w-3.5 h-3.5 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 cursor-pointer"
                   />
                 </th>
-                <th className="w-24 px-3 py-3">Status</th>
-                <th className="w-32 px-3 py-3">Nr. & Datum</th>
-                <th className="px-4 py-3">Empfänger</th>
-                <th className="px-4 py-3">Betreff / Verwendung</th>
-                <th className="w-32 px-3 py-3">Sphäre</th>
-                <th className="w-28 px-3 py-3">Fälligkeit</th>
-                <th className="w-28 px-4 py-3 text-right">Betrag (Brutto)</th>
-                <th className="w-28 px-3 py-3 text-right">Aktionen</th>
+                {visibleColumnOrder.map(key => invoiceHeaderDefs[key])}
+                <th
+                  style={{ width: ACTION_COL_WIDTH, minWidth: ACTION_COL_WIDTH }}
+                  className="px-3 py-3 text-right sticky top-0 z-10 bg-slate-100 border-b border-slate-200"
+                >
+                  Aktionen
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
               {filteredInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-500">
+                  <td colSpan={visibleColumnOrder.length + 2} className="py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <FileText className="w-8 h-8 text-slate-300" />
                       <p className="font-semibold text-slate-700 text-sm">
@@ -705,91 +1108,159 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                         />
                       </td>
 
-                      {/* Status */}
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        {renderStatusBadge(inv)}
-                      </td>
-
-                      {/* Invoice Number & Date */}
-                      <td className="px-3 py-3">
-                        <div className="font-mono font-bold text-slate-900 group-hover:text-blue-700 transition-colors">
-                          {inv.invoiceNumber}
-                        </div>
-                        <div className="text-[11px] text-slate-400">
-                          {new Date(inv.date).toLocaleDateString('de-DE')}
-                        </div>
-                      </td>
-
-                      {/* Recipient */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-6 h-6 rounded-md flex items-center justify-center font-bold text-[11px] shrink-0 ${
-                            inv.recipientType === 'contact'
-                              ? 'bg-indigo-100 text-indigo-700'
-                              : inv.recipientType === 'member'
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-slate-100 text-slate-700'
-                          }`}>
-                            {inv.recipientType === 'contact' ? '🏢' : '👤'}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-bold text-slate-900 truncate">
-                              {inv.recipientName}
-                            </div>
-                            <div className="text-[11px] text-slate-500 truncate">
-                              {inv.recipientCompany ? `${inv.recipientCompany} • ` : ''}
-                              {inv.recipientAddress?.city || ''}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Subject */}
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-slate-900 truncate max-w-xs">
-                          {inv.subject}
-                        </div>
-                        <div className="text-[11px] text-slate-400 truncate">
-                          {inv.items.length} Posten: {inv.items.map(it => it.description).join(', ')}
-                        </div>
-                      </td>
-
-                      {/* Tax Sphere */}
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                          {inv.taxSphere === 'wirtschaftlich'
-                            ? 'Wirtschaftl.'
-                            : inv.taxSphere === 'zweckbetrieb'
-                            ? 'Zweckbetrieb'
-                            : inv.taxSphere === 'vermoegen'
-                            ? 'Vermögen'
-                            : 'Ideell'}
-                        </span>
-                      </td>
-
-                      {/* Due Date */}
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <span className={`font-semibold ${
-                          isOverdue ? 'text-red-700 font-bold' : 'text-slate-700'
-                        }`}>
-                          {new Date(inv.dueDate).toLocaleDateString('de-DE')}
-                        </span>
-                        {inv.documentId && (
-                          <span className="block text-[10px] text-blue-600" title="Im Archiv abgelegt">
-                            📁 archiviert
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Gross Amount */}
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <div className="font-mono font-bold text-sm text-slate-900">
-                          {formatCurrency(inv.totalAmount)}
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-mono">
-                          Netto: {formatCurrency(inv.subtotalNet)}
-                        </div>
-                      </td>
+                      {(() => {
+                        const invoiceCellDefs: Record<string, React.ReactNode> = {
+                          status: (
+                            <td key="status" data-col-content="status" className="px-3 py-3 whitespace-nowrap overflow-hidden">
+                              {renderStatusBadge(inv)}
+                            </td>
+                          ),
+                          date: (
+                            <td key="date" data-col-content="date" className="px-3 py-3 overflow-hidden">
+                              <div className="font-mono font-bold text-slate-900 group-hover:text-blue-700 transition-colors">
+                                {inv.invoiceNumber}
+                              </div>
+                              <div className="text-[11px] text-slate-400">
+                                {new Date(inv.date).toLocaleDateString('de-DE')}
+                              </div>
+                            </td>
+                          ),
+                          recipient: (
+                            <td key="recipient" data-col-content="recipient" className="px-4 py-3 overflow-hidden">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-6 h-6 rounded-md flex items-center justify-center font-bold text-[11px] shrink-0 ${
+                                  inv.recipientType === 'contact'
+                                    ? 'bg-indigo-100 text-indigo-700'
+                                    : inv.recipientType === 'member'
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'bg-slate-100 text-slate-700'
+                                }`}>
+                                  {inv.recipientType === 'contact' ? '🏢' : '👤'}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-bold text-slate-900 truncate">
+                                    {inv.recipientName}
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 truncate">
+                                    {inv.recipientCompany ? `${inv.recipientCompany} • ` : ''}
+                                    {inv.recipientAddress?.city || ''}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          ),
+                          subject: (
+                            <td key="subject" data-col-content="subject" className="px-4 py-3 overflow-hidden">
+                              <div className="font-medium text-slate-900 truncate">
+                                {inv.subject}
+                              </div>
+                              <div className="text-[11px] text-slate-400 truncate">
+                                {inv.items.length} Posten: {inv.items.map(it => it.description).join(', ')}
+                              </div>
+                            </td>
+                          ),
+                          sphere: (
+                            <td key="sphere" data-col-content="sphere" className="px-3 py-3 whitespace-nowrap overflow-hidden">
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                                {inv.taxSphere === 'wirtschaftlich'
+                                  ? 'Wirtschaftl.'
+                                  : inv.taxSphere === 'zweckbetrieb'
+                                  ? 'Zweckbetrieb'
+                                  : inv.taxSphere === 'vermoegen'
+                                  ? 'Vermögen'
+                                  : 'Ideell'}
+                              </span>
+                            </td>
+                          ),
+                          dueDate: (
+                            <td key="dueDate" data-col-content="dueDate" className="px-3 py-3 whitespace-nowrap overflow-hidden">
+                              <span className={`font-semibold ${
+                                isOverdue ? 'text-red-700 font-bold' : 'text-slate-700'
+                              }`}>
+                                {new Date(inv.dueDate).toLocaleDateString('de-DE')}
+                              </span>
+                              {inv.documentId && (
+                                <span className="block text-[10px] text-blue-600" title="Im Archiv abgelegt">
+                                  📁 archiviert
+                                </span>
+                              )}
+                            </td>
+                          ),
+                          amount: (
+                            <td key="amount" data-col-content="amount" className="px-4 py-3 text-right whitespace-nowrap overflow-hidden">
+                              <div className="font-mono font-bold text-sm text-slate-900">
+                                {formatCurrency(inv.totalAmount)}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                Netto: {formatCurrency(inv.subtotalNet)}
+                              </div>
+                            </td>
+                          ),
+                          deliveryDate: (
+                            <td key="deliveryDate" data-col-content="deliveryDate" className="px-3 py-3 whitespace-nowrap overflow-hidden text-slate-600">
+                              {inv.deliveryDate ? new Date(inv.deliveryDate).toLocaleDateString('de-DE') : <span className="text-slate-300">-</span>}
+                            </td>
+                          ),
+                          paymentTermsDays: (
+                            <td key="paymentTermsDays" data-col-content="paymentTermsDays" className="px-3 py-3 text-right whitespace-nowrap overflow-hidden text-slate-600 font-mono">
+                              {inv.paymentTermsDays} Tage
+                            </td>
+                          ),
+                          paidAt: (
+                            <td key="paidAt" data-col-content="paidAt" className="px-3 py-3 whitespace-nowrap overflow-hidden text-slate-600">
+                              {inv.paidAt ? new Date(inv.paidAt).toLocaleDateString('de-DE') : <span className="text-slate-300">-</span>}
+                            </td>
+                          ),
+                          paymentMethod: (
+                            <td key="paymentMethod" data-col-content="paymentMethod" className="px-3 py-3 whitespace-nowrap overflow-hidden text-slate-600">
+                              {inv.paymentMethod ? PAYMENT_METHOD_LABELS[inv.paymentMethod] || inv.paymentMethod : <span className="text-slate-300">-</span>}
+                            </td>
+                          ),
+                          totalVat: (
+                            <td key="totalVat" data-col-content="totalVat" className="px-4 py-3 text-right whitespace-nowrap overflow-hidden font-mono text-slate-600">
+                              {formatCurrency(inv.totalVat)}
+                            </td>
+                          ),
+                          notes: (
+                            <td
+                              key="notes"
+                              data-col-content="notes"
+                              className="px-4 py-3 text-slate-500 truncate overflow-hidden"
+                              title={inv.notes || undefined}
+                            >
+                              {inv.notes || <span className="text-slate-300">-</span>}
+                            </td>
+                          ),
+                          recipientContact: (
+                            <td key="recipientContact" data-col-content="recipientContact" className="px-3 py-3 overflow-hidden">
+                              <div className="space-y-0.5">
+                                {inv.recipientEmail && (
+                                  <a
+                                    href={`mailto:${inv.recipientEmail}`}
+                                    onClick={e => e.stopPropagation()}
+                                    className="text-[11px] text-blue-600 hover:underline truncate block"
+                                  >
+                                    {inv.recipientEmail}
+                                  </a>
+                                )}
+                                {inv.recipientPhone && (
+                                  <a
+                                    href={`tel:${inv.recipientPhone}`}
+                                    onClick={e => e.stopPropagation()}
+                                    className="text-[11px] text-slate-500 hover:text-blue-600 block"
+                                  >
+                                    {inv.recipientPhone}
+                                  </a>
+                                )}
+                                {!inv.recipientEmail && !inv.recipientPhone && (
+                                  <span className="text-slate-300 text-[11px]">-</span>
+                                )}
+                              </div>
+                            </td>
+                          )
+                        };
+                        return visibleColumnOrder.map(key => invoiceCellDefs[key]);
+                      })()}
 
                       {/* Action buttons */}
                       <td
@@ -856,9 +1327,18 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
             </tbody>
           </table>
         </div>
+        {columnMenuPos && (
+          <ColumnVisibilityMenu
+            position={columnMenuPos}
+            columns={columnOrder.map(key => ({ key, label: INVOICE_COLUMN_LABELS[key] || key }))}
+            hidden={hiddenColumns}
+            onToggle={toggleColumn}
+            onClose={() => setColumnMenuPos(null)}
+          />
+        )}
 
         {/* Table Pagination / Footer */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+        <div className="p-4 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 rounded-b-xl overflow-hidden">
           <div>
             Zeige <strong className="text-slate-900">{filteredInvoices.length}</strong> von{' '}
             <strong className="text-slate-900">{invoices.length}</strong> Rechnungen

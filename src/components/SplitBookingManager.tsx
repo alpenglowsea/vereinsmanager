@@ -12,7 +12,7 @@ import {
   Split
 } from 'lucide-react';
 import { TaxSphere, TransactionSplit } from '../types';
-import { TAX_SPHERES, getSkr42MainCategories, getSkr42SubCategories, SKR42_STRUCTURE } from '../data/taxSpheres';
+import { TAX_SPHERES, getAllSkr42MainCategories, getAllSkr42SubCategories, SKR42_STRUCTURE, DEFAULT_DEPARTMENTS } from '../data/taxSpheres';
 import { useSkr42 } from '../hooks/useSkr42';
 import { SearchableAccountSelect, SearchableAccountOption } from './SearchableAccountSelect';
 import { CreateAccountModal } from './CreateAccountModal';
@@ -21,6 +21,7 @@ interface SplitBookingManagerProps {
   totalAmount: number; // Gesamtbetrag der Buchung
   transactionType: 'income' | 'expense' | 'transfer';
   splits: TransactionSplit[];
+  departments?: string[];
   onChange: (splits: TransactionSplit[]) => void;
   onCancelSplit?: () => void;
   error?: string;
@@ -37,6 +38,7 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
   totalAmount,
   transactionType: _transactionType,
   splits,
+  departments = DEFAULT_DEPARTMENTS,
   onChange,
   onCancelSplit,
   error
@@ -63,9 +65,11 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
 
   const isBalanced = Math.abs(difference) < 0.009;
 
-  // Helper to generate Main Category options for any sphere (showing both income & expense accounts)
-  const getMainCatOptionsForSphere = (sphere: TaxSphere): SearchableAccountOption[] => {
-    const mains = getSkr42MainCategories(sphere, undefined, skr42);
+  // Kontenrahmen ist seit der Entkopplung von Konto und Sphäre für jede
+  // Teilbuchung gleich, unabhängig von deren Sphäre (siehe Hinweis bei
+  // Skr42MainCategory in src/types.ts).
+  const getMainCatOptions = (): SearchableAccountOption[] => {
+    const mains = getAllSkr42MainCategories(undefined, skr42);
     return mains.map(main => ({
       value: main.id,
       code: main.code,
@@ -76,9 +80,9 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
     }));
   };
 
-  // Helper to generate Sub Category options for a given main category and sphere
-  const getSubCatOptions = (sphere: TaxSphere, mainCatId?: string): SearchableAccountOption[] => {
-    const subs = getSkr42SubCategories(sphere, undefined, mainCatId, skr42);
+  // Helper to generate account options for a given main category
+  const getSubCatOptions = (mainCatId?: string): SearchableAccountOption[] => {
+    const subs = getAllSkr42SubCategories(undefined, mainCatId, skr42);
     return subs.map(sub => ({
       value: sub.label,
       code: sub.code,
@@ -93,7 +97,7 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
     const remainder = difference > 0 ? difference : 0;
     const lastSplit = splits[splits.length - 1];
     const defaultSphere = lastSplit?.sphere || 'ideell';
-    const mains = getSkr42MainCategories(defaultSphere, undefined, skr42);
+    const mains = getAllSkr42MainCategories(undefined, skr42);
     const defaultMain = mains[0];
     const defaultSub = defaultMain?.subCategories[0];
 
@@ -102,6 +106,7 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
       amount: remainder > 0 ? remainder : 0,
       bookingText: '',
       sphere: defaultSphere,
+      department: lastSplit?.department,
       mainCategory: defaultMain ? `${defaultMain.code} - ${defaultMain.name}` : '',
       subCategory: defaultSub?.label || '',
       category: defaultSub?.label || '',
@@ -123,21 +128,11 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
     const current = updated[index];
     if (!current) return;
 
-    const merged = { ...current, ...updates };
-
-    // When sphere changes, ensure mainCategory & subCategory adapt to the new sphere
-    if (updates.sphere && updates.sphere !== current.sphere) {
-      const mains = getSkr42MainCategories(updates.sphere, undefined, skr42);
-      const firstMain = mains[0];
-      const firstSub = firstMain?.subCategories[0];
-      merged.mainCategory = firstMain ? `${firstMain.code} - ${firstMain.name}` : '';
-      merged.subCategory = firstSub?.label || '';
-      merged.category = firstSub?.label || '';
-      merged.skrAccount = firstSub?.code || '';
-      merged.vatRate = firstSub?.vatRateDefault ?? (updates.sphere === 'wirtschaftlich' ? 19 : updates.sphere === 'zweckbetrieb' ? 7 : 0);
-    }
-
-    updated[index] = merged;
+    // Sphäre und Konto sind seit der Entkopplung unabhängige Felder: Ein
+    // Wechsel der Sphäre lässt Nummernkreis, Konto und USt-Satz dieser
+    // Teilbuchung unverändert (siehe Hinweis bei Skr42MainCategory in
+    // src/types.ts).
+    updated[index] = { ...current, ...updates };
     onChange(updated);
   };
 
@@ -147,18 +142,17 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
     const firstSub = mainObj.subCategories[0];
 
     handleUpdateSplit(index, {
-      sphere: mainObj.sphere,
       mainCategory: `${mainObj.code} - ${mainObj.name}`,
       subCategory: firstSub?.label || '',
       category: firstSub?.label || '',
       skrAccount: firstSub?.code || '',
-      vatRate: firstSub?.vatRateDefault ?? (mainObj.sphere === 'wirtschaftlich' ? 19 : mainObj.sphere === 'zweckbetrieb' ? 7 : 0)
+      vatRate: firstSub?.vatRateDefault ?? 0
     });
   };
 
   const handleSubCategoryChange = (index: number, subCatLabel: string) => {
     const current = splits[index];
-    const subs = getSkr42SubCategories(current.sphere, undefined, current.mainCategory, skr42);
+    const subs = getAllSkr42SubCategories(undefined, current.mainCategory, skr42);
     const subObj = subs.find(s => s.label === subCatLabel || s.code === subCatLabel || s.name === subCatLabel);
 
     handleUpdateSplit(index, {
@@ -167,6 +161,10 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
       skrAccount: subObj?.code || '',
       vatRate: subObj?.vatRateDefault ?? current.vatRate
     });
+  };
+
+  const handleDepartmentChange = (index: number, department: string) => {
+    handleUpdateSplit(index, { department: department || undefined });
   };
 
   const handleFillRemainderOnSplit = (index: number) => {
@@ -188,7 +186,7 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
             <span>Aufteilung in Teilsummen (Splittbuchung)</span>
           </h4>
           <p className="text-3xs text-slate-500 mt-0.5">
-            Jede Teilsumme kann einem eigenen Haupt- und Nebenkonto (§§ 51 ff. AO / SKR 42) zugewiesen werden.
+            Jede Teilsumme kann einer eigenen Sphäre (§§ 51 ff. AO), einem eigenen Nummernkreis/Konto (SKR 42) und einer eigenen Sparte zugewiesen werden.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -221,12 +219,12 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
       {/* Split Rows List */}
       <div className="space-y-3">
         {splits.map((split, index) => {
-          const mainOptions = getMainCatOptionsForSphere(split.sphere);
-          const subOptions = getSubCatOptions(split.sphere, split.mainCategory);
+          const mainOptions = getMainCatOptions();
+          const subOptions = getSubCatOptions(split.mainCategory);
 
           // Find current main category ID
           const currentMain = SKR42_STRUCTURE.find(
-            m => m.sphere === split.sphere && (`${m.code} - ${m.name}` === split.mainCategory || m.code === split.mainCategory || m.id === split.mainCategory)
+            m => `${m.code} - ${m.name}` === split.mainCategory || m.code === split.mainCategory || m.id === split.mainCategory
           );
           const currentMainValue = currentMain?.id || mainOptions[0]?.value || split.mainCategory || '';
 
@@ -347,43 +345,60 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
                   label={
                     <>
                       <Layers className="w-3 h-3 text-indigo-600 shrink-0" />
-                      <span>Hauptkonto (SKR 42) *</span>
+                      <span>Nummernkreis (SKR 42) *</span>
                     </>
                   }
                   value={currentMainValue}
                   onChange={mainId => handleMainCategoryChange(index, mainId)}
                   options={mainOptions}
-                  placeholder="Hauptkonto auswählen..."
-                  searchPlaceholder="Hauptkonto oder Nummer suchen..."
+                  placeholder="Nummernkreis auswählen..."
+                  searchPlaceholder="Nummernkreis oder Nummer suchen..."
                   onAddNew={(query) => {
                     setActiveSplitIndex(index);
                     setCreateMode('main');
                     setInitialQuery(query || '');
                     setCreateModalOpen(true);
                   }}
-                  addNewLabel="Neues Hauptkonto anlegen..."
+                  addNewLabel="Neuen Nummernkreis anlegen..."
                 />
 
                 <SearchableAccountSelect
                   label={
                     <>
                       <Tag className="w-3 h-3 text-emerald-600 shrink-0" />
-                      <span>Nebenkonto / Unterkonto *</span>
+                      <span>Konto *</span>
                     </>
                   }
                   value={split.subCategory || split.category || ''}
                   onChange={subLabel => handleSubCategoryChange(index, subLabel)}
                   options={subOptions}
-                  placeholder="Unterkonto auswählen..."
-                  searchPlaceholder="Unterkonto suchen..."
+                  placeholder="Konto auswählen..."
+                  searchPlaceholder="Konto suchen..."
                   onAddNew={(query) => {
                     setActiveSplitIndex(index);
                     setCreateMode('sub');
                     setInitialQuery(query || '');
                     setCreateModalOpen(true);
                   }}
-                  addNewLabel="Neues Unterkonto anlegen..."
+                  addNewLabel="Neues Konto anlegen..."
                 />
+              </div>
+
+              {/* Sparte für diesen Teilbetrag */}
+              <div>
+                <label className="block text-3xs font-semibold uppercase text-slate-500 mb-1">
+                  Sparte für Teil #{index + 1}:
+                </label>
+                <select
+                  value={split.department || ''}
+                  onChange={e => handleDepartmentChange(index, e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 text-slate-900"
+                >
+                  <option value="">Gesamtverein (keine Sparte)</option>
+                  {departments.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
               </div>
 
               {/* USt-Satz & SKR-Code Info */}
@@ -394,6 +409,9 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
                   </span>
                   <span className="text-slate-400 text-3xs">
                     Sphäre: {TAX_SPHERES[split.sphere]?.name}
+                  </span>
+                  <span className="text-slate-400 text-3xs">
+                    Sparte: {split.department || 'Gesamtverein'}
                   </span>
                 </div>
 
@@ -555,13 +573,12 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
         )}
       </div>
 
-      {/* Modal for creating custom SKR42 Haupt- and Nebenkonten directly from Split Dropdowns */}
+      {/* Modal für das Anlegen eigener Nummernkreise/Konten direkt aus den Teilbuchungs-Dropdowns */}
       {createModalOpen && (
         <CreateAccountModal
           isOpen={createModalOpen}
           onClose={() => setCreateModalOpen(false)}
           mode={createMode}
-          currentSphere={splits[activeSplitIndex]?.sphere || 'ideell'}
           currentType="expense"
           currentMainCatIdOrCode={splits[activeSplitIndex]?.mainCategory}
           initialQuery={initialQuery}

@@ -3,6 +3,13 @@ import { AppUser, ClubSettings, DeploymentMode } from '../types';
 import { AuthService } from '../services/authService';
 import { StorageService } from '../services/storage';
 import { isCloudSetupPending } from '../services/supabaseClient';
+import {
+  statusAbfragen as leseEigenenServerStatus,
+  passwortResetTokenAusAdresse,
+  entferneResetTokenAusAdresse,
+  passwortVergessenAnfordern,
+  passwortMitTokenZuruecksetzen,
+} from '../services/localServerAuth';
 import { BackupImportDialog } from './BackupImportDialog';
 import { BereichsVergleich, ImportArt, SicherungsKopf } from '../services/backupContents';
 import {
@@ -21,7 +28,8 @@ import {
   Mail,
   CheckCircle2,
   Upload,
-  Database
+  Database,
+  KeyRound
 } from 'lucide-react';
 
 interface LoginScreenProps {
@@ -46,6 +54,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  /**
+   * "Passwort vergessen" (nur gehosteter Betrieb, siehe unten). Ein
+   * mitgeschicktes Token in der Adresszeile hat Vorrang vor allem anderen —
+   * einmal beim ersten Rendern gelesen, nicht bei jedem erneuten Rendern
+   * (sonst ginge der Wert verloren, sobald LoginScreen aus einem anderen
+   * Grund neu rendert, z. B. weil errorMsg sich ändert).
+   */
+  // deploymentMode ist ein Prop und von Anfang an da — anders als
+  // isSelfhostedMode weiter unten, das erst nach der Registrierungs-Logik
+  // deklariert wird, braucht es hier keine eigene Zwischenvariable.
+  const [resetToken, setResetToken] = useState<string | null>(() =>
+    deploymentMode === 'selfhosted' ? passwortResetTokenAusAdresse() : null
+  );
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [resetNewPasswordConfirm, setResetNewPasswordConfirm] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetDone, setResetDone] = useState(false);
+
   // Register State
   const [regClubName, setRegClubName] = useState('');
   const [regFullName, setRegFullName] = useState('');
@@ -65,6 +93,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
    * überschrieben.
    */
   const importMoeglich = deploymentMode !== 'cloud';
+  /**
+   * Im gehosteten Betrieb gibt es genau einen Verein pro Server — das erste
+   * Konto entsteht über die eigene Ersteinrichtung weiter oben (vor diesem
+   * Rückgabewert), jedes weitere Konto legt ein Vorstand in der
+   * Benutzerverwaltung an. Eine Selbst-Registrierung wie im Lokal- oder
+   * Cloud-Betrieb ("neues Vereinskonto anlegen") passt hier nicht: Es gäbe ja
+   * schon einen Verein auf diesem Server, in den man sich damit nicht
+   * hineinregistrieren könnte.
+   */
+  const registrierenMoeglich = deploymentMode !== 'selfhosted';
   // Noch kein Benutzer in der Cloud-Datenbank? Dann richtet dieser Mensch den
   // Verein ein und braucht den Code aus dem SQL-Skript. Sonst ist er
   // eingeladen worden und hat einen Einladungscode vom Vorstand.
@@ -80,6 +118,136 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       abgebrochen = true;
     };
   }, [isCloudRegistration]);
+
+  /**
+   * Gehosteter Betrieb (eigener Server mit SQLite): Selbstregistrierung gibt
+   * es hier nicht — neue Konten legt der Vorstand über die Benutzerverwaltung
+   * an (siehe LocalServerUserAdminPanel). Die einzige Ausnahme ist das
+   * allererste Konto, wenn der Server noch gar keines hat; das entscheidet
+   * sich am Server, nicht im Browser, deshalb dieselbe Abfrage wie beim
+   * Cloud-Betrieb oben (dort isCloudSetupPending, hier der eigene Server).
+   */
+  const isSelfhostedMode = deploymentMode === 'selfhosted';
+  const [selfhostedSetupPending, setSelfhostedSetupPending] = useState<boolean | null>(null);
+  const [selfhostedStatusError, setSelfhostedStatusError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isSelfhostedMode) return;
+    let abgebrochen = false;
+    leseEigenenServerStatus().then(ergebnis => {
+      if (abgebrochen) return;
+      if ('fehler' in ergebnis) {
+        setSelfhostedStatusError(ergebnis.fehler);
+      } else {
+        setSelfhostedSetupPending(ergebnis.setupPending);
+      }
+    });
+    return () => {
+      abgebrochen = true;
+    };
+  }, [isSelfhostedMode]);
+
+  // Ersteinrichtungsformular (gehosteter Betrieb, erstes Konto)
+  const [setupName, setSetupName] = useState('');
+  const [setupEmail, setSetupEmail] = useState('');
+  const [setupPassword, setSetupPassword] = useState('');
+  const [setupPasswordConfirm, setSetupPasswordConfirm] = useState('');
+  const [showSetupPassword, setShowSetupPassword] = useState(false);
+
+  const handleSelfhostedSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (!setupName.trim()) {
+      setErrorMsg('Bitte Ihren Namen (Vorstand/Ansprechpartner) eingeben.');
+      return;
+    }
+    if (!setupEmail.trim() || !setupEmail.includes('@')) {
+      setErrorMsg('Bitte eine gültige E-Mail-Adresse angeben.');
+      return;
+    }
+    if (setupPassword !== setupPasswordConfirm) {
+      setErrorMsg('Die eingegebenen Passwörter stimmen nicht überein.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await AuthService.setupSelfhosted(setupEmail, setupName, setupPassword);
+      if (res.success && res.user) {
+        onLoginSuccess(res.user);
+      } else {
+        setErrorMsg(res.message || 'Die Ersteinrichtung ist fehlgeschlagen.');
+      }
+    } catch {
+      setErrorMsg('Unerwarteter Fehler bei der Ersteinrichtung.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPasswordRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (!forgotEmail.trim() || !forgotEmail.includes('@')) {
+      setErrorMsg('Bitte eine gültige E-Mail-Adresse angeben.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await passwortVergessenAnfordern(forgotEmail.trim());
+      if (res.success) {
+        setSuccessMsg(
+          res.message ||
+            'Falls zu dieser Adresse ein Konto besteht, wurde soeben eine E-Mail mit einem Link zum Zurücksetzen verschickt.'
+        );
+      } else {
+        setErrorMsg(res.message || 'Die Anfrage ist fehlgeschlagen.');
+      }
+    } catch {
+      setErrorMsg('Unerwarteter Fehler bei der Anfrage.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (!resetToken) return;
+    // Erst in eine eigene Konstante legen statt resetToken direkt weiter
+    // unten zu verwenden: Dieselbe Vorsicht wie bei der Umstellung in
+    // localServerAuth.ts vom 27./28.09. — dort hatte sich TypeScript beim
+    // Verengen eines Wertes über eine Bedingung hinweg (ohne
+    // strictNullChecks, siehe tsconfig.json) anders verhalten als erwartet.
+    const token = resetToken;
+    if (resetNewPassword !== resetNewPasswordConfirm) {
+      setErrorMsg('Die eingegebenen Passwörter stimmen nicht überein.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await passwortMitTokenZuruecksetzen(token, resetNewPassword);
+      if (res.success) {
+        entferneResetTokenAusAdresse();
+        setResetDone(true);
+        setSuccessMsg(res.message || 'Das Passwort wurde geändert. Sie können sich jetzt damit anmelden.');
+      } else {
+        setErrorMsg(res.message || 'Das Passwort konnte nicht geändert werden.');
+      }
+    } catch {
+      setErrorMsg('Unerwarteter Fehler beim Zurücksetzen.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Import State
   const [isDragging, setIsDragging] = useState(false);
@@ -321,6 +489,415 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
   };
 
+  // "Passwort vergessen": Ein mitgeschicktes Token hat Vorrang vor JEDER
+  // anderen Ansicht dieses Bildschirms — auch vor der Serverprüfung unten,
+  // die für diesen Sonderfall keine Rolle spielt.
+  if (isSelfhostedMode && resetToken) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
+        <div className="w-full max-w-md">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/80 overflow-hidden">
+            <div className="bg-slate-900 text-white p-6 sm:p-7 text-center relative overflow-hidden">
+              <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute -left-8 -top-8 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="inline-flex items-center justify-center w-14 h-14 bg-white rounded-2xl shadow-lg mb-3 ring-4 ring-white/10 p-1.5 overflow-hidden">
+                <img
+                  src={settings?.clubLogoUrl || '/logo_transparent.png'}
+                  alt={clubName}
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    if (e.currentTarget.src !== window.location.origin + '/logo_transparent.png') {
+                      e.currentTarget.src = '/logo_transparent.png';
+                    }
+                  }}
+                />
+              </div>
+              <h1 className="text-xl font-extrabold text-white tracking-tight leading-tight">
+                Neues Passwort setzen
+              </h1>
+              <p className="text-xs text-slate-400 mt-1 font-medium">
+                {resetDone ? 'Erledigt' : 'Für Ihr Konto auf diesem Server'}
+              </p>
+            </div>
+
+            <div className="p-6 sm:p-7 space-y-5">
+              {errorMsg && (
+                <div className="flex items-start gap-2.5 p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="leading-relaxed font-medium">{errorMsg}</div>
+                </div>
+              )}
+              {successMsg && (
+                <div className="flex items-start gap-2.5 p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="leading-relaxed font-medium">{successMsg}</div>
+                </div>
+              )}
+
+              {resetDone ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetToken(null);
+                    setResetDone(false);
+                    setSuccessMsg(null);
+                  }}
+                  className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-bold rounded-xl shadow-md shadow-blue-600/20 hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>Zur Anmeldung</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">Neues Passwort *</label>
+                    <div className="relative">
+                      <input
+                        type={showResetPassword ? 'text' : 'password'}
+                        value={resetNewPassword}
+                        onChange={(e) => setResetNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        autoFocus
+                        required
+                        className="w-full pl-3.5 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowResetPassword(!showResetPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        {showResetPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">Wiederholen *</label>
+                    <input
+                      type={showResetPassword ? 'text' : 'password'}
+                      value={resetNewPasswordConfirm}
+                      onChange={(e) => setResetNewPasswordConfirm(e.target.value)}
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                      required
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all outline-none"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-bold rounded-xl shadow-md shadow-blue-600/20 hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <KeyRound className="w-4 h-4" />
+                        <span>Neues Passwort setzen</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // "Passwort vergessen" — Anfrageformular (nur gehosteter Betrieb, siehe
+  // Link im Anmelde-Tab weiter unten).
+  if (isSelfhostedMode && showForgotPassword) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
+        <div className="w-full max-w-md">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/80 overflow-hidden">
+            <div className="bg-slate-900 text-white p-6 sm:p-7 text-center relative overflow-hidden">
+              <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute -left-8 -top-8 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="inline-flex items-center justify-center w-14 h-14 bg-white rounded-2xl shadow-lg mb-3 ring-4 ring-white/10 p-1.5 overflow-hidden">
+                <img
+                  src={settings?.clubLogoUrl || '/logo_transparent.png'}
+                  alt={clubName}
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    if (e.currentTarget.src !== window.location.origin + '/logo_transparent.png') {
+                      e.currentTarget.src = '/logo_transparent.png';
+                    }
+                  }}
+                />
+              </div>
+              <h1 className="text-xl font-extrabold text-white tracking-tight leading-tight">Passwort vergessen</h1>
+              <p className="text-xs text-slate-400 mt-1 font-medium">Wir schicken Ihnen einen Link zum Zurücksetzen</p>
+            </div>
+
+            <div className="p-6 sm:p-7 space-y-5">
+              {errorMsg && (
+                <div className="flex items-start gap-2.5 p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="leading-relaxed font-medium">{errorMsg}</div>
+                </div>
+              )}
+              {successMsg && (
+                <div className="flex items-start gap-2.5 p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="leading-relaxed font-medium">{successMsg}</div>
+                </div>
+              )}
+
+              {!successMsg && (
+                <form onSubmit={handleForgotPasswordRequest} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">E-Mail-Adresse</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <Mail className="w-4 h-4" />
+                      </div>
+                      <input
+                        type="email"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        placeholder="ihre-adresse@verein.de"
+                        autoFocus
+                        required
+                        className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all outline-none"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-bold rounded-xl shadow-md shadow-blue-600/20 hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <span>Link zum Zurücksetzen schicken</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+
+              <div className="text-center pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotPassword(false);
+                    setErrorMsg(null);
+                    setSuccessMsg(null);
+                  }}
+                  className="text-xs text-slate-500 hover:text-slate-800 font-semibold hover:underline cursor-pointer"
+                >
+                  ← Zurück zur Anmeldung
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Gehosteter Betrieb, solange der Server noch nicht geantwortet hat: eine
+  // kurze, ruhige Zwischenkarte statt eines Aufflackerns der Anmeldemaske,
+  // die gleich darauf durch die Ersteinrichtung ersetzt werden könnte.
+  if (isSelfhostedMode && selfhostedSetupPending === null && !selfhostedStatusError) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 sm:p-6">
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-200/80 p-8 flex items-center gap-3 text-sm text-slate-600">
+          <div className="w-5 h-5 border-2 border-slate-300 border-t-blue-600 rounded-full animate-spin shrink-0" />
+          <span>Serververbindung wird geprüft …</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Server nicht erreichbar (z. B. Zugriffsschlüssel fehlt noch, oder der
+  // Container läuft nicht) — ohne diese Auskunft wüsste die Maske nicht,
+  // ob sie Ersteinrichtung oder Anmeldung zeigen soll.
+  if (isSelfhostedMode && selfhostedStatusError) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 sm:p-6">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200/80 p-7 space-y-4 text-center">
+          <div className="inline-flex items-center justify-center w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl mx-auto">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <h1 className="text-base font-bold text-slate-900">Server nicht erreichbar</h1>
+          <p className="text-xs text-slate-600 leading-relaxed">{selfhostedStatusError}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setSelfhostedStatusError(null);
+              setSelfhostedSetupPending(null);
+              leseEigenenServerStatus().then(ergebnis => {
+                if ('fehler' in ergebnis) setSelfhostedStatusError(ergebnis.fehler);
+                else setSelfhostedSetupPending(ergebnis.setupPending);
+              });
+            }}
+            className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors cursor-pointer"
+          >
+            Erneut versuchen
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Ersteinrichtung: Auf diesem Server besteht noch gar kein Konto. Eine
+  // eigene, schlanke Maske statt der Tabs unten — Registrieren/Importieren
+  // ergeben vor dem ersten Konto keinen Sinn.
+  if (isSelfhostedMode && selfhostedSetupPending) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
+        <div className="w-full max-w-md">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/80 overflow-hidden">
+            <div className="bg-slate-900 text-white p-6 sm:p-7 text-center relative overflow-hidden">
+              <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute -left-8 -top-8 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+
+              <div className="inline-flex items-center justify-center w-14 h-14 bg-white rounded-2xl shadow-lg mb-3 ring-4 ring-white/10 p-1.5 overflow-hidden">
+                <img
+                  src={settings?.clubLogoUrl || '/logo_transparent.png'}
+                  alt={clubName}
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    if (e.currentTarget.src !== window.location.origin + '/logo_transparent.png') {
+                      e.currentTarget.src = '/logo_transparent.png';
+                    }
+                  }}
+                />
+              </div>
+
+              <h1 className="text-xl font-extrabold text-white tracking-tight leading-tight">
+                Ersteinrichtung
+              </h1>
+              <p className="text-xs text-slate-400 mt-1 font-medium">
+                Dieser Server hat noch kein Vorstandskonto — richten Sie es jetzt ein
+              </p>
+              <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 bg-purple-500/20 border border-purple-400/30 rounded-full text-2xs font-bold text-purple-100">
+                <Server className="w-3 h-3" />
+                <span>Gehosteter Betrieb · Eigener Server</span>
+              </div>
+            </div>
+
+            <div className="p-6 sm:p-7 space-y-5">
+              {errorMsg && (
+                <div className="flex items-start gap-2.5 p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="leading-relaxed font-medium">{errorMsg}</div>
+                </div>
+              )}
+
+              <div className="flex items-start gap-2 p-3 bg-purple-50/80 border border-purple-200/80 rounded-xl text-2xs text-purple-900 leading-relaxed">
+                <KeyRound className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                <div>
+                  Dieses Konto bekommt automatisch Vollzugriff auf alle Bereiche. Weitere
+                  Konten legen Sie danach unter „Einstellungen → Benutzer & Rechte" an.
+                </div>
+              </div>
+
+              <form onSubmit={handleSelfhostedSetup} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Ihr Name (Vorstand) *
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      value={setupName}
+                      onChange={(e) => setSetupName(e.target.value)}
+                      placeholder="z. B. Klaus Weber"
+                      autoFocus
+                      required
+                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700">
+                    E-Mail-Adresse *
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="email"
+                      value={setupEmail}
+                      onChange={(e) => setSetupEmail(e.target.value)}
+                      placeholder="vorstand@mein-verein.de"
+                      required
+                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">Passwort *</label>
+                    <div className="relative">
+                      <input
+                        type={showSetupPassword ? 'text' : 'password'}
+                        value={setupPassword}
+                        onChange={(e) => setSetupPassword(e.target.value)}
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        required
+                        className="w-full pl-3.5 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSetupPassword(!showSetupPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        {showSetupPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">Wiederholen *</label>
+                    <input
+                      type={showSetupPassword ? 'text' : 'password'}
+                      value={setupPasswordConfirm}
+                      onChange={(e) => setSetupPasswordConfirm(e.target.value)}
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                      required
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all outline-none"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-sm font-bold rounded-xl shadow-md shadow-purple-600/20 hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Vorstandskonto einrichten & anmelden</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
       <div className="w-full max-w-md">
@@ -362,7 +939,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             {/* Tab Switcher */}
             <div
               className={`mt-5 grid ${
-                importMoeglich ? 'grid-cols-3' : 'grid-cols-2'
+                (registrierenMoeglich ? 1 : 0) + (importMoeglich ? 1 : 0) === 2
+                  ? 'grid-cols-3'
+                  : 'grid-cols-2'
               } p-1 bg-slate-800/80 border border-slate-700/60 rounded-xl gap-1`}
             >
               <button
@@ -380,22 +959,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               >
                 <span>Anmelden</span>
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('register');
-                  setErrorMsg(null);
-                  setSuccessMsg(null);
-                }}
-                className={`py-1.5 px-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                  activeTab === 'register'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <UserPlus className="w-3.5 h-3.5 shrink-0" />
-                <span>Registrieren</span>
-              </button>
+              {/* Im gehosteten Betrieb bewusst ausgeblendet — siehe
+                  registrierenMoeglich weiter oben. */}
+              {registrierenMoeglich && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('register');
+                    setErrorMsg(null);
+                    setSuccessMsg(null);
+                  }}
+                  className={`py-1.5 px-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                    activeTab === 'register'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <UserPlus className="w-3.5 h-3.5 shrink-0" />
+                  <span>Registrieren</span>
+                </button>
+              )}
               {/* Im Cloud-Betrieb gibt es diesen Weg bewusst nicht: Dort
                   schreibt ein Import nur in die Datenbank des Browsers, und
                   beim nächsten Laden überschreibt Supabase das wieder. Der
@@ -490,6 +1073,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
+                    {/* Nur gehosteter Betrieb: Im Lokal- und Cloud-Betrieb
+                        gibt es diesen Weg (noch) nicht — dort hilft ein
+                        JSON-Import (Lokalbetrieb) bzw. Supabase selbst
+                        (Cloud) weiter. */}
+                    {isSelfhostedMode && (
+                      <div className="text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowForgotPassword(true);
+                            setForgotEmail(usernameInput.includes('@') ? usernameInput : '');
+                            setErrorMsg(null);
+                            setSuccessMsg(null);
+                          }}
+                          className="text-2xs text-blue-600 hover:text-blue-800 font-semibold hover:underline cursor-pointer"
+                        >
+                          Passwort vergessen?
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Submit Button */}
@@ -539,19 +1142,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     </div>
                   </div>
 
-                {/* Switch to Register */}
-                <div className="text-center pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab('register');
-                      setErrorMsg(null);
-                    }}
-                    className="text-xs text-blue-600 hover:text-blue-800 font-semibold hover:underline cursor-pointer"
-                  >
-                    Noch kein Vereinskonto? Jetzt registrieren →
-                  </button>
-                </div>
+                {/* Switch to Register — im gehosteten Betrieb ausgeblendet,
+                    siehe registrierenMoeglich weiter oben. */}
+                {registrierenMoeglich && (
+                  <div className="text-center pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('register');
+                        setErrorMsg(null);
+                      }}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-semibold hover:underline cursor-pointer"
+                    >
+                      Noch kein Vereinskonto? Jetzt registrieren →
+                    </button>
+                  </div>
+                )}
               </>
             )}
 

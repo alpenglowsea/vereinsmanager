@@ -165,6 +165,10 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   skr_account TEXT,
   category TEXT NOT NULL,
   vat_rate NUMERIC(4,1) DEFAULT 0.0,
+  -- Sparte der Buchung (z.B. "Fußball", "Tennis"; leer = Gesamtverein).
+  -- Unabhängig von sphere und skr_account/sub_category vergeben — siehe
+  -- Hinweis bei Skr42MainCategory in src/types.ts.
+  department TEXT,
   notes TEXT,
   receipt JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -174,6 +178,11 @@ CREATE TABLE IF NOT EXISTS public.transactions (
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON public.transactions (date);
 CREATE INDEX IF NOT EXISTS idx_transactions_account ON public.transactions (account_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_sphere ON public.transactions (sphere);
+
+-- Bestandsschutz: bei bereits eingerichteten Vereinen fehlt die Spalte
+-- "department" noch — dieser Abschnitt lässt sich gefahrlos beliebig oft
+-- ausführen, vorhandene Daten werden nicht angefasst.
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS department TEXT;
 
 -- 5. TABELLE: INVENTORY (Vereinsinventar & Material)
 CREATE TABLE IF NOT EXISTS public.inventory (

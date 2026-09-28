@@ -4,114 +4,545 @@ Alle relevanten Änderungen und Versionsstände des VereinsManagers werden in di
 
 ---
 
-## [unveröffentlicht]
+## [1.0.0] - 2026-09-28
 
-### 🐛 Der Buchungsvorschlag scheiterte an der Mehrwertsteuer
+### 🧪 309 Tests in 20 Dateien, alle grün — erstes Release
 
-- **Google Gemini wies jede Anfrage der Buchungskategorisierung ab**, mit
-  `400 INVALID_ARGUMENT` und einem kryptischen Verweis auf
-  `response_schema.properties[7]`. Ursache: Das Schema verlangte für die
-  Mehrwertsteuer (`vatRate`) eine Auswahl aus den Zahlen `0`, `7` und `19`.
-  Gemini akzeptiert bei einer solchen Auswahl aber ausschließlich
-  Zeichenketten, gleich was der sonstige Feldtyp sagt — eine Einschränkung,
-  die in keiner Anleitung Googles steht, aber an anderer Stelle bereits
-  dokumentiert ist.
-  Dieser Fehler dürfte seit dem allerersten Bau der App bestanden haben; er
-  fiel erst jetzt auf, weil KI-Aufrufe zuvor gar nicht zuverlässig bei Gemini
-  ankamen (siehe oben).
-- Die Anfrage verlangt jetzt die Zeichenketten `"0"`, `"7"`, `"19"`; die
-  Antwort wird vor der Weitergabe an die Oberfläche zurück in eine Zahl
-  gewandelt, weil die App mit dem Wert rechnet.
-- Alle übrigen Auswahlfelder im Server wurden geprüft (elf Stellen) — hier war
-  es die einzige mit Zahlen statt Zeichenketten.
+Ab hier zählt die Versionsnummer wirklich mit: 1.0.0 ist ein bewusster
+Neustart der Zählung (siehe Anmerkung bei v1.2.3 weiter unten). Das
+Rechtesystem, die eigene Server-Variante samt Passwort-Rücksetzung und die
+Absicherung der /api-Routen sind fertig und durch echte Tests geprüft.
 
-### 🚪 Ein Supabase-Konto ist noch keine Vereinszugehörigkeit
+### ⚖️ Lizenz vereinheitlicht: Apache 2.0
 
-- **Der Server prüfte bisher nur, ob das Anmeldetoken echt ist.** Das beweist
-  aber lediglich, dass jemand ein Konto in diesem Supabase-Projekt hat — nicht,
-  dass er zum Verein gehört. Und Supabase erlaubt in der Grundeinstellung, dass
-  sich jeder selbst eines anlegt; genau dafür gibt es ja den Einrichtungscode
-  und die Einladungen, die über den Eintrag in `club_users` entscheiden.
-- **Die Oberfläche zog diese Grenze längst, der Server nicht.** Wer angemeldet,
-  aber nicht eingetragen ist, bekommt in der App „Noch nicht freigeschaltet"
-  und null Rechte. An den `/api`-Endpunkten kam er trotzdem vorbei und konnte
-  über das Postfach des Vereins Mails verschicken und dessen KI-Kontingent
-  verbrauchen. Dasselbe galt für ein Mitglied, dem der Vorstand den Zugang
-  gerade entzogen hatte: in der App ausgesperrt, sein Token aber noch gültig.
-- **Jetzt fragt der Server zweimal:** erst `GET /auth/v1/user` — ist das Token
-  echt? —, dann `POST /rest/v1/rpc/vm_is_member` — gehört diese Person zum
-  Verein? Die Funktion `vm_is_member()` steht seit jeher in `supabase_rls.sql`
-  und liefert genau das Gewünschte: eingetragen *und* aktiv.
-- **Ohne Generalschlüssel.** Der Server fragt mit dem Token des Anrufers, nicht
-  mit einem Service-Schlüssel. Er bekommt damit keine Vollmacht, die sich
-  missbrauchen ließe, und die Regel bleibt an einer einzigen Stelle: in der
-  Datenbank. Ein entzogener Zugang verliert den Serverzugriff binnen einer
-  Minute — so lange gilt die gemerkte Antwort.
-- **Warum nicht gleich nur die zweite Frage?** Weil PostgREST einem
-  unangemeldeten Aufrufer dieselbe Antwort gibt wie einer fehlenden Funktion —
-  es verbirgt, was jemand nicht benutzen darf. „Anmeldung abgelaufen" und
-  „`supabase_rls.sql` wurde nie eingespielt" wären dann nicht mehr zu
-  unterscheiden, und der Betreiber bekäme den falschen Rat.
-- **Vier unterscheidbare Absagen statt einer.** Die Antwort trägt jetzt einen
-  Schlüssel mit: `ANMELDUNG_ABGELAUFEN`, `NICHT_FREIGESCHALTET`,
-  `SCHUTZREGELN_FEHLEN`, `PRUEFUNG_FEHLGESCHLAGEN` — und weiterhin
-  `ZUGRIFF_VERWEIGERT`, wenn schlicht der Zugriffsschlüssel fehlt. Nur bei
-  Letzterem fragt die Oberfläche nach dem Schlüssel; in den übrigen Fällen wäre
-  diese Nachfrage ein Irrweg, weil kein Schlüssel das Problem löst.
-- **Nicht behaupten, was nicht geprüft wurde:** Ist Supabase gerade nicht
-  erreichbar oder antwortet unerwartet, wird der Aufruf abgelehnt — aber als
-  „konnte nicht geprüft werden", nicht als „gehört nicht zum Verein".
-- **Was das nicht leistet:** Der Server unterscheidet weiterhin nicht, *welche*
-  Bereiche ein Mitglied sehen darf — wer ohne Finanzrechte die Belegerkennung
-  anstößt, kommt durch. Dafür gäbe es `vm_can_view()`; das wäre ein eigener
-  Schritt. Im Lokalbetrieb ändert sich nichts: Dort gibt es keine Anmeldung,
-  die der Server nachschlagen könnte, und es bleibt beim gemeinsamen
-  Zugriffsschlüssel.
+Die Lizenzangabe war an drei Stellen widersprüchlich: README.md sagte
+„Apache 2.0", `package.json` sagte `UNLICENSED` (praktisch: keine Weitergabe
+erlaubt), `src-tauri/Cargo.toml` sagte `MIT`. Außerdem fehlte die eigentliche
+`LICENSE`-Datei, obwohl die README schon darauf verlinkte. Jetzt gilt
+einheitlich Apache 2.0: `package.json`, `package-lock.json` und `Cargo.toml`
+tragen `"Apache-2.0"`, und die `LICENSE`-Datei mit dem vollständigen Text
+liegt im Projekt.
 
-### 🛑 KI ist ab Werk aus — und wird nur mit Namen und Datum eingeschaltet
+### 📖 Deployment Guide und README auf den gehosteten Betrieb gebracht
 
-- **Bisher lief die KI, sobald ein Schlüssel hinterlegt war.** Das ist die
-  falsche Vorgabe für eine Vereinsverwaltung: Ein Kassenwart, der einen
-  Schlüssel einträgt, weil er die Belegerkennung sehen möchte, hat damit noch
-  keine Entscheidung darüber getroffen, dass Kontoauszüge und Aufnahmeanträge
-  des Vereins an Google gehen. Die Nutzung muss ein eigener, bewusster Schritt
-  sein.
-- **Deshalb gibt es jetzt drei Zustände statt zwei:** *Aus* (nichts
-  hinterlegt), *eingerichtet, aber nicht freigegeben* (Schlüssel liegt da, es
-  passiert nichts) und *in Betrieb*. Der mittlere Zustand ist neu und ist der,
-  in dem eine bestehende Installation nach der Aktualisierung landet — auch
-  wenn dort längst ein Schlüssel lag. Niemand wird ungefragt weiterbetrieben.
-- **Die Sperre sitzt im Server, nicht in der Oberfläche.** `readAiCredentials()`
-  gibt ohne Freigabe `null` zurück; jeder KI-Endpunkt bricht davor mit einer
-  eigenen Meldung ab (`KI_NICHT_FREIGEGEBEN`, zu unterscheiden von „kein
-  Schlüssel hinterlegt"). Auch der Ersatzweg über die Umgebungsvariable
-  `GEMINI_API_KEY` ist mitgesperrt — sonst hätte eine `.env` die Entscheidung
-  stillschweigend überstimmt. Wer die Oberfläche umgeht und die Endpunkte
-  direkt anspricht, kommt damit ebenfalls nicht durch.
-- **Einzige Ausnahme ist der Verbindungstest.** Er darf auch ohne Freigabe
-  laufen, sonst ließe sich ein Schlüssel nicht prüfen, bevor man ihn freigibt.
-  Er schickt einen Blindtext an den Anbieter, keine Vereinsdaten.
-- **Freigeben heißt: Name eintragen und einen Hinweis bestätigen.** Der Hinweis
-  benennt ohne Beschönigung, was geschieht — welche Daten den Server verlassen,
-  dass der kostenlose Tarif die Verwendung zum Training einschließt, dass der
-  Verein als Verantwortlicher im Sinne der DSGVO auftritt und dass dafür ein
-  Auftragsverarbeitungsvertrag nötig ist, den Google nur im kostenpflichtigen
-  Tarif anbietet. Wer bestätigt, steht mit Namen und Zeitpunkt in der
-  Konfiguration; das ist die Angabe, die im Zweifel gegenüber der
-  Mitgliederversammlung oder einer Aufsichtsbehörde zählt. Zurücknehmen geht
-  jederzeit und löscht diese Angabe wieder.
-- **Die KI-Knöpfe in den übrigen Masken bleiben sichtbar und werden ausgegraut**
-  — nach demselben Muster wie die Knöpfe des Rechtesystems. Beim Darüberfahren
-  erklären sie, warum sie gesperrt sind, und verweisen auf die Einstellungen.
-  Betroffen sind Buchungsvorschlag und Belegerkennung im Buchungsdialog, die
-  Entwurfshilfe, die Ton- und die Notizenauswertung bei den Protokollen sowie
-  die Antragsübernahme aus PDF — dort startet zusätzlich der automatische
-  Durchlauf beim Öffnen nicht mehr. Verschwundene Knöpfe erzeugen Ratlosigkeit;
-  gesperrte mit Begründung nicht.
-- **Ein Fehler, den erst der Regressionstest zeigte:** Das Umlegen der Freigabe
-  schrieb die Modellauswahl mit, weil „nicht mitgeschickt" und „auf leer setzen"
-  im Server nicht unterschieden wurden. Wer freigab, verlor sein eingestelltes
-  Modell. Behoben und mit einem eigenen Test festgenagelt.
+- **`DEPLOYMENT_GUIDE_DE.md`, Abschnitt „Modus 3", vollständig neu**: Beschrieb
+  bisher noch den alten Stand — der Container liefere nur die Anwendung aus,
+  die Daten müssten trotzdem bei Supabase liegen (die dort genannte „offene
+  Baustelle"). Beschreibt jetzt den tatsächlichen Stand: eigene
+  SQLite-Datenbank, Ersteinrichtung des ersten Vorstandskontos, die 18 einzeln
+  einstellbaren Rechtebereiche samt Rollenvorlagen, „Passwort vergessen", die
+  aktualisierte Tabelle „Wo liegen die Daten?" (jetzt drei echte Spalten statt
+  zwei) und die neue Caddy-Vorlage neben `nginx.conf`. Der Abschnitt
+  „Benutzer- & Rollenverwaltung" unterscheidet jetzt klar zwischen den zwei
+  unabhängigen Benutzersystemen (gehostet vs. Supabase).
+- **`README.md` aufgeräumt:**
+  - Die Klon-Adresse in der Schnellstart-Anleitung zeigte auf einen falschen,
+    nicht existierenden Namen (`strelitzerfc` statt `alpenglowsea`) —
+    korrigiert.
+  - Das Supabase-Tabellen-Schema stand als eigener, unvollständiger und
+    veralteter SQL-Block in der README (fehlten u. a. `donations`,
+    `contacts`, `sepa_runs` und viele weitere Tabellen) — ersetzt durch einen
+    Verweis auf die tatsächlich gepflegte `supabase_schema.sql`, damit es
+    nur noch eine einzige, aktuelle Quelle dafür gibt.
+  - Das Architektur-Diagramm und die Betriebsmodus-Beschreibung nannten
+    „Modus 3" fälschlich als reinen App-Server ohne eigene Daten und führten
+    „Modus 3: Desktop-App" als dritten Modus, obwohl das gar kein
+    Betriebsmodus, sondern eine der drei Oberflächen ist — richtiggestellt,
+    inklusive Erwähnung der Mobil-Ansicht.
+
+### 🧪 Echte Route-Tests für den eigenen Server, Caddy als Alternative zu nginx für HTTPS
+
+- **Neu: Tests, die den echten Aufrufweg nehmen, nicht nur die einzelnen
+  Bausteine.** Bislang prüften alle Tests des eigenen Servers (Anmeldung,
+  Sitzungen, "Passwort vergessen" usw.) die zugehörigen Funktionen direkt —
+  nie den tatsächlichen Weg, den ein Aufruf von außen nimmt: durch die
+  Ratenbegrenzung, den Zugriffsschutz und die eigentliche Route in
+  `server.ts`. Neu hinzugekommen ist `src/server/serverRoutes.test.ts`: 15
+  Tests, die per echtem HTTP-Aufruf (Werkzeug `supertest`, neue
+  Testabhängigkeit) genau diesen Weg gehen — unter anderem die vollständige
+  Kette bei "Passwort vergessen": E-Mail-Versand abfangen (keine echte Mail
+  verschickt), den Link daraus auslesen, prüfen, dass er sowohl den
+  Reset-Token als auch den Zugriffsschlüssel enthält, und mit dem
+  ausgelesenen Token tatsächlich ein neues Passwort setzen. Dazu die
+  Ratenbegrenzung des Zurücksetzens (fünf Aufrufe je Stunde, danach 429) und
+  der Zugriffsschutz (fehlender oder falscher Schlüssel → 401), beide
+  ebenfalls über echte Aufrufe statt nachgebaut.
+- **Dafür musste `server.ts` minimal anfassbar gemacht werden:** Bisher
+  startete die Datei beim bloßen Laden unbedingt einen echten Server
+  (`startServer()` am Dateiende) — das hätte jeden Testlauf einen echten
+  Netzwerk-Port belegen und einen Vite-Entwicklungsserver hochfahren lassen.
+  `app` wird jetzt exportiert, und der Aufruf von `startServer()` unterbleibt,
+  wenn die neue Umgebungsvariable `VM_TEST_NO_LISTEN=1` gesetzt ist — genau
+  wie bei `VM_DATA_DIR` ausschließlich für Tests gedacht. Kein bisheriger
+  Startweg (`npm run dev`, der gebaute Server, die Desktop-Fassung) setzt
+  diese Variable, alle starten unverändert wie zuvor.
+- **Caddy als zweite, einfachere Vorlage für HTTPS von außen** (`Caddyfile.example`,
+  neu, neben der bereits vorhandenen `nginx.conf`): Caddy holt sich das
+  Let's-Encrypt-Zertifikat für die eigene DynDNS-Adresse beim ersten Start
+  selbständig und erneuert es von selbst — ohne den separaten
+  `certbot`-Schritt, den `nginx.conf` braucht. Für Vereine ohne eigene
+  Erfahrung mit Zertifikaten der Weg mit den wenigsten Schritten; `nginx.conf`
+  bleibt daneben bestehen, wer lieber dabei bleibt oder es schon eingerichtet
+  hat.
+- Dabei eine veraltete Kommentarzeile in `server.ts` korrigiert (behauptete,
+  kein `/api`-Endpunkt verlange eine Anmeldung — stimmte seit Einführung des
+  Zugriffsschutzes nicht mehr). Reine Dokumentation, kein Verhaltensunterschied.
+
+### 🔑 Passwort vergessen — jetzt für alle Benutzer auf dem eigenen Server, nicht nur den Vorstand
+
+- **Neu: Auf dem eigenen Server (Betriebsart "gehostet") kann jeder Benutzer
+  sein Passwort selbst zurücksetzen**, nicht mehr nur über ein Vorstandsmitglied
+  mit Zugriff auf die Benutzerverwaltung. Auf der Anmeldemaske ein Link
+  "Passwort vergessen?", E-Mail-Adresse eingeben, fertig — sofern zu dieser
+  Adresse ein Konto besteht, kommt eine E-Mail mit einem Link zum Setzen eines
+  neuen Passworts.
+- **Der Link ist genau eine Stunde gültig und genau einmal einlösbar.** Danach
+  bzw. nach der ersten Nutzung funktioniert er nicht mehr — für einen neuen
+  Versuch muss erneut "Passwort vergessen" angestoßen werden, was zugleich
+  jeden noch offenen älteren Link desselben Kontos entwertet. Ein
+  fehlgeschlagener Versuch (z. B. ein zu schwaches neues Passwort) verbraucht
+  den Link dagegen **nicht** — er bleibt bis zum Ablauf gültig.
+- **In der Datenbank steht nie der Link selbst, sondern nur sein
+  SHA-256-Streuwert.** Anders als das Sitzungstoken der laufenden Anmeldung
+  verlässt ein Reset-Link den Server per E-Mail und kann theoretisch in einem
+  Postfach, einer Weiterleitung oder einer Mail-Datensicherung landen — läge
+  der Rohwert in der Datenbank, würde eine ausgelesene Datenbankdatei allein
+  schon genügen, um ihn zu benutzen. Mit dem Streuwert braucht es zusätzlich
+  die E-Mail selbst.
+- **Kein Ausplaudern, ob eine Adresse überhaupt ein Konto hat:** Die Antwort
+  auf die Anfrage ist immer derselbe allgemeine Satz ("falls zu dieser Adresse
+  ein Konto besteht …"), unabhängig davon, ob tatsächlich eine E-Mail
+  verschickt wurde. Einzige Ausnahme: Ist auf diesem Server serverseitig noch
+  gar kein E-Mail-Versand eingerichtet, wird das offen gesagt — das betrifft
+  dann ohnehin die ganze Installation und nicht ein einzelnes Konto, verrät
+  also nichts über eine bestimmte Adresse.
+- **Begrenzt auf 5 Anfragen pro Stunde** (dieselbe Ratenbegrenzung wie bei den
+  anderen empfindlichen Endpunkten), damit sich das Verfahren nicht zum
+  Verschicken beliebig vieler E-Mails missbrauchen lässt.
+- **Ein Stolperstein wurde dabei schon vor der ersten Nutzung gefunden und
+  behoben:** Der Server nimmt grundsätzlich keine Anfrage ohne den
+  Zugriffsschlüssel dieser Installation an — auch nicht die Anmeldemaske
+  selbst. Ein Reset-Link, der nur den Reset-Token enthalten hätte, wäre auf
+  einem Gerät, das diesen Schlüssel noch nicht kennt (z. B. weil sich jemand
+  von einem neuen Rechner aus anmelden will), ins Leere gelaufen, bevor er
+  überhaupt die Reset-Maske erreicht. Der Link trägt deshalb beides: den
+  Zugriffsschlüssel und den Reset-Token.
+
+### 📱 Mobil-Ansicht: sechs schlanke Bereiche für den Zugriff unterwegs
+
+- **Neu: Wer sich auf einem Telefon anmeldet, bekommt eine eigene, für den
+  schmalen Bildschirm gebaute Ansicht** — eine Tab-Leiste am unteren Rand
+  statt der Seitenleiste, große Tippflächen statt dichter Tabellen, keine
+  Rechtsklick-Menüs (die gibt es auf einem Touchscreen ohnehin nicht). **Das
+  ist dabei ausdrücklich kein zweiter, unabhängiger App-Baum**: Anmeldung,
+  Berechtigungen und Daten sind exakt dieselben wie am Desktop, nur die
+  Darstellung unterscheidet sich. Jede der sechs Kacheln/Tabs erscheint nur,
+  wenn die Person laut ihren Rechten mindestens Lesezugriff auf den
+  jeweiligen Bereich hat — dieselbe Prüfung wie am Desktop, kein zweites
+  Regelwerk, das aus Versehen einmal etwas anderes erlauben könnte. Von der
+  Mobil-Ansicht aus lässt sich jederzeit zur Desktop-Ansicht wechseln (und
+  zurück), außerdem abmelden.
+- **Start-Übersicht:** Kacheln für Mitgliederbestand, Kontostand, nächste
+  Termine und Sitzungsdienst — sowie ein Hinweis auf neue Aufnahmeanträge,
+  falls welche warten. Alle Zahlen darauf sind bewusst dieselben
+  Berechnungen wie die Desktop-Kacheln (u. a. `LiquidityWidget`,
+  `MeetingsKpiWidget`), damit auf dem Telefon niemals eine andere Zahl steht
+  als am Desktop. Was auf dem Desktop per Drag & Drop frei anordenbar ist,
+  gibt es hier bewusst nicht — auf einem Touchscreen ergäbe das keinen Sinn.
+- **Mitglied nachschlagen:** bewusst nur lesend — anlegen, ändern und
+  löschen bleiben der Desktop-Ansicht vorbehalten, das hier ist für "wie war
+  noch die Telefonnummer/Adresse von …", nicht für die Pflege der
+  Stammdaten. Bewusst **nicht** angezeigt werden Bankverbindung (IBAN/BIC)
+  und interne Notizen: Ein Blick übers Handy-Display sollte nicht gleich
+  eine Kontonummer zeigen; wer das braucht, nutzt die Desktop-Ansicht. Dazu
+  Filter (Status, Abteilung, Mitgliedstyp) und Sortierung — bewusst nur eine
+  kleine, mobil-taugliche Auswahl statt aller Spalten der Desktop-Tabelle,
+  standardmäßig eingeklappt, damit die Liste beim Öffnen nicht gleich von
+  Filtern verstellt wird.
+- **Termine:** ebenfalls nur lesend, dafür mit denselben vier Ansichten wie
+  am Desktop — Monat, Woche, Tag und Liste —, für den schmalen Bildschirm
+  aber neu zusammengesetzt statt 1:1 übernommen: Das dichte Tabellen-Gitter
+  des Desktops wäre auf einem Telefon unlesbar klein, Monat und Woche zeigen
+  deshalb nur einen Punkt pro Termin, ein Tipp auf einen Tag blendet darunter
+  die ausführliche Liste ein. **Dabei einen Bug in der ursprünglichen
+  Termine-Liste gefunden und behoben:** Sie hatte nur die rohen
+  Termin-Einträge gefiltert, ohne Wiederholungen aufzulösen — ein
+  wöchentliches Training wäre nur an seinem ursprünglichen Starttag
+  aufgetaucht und danach aus "anstehend" verschwunden, obwohl es sich ja
+  jede Woche wiederholt. Läuft jetzt für alle vier Ansichten einheitlich
+  über denselben `CalendarService` wie der Desktop-Kalender, der
+  Wiederholungen (und Geburtstage/Jubiläen) korrekt auflöst — und bleibt
+  dabei wie am Desktop auf die nächsten 60 Tage begrenzt, damit sich ein
+  jährlich wiederkehrender Termin nicht endlos weit in die Zukunft
+  auffächert.
+- **Buchung erfassen:** der Anwendungsfall "gerade eben eingekauft, Beleg
+  gleich digitalisieren, bevor er verloren geht" — eine Buchung erfassen und
+  direkt den Beleg dazu fotografieren. Die Kamera-Erfassung selbst ist
+  nichts Neues: Sie verwendet unverändert dasselbe Bauteil wie am Desktop
+  (`ReceiptCameraScannerModal`), das bisher nur aus der Desktop-Buchungsmaske
+  heraus erreichbar war. Gespeichert wird über genau denselben Weg wie am
+  Desktop — keine zweite Speicherlogik. Nummernkreis und Konto (SKR 42)
+  werden wie am Desktop als zwei zusammenhängende Felder erfasst statt als
+  einzelne "Kategorie", mit denselben Auswahl- und Hilfsfunktionen, damit
+  hier nie eine Auswahl möglich ist, die es am Desktop nicht gibt — und
+  genau wie am Desktop ist der Nummernkreis nicht auf Einnahme/Ausgabe
+  beschränkt, beide Kontenlisten stehen immer zur Auswahl.
+- **Sitzungsdienst:** eine bereits angelegte Sitzung unterwegs nachschlagen
+  und ihr nachträglich eine Audioaufnahme hinzufügen — Anlegen und Löschen
+  von Sitzungen bleiben der Desktop-Ansicht vorbehalten. Die Aufnahme- und
+  Auswertungslogik selbst ist nicht neu gebaut: Es wird exakt dasselbe
+  Bauteil wie in der Desktop-Sitzungsmaske wiederverwendet
+  (`MeetingAudioRecorderModal`), samt der dort bereits vorhandenen Sperre für
+  Mitgliederversammlungen (§ 201 StGB) und der Gemini-Transkription. Das
+  Ergebnis wird anschließend genauso übernommen wie am Desktop: erkannte
+  Angaben (Titel/Datum/Ort/etc.) überschreiben die bisherigen, eine erkannte
+  Tagesordnung ersetzt die bestehende, erkannte Teilnehmer werden ohne
+  Duplikate ergänzt, die Transkript-Essenz wird an die Notizen angehängt.
+- **Dokumente (schlank):** bewusst nur ansehen, suchen und hochladen — keine
+  Ordnerverwaltung (anlegen, löschen, verschieben von Ordnern), das war
+  deine ausdrückliche Wahl gegenüber der vollen Dokumentenverwaltung. Zum
+  Ansehen und Hochladen wird nichts neu gebaut: Beide Bildschirme sind exakt
+  dieselben Bauteile wie am Desktop (`DocumentViewerModal`,
+  `DocumentUploadModal`), unverändert wiederverwendet — die Schaltfläche
+  "Metadaten bearbeiten" bleibt dabei automatisch verborgen, weil sie das
+  Bauteil nur zeigt, wenn man ihr eine Bearbeiten-Funktion übergibt, und die
+  wird hier schlicht nicht übergeben. Beim Hochladen lässt sich weiterhin
+  ein vorhandener Ordner auswählen (kein Anlegen/Verwalten von Ordnern,
+  sondern nur "wohin soll die Datei"), damit am Desktop nicht alles im
+  Hauptverzeichnis landet, was jemand unterwegs hochgeladen hat. Filter
+  (Kategorie, Dateiformat, Jahr) und Sortierung übernehmen dieselbe Logik
+  wie am Desktop. **Bewusste Abweichung vom bisherigen Verhalten:** "Neueste
+  zuerst" sortiert jetzt — wie am Desktop — nach dem Dokumentendatum (z. B.
+  dem Datum auf dem Beleg selbst), nicht mehr nach dem technischen
+  Hochlade-Zeitpunkt. Das passt in aller Regel besser zum Inhalt, kann sich
+  aber von der bisherigen Reihenfolge unterscheiden, wenn ein älteres
+  Dokument erst kürzlich nachgetragen wurde.
+
+### 👁️ Spalten ein-/ausblenden per Rechtsklick — jetzt in allen sechs Tabellen, dabei zwei weitere Bugs gefunden und behoben
+
+- **Neu: Rechtsklick auf einen beliebigen Spaltenkopf öffnet ein Menü, in dem
+  sich jede Spalte dieser Tabelle einzeln an- oder abhaken lässt.** Nichts
+  wird dabei gelöscht — eine ausgeblendete Spalte bleibt an ihrem Platz in
+  der (per Drag & Drop wählbaren) Reihenfolge, sie erscheint nur nicht mehr
+  in der Anzeige, bis man sie über dasselbe Menü wieder anhakt. Mindestens
+  eine Spalte muss sichtbar bleiben — bei nur noch einer verbleibenden
+  sichtbaren Spalte ist ihr Kästchen im Menü deaktiviert, damit nie eine
+  komplett leere Tabelle entstehen kann. Wie Reihenfolge und Breite wird das
+  je Tabelle im Browser gespeichert (`localStorage`), nicht in der Cloud —
+  bleibt also über einen Neustart erhalten, aber nur auf diesem Gerät in
+  diesem Browser.
+- **Zwei Bugs dabei gefunden und behoben, die das Menü zunächst unbenutzbar
+  gemacht hätten:**
+  1. **Das Menü ging im selben Moment wieder zu, in dem es aufging** — ein
+     Rechtsklick auf einen Spaltenkopf schien zunächst gar nichts zu tun.
+     Ursache: Das Menü meldet sich selbst beim Dokument an, um sich beim
+     nächsten Klick außerhalb zu schließen — das geschah aber noch während
+     genau desselben Rechtsklicks, der das Menü überhaupt erst geöffnet
+     hatte, und fing dieses eine Ereignis gleich selbst wieder ab. Behoben,
+     indem sich das Menü seine eigenen Schließen-Erkennungen erst einen
+     Wimpernschlag später (einen "Tick") anmeldet, nie für den öffnenden
+     Klick selbst.
+  2. **Scrollen innerhalb der Spaltenliste (bei vielen Spalten, eigene
+     Bildlaufleiste im Menü) hat das Menü sofort geschlossen**, statt einfach
+     nur die Liste zu scrollen. Ursache: Dieselbe Schließen-Erkennung, die
+     merken soll "die Seite scrollt weg, also Menü schließen", hat technisch
+     bedingt auch das Scrollen *innerhalb* des Menüs selbst mitbekommen.
+     Behoben, indem jetzt vorher geprüft wird, ob das Scroll-Ereignis aus dem
+     Menü selbst kommt — nur ein Scrollen außerhalb schließt es noch.
+  - Beide Ursachen habe ich nicht nur vermutet, sondern im laufenden Browser
+    nachgewiesen (Ereignis-Protokollierung mit Zeitstempeln) und die
+    Reparatur danach ebenfalls live getestet, bevor ich weitergemacht habe.
+- **Für jede der sechs Tabellen einzeln entschieden, welche zusätzlichen
+  Felder als eigene Spalte angeboten werden, wie sie ggf. zusammengefasst
+  sind und ob sie zunächst sichtbar oder ausgeblendet starten** (die
+  jeweilige Entscheidung stand jedes Mal bei dir, hier nur die Umsetzung):
+  - **Mitglieder:** Alle besprochenen Felder neu als Spalte, E-Mail bleibt
+    wie gewünscht unter dem Namen in der Namensspalte, Telefonnummer als
+    eigene Spalte.
+  - **Finanzen:** Nummernkreis & SKR42-Konto bleiben wie gewünscht in einer
+    gemeinsamen Spalte, Steuersatz als eigene Spalte — beide starten
+    sichtbar, die übrigen neuen Spalten (Abteilung, Notizen, Buchungsart)
+    starten ausgeblendet. Bei gesplitteten Buchungen zeigt eine Spalte
+    "Gemischt" an (mit den einzelnen Werten als Tooltip), sobald sich die
+    Teilbuchungen in diesem Feld unterscheiden.
+  - **Kontakte:** BIC, Kontoinhaber und Tags wie gewünscht als eigene,
+    sichtbare Spalten; die übrigen sieben neuen Felder (Geburtsdatum, Mobil,
+    Webseite, Steuer-ID, Handelsregister, Gläubiger-/Schuldnernummer,
+    Notizen) starten ausgeblendet.
+  - **Rechnungen:** Da hierzu keine Platzierungswunsch genannt wurde, starten
+    alle sieben neuen Spalten ausgeblendet (Liefertermin, Zahlungsziel,
+    Bezahlt am, Zahlungsart, enthaltene USt., Notizen, sowie
+    Empfänger-E-Mail/Telefon als eine gemeinsame Spalte).
+  - **Spenden:** Die alte, fest eincodierte Anzeige "BMF-Archiviert" (das
+    stammte noch aus AI Studio) zeigte das unabhängig davon, ob überhaupt ein
+    PDF hinterlegt war. Zeigt jetzt nur noch "Archiviert" — und nur, wenn
+    `documentId` tatsächlich auf ein noch vorhandenes Dokument verweist,
+    genau wie beim Knopf "In Dokumentenablage ansehen" daneben. Die sieben
+    neuen Felder zur Zuwendungsbestätigung (Finanzamt, Steuernummer,
+    Freistellungsdatum, Veranlagungszeitraum, unmittelbare Förderung,
+    Aussteller, Herkunft & Bewertungsgrundlage der Sachspende) starten
+    ausgeblendet — auch hierzu gab es keine Platzierungsvorgabe.
+  - **Inventar:** Einkaufspreis und Zeitwert wie gewünscht als zwei eigene,
+    sichtbare Spalten (zusätzlich zur bisherigen, kombinierten Spalte
+    "Zeitwert / Anschaffung", die unverändert bleibt). Die übrigen
+    besprochenen Felder (Kaufdatum, Lieferant, Notizen, zuletzt geprüft am)
+    bekommen wie gewünscht **keine** eigene Spalte, sondern stehen als
+    kleine Zusatzzeile in bestehenden Spalten (Kaufdatum & Lieferant unter
+    dem Einkaufspreis, Notizen unter dem Gegenstandsnamen, "zuletzt geprüft"
+    bei der nächsten Prüfung unter dem Zustand).
+- **Nicht selbst geprüft:** `npm run check` und der Test in allen sechs
+  Tabellen im Browser stehen wie besprochen jetzt bei dir an.
+
+### 🖱️ Drei gemeldete Probleme an den Tabellen behoben: Auto-Fit, mitscrollender Kopf, plus neu Spalten per Drag & Drop sortierbar
+
+- **Bug 1 behoben: Doppelklick auf den Ziehgriff hat die Spalte bei jedem
+  weiteren Doppelklick ein Stück breiter gemacht, statt sich einmal richtig
+  einzupendeln.** Ursache: Die Messung "wie breit müsste die Spalte für ihren
+  Inhalt sein" lief über eine Browser-Eigenschaft (`scrollWidth`), die bei
+  Tabellen mit fester Spaltenaufteilung (`table-layout: fixed` — das war für
+  das gleichmäßige Ziehen an den Rändern nötig) keine zuverlässigen Werte
+  liefert, sondern bei jeder Messung ein kleines Stück zu groß ausfällt.
+  Behoben, indem die Messung jetzt an einer unsichtbaren Kopie der Zelle
+  außerhalb der Tabelle stattfindet (Kopie einfügen, Breite messen, Kopie
+  wieder entfernen) — dort gibt es die feste Spaltenaufteilung nicht, die
+  Messung ist deshalb bei jedem Doppelklick gleich genau.
+- **Bug 2 behoben: Der Spaltenkopf ist beim Scrollen mit weggelaufen, statt
+  oben sichtbar zu bleiben — er hätte es eigentlich schon seit der letzten
+  Änderung tun sollen, tat es aber in keiner der sechs Tabellen.** Zwei
+  voneinander unabhängige Ursachen gefunden:
+  1. Der Scroll-Rahmen um jede Tabelle war nur seitlich als Scroll-Bereich
+     markiert (`overflow-x: auto`). Der Browser leitet daraus aber von sich
+     aus *auch* einen senkrechten Scroll-Bereich ab, obwohl das nicht
+     beabsichtigt war — und ein "mitscrollender" (sticky) Kopf funktioniert
+     nur bezogen auf den tatsächlichen, äußeren Seiten-Scroll-Bereich, nicht
+     auf einen unbeabsichtigten inneren. Jetzt ist der senkrechte Bereich
+     ausdrücklich als "nicht eigener Scroll-Bereich" markiert.
+  2. Die abgerundete "Karte" um jede Tabelle (für die runden Ecken) hatte
+     eine Eigenschaft (`overflow: hidden`), die zum Abschneiden der Ecken
+     gedacht war — dieselbe Eigenschaft blockiert aber, komplett unabhängig
+     vom ersten Punkt, ebenfalls jeden mitscrollenden Kopf, egal wie tief
+     verschachtelt. Diese Eigenschaft musste von der Karte selbst entfernt
+     werden.
+  - **Nebenwirkung, die ich in Kauf genommen habe:** Weil die Karte jetzt
+    nicht mehr an allen vier Ecken automatisch abschneidet, habe ich die
+    Rundung dort neu gesetzt, wo es gefahrlos geht (am unteren Rand, an der
+    Fußzeile mit Seitennavigation — die steht in normalem Textfluss, nicht
+    "hinter" dem mitscrollenden Kopf). Am *oberen* Rand habe ich es bewusst
+    NICHT versucht: Der Spaltenkopf selbst ist ja "sticky" und löst sich beim
+    Scrollen von der eigentlichen Kartenkante — eine Rundung direkt am
+    Spaltenkopf würde dann, sobald man scrollt, wie eine losgelöste
+    abgerundete Ecke mitten auf der Seite wirken, nicht wie eine Kartenecke.
+    Das wollte ich nicht. Mögliche Folge: Bei "Inventar" und "Spenden" könnte
+    die obere Ecke der Tabellenkarte jetzt eckig statt rund aussehen (bei den
+    anderen vier Tabellen nicht, weil dort andere Elemente über der Tabelle
+    liegen, die die Rundung ohnehin schon tragen). Bitte kurz draufschauen
+    und melden, ob das auffällt — dann finden wir dafür eine gezieltere
+    Lösung.
+- **Neu, wie gewünscht: Die Spaltenreihenfolge lässt sich in allen sechs
+  Tabellen selbst per Drag & Drop festlegen.** Den kompletten Spaltenkopf
+  (außer dem schmalen Ziehgriff für die Breite ganz rechts) anklicken,
+  halten und an die gewünschte Stelle ziehen — eine blaue Markierung zeigt
+  dabei an, wo die Spalte landen würde. Ein einfacher Klick zum Sortieren
+  funktioniert unverändert weiter und wird durch die neue Zieh-Funktion nicht
+  gestört (der Browser unterscheidet einen bloßen Klick von einem
+  Ziehen-und-Loslassen von sich aus).
+  - **Auch die Reihenfolge wird dauerhaft gespeichert** — genau wie die
+    Spaltenbreiten im Browser-Speicher (`localStorage`) je Tabelle, nicht in
+    der Cloud. Sie bleibt über einen Neustart der Anwendung erhalten, gilt
+    aber nur auf diesem Gerät in diesem Browser.
+  - Die Auswahl-Kästchen-Spalte (ganz links) und die Aktionen-Spalte (ganz
+    rechts) sind bewusst NICHT verschiebbar — nur die Datenspalten
+    dazwischen lassen sich umsortieren. Alles andere hätte an anderer Stelle
+    in der Bedienung zu Verwirrung geführt (z.B. Auswahl-Kästchen, die
+    plötzlich nicht mehr am Rand stehen).
+- **Nicht selbst geprüft:** Wie immer fehlt mir hier der Zugriff auf das
+  npm-Registry, ich konnte also weder `npm run check` noch das Ergebnis im
+  Browser selbst ausführen. Bitte nach dem Laden folgendes kurz testen:
+  - In allen sechs Tabellen eine Spalte per Ziehen an eine andere Stelle
+    verschieben, danach die Seite neu laden — bleibt die neue Reihenfolge
+    erhalten?
+  - Am rechten Spaltenrand doppelklicken — pendelt sich die Breite jetzt
+    einmal richtig ein, statt bei jedem weiteren Doppelklick weiter zu
+    wachsen?
+  - Bei einer längeren Liste nach unten scrollen — bleibt der Spaltenkopf
+    jetzt oben sichtbar?
+  - Bei "Inventar" und "Spenden": Sieht die obere linke/rechte Ecke der
+    Tabellenkarte eckig statt rund aus? (Siehe Erklärung oben — falls ja,
+    einfach kurz Bescheid geben.)
+
+### 🔧 Nachbesserung: Spalten-Ziehen und mitscrollender Kopf funktionierten trotz obigem Eintrag noch nicht
+
+- **Warum der Eintrag oben zu früh kam:** Ich hatte beide Reparaturen nur
+  anhand des Quellcodes eingeschätzt, ohne sie in der tatsächlich laufenden
+  Anwendung auszuprobieren — dafür fehlte mir bis dahin der Zugriff. Beide
+  griffen nicht: Die Spaltenreihenfolge änderte sich beim Loslassen nicht,
+  der Tabellenkopf blieb weiter nicht stehen. Für diesen Eintrag konnte ich
+  die laufende Anwendung direkt im Browser untersuchen und die tatsächlichen
+  Ursachen nachweisen, bevor ich etwas geändert habe.
+- **Spalten-Ziehen — Ursache gefunden: React hat die Verschiebe-Logik beim
+  Loslassen zweimal ausgeführt, und die beiden Ausführungen haben sich
+  gegenseitig aufgehoben.** React prüft während der Entwicklung absichtlich,
+  ob bestimmte Funktionen "sauber" geschrieben sind, indem es sie zur
+  Kontrolle zweimal aufruft. Die Verschiebe-Funktion war so gebaut, dass sie
+  bei diesem zweiten, eigentlich nur zur Kontrolle gedachten Aufruf ihre
+  Wirkung ein zweites Mal ausgeführt hat — und eine Spalte zweimal an dieselbe
+  Stelle verschieben landet exakt wieder in der Ausgangsreihenfolge. Nach
+  außen sah das aus wie "passiert einfach gar nichts". Behoben, indem die
+  Verschiebe-Logik jetzt so geschrieben ist, dass sie sich bei einem
+  Kontrollaufruf nicht wiederholt.
+- **Mitscrollender Kopf — die erste Reparatur (oben) hat aus einem anderen
+  Grund nicht gegriffen, als vermutet.** Der Browser hat eine Regel: Setzt
+  man bei einem Element "seitlich scrollbar" (`overflow-x: auto`), erklärt er
+  automatisch auch die *senkrechte* Richtung für scrollbar — selbst wenn man
+  das Gegenteil ausdrücklich hinschreibt. Genau das hatte ich in der ersten
+  Reparatur versucht ("senkrecht ausdrücklich nicht scrollbar"), und der
+  Browser hat es stillschweigend ignoriert. Dadurch wurde jeder einzelne
+  Tabellen-Rahmen selbst zu einem eigenen (nie tatsächlich benutzten)
+  Scroll-Bereich, und ein mitscrollender Kopf bezieht sich immer auf den
+  *nächstgelegenen* Scroll-Bereich — hier also auf den falschen. Behoben,
+  indem das seitliche Scrollen nicht mehr am einzelnen Tabellen-Rahmen hängt,
+  sondern am äußeren Seitenbereich, der ohnehin schon für das senkrechte
+  Scrollen zuständig ist. **Nebenwirkung, die ich bewusst in Kauf genommen
+  habe:** Ist eine Tabelle breiter als der Bildschirm, scrollt jetzt die
+  ganze Seite seitlich mit, nicht mehr nur die Tabelle selbst — darüber
+  liegende, schmalere Bereiche zeigen beim seitlichen Scrollen dann einfach
+  leeren Platz. Ich halte das für den saubereren Kompromiss, weil es der
+  einzige Weg war, den Kopf zuverlässig zum Mitscrollen zu bringen.
+- **Beide Ursachen habe ich vor der Änderung im laufenden Browser
+  nachgewiesen** (nicht nur vermutet) — beim Spalten-Ziehen durch Nachbauen
+  des Ziehvorgangs per Skript mit Beobachtung, wie oft und wann gespeichert
+  wird; beim Tabellenkopf durch Auslesen der vom Browser tatsächlich
+  berechneten Eigenschaften. Von dir bestätigt: Beides funktioniert jetzt,
+  auch nach erneutem Anmelden bleibt die Spaltenreihenfolge erhalten.
+- **Nebenbei aufgetreten und behoben:** Bei der Reparatur des Tabellenkopfs
+  ist mir in `DonationsView.tsx` ein Fehler in einem Code-Kommentar
+  unterlaufen (`{/* ... */}` an einer Stelle verwendet, an der diese
+  Schreibweise ungültig ist), der die gesamte Anwendung zum Absturz gebracht
+  hat. Das war kein Problem mit `npm run check` oder dem Server selbst,
+  sondern ein echter Tippfehler von mir — durch dein `npm run check` sofort
+  sichtbar geworden und seitdem behoben.
+
+### 📋 Alle sechs Tabellen: sortierbar, Spaltenbreite ziehbar, Kopf bleibt beim Scrollen sichtbar
+
+- **Kontakte, Rechnungen, Spenden und Inventar lassen sich jetzt genauso durch
+  Klick auf den Spaltenkopf sortieren** wie bisher schon Mitglieder und das
+  Buchungsjournal. Ein Klick sortiert aufsteigend, ein zweiter Klick auf
+  denselben Kopf dreht die Richtung um, ein Pfeilsymbol zeigt an, wonach
+  gerade sortiert wird.
+- **Alle sechs Tabellen lassen sich in der Spaltenbreite ziehen.** Am rechten
+  Rand jeder Spalte gibt es einen schmalen Ziehgriff; ein Doppelklick darauf
+  passt die Spalte automatisch an den breitesten *gerade angezeigten* Eintrag
+  an (bei mehrseitigen Listen also an die aktuelle Seite — die Tabelle kennt
+  nur die Zeilen, die auch tatsächlich dargestellt sind).
+- **Die gewählten Spaltenbreiten werden dauerhaft gespeichert** — wie
+  besprochen im Browser-Speicher (`localStorage`) je Tabelle, nicht in der
+  Cloud. Das bedeutet: Die Breiten bleiben über einen Neustart der Anwendung
+  hinweg erhalten, gelten aber nur auf diesem Gerät in diesem Browser. Auf
+  einem anderen Rechner oder in einem anderen Browser fängt die Breite wieder
+  beim sinnvollen Startwert an.
+- **Der Spaltenkopf bleibt beim Scrollen oben sichtbar** (in allen sechs
+  Tabellen), damit bei langen Listen immer erkennbar bleibt, welche Spalte
+  welche ist.
+- **Gemeinsame Bausteine statt sechsmal derselbe Code:** Zwei neue Hooks
+  (`useSortableColumns`, `useResizableColumns`) und eine gemeinsame
+  Tabellenkopf-Komponente (`SortableResizableTh`) stecken hinter allen sechs
+  Tabellen. Bei Mitgliedern und dem Buchungsjournal wurde die schon
+  vorhandene, funktionierende Sortierlogik dabei bewusst NICHT angetastet —
+  nur Breite und mitscrollender Kopf kamen neu hinzu. Das Buchungsjournal
+  sortiert deshalb weiterhin beim ersten Klick auf "Datum" oder "Betrag"
+  absteigend (neueste/höchste zuerst), die vier neu umgestellten Tabellen
+  dagegen beim ersten Klick aufsteigend (außer Spenden: dort zuerst
+  absteigend nach Datum, also neueste zuerst, wie es vorher schon war).
+- **Kleinere Entscheidungen dabei, die ich nicht extra abgestimmt habe:**
+  - Bei Mitgliedern und dem Buchungsjournal wurden die alten
+    Sortierpfeile (↑↓↕ als Textzeichen) durch dieselben Pfeilsymbole
+    ersetzt, die jetzt auch die anderen vier Tabellen benutzen — rein
+    optisch, damit alle sechs Tabellen gleich aussehen.
+  - In Kontakten ist die alte Sortierung "nach Erstellungsdatum" entfallen
+    (dazu gab es keine sichtbare Spalte, an der man das hätte ablesen
+    können). In Rechnungen sortiert die zusammengefasste Spalte
+    "Nr. & Datum" jetzt nur noch nach Datum, nicht mehr getrennt auch nach
+    Rechnungsnummer (Nummern vergeben sich ohnehin fortlaufend nach Datum).
+  - In Kontakten und Rechnungen ist dafür das alte Dropdown-Menü samt
+    A→Z/Z→A-Knopf für die Sortierung komplett entfallen — es tat jetzt
+    dasselbe wie der Klick auf den Spaltenkopf, nur an zwei Stellen gleichzeitig.
+  - Bei ausgewählten Zeilen erscheint in fünf der sechs Tabellen eine
+    dunkle Aktionsleiste, die ebenfalls oben "kleben" bleibt. Sie liegt
+    optisch über dem neuen Tabellenkopf. Das kann in einem schmalen
+    Sonderfall (wenn man mit aktiver Auswahl mittendrin scrollt) zu einer
+    kurzen Überlappung führen — keine größere Bau-Lösung dafür gesucht,
+    nur bewusst in Kauf genommen.
+  - Die Start-Spaltenbreiten (bei Aktions-Spalten z.B.) sind nur eine
+    Schätzung meinerseits, wie viel Platz die Knöpfe ungefähr brauchen —
+    nach dem ersten Ziehen merkt sich der Browser ohnehin die eigene Wahl.
+- **Nicht selbst geprüft:** Auch hier konnte ich weder `npm run check` noch
+  das Ergebnis im Browser selbst ausführen (derselbe fehlende Zugriff aufs
+  npm-Registry wie bei den letzten Malen). Bitte nach `npm install` einmal
+  `npm run check` laufen lassen und in allen sechs Tabellen kurz
+  durchklicken: auf ein paar Spaltenköpfe klicken (sortiert es richtig?),
+  am rechten Spaltenrand ziehen und doppelklicken (passt sich die Breite an
+  den Inhalt an?) und bei einer längeren Liste nach unten scrollen (bleibt
+  der Kopf oben sichtbar?).
+
+### 📊 Buchungsjournal: Sphäre und Konto entkoppelt, "Nummernkreis"/"Konto" statt "Hauptkonto"/"Unterkonto", sechs neue Auswertungen
+
+- **Die Sphäre stand bisher am Konto — das ist laut DATEV-Handbuch zum SKR 42
+  (S. 31) falsch.** Die steuerliche Sphäre (ideell / Vermögensverwaltung /
+  Zweckbetrieb / wirtschaftlicher Geschäftsbetrieb) wird je Buchung über ein
+  eigenes Feld (KOST1) vergeben, unabhängig vom gewählten Konto. Bisher hing
+  in der Anwendung jedes Konto fest an genau einer Sphäre, filterte die
+  Kontenauswahl danach und setzte die Sphäre automatisch, sobald ein Konto
+  gewählt wurde — beides ist entfallen. Sphäre und Kontierung lassen sich
+  jetzt unabhängig voneinander wählen, in der normalen Buchungsmaske, bei
+  Splittbuchungen, in der Sammelbearbeitung, beim Import aus Bankauszug,
+  Excel/Google Sheets und beim Anlegen eigener Konten.
+- **Namen geändert:** "Hauptkonto" heißt jetzt "Nummernkreis" (die fünfstellige
+  Kontengruppe, z.B. 40000), "Nebenkonto"/"Unterkonto" heißt "Konto" (das
+  einzelne Konto darin, z.B. 40010). Das betrifft nur die Kontierung nach SKR
+  42 — die Bezeichnung "Hauptkonto" für das Bankkonto einer Kasse (z.B.
+  "Sparkasse Girokonto (Hauptkonto)") ist etwas anderes und unverändert
+  stehen geblieben.
+- **Vier Nummern waren doppelt vergeben** (50000, 60000, 62000, 69000 —
+  Letztere sogar vierfach), weil sie sich bisher nur über die Sphäre
+  unterschieden. Ohne Sphärenfilter wären sie gleichzeitig in derselben Liste
+  aufgetaucht. Auf Nachfrage neu durchnummeriert (51000, 60200, 62100, 69050,
+  69100, 69300) — die inhaltliche Unterscheidung bleibt erhalten, nur die
+  Nummer hat sich geändert.
+- **Neues Feld "Sparte"** je Buchung (und je Teilbetrag bei Splittbuchungen) —
+  z.B. "Fußball" oder "Tennis", leer bedeutet Gesamtverein. Unabhängig von
+  Sphäre und Konto.
+- **"Spenden" ist jetzt eine eigene Größe:** Buchungen auf dem Nummernkreis
+  40400 ("Spenden, Schenkungen & Zuwendungen") zählen in den Auswertungen
+  nicht mehr als "Einnahmen", sondern werden separat ausgewiesen — sonst
+  würde eine Spende doppelt auftauchen.
+- **Die Finanz-Auswertungen sind neu aufgebaut**, mit der Diagramm-Bibliothek
+  Recharts (neu als Abhängigkeit) statt selbstgebauter CSS-Balken: monatliche
+  Einnahmen/Ausgaben/Spenden, Jahresübersicht als Kreisdiagramm,
+  Einnahmen-Mix und Ausgaben-Mix je Sparte (mit "Gesamtverein" als Summe über
+  alle Buchungen), ein kumulierter Kontostand-Verlauf übers Jahr
+  ("Fieberkurve") und eine Sparten-Übersicht mit Einnahmen, Ausgaben und
+  Summe nebeneinander.
+- **Die Supabase-Datenbank braucht die Spalte `department`** in der Tabelle
+  `transactions` für das neue Sparte-Feld — `supabase_schema.sql` enthält
+  jetzt `ALTER TABLE ... ADD COLUMN IF NOT EXISTS department TEXT;`, das sich
+  gefahrlos beliebig oft ausführen lässt. Wer die Cloud-Anbindung nutzt, muss
+  dieses Skript einmal erneut in Supabase ausführen, sonst bleibt die Sparte
+  beim nächsten Abgleich leer.
+- **Nebenbei gefunden, hier NICHT behoben:** Beim Nachsehen ist aufgefallen,
+  dass Splittbuchungen (`is_split`/`splits`) in der Supabase-Tabelle
+  `transactions` gar keine eigenen Spalten haben — weder in
+  `supabase_schema.sql` noch in `supabase_rls.sql`. Das deutet darauf hin,
+  dass Splittbuchungen im Cloud-Betrieb schon vor diesem Umbau nicht
+  gespeichert werden konnten. Unabhängig von der heutigen Arbeit und noch
+  nicht näher untersucht.
+- **Nicht selbst geprüft:** Ich konnte weder `npm run check` noch das
+  Diagramm-Ergebnis in einem Browser selbst ausführen — dieser Rechner darf
+  nicht auf das npm-Registry zugreifen. Die Umstellung auf Recharts 3 wurde
+  stattdessen sorgfältig gegen die offizielle Migrationsanleitung von Version
+  2 auf 3 geprüft, aber "sorgfältig geprüft" ersetzt nicht "einmal
+  ausgeführt". Bitte nach `npm install` einmal `npm run check` laufen lassen
+  und kurz auf den Reiter "Finanz-Auswertungen" schauen, ob die sechs
+  Diagramme vernünftig aussehen.
 
 ### 🤖 Ein KI-Anbieter statt vier halber — und warum es nicht Mistral wurde
 
@@ -399,6 +830,12 @@ Alle relevanten Änderungen und Versionsstände des VereinsManagers werden in di
   brauchen `VM_SMTP_ALLOW_SELF_SIGNED=true`.
 
 ---
+
+> **Anmerkung:** Die folgenden Einträge (v1.1.0 bis v1.2.3) stammen aus der
+> Zeit vor der eigentlichen Versionszählung — sie liefen parallel zur
+> `package.json`, die noch bei 0.9.0 stand. Mit 1.0.0 oben beginnt die
+> Zählung neu und bewusst; die alten Einträge bleiben hier stehen, weil sie
+> die tatsächliche Entwicklungsgeschichte dokumentieren.
 
 ## [v1.2.3] - 2026-09-14
 

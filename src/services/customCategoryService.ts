@@ -1,4 +1,4 @@
-import { TaxSphere, Skr42MainCategory, Skr42SubCategory } from '../types';
+import { Skr42MainCategory, Skr42SubCategory } from '../types';
 import { SKR42_STRUCTURE } from '../data/taxSpheres';
 import { notifySkr42Changed } from '../data/skr42Store';
 
@@ -14,7 +14,6 @@ export interface CustomSubAccountInput {
 export interface CustomMainAccountInput {
   code: string;
   name: string;
-  sphere: TaxSphere;
   type: 'income' | 'expense';
   initialSubAccount?: {
     code?: string;
@@ -155,7 +154,6 @@ class CustomCategoryService {
    * Suggests the next available 5-digit SKR 42 account code
    */
   public suggestNextCode(
-    sphere: TaxSphere,
     type: 'income' | 'expense',
     parentMainCodeOrId?: string
   ): string {
@@ -181,24 +179,32 @@ class CustomCategoryService {
       }
     }
 
-    // Standard ranges for new main category based on SKR 42
-    const spherePrefixMap: Record<TaxSphere, { income: number; expense: number }> = {
-      ideell: { income: 40950, expense: 68900 },
-      vermoegen: { income: 47900, expense: 62190 },
-      zweckbetrieb: { income: 41900, expense: 65900 },
-      wirtschaftlich: { income: 45900, expense: 69900 }
-    };
+    // Neuer Nummernkreis (Hauptkonto): Bis Fassung 1.x hing der
+    // vorgeschlagene Zahlenbereich von der Sphäre ab. Seit die Sphäre nicht
+    // mehr am Konto hängt (siehe Hinweis bei Skr42MainCategory in
+    // src/types.ts), suchen wir stattdessen die höchste im gesamten
+    // Kontenrahmen bereits vergebene Nummer dieses Typs — Standardkonten und
+    // schon angelegte eigene Konten zusammen — und schlagen den nächsten
+    // freien, runden Tausenderbereich darüber vor.
+    const allCodesOfType = SKR42_STRUCTURE
+      .filter(m => m.type === type)
+      .flatMap(m => [m.code, ...m.subCategories.map(s => s.code)])
+      .map(c => parseInt(c, 10))
+      .filter(n => !isNaN(n));
 
-    const base = spherePrefixMap[sphere][type];
-    const exists = SKR42_STRUCTURE.some(m => m.code === String(base));
-    if (!exists) {
-      return String(base);
+    const highest = allCodesOfType.length > 0
+      ? Math.max(...allCodesOfType)
+      : (type === 'income' ? 40000 : 50000);
+
+    let base = Math.ceil((highest + 1) / 1000) * 1000;
+    while (SKR42_STRUCTURE.some(m => m.code === String(base))) {
+      base += 1000;
     }
-    return String(base + 10);
+    return String(base);
   }
 
   /**
-   * Adds a brand new Hauptkonto (main account) with an optional initial subaccount.
+   * Adds a brand new Nummernkreis (main account) with an optional initial account.
    */
   public addCustomMainCategory(input: CustomMainAccountInput): Skr42MainCategory {
     const cleanCode = input.code.trim();
@@ -212,11 +218,15 @@ class CustomCategoryService {
     // Check if code already exists
     const existing = SKR42_STRUCTURE.find(m => m.code === cleanCode);
     if (existing && !existing.isCustom) {
-      throw new Error(`Das SKR 42 Standard-Hauptkonto mit der Nummer ${cleanCode} existiert bereits (${existing.name}).`);
+      throw new Error(`Der SKR 42 Standard-Nummernkreis mit der Nummer ${cleanCode} existiert bereits (${existing.name}).`);
     }
 
     const mainId = `HK-${cleanCode}-CUSTOM`;
-    const defaultVat = input.sphere === 'wirtschaftlich' ? 19 : input.sphere === 'zweckbetrieb' ? 7 : 0;
+    // Ohne Sphäre am Konto lässt sich der Steuersatz nicht mehr automatisch
+    // herleiten (bis Fassung 1.x: wirtschaftlich->19%, Zweckbetrieb->7%,
+    // sonst 0%). Vorbelegt wird darum vorsichtshalber mit 0% — wer beim
+    // Anlegen einen anderen Satz braucht, trägt ihn im Formular selbst ein.
+    const defaultVat = 0;
 
     const subCode = input.initialSubAccount?.code?.trim() || cleanCode;
     const subName = input.initialSubAccount?.name?.trim() || cleanName;
@@ -234,7 +244,6 @@ class CustomCategoryService {
       id: mainId,
       code: cleanCode,
       name: cleanName,
-      sphere: input.sphere,
       type: input.type,
       subCategories: [initialSub],
       isCustom: true
@@ -251,24 +260,26 @@ class CustomCategoryService {
   }
 
   /**
-   * Adds a new Nebenkonto / Unterkonto to an existing or custom Hauptkonto.
+   * Adds a new Konto to an existing or custom Nummernkreis.
    */
   public addCustomSubCategory(input: CustomSubAccountInput): { sub: Skr42SubCategory; main: Skr42MainCategory } {
     const cleanCode = input.code.trim();
     const cleanName = input.name.trim();
 
-    if (!cleanCode) throw new Error('Bitte geben Sie eine Kontonummer für das Unterkonto an.');
-    if (!cleanName) throw new Error('Bitte geben Sie eine Bezeichnung für das Unterkonto an.');
+    if (!cleanCode) throw new Error('Bitte geben Sie eine Kontonummer für das Konto an.');
+    if (!cleanName) throw new Error('Bitte geben Sie eine Bezeichnung für das Konto an.');
 
     const targetMain = SKR42_STRUCTURE.find(
       m => m.id === input.mainCatIdOrCode || m.code === input.mainCatIdOrCode
     );
 
     if (!targetMain) {
-      throw new Error(`Das übergeordnete Hauptkonto '${input.mainCatIdOrCode}' wurde nicht gefunden.`);
+      throw new Error(`Der übergeordnete Nummernkreis '${input.mainCatIdOrCode}' wurde nicht gefunden.`);
     }
 
-    const defaultVat = targetMain.sphere === 'wirtschaftlich' ? 19 : targetMain.sphere === 'zweckbetrieb' ? 7 : 0;
+    // Siehe Hinweis in addCustomMainCategory() oben: ohne Sphäre am
+    // übergeordneten Nummernkreis kein automatischer Steuersatz mehr.
+    const defaultVat = 0;
     const newSub: Skr42SubCategory = {
       code: cleanCode,
       name: cleanName,
@@ -303,7 +314,7 @@ class CustomCategoryService {
   }
 
   /**
-   * Deletes a user-created Hauptkonto
+   * Deletes a user-created Nummernkreis
    */
   public deleteCustomMainCategory(codeOrId: string) {
     const data = this.loadStoredData();
@@ -319,7 +330,7 @@ class CustomCategoryService {
   }
 
   /**
-   * Deletes a user-created Nebenkonto
+   * Deletes a user-created Konto
    */
   public deleteCustomSubCategory(mainCodeOrId: string, subCode: string) {
     const data = this.loadStoredData();

@@ -61,6 +61,13 @@ import { MeetingsView } from './components/MeetingsView';
 import { PublicApplicationForm } from './components/PublicApplicationForm';
 import { MemberSurveysView } from './components/MemberSurveysView';
 import { PublicSurveyView } from './components/PublicSurveyView';
+import { MobileShell, type MobileTab } from './components/MobileShell';
+import { MobileDashboardView } from './components/MobileDashboardView';
+import { MobileMembersView } from './components/MobileMembersView';
+import { MobileCalendarView } from './components/MobileCalendarView';
+import { MobileFinanceView } from './components/MobileFinanceView';
+import { MobileMeetingsView } from './components/MobileMeetingsView';
+import { MobileDocumentsView } from './components/MobileDocumentsView';
 
 // Modals & Drawers
 import { DashboardConfigModal } from './components/DashboardConfigModal';
@@ -89,6 +96,7 @@ import { DonationFormModal } from './components/DonationFormModal';
 import { MeetingFormModal } from './components/MeetingFormModal';
 import { CalendarEventModal } from './components/CalendarEventModal';
 import { LoginScreen } from './components/LoginScreen';
+import { ForcedPasswordChangeScreen } from './components/ForcedPasswordChangeScreen';
 import { UserManageModal } from './components/UserManageModal';
 import { AppVersionBadge } from './components/AppVersionBadge';
 
@@ -119,7 +127,8 @@ import {
   SlidersHorizontal,
   Contact,
   ScrollText,
-  Vote
+  Vote,
+  Smartphone
 } from 'lucide-react';
 
 /**
@@ -130,10 +139,52 @@ import {
  */
 type ActiveTab = Exclude<PermissionArea, 'users'>;
 
+/**
+ * Schlüssel für die von Hand gewählte Ansicht (Mobil-Ansicht erzwingen oder
+ * abschalten). Bewusst im Browser des Geräts gespeichert, nicht in den
+ * Benutzereinstellungen der Datenbank: Es ist eine Eigenschaft des Geräts
+ * ("das hier ist mein Telefon"), keine Eigenschaft der Person.
+ */
+const VIEW_MODE_OVERRIDE_KEY = 'vm_view_mode_override';
+
+function readViewModeOverride(): 'mobile' | 'desktop' | null {
+  if (typeof window === 'undefined') return null;
+  const stored = window.localStorage.getItem(VIEW_MODE_OVERRIDE_KEY);
+  return stored === 'mobile' || stored === 'desktop' ? stored : null;
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [settingsActiveTab, setSettingsActiveTab] = useState<'general' | 'club' | 'users' | 'backup' | 'deployment' | 'support' | 'bugreport'>('general');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  /**
+   * Mobil-Ansicht: aktiv, wenn entweder automatisch erkannt (Bildschirm
+   * schmaler als 768px) oder von Hand über den Umschalter gewählt. Die Wahl
+   * per Hand übersteuert die automatische Erkennung, bis sie wieder
+   * aufgehoben wird — sonst könnte sich jemand mit großem Tablet nicht für
+   * die Desktop-Ansicht entscheiden, und ein schmales Testfenster am
+   * Rechner ließe sich nicht willentlich in der Mobil-Ansicht halten.
+   */
+  const [viewModeOverride, setViewModeOverrideState] = useState<'mobile' | 'desktop' | null>(readViewModeOverride);
+  const [isNarrowViewport, setIsNarrowViewport] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 767px)').matches;
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const handleChange = (event: MediaQueryListEvent) => setIsNarrowViewport(event.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+  const isMobileView = viewModeOverride ? viewModeOverride === 'mobile' : isNarrowViewport;
+  const setViewModeOverride = (value: 'mobile' | 'desktop' | null) => {
+    setViewModeOverrideState(value);
+    if (typeof window === 'undefined') return;
+    if (value) window.localStorage.setItem(VIEW_MODE_OVERRIDE_KEY, value);
+    else window.localStorage.removeItem(VIEW_MODE_OVERRIDE_KEY);
+  };
   const [loading, setLoading] = useState(true);
   const [deploymentMode, setDeploymentMode] = useState<import('./types').DeploymentMode>(StorageService.getDeploymentMode());
 
@@ -1267,6 +1318,15 @@ export default function App() {
 
   const currentUser = authSession.user;
 
+  // Pflicht-Passwortänderung im gehosteten Betrieb: Ein vom Vorstand mit
+  // Anfangspasswort angelegtes Konto muss dieses zuerst durch ein eigenes
+  // ersetzen, bevor es irgendetwas anderes in der Anwendung sieht. Bewusst
+  // VOR jeder weiteren Weiche hier, damit kein Bildschirm dazwischen
+  // aufblitzt (siehe ForcedPasswordChangeScreen.tsx für den Ablauf danach).
+  if (currentUser && currentUser.mustChangePassword) {
+    return <ForcedPasswordChangeScreen settings={settings} user={currentUser} />;
+  }
+
   const canEditFinances = mayEdit('finance');
   const canEditMembers = mayEdit('members');
   const canManageUsers = mayEdit('users');
@@ -1289,6 +1349,81 @@ export default function App() {
     setActiveTab(tab);
   };
 
+  // ---------------------------------------------------------------------
+  // Mobil-Ansicht
+  //
+  // Eine schlanke, für Touch gebaute Ansicht mit ausgewählten Kernfunktionen
+  // für den Zugriff von unterwegs. Bewusst kein zweiter, unabhängiger
+  // App-Baum: Sie steht erst NACH der Anmeldesperre, damit sie dieselben
+  // bereits geladenen Daten, dieselbe Anmeldung und dieselbe Rechteprüfung
+  // (mayAccess) verwendet wie die Desktop-Ansicht — nur die Darstellung ist
+  // eine andere.
+  // ---------------------------------------------------------------------
+  if (isMobileView) {
+    return (
+      <MobileShell
+        clubName={settings.clubName}
+        clubLogoUrl={settings.clubLogoUrl}
+        mayAccess={(area) => mayAccess(area as ActiveTab)}
+        onSwitchToDesktop={() => setViewModeOverride('desktop')}
+        onLogout={() => AuthService.logout()}
+        renderTabContent={(tab: MobileTab, goToMobileTab) => {
+          if (tab === 'dashboard') {
+            return (
+              <MobileDashboardView
+                members={members}
+                transactions={transactions}
+                accounts={accounts}
+                meetings={meetings}
+                applications={onlineApplications}
+                calendarRefreshKey={calendarRefreshKey}
+                mayAccess={(area) => mayAccess(area as ActiveTab)}
+                onNavigateTab={goToMobileTab}
+              />
+            );
+          }
+          if (tab === 'members') {
+            return <MobileMembersView members={members} />;
+          }
+          if (tab === 'calendar') {
+            return <MobileCalendarView calendarRefreshKey={calendarRefreshKey} members={members} />;
+          }
+          if (tab === 'finance') {
+            return (
+              <MobileFinanceView
+                accounts={accounts}
+                settings={settings}
+                existingTransactions={transactions}
+                nextDocNumber={nextDocNumber}
+                canEdit={mayEdit('finance')}
+                onSave={handleSaveTransaction}
+                onNavigateTab={goToMobileTab}
+              />
+            );
+          }
+          if (tab === 'meetings') {
+            return (
+              <MobileMeetingsView
+                meetings={meetings}
+                canEdit={mayEdit('meetings')}
+                onSave={handleSaveMeeting}
+              />
+            );
+          }
+          return (
+            <MobileDocumentsView
+              documents={documents}
+              folders={folders}
+              members={members}
+              transactions={transactions}
+              canEdit={mayEdit('documents')}
+              onSaveDocuments={handleSaveBatchDocuments}
+            />
+          );
+        }}
+      />
+    );
+  }
 
   return (
     <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
@@ -1994,6 +2129,19 @@ export default function App() {
                       type="button"
                       onClick={() => {
                         setUserDropdownOpen(false);
+                        setViewModeOverride('mobile');
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg text-left transition-colors"
+                      title="Zum Testen: zeigt die schlanke Ansicht für unterwegs, auch auf diesem Gerät"
+                    >
+                      <Smartphone className="w-4 h-4 text-blue-600" />
+                      <span>Mobil-Ansicht (Test)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserDropdownOpen(false);
                         AuthService.lockSession();
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg text-left transition-colors"
@@ -2031,6 +2179,16 @@ export default function App() {
         </header>
 
         {/* Scrollable View Area */}
+        {/* Kein overflow-x-auto mehr hier — das war ein Zwischenschritt und
+            hat einen neuen Fehler verursacht: Bei langen Seiten (viele
+            Einträge, Filter, Kacheln oberhalb der Tabelle) landete der
+            seitliche Scrollbalken ganz unten an der Kante der GESAMTEN Seite,
+            oft weit außerhalb des sichtbaren Bereichs — praktisch
+            unauffindbar. Die Tabellen regeln ihr seitliches Scrollen jetzt
+            wieder selbst, aber diesmal mit einer eigenen Höhenbegrenzung
+            (siehe Kommentar in MembersView.tsx), damit der mitscrollende
+            Kopf trotzdem funktioniert, ohne dass der Scrollbalken verloren
+            geht. */}
         <div className="p-6 sm:p-8 flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto space-y-6">
             {/* Tab 0: Dashboard */}
@@ -2239,6 +2397,7 @@ export default function App() {
               <FinanceAnalyticsView
                 transactions={transactions}
                 accounts={accounts}
+                settings={settings}
               />
             )}
 
@@ -2375,6 +2534,7 @@ export default function App() {
                 onLocked={() => requireEdit('settings')}
                 canManageUsers={mayEdit('users')}
                 currentCloudUserId={authSession.loginMethod === 'supabase' ? currentUser?.id : undefined}
+                currentLocalServerUserId={authSession.loginMethod === 'localserver' ? currentUser?.id : undefined}
                 onUsersLocked={() => requireEdit('users')}
                 />
             )}
@@ -2526,6 +2686,7 @@ export default function App() {
           contacts={contacts}
           members={members}
           initialPartner={initialBookingPartner}
+          departments={settings.departments}
           onQuickCreateContact={handleQuickCreateContact}
           onSave={handleSaveTransaction}
           onClose={() => {

@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   DonationReceipt,
   ClubSettings,
   ClubDocument
 } from '../types';
 import { downloadDonationReceiptPdf } from '../services/donationService';
+import { SortableResizableTh } from './SortableResizableTh';
+import { useResizableColumns, ColumnWidths } from '../hooks/useResizableColumns';
+import { useSortableColumns } from '../hooks/useSortableColumns';
+import { useColumnOrder } from '../hooks/useColumnOrder';
+import { useColumnVisibility } from '../hooks/useColumnVisibility';
+import { ColumnVisibilityMenu } from './ColumnVisibilityMenu';
 import {
   HeartHandshake,
   Plus,
@@ -23,6 +29,81 @@ import {
   Lock
 } from 'lucide-react';
 import { lockClass, lockTitle } from '../utils/uiLock';
+
+type DonationSortField =
+  | 'date'
+  | 'donor'
+  | 'type'
+  | 'purpose'
+  | 'amount'
+  | 'taxOffice'
+  | 'taxNumber'
+  | 'exemptionDate'
+  | 'assessmentPeriod'
+  | 'isDirectlyPromoted'
+  | 'issuedBy'
+  | 'goodsInfo';
+
+// Reihenfolge, in der Geld- bzw. Sachspenden als "sortiert" gelten (passend
+// zur Reihenfolge der Filter-Reiter oben: erst Geld, dann Sachspenden) —
+// eine alphabetische Sortierung ("goods" vor "money") wäre hier nicht
+// sinnvoll ablesbar.
+const DONATION_TYPE_SORT_ORDER: Record<DonationReceipt['type'], number> = { money: 0, goods: 1 };
+
+// Feste Breite für die Aktionsspalte (kein Auswahl-Kästchen in dieser
+// Tabelle — Zuwendungsbestätigungen werden einzeln bearbeitet). Die
+// übrigen Breiten sind nur ein sinnvoller Startwert; nach dem ersten
+// Ziehen bzw. Doppelklick merkt sich der Browser die eigene Wahl (siehe
+// useResizableColumns).
+const ACTION_COL_WIDTH = 130;
+const DEFAULT_DONATION_COLUMN_WIDTHS: ColumnWidths = {
+  date: 130,
+  donor: 240,
+  type: 180,
+  purpose: 220,
+  amount: 130,
+  status: 150,
+  taxOffice: 160,
+  taxNumber: 140,
+  exemptionDate: 130,
+  assessmentPeriod: 150,
+  isDirectlyPromoted: 150,
+  issuedBy: 160,
+  goodsInfo: 220
+};
+const DONATION_COLUMN_KEYS = Object.keys(DEFAULT_DONATION_COLUMN_WIDTHS);
+
+// Diese sieben Spalten hat Johannes ohne genauere Platzierungsangabe als
+// "alles neu anbieten" gewünscht (anders als z.B. bei den Finanzen, wo er
+// einzelne Felder ausdrücklich sichtbar haben wollte) — sie starten deshalb
+// ausgeblendet, damit die Tabelle nicht plötzlich mit sieben zusätzlichen
+// Spalten überrascht; über das Rechtsklick-Menü lassen sie sich jederzeit
+// einblenden.
+const DONATION_DEFAULT_HIDDEN_COLUMNS = [
+  'taxOffice',
+  'taxNumber',
+  'exemptionDate',
+  'assessmentPeriod',
+  'isDirectlyPromoted',
+  'issuedBy',
+  'goodsInfo'
+];
+
+const DONATION_COLUMN_LABELS: Record<string, string> = {
+  date: 'Nr. & Datum',
+  donor: 'Zuwendender / Spender',
+  type: 'Art & Muster',
+  purpose: 'Zweck / Gegenstand',
+  amount: 'Betrag / Wert',
+  status: 'Status / Archiv',
+  taxOffice: 'Finanzamt',
+  taxNumber: 'Steuernummer',
+  exemptionDate: 'Freistellungsdatum',
+  assessmentPeriod: 'Veranlagungszeitraum',
+  isDirectlyPromoted: 'Unmittelbar gefördert',
+  issuedBy: 'Ausgestellt von',
+  goodsInfo: 'Herkunft & Bewertungsgrundlage (Sachspende)'
+};
 
 interface DonationsViewProps {
   donations: DonationReceipt[];
@@ -60,6 +141,268 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<'all' | 'money' | 'goods'>('all');
+  const { sortBy, sortDirection, handleSort } = useSortableColumns<DonationSortField>('date', 'desc'); // neueste zuerst
+
+  // Ziehbare, gespeicherte Spaltenbreiten der Tabelle (siehe useResizableColumns).
+  const tableRef = useRef<HTMLTableElement>(null);
+  const { widths: colWidths, startResize, autoFit } = useResizableColumns(
+    'vereinsmanager:colwidths:donations',
+    DEFAULT_DONATION_COLUMN_WIDTHS,
+    tableRef
+  );
+
+  // Per Drag & Drop änderbare Spaltenreihenfolge (siehe useColumnOrder).
+  const {
+    order: columnOrder,
+    draggedKey,
+    dragOverKey,
+    handleColDragStart,
+    handleColDragOver,
+    handleColDrop,
+    handleColDragEnd
+  } = useColumnOrder('vereinsmanager:colorder:donations', DONATION_COLUMN_KEYS);
+
+  // Ein-/Ausblenden einzelner Spalten (unabhängig von Reihenfolge & Breite),
+  // bedienbar per Rechtsklick auf einen beliebigen Spaltenkopf.
+  const { hidden: hiddenColumns, toggle: toggleColumn } = useColumnVisibility(
+    'vereinsmanager:colhidden:donations',
+    DONATION_COLUMN_KEYS,
+    DONATION_DEFAULT_HIDDEN_COLUMNS
+  );
+  const visibleColumnOrder = columnOrder.filter(key => !hiddenColumns.has(key));
+  const [columnMenuPos, setColumnMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const openColumnMenu = (e: React.MouseEvent<HTMLTableCellElement>) => {
+    e.preventDefault();
+    setColumnMenuPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const dragProps = (key: string) => ({
+    isDragging: draggedKey === key,
+    isDragOver: dragOverKey === key,
+    onColDragStart: handleColDragStart(key),
+    onColDragOver: handleColDragOver(key),
+    onColDrop: handleColDrop(key),
+    onColDragEnd: handleColDragEnd,
+    onContextMenu: openColumnMenu
+  });
+
+  // Spaltenkopf-Definitionen je Spaltenschlüssel — werden in der per Drag &
+  // Drop gewählten Reihenfolge (columnOrder) gerendert statt in fester
+  // Quelltext-Reihenfolge.
+  const donationHeaderDefs: Record<string, React.ReactNode> = {
+    date: (
+      <SortableResizableTh
+        key="date"
+        label="Nr. & Datum"
+        active={sortBy === 'date'}
+        direction={sortDirection}
+        onSort={() => handleSort('date')}
+        sortTitle="Nach Datum sortieren"
+        colKey="date"
+        width={colWidths.date}
+        onResizeStart={startResize('date')}
+        onAutoFit={() => autoFit('date')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('date')}
+      />
+    ),
+    donor: (
+      <SortableResizableTh
+        key="donor"
+        label="Zuwendender / Spender"
+        active={sortBy === 'donor'}
+        direction={sortDirection}
+        onSort={() => handleSort('donor')}
+        sortTitle="Nach Zuwendendem sortieren"
+        colKey="donor"
+        width={colWidths.donor}
+        onResizeStart={startResize('donor')}
+        onAutoFit={() => autoFit('donor')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('donor')}
+      />
+    ),
+    type: (
+      <SortableResizableTh
+        key="type"
+        label="Art & Muster"
+        active={sortBy === 'type'}
+        direction={sortDirection}
+        onSort={() => handleSort('type')}
+        sortTitle="Nach Art (Geld-/Sachspende) sortieren"
+        colKey="type"
+        width={colWidths.type}
+        onResizeStart={startResize('type')}
+        onAutoFit={() => autoFit('type')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('type')}
+      />
+    ),
+    purpose: (
+      <SortableResizableTh
+        key="purpose"
+        label="Zweck / Gegenstand"
+        active={sortBy === 'purpose'}
+        direction={sortDirection}
+        onSort={() => handleSort('purpose')}
+        sortTitle="Nach Zweck / Gegenstand sortieren"
+        colKey="purpose"
+        width={colWidths.purpose}
+        onResizeStart={startResize('purpose')}
+        onAutoFit={() => autoFit('purpose')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('purpose')}
+      />
+    ),
+    amount: (
+      <SortableResizableTh
+        key="amount"
+        label="Betrag / Wert"
+        align="right"
+        active={sortBy === 'amount'}
+        direction={sortDirection}
+        onSort={() => handleSort('amount')}
+        sortTitle="Nach Betrag / Wert sortieren"
+        colKey="amount"
+        width={colWidths.amount}
+        onResizeStart={startResize('amount')}
+        onAutoFit={() => autoFit('amount')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('amount')}
+      />
+    ),
+    status: (
+      <SortableResizableTh
+        key="status"
+        label="Status / Archiv"
+        align="center"
+        sortable={false}
+        active={false}
+        direction="asc"
+        onSort={() => {}}
+        sortTitle=""
+        colKey="status"
+        width={colWidths.status}
+        onResizeStart={startResize('status')}
+        onAutoFit={() => autoFit('status')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('status')}
+      />
+    ),
+    taxOffice: (
+      <SortableResizableTh
+        key="taxOffice"
+        label="Finanzamt"
+        active={sortBy === 'taxOffice'}
+        direction={sortDirection}
+        onSort={() => handleSort('taxOffice')}
+        sortTitle="Nach Finanzamt sortieren"
+        colKey="taxOffice"
+        width={colWidths.taxOffice}
+        onResizeStart={startResize('taxOffice')}
+        onAutoFit={() => autoFit('taxOffice')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('taxOffice')}
+      />
+    ),
+    taxNumber: (
+      <SortableResizableTh
+        key="taxNumber"
+        label="Steuernummer"
+        active={sortBy === 'taxNumber'}
+        direction={sortDirection}
+        onSort={() => handleSort('taxNumber')}
+        sortTitle="Nach Steuernummer sortieren"
+        colKey="taxNumber"
+        width={colWidths.taxNumber}
+        onResizeStart={startResize('taxNumber')}
+        onAutoFit={() => autoFit('taxNumber')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('taxNumber')}
+      />
+    ),
+    exemptionDate: (
+      <SortableResizableTh
+        key="exemptionDate"
+        label="Freistellungsdatum"
+        active={sortBy === 'exemptionDate'}
+        direction={sortDirection}
+        onSort={() => handleSort('exemptionDate')}
+        sortTitle="Nach Freistellungsdatum sortieren"
+        colKey="exemptionDate"
+        width={colWidths.exemptionDate}
+        onResizeStart={startResize('exemptionDate')}
+        onAutoFit={() => autoFit('exemptionDate')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('exemptionDate')}
+      />
+    ),
+    assessmentPeriod: (
+      <SortableResizableTh
+        key="assessmentPeriod"
+        label="Veranlagungszeitraum"
+        active={sortBy === 'assessmentPeriod'}
+        direction={sortDirection}
+        onSort={() => handleSort('assessmentPeriod')}
+        sortTitle="Nach Veranlagungszeitraum sortieren"
+        colKey="assessmentPeriod"
+        width={colWidths.assessmentPeriod}
+        onResizeStart={startResize('assessmentPeriod')}
+        onAutoFit={() => autoFit('assessmentPeriod')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('assessmentPeriod')}
+      />
+    ),
+    isDirectlyPromoted: (
+      <SortableResizableTh
+        key="isDirectlyPromoted"
+        label="Unmittelbar gefördert"
+        align="center"
+        active={sortBy === 'isDirectlyPromoted'}
+        direction={sortDirection}
+        onSort={() => handleSort('isDirectlyPromoted')}
+        sortTitle="Nach unmittelbarer Förderung sortieren"
+        colKey="isDirectlyPromoted"
+        width={colWidths.isDirectlyPromoted}
+        onResizeStart={startResize('isDirectlyPromoted')}
+        onAutoFit={() => autoFit('isDirectlyPromoted')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('isDirectlyPromoted')}
+      />
+    ),
+    issuedBy: (
+      <SortableResizableTh
+        key="issuedBy"
+        label="Ausgestellt von"
+        active={sortBy === 'issuedBy'}
+        direction={sortDirection}
+        onSort={() => handleSort('issuedBy')}
+        sortTitle="Nach Aussteller sortieren"
+        colKey="issuedBy"
+        width={colWidths.issuedBy}
+        onResizeStart={startResize('issuedBy')}
+        onAutoFit={() => autoFit('issuedBy')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('issuedBy')}
+      />
+    ),
+    goodsInfo: (
+      <SortableResizableTh
+        key="goodsInfo"
+        label="Herkunft & Bewertungsgrundlage"
+        active={sortBy === 'goodsInfo'}
+        direction={sortDirection}
+        onSort={() => handleSort('goodsInfo')}
+        sortTitle="Nach Herkunft der Sachspende sortieren"
+        colKey="goodsInfo"
+        width={colWidths.goodsInfo}
+        onResizeStart={startResize('goodsInfo')}
+        onAutoFit={() => autoFit('goodsInfo')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('goodsInfo')}
+      />
+    )
+  };
 
   // Extract years
   const years = Array.from(
@@ -67,30 +410,64 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
   ).sort().reverse();
   const [selectedYear, setSelectedYear] = useState<string>('all');
 
-  // Filtered donations
-  const filteredDonations = donations.filter(d => {
-    // Year filter
-    if (selectedYear !== 'all') {
-      if (!d.date || !d.date.startsWith(selectedYear)) return false;
-    }
-    // Type filter
-    if (selectedType !== 'all') {
-      if (d.type !== selectedType) return false;
-    }
-    // Search filter
-    if (searchTerm.trim()) {
-      const q = searchTerm.toLowerCase();
-      const matchName = d.donorName.toLowerCase().includes(q);
-      const matchNum = d.receiptNumber.toLowerCase().includes(q);
-      const matchCity = d.donorAddress?.city?.toLowerCase().includes(q);
-      const matchNotes = d.notes?.toLowerCase().includes(q);
-      const matchGoods = d.goodsDescription?.toLowerCase().includes(q);
-      if (!matchName && !matchNum && !matchCity && !matchNotes && !matchGoods) {
-        return false;
+  // Filtered & sorted donations
+  const filteredDonations = useMemo(() => {
+    return donations.filter(d => {
+      // Year filter
+      if (selectedYear !== 'all') {
+        if (!d.date || !d.date.startsWith(selectedYear)) return false;
       }
-    }
-    return true;
-  });
+      // Type filter
+      if (selectedType !== 'all') {
+        if (d.type !== selectedType) return false;
+      }
+      // Search filter
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase();
+        const matchName = d.donorName.toLowerCase().includes(q);
+        const matchNum = d.receiptNumber.toLowerCase().includes(q);
+        const matchCity = d.donorAddress?.city?.toLowerCase().includes(q);
+        const matchNotes = d.notes?.toLowerCase().includes(q);
+        const matchGoods = d.goodsDescription?.toLowerCase().includes(q);
+        if (!matchName && !matchNum && !matchCity && !matchNotes && !matchGoods) {
+          return false;
+        }
+      }
+      return true;
+    }).sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'date') {
+        comparison = new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime();
+      } else if (sortBy === 'donor') {
+        comparison = (a.donorName || '').localeCompare(b.donorName || '', 'de');
+      } else if (sortBy === 'type') {
+        comparison = DONATION_TYPE_SORT_ORDER[a.type] - DONATION_TYPE_SORT_ORDER[b.type];
+      } else if (sortBy === 'purpose') {
+        const purposeA = a.type === 'goods' ? a.goodsDescription || '' : a.notes || a.promotedPurpose || '';
+        const purposeB = b.type === 'goods' ? b.goodsDescription || '' : b.notes || b.promotedPurpose || '';
+        comparison = purposeA.localeCompare(purposeB, 'de');
+      } else if (sortBy === 'amount') {
+        comparison = (a.amount || 0) - (b.amount || 0);
+      } else if (sortBy === 'taxOffice') {
+        comparison = (a.taxOffice || '').localeCompare(b.taxOffice || '', 'de');
+      } else if (sortBy === 'taxNumber') {
+        comparison = (a.taxNumber || '').localeCompare(b.taxNumber || '', 'de');
+      } else if (sortBy === 'exemptionDate') {
+        comparison = new Date(a.exemptionDate || 0).getTime() - new Date(b.exemptionDate || 0).getTime();
+      } else if (sortBy === 'assessmentPeriod') {
+        comparison = (a.assessmentPeriod || '').localeCompare(b.assessmentPeriod || '', 'de');
+      } else if (sortBy === 'isDirectlyPromoted') {
+        comparison = Number(a.isDirectlyPromoted) - Number(b.isDirectlyPromoted);
+      } else if (sortBy === 'issuedBy') {
+        comparison = (a.issuedBy || '').localeCompare(b.issuedBy || '', 'de');
+      } else if (sortBy === 'goodsInfo') {
+        const goodsA = (a.goodsOrigin || '') + (a.goodsValuationBasis || '');
+        const goodsB = (b.goodsOrigin || '') + (b.goodsValuationBasis || '');
+        comparison = goodsA.localeCompare(goodsB, 'de');
+      }
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [donations, selectedYear, selectedType, searchTerm, sortBy, sortDirection]);
 
   // Calculate statistics
   const totalAmount = filteredDonations.reduce((sum, d) => sum + (d.amount || 0), 0);
@@ -221,7 +598,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
       </div>
 
       {/* Main List Section */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs">
         {/* Filter Toolbar */}
         <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-col md:flex-row items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
@@ -314,17 +691,41 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+          <div className="overflow-auto max-h-[65vh]">
+            {/* Eigener, nach oben begrenzter Scroll-Bereich (Breite UND
+                Höhe) — der seitliche Scrollbalken sitzt dadurch immer direkt
+                unter den Zeilen, auch bei langen Seiten (siehe ausführlicher
+                Kommentar in MembersView.tsx bzw. in App.tsx, warum der
+                vorherige Versuch nicht funktioniert hat). */}
+            <table
+              ref={tableRef}
+              className="text-left border-collapse text-xs"
+              style={{
+                tableLayout: 'fixed',
+                width: ACTION_COL_WIDTH + visibleColumnOrder.reduce((sum, key) => sum + (colWidths[key] || 0), 0)
+              }}
+            >
+              {/* <colgroup> statt Breiten nur an den <th>-Elementen — macht
+                  die Spaltenbreite unabhängig vom Tabellenkopf, damit sie
+                  sich beim Ziehen auch in den Zeilen darunter ändert (siehe
+                  ausführlicher Kommentar in MembersView.tsx, wo dasselbe
+                  Problem in Firefox auftrat). Keine Auswahl-Spalte hier —
+                  Spenden haben kein Kontrollkästchen. */}
+              <colgroup>
+                {visibleColumnOrder.map(key => (
+                  <col key={key} style={{ width: colWidths[key] || 0 }} />
+                ))}
+                <col style={{ width: ACTION_COL_WIDTH }} />
+              </colgroup>
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-600 font-semibold text-2xs uppercase tracking-wider">
-                  <th className="py-3 px-4">Nr. & Datum</th>
-                  <th className="py-3 px-4">Zuwendender / Spender</th>
-                  <th className="py-3 px-4">Art & Muster</th>
-                  <th className="py-3 px-4">Zweck / Gegenstand</th>
-                  <th className="py-3 px-4 text-right">Betrag / Wert</th>
-                  <th className="py-3 px-4 text-center">Status / Archiv</th>
-                  <th className="py-3 px-4 text-right">Aktionen</th>
+                <tr className="text-slate-600 font-semibold text-2xs uppercase tracking-wider">
+                  {visibleColumnOrder.map(key => donationHeaderDefs[key])}
+                  <th
+                    style={{ width: ACTION_COL_WIDTH, minWidth: ACTION_COL_WIDTH }}
+                    className="py-3 px-4 text-right sticky top-0 z-10 bg-slate-50/80 border-b border-slate-200"
+                  >
+                    Aktionen
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -336,88 +737,162 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                       key={receipt.id}
                       className="hover:bg-slate-50/80 transition-colors group"
                     >
-                      {/* Nr. & Datum */}
-                      <td className="py-3 px-4">
-                        <div className="font-mono font-bold text-slate-900">
-                          {receipt.receiptNumber}
-                        </div>
-                        <div className="text-2xs text-slate-500 flex items-center gap-1 mt-0.5">
-                          <Calendar className="w-3 h-3 text-slate-400" />
-                          <span>{new Date(receipt.date).toLocaleDateString('de-DE')}</span>
-                        </div>
-                      </td>
-
-                      {/* Spender */}
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                          {receipt.donorType === 'member' ? (
-                            <span className="p-0.5 bg-emerald-100 text-emerald-800 rounded text-3xs font-semibold px-1">Mitglied</span>
-                          ) : (
-                            <span className="p-0.5 bg-slate-100 text-slate-700 rounded text-3xs font-semibold px-1">Extern</span>
-                          )}
-                          <span>{receipt.donorName}</span>
-                        </div>
-                        <div className="text-2xs text-slate-500 mt-0.5">
-                          {receipt.donorAddress.street} {receipt.donorAddress.houseNumber}, {receipt.donorAddress.zip} {receipt.donorAddress.city}
-                        </div>
-                      </td>
-
-                      {/* Art & Muster */}
-                      <td className="py-3 px-4">
-                        {isGoods ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-2xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                            <Package className="w-3 h-3" />
-                            Sachspende (Muster 2)
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <Coins className="w-3 h-3" />
-                            Geldspende (Muster 1)
-                          </span>
-                        )}
-                        {receipt.isWaiverOfRefund && (
-                          <div className="mt-1 text-3xs font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-block">
-                            Aufwandsspende
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Zweck / Gegenstand */}
-                      <td className="py-3 px-4 max-w-xs">
-                        {isGoods ? (
-                          <div className="text-slate-800 font-medium truncate" title={receipt.goodsDescription}>
-                            {receipt.goodsDescription || 'Sachzuwendung'}
-                          </div>
-                        ) : (
-                          <div className="text-slate-800 font-medium truncate" title={receipt.notes || receipt.promotedPurpose}>
-                            {receipt.notes || receipt.promotedPurpose || 'Förderung des Sports'}
-                          </div>
-                        )}
-                        <div className="text-3xs text-slate-400 font-mono mt-0.5 truncate">
-                          {receipt.amountInWords}
-                        </div>
-                      </td>
-
-                      {/* Betrag */}
-                      <td className="py-3 px-4 text-right">
-                        <div className="font-mono font-bold text-sm text-slate-900">
-                          {receipt.amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                        </div>
-                        {receipt.transactionId && (
-                          <div className="text-3xs text-emerald-600 font-semibold flex items-center justify-end gap-0.5">
-                            <CheckCircle2 className="w-2.5 h-2.5" />
-                            Verbucht
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Status / Archiv */}
-                      <td className="py-3 px-4 text-center">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-3xs font-semibold rounded-full border border-emerald-200">
-                          <FileCheck className="w-3 h-3 text-emerald-600" />
-                          BMF-Archiviert
-                        </span>
-                      </td>
+                      {(() => {
+                        const donationCellDefs: Record<string, React.ReactNode> = {
+                          date: (
+                            <td key="date" data-col-content="date" className="py-3 px-4 overflow-hidden">
+                              <div className="font-mono font-bold text-slate-900">
+                                {receipt.receiptNumber}
+                              </div>
+                              <div className="text-2xs text-slate-500 flex items-center gap-1 mt-0.5">
+                                <Calendar className="w-3 h-3 text-slate-400" />
+                                <span>{new Date(receipt.date).toLocaleDateString('de-DE')}</span>
+                              </div>
+                            </td>
+                          ),
+                          donor: (
+                            <td key="donor" data-col-content="donor" className="py-3 px-4 overflow-hidden">
+                              <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                                {receipt.donorType === 'member' ? (
+                                  <span className="p-0.5 bg-emerald-100 text-emerald-800 rounded text-3xs font-semibold px-1">Mitglied</span>
+                                ) : (
+                                  <span className="p-0.5 bg-slate-100 text-slate-700 rounded text-3xs font-semibold px-1">Extern</span>
+                                )}
+                                <span>{receipt.donorName}</span>
+                              </div>
+                              <div className="text-2xs text-slate-500 mt-0.5">
+                                {receipt.donorAddress.street} {receipt.donorAddress.houseNumber}, {receipt.donorAddress.zip} {receipt.donorAddress.city}
+                              </div>
+                            </td>
+                          ),
+                          type: (
+                            <td key="type" data-col-content="type" className="py-3 px-4 overflow-hidden">
+                              {isGoods ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-2xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                  <Package className="w-3 h-3" />
+                                  Sachspende (Muster 2)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  <Coins className="w-3 h-3" />
+                                  Geldspende (Muster 1)
+                                </span>
+                              )}
+                              {receipt.isWaiverOfRefund && (
+                                <div className="mt-1 text-3xs font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-block">
+                                  Aufwandsspende
+                                </div>
+                              )}
+                            </td>
+                          ),
+                          purpose: (
+                            <td key="purpose" data-col-content="purpose" className="py-3 px-4 overflow-hidden">
+                              {isGoods ? (
+                                <div className="text-slate-800 font-medium truncate" title={receipt.goodsDescription}>
+                                  {receipt.goodsDescription || 'Sachzuwendung'}
+                                </div>
+                              ) : (
+                                <div className="text-slate-800 font-medium truncate" title={receipt.notes || receipt.promotedPurpose}>
+                                  {receipt.notes || receipt.promotedPurpose || 'Förderung des Sports'}
+                                </div>
+                              )}
+                              <div className="text-3xs text-slate-400 font-mono mt-0.5 truncate">
+                                {receipt.amountInWords}
+                              </div>
+                            </td>
+                          ),
+                          amount: (
+                            <td key="amount" data-col-content="amount" className="py-3 px-4 text-right overflow-hidden">
+                              <div className="font-mono font-bold text-sm text-slate-900">
+                                {receipt.amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                              </div>
+                              {receipt.transactionId && (
+                                <div className="text-3xs text-emerald-600 font-semibold flex items-center justify-end gap-0.5">
+                                  <CheckCircle2 className="w-2.5 h-2.5" />
+                                  Verbucht
+                                </div>
+                              )}
+                            </td>
+                          ),
+                          status: (() => {
+                            // "BMF-Archiviert" wurde früher immer angezeigt, egal ob
+                            // tatsächlich ein PDF hinterlegt war (das hatte AI Studio
+                            // seinerzeit fest eingebaut). Jetzt: nur noch "Archiviert",
+                            // und nur, wenn receipt.documentId wirklich auf ein noch
+                            // vorhandenes Dokument zeigt — derselbe Abgleich wie in
+                            // handleViewDoc oben, damit beide Stellen übereinstimmen.
+                            const hasArchivedPdf =
+                              !!receipt.documentId && documents.some(doc => doc.id === receipt.documentId);
+                            return (
+                              <td key="status" data-col-content="status" className="py-3 px-4 text-center overflow-hidden">
+                                {hasArchivedPdf ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-3xs font-semibold rounded-full border border-emerald-200">
+                                    <FileCheck className="w-3 h-3 text-emerald-600" />
+                                    Archiviert
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300 text-2xs">–</span>
+                                )}
+                              </td>
+                            );
+                          })(),
+                          taxOffice: (
+                            <td key="taxOffice" data-col-content="taxOffice" className="py-3 px-4 text-slate-600 truncate overflow-hidden">
+                              {receipt.taxOffice || '–'}
+                            </td>
+                          ),
+                          taxNumber: (
+                            <td key="taxNumber" data-col-content="taxNumber" className="py-3 px-4 text-slate-600 font-mono text-2xs truncate overflow-hidden">
+                              {receipt.taxNumber || '–'}
+                            </td>
+                          ),
+                          exemptionDate: (
+                            <td key="exemptionDate" data-col-content="exemptionDate" className="py-3 px-4 text-slate-600 overflow-hidden">
+                              {receipt.exemptionDate ? new Date(receipt.exemptionDate).toLocaleDateString('de-DE') : '–'}
+                            </td>
+                          ),
+                          assessmentPeriod: (
+                            <td key="assessmentPeriod" data-col-content="assessmentPeriod" className="py-3 px-4 text-slate-600 truncate overflow-hidden">
+                              {receipt.assessmentPeriod || '–'}
+                            </td>
+                          ),
+                          isDirectlyPromoted: (
+                            <td key="isDirectlyPromoted" data-col-content="isDirectlyPromoted" className="py-3 px-4 text-center overflow-hidden">
+                              {receipt.isDirectlyPromoted ? (
+                                <span className="text-emerald-700 text-2xs font-semibold">Ja</span>
+                              ) : (
+                                <span className="text-slate-400 text-2xs">Nein</span>
+                              )}
+                            </td>
+                          ),
+                          issuedBy: (
+                            <td key="issuedBy" data-col-content="issuedBy" className="py-3 px-4 text-slate-600 truncate overflow-hidden">
+                              {receipt.issuedBy || '–'}
+                            </td>
+                          ),
+                          goodsInfo: (
+                            <td key="goodsInfo" data-col-content="goodsInfo" className="py-3 px-4 text-slate-600 overflow-hidden">
+                              {isGoods && (receipt.goodsOrigin || receipt.goodsValuationBasis) ? (
+                                <>
+                                  {receipt.goodsOrigin && (
+                                    <div className="text-2xs">
+                                      {receipt.goodsOrigin === 'business' ? 'Betriebsvermögen' : 'Privatvermögen'}
+                                    </div>
+                                  )}
+                                  {receipt.goodsValuationBasis && (
+                                    <div className="text-3xs text-slate-400 truncate" title={receipt.goodsValuationBasis}>
+                                      {receipt.goodsValuationBasis}
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-slate-300">–</span>
+                              )}
+                            </td>
+                          )
+                        };
+                        return visibleColumnOrder.map(key => donationCellDefs[key]);
+                      })()}
 
                       {/* Aktionen */}
                       <td className="py-3 px-4 text-right">
@@ -475,6 +950,15 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
               </tbody>
             </table>
           </div>
+        )}
+        {columnMenuPos && (
+          <ColumnVisibilityMenu
+            position={columnMenuPos}
+            columns={columnOrder.map(key => ({ key, label: DONATION_COLUMN_LABELS[key] || key }))}
+            hidden={hiddenColumns}
+            onToggle={toggleColumn}
+            onClose={() => setColumnMenuPos(null)}
+          />
         )}
       </div>
 

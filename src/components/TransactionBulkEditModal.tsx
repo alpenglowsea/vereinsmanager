@@ -5,7 +5,7 @@ import {
   TaxSphere,
   TransactionBulkUpdates
 } from '../types';
-import { TAX_SPHERES, SKR42_STRUCTURE } from '../data/taxSpheres';
+import { TAX_SPHERES, SKR42_STRUCTURE, DEFAULT_DEPARTMENTS } from '../data/taxSpheres';
 import { SearchableAccountSelect, SearchableAccountOption } from './SearchableAccountSelect';
 import {
   X,
@@ -18,7 +18,8 @@ import {
   Calendar,
   FileText,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Layers
 } from 'lucide-react';
 
 interface TransactionBulkEditModalProps {
@@ -26,13 +27,15 @@ interface TransactionBulkEditModalProps {
   accounts: FinancialAccount[];
   onSave: (updates: TransactionBulkUpdates) => Promise<void>;
   onClose: () => void;
+  departments?: string[];
 }
 
 export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> = ({
   selectedTransactions,
   accounts,
   onSave,
-  onClose
+  onClose,
+  departments = DEFAULT_DEPARTMENTS
 }) => {
   // Activation flags
   const [applyAccount, setApplyAccount] = useState(false);
@@ -58,29 +61,28 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
   const [notesAction, setNotesAction] = useState<'append' | 'replace'>('append');
   const [notesValue, setNotesValue] = useState<string>('');
 
+  const [applyDepartment, setApplyDepartment] = useState(false);
+  const [department, setDepartment] = useState<string>('');
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showTxList, setShowTxList] = useState(false);
 
-  // Filter main categories by chosen sphere (or all if sphere not active)
-  const availableMainCategories = useMemo(() => {
-    if (applySphere) {
-      return SKR42_STRUCTURE.filter(m => m.sphere === sphere);
-    }
-    return SKR42_STRUCTURE;
-  }, [applySphere, sphere]);
+  // Nummernkreise sind seit der DATEV-SKR42-Umstellung unabhängig von der
+  // Sphäre (die Sphäre wird je Buchung über KOST1 vergeben, nicht über das
+  // Konto) — die Liste wird darum nicht mehr nach Sphäre gefiltert.
+  const availableMainCategories = SKR42_STRUCTURE;
 
-  // Options for Hauptkonto
+  // Options for Nummernkreis
   const mainAccountOptions: SearchableAccountOption[] = useMemo(() => {
     return availableMainCategories.map(m => ({
       value: m.code,
       code: m.code,
       name: m.name,
-      label: `${m.code} - ${m.name} (${TAX_SPHERES[m.sphere]?.name || m.sphere})`,
-      group: TAX_SPHERES[m.sphere]?.name || m.sphere
+      label: `${m.code} - ${m.name}`
     }));
   }, [availableMainCategories]);
 
-  // Options for Unterkonto
+  // Options for Konto
   const subAccountOptions: SearchableAccountOption[] = useMemo(() => {
     if (selectedMainCode) {
       const parent = SKR42_STRUCTURE.find(m => m.code === selectedMainCode);
@@ -94,7 +96,7 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
         }));
       }
     }
-    // Fallback: all subcategories under filtered main categories
+    // Fallback: alle Unterkonten aller Nummernkreise
     const allSubs: SearchableAccountOption[] = [];
     availableMainCategories.forEach(m => {
       m.subCategories.forEach(s => {
@@ -133,7 +135,8 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
     applyVatRate,
     applyPartner,
     applyDate,
-    applyNotes
+    applyNotes,
+    applyDepartment
   ].filter(Boolean).length;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -146,6 +149,7 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
     if (applyVatRate) updates.vatRate = vatRate;
     if (applyPartner && partner.trim()) updates.partner = partner.trim();
     if (applyDate) updates.date = date;
+    if (applyDepartment) updates.department = department;
 
     if (applySkr) {
       const mainCat = SKR42_STRUCTURE.find(m => m.code === selectedMainCode);
@@ -317,11 +321,7 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
                   <button
                     key={sp}
                     type="button"
-                    onClick={() => {
-                      setSphere(sp);
-                      setSelectedMainCode('');
-                      setSelectedSubCode('');
-                    }}
+                    onClick={() => setSphere(sp)}
                     className={`p-2.5 rounded-lg border text-left text-xs transition-all ${
                       sphere === sp
                         ? 'border-blue-600 bg-blue-100/70 text-blue-900 font-bold ring-1 ring-blue-500'
@@ -348,7 +348,7 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
                 />
                 <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
                   <Tag className="w-4 h-4 text-purple-600" />
-                  DATEV SKR 42 Kontierung (Haupt- & Unterkonto)
+                  DATEV SKR 42 Kontierung (Nummernkreis & Konto)
                 </span>
               </label>
               {applySkr && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
@@ -359,18 +359,18 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
                   <div className="flex flex-col">
                     <SearchableAccountSelect
-                      label="1. SKR 42 Hauptkonto (Klasse/Bereich)"
+                      label="1. Nummernkreis"
                       value={selectedMainCode}
                       options={mainAccountOptions}
                       onChange={handleMainCodeChange}
-                      placeholder="Hauptkonto auswählen..."
+                      placeholder="Nummernkreis auswählen..."
                       searchPlaceholder="Ziffer oder Text suchen..."
                     />
                   </div>
 
                   <div className="flex flex-col">
                     <SearchableAccountSelect
-                      label="2. SKR 42 Unterkonto (Einzelkonto)"
+                      label="2. Konto"
                       value={selectedSubCode}
                       options={subAccountOptions}
                       onChange={code => {
@@ -380,7 +380,7 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
                           setSelectedMainCode(parent.code);
                         }
                       }}
-                      placeholder="Unterkonto auswählen..."
+                      placeholder="Konto auswählen..."
                       searchPlaceholder="Konto oder Nummer tippen..."
                     />
                   </div>
@@ -544,6 +544,40 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
                   placeholder="z.B. Geprüft durch Kassenprüfer am 15.03.2026..."
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-normal text-slate-800 focus:ring-2 focus:ring-blue-500"
                 />
+              </div>
+            )}
+          </div>
+
+          {/* 8. Sparte */}
+          <div className={`p-4 rounded-xl border transition-all ${applyDepartment ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+            <div className="flex items-center justify-between mb-2">
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={applyDepartment}
+                  onChange={e => setApplyDepartment(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                />
+                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-teal-600" />
+                  Sparte zuordnen
+                </span>
+              </label>
+              {applyDepartment && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
+            </div>
+
+            {applyDepartment && (
+              <div className="mt-3 pl-6">
+                <select
+                  value={department}
+                  onChange={e => setDepartment(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Gesamtverein (keine Sparte)</option>
+                  {departments.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
               </div>
             )}
           </div>

@@ -6,7 +6,7 @@
  * Datei ist die einzige Stelle, die diesen Ausweis anhängt — jeder Aufruf an
  * den Server läuft über apiFetch().
  *
- * Es gibt zwei Ausweise, einer genügt:
+ * Es gibt zwei Ausweise für den Zugriff auf den Server selbst, einer genügt:
  *
  *   1. Der Zugriffsschlüssel dieser Installation. Im Lokalbetrieb hängt ihn
  *      das Startskript an die Adresse an, die es im Browser öffnet
@@ -21,6 +21,13 @@
  * Adresse ihn erneut mitbringen müsste. Er steht damit auf demselben Gerät,
  * auf dem ohnehin die Vereinsdaten liegen; er eröffnet keinen Zugang, den der
  * Besitzer dieses Browsers nicht ohnehin hätte.
+ *
+ * Dazu kommt seit Betriebsart 3 (eigener Server, siehe
+ * services/localServerAuth.ts) ein DRITTER, davon unabhängiger Ausweis: das
+ * Sitzungstoken der Anmeldung an genau diesem Server. Er beantwortet eine
+ * andere Frage als die zwei oben ("darf diese Anfrage den Server überhaupt
+ * erreichen") — nämlich "als wer". Deshalb wird er hier zusätzlich mitgeschickt,
+ * nicht statt der anderen beiden.
  */
 
 import { getSupabaseClient } from './supabaseClient';
@@ -99,6 +106,55 @@ export function uebernehmeSchluesselAusAdresse(): void {
   }
 }
 
+/**
+ * Liest ein "Passwort vergessen"-Token aus der Adresszeile (…#reset-passwort=…).
+ * Steht im selben Rautenteil wie …#zugriff=… (siehe
+ * uebernehmeSchluesselAusAdresse oben) — ein Reset-Link enthält bewusst
+ * beides zugleich, siehe server.ts: Ohne den Zugriffsschlüssel käme jemand,
+ * der diesen Server zum ersten Mal von einem neuen Gerät aus aufruft, gar
+ * nicht erst bis zur Anmeldemaske.
+ *
+ * Anders als beim Zugriffsschlüssel wird der Wert hier NICHT aus der Adresse
+ * entfernt oder gemerkt — ein Neuladen der Seite soll die
+ * "Neues Passwort setzen"-Maske nicht verlieren. Erst nach erfolgreichem
+ * Zurücksetzen entfernt LoginScreen ihn selbst aus der Adresse.
+ */
+export function lesePasswortResetToken(): string | null {
+  try {
+    const roh = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
+    if (!roh) return null;
+    const teile = new URLSearchParams(roh);
+    const token = teile.get('reset-passwort');
+    return token && token.trim() ? token.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Entfernt nur den eigenen "reset-passwort"-Wert wieder aus der Adresszeile
+ * (nach erfolgreichem Zurücksetzen) — genau wie
+ * uebernehmeSchluesselAusAdresse() das für "zugriff" tut, und aus demselben
+ * Grund lässt sie den Rest der Raute (z. B. Supabase-Angaben) unberührt.
+ */
+export function entfernePasswortResetAusAdresse(): void {
+  try {
+    const roh = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
+    if (!roh) return;
+    const teile = new URLSearchParams(roh);
+    if (!teile.has('reset-passwort')) return;
+    teile.delete('reset-passwort');
+    const rest = teile.toString();
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${window.location.search}${rest ? `#${rest}` : ''}`
+    );
+  } catch {
+    // Kein Grund, die Anwendung anzuhalten — siehe sicherLesen() oben.
+  }
+}
+
 /** Anmeldetoken des Cloud-Betriebs, falls jemand angemeldet ist. */
 async function cloudToken(): Promise<string | null> {
   try {
@@ -108,6 +164,43 @@ async function cloudToken(): Promise<string | null> {
     return data.session?.access_token || null;
   } catch {
     return null;
+  }
+}
+
+const SPEICHER_SITZUNG = 'vm_local_server_sitzung';
+
+/**
+ * Kopfzeile für das Sitzungstoken des eigenen Servers (Betriebsart 3) — muss
+ * mit SITZUNG_HEADER in src/server/localAuth.ts übereinstimmen (dort
+ * kleingeschrieben, hier nur aus Lesbarkeitsgründen anders geschrieben —
+ * HTTP-Kopfzeilen unterscheiden nicht zwischen Groß- und Kleinschreibung).
+ */
+const SITZUNG_HEADER = 'X-VM-Sitzung';
+
+/**
+ * Liest das Sitzungstoken des eigenen Servers, ohne den Umweg über
+ * localServerAuth.ts — sonst entstünde ein Kreis (jene Datei ruft apiFetch()
+ * auf, apiFetch() bräuchte von dort das Token).
+ */
+function localServerSitzungLesen(): string {
+  try {
+    return localStorage.getItem(SPEICHER_SITZUNG) || '';
+  } catch {
+    return '';
+  }
+}
+
+export function getLocalServerSitzung(): string {
+  return localServerSitzungLesen();
+}
+
+export function setLocalServerSitzung(token: string): void {
+  try {
+    const sauber = token.trim();
+    if (sauber) localStorage.setItem(SPEICHER_SITZUNG, sauber);
+    else localStorage.removeItem(SPEICHER_SITZUNG);
+  } catch {
+    // siehe sicherLesen() oben — kein Grund, die App anzuhalten.
   }
 }
 
@@ -129,6 +222,9 @@ export async function apiFetch(pfad: string, init: RequestInit = {}): Promise<Re
   // Netzwerkaufruf aus, solange das Token gültig ist.
   const token = await cloudToken();
   if (token) kopfzeilen.set('Authorization', `Bearer ${token}`);
+
+  const sitzung = localServerSitzungLesen();
+  if (sitzung) kopfzeilen.set(SITZUNG_HEADER, sitzung);
 
   return fetch(pfad, { ...init, headers: kopfzeilen });
 }

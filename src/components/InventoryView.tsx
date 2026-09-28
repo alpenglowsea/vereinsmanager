@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { InventoryItem, InventoryCategory, ClubSettings, InventoryBulkUpdates, Member, MemberInventoryAssignment } from '../types';
 import { INVENTORY_CATEGORIES, CONDITION_OPTIONS } from '../data/inventoryCategories';
 import { StorageService } from '../services/storage';
@@ -6,6 +6,12 @@ import { ExportService } from '../services/exportService';
 import { TablePagination, PageSizeOption } from './TablePagination';
 import { InventoryBulkEditModal } from './InventoryBulkEditModal';
 import { IssuedInventoryModal } from './IssuedInventoryModal';
+import { SortableResizableTh } from './SortableResizableTh';
+import { useResizableColumns, ColumnWidths } from '../hooks/useResizableColumns';
+import { useSortableColumns } from '../hooks/useSortableColumns';
+import { useColumnOrder } from '../hooks/useColumnOrder';
+import { useColumnVisibility } from '../hooks/useColumnVisibility';
+import { ColumnVisibilityMenu } from './ColumnVisibilityMenu';
 import {
   Package,
   Plus,
@@ -34,6 +40,72 @@ import {
   Lock
 } from 'lucide-react';
 import { lockClass, lockTitle } from '../utils/uiLock';
+
+type InventorySortField =
+  | 'name'
+  | 'category'
+  | 'department'
+  | 'quantity'
+  | 'location'
+  | 'condition'
+  | 'value'
+  | 'responsible'
+  | 'purchasePrice'
+  | 'currentValue';
+
+// Reihenfolge, in der ein Zustand als "sortiert" gilt — entspricht der
+// Reihenfolge, in der CONDITION_OPTIONS auch sonst in der App angezeigt
+// wird (bester bis schlechtester Zustand); eine alphabetische Sortierung
+// nach dem Label wäre hier nicht sinnvoll ablesbar.
+const CONDITION_SORT_ORDER: Record<InventoryItem['condition'], number> = {
+  new: 0,
+  good: 1,
+  used: 2,
+  damaged: 3,
+  in_repair: 4,
+  discarded: 5
+};
+
+// Feste Breiten für Auswahl-Kästchen- und Aktionsspalte — die übrigen sind
+// nur ein sinnvoller Startwert; nach dem ersten Ziehen bzw. Doppelklick
+// merkt sich der Browser die eigene Wahl (siehe useResizableColumns).
+const CHECKBOX_COL_WIDTH = 40;
+const ACTION_COL_WIDTH = 90;
+const DEFAULT_INVENTORY_COLUMN_WIDTHS: ColumnWidths = {
+  name: 240,
+  category: 150,
+  department: 140,
+  quantity: 90,
+  location: 170,
+  condition: 160,
+  value: 150,
+  responsible: 160,
+  purchasePrice: 170,
+  currentValue: 140
+};
+const INVENTORY_COLUMN_KEYS = Object.keys(DEFAULT_INVENTORY_COLUMN_WIDTHS);
+
+// Johannes wollte hier ausdrücklich, dass Einkaufspreis und Zeitwert je eine
+// EIGENE Spalte bekommen (anders als die vorhandene "Zeitwert / Anschaffung"-
+// Spalte, die beides schon zusammen zeigt) — deshalb starten beide sichtbar,
+// genau wie z.B. der Steuersatz bei den Finanzen. Kaufdatum, Lieferant,
+// Notizen und "zuletzt geprüft" bekommen laut seiner Vorgabe KEINE eigene
+// Spalte ("der Rest kann eingebettet bleiben") — sie stehen stattdessen als
+// Zusatzzeile in den bestehenden Zellen (Einkaufspreis, Name, Zustand).
+const INVENTORY_DEFAULT_HIDDEN_COLUMNS: string[] = [];
+
+const INVENTORY_COLUMN_LABELS: Record<string, string> = {
+  name: 'Inventar-Nr. & Gegenstand',
+  category: 'Art des Materials',
+  department: 'Sparte / Abteilung',
+  quantity: 'Menge',
+  location: 'Standort / Aufbewahrung',
+  condition: 'Zustand',
+  value: 'Zeitwert / Anschaffung',
+  responsible: 'Zuständig / Einsatz',
+  purchasePrice: 'Einkaufspreis',
+  currentValue: 'Zeitwert (separat)'
+};
 
 interface InventoryViewProps {
   inventory: InventoryItem[];
@@ -82,6 +154,220 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
+  // Sortierung der Tabellenansicht (Kartenansicht bleibt unsortiert)
+  const { sortBy, sortDirection, handleSort } = useSortableColumns<InventorySortField>('name');
+
+  // Ziehbare, gespeicherte Spaltenbreiten der Tabelle (siehe useResizableColumns).
+  const tableRef = useRef<HTMLTableElement>(null);
+  const { widths: colWidths, startResize, autoFit } = useResizableColumns(
+    'vereinsmanager:colwidths:inventory',
+    DEFAULT_INVENTORY_COLUMN_WIDTHS,
+    tableRef
+  );
+
+  // Per Drag & Drop änderbare Spaltenreihenfolge (siehe useColumnOrder).
+  const {
+    order: columnOrder,
+    draggedKey,
+    dragOverKey,
+    handleColDragStart,
+    handleColDragOver,
+    handleColDrop,
+    handleColDragEnd
+  } = useColumnOrder('vereinsmanager:colorder:inventory', INVENTORY_COLUMN_KEYS);
+
+  // Ein-/Ausblenden einzelner Spalten (unabhängig von Reihenfolge & Breite),
+  // bedienbar per Rechtsklick auf einen beliebigen Spaltenkopf.
+  const { hidden: hiddenColumns, toggle: toggleColumn } = useColumnVisibility(
+    'vereinsmanager:colhidden:inventory',
+    INVENTORY_COLUMN_KEYS,
+    INVENTORY_DEFAULT_HIDDEN_COLUMNS
+  );
+  const visibleColumnOrder = columnOrder.filter(key => !hiddenColumns.has(key));
+  const [columnMenuPos, setColumnMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const openColumnMenu = (e: React.MouseEvent<HTMLTableCellElement>) => {
+    e.preventDefault();
+    setColumnMenuPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const dragProps = (key: string) => ({
+    isDragging: draggedKey === key,
+    isDragOver: dragOverKey === key,
+    onColDragStart: handleColDragStart(key),
+    onColDragOver: handleColDragOver(key),
+    onColDrop: handleColDrop(key),
+    onColDragEnd: handleColDragEnd,
+    onContextMenu: openColumnMenu
+  });
+
+  // Spaltenkopf-Definitionen je Spaltenschlüssel — werden in der per Drag &
+  // Drop gewählten Reihenfolge (columnOrder) gerendert statt in fester
+  // Quelltext-Reihenfolge.
+  const inventoryHeaderDefs: Record<string, React.ReactNode> = {
+    name: (
+      <SortableResizableTh
+        key="name"
+        label="Inventar-Nr. & Gegenstand"
+        active={sortBy === 'name'}
+        direction={sortDirection}
+        onSort={() => handleSort('name')}
+        sortTitle="Nach Gegenstand sortieren"
+        colKey="name"
+        width={colWidths.name}
+        onResizeStart={startResize('name')}
+        onAutoFit={() => autoFit('name')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('name')}
+      />
+    ),
+    category: (
+      <SortableResizableTh
+        key="category"
+        label="Art des Materials"
+        active={sortBy === 'category'}
+        direction={sortDirection}
+        onSort={() => handleSort('category')}
+        sortTitle="Nach Art des Materials sortieren"
+        colKey="category"
+        width={colWidths.category}
+        onResizeStart={startResize('category')}
+        onAutoFit={() => autoFit('category')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('category')}
+      />
+    ),
+    department: (
+      <SortableResizableTh
+        key="department"
+        label="Sparte / Abteilung"
+        active={sortBy === 'department'}
+        direction={sortDirection}
+        onSort={() => handleSort('department')}
+        sortTitle="Nach Sparte / Abteilung sortieren"
+        colKey="department"
+        width={colWidths.department}
+        onResizeStart={startResize('department')}
+        onAutoFit={() => autoFit('department')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('department')}
+      />
+    ),
+    quantity: (
+      <SortableResizableTh
+        key="quantity"
+        label="Menge"
+        active={sortBy === 'quantity'}
+        direction={sortDirection}
+        onSort={() => handleSort('quantity')}
+        sortTitle="Nach Menge sortieren"
+        colKey="quantity"
+        width={colWidths.quantity}
+        onResizeStart={startResize('quantity')}
+        onAutoFit={() => autoFit('quantity')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('quantity')}
+      />
+    ),
+    location: (
+      <SortableResizableTh
+        key="location"
+        label="Standort / Aufbewahrung"
+        active={sortBy === 'location'}
+        direction={sortDirection}
+        onSort={() => handleSort('location')}
+        sortTitle="Nach Standort / Aufbewahrung sortieren"
+        colKey="location"
+        width={colWidths.location}
+        onResizeStart={startResize('location')}
+        onAutoFit={() => autoFit('location')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('location')}
+      />
+    ),
+    condition: (
+      <SortableResizableTh
+        key="condition"
+        label="Zustand"
+        active={sortBy === 'condition'}
+        direction={sortDirection}
+        onSort={() => handleSort('condition')}
+        sortTitle="Nach Zustand sortieren"
+        colKey="condition"
+        width={colWidths.condition}
+        onResizeStart={startResize('condition')}
+        onAutoFit={() => autoFit('condition')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('condition')}
+      />
+    ),
+    value: (
+      <SortableResizableTh
+        key="value"
+        label="Zeitwert / Anschaffung"
+        active={sortBy === 'value'}
+        direction={sortDirection}
+        onSort={() => handleSort('value')}
+        sortTitle="Nach Zeitwert / Anschaffung sortieren"
+        colKey="value"
+        width={colWidths.value}
+        onResizeStart={startResize('value')}
+        onAutoFit={() => autoFit('value')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('value')}
+      />
+    ),
+    responsible: (
+      <SortableResizableTh
+        key="responsible"
+        label="Zuständig / Einsatz"
+        active={sortBy === 'responsible'}
+        direction={sortDirection}
+        onSort={() => handleSort('responsible')}
+        sortTitle="Nach Zuständig / Einsatz sortieren"
+        colKey="responsible"
+        width={colWidths.responsible}
+        onResizeStart={startResize('responsible')}
+        onAutoFit={() => autoFit('responsible')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('responsible')}
+      />
+    ),
+    purchasePrice: (
+      <SortableResizableTh
+        key="purchasePrice"
+        label="Einkaufspreis"
+        align="right"
+        active={sortBy === 'purchasePrice'}
+        direction={sortDirection}
+        onSort={() => handleSort('purchasePrice')}
+        sortTitle="Nach Einkaufspreis sortieren"
+        colKey="purchasePrice"
+        width={colWidths.purchasePrice}
+        onResizeStart={startResize('purchasePrice')}
+        onAutoFit={() => autoFit('purchasePrice')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('purchasePrice')}
+      />
+    ),
+    currentValue: (
+      <SortableResizableTh
+        key="currentValue"
+        label="Zeitwert (separat)"
+        align="right"
+        active={sortBy === 'currentValue'}
+        direction={sortDirection}
+        onSort={() => handleSort('currentValue')}
+        sortTitle="Nach Zeitwert sortieren"
+        colKey="currentValue"
+        width={colWidths.currentValue}
+        onResizeStart={startResize('currentValue')}
+        onAutoFit={() => autoFit('currentValue')}
+        headerBg="bg-slate-50/80"
+        {...dragProps('currentValue')}
+      />
+    )
+  };
+
   // Materialausgabe Modal & Assignments
   const [showIssuedModal, setShowIssuedModal] = useState(false);
   const [issuedAssignments, setIssuedAssignments] = useState<MemberInventoryAssignment[]>([]);
@@ -109,10 +395,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<PageSizeOption>(25);
 
-  // Reset to page 1 on filter changes
+  // Reset to page 1 on filter or sort changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedDepartment, selectedCategory, selectedCondition, showNeedsInspectionOnly]);
+  }, [searchQuery, selectedDepartment, selectedCategory, selectedCondition, showNeedsInspectionOnly, sortBy, sortDirection]);
 
   // Departments list including Gesamtverein
   const allDepartments = useMemo(() => {
@@ -164,8 +450,36 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       }
 
       return true;
+    }).sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'name') {
+        comparison = a.name.localeCompare(b.name, 'de');
+      } else if (sortBy === 'category') {
+        const catA = INVENTORY_CATEGORIES.find(c => c.id === a.category)?.shortLabel || a.category;
+        const catB = INVENTORY_CATEGORIES.find(c => c.id === b.category)?.shortLabel || b.category;
+        comparison = catA.localeCompare(catB, 'de');
+      } else if (sortBy === 'department') {
+        comparison = a.department.localeCompare(b.department, 'de');
+      } else if (sortBy === 'quantity') {
+        comparison = (a.quantity || 0) - (b.quantity || 0);
+      } else if (sortBy === 'location') {
+        comparison = a.location.localeCompare(b.location, 'de');
+      } else if (sortBy === 'condition') {
+        comparison = CONDITION_SORT_ORDER[a.condition] - CONDITION_SORT_ORDER[b.condition];
+      } else if (sortBy === 'value') {
+        const valueA = a.currentValue ?? a.purchasePrice ?? 0;
+        const valueB = b.currentValue ?? b.purchasePrice ?? 0;
+        comparison = valueA - valueB;
+      } else if (sortBy === 'responsible') {
+        comparison = (a.responsiblePerson || '').localeCompare(b.responsiblePerson || '', 'de');
+      } else if (sortBy === 'purchasePrice') {
+        comparison = (a.purchasePrice ?? 0) - (b.purchasePrice ?? 0);
+      } else if (sortBy === 'currentValue') {
+        comparison = (a.currentValue ?? 0) - (b.currentValue ?? 0);
+      }
+      return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [inventory, searchQuery, selectedDepartment, selectedCategory, selectedCondition, showNeedsInspectionOnly]);
+  }, [inventory, searchQuery, selectedDepartment, selectedCategory, selectedCondition, showNeedsInspectionOnly, sortBy, sortDirection]);
 
   // Paginated Inventory slice
   const paginatedInventory = useMemo(() => {
@@ -773,12 +1087,42 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         </div>
       ) : viewMode === 'table' ? (
         /* TABLE VIEW */
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
+          {/* Eigener, nach oben begrenzter Scroll-Bereich (Breite UND Höhe)
+              — der seitliche Scrollbalken sitzt dadurch immer direkt unter
+              den Zeilen, auch bei langen Seiten (siehe ausführlicher
+              Kommentar in MembersView.tsx bzw. in App.tsx, warum der
+              vorherige Versuch nicht funktioniert hat). */}
+          <div className="overflow-auto max-h-[65vh]">
+            <table
+              ref={tableRef}
+              className="text-left border-collapse text-xs"
+              style={{
+                tableLayout: 'fixed',
+                width:
+                  CHECKBOX_COL_WIDTH +
+                  ACTION_COL_WIDTH +
+                  visibleColumnOrder.reduce((sum, key) => sum + (colWidths[key] || 0), 0)
+              }}
+            >
+              {/* <colgroup> statt Breiten nur an den <th>-Elementen — macht
+                  die Spaltenbreite unabhängig vom Tabellenkopf, damit sie
+                  sich beim Ziehen auch in den Zeilen darunter ändert (siehe
+                  ausführlicher Kommentar in MembersView.tsx, wo dasselbe
+                  Problem in Firefox auftrat). */}
+              <colgroup>
+                <col style={{ width: CHECKBOX_COL_WIDTH }} />
+                {visibleColumnOrder.map(key => (
+                  <col key={key} style={{ width: colWidths[key] || 0 }} />
+                ))}
+                <col style={{ width: ACTION_COL_WIDTH }} />
+              </colgroup>
               <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="w-10 py-3.5 px-3 text-center">
+                <tr className="text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                  <th
+                    style={{ width: CHECKBOX_COL_WIDTH, minWidth: CHECKBOX_COL_WIDTH }}
+                    className="py-3.5 px-3 text-center sticky top-0 z-10 bg-slate-50/80 border-b border-slate-200"
+                  >
                     <input
                       type="checkbox"
                       checked={allFilteredSelected}
@@ -790,15 +1134,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                       className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
                     />
                   </th>
-                  <th className="py-3.5 px-4">Inventar-Nr. & Gegenstand</th>
-                  <th className="py-3.5 px-4">Art des Materials</th>
-                  <th className="py-3.5 px-4">Sparte / Abteilung</th>
-                  <th className="py-3.5 px-4">Menge</th>
-                  <th className="py-3.5 px-4">Standort / Aufbewahrung</th>
-                  <th className="py-3.5 px-4">Zustand</th>
-                  <th className="py-3.5 px-4">Zeitwert / Anschaffung</th>
-                  <th className="py-3.5 px-4">Zuständig / Einsatz</th>
-                  <th className="py-3.5 px-4 text-right">Aktionen</th>
+                  {visibleColumnOrder.map(key => inventoryHeaderDefs[key])}
+                  <th
+                    style={{ width: ACTION_COL_WIDTH, minWidth: ACTION_COL_WIDTH }}
+                    className="py-3.5 px-4 text-right sticky top-0 z-10 bg-slate-50/80 border-b border-slate-200"
+                  >
+                    Aktionen
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -825,120 +1167,170 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                           className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
                         />
                       </td>
-                      {/* Name & ID */}
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-slate-900 text-sm leading-snug">{item.name}</div>
-                        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500 font-mono">
-                          <span>{item.itemNumber}</span>
-                          {item.serialNumber && (
-                            <span className="text-slate-400">• SN: {item.serialNumber}</span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Category */}
-                      <td className="py-3 px-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold ${catMeta.badgeBg} ${catMeta.badgeText}`}>
-                          {renderCategoryIcon(item.category, 'w-3 h-3')}
-                          <span>{catMeta.shortLabel}</span>
-                        </span>
-                      </td>
-
-                      {/* Department */}
-                      <td className="py-3 px-4">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-200/60">
-                          {item.department}
-                        </span>
-                      </td>
-
-                      {/* Quantity & Unit */}
-                      <td className="py-3 px-4">
-                        <span className="font-bold text-slate-900 text-xs">
-                          {item.quantity} {item.unit}
-                        </span>
-                      </td>
-
-                      {/* Location */}
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-1.5 text-slate-700 font-medium">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="truncate max-w-[180px]" title={item.location}>{item.location}</span>
-                        </div>
-                      </td>
-
-                      {/* Condition */}
-                      <td className="py-3 px-4">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold ${conditionMeta.badgeClass}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${conditionMeta.dotColor}`} />
-                          <span>{conditionMeta.label}</span>
-                        </span>
-                        {item.nextInspectionDate && (
-                          <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1" title="Nächste Sicherheitsprüfung">
-                            <Clock className="w-2.5 h-2.5 text-amber-500" />
-                            <span>Prüfung: {item.nextInspectionDate}</span>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Financial Value */}
-                      <td className="py-3 px-4 font-mono text-xs">
-                        {(() => {
-                          // Preise werden pro Stück erfasst. Bei Positionen mit
-                          // mehr als einem Stück wird zusätzlich der Gesamtwert
-                          // der Position ausgewiesen.
-                          const unitValue = item.currentValue ?? item.purchasePrice;
-                          if (unitValue === undefined) {
-                            return <span className="text-slate-400">–</span>;
-                          }
-                          const qty = item.quantity || 1;
-                          return (
-                            <>
-                              <div className="font-bold text-slate-900">
-                                {unitValue.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €
-                                {qty > 1 && (
-                                  <span className="font-normal text-slate-400"> /Stück</span>
+                      {(() => {
+                        const inventoryCellDefs: Record<string, React.ReactNode> = {
+                          name: (
+                            <td key="name" data-col-content="name" className="py-3 px-4 overflow-hidden">
+                              <div className="font-bold text-slate-900 text-sm leading-snug">{item.name}</div>
+                              <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500 font-mono">
+                                <span>{item.itemNumber}</span>
+                                {item.serialNumber && (
+                                  <span className="text-slate-400">• SN: {item.serialNumber}</span>
                                 )}
                               </div>
-                              {qty > 1 && (
-                                <div
-                                  className="text-[10px] font-semibold text-emerald-700"
-                                  title="Gesamtwert dieser Position"
-                                >
-                                  × {qty} ={' '}
-                                  {(unitValue * qty).toLocaleString('de-DE', {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2
-                                  })}{' '}
-                                  €
+                              {item.notes && (
+                                <div className="text-[10px] text-slate-400 italic truncate mt-0.5" title={item.notes}>
+                                  {item.notes}
                                 </div>
                               )}
-                            </>
-                          );
-                        })()}
-                        {item.purchasePrice !== undefined && item.currentValue !== undefined && item.purchasePrice !== item.currentValue && (
-                          <div className="text-[10px] text-slate-400">
-                            Kauf: {item.purchasePrice.toFixed(2)} €
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Responsible / Assigned */}
-                      <td className="py-3 px-4 text-xs">
-                        {item.responsiblePerson ? (
-                          <div className="font-medium text-slate-800 flex items-center gap-1">
-                            <User className="w-3 h-3 text-blue-500" />
-                            <span className="truncate max-w-[140px]" title={item.responsiblePerson}>{item.responsiblePerson}</span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 text-[11px]">–</span>
-                        )}
-                        {item.assignedTo && (
-                          <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                            <Tag className="w-2.5 h-2.5 text-slate-400" />
-                            <span className="truncate max-w-[140px]" title={item.assignedTo}>{item.assignedTo}</span>
-                          </div>
-                        )}
-                      </td>
+                            </td>
+                          ),
+                          category: (
+                            <td key="category" data-col-content="category" className="py-3 px-4 overflow-hidden">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold ${catMeta.badgeBg} ${catMeta.badgeText}`}>
+                                {renderCategoryIcon(item.category, 'w-3 h-3')}
+                                <span>{catMeta.shortLabel}</span>
+                              </span>
+                            </td>
+                          ),
+                          department: (
+                            <td key="department" data-col-content="department" className="py-3 px-4 overflow-hidden">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-200/60">
+                                {item.department}
+                              </span>
+                            </td>
+                          ),
+                          quantity: (
+                            <td key="quantity" data-col-content="quantity" className="py-3 px-4 overflow-hidden">
+                              <span className="font-bold text-slate-900 text-xs">
+                                {item.quantity} {item.unit}
+                              </span>
+                            </td>
+                          ),
+                          location: (
+                            <td key="location" data-col-content="location" className="py-3 px-4 overflow-hidden">
+                              <div className="flex items-center gap-1.5 text-slate-700 font-medium">
+                                <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span className="truncate" title={item.location}>{item.location}</span>
+                              </div>
+                            </td>
+                          ),
+                          condition: (
+                            <td key="condition" data-col-content="condition" className="py-3 px-4 overflow-hidden">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold ${conditionMeta.badgeClass}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${conditionMeta.dotColor}`} />
+                                <span>{conditionMeta.label}</span>
+                              </span>
+                              {item.nextInspectionDate && (
+                                <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1" title="Nächste Sicherheitsprüfung">
+                                  <Clock className="w-2.5 h-2.5 text-amber-500" />
+                                  <span>Prüfung: {item.nextInspectionDate}</span>
+                                </div>
+                              )}
+                              {item.lastCheckedDate && (
+                                <div className="text-[10px] text-slate-400 mt-0.5" title="Datum der letzten Inventur/Prüfung">
+                                  Zuletzt geprüft: {item.lastCheckedDate}
+                                </div>
+                              )}
+                            </td>
+                          ),
+                          value: (
+                            <td key="value" data-col-content="value" className="py-3 px-4 font-mono text-xs overflow-hidden">
+                              {(() => {
+                                // Preise werden pro Stück erfasst. Bei Positionen mit
+                                // mehr als einem Stück wird zusätzlich der Gesamtwert
+                                // der Position ausgewiesen.
+                                const unitValue = item.currentValue ?? item.purchasePrice;
+                                if (unitValue === undefined) {
+                                  return <span className="text-slate-400">–</span>;
+                                }
+                                const qty = item.quantity || 1;
+                                return (
+                                  <>
+                                    <div className="font-bold text-slate-900">
+                                      {unitValue.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €
+                                      {qty > 1 && (
+                                        <span className="font-normal text-slate-400"> /Stück</span>
+                                      )}
+                                    </div>
+                                    {qty > 1 && (
+                                      <div
+                                        className="text-[10px] font-semibold text-emerald-700"
+                                        title="Gesamtwert dieser Position"
+                                      >
+                                        × {qty} ={' '}
+                                        {(unitValue * qty).toLocaleString('de-DE', {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2
+                                        })}{' '}
+                                        €
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                              {item.purchasePrice !== undefined && item.currentValue !== undefined && item.purchasePrice !== item.currentValue && (
+                                <div className="text-[10px] text-slate-400">
+                                  Kauf: {item.purchasePrice.toFixed(2)} €
+                                </div>
+                              )}
+                            </td>
+                          ),
+                          responsible: (
+                            <td key="responsible" data-col-content="responsible" className="py-3 px-4 text-xs overflow-hidden">
+                              {item.responsiblePerson ? (
+                                <div className="font-medium text-slate-800 flex items-center gap-1">
+                                  <User className="w-3 h-3 text-blue-500" />
+                                  <span className="truncate" title={item.responsiblePerson}>{item.responsiblePerson}</span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 text-[11px]">–</span>
+                              )}
+                              {item.assignedTo && (
+                                <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                  <Tag className="w-2.5 h-2.5 text-slate-400" />
+                                  <span className="truncate" title={item.assignedTo}>{item.assignedTo}</span>
+                                </div>
+                              )}
+                            </td>
+                          ),
+                          purchasePrice: (
+                            <td key="purchasePrice" data-col-content="purchasePrice" className="py-3 px-4 text-right font-mono text-xs overflow-hidden">
+                              {item.purchasePrice !== undefined ? (
+                                <>
+                                  <div className="font-bold text-slate-900">
+                                    {item.purchasePrice.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                                  </div>
+                                  {(item.purchaseDate || item.supplier) && (
+                                    <div
+                                      className="text-[10px] text-slate-400 font-sans truncate"
+                                      title={[item.purchaseDate, item.supplier].filter(Boolean).join(' · ')}
+                                    >
+                                      {item.purchaseDate ? new Date(item.purchaseDate).toLocaleDateString('de-DE') : ''}
+                                      {item.purchaseDate && item.supplier ? ' · ' : ''}
+                                      {item.supplier || ''}
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-slate-400">–</span>
+                              )}
+                            </td>
+                          ),
+                          currentValue: (
+                            <td key="currentValue" data-col-content="currentValue" className="py-3 px-4 text-right font-mono text-xs overflow-hidden">
+                              {item.currentValue !== undefined ? (
+                                <div className="font-bold text-emerald-700">
+                                  {item.currentValue.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                                </div>
+                              ) : (
+                                <span className="text-slate-400">–</span>
+                              )}
+                            </td>
+                          )
+                        };
+                        return visibleColumnOrder.map(key => inventoryCellDefs[key]);
+                      })()}
 
                       {/* Actions */}
                       <td className="py-3 px-4 text-right">
@@ -967,6 +1359,15 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               </tbody>
             </table>
           </div>
+          {columnMenuPos && (
+            <ColumnVisibilityMenu
+              position={columnMenuPos}
+              columns={columnOrder.map(key => ({ key, label: INVENTORY_COLUMN_LABELS[key] || key }))}
+              hidden={hiddenColumns}
+              onToggle={toggleColumn}
+              onClose={() => setColumnMenuPos(null)}
+            />
+          )}
 
           {/* Table Bottom Summary & Pagination */}
           <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2">
@@ -989,14 +1390,16 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               </div>
             )}
           </div>
-          <TablePagination
-            totalItems={filteredInventory.length}
-            currentPage={currentPage}
-            pageSize={pageSize}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={setPageSize}
-            itemName="Inventargegenständen"
-          />
+          <div className="overflow-hidden rounded-b-2xl">
+            <TablePagination
+              totalItems={filteredInventory.length}
+              currentPage={currentPage}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              itemName="Inventargegenständen"
+            />
+          </div>
         </div>
       ) : (
         /* CARDS GRID VIEW */
