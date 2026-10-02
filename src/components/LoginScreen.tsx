@@ -2,7 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { AppUser, ClubSettings, DeploymentMode } from '../types';
 import { AuthService } from '../services/authService';
 import { StorageService } from '../services/storage';
-import { isCloudSetupPending } from '../services/supabaseClient';
+import {
+  isCloudSetupPending,
+  getStoredSupabaseConfig,
+  saveStoredSupabaseConfig,
+  sanitizeSupabaseUrl,
+  testSupabaseConnection,
+  SUPABASE_SCHEMA_SQL
+} from '../services/supabaseClient';
 import {
   statusAbfragen as leseEigenenServerStatus,
   passwortResetTokenAusAdresse,
@@ -29,25 +36,75 @@ import {
   CheckCircle2,
   Upload,
   Database,
-  KeyRound
+  KeyRound,
+  Wifi,
+  HardDrive,
+  Copy
 } from 'lucide-react';
 
 interface LoginScreenProps {
   settings?: ClubSettings;
   deploymentMode: DeploymentMode;
   onLoginSuccess: (user: AppUser) => void;
-  onOpenDeploymentHub?: () => void;
   onSettingsReload?: (newSettings: ClubSettings) => void;
+  /**
+   * Wird aufgerufen, wenn hier auf dem Anmeldebildschirm die Betriebsart
+   * gewechselt wird (siehe die Betriebsart-Auswahl im Registrieren-Tab
+   * unten) — damit App.tsx seinen deploymentMode-State nachzieht, ohne dass
+   * neu geladen werden muss.
+   */
+  onDeploymentModeChange?: (mode: DeploymentMode) => void;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
   settings,
   deploymentMode,
   onLoginSuccess,
-  onOpenDeploymentHub,
-  onSettingsReload
+  onSettingsReload,
+  onDeploymentModeChange
 }) => {
   const [activeTab, setActiveTab] = useState<'login' | 'register' | 'import'>('login');
+
+  // Cloud-Zugangsdaten-Formular (siehe Betriebsart-Auswahl im
+  // Registrieren-Tab weiter unten) — direkt auf dem Anmeldebildschirm
+  // erreichbar, damit sie nicht erst in den (nur angemeldet erreichbaren)
+  // Einstellungen eingetragen werden müssen. Vorbelegt mit bereits
+  // gespeicherten Werten, falls vorhanden (z. B. weil dieser Rechner schon
+  // einmal mit dieser Cloud-Datenbank verbunden war).
+  const [modeConfig, setModeConfig] = useState(() => getStoredSupabaseConfig());
+  const [modeStatus, setModeStatus] = useState<{ loading: boolean; success?: boolean; message?: string }>({
+    loading: false
+  });
+  const [effectiveMode, setEffectiveMode] = useState<DeploymentMode>(deploymentMode);
+
+  useEffect(() => {
+    setEffectiveMode(deploymentMode);
+  }, [deploymentMode]);
+
+  /**
+   * Welche Betriebsart im Registrieren-Tab gerade ausgewählt ist. Getrennt
+   * von effectiveMode, weil die Auswahl bei "Cloud" schon angezeigt werden
+   * muss, bevor die Verbindung geprüft und effectiveMode tatsächlich
+   * umgestellt wird (siehe handlePickCloud/handleSaveCloudConfig unten).
+   * Folgt effectiveMode, sobald sich das von aussen ändert (z. B. direkt
+   * nach dem Verbinden, oder weil schon vorher eine Betriebsart aktiv war).
+   */
+  const [regMode, setRegMode] = useState<DeploymentMode>(effectiveMode);
+  useEffect(() => {
+    setRegMode(effectiveMode);
+  }, [effectiveMode]);
+  // Ob das Cloud-Zugangsdaten-Formular im Registrieren-Tab aufgeklappt ist.
+  // Offen, solange noch keine funktionierende Verbindung besteht; einmal
+  // verbunden eingeklappt (nur noch ein "Zugangsdaten ändern"-Link), damit
+  // das Formular nicht unnötig im Weg steht.
+  const [cloudCredsOpen, setCloudCredsOpen] = useState(false);
+  // Rückmeldung für den "SQL kopieren"-Knopf in der Cloud-Anleitung unten.
+  const [copiedSql, setCopiedSql] = useState(false);
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(SUPABASE_SCHEMA_SQL);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 3000);
+  };
 
   // Login State
   const [usernameInput, setUsernameInput] = useState('');
@@ -82,9 +139,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [regPassword, setRegPassword] = useState('');
   const [regPasswordConfirm, setRegPasswordConfirm] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
-  // Nur im Cloud-Betrieb: der Code aus dem Skript supabase_rls.sql
+  // Nur im Cloud-Betrieb und nur, wenn bereits ein Vorstand eingetragen ist:
+  // der Einladungscode (siehe cloudSetupPending unten). Für den allerersten
+  // Vorstand wird kein Code mehr gebraucht.
   const [regSetupCode, setRegSetupCode] = useState('');
-  const isCloudRegistration = deploymentMode === 'cloud';
+  const isCloudRegistration = effectiveMode === 'cloud';
   /**
    * Der Import auf dem Anmeldebildschirm ist für den Lokalbetrieb gedacht:
    * Bestand auf einen Stick, am anderen Rechner wieder einlesen. Im
@@ -92,7 +151,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
    * dort nur die Browser-Datenbank füllen und beim nächsten Laden wieder
    * überschrieben.
    */
-  const importMoeglich = deploymentMode !== 'cloud';
+  const importMoeglich = effectiveMode !== 'cloud';
   /**
    * Im gehosteten Betrieb gibt es genau einen Verein pro Server — das erste
    * Konto entsteht über die eigene Ersteinrichtung weiter oben (vor diesem
@@ -102,10 +161,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
    * schon einen Verein auf diesem Server, in den man sich damit nicht
    * hineinregistrieren könnte.
    */
-  const registrierenMoeglich = deploymentMode !== 'selfhosted';
+  const registrierenMoeglich = effectiveMode !== 'selfhosted';
   // Noch kein Benutzer in der Cloud-Datenbank? Dann richtet dieser Mensch den
-  // Verein ein und braucht den Code aus dem SQL-Skript. Sonst ist er
-  // eingeladen worden und hat einen Einladungscode vom Vorstand.
+  // Verein ein — ganz ohne Code. Sonst ist er eingeladen worden und hat
+  // einen Einladungscode vom Vorstand.
   const [cloudSetupPending, setCloudSetupPending] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -127,7 +186,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
    * sich am Server, nicht im Browser, deshalb dieselbe Abfrage wie beim
    * Cloud-Betrieb oben (dort isCloudSetupPending, hier der eigene Server).
    */
-  const isSelfhostedMode = deploymentMode === 'selfhosted';
+  const isSelfhostedMode = effectiveMode === 'selfhosted';
   const [selfhostedSetupPending, setSelfhostedSetupPending] = useState<boolean | null>(null);
   const [selfhostedStatusError, setSelfhostedStatusError] = useState<string | null>(null);
 
@@ -316,6 +375,93 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  // ==========================================================================
+  // BETRIEBSART WÄHLEN — direkt im Registrieren-Tab (siehe dort weiter unten)
+  // ==========================================================================
+  //
+  // Stand bis 01.10.: Die Betriebsart-Wahl lag in einem eigenen Tab, nur über
+  // einen Fussknoten erreichbar. Ein neuer Anwender, der sich für Cloud
+  // entscheidet, landete dadurch auf dem Registrieren-Formular, ohne zu
+  // wissen, dass die Supabase-Zugangsdaten woanders eingetragen werden
+  // müssen — die beiden Schritte liefen logisch auseinander. Jetzt ist die
+  // Wahl Teil des Registrieren-Tabs selbst: erst Betriebsart aussuchen, bei
+  // Cloud gleich die Anleitung samt Zugangsdaten-Formular darunter, erst
+  // danach das eigentliche Kontoformular.
+  //
+  // Lokal und "Eigener Server" brauchen keine weitere Eingabe und werden
+  // sofort aktiviert. Nur Cloud verlangt die Supabase-Zugangsdaten — siehe
+  // handleSaveCloudConfig weiter unten, das erst nach erfolgreich geprüfter
+  // Verbindung tatsächlich auf "cloud" umstellt.
+
+  const uebernehmeBetriebsart = (mode: DeploymentMode) => {
+    StorageService.setDeploymentMode(mode);
+    setEffectiveMode(mode);
+    onDeploymentModeChange?.(mode);
+  };
+
+  const handlePickLocal = () => {
+    setRegMode('local');
+    setCloudCredsOpen(false);
+    uebernehmeBetriebsart('local');
+    setErrorMsg(null);
+    setSuccessMsg(null);
+  };
+
+  const handlePickCloud = () => {
+    setRegMode('cloud');
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    // Nur aufklappen, wenn noch keine funktionierende Verbindung besteht —
+    // war dieser Rechner schon vorher mit Cloud verbunden, reicht der
+    // eingeklappte "Zugangsdaten ändern"-Link.
+    if (effectiveMode !== 'cloud') {
+      setCloudCredsOpen(true);
+    }
+  };
+
+  const handlePickSelfhosted = () => {
+    setRegMode('selfhosted');
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    uebernehmeBetriebsart('selfhosted');
+    // Ab hier übernehmen die Prüfungen ganz oben in dieser Funktion
+    // (isSelfhostedMode) die Anzeige von selbst — Ersteinrichtung oder
+    // Anmeldung, je nachdem, ob der Server schon ein Konto hat.
+  };
+
+  const handleSaveCloudConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanUrl = sanitizeSupabaseUrl(modeConfig.url);
+    if (cleanUrl !== modeConfig.url) {
+      setModeConfig(prev => ({ ...prev, url: cleanUrl }));
+    }
+    if (!cleanUrl || !modeConfig.anonKey) {
+      setModeStatus({ loading: false, success: false, message: 'Bitte Project URL und Anon Key eintragen.' });
+      return;
+    }
+
+    setModeStatus({ loading: true });
+    saveStoredSupabaseConfig(cleanUrl, modeConfig.anonKey);
+    const res = await testSupabaseConnection(cleanUrl, modeConfig.anonKey);
+
+    if (!res.success) {
+      setModeStatus({
+        loading: false,
+        success: false,
+        message: `Verbindung fehlgeschlagen: ${res.error || 'unbekannter Fehler'}. Bitte URL und Key prüfen.`
+      });
+      return;
+    }
+
+    uebernehmeBetriebsart('cloud');
+    setModeStatus({ loading: false, success: true, message: 'Verbunden! Bitte unten das Konto anlegen.' });
+    setCloudCredsOpen(false);
+    // Direkt selbst abfragen statt auf den useEffect zu verlassen: War schon
+    // vorher Cloud-Betrieb aktiv (z. B. nur die Zugangsdaten geändert), würde
+    // sich isCloudRegistration nicht ändern und der Effekt nicht erneut laufen.
+    isCloudSetupPending().then(pending => setCloudSetupPending(pending));
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -932,7 +1078,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               {activeTab === 'login'
                 ? 'VereinsManager – Sichere Vereinsverwaltung'
                 : activeTab === 'register'
-                ? 'Kostenlos starten & Verein nach DSGVO verwalten'
+                ? 'Betriebsart wählen & kostenlos starten'
                 : 'JSON-Backup laden, um Verein & Konten wiederherzustellen'}
             </p>
 
@@ -1164,6 +1310,190 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             {/* TAB 2: REGISTER FORM */}
             {activeTab === 'register' && (
               <>
+                {/* 1. Betriebsart — direkt hier statt in einem eigenen Tab,
+                    damit von Anfang an klar ist, wo die Cloud-Zugangsdaten
+                    hingehören (siehe Begründung bei handlePickLocal/
+                    -Cloud/-Selfhosted weiter oben in dieser Datei). */}
+                <div className="space-y-2">
+                  <div className="text-2xs font-bold text-slate-500 uppercase tracking-wide">
+                    1. Betriebsart
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={handlePickLocal}
+                      className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                        regMode === 'local'
+                          ? 'border-slate-800 bg-slate-800 text-white shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'
+                      }`}
+                    >
+                      <HardDrive className="w-4 h-4" />
+                      <span className="text-2xs font-bold leading-tight">Lokal</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handlePickCloud}
+                      className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                        regMode === 'cloud'
+                          ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-blue-400'
+                      }`}
+                    >
+                      <Cloud className="w-4 h-4" />
+                      <span className="text-2xs font-bold leading-tight">Cloud</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handlePickSelfhosted}
+                      className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                        regMode === 'selfhosted'
+                          ? 'border-purple-600 bg-purple-600 text-white shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-purple-400'
+                      }`}
+                    >
+                      <Server className="w-4 h-4" />
+                      <span className="text-2xs font-bold leading-tight">Eigener Server</span>
+                    </button>
+                  </div>
+                  <p className="text-2xs text-slate-400 leading-snug">
+                    {regMode === 'local' &&
+                      'Daten liegen ausschliesslich im Browser dieses Rechners. Später jederzeit wechselbar.'}
+                    {regMode === 'cloud' &&
+                      'Mehrere Benutzer, von überall erreichbar — Daten liegen bei Supabase (EU-Server).'}
+                    {regMode === 'selfhosted' &&
+                      'Für den selbst gehosteten Betrieb (NAS, eigener Rechner, Docker).'}
+                  </p>
+                </div>
+
+                {/* 2. Cloud: Anleitung + Zugangsdaten — nur solange noch
+                    keine funktionierende Verbindung besteht, oder wenn der
+                    Anwender sie nachträglich ändern will. */}
+                {regMode === 'cloud' && (effectiveMode !== 'cloud' || cloudCredsOpen) && (
+                  <div className="border border-blue-200 bg-blue-50/70 rounded-xl p-3.5 space-y-3">
+                    <div className="text-2xs font-bold text-blue-900 uppercase tracking-wide">
+                      2. Supabase-Projekt verbinden
+                    </div>
+                    <ol className="space-y-2 text-2xs text-blue-950 leading-relaxed list-decimal list-outside pl-4">
+                      <li>
+                        Kostenloses Konto auf{' '}
+                        <a
+                          href="https://supabase.com"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline font-semibold"
+                        >
+                          supabase.com
+                        </a>{' '}
+                        anlegen und ein neues Projekt erstellen (als Region möglichst „Europe" wählen).
+                      </li>
+                      <li>
+                        Im Projekt links auf <strong>SQL Editor</strong>, dort eine neue Abfrage
+                        anlegen, das Skript einfügen und mit <strong>Run</strong> ausführen:
+                        <div className="mt-1.5">
+                          <button
+                            type="button"
+                            onClick={handleCopySql}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white text-2xs font-bold rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Copy className="w-3 h-3" />
+                            <span>{copiedSql ? 'Kopiert!' : 'SQL-Skript kopieren'}</span>
+                          </button>
+                        </div>
+                      </li>
+                      <li>
+                        Links auf <strong>Project Settings → API</strong> wechseln und dort die{' '}
+                        <strong>Project URL</strong> sowie den <strong>anon / public Key</strong> kopieren —
+                        unten eintragen.
+                      </li>
+                    </ol>
+
+                    {modeStatus.message && (
+                      <div
+                        className={`flex items-start gap-2 p-2.5 rounded-lg text-2xs leading-relaxed ${
+                          modeStatus.success
+                            ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                            : 'bg-rose-50 border border-rose-200 text-rose-800'
+                        }`}
+                      >
+                        {modeStatus.success ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        ) : (
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        )}
+                        <span>{modeStatus.message}</span>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleSaveCloudConfig} className="space-y-2">
+                      <div className="space-y-1">
+                        <label className="block text-2xs font-bold text-slate-700">Project URL</label>
+                        <input
+                          type="text"
+                          value={modeConfig.url}
+                          onChange={(e) => setModeConfig(prev => ({ ...prev, url: e.target.value }))}
+                          placeholder="https://xxxxxxxx.supabase.co"
+                          autoComplete="off"
+                          spellCheck={false}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-2xs font-mono text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-2xs font-bold text-slate-700">Anon / Publishable Key</label>
+                        <input
+                          type="text"
+                          value={modeConfig.anonKey}
+                          onChange={(e) => setModeConfig(prev => ({ ...prev, anonKey: e.target.value }))}
+                          placeholder="eyJhbGciOi..."
+                          autoComplete="off"
+                          spellCheck={false}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-2xs font-mono text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={modeStatus.loading}
+                        className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-60 cursor-pointer"
+                      >
+                        {modeStatus.loading ? (
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            <Wifi className="w-3.5 h-3.5" />
+                            <span>Verbinden &amp; aktivieren</span>
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  </div>
+                )}
+                {regMode === 'cloud' && effectiveMode === 'cloud' && !cloudCredsOpen && (
+                  <div className="flex items-center justify-between gap-2 p-2.5 bg-emerald-50/80 border border-emerald-200/80 rounded-xl text-2xs">
+                    <span className="flex items-center gap-1.5 text-emerald-900 font-semibold">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      Mit Supabase-Projekt verbunden
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCloudCredsOpen(true)}
+                      className="text-blue-600 hover:text-blue-800 font-semibold hover:underline cursor-pointer shrink-0"
+                    >
+                      Zugangsdaten ändern
+                    </button>
+                  </div>
+                )}
+
+                {/* 3. Das Kontoformular selbst — bei Lokal sofort sichtbar,
+                    bei Cloud erst nach erfolgreich geprüfter Verbindung oben.
+                    "Eigener Server" braucht dieses Formular nicht:
+                    handlePickSelfhosted schaltet die Ansicht sofort auf die
+                    server-eigene Ersteinrichtung bzw. Anmeldung um (siehe
+                    isSelfhostedMode ganz oben in dieser Datei). */}
+                {(regMode === 'local' || (regMode === 'cloud' && effectiveMode === 'cloud')) && (
+                <>
+                <div className="text-2xs font-bold text-slate-500 uppercase tracking-wide pt-1">
+                  {regMode === 'cloud' ? '3. Vereinskonto' : '2. Vereinskonto'}
+                </div>
                 <form onSubmit={handleRegister} className="space-y-3.5">
                   {/* Club Name */}
                   <div className="space-y-1">
@@ -1280,12 +1610,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     />
                   </div>
 
-                  {/* Einrichtungscode — nur im Cloud-Betrieb */}
-                  {isCloudRegistration && (
+                  {/* Einladungscode — nur im Cloud-Betrieb, und nur, wenn
+                      schon ein Vorstand eingetragen ist. Der allererste
+                      Vorstand braucht keinen Code. */}
+                  {isCloudRegistration && cloudSetupPending === false && (
                     <div className="space-y-1 pt-1">
-                      <label className="block text-xs font-bold text-slate-700">
-                        {cloudSetupPending === false ? 'Einladungscode *' : 'Einrichtungscode *'}
-                      </label>
+                      <label className="block text-xs font-bold text-slate-700">Einladungscode *</label>
                       <input
                         type="text"
                         value={regSetupCode}
@@ -1296,21 +1626,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         spellCheck={false}
                         className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono tracking-wider text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none uppercase"
                       />
-                      {cloudSetupPending === false ? (
-                        <p className="text-2xs text-slate-500 leading-snug">
-                          Für diesen Verein ist bereits ein Vorstand eingetragen. Sie brauchen
-                          daher einen <strong>Einladungscode</strong>, den Ihnen der Vorstand
-                          gibt. Melden Sie sich mit genau der E-Mail-Adresse an, an die die
-                          Einladung ausgestellt wurde.
-                        </p>
-                      ) : (
-                        <p className="text-2xs text-slate-500 leading-snug">
-                          Der Code steht am Ende der Ausgabe, wenn Sie
-                          <strong> supabase_rls.sql</strong> im Supabase SQL-Editor
-                          ausführen. Er gilt genau einmal und stellt sicher, dass nur
-                          Ihr Verein den ersten Vorstand einträgt.
-                        </p>
-                      )}
+                      <p className="text-2xs text-slate-500 leading-snug">
+                        Für diesen Verein ist bereits ein Vorstand eingetragen. Sie brauchen
+                        daher einen <strong>Einladungscode</strong>, den Ihnen der Vorstand
+                        gibt. Melden Sie sich mit genau der E-Mail-Adresse an, an die die
+                        Einladung ausgestellt wurde.
+                      </p>
+                    </div>
+                  )}
+                  {isCloudRegistration && cloudSetupPending === true && (
+                    <div className="flex items-start gap-2 p-2.5 bg-emerald-50/80 border border-emerald-200/80 rounded-xl text-2xs text-emerald-900 leading-relaxed">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span>
+                        Für diesen Verein ist noch kein Vorstand eingetragen — Sie werden es mit
+                        diesem Konto, ganz ohne Code.
+                      </span>
                     </div>
                   )}
 
@@ -1330,6 +1660,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     )}
                   </button>
                 </form>
+                </>
+                )}
 
                 {/* Back to login button */}
                 <div className="text-center pt-1">
@@ -1357,6 +1689,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   </div>
                   <p className="text-slate-600 text-[11px] leading-normal">
                     Laden Sie hier Ihre am anderen PC exportierte <span className="font-semibold text-slate-800">.json-Datensicherung</span> hoch. Alle Daten sowie <strong>Benutzerkonten & Rollen</strong> werden direkt in die lokale Live-Datenbank übertragen, sodass Sie sich anschließend direkt wie gewohnt anmelden können.
+                  </p>
+                  <p className="text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-2.5 py-1.5 text-[11px] leading-normal mt-1.5">
+                    <strong>Nur für den reinen Lokalbetrieb</strong> („Nur dieses Gerät") — die Datei
+                    landet ausschliesslich in der lokalen Browser-Datenbank. Für den Umzug in die
+                    Cloud bitte stattdessen „Registrieren" mit Betriebsart Cloud und danach
+                    Einstellungen → Betriebsmodi → „Lokale Daten in die Cloud übertragen" nutzen.
                   </p>
                 </div>
 
@@ -1420,43 +1758,56 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 </div>
               </div>
             )}
+
           </div>
 
-          {/* Footer Info (nur bei Cloud/Docker oder Button) */}
-          {(deploymentMode !== 'local' || Boolean(onOpenDeploymentHub)) && (
-            <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between text-2xs text-slate-500">
-              <div className="flex items-center gap-1.5">
-                {deploymentMode === 'cloud' && (
-                  <>
-                    <Cloud className="w-3.5 h-3.5 text-blue-600" />
-                    <span className="font-semibold text-slate-700">Cloud (Supabase EU)</span>
-                    <span
-                      className="text-slate-400"
-                      title="Im Cloud-Betrieb liegen die Daten in der Vereinsdatenbank. Eine Datensicherung wird dort nach der Anmeldung unter Einstellungen → Datensicherung eingespielt."
-                    >
-                      · Datensicherung nach der Anmeldung
-                    </span>
-                  </>
-                )}
-                {deploymentMode === 'selfhosted' && (
-                  <>
-                    <Server className="w-3.5 h-3.5 text-purple-600" />
-                    <span className="font-semibold text-slate-700">Docker Selbsthosting</span>
-                  </>
-                )}
-              </div>
-
-              {onOpenDeploymentHub && (
-                <button
-                  type="button"
-                  onClick={onOpenDeploymentHub}
-                  className="text-blue-600 hover:text-blue-800 font-semibold hover:underline cursor-pointer"
-                >
-                  Betriebsmodus ändern
-                </button>
+          {/* Footer Info — immer sichtbar, damit der Wechsel zu Cloud auch
+              aus dem Lokalbetrieb heraus entdeckt wird. Die Betriebsart
+              selbst wählt man seit 02.10. direkt im Registrieren-Tab (siehe
+              dort), der Footer verlinkt nur noch dorthin. */}
+          <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between text-2xs text-slate-500">
+            <div className="flex items-center gap-1.5">
+              {effectiveMode === 'local' && (
+                <>
+                  <HardDrive className="w-3.5 h-3.5 text-amber-600" />
+                  <span className="font-semibold text-slate-700">Nur dieses Gerät</span>
+                </>
+              )}
+              {effectiveMode === 'cloud' && (
+                <>
+                  <Cloud className="w-3.5 h-3.5 text-blue-600" />
+                  <span className="font-semibold text-slate-700">Cloud (Supabase EU)</span>
+                  <span
+                    className="text-slate-400"
+                    title="Im Cloud-Betrieb liegen die Daten in der Vereinsdatenbank. Eine Datensicherung wird dort nach der Anmeldung unter Einstellungen → Datensicherung eingespielt."
+                  >
+                    · Datensicherung nach der Anmeldung
+                  </span>
+                </>
+              )}
+              {effectiveMode === 'selfhosted' && (
+                <>
+                  <Server className="w-3.5 h-3.5 text-purple-600" />
+                  <span className="font-semibold text-slate-700">Docker Selbsthosting</span>
+                </>
               )}
             </div>
-          )}
+
+            {activeTab !== 'register' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('register');
+                  setModeStatus({ loading: false });
+                  setErrorMsg(null);
+                  setSuccessMsg(null);
+                }}
+                className="text-blue-600 hover:text-blue-800 font-semibold hover:underline cursor-pointer"
+              >
+                Betriebsart ändern
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

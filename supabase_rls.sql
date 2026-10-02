@@ -485,38 +485,24 @@ GRANT EXECUTE ON FUNCTION public.vm_full_permissions()     TO authenticated;
 
 
 -- ==============================================================================
--- 7. EINRICHTUNGSCODE FÜR DEN ERSTEN BENUTZER
+-- 7. DER ERSTE BENUTZER
 -- ==============================================================================
 --
--- Der erste Vorstand soll sich im Programm registrieren können, ohne hier im
--- Dashboard Hand anzulegen. Damit in dieser Zeit nicht ein Fremder den Platz
--- besetzt, verlangt die Registrierung einen Einrichtungscode.
+-- Der erste Vorstand registriert sich direkt im Programm, sobald dort die
+-- Cloud-Zugangsdaten (Project URL + Anon Key) eingetragen sind — ganz ohne
+-- einen Code aus diesem Skript.
 --
--- Der Code wird beim ersten Durchlauf dieses Skripts einmal erzeugt und ganz
--- unten angezeigt. Er gilt genau einmal: Sobald sich der erste Benutzer
--- eingetragen hat, ist er verbraucht.
-
-CREATE TABLE IF NOT EXISTS public.club_setup (
-  id TEXT PRIMARY KEY DEFAULT 'main',
-  setup_code TEXT NOT NULL,
-  code_used_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
-);
-
-ALTER TABLE public.club_setup ENABLE ROW LEVEL SECURITY;
-
--- Absichtlich OHNE jede Richtlinie: Auf diese Tabelle kommt niemand direkt,
--- auch kein angemeldeter Benutzer. Nur die Prüffunktion unten darf hinein.
-REVOKE ALL ON public.club_setup FROM anon, authenticated;
-
--- Code erzeugen, aber nur beim allerersten Durchlauf.
-INSERT INTO public.club_setup (id, setup_code)
-SELECT 'main',
-       upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 4) || '-' ||
-             substr(replace(gen_random_uuid()::text, '-', ''), 1, 4) || '-' ||
-             substr(replace(gen_random_uuid()::text, '-', ''), 1, 4))
- WHERE NOT EXISTS (SELECT 1 FROM public.club_setup);
-
+-- Schutz vor einem Fremden, der sich den Platz sichert: Wer zuerst ein
+-- bestätigtes Konto in dieser Datenbank anlegt UND sich hier einträgt, wird
+-- Vorstand. Deshalb gilt die Faustregel: Nach dem Anlegen dieser Datenbank
+-- zuerst selbst im Programm registrieren — dann erst die Zugangsdaten mit
+-- anderen teilen. Einladungen (Abschnitt 7b) funktionieren ohnehin erst,
+-- sobald ein Vorstand eingetragen ist, daher kommt man in der Praxis gar
+-- nicht in die Verlegenheit, sie vorher weiterzugeben.
+--
+-- Frühere Fassungen dieses Skripts verlangten hierfür zusätzlich einen
+-- "Einrichtungscode", den man aus der Ausgabe dieses Skripts ablesen und im
+-- Programm eintragen musste. Das ist entfallen.
 
 -- Steht die Einrichtung noch aus? Diese Auskunft darf jeder einholen; sie
 -- verrät nur, ob der Verein schon einen Benutzer hat, und steuert, was das
@@ -532,15 +518,19 @@ AS $fn$
 $fn$;
 
 
+-- Tabelle & Funktion einer früheren Fassung, die den Einrichtungscode
+-- verwaltet hat — wird durch die schlankere Prüfung unten abgelöst.
+DROP FUNCTION IF EXISTS public.vm_claim_first_admin(TEXT, TEXT, TEXT);
+DROP TABLE IF EXISTS public.club_setup;
+
 /**
  * Den ersten Benutzer eintragen.
  *
  * Gibt eine Klartextmeldung zurück statt einen Fehler zu werfen, damit das
  * Programm dem Anwender sagen kann, woran es lag. Mögliche Rückgaben:
- * 'ok', 'nicht angemeldet', 'falscher code', 'bereits eingerichtet'.
+ * 'ok', 'nicht angemeldet', 'bereits eingerichtet'.
  */
 CREATE OR REPLACE FUNCTION public.vm_claim_first_admin(
-  code TEXT,
   display_name TEXT,
   role_label TEXT DEFAULT '1. Vorsitzende(r)'
 )
@@ -550,34 +540,17 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $fn$
 DECLARE
-  stored  TEXT;
-  used_at TIMESTAMP WITH TIME ZONE;
-  uid     UUID := auth.uid();
+  uid UUID := auth.uid();
 BEGIN
   IF uid IS NULL THEN
     RETURN 'nicht angemeldet';
   END IF;
 
   -- Sperre, damit zwei gleichzeitige Versuche nicht beide durchkommen.
-  LOCK TABLE public.club_setup IN EXCLUSIVE MODE;
-
-  SELECT cs.setup_code, cs.code_used_at
-    INTO stored, used_at
-    FROM public.club_setup cs
-   WHERE cs.id = 'main';
-
-  IF stored IS NULL OR used_at IS NOT NULL THEN
-    RETURN 'bereits eingerichtet';
-  END IF;
+  LOCK TABLE public.club_users IN EXCLUSIVE MODE;
 
   IF EXISTS (SELECT 1 FROM public.club_users) THEN
     RETURN 'bereits eingerichtet';
-  END IF;
-
-  -- Bindestriche und Gross-/Kleinschreibung beim Vergleich ignorieren.
-  IF upper(regexp_replace(COALESCE(code, ''), '[^A-Za-z0-9]', '', 'g'))
-     <> upper(regexp_replace(stored, '[^A-Za-z0-9]', '', 'g')) THEN
-    RETURN 'falscher code';
   END IF;
 
   INSERT INTO public.club_users (user_id, name, email, role_name, permissions, is_active)
@@ -590,21 +563,17 @@ BEGIN
     TRUE
   );
 
-  UPDATE public.club_setup
-     SET code_used_at = timezone('utc'::text, now())
-   WHERE id = 'main';
-
   RETURN 'ok';
 END
 $fn$;
 
 -- Auch hier: erst allen entziehen, dann gezielt vergeben. Den Anspruch auf
 -- den ersten Platz darf nur erheben, wer angemeldet ist.
-REVOKE EXECUTE ON FUNCTION public.vm_setup_pending()                     FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION public.vm_claim_first_admin(TEXT, TEXT, TEXT) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.vm_setup_pending()               FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.vm_claim_first_admin(TEXT, TEXT) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION public.vm_setup_pending()                     TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.vm_claim_first_admin(TEXT, TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.vm_setup_pending()               TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.vm_claim_first_admin(TEXT, TEXT) TO authenticated;
 
 
 -- ==============================================================================
@@ -842,7 +811,11 @@ AS $fn$
   SELECT jsonb_build_object(
     'clubName',          COALESCE((SELECT s.club_name         FROM public.settings s WHERE s.id = 'main'), ''),
     'associationNumber', COALESCE((SELECT s.association_number FROM public.settings s WHERE s.id = 'main'), ''),
-    'address',           COALESCE((SELECT s.address            FROM public.settings s WHERE s.id = 'main'), ''),
+    -- '""'::jsonb und nicht '': Die Spalte ist seit Fassung 1.3 JSONB, weil
+    -- die Vereinsanschrift als Text ODER als Objekt vorliegen darf. Ein
+    -- leerer Text ist kein gültiges JSON und liess die ganze Datei scheitern
+    -- (in supabase_schema.sql war das bereits korrigiert, hier noch nicht).
+    'address',           COALESCE((SELECT s.address            FROM public.settings s WHERE s.id = 'main'), '""'::jsonb),
     'creditorId',        COALESCE((SELECT s.creditor_id        FROM public.settings s WHERE s.id = 'main'), ''),
     'departments',       COALESCE((SELECT s.departments        FROM public.settings s WHERE s.id = 'main'), '[]'::jsonb),
     'template', jsonb_build_object(
@@ -1050,18 +1023,13 @@ SELECT cu.name,
 
 
 -- ==============================================================================
--- 10. EINRICHTUNGSCODE — HIER ABLESEN
+-- 10. EINRICHTUNGSSTATUS — HIER ABLESEN
 -- ==============================================================================
 --
--- Diesen Code braucht der Vorstand einmalig bei der Registrierung im
--- Programm. Steht dort "verbraucht am ...", ist die Einrichtung erledigt
--- und der Code wertlos.
+-- Zur Kontrolle nach dem Ausführen dieses Skripts: Ist schon ein Vorstand
+-- eingetragen? Ein eigener Einrichtungscode wird dafür nicht mehr gebraucht —
+-- die Registrierung des ersten Vorstands läuft direkt im Programm, sobald
+-- dort die Cloud-Zugangsdaten (Project URL + Anon Key) eingetragen sind.
 
-SELECT CASE
-         WHEN cs.code_used_at IS NULL
-           THEN cs.setup_code
-         ELSE 'verbraucht am ' || to_char(cs.code_used_at, 'DD.MM.YYYY HH24:MI')
-       END AS einrichtungscode,
-       (SELECT count(*) FROM public.club_users) AS bereits_eingetragene_benutzer
-  FROM public.club_setup cs
- WHERE cs.id = 'main';
+SELECT public.vm_setup_pending() AS einrichtung_steht_noch_aus,
+       (SELECT count(*) FROM public.club_users) AS bereits_eingetragene_benutzer;

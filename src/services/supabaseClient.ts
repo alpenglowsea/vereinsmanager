@@ -219,11 +219,14 @@ export async function isCloudSetupPending(): Promise<boolean> {
 /**
  * Den ersten Vorstand eintragen.
  *
- * Der Einrichtungscode steht am Ende des SQL-Skripts und gilt genau einmal.
- * Die Datenbank prüft ihn; der Browser gibt ihn nur weiter.
+ * Kein Einrichtungscode mehr nötig: Die Datenbank prüft nur noch, ob schon
+ * ein Vorstand eingetragen ist (vm_claim_first_admin in supabase_rls.sql /
+ * supabase_schema.sql). Schutz vor einem Fremden, der sich den Platz
+ * sichert: Wer zuerst ein bestätigtes Konto anlegt UND sich hier einträgt,
+ * wird Vorstand — deshalb gleich nach dem Anlegen der Cloud-Datenbank selbst
+ * registrieren, bevor die Zugangsdaten mit anderen geteilt werden.
  */
 export async function claimFirstAdmin(
-  setupCode: string,
   displayName: string,
   roleLabel = '1. Vorsitzende(r)'
 ): Promise<{ success: boolean; message?: string }> {
@@ -232,19 +235,19 @@ export async function claimFirstAdmin(
 
   try {
     const { data, error } = await client.rpc('vm_claim_first_admin', {
-      code: setupCode,
       display_name: displayName,
       role_label: roleLabel
     });
 
     if (error) {
-      // Fehlt die Funktion, wurde das Zugriffsschutz-Skript nie ausgeführt.
+      // Fehlt die Funktion, wurde das Einrichtungsskript nie ausgeführt.
       if (error.message && error.message.includes('vm_claim_first_admin')) {
         return {
           success: false,
           message:
             'In dieser Datenbank fehlt der Zugriffsschutz. Bitte zuerst das Skript ' +
-            'supabase_rls.sql im Supabase SQL-Editor ausführen.'
+            'supabase_schema.sql (bei einer neuen Datenbank) bzw. supabase_rls.sql ' +
+            '(bei einer bestehenden) im Supabase SQL-Editor ausführen.'
         };
       }
       return { success: false, message: error.message };
@@ -253,8 +256,6 @@ export async function claimFirstAdmin(
     switch (data) {
       case 'ok':
         return { success: true };
-      case 'falscher code':
-        return { success: false, message: 'Der Einrichtungscode stimmt nicht.' };
       case 'bereits eingerichtet':
         return {
           success: false,
@@ -605,22 +606,104 @@ export const SUPABASE_SCHEMA_SQL = `-- =========================================
 -- ==============================================================================
 
 -- 1. TABELLE: SETTINGS (Vereinsdaten & Gläubiger-ID)
+--
+-- Die Spalten entsprechen den Feldern in src/services/settingsMapping.ts.
+-- Kommt dort ein Feld hinzu, gehört es auch hier hinein — und zusätzlich in
+-- den ALTER-TABLE-Abschnitt weiter unten, damit bestehende Vereine es
+-- ebenfalls bekommen.
+--
+-- Nicht enthalten: die SMTP-Zugangsdaten (liegen seit Fassung 1.3 auf dem
+-- Server der jeweiligen Installation) und die Wahl hell/dunkel (gehört zum
+-- Gerät, nicht zum Verein).
 CREATE TABLE IF NOT EXISTS public.settings (
   id TEXT PRIMARY KEY DEFAULT 'main',
   club_name TEXT NOT NULL,
+  club_logo_url TEXT,
   association_number TEXT,
   tax_number TEXT,
   creditor_id TEXT,
   creditor_iban TEXT,
   creditor_bic TEXT,
   creditor_account_id TEXT,
-  address TEXT,
+  -- JSONB statt TEXT: Die Vereinsanschrift darf als Zeichenkette ODER als
+  -- strukturiertes Objekt vorliegen (ClubSettings.address: Address | string).
+  -- In einer TEXT-Spalte wurde aus dem Objekt "[object Object]".
+  address JSONB,
+  club_address JSONB,
   chairman TEXT,
   treasurer TEXT,
+  board_members JSONB,
   email TEXT,
+  phone TEXT,
+  website TEXT,
   departments JSONB DEFAULT '["Fußball", "Tennis", "Turnen", "Leichtathletik", "Schwimmen", "Volleyball"]'::jsonb,
+  currency TEXT,
+  date_format TEXT,
+  fiscal_year_start TEXT,
+  tax_office TEXT,
+  tax_exemption_date TEXT,
+  tax_assessment_period TEXT,
+  promoted_purposes TEXT,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- 1b. NACHRÜSTUNG für Vereine, die die Tabelle schon haben
+--
+-- "CREATE TABLE IF NOT EXISTS" oben tut bei einer vorhandenen Tabelle gar
+-- nichts — auch dann nicht, wenn Spalten fehlen. Bis Fassung 1.2 kannte die
+-- Tabelle nur 13 Spalten; alles andere ging beim Speichern verloren.
+--
+-- Dieser Abschnitt lässt sich gefahrlos beliebig oft ausführen. Vorhandene
+-- Daten werden nicht angefasst.
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS club_logo_url TEXT;
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS club_address JSONB;
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS board_members JSONB;
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS website TEXT;
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS currency TEXT;
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS date_format TEXT;
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS fiscal_year_start TEXT;
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS tax_office TEXT;
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS tax_exemption_date TEXT;
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS tax_assessment_period TEXT;
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS promoted_purposes TEXT;
+
+-- Anschrift von TEXT auf JSONB umstellen. Ein vorhandener Text wird dabei zu
+-- einem JSON-Text ("Sportplatzweg 12") und bleibt damit lesbar. Steht die
+-- Spalte bereits auf JSONB, tut die Anweisung nichts.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'settings'
+      AND column_name = 'address' AND data_type <> 'jsonb'
+  ) THEN
+    ALTER TABLE public.settings
+      ALTER COLUMN address TYPE JSONB USING to_jsonb(address);
+  END IF;
+END $$;
+
+-- Die SMTP-Zugangsdaten haben in der Datenbank nichts mehr zu suchen. Falls
+-- eine frühere Fassung Spalten dafür angelegt hat, kommen sie hier weg —
+-- sonst stünde das Postfach-Passwort weiterhin in der Cloud.
+ALTER TABLE public.settings DROP COLUMN IF EXISTS smtp_host;
+ALTER TABLE public.settings DROP COLUMN IF EXISTS smtp_port;
+ALTER TABLE public.settings DROP COLUMN IF EXISTS smtp_secure;
+ALTER TABLE public.settings DROP COLUMN IF EXISTS smtp_user;
+ALTER TABLE public.settings DROP COLUMN IF EXISTS smtp_password;
+ALTER TABLE public.settings DROP COLUMN IF EXISTS smtp_from_email;
+ALTER TABLE public.settings DROP COLUMN IF EXISTS smtp_from_name;
+
+-- Dasselbe fuer die KI-Einstellungen: Der Schluessel liegt seit Fassung 0.9
+-- verschluesselt auf dem Server dieser Installation. Stand er hier, konnte
+-- ihn jeder lesen, der Zugriff auf die Datenbank hat — und er wanderte in
+-- jede Datensicherung. Anbieter, Modell und Adresse gehen mit: Sie sind
+-- Einstellungen dieser Installation, nicht Daten des Vereins.
+ALTER TABLE public.settings DROP COLUMN IF EXISTS gemini_api_key;
+ALTER TABLE public.settings DROP COLUMN IF EXISTS ai_api_key;
+ALTER TABLE public.settings DROP COLUMN IF EXISTS ai_provider;
+ALTER TABLE public.settings DROP COLUMN IF EXISTS ai_model;
+ALTER TABLE public.settings DROP COLUMN IF EXISTS ai_base_url;
 
 -- 2. TABELLE: ACCOUNTS (Finanzkonten / Barkassen)
 CREATE TABLE IF NOT EXISTS public.accounts (
@@ -683,6 +766,10 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   skr_account TEXT,
   category TEXT NOT NULL,
   vat_rate NUMERIC(4,1) DEFAULT 0.0,
+  -- Sparte der Buchung (z.B. "Fußball", "Tennis"; leer = Gesamtverein).
+  -- Unabhängig von sphere und skr_account/sub_category vergeben — siehe
+  -- Hinweis bei Skr42MainCategory in src/types.ts.
+  department TEXT,
   notes TEXT,
   receipt JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -692,6 +779,11 @@ CREATE TABLE IF NOT EXISTS public.transactions (
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON public.transactions (date);
 CREATE INDEX IF NOT EXISTS idx_transactions_account ON public.transactions (account_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_sphere ON public.transactions (sphere);
+
+-- Bestandsschutz: bei bereits eingerichteten Vereinen fehlt die Spalte
+-- "department" noch — dieser Abschnitt lässt sich gefahrlos beliebig oft
+-- ausführen, vorhandene Daten werden nicht angefasst.
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS department TEXT;
 
 -- 5. TABELLE: INVENTORY (Vereinsinventar & Material)
 CREATE TABLE IF NOT EXISTS public.inventory (
@@ -1102,11 +1194,12 @@ CREATE TABLE IF NOT EXISTS public.dashboard_config (
 -- eine bestehende Datenbank nachrüsten will, führt jenes Skript aus; hier
 -- steht derselbe Stand für eine Neuanlage.
 --
--- WICHTIG: Ganz am Ende wird ein Einrichtungscode erzeugt und angezeigt.
--- Damit trägt sich der erste Vorstand im Programm selbst ein — über
--- "Registrieren" im Anmeldefenster. Weitere Benutzer lädt er anschliessend
--- in den Einstellungen ein. Ohne den ersten Schritt gelingt zwar die
--- Anmeldung, aber jede Tabelle bleibt leer.
+-- WICHTIG: Nach diesem Skript trägt sich der erste Vorstand direkt im
+-- Programm selbst ein — Cloud-Zugangsdaten eingeben, dann "Registrieren"
+-- im Anmeldefenster. Ein Einrichtungscode wird dafür nicht mehr gebraucht.
+-- Weitere Benutzer lädt er anschliessend in den Einstellungen ein. Ohne
+-- den ersten Schritt gelingt zwar die Anmeldung, aber jede Tabelle bleibt
+-- leer.
 -- ==============================================================================
 
 
@@ -1560,38 +1653,24 @@ GRANT EXECUTE ON FUNCTION public.vm_full_permissions()     TO authenticated;
 
 
 -- ==============================================================================
--- 7. EINRICHTUNGSCODE FÜR DEN ERSTEN BENUTZER
+-- 7. DER ERSTE BENUTZER
 -- ==============================================================================
 --
--- Der erste Vorstand soll sich im Programm registrieren können, ohne hier im
--- Dashboard Hand anzulegen. Damit in dieser Zeit nicht ein Fremder den Platz
--- besetzt, verlangt die Registrierung einen Einrichtungscode.
+-- Der erste Vorstand registriert sich direkt im Programm, sobald dort die
+-- Cloud-Zugangsdaten (Project URL + Anon Key) eingetragen sind — ganz ohne
+-- einen Code aus diesem Skript.
 --
--- Der Code wird beim ersten Durchlauf dieses Skripts einmal erzeugt und ganz
--- unten angezeigt. Er gilt genau einmal: Sobald sich der erste Benutzer
--- eingetragen hat, ist er verbraucht.
-
-CREATE TABLE IF NOT EXISTS public.club_setup (
-  id TEXT PRIMARY KEY DEFAULT 'main',
-  setup_code TEXT NOT NULL,
-  code_used_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
-);
-
-ALTER TABLE public.club_setup ENABLE ROW LEVEL SECURITY;
-
--- Absichtlich OHNE jede Richtlinie: Auf diese Tabelle kommt niemand direkt,
--- auch kein angemeldeter Benutzer. Nur die Prüffunktion unten darf hinein.
-REVOKE ALL ON public.club_setup FROM anon, authenticated;
-
--- Code erzeugen, aber nur beim allerersten Durchlauf.
-INSERT INTO public.club_setup (id, setup_code)
-SELECT 'main',
-       upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 4) || '-' ||
-             substr(replace(gen_random_uuid()::text, '-', ''), 1, 4) || '-' ||
-             substr(replace(gen_random_uuid()::text, '-', ''), 1, 4))
- WHERE NOT EXISTS (SELECT 1 FROM public.club_setup);
-
+-- Schutz vor einem Fremden, der sich den Platz sichert: Wer zuerst ein
+-- bestätigtes Konto in dieser Datenbank anlegt UND sich hier einträgt, wird
+-- Vorstand. Deshalb gilt die Faustregel: Nach dem Anlegen dieser Datenbank
+-- zuerst selbst im Programm registrieren — dann erst die Zugangsdaten mit
+-- anderen teilen. Einladungen (Abschnitt 7b) funktionieren ohnehin erst,
+-- sobald ein Vorstand eingetragen ist, daher kommt man in der Praxis gar
+-- nicht in die Verlegenheit, sie vorher weiterzugeben.
+--
+-- Frühere Fassungen dieses Skripts verlangten hierfür zusätzlich einen
+-- "Einrichtungscode", den man aus der Ausgabe dieses Skripts ablesen und im
+-- Programm eintragen musste. Das ist entfallen.
 
 -- Steht die Einrichtung noch aus? Diese Auskunft darf jeder einholen; sie
 -- verrät nur, ob der Verein schon einen Benutzer hat, und steuert, was das
@@ -1607,15 +1686,19 @@ AS $fn$
 $fn$;
 
 
+-- Tabelle & Funktion einer früheren Fassung, die den Einrichtungscode
+-- verwaltet hat — wird durch die schlankere Prüfung unten abgelöst.
+DROP FUNCTION IF EXISTS public.vm_claim_first_admin(TEXT, TEXT, TEXT);
+DROP TABLE IF EXISTS public.club_setup;
+
 /**
  * Den ersten Benutzer eintragen.
  *
  * Gibt eine Klartextmeldung zurück statt einen Fehler zu werfen, damit das
  * Programm dem Anwender sagen kann, woran es lag. Mögliche Rückgaben:
- * 'ok', 'nicht angemeldet', 'falscher code', 'bereits eingerichtet'.
+ * 'ok', 'nicht angemeldet', 'bereits eingerichtet'.
  */
 CREATE OR REPLACE FUNCTION public.vm_claim_first_admin(
-  code TEXT,
   display_name TEXT,
   role_label TEXT DEFAULT '1. Vorsitzende(r)'
 )
@@ -1625,34 +1708,17 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $fn$
 DECLARE
-  stored  TEXT;
-  used_at TIMESTAMP WITH TIME ZONE;
-  uid     UUID := auth.uid();
+  uid UUID := auth.uid();
 BEGIN
   IF uid IS NULL THEN
     RETURN 'nicht angemeldet';
   END IF;
 
   -- Sperre, damit zwei gleichzeitige Versuche nicht beide durchkommen.
-  LOCK TABLE public.club_setup IN EXCLUSIVE MODE;
-
-  SELECT cs.setup_code, cs.code_used_at
-    INTO stored, used_at
-    FROM public.club_setup cs
-   WHERE cs.id = 'main';
-
-  IF stored IS NULL OR used_at IS NOT NULL THEN
-    RETURN 'bereits eingerichtet';
-  END IF;
+  LOCK TABLE public.club_users IN EXCLUSIVE MODE;
 
   IF EXISTS (SELECT 1 FROM public.club_users) THEN
     RETURN 'bereits eingerichtet';
-  END IF;
-
-  -- Bindestriche und Gross-/Kleinschreibung beim Vergleich ignorieren.
-  IF upper(regexp_replace(COALESCE(code, ''), '[^A-Za-z0-9]', '', 'g'))
-     <> upper(regexp_replace(stored, '[^A-Za-z0-9]', '', 'g')) THEN
-    RETURN 'falscher code';
   END IF;
 
   INSERT INTO public.club_users (user_id, name, email, role_name, permissions, is_active)
@@ -1665,21 +1731,17 @@ BEGIN
     TRUE
   );
 
-  UPDATE public.club_setup
-     SET code_used_at = timezone('utc'::text, now())
-   WHERE id = 'main';
-
   RETURN 'ok';
 END
 $fn$;
 
 -- Auch hier: erst allen entziehen, dann gezielt vergeben. Den Anspruch auf
 -- den ersten Platz darf nur erheben, wer angemeldet ist.
-REVOKE EXECUTE ON FUNCTION public.vm_setup_pending()                     FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION public.vm_claim_first_admin(TEXT, TEXT, TEXT) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.vm_setup_pending()               FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.vm_claim_first_admin(TEXT, TEXT) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION public.vm_setup_pending()                     TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.vm_claim_first_admin(TEXT, TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.vm_setup_pending()               TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.vm_claim_first_admin(TEXT, TEXT) TO authenticated;
 
 
 -- ==============================================================================
@@ -1917,7 +1979,10 @@ AS $fn$
   SELECT jsonb_build_object(
     'clubName',          COALESCE((SELECT s.club_name         FROM public.settings s WHERE s.id = 'main'), ''),
     'associationNumber', COALESCE((SELECT s.association_number FROM public.settings s WHERE s.id = 'main'), ''),
-    'address',           COALESCE((SELECT s.address            FROM public.settings s WHERE s.id = 'main'), ''),
+    -- '""'::jsonb und nicht '': Die Spalte ist seit Fassung 1.3 JSONB, weil
+    -- die Vereinsanschrift als Text ODER als Objekt vorliegen darf. Ein
+    -- leerer Text ist kein gültiges JSON und liess die ganze Datei scheitern.
+    'address',           COALESCE((SELECT s.address            FROM public.settings s WHERE s.id = 'main'), '""'::jsonb),
     'creditorId',        COALESCE((SELECT s.creditor_id        FROM public.settings s WHERE s.id = 'main'), ''),
     'departments',       COALESCE((SELECT s.departments        FROM public.settings s WHERE s.id = 'main'), '[]'::jsonb),
     'template', jsonb_build_object(
@@ -2125,19 +2190,14 @@ SELECT cu.name,
 
 
 -- ==============================================================================
--- 10. EINRICHTUNGSCODE — HIER ABLESEN
+-- 10. EINRICHTUNGSSTATUS — HIER ABLESEN
 -- ==============================================================================
 --
--- Diesen Code braucht der Vorstand einmalig bei der Registrierung im
--- Programm. Steht dort "verbraucht am ...", ist die Einrichtung erledigt
--- und der Code wertlos.
+-- Zur Kontrolle nach dem Ausführen dieses Skripts: Ist schon ein Vorstand
+-- eingetragen? Ein eigener Einrichtungscode wird dafür nicht mehr gebraucht —
+-- die Registrierung des ersten Vorstands läuft direkt im Programm, sobald
+-- dort die Cloud-Zugangsdaten (Project URL + Anon Key) eingetragen sind.
 
-SELECT CASE
-         WHEN cs.code_used_at IS NULL
-           THEN cs.setup_code
-         ELSE 'verbraucht am ' || to_char(cs.code_used_at, 'DD.MM.YYYY HH24:MI')
-       END AS einrichtungscode,
-       (SELECT count(*) FROM public.club_users) AS bereits_eingetragene_benutzer
-  FROM public.club_setup cs
- WHERE cs.id = 'main';
+SELECT public.vm_setup_pending() AS einrichtung_steht_noch_aus,
+       (SELECT count(*) FROM public.club_users) AS bereits_eingetragene_benutzer;
 `;

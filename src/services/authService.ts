@@ -295,7 +295,11 @@ export class AuthService {
     username: string;
     password: string;
     customRoleName?: string;
-    /** Nur im Cloud-Betrieb: der Code aus dem SQL-Skript. */
+    /**
+     * Nur im Cloud-Betrieb nötig, UND dort nur, wenn schon ein Vorstand
+     * eingetragen ist: der Einladungscode, den der Vorstand vergeben hat.
+     * Für den allerersten Vorstand braucht es keinen Code.
+     */
     setupCode?: string;
   }): Promise<{ success: boolean; message?: string; user?: AppUser; requiresEmailConfirmation?: boolean }> {
     const clubName = params.clubName.trim();
@@ -415,12 +419,12 @@ export class AuthService {
   /**
    * Registrierung im Cloud-Betrieb.
    *
-   * Zwei Fälle, die sich für den Anwender gleich anfühlen sollen: Entweder
-   * richtet jemand den Verein neu ein — dann gilt der Einrichtungscode aus
-   * dem SQL-Skript — oder er wurde vom Vorstand eingeladen und hat einen
-   * Einladungscode. Welcher Fall vorliegt, entscheidet die Datenbank, nicht
-   * der Anwender: Solange noch kein Benutzer eingetragen ist, ist es der
-   * erste; danach kann es nur eine Einladung sein.
+   * Zwei Fälle: Entweder richtet jemand den Verein neu ein — dann braucht es
+   * keinen Code, nur die eingetragenen Zugangsdaten — oder er wurde vom
+   * Vorstand eingeladen und braucht dafür einen Einladungscode. Welcher Fall
+   * vorliegt, entscheidet die Datenbank, nicht der Anwender: Solange noch
+   * kein Benutzer eingetragen ist, ist es der erste; danach kann es nur eine
+   * Einladung sein.
    */
   private static async registerCloud(params: {
     clubName: string;
@@ -428,7 +432,8 @@ export class AuthService {
     email: string;
     username: string;
     password: string;
-    setupCode: string;
+    /** Nur nötig, wenn schon ein Vorstand eingetragen ist (Einladungscode). */
+    setupCode?: string;
     customRoleName?: string;
   }): Promise<{ success: boolean; message?: string; user?: AppUser; requiresEmailConfirmation?: boolean }> {
     const sb = getSupabaseClient();
@@ -436,17 +441,18 @@ export class AuthService {
       return { success: false, message: 'Die Cloud-Datenbank ist nicht erreichbar.' };
     }
 
-    const code = params.setupCode.trim();
-    if (!code) {
+    const isFirstAdmin = await isCloudSetupPending();
+    const code = (params.setupCode || '').trim();
+
+    // Einen Code braucht nur, wer eingeladen wurde — der allererste Vorstand
+    // registriert sich allein mit den Zugangsdaten, die er selbst eingetragen
+    // hat.
+    if (!isFirstAdmin && !code) {
       return {
         success: false,
-        message:
-          'Bitte den Code eingeben — entweder den Einrichtungscode aus dem SQL-Skript ' +
-          'oder den Einladungscode, den Ihnen der Vorstand gegeben hat.'
+        message: 'Bitte den Einladungscode eingeben, den Ihnen der Vorstand gegeben hat.'
       };
     }
-
-    const isFirstAdmin = await isCloudSetupPending();
 
     const { data, error } = await sb.auth.signUp({
       email: params.email,
@@ -474,7 +480,7 @@ export class AuthService {
     }
 
     const entry = isFirstAdmin
-      ? await claimFirstAdmin(code, params.name, params.customRoleName || '1. Vorsitzende(r)')
+      ? await claimFirstAdmin(params.name, params.customRoleName || '1. Vorsitzende(r)')
       : await acceptInvitation(code);
 
     if (!entry.success) {
@@ -497,8 +503,11 @@ export class AuthService {
   }
 
   /**
-   * Einrichtungscode zwischenspeichern, solange die E-Mail-Bestätigung
-   * aussteht. Er ist nur einmal gültig und wird nach dem Eintragen gelöscht.
+   * Zwischenspeichern, solange die E-Mail-Bestätigung aussteht, damit der
+   * Eintrag in die Vereinsdatenbank bei der ersten Anmeldung nachgeholt
+   * werden kann. "code" ist dabei nur für kind 'invite' tatsächlich ein
+   * Einladungscode — für kind 'setup' (der allererste Vorstand) bleibt er
+   * leer, da claimFirstAdmin() keinen Code mehr braucht.
    */
   private static rememberSetupCode(
     code: string,
@@ -768,7 +777,7 @@ export class AuthService {
           const claim =
             pending.kind === 'invite'
               ? await acceptInvitation(pending.code)
-              : await claimFirstAdmin(pending.code, pending.name, pending.roleLabel);
+              : await claimFirstAdmin(pending.name, pending.roleLabel);
           if (claim.success) {
             this.forgetSetupCode();
             clubUser = await fetchClubUser(data.user.id);
