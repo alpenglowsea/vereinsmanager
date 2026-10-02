@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { AppUser, ClubSettings, DeploymentMode } from '../types';
 import { AuthService } from '../services/authService';
 import { StorageService } from '../services/storage';
-import { isCloudSetupPending } from '../services/supabaseClient';
+import { isCloudSetupPending, sendPasswordReset, getSupabaseClient } from '../services/supabaseClient';
 import {
   statusAbfragen as leseEigenenServerStatus,
   passwortResetTokenAusAdresse,
@@ -55,11 +55,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [showPassword, setShowPassword] = useState(false);
 
   /**
-   * "Passwort vergessen" (nur gehosteter Betrieb, siehe unten). Ein
-   * mitgeschicktes Token in der Adresszeile hat Vorrang vor allem anderen —
-   * einmal beim ersten Rendern gelesen, nicht bei jedem erneuten Rendern
-   * (sonst ginge der Wert verloren, sobald LoginScreen aus einem anderen
-   * Grund neu rendert, z. B. weil errorMsg sich ändert).
+   * "Passwort vergessen" — gehosteter UND Cloud-Betrieb (nicht Lokalbetrieb,
+   * siehe unten). Ein mitgeschicktes Token in der Adresszeile (gehosteter
+   * Betrieb) hat Vorrang vor allem anderen — einmal beim ersten Rendern
+   * gelesen, nicht bei jedem erneuten Rendern (sonst ginge der Wert
+   * verloren, sobald LoginScreen aus einem anderen Grund neu rendert, z. B.
+   * weil errorMsg sich ändert).
    */
   // deploymentMode ist ein Prop und von Anfang an da — anders als
   // isSelfhostedMode weiter unten, das erst nach der Registrierungs-Logik
@@ -73,6 +74,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [resetNewPasswordConfirm, setResetNewPasswordConfirm] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [resetDone, setResetDone] = useState(false);
+  /**
+   * Cloud-Betrieb: Supabase erkennt einen Reset-Link von sich aus (der
+   * Client ist mit `detectSessionInUrl: true` angelegt, siehe
+   * supabaseClient.ts) und meldet das über ein eigenes Ereignis
+   * ("PASSWORD_RECOVERY"), statt wie beim gehosteten Betrieb über ein
+   * eigenes Token in der Adresszeile. Deshalb ein eigener Merker statt der
+   * Wiederverwendung von resetToken oben — beide Wege bestehen unabhängig
+   * nebeneinander (siehe der Effekt weiter unten).
+   */
+  const [cloudRecoveryActive, setCloudRecoveryActive] = useState(false);
 
   // Register State
   const [regClubName, setRegClubName] = useState('');
@@ -131,6 +142,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [selfhostedSetupPending, setSelfhostedSetupPending] = useState<boolean | null>(null);
   const [selfhostedStatusError, setSelfhostedStatusError] = useState<string | null>(null);
 
+  /**
+   * Cloud- und gehosteter Betrieb melden ausschließlich über die
+   * E-Mail-Adresse an — AuthService.login() weist einen reinen
+   * Benutzernamen dort mit einer eigenen Fehlermeldung ab (siehe dort). Nur
+   * der Lokalbetrieb kennt weiterhin echte Benutzernamen ohne E-Mail. Das
+   * Eingabefeld unten zeigt entsprechend eine passende Bezeichnung, statt in
+   * jedem Betrieb gleichermaßen "Benutzername oder E-Mail" zu versprechen.
+   */
+  const anmeldungNurPerEmail = deploymentMode === 'cloud' || isSelfhostedMode;
+
   useEffect(() => {
     if (!isSelfhostedMode) return;
     let abgebrochen = false;
@@ -146,6 +167,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       abgebrochen = true;
     };
   }, [isSelfhostedMode]);
+
+  /**
+   * Cloud-Betrieb: Ein Reset-Link von Supabase führt zurück auf genau diese
+   * Adresse (siehe redirectTo bei handleForgotPasswordRequest unten) und
+   * hängt seine eigenen Angaben hinter das Doppelkreuz. Der Supabase-Client
+   * liest das beim Erzeugen selbst aus (detectSessionInUrl, siehe
+   * supabaseClient.ts) und meldet es über genau dieses Ereignis — nicht über
+   * ein eigenes Token wie beim gehosteten Betrieb. getSupabaseClient() hier
+   * aufzurufen erzeugt den Client bei Bedarf erst (er entsteht sonst nirgends
+   * von selbst, solange niemand angemeldet ist).
+   */
+  useEffect(() => {
+    if (deploymentMode !== 'cloud') return;
+    const client = getSupabaseClient();
+    if (!client) return;
+    const { data } = client.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setCloudRecoveryActive(true);
+      }
+    });
+    return () => {
+      data.subscription.unsubscribe();
+    };
+  }, [deploymentMode]);
 
   // Ersteinrichtungsformular (gehosteter Betrieb, erstes Konto)
   const [setupName, setSetupName] = useState('');
@@ -199,14 +244,39 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
     setLoading(true);
     try {
-      const res = await passwortVergessenAnfordern(forgotEmail.trim());
-      if (res.success) {
+      // Cloud-Betrieb: Supabase verschickt die Mail selbst und muss wissen,
+      // wohin der Link führen soll — auf genau diese laufende Installation
+      // (siehe die ausführliche Begründung bei sendPasswordReset in
+      // supabaseClient.ts). Gehosteter Betrieb: eigener Server, eigene
+      // Mail, kein redirectTo nötig.
+      //
+      // Bewusst sofort in gleich geformte, eigene Variablen gelegt statt das
+      // Ergebnis der beiden Aufrufe direkt weiterzureichen: Sie kommen aus
+      // zwei verschiedenen Diensten mit unterschiedlich benannten Feldern
+      // (error vs. message) — das hätte hier zu genau der Art von
+      // TypeScript-Eigenart geführt, die in localServerAuth.ts vom
+      // 27./28.09. schon einmal Ärger gemacht hat.
+      let erfolg: boolean;
+      let meldung: string | undefined;
+      if (deploymentMode === 'cloud') {
+        const res = await sendPasswordReset(forgotEmail.trim(), window.location.origin);
+        erfolg = res.success;
+        meldung = res.error;
+      } else {
+        const res = await passwortVergessenAnfordern(forgotEmail.trim());
+        erfolg = res.success;
+        meldung = res.message;
+      }
+
+      if (erfolg) {
         setSuccessMsg(
-          res.message ||
-            'Falls zu dieser Adresse ein Konto besteht, wurde soeben eine E-Mail mit einem Link zum Zurücksetzen verschickt.'
+          deploymentMode === 'cloud'
+            ? 'Falls zu dieser Adresse ein Konto besteht, wurde soeben eine E-Mail mit einem Link zum Zurücksetzen verschickt. Bitte diese E-Mail auf demselben Rechner öffnen, auf dem VereinsManager läuft — der Link führt sonst ins Leere.'
+            : meldung ||
+              'Falls zu dieser Adresse ein Konto besteht, wurde soeben eine E-Mail mit einem Link zum Zurücksetzen verschickt.'
         );
       } else {
-        setErrorMsg(res.message || 'Die Anfrage ist fehlgeschlagen.');
+        setErrorMsg(meldung || 'Die Anfrage ist fehlgeschlagen.');
       }
     } catch {
       setErrorMsg('Unerwarteter Fehler bei der Anfrage.');
@@ -249,6 +319,53 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
   };
 
+  /**
+   * Cloud-Betrieb: Der Reset-Link hat den Supabase-Client bereits in eine
+   * "Wiederherstellungs-Sitzung" versetzt (siehe der PASSWORD_RECOVERY-Effekt
+   * weiter oben) — die neue Anmeldung dort genügt Supabase bereits als
+   * Nachweis, dass die Person die E-Mail wirklich geöffnet hat. Es braucht
+   * deshalb kein eigenes Token wie beim gehosteten Betrieb: updateUser()
+   * setzt das Passwort direkt für das gerade erkannte Konto.
+   */
+  const handleCloudResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (resetNewPassword !== resetNewPasswordConfirm) {
+      setErrorMsg('Die eingegebenen Passwörter stimmen nicht überein.');
+      return;
+    }
+
+    const client = getSupabaseClient();
+    if (!client) {
+      setErrorMsg('Supabase ist nicht erreichbar.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await client.auth.updateUser({ password: resetNewPassword });
+      if (!error) {
+        // Die Wiederherstellungs-Sitzung, die Supabase für diesen Vorgang
+        // angelegt hat, wieder abmelden: AuthService kennt sie ohnehin nicht
+        // (es merkt sich Anmeldungen nur über die eigene, ausdrückliche
+        // login()-Methode) — sie soll aber auch bei Supabase selbst nicht
+        // stehen bleiben. Die Person meldet sich gleich ganz normal über das
+        // Anmeldeformular an, mit dem gerade gesetzten Passwort.
+        await client.auth.signOut();
+        setResetDone(true);
+        setSuccessMsg('Das Passwort wurde geändert. Sie können sich jetzt damit anmelden.');
+      } else {
+        setErrorMsg(error.message || 'Das Passwort konnte nicht geändert werden.');
+      }
+    } catch {
+      setErrorMsg('Unerwarteter Fehler beim Zurücksetzen.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Import State
   const [isDragging, setIsDragging] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -277,7 +394,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setSuccessMsg(null);
 
     if (!usernameInput.trim()) {
-      setErrorMsg('Bitte geben Sie Ihren Benutzernamen oder Ihre E-Mail ein.');
+      setErrorMsg(
+        anmeldungNurPerEmail
+          ? 'Bitte geben Sie Ihre E-Mail-Adresse ein.'
+          : 'Bitte geben Sie Ihren Benutzernamen oder Ihre E-Mail ein.'
+      );
       return;
     }
     if (!passwordInput) {
@@ -606,9 +727,126 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     );
   }
 
-  // "Passwort vergessen" — Anfrageformular (nur gehosteter Betrieb, siehe
-  // Link im Anmelde-Tab weiter unten).
-  if (isSelfhostedMode && showForgotPassword) {
+  // Cloud-Betrieb, Gegenstück zum Block oben: Supabase hat den Reset-Link
+  // bereits erkannt (siehe der PASSWORD_RECOVERY-Effekt weiter oben) — auch
+  // das hat Vorrang vor jeder anderen Ansicht.
+  if (deploymentMode === 'cloud' && cloudRecoveryActive) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
+        <div className="w-full max-w-md">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/80 overflow-hidden">
+            <div className="bg-slate-900 text-white p-6 sm:p-7 text-center relative overflow-hidden">
+              <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute -left-8 -top-8 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="inline-flex items-center justify-center w-14 h-14 bg-white rounded-2xl shadow-lg mb-3 ring-4 ring-white/10 p-1.5 overflow-hidden">
+                <img
+                  src={settings?.clubLogoUrl || '/logo_transparent.png'}
+                  alt={clubName}
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    if (e.currentTarget.src !== window.location.origin + '/logo_transparent.png') {
+                      e.currentTarget.src = '/logo_transparent.png';
+                    }
+                  }}
+                />
+              </div>
+              <h1 className="text-xl font-extrabold text-white tracking-tight leading-tight">
+                Neues Passwort setzen
+              </h1>
+              <p className="text-xs text-slate-400 mt-1 font-medium">
+                {resetDone ? 'Erledigt' : 'Für Ihr Vereinskonto'}
+              </p>
+            </div>
+
+            <div className="p-6 sm:p-7 space-y-5">
+              {errorMsg && (
+                <div className="flex items-start gap-2.5 p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="leading-relaxed font-medium">{errorMsg}</div>
+                </div>
+              )}
+              {successMsg && (
+                <div className="flex items-start gap-2.5 p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="leading-relaxed font-medium">{successMsg}</div>
+                </div>
+              )}
+
+              {resetDone ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCloudRecoveryActive(false);
+                    setResetDone(false);
+                    setSuccessMsg(null);
+                  }}
+                  className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-bold rounded-xl shadow-md shadow-blue-600/20 hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>Zur Anmeldung</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <form onSubmit={handleCloudResetPasswordSubmit} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">Neues Passwort *</label>
+                    <div className="relative">
+                      <input
+                        type={showResetPassword ? 'text' : 'password'}
+                        value={resetNewPassword}
+                        onChange={(e) => setResetNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        autoFocus
+                        required
+                        className="w-full pl-3.5 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowResetPassword(!showResetPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        {showResetPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">Wiederholen *</label>
+                    <input
+                      type={showResetPassword ? 'text' : 'password'}
+                      value={resetNewPasswordConfirm}
+                      onChange={(e) => setResetNewPasswordConfirm(e.target.value)}
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                      required
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all outline-none"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-bold rounded-xl shadow-md shadow-blue-600/20 hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <KeyRound className="w-4 h-4" />
+                        <span>Neues Passwort setzen</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // "Passwort vergessen" — Anfrageformular (gehosteter UND Cloud-Betrieb,
+  // siehe Link im Anmelde-Tab weiter unten).
+  if ((isSelfhostedMode || deploymentMode === 'cloud') && showForgotPassword) {
     return (
       <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
         <div className="w-full max-w-md">
@@ -1028,17 +1266,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   {/* Username Input */}
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700">
-                      Benutzername oder E-Mail
+                      {anmeldungNurPerEmail ? 'E-Mail-Adresse' : 'Benutzername oder E-Mail'}
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                         <User className="w-4 h-4" />
                       </div>
                       <input
-                        type="text"
+                        type={anmeldungNurPerEmail ? 'email' : 'text'}
                         value={usernameInput}
                         onChange={(e) => setUsernameInput(e.target.value)}
-                        placeholder="z. B. admin oder vorstand@verein.de"
+                        placeholder={anmeldungNurPerEmail ? 'vorstand@verein.de' : 'z. B. admin oder vorstand@verein.de'}
                         autoComplete="username"
                         autoFocus
                         required
@@ -1073,11 +1311,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
-                    {/* Nur gehosteter Betrieb: Im Lokal- und Cloud-Betrieb
-                        gibt es diesen Weg (noch) nicht — dort hilft ein
-                        JSON-Import (Lokalbetrieb) bzw. Supabase selbst
-                        (Cloud) weiter. */}
-                    {isSelfhostedMode && (
+                    {/* Gehosteter und Cloud-Betrieb: eigener bzw. per
+                        Supabase verschickter Reset-Link (siehe die beiden
+                        Blöcke weiter oben). Im Lokalbetrieb gibt es diesen
+                        Weg nicht — dort hilft ein JSON-Import weiter. */}
+                    {(isSelfhostedMode || deploymentMode === 'cloud') && (
                       <div className="text-right">
                         <button
                           type="button"

@@ -581,12 +581,34 @@ export async function signOutUser(): Promise<void> {
   }
 }
 
-export async function sendPasswordReset(email: string): Promise<{ success: boolean; error?: string }> {
+/**
+ * Fordert bei Supabase eine "Passwort vergessen"-E-Mail an.
+ *
+ * `redirectTo` bewusst NICHT hier fest verdrahtet, sondern vom Aufrufer
+ * übergeben (LoginScreen: `window.location.origin`) — nur der Aufrufer weiß,
+ * unter welcher Adresse GENAU diese Installation gerade läuft. Der
+ * eingebaute Server dieser Installation weicht beim Start auf einen anderen
+ * Port aus, falls 3000 belegt ist (siehe server.ts, starteLauscher) — eine
+ * hier fest eingetragene Adresse träfe dann nicht mehr zu.
+ *
+ * Damit der zurückkommende Link überhaupt etwas öffnet, muss diese Adresse
+ * zusätzlich in den Supabase-Projekteinstellungen unter Authentication ->
+ * URL Configuration -> Redirect URLs eingetragen sein (z. B. als Muster
+ * `http://localhost:**`, das jeden Port erlaubt) — das übernimmt Supabase
+ * selbst, kein Weg, das von hier aus zu setzen.
+ */
+export async function sendPasswordReset(
+  email: string,
+  redirectTo?: string
+): Promise<{ success: boolean; error?: string }> {
   const client = getSupabaseClient();
   if (!client) return { success: false, error: 'Supabase ist noch nicht konfiguriert.' };
 
   try {
-    const { error } = await client.auth.resetPasswordForEmail(email);
+    const { error } = await client.auth.resetPasswordForEmail(
+      email,
+      redirectTo ? { redirectTo } : undefined
+    );
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (err: any) {
