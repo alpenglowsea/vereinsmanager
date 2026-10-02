@@ -1307,7 +1307,8 @@ export const StorageService = {
     if (!authData?.user) {
       throw new Error(
         'Für den Umzug müssen Sie in der Cloud angemeldet sein. Legen Sie zuerst ' +
-          'über "Registrieren" mit dem Einrichtungscode den Vorstandszugang an.'
+          'über "Registrieren" (Betriebsart Cloud) den Vorstandszugang an — ein ' +
+          'Einrichtungscode wird dafür nicht mehr gebraucht.'
       );
     }
     const { data: mayWrite, error: permError } = await client.rpc('vm_can_edit', { area: 'members' });

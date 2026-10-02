@@ -4,6 +4,7 @@ import {
   CloudInvitation,
   CloudUser,
   createInvitation,
+  getStoredSupabaseConfig,
   listClubUsers,
   listInvitations,
   removeClubUser,
@@ -218,14 +219,24 @@ export const CloudUserAdminPanel: React.FC<CloudUserAdminPanelProps> = ({
   };
 
   const copyInvitationText = async (inv: CloudInvitation) => {
+    // Wer eingeladen wird, hat VereinsManager meist noch nie mit dieser
+    // Cloud-Datenbank verbunden gesehen — ohne Project URL + Anon Key kommt
+    // er gar nicht bis zum Registrieren-Formular. Beides steht daher mit im
+    // Text, nicht nur der Einladungscode.
+    const config = getStoredSupabaseConfig();
     const text =
       `Hallo ${inv.name || ''},\n\n` +
       `du bist als "${inv.roleName}" für die Vereinsverwaltung freigeschaltet.\n\n` +
       `So kommst du hinein:\n` +
-      `1. Vereinsverwaltung öffnen und auf "Registrieren" klicken\n` +
-      `2. Diese E-Mail-Adresse angeben: ${inv.email}\n` +
-      `3. Ein eigenes Passwort vergeben\n` +
-      `4. Diesen Einladungscode eintragen: ${inv.inviteCode}\n\n` +
+      `1. VereinsManager öffnen\n` +
+      `2. Im Anmeldebildschirm unten auf "Betriebsmodus ändern" klicken, "Cloud" ` +
+      `wählen und diese Zugangsdaten eintragen:\n` +
+      `   Project URL: ${config.url || '(beim Vorstand erfragen)'}\n` +
+      `   Anon/Publishable Key: ${config.anonKey || '(beim Vorstand erfragen)'}\n` +
+      `3. Auf "Verbinden & aktivieren" klicken, dann auf "Registrieren"\n` +
+      `4. Diese E-Mail-Adresse angeben: ${inv.email}\n` +
+      `5. Ein eigenes Passwort vergeben\n` +
+      `6. Diesen Einladungscode eintragen: ${inv.inviteCode}\n\n` +
       `Der Code gilt bis zum ${new Date(inv.expiresAt).toLocaleDateString('de-DE')} und nur einmal.\n`;
     try {
       await navigator.clipboard.writeText(text);

@@ -1312,6 +1312,7 @@ export default function App() {
         onSettingsReload={(newSettings) => {
           if (newSettings) setSettings(newSettings);
         }}
+        onDeploymentModeChange={(newMode) => setDeploymentMode(newMode)}
       />
     );
   }
