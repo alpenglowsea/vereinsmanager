@@ -137,12 +137,29 @@ export async function testSupabaseConnection(url?: string, anonKey?: string): Pr
       auth: { persistSession: false }
     });
 
-    // Test a lightweight query on settings or auth
-    const { error } = await testClient.from('settings').select('id').limit(1);
+    // NICHT gegen eine normale Tabelle wie "settings" testen: Nicht
+    // angemeldete Besucher (Rolle "anon") haben darauf laut den eigenen
+    // Sicherheitsregeln (REVOKE ALL ... FROM anon, siehe supabase_schema.sql)
+    // grundsätzlich KEINEN Zugriff — auch dann nicht, wenn alles richtig
+    // eingerichtet ist. Eine solche Abfrage würde hier immer mit "permission
+    // denied" scheitern, unabhängig vom tatsächlichen Verbindungsstatus.
+    //
+    // vm_setup_pending() ist eigens für genau diesen Fall an "anon"
+    // freigegeben (GRANT EXECUTE ... TO anon, authenticated) und läuft als
+    // SECURITY DEFINER — sie darf also auch ohne Anmeldung ausgeführt
+    // werden und bestätigt zugleich, dass das Initialisierungsskript schon
+    // eingespielt wurde.
+    const { error } = await testClient.rpc('vm_setup_pending');
 
     if (error) {
-      // If table doesn't exist yet, it still reached Supabase (PGRST116 or 42P01 is table not found, which means connection succeeded)
-      if (error.code === '42P01' || error.message.includes('relation') || error.message.includes('does not exist')) {
+      // Die Funktion (und damit das Skript) existiert in diesem Projekt noch
+      // nicht — die Verbindung selbst steht aber schon (PGRST202: Funktion
+      // unbekannt, vgl. dieselbe Prüfung in apiAuth.ts).
+      if (
+        error.code === 'PGRST202' ||
+        error.message?.includes('schema cache') ||
+        error.message?.includes('Could not find the function')
+      ) {
         return {
           success: true,
           error: 'Verbindung erfolgreich! Tabellen müssen noch im Supabase SQL Editor angelegt werden (siehe Skript unten).'

@@ -768,9 +768,9 @@ export class AuthService {
       // richten. Früher bekam hier jede angemeldete Kennung Vollzugriff.
       let clubUser = await fetchClubUser(data.user.id);
 
-      // Nachzügler-Fall: Die Registrierung verlangte eine E-Mail-Bestätigung,
+      // Nachzügler-Fall 1: Die Registrierung verlangte eine E-Mail-Bestätigung,
       // deshalb konnte der Eintrag damals nicht angelegt werden. Jetzt, bei
-      // der ersten Anmeldung, wird er nachgeholt.
+      // der ersten Anmeldung, wird er mit dem gemerkten Namen/Rolle nachgeholt.
       if (!clubUser) {
         const pending = this.readSetupCode();
         if (pending) {
@@ -782,6 +782,26 @@ export class AuthService {
             this.forgetSetupCode();
             clubUser = await fetchClubUser(data.user.id);
           }
+        }
+      }
+
+      // Nachzügler-Fall 2: Der Merkzettel von Fall 1 fehlt — zum Beispiel,
+      // weil die Registrierung in einem anderen Browser oder in der
+      // installierten Tauri-App lief als diese Anmeldung (jede dieser
+      // Umgebungen hat ihren eigenen, getrennten localStorage-Topf), oder aus
+      // einem anderen Grund. claimFirstAdmin() ist dafür gefahrlos: Die
+      // Datenbank trägt nur ein, wenn club_users WIRKLICH noch leer ist, und
+      // meldet sonst nur "bereits eingerichtet" zurück — ein bereits
+      // laufender Verein kann durch diesen Versuch also nie überschrieben
+      // oder übernommen werden.
+      if (!clubUser) {
+        const vorname =
+          data.user.user_metadata?.name ||
+          data.user.user_metadata?.full_name ||
+          email.split('@')[0];
+        const claim = await claimFirstAdmin(vorname, '1. Vorsitzende(r)');
+        if (claim.success) {
+          clubUser = await fetchClubUser(data.user.id);
         }
       }
 
