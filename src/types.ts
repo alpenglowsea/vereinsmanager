@@ -416,9 +416,6 @@ export interface ClubDocument {
   updatedAt: string;
 }
 
-// Betriebsmodi & Deployment
-export type DeploymentMode = 'local' | 'cloud' | 'selfhosted';
-
 // Benutzer & Rechteverwaltung
 /**
  * Zugriffsstufe je Bereich.

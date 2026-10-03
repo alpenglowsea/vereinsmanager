@@ -208,7 +208,6 @@ app.post("/api/submit-bugreport", bremse(bremseMeldung, "Fehlermeldung"), async 
       contactName,
       contactEmail,
       appVersion,
-      deploymentMode,
       clientDetails,
     } = req.body;
 
@@ -241,7 +240,7 @@ app.post("/api/submit-bugreport", bremse(bremseMeldung, "Fehlermeldung"), async 
       Absender_Name: contactName?.trim() || "Anonym / Nicht angegeben",
       Absender_Email: contactEmail?.trim() || "Keine Rückmelde-E-Mail angegeben",
       App_Version: appVersion || "v1.2.4",
-      Betriebsmodus: deploymentMode || "Lokal",
+      Betriebsmodus: "Lokal",
       System_Info: clientDetails || "Keine",
       Eingangszeit: timestamp,
     };

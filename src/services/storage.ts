@@ -9,7 +9,6 @@ import {
   TransactionBulkUpdates,
   InventoryBulkUpdates,
   SepaRunHistory,
-  DeploymentMode,
   ClubDocument,
   DocumentCategory,
   DocumentFolder,
@@ -52,8 +51,6 @@ import {
   ergaenzeBenutzer,
   ergaenzeEinzelstueck
 } from './backupContents';
-
-const STORAGE_KEY_MODE = 'vm_deployment_mode';
 
 const LIVE_DB_NAME = 'VereinsManager_LiveDB_v1';
 const DEMO_DB_NAME = 'VereinsManager_DemoDB_v1';
@@ -1137,18 +1134,6 @@ async function deleteItemFromStore(storeName: string, id: string): Promise<void>
 }
 
 export const StorageService = {
-  getDeploymentMode(): DeploymentMode {
-    const envMode = (import.meta as any).env?.VITE_DEPLOYMENT_MODE as DeploymentMode | undefined;
-    const storedMode = localStorage.getItem(STORAGE_KEY_MODE) as DeploymentMode | null;
-    if (storedMode) return storedMode;
-    if (envMode) return envMode;
-    return 'local';
-  },
-
-  setDeploymentMode(mode: DeploymentMode): void {
-    localStorage.setItem(STORAGE_KEY_MODE, mode);
-  },
-
   /**
    * Liefert Statistiken über die aktuell lokal auf dem Gerät gespeicherten Datensätze
    */

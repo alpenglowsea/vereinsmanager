@@ -1,0 +1,1012 @@
+diff --git a/.dockerignore b/.dockerignore
+deleted file mode 100644
+index afa0684..0000000
+--- a/.dockerignore
++++ /dev/null
+@@ -1,45 +0,0 @@
+-# ============================================================
+-# Was NICHT in den Docker-Build wandern darf.
+-#
+-# Ohne diese Datei kopiert "COPY . ." alles mit, was gerade im
+-# Projektordner liegt — auch die .env mit den API-Schlüsseln. Die
+-# landet dann dauerhaft in einer Schicht des fertigen Images und
+-# ist für jeden lesbar, der das Image bekommt.
+-# ============================================================
+-
+-# Abhängigkeiten: werden im Container frisch installiert. Die
+-# Fassung vom Windows-Rechner passt ohnehin nicht zu Alpine Linux.
+-node_modules/
+-
+-# Ergebnisse früherer Builds: werden im Container neu erzeugt.
+-dist/
+-build/
+-server.js
+-src-tauri/target/
+-src-tauri/gen/
+-
+-# Zugangsdaten. Gehören zur Laufzeit als Umgebungsvariable an den
+-# Container, nicht in das Image.
+-.env
+-.env.*
+-!.env.example
+-*.local
+-
+-# Die Konfiguration der Entwicklungsmaschine (aktuell nur der
+-# Zugriffsschlüssel). Käme sie in das Image, trüge jeder Container den
+-# Zugriffsschlüssel des Entwicklers mit sich herum.
+-daten/
+-
+-# Nichts davon wird zum Bauen gebraucht.
+-.git/
+-.github/
+-coverage/
+-__pycache__/
+-*.tsbuildinfo
+-.eslintcache
+-*.log
+-npm-debug.log*
+-.DS_Store
+-Thumbs.db
+-.idea/
+-.vscode/
+diff --git a/.env.example b/.env.example
+index ed71964..f4203db 100644
+--- a/.env.example
++++ b/.env.example
+@@ -30,41 +30,5 @@ PORT=3000
+ # Bleibt dieser Wert leer, würfelt der Server beim ersten Start selbst einen
+ # aus und zeigt ihn in seiner Startausgabe an. Das ist der Normalfall — hier
+ # muss nichts eingetragen werden. Einen eigenen Wert einzutragen lohnt nur,
+-# wenn er nach einem Neuaufbau des Containers derselbe bleiben soll.
++# wenn er über mehrere Neustarts hinweg derselbe bleiben soll.
+ # VM_ACCESS_KEY=
+-
+-# Nur für den Cloud-/Team-Betrieb: Damit der Server das Anmeldetoken eines
+-# Benutzers bei Supabase nachprüfen kann, braucht er die Projektdaten als
+-# EIGENE Werte. Die VITE_-Variablen weiter unten helfen dafür nicht — die
+-# werden beim Bauen in das Browser-JavaScript geschrieben und existieren im
+-# Serverprozess nicht.
+-#
+-# Ohne diese beiden Werte gilt allein der Zugriffsschlüssel von oben; jedes
+-# Vorstandsmitglied müsste ihn dann einmal je Browser eintragen.
+-SUPABASE_URL=
+-SUPABASE_ANON_KEY=
+-
+-
+-# ------------------------------------------------------------
+-# 2) Browser-seitig (VITE_-Präfix)
+-#
+-#    ACHTUNG: Alles mit VITE_-Präfix wird beim Build fest in den
+-#    JavaScript-Code eingebaut und ist für jeden lesbar, der die
+-#    App im Browser öffnet. Hier gehören ausschliesslich Werte
+-#    hinein, die öffentlich sein dürfen.
+-#
+-#    Ebenfalls wichtig: Diese Werte werden zur BUILD-Zeit gesetzt,
+-#    nicht zur Laufzeit. Sie als Umgebungsvariablen an einen
+-#    fertigen Docker-Container zu übergeben, hat keine Wirkung –
+-#    dafür gibt es die Einstellungsmaske in der App.
+-# ------------------------------------------------------------
+-
+-# Supabase-Projekt für den Cloud-/Team-Modus.
+-# Optional: Im reinen Lokalbetrieb leer lassen.
+-# Die Werte können alternativ direkt in der App unter
+-# Einstellungen → Cloud-Synchronisation hinterlegt werden.
+-VITE_SUPABASE_URL=
+-VITE_SUPABASE_ANON_KEY=
+-
+-# Betriebsmodus: "local" (Standard) oder "cloud".
+-VITE_DEPLOYMENT_MODE=local
+diff --git a/Dockerfile b/Dockerfile
+deleted file mode 100644
+index f3b1deb..0000000
+--- a/Dockerfile
++++ /dev/null
+@@ -1,107 +0,0 @@
+-# ==========================================================
+-#  Dockerfile für den VereinsManager
+-#
+-#  Der Container startet den Express-Server aus server.ts. Dieser
+-#  liefert die Oberfläche aus UND beantwortet die /api/-Aufrufe
+-#  (Mitglieder, Benutzer, Fehlermeldungen und mehr).
+-#
+-#  Die frühere Fassung hat nur die fertige Oberfläche mit einem
+-#  nginx ausgeliefert. Das Backend war gar nicht im Image. Jeder
+-#  /api/-Aufruf bekam die HTML-Startseite zurück, und die Funktionen
+-#  scheiterten mit einer Meldung, aus der niemand schließen konnte,
+-#  woran es liegt. Deshalb ist nginx hier nicht mehr beteiligt.
+-#
+-#  Zwei Stufen:
+-#    1. builder – installiert alles und baut Oberfläche + Backend
+-#    2. runtime – enthält nur noch das Gebaute und Node.js
+-# ==========================================================
+-
+-
+-# ----------------------------------------------------------
+-#  1. Bauen
+-# ----------------------------------------------------------
+-# node:24 ist die aktuelle Fassung mit Langzeitunterstützung.
+-# Vorher stand hier node:20, das seit April 2026 keine
+-# Sicherheitsupdates mehr bekommt.
+-FROM node:24-alpine AS builder
+-
+-WORKDIR /app
+-
+-# Erst nur die beiden Paketlisten kopieren. Solange sich daran
+-# nichts ändert, überspringt Docker beim nächsten Bauen die
+-# Installation und greift auf den Zwischenstand zurück.
+-COPY package.json package-lock.json ./
+-
+-# "npm ci" installiert exakt die Fassungen aus package-lock.json —
+-# im Gegensatz zu "npm install", das auch neuere nehmen dürfte.
+-RUN npm ci
+-
+-COPY . .
+-
+-# Alles mit VITE_-Präfix wird beim Bauen fest in das JavaScript für
+-# den Browser hineingeschrieben. Diese Werte müssen deshalb JETZT
+-# da sein. Sie später dem fertigen Container als Umgebungsvariable
+-# mitzugeben, hat keinerlei Wirkung — genau das stand vorher in der
+-# docker-compose.yml. Wer den Cloud-Modus nicht nutzt, lässt sie leer
+-# und trägt die Supabase-Daten stattdessen in der App unter
+-# Einstellungen → Cloud-Synchronisation ein.
+-ARG VITE_SUPABASE_URL=""
+-ARG VITE_SUPABASE_ANON_KEY=""
+-ARG VITE_DEPLOYMENT_MODE="local"
+-ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
+-    VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY \
+-    VITE_DEPLOYMENT_MODE=$VITE_DEPLOYMENT_MODE
+-
+-# Erzeugt dist/ (Oberfläche) und dist/server.cjs (Backend).
+-RUN npm run build
+-
+-
+-# ----------------------------------------------------------
+-#  2. Betreiben
+-# ----------------------------------------------------------
+-FROM node:24-alpine AS runtime
+-
+-WORKDIR /app
+-
+-ENV NODE_ENV=production
+-ENV PORT=3000
+-
+-COPY package.json package-lock.json ./
+-
+-# --omit=dev installiert nur die "dependencies" aus der package.json,
+-# nicht die "devDependencies". Übrig bleiben die drei Pakete, die der
+-# Server im Betrieb wirklich lädt: express, compression und dotenv.
+-# Alles rund um die Oberfläche (React, Tailwind, jspdf, lucide-react …)
+-# wurde in Stufe 1 bereits zu fertigem JavaScript in dist/ verarbeitet
+-# und wird hier nicht mehr gebraucht.
+-RUN npm ci --omit=dev && npm cache clean --force
+-
+-COPY --from=builder /app/dist ./dist
+-
+-# Verzeichnis für die Konfiguration dieser Installation: aktuell nur der
+-# Zugriffsschlüssel für die /api-Endpunkte (siehe
+-# src/server/instanceConfig.ts).
+-#
+-# Es muss SCHON IM IMAGE liegen und dem Benutzer "node" gehören. Grund:
+-# Hängt Docker beim ersten Start ein Volume an diese Stelle, übernimmt
+-# es Rechte und Eigentümer von dem Verzeichnis, das im Image darunter
+-# liegt. Fehlt es hier, legt Docker eines an, das dem Administrator
+-# gehört — der Server läuft aber als "node" und könnte dann nichts
+-# hineinschreiben. Der Zugriffsschlüssel ließe sich nicht speichern.
+-RUN mkdir -p /app/daten && chown node:node /app/daten
+-ENV VM_DATA_DIR=/app/daten
+-
+-# Nicht als Administrator laufen lassen: Sollte jemand eine Lücke im
+-# Server finden, hat er dann nur die Rechte eines normalen Benutzers.
+-# Der Benutzer "node" ist im offiziellen Image bereits angelegt.
+-USER node
+-
+-EXPOSE 3000
+-
+-# Docker fragt regelmäßig die Statusseite ab. Antwortet sie nicht
+-# mehr, meldet der Container sich als "unhealthy" — und mit
+-# "restart: unless-stopped" startet er neu, statt still auszufallen.
+-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+-
+-CMD ["node", "dist/server.cjs"]
+diff --git a/docker-compose.yml b/docker-compose.yml
+deleted file mode 100644
+index b2ac1c8..0000000
+--- a/docker-compose.yml
++++ /dev/null
+@@ -1,119 +0,0 @@
+-# ==========================================================
+-#  VereinsManager auf einem eigenen Server / NAS
+-#
+-#  Starten:   docker compose up -d --build
+-#  Erreichbar unter:  http://[Server-IP]:8080
+-#  Anhalten:  docker compose down
+-#
+-#  Werte für die Supabase-Daten liest Docker Compose automatisch aus
+-#  einer Datei namens ".env" neben dieser Datei. Vorlage dafür ist
+-#  ".env.example".
+-# ==========================================================
+-
+-# Die frühere Zeile "version: '3.8'" ist entfallen: Sie wird von
+-# heutigen Docker-Fassungen ignoriert und nur noch als veraltet
+-# angemahnt.
+-
+-services:
+-  vereinsmanager:
+-    build:
+-      context: .
+-      dockerfile: Dockerfile
+-      args:
+-        # Nur nötig, wenn der Verein den Cloud-/Team-Modus nutzen
+-        # will UND die Zugangsdaten fest einbauen möchte. Sonst
+-        # leer lassen und in der App unter Einstellungen →
+-        # Cloud-Synchronisation eintragen.
+-        #
+-        # Diese Werte MÜSSEN hier unter "args" stehen und nicht
+-        # unten unter "environment": Sie werden beim Bauen in das
+-        # Browser-JavaScript geschrieben. Unten hätten sie keine
+-        # Wirkung. Zu beachten: Wer sie hier einträgt, muss nach
+-        # jeder Änderung neu bauen (--build).
+-        VITE_SUPABASE_URL: "${VITE_SUPABASE_URL:-}"
+-        VITE_SUPABASE_ANON_KEY: "${VITE_SUPABASE_ANON_KEY:-}"
+-        VITE_DEPLOYMENT_MODE: "${VITE_DEPLOYMENT_MODE:-local}"
+-
+-    container_name: vereinsmanager_app
+-    restart: unless-stopped
+-
+-    ports:
+-      # Links der Port auf dem Server, rechts der im Container.
+-      # Ist 8080 schon belegt (auf einer Synology häufig der Fall),
+-      # einfach die linke Zahl ändern, z. B. "8081:3000".
+-      - "8080:3000"
+-
+-    environment:
+-      NODE_ENV: production
+-      PORT: 3000
+-
+-      # Zugriffsschlüssel für die /api-Endpunkte. Bleibt er leer, würfelt
+-      # der Server beim ersten Start selbst einen aus und zeigt ihn an:
+-      #
+-      #     docker compose logs vereinsmanager | grep -A2 Zugriffs
+-      #
+-      # Er ist dann einmal je Browser unter Einstellungen → Allgemein
+-      # einzutragen. Wer das vermeiden will, trägt hier einen eigenen
+-      # Wert ein (mindestens 24 Zeichen) — dann bleibt er auch nach
+-      # einem "docker compose down -v" derselbe.
+-      VM_ACCESS_KEY: "${VM_ACCESS_KEY:-}"
+-
+-      # Nur für den Cloud-/Team-Betrieb: Mit diesen beiden Werten kann der
+-      # Server das Anmeldetoken eines Benutzers bei Supabase nachprüfen.
+-      # Dann genügt die normale Anmeldung in der App, und niemand muss
+-      # einen Zugriffsschlüssel eintragen. Es sind dieselben Werte wie
+-      # oben unter "args", hier aber für den Serverprozess.
+-      SUPABASE_URL: "${VITE_SUPABASE_URL:-}"
+-      SUPABASE_ANON_KEY: "${VITE_SUPABASE_ANON_KEY:-}"
+-
+-    volumes:
+-      # Hier liegt der Zugriffsschlüssel für die /api-Endpunkte. Ohne
+-      # dieses Volume wäre er nach jedem "docker compose up --build" weg
+-      # und jedes Vorstandsmitglied müsste ihn neu eintragen.
+-      #
+-      # Bewusst ein benanntes Volume und kein Ordner vom Server: Ein
+-      # eingehängter Ordner behält die Rechte des Servers, und auf einer
+-      # Synology passt die Benutzernummer meist nicht zu der im
+-      # Container — der Server könnte dann nicht hineinschreiben.
+-      #
+-      # Hineinschauen:  docker compose exec vereinsmanager ls -l /app/daten
+-      # Ganz entfernen: docker compose down -v
+-      - vereinsmanager_daten:/app/daten
+-
+-    labels:
+-      - "com.centurylinklabs.watchtower.enable=true"
+-
+-volumes:
+-  vereinsmanager_daten:
+-
+-# ----------------------------------------------------------
+-#  Wo liegen die Daten?
+-#
+-#  Dieser Container liefert die Anwendung aus und rechnet — eine
+-#  Datenbank enthält er nicht. Das oben eingerichtete Volume fasst
+-#  keine Vereinsdaten, sondern nur den Zugriffsschlüssel.
+-#  Wo die Vereinsdaten landen, entscheidet der Betriebsmodus, den die
+-#  App unter Einstellungen → Cloud-Synchronisation kennt:
+-#
+-#  Lokalbetrieb (Vorgabe):
+-#    Die Daten liegen in der IndexedDB des jeweiligen Browsers, also
+-#    auf dem Rechner des Anwenders. Zwei Vorstandsmitglieder, die
+-#    dieselbe Adresse aufrufen, arbeiten dann mit zwei getrennten
+-#    Beständen. Und wer im Browser "Websitedaten löschen" wählt,
+-#    löscht damit die Vereinsdaten.
+-#
+-#  Cloud-Betrieb (Supabase eingerichtet):
+-#    Die Daten liegen in der Supabase-Datenbank. Alle Vorstands-
+-#    mitglieder sehen denselben Bestand, jeder mit seinem eigenen
+-#    Konto und den Rechten, die ihm zugeteilt wurden — unabhängig
+-#    davon, von welchem Gerät er sich anmeldet. Die IndexedDB dient
+-#    dann nur noch als Zwischenspeicher, damit die App auch bei
+-#    kurzer Störung der Verbindung weiterläuft.
+-#
+-#  Wer also gemeinsam arbeiten will, braucht den Cloud-Betrieb — auch
+-#  dann, wenn dieser Container auf dem eigenen NAS läuft. Ein eigener
+-#  Server allein ersetzt die Datenbank nicht.
+-#
+-#  In beiden Fällen gilt: regelmäßig über Einstellungen →
+-#  Datensicherung sichern.
+-# ----------------------------------------------------------
+diff --git a/nginx.conf b/nginx.conf
+deleted file mode 100644
+index 180324c..0000000
+--- a/nginx.conf
++++ /dev/null
+@@ -1,65 +0,0 @@
+-# ==========================================================
+-#  OPTIONAL — wird vom Docker-Container NICHT verwendet.
+-#
+-#  Bis Fassung 1.2.3 hat der Container die Oberfläche mit einem
+-#  nginx ausgeliefert. Das war falsch: Das Backend (server.ts) war
+-#  gar nicht im Image, und die Zeile "try_files ... /index.html"
+-#  hat auf jeden /api/-Aufruf die HTML-Startseite zurückgegeben, statt
+-#  einer echten Antwort. Der Container startet jetzt den
+-#  Express-Server selbst — nginx ist dafür nicht mehr nötig.
+-#
+-#  Diese Datei bleibt als Vorlage für einen Fall erhalten, der in
+-#  Vereinen häufig vorkommt: Der VereinsManager läuft im Container
+-#  auf Port 8080, soll aber unter einer richtigen Adresse mit
+-#  Verschlüsselung erreichbar sein, z. B.
+-#  https://verwaltung.mein-verein.de. Dann steht ein nginx DAVOR
+-#  und reicht alles durch.
+-#
+-#  Verwendung: Diese Datei auf dem Server nach
+-#  /etc/nginx/sites-available/vereinsmanager kopieren, die Adresse
+-#  anpassen, aktivieren, und das Zertifikat mit
+-#  "certbot --nginx -d verwaltung.mein-verein.de" einrichten.
+-#  Certbot trägt die Zertifikatszeilen selbst ein.
+-#
+-#  Wer stattdessen nur den fertigen Inhalt von dist/ auf einen
+-#  klassischen Webspace legt: Dort fehlt das Backend ebenfalls, und
+-#  alle /api/-Aufrufe (z. B. die eigene Benutzerverwaltung) scheitern.
+-# ==========================================================
+-
+-server {
+-    listen 80;
+-    server_name verwaltung.mein-verein.de;
+-
+-    # Große Anhänge: Belege und eingescannte Aufnahmeanträge werden
+-    # als Base64 übertragen. Der Standardwert von 1 MB reicht dafür
+-    # nicht; der Server selbst erlaubt 50 MB.
+-    client_max_body_size 50m;
+-
+-    # Sicherheitskopfzeilen. Der Express-Server setzt dieselben
+-    # bereits selbst; hier stehen sie für den Fall, dass jemand nur
+-    # den Ordner dist/ ohne Backend ausliefert.
+-    add_header X-Frame-Options "SAMEORIGIN" always;
+-    add_header X-Content-Type-Options "nosniff" always;
+-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+-
+-    # Das frühere "X-XSS-Protection" ist hier bewusst nicht mehr
+-    # aufgeführt: Der Kopf ist veraltet, wird von keinem aktuellen
+-    # Browser mehr beachtet und konnte in älteren Fassungen sogar
+-    # neue Lücken öffnen.
+-
+-    location / {
+-        # 8080 ist der Port aus der docker-compose.yml.
+-        proxy_pass http://127.0.0.1:8080;
+-
+-        proxy_http_version 1.1;
+-        proxy_set_header Host              $host;
+-        proxy_set_header X-Real-IP         $remote_addr;
+-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+-        proxy_set_header X-Forwarded-Proto $scheme;
+-
+-        # Die Auswertung von Sitzungsprotokollen durch die KI kann
+-        # bei langen Aufnahmen über eine Minute dauern.
+-        proxy_read_timeout 300s;
+-        proxy_send_timeout 300s;
+-    }
+-}
+diff --git a/package.json b/package.json
+index 416043f..344704f 100644
+--- a/package.json
++++ b/package.json
+@@ -36,10 +36,10 @@
+     "fertiges JavaScript, das im Ordner dist/ landet. Danach wird das",
+     "Paket selbst nie wieder gebraucht.",
+     "",
+-    "Der Unterschied ist im Docker-Image zu sehen: Dort läuft",
+-    "'npm ci --omit=dev', das genau diese Liste hier installiert. Standen",
+-    "React, jspdf, lucide-react und Tailwind mit in dieser Liste, wanderten",
+-    "gut 150 MB unnötig in das Image.",
++    "Der Unterschied zeigt sich, wenn nur diese Liste installiert wird",
++    "('npm ci --omit=dev') statt beider Listen. Stünden React, jspdf,",
++    "lucide-react und Tailwind mit in dieser Liste, würden sie unnötig",
++    "mitinstalliert, obwohl der Server sie zur Laufzeit nie lädt.",
+     "",
+     "Zum Entwickeln ändert sich nichts: 'npm install' und 'npm ci' holen",
+     "immer beide Listen."
+diff --git a/server.ts b/server.ts
+index 9693f0f..5e05715 100644
+--- a/server.ts
++++ b/server.ts
+@@ -208,7 +208,6 @@ app.post("/api/submit-bugreport", bremse(bremseMeldung, "Fehlermeldung"), async
+       contactName,
+       contactEmail,
+       appVersion,
+-      deploymentMode,
+       clientDetails,
+     } = req.body;
+ 
+@@ -241,7 +240,7 @@ app.post("/api/submit-bugreport", bremse(bremseMeldung, "Fehlermeldung"), async
+       Absender_Name: contactName?.trim() || "Anonym / Nicht angegeben",
+       Absender_Email: contactEmail?.trim() || "Keine Rückmelde-E-Mail angegeben",
+       App_Version: appVersion || "v1.2.4",
+-      Betriebsmodus: deploymentMode || "Lokal",
++      Betriebsmodus: "Lokal",
+       System_Info: clientDetails || "Keine",
+       Eingangszeit: timestamp,
+     };
+diff --git a/src/App.tsx b/src/App.tsx
+index 42ad4e5..ba5f5e4 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -180,7 +180,6 @@ export default function App() {
+     else window.localStorage.removeItem(VIEW_MODE_OVERRIDE_KEY);
+   };
+   const [loading, setLoading] = useState(true);
+-  const [deploymentMode, setDeploymentMode] = useState<import('./types').DeploymentMode>(StorageService.getDeploymentMode());
+ 
+   // Theme Management (Light, Dark, System)
+   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
+@@ -1814,9 +1813,7 @@ export default function App() {
+           </button>
+ 
+           {/* App Version Tile & 1-Klick Update Popover */}
+-          <AppVersionBadge
+-            currentMode={deploymentMode}
+-          />
++          <AppVersionBadge />
+         </div>
+       </aside>
+ 
+@@ -2372,8 +2369,6 @@ export default function App() {
+                 onOpenUserManage={() => setUserManageOpen(true)}
+                 currentTheme={theme}
+                 onThemeChange={(newTheme) => setTheme(newTheme)}
+-                deploymentMode={deploymentMode}
+-                onDeploymentModeChange={(newMode) => setDeploymentMode(newMode)}
+                 initialTab={settingsActiveTab}
+                 onTabChange={(tab) => setSettingsActiveTab(tab)}
+                 canEdit={mayEdit('settings')}
+diff --git a/src/components/AppVersionBadge.tsx b/src/components/AppVersionBadge.tsx
+index dd32f56..4e627d3 100644
+--- a/src/components/AppVersionBadge.tsx
++++ b/src/components/AppVersionBadge.tsx
+@@ -1,28 +1,18 @@
+ import React, { useState, useEffect, useRef } from 'react';
+-import { AppUpdateInfo, DeploymentMode } from '../types';
++import { AppUpdateInfo } from '../types';
+ import { UpdateService } from '../services/updateService';
+ import {
+   Sparkles,
+   RefreshCw,
+   CheckCircle2,
+-  Copy,
+-  Check,
+   ExternalLink,
+   X,
+-  Server,
+-  Terminal,
+   ShieldCheck,
+   Zap,
+   CheckCheck
+ } from 'lucide-react';
+ 
+-interface AppVersionBadgeProps {
+-  currentMode: DeploymentMode;
+-}
+-
+-export const AppVersionBadge: React.FC<AppVersionBadgeProps> = ({
+-  currentMode
+-}) => {
++export const AppVersionBadge: React.FC = () => {
+   const [isOpen, setIsOpen] = useState(false);
+   const [loading, setLoading] = useState(false);
+   const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo>(() => {
+@@ -40,9 +30,6 @@ export const AppVersionBadge: React.FC<AppVersionBadgeProps> = ({
+   const [updateStepText, setUpdateStepText] = useState('');
+   const [updateFinished, setUpdateFinished] = useState(false);
+ 
+-  // Docker Command Copy State
+-  const [copiedDocker, setCopiedDocker] = useState(false);
+-
+   const popoverRef = useRef<HTMLDivElement>(null);
+   const buttonRef = useRef<HTMLButtonElement>(null);
+ 
+@@ -132,14 +119,6 @@ export const AppVersionBadge: React.FC<AppVersionBadgeProps> = ({
+     }));
+   };
+ 
+-  // Copy Docker update command
+-  const handleCopyDockerCommand = () => {
+-    const cmd = UpdateService.getDockerUpdateCommand();
+-    navigator.clipboard.writeText(cmd);
+-    setCopiedDocker(true);
+-    setTimeout(() => setCopiedDocker(false), 3000);
+-  };
+-
+   return (
+     <div className="relative w-full">
+       {/* ========================================================================= */}
+@@ -166,13 +145,13 @@ export const AppVersionBadge: React.FC<AppVersionBadgeProps> = ({
+             ) : (
+               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+             )}
+-            
++
+             {/* Kleiner roter Benachrichtigungspunkt bei Update */}
+             {updateInfo.isUpdateAvailable && (
+               <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-slate-900 animate-ping" />
+             )}
+           </div>
+-          
++
+           <div className="text-left truncate">
+             <div className="flex items-center gap-1.5 leading-tight">
+               <span className="font-bold text-slate-200 text-2xs">
+@@ -238,140 +217,79 @@ export const AppVersionBadge: React.FC<AppVersionBadgeProps> = ({
+           {/* Body Content */}
+           <div className="p-4 space-y-3.5 max-h-96 overflow-y-auto text-xs">
+ 
+-            {/* =================================================================== */}
+-            {/* FALL 1: LOKALER DESKTOP-MODUS */}
+-            {/* =================================================================== */}
+-            {currentMode === 'local' && (
+-              <div className="space-y-3">
+-                {updateInfo.isUpdateAvailable ? (
+-                  <div className="space-y-3">
+-                    <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800/60 space-y-2">
+-                      <div className="font-bold text-amber-900 dark:text-amber-200 text-xs flex items-center gap-1.5">
+-                        <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+-                        <span>{updateInfo.releaseTitle || `Update v${updateInfo.latestVersion} verfügbar`}</span>
+-                      </div>
+-                      
+-                      {updateInfo.releaseNotes && updateInfo.releaseNotes.length > 0 && (
+-                        <ul className="text-2xs text-slate-600 dark:text-slate-300 space-y-1 pl-1">
+-                          {updateInfo.releaseNotes.slice(0, 3).map((note, i) => (
+-                            <li key={i} className="flex items-start gap-1.5">
+-                              <span className="text-amber-500 font-bold">•</span>
+-                              <span>{note}</span>
+-                            </li>
+-                          ))}
+-                        </ul>
+-                      )}
++            <div className="space-y-3">
++              {updateInfo.isUpdateAvailable ? (
++                <div className="space-y-3">
++                  <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800/60 space-y-2">
++                    <div className="font-bold text-amber-900 dark:text-amber-200 text-xs flex items-center gap-1.5">
++                      <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
++                      <span>{updateInfo.releaseTitle || `Update v${updateInfo.latestVersion} verfügbar`}</span>
+                     </div>
+ 
+-                    {/* 1-Click Update Action or Progress Bar */}
+-                    {isUpdating ? (
+-                      <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+-                        <div className="flex items-center justify-between text-2xs font-bold text-slate-700 dark:text-slate-300">
+-                          <span className="flex items-center gap-1.5">
+-                            <RefreshCw className="w-3 h-3 animate-spin text-blue-500" />
+-                            <span>{updateStepText}</span>
+-                          </span>
+-                          <span>{updateProgress}%</span>
+-                        </div>
+-                        <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+-                          <div
+-                            className="bg-blue-600 h-full rounded-full transition-all duration-300"
+-                            style={{ width: `${updateProgress}%` }}
+-                          />
+-                        </div>
++                    {updateInfo.releaseNotes && updateInfo.releaseNotes.length > 0 && (
++                      <ul className="text-2xs text-slate-600 dark:text-slate-300 space-y-1 pl-1">
++                        {updateInfo.releaseNotes.slice(0, 3).map((note, i) => (
++                          <li key={i} className="flex items-start gap-1.5">
++                            <span className="text-amber-500 font-bold">•</span>
++                            <span>{note}</span>
++                          </li>
++                        ))}
++                      </ul>
++                    )}
++                  </div>
++
++                  {/* 1-Click Update Action or Progress Bar */}
++                  {isUpdating ? (
++                    <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
++                      <div className="flex items-center justify-between text-2xs font-bold text-slate-700 dark:text-slate-300">
++                        <span className="flex items-center gap-1.5">
++                          <RefreshCw className="w-3 h-3 animate-spin text-blue-500" />
++                          <span>{updateStepText}</span>
++                        </span>
++                        <span>{updateProgress}%</span>
+                       </div>
+-                    ) : updateFinished ? (
+-                      <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 rounded-xl border border-emerald-200 dark:border-emerald-800 flex items-center gap-2 text-2xs font-bold">
+-                        <CheckCheck className="w-4 h-4 text-emerald-500" />
+-                        <span>Update erfolgreich! Starte neu...</span>
++                      <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
++                        <div
++                          className="bg-blue-600 h-full rounded-full transition-all duration-300"
++                          style={{ width: `${updateProgress}%` }}
++                        />
+                       </div>
+-                    ) : (
+-                      <div className="space-y-1.5">
++                    </div>
++                  ) : updateFinished ? (
++                    <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 rounded-xl border border-emerald-200 dark:border-emerald-800 flex items-center gap-2 text-2xs font-bold">
++                      <CheckCheck className="w-4 h-4 text-emerald-500" />
++                      <span>Update erfolgreich! Starte neu...</span>
++                    </div>
++                  ) : (
++                    <div className="space-y-1.5">
++                      <button
++                        type="button"
++                        onClick={handleExecuteDesktopUpdate}
++                        className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
++                      >
++                        <Zap className="w-3.5 h-3.5 fill-current" />
++                        <span>Update jetzt per 1-Klick installieren</span>
++                      </button>
++                      <div className="flex justify-center">
+                         <button
+                           type="button"
+-                          onClick={handleExecuteDesktopUpdate}
+-                          className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
++                          onClick={() => handleAcknowledgeVersion(updateInfo.latestVersion)}
++                          className="text-[11px] text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer py-0.5"
++                          title="Falls Sie die neue Version manuell installiert haben"
+                         >
+-                          <Zap className="w-3.5 h-3.5 fill-current" />
+-                          <span>Update jetzt per 1-Klick installieren</span>
++                          Bereits manuell aktualisiert? Als v{updateInfo.latestVersion} übernehmen
+                         </button>
+-                        <div className="flex justify-center">
+-                          <button
+-                            type="button"
+-                            onClick={() => handleAcknowledgeVersion(updateInfo.latestVersion)}
+-                            className="text-[11px] text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer py-0.5"
+-                            title="Falls Sie die neue Version manuell installiert haben"
+-                          >
+-                            Bereits manuell aktualisiert? Als v{updateInfo.latestVersion} übernehmen
+-                          </button>
+-                        </div>
+                       </div>
+-                    )}
+-                  </div>
+-                ) : (
+-                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-2.5 text-2xs text-emerald-800 dark:text-emerald-200">
+-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+-                    <span>Ihre Desktop-App ist auf dem neuesten Stand. Alle Module sind aktuell.</span>
+-                  </div>
+-                )}
+-              </div>
+-            )}
+-
+-            {/* =================================================================== */}
+-            {/* FALL 3: EIGENER SERVER & DOCKER (LÖSUNG B) */}
+-            {/* =================================================================== */}
+-            {currentMode === 'selfhosted' && (
+-              <div className="space-y-3">
+-                <div className="flex items-center justify-between">
+-                  <span className="text-2xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1">
+-                    <Server className="w-3.5 h-3.5" />
+-                    <span>Eigener Server (Docker)</span>
+-                  </span>
+-                  <span className={`text-2xs px-2 py-0.5 rounded-full font-bold ${
+-                    updateInfo.isUpdateAvailable
+-                      ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300'
+-                      : 'bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300'
+-                  }`}>
+-                    {updateInfo.isUpdateAvailable ? `Neu: v${updateInfo.latestVersion}` : 'Server aktuell'}
+-                  </span>
+-                </div>
+-
+-                <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-800/60 space-y-1.5 text-2xs text-blue-950 dark:text-blue-200">
+-                  <div className="flex items-center justify-between font-bold">
+-                    <span>Installierte Server-Version:</span>
+-                    <span className="font-mono">v{updateInfo.currentVersion}</span>
+-                  </div>
+-                  <div className="flex items-center justify-between font-bold">
+-                    <span>Neueste GitHub-Version:</span>
+-                    <span className="font-mono text-blue-600 dark:text-blue-400">v{updateInfo.latestVersion}</span>
+-                  </div>
+-                  <p className="pt-1 text-slate-500 dark:text-slate-400 text-[11px] leading-relaxed">
+-                    Führen Sie auf Ihrem Server / NAS den folgenden Befehl im VereinsManager-Verzeichnis aus:
+-                  </p>
++                    </div>
++                  )}
+                 </div>
+-
+-                {/* 1-Klick Terminal Copy Box */}
+-                <div className="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+-                  <div className="flex items-center justify-between text-2xs text-slate-400 font-mono">
+-                    <span className="flex items-center gap-1">
+-                      <Terminal className="w-3 h-3 text-blue-400" />
+-                      <span>docker-compose Update:</span>
+-                    </span>
+-                    <button
+-                      type="button"
+-                      onClick={handleCopyDockerCommand}
+-                      className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-white rounded text-2xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+-                    >
+-                      {copiedDocker ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+-                      <span>{copiedDocker ? 'Kopiert!' : 'Kopieren'}</span>
+-                    </button>
+-                  </div>
+-                  <code className="block bg-slate-900 p-2 rounded text-2xs font-mono text-emerald-300 overflow-x-auto whitespace-nowrap">
+-                    docker compose pull && docker compose up -d
+-                  </code>
++              ) : (
++                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-2.5 text-2xs text-emerald-800 dark:text-emerald-200">
++                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
++                  <span>Ihre Desktop-App ist auf dem neuesten Stand. Alle Module sind aktuell.</span>
+                 </div>
+-              </div>
+-            )}
++              )}
++            </div>
+ 
+             {/* General Actions & Links */}
+             <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-2xs">
+diff --git a/src/components/DeploymentHubSettingsPanel.tsx b/src/components/DeploymentHubSettingsPanel.tsx
+index da6a85d..934ecb6 100644
+--- a/src/components/DeploymentHubSettingsPanel.tsx
++++ b/src/components/DeploymentHubSettingsPanel.tsx
+@@ -1,5 +1,4 @@
+ import React, { useState, useEffect } from 'react';
+-import { DeploymentMode } from '../types';
+ import { StorageService } from '../services/storage';
+ import {
+   CheckCircle2,
+@@ -11,29 +10,13 @@ import {
+   RefreshCw
+ } from 'lucide-react';
+ 
+-interface DeploymentHubSettingsPanelProps {
+-  currentMode: DeploymentMode;
+-  onModeChange: (mode: DeploymentMode) => void;
+-  onDataReload?: () => void;
+-}
+-
+ /**
+- * Es gibt nur noch den lokalen Betrieb (Schritt 5 der Vereinfachung hat den
+- * Cloud-Betrieb entfernt; der eigene Server-Betrieb war bereits zuvor weg).
+- * "currentMode" kann trotzdem noch einen alten Wert aus einer früheren
+- * Fassung tragen — etwa "cloud", wenn jemand von dort aus aktualisiert hat.
+- * Das ändert an der Funktion nichts mehr (jede Operation läuft ohnehin nur
+- * noch lokal), aber die Oberfläche soll das nicht stillschweigend als
+- * Normalzustand anzeigen, deshalb bleibt die Möglichkeit, explizit auf
+- * "local" zurückzusetzen.
++ * Es gibt nur noch den lokalen Betrieb (Schritt 4 der Vereinfachung hat den
++ * eigenen Server-Betrieb entfernt, Schritt 5 den Cloud-Betrieb). Dieses Feld
++ * zeigt deshalb nur noch den unveränderlichen lokalen Zustand an und bietet
++ * den lokalen Datenbestand samt Sicherungs-Download zum Download an.
+  */
+-export const DeploymentHubSettingsPanel: React.FC<DeploymentHubSettingsPanelProps> = ({
+-  currentMode,
+-  onModeChange,
+-  onDataReload
+-}) => {
+-  const isLocalActive = currentMode === 'local';
+-
++export const DeploymentHubSettingsPanel: React.FC = () => {
+   const [localStats, setLocalStats] = useState<{
+     members: number;
+     transactions: number;
+@@ -59,12 +42,6 @@ export const DeploymentHubSettingsPanel: React.FC<DeploymentHubSettingsPanelProp
+     }
+   };
+ 
+-  const handleActivateLocal = () => {
+-    StorageService.setDeploymentMode('local');
+-    onModeChange('local');
+-    onDataReload?.();
+-  };
+-
+   const handleDownloadBackup = async () => {
+     try {
+       const json = await StorageService.exportFullBackup();
+@@ -100,20 +77,10 @@ export const DeploymentHubSettingsPanel: React.FC<DeploymentHubSettingsPanelProp
+             </div>
+           </div>
+ 
+-          {isLocalActive ? (
+-            <div className="flex items-center gap-2 text-2xs px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-bold">
+-              <CheckCircle2 className="w-3.5 h-3.5" />
+-              <span>Aktiv auf diesem Gerät</span>
+-            </div>
+-          ) : (
+-            <button
+-              type="button"
+-              onClick={handleActivateLocal}
+-              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-2xs font-bold transition-colors cursor-pointer shadow-xs"
+-            >
+-              Zu lokalem Offline-Modus wechseln
+-            </button>
+-          )}
++          <div className="flex items-center gap-2 text-2xs px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-bold">
++            <CheckCircle2 className="w-3.5 h-3.5" />
++            <span>Aktiv auf diesem Gerät</span>
++          </div>
+         </div>
+ 
+         <div className="pt-5 space-y-4">
+diff --git a/src/components/SettingsView.tsx b/src/components/SettingsView.tsx
+index 351d037..0a5ef9a 100644
+--- a/src/components/SettingsView.tsx
++++ b/src/components/SettingsView.tsx
+@@ -1,5 +1,5 @@
+ import React, { useState, useEffect, useRef } from 'react';
+-import { ClubSettings, AppUser, UserPermissions, DeploymentMode, Address, BoardMember } from '../types';
++import { ClubSettings, AppUser, UserPermissions, Address, BoardMember } from '../types';
+ import { StorageService } from '../services/storage';
+ import { AuthService } from '../services/authService';
+ import { SnapshotService, AutoSnapshot } from '../services/snapshotService';
+@@ -95,8 +95,6 @@ interface SettingsViewProps {
+   onOpenUserManage?: () => void;
+   currentTheme: 'light' | 'dark' | 'system';
+   onThemeChange: (theme: 'light' | 'dark' | 'system') => void;
+-  deploymentMode?: DeploymentMode;
+-  onDeploymentModeChange?: (mode: DeploymentMode) => void;
+   initialTab?: SettingsTab;
+   onTabChange?: (tab: SettingsTab) => void;
+   /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
+@@ -182,8 +180,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
+   onDataReload,
+   currentTheme,
+   onThemeChange,
+-  deploymentMode,
+-  onDeploymentModeChange,
+   initialTab,
+   onTabChange,
+   canEdit = true,
+@@ -191,21 +187,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
+   canManageUsers = true,
+   onUsersLocked
+ }) => {
+-  const [currentDepMode, setCurrentDepMode] = useState<DeploymentMode>(
+-    deploymentMode || StorageService.getDeploymentMode()
+-  );
+-
+-  useEffect(() => {
+-    if (deploymentMode) {
+-      setCurrentDepMode(deploymentMode);
+-    }
+-  }, [deploymentMode]);
+-
+-  const handleModeChange = (mode: DeploymentMode) => {
+-    if (!canEdit) { if (onLocked) onLocked(); return; }
+-    setCurrentDepMode(mode);
+-    onDeploymentModeChange?.(mode);
+-  };
+   // Tab sequence:
+   // 1. Allgemeine Einstellungen
+   // 2. Vereinsstammdaten
+@@ -414,7 +395,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
+     const timestamp = new Date().toLocaleString('de-DE');
+ 
+     const clientInfo = bugIncludeSystemInfo
+-      ? `App v${CURRENT_APP_VERSION} | Modus: ${currentDepMode} | UA: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'n/a'} | Screen: ${typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'n/a'}`
++      ? `App v${CURRENT_APP_VERSION} | UA: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'n/a'} | Screen: ${typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'n/a'}`
+       : 'Keine Diagnosedaten';
+ 
+     const reportPayload = {
+@@ -425,7 +406,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
+       contactName: bugContactName.trim() || undefined,
+       contactEmail: bugContactEmail.trim() || undefined,
+       appVersion: `v${CURRENT_APP_VERSION}`,
+-      deploymentMode: currentDepMode,
+       clientDetails: clientInfo,
+     };
+ 
+@@ -474,7 +454,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
+             Absender_Name: bugContactName.trim() || 'Anonym / Nicht angegeben',
+             Absender_Email: bugContactEmail.trim() || 'Keine Angabe',
+             App_Version: `v${CURRENT_APP_VERSION}`,
+-            Betriebsmodus: currentDepMode,
++            Betriebsmodus: 'Lokal',
+             System_Info: clientInfo,
+             Eingangszeit: timestamp,
+           };
+@@ -2793,11 +2773,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
+       {/* TAB 5: BETRIEBSMODI & DEPLOYMENT HUB */}
+       {activeTab === 'deployment' && (
+         <div className="space-y-6 animate-in fade-in duration-150">
+-          <DeploymentHubSettingsPanel
+-            currentMode={currentDepMode}
+-            onModeChange={handleModeChange}
+-            onDataReload={onDataReload}
+-          />
++          <DeploymentHubSettingsPanel />
+         </div>
+       )}
+ 
+@@ -3395,7 +3371,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
+ 
+                 <div className="p-3 bg-slate-950/80 rounded-xl font-mono text-[11px] text-slate-300 space-y-1 border border-slate-800/80">
+                   <div><span className="text-slate-500">App-Version:</span> v{CURRENT_APP_VERSION}</div>
+-                  <div><span className="text-slate-500">Betriebsmodus:</span> {currentDepMode}</div>
+                   <div><span className="text-slate-500">Plattform:</span> {typeof navigator !== 'undefined' ? (navigator.userAgent.includes('Windows') ? 'Windows' : navigator.userAgent.includes('Mac') ? 'macOS' : navigator.userAgent.includes('Linux') ? 'Linux' : 'Web/Mobil') : 'Web'}</div>
+                   <div><span className="text-slate-500">Auflösung:</span> {typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'n/a'}</div>
+                   <div><span className="text-slate-500">Sprache:</span> {typeof navigator !== 'undefined' ? navigator.language : 'de-DE'}</div>
+diff --git a/src/services/storage.ts b/src/services/storage.ts
+index 6eb702a..c025277 100644
+--- a/src/services/storage.ts
++++ b/src/services/storage.ts
+@@ -9,7 +9,6 @@ import {
+   TransactionBulkUpdates,
+   InventoryBulkUpdates,
+   SepaRunHistory,
+-  DeploymentMode,
+   ClubDocument,
+   DocumentCategory,
+   DocumentFolder,
+@@ -53,8 +52,6 @@ import {
+   ergaenzeEinzelstueck
+ } from './backupContents';
+ 
+-const STORAGE_KEY_MODE = 'vm_deployment_mode';
+-
+ const LIVE_DB_NAME = 'VereinsManager_LiveDB_v1';
+ const DEMO_DB_NAME = 'VereinsManager_DemoDB_v1';
+ const DB_VERSION = 9;
+@@ -1137,18 +1134,6 @@ async function deleteItemFromStore(storeName: string, id: string): Promise<void>
+ }
+ 
+ export const StorageService = {
+-  getDeploymentMode(): DeploymentMode {
+-    const envMode = (import.meta as any).env?.VITE_DEPLOYMENT_MODE as DeploymentMode | undefined;
+-    const storedMode = localStorage.getItem(STORAGE_KEY_MODE) as DeploymentMode | null;
+-    if (storedMode) return storedMode;
+-    if (envMode) return envMode;
+-    return 'local';
+-  },
+-
+-  setDeploymentMode(mode: DeploymentMode): void {
+-    localStorage.setItem(STORAGE_KEY_MODE, mode);
+-  },
+-
+   /**
+    * Liefert Statistiken über die aktuell lokal auf dem Gerät gespeicherten Datensätze
+    */
+diff --git a/src/services/updateService.ts b/src/services/updateService.ts
+index 42a8233..9322e00 100644
+--- a/src/services/updateService.ts
++++ b/src/services/updateService.ts
+@@ -424,14 +424,4 @@ export class UpdateService {
+     }
+   }
+ 
+-  /**
+-   * Befehle für Docker / Eigener Server (Lösung B)
+-   */
+-  static getDockerUpdateCommand(): string {
+-    return 'docker compose pull && docker compose up -d';
+-  }
+-
+-  static getDockerFullRebuildCommand(): string {
+-    return 'git pull && docker compose down && docker compose up -d --build';
+-  }
+ }
+diff --git a/src/types.ts b/src/types.ts
+index 849c56e..c19f940 100644
+--- a/src/types.ts
++++ b/src/types.ts
+@@ -416,9 +416,6 @@ export interface ClubDocument {
+   updatedAt: string;
+ }
+ 
+-// Betriebsmodi & Deployment
+-export type DeploymentMode = 'local' | 'cloud' | 'selfhosted';
+-
+ // Benutzer & Rechteverwaltung
+ /**
+  * Zugriffsstufe je Bereich.

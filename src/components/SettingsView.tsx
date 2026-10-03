@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ClubSettings, AppUser, UserPermissions, DeploymentMode, Address, BoardMember } from '../types';
+import { ClubSettings, AppUser, UserPermissions, Address, BoardMember } from '../types';
 import { StorageService } from '../services/storage';
 import { AuthService } from '../services/authService';
 import { SnapshotService, AutoSnapshot } from '../services/snapshotService';
@@ -95,8 +95,6 @@ interface SettingsViewProps {
   onOpenUserManage?: () => void;
   currentTheme: 'light' | 'dark' | 'system';
   onThemeChange: (theme: 'light' | 'dark' | 'system') => void;
-  deploymentMode?: DeploymentMode;
-  onDeploymentModeChange?: (mode: DeploymentMode) => void;
   initialTab?: SettingsTab;
   onTabChange?: (tab: SettingsTab) => void;
   /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
@@ -182,8 +180,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onDataReload,
   currentTheme,
   onThemeChange,
-  deploymentMode,
-  onDeploymentModeChange,
   initialTab,
   onTabChange,
   canEdit = true,
@@ -191,21 +187,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   canManageUsers = true,
   onUsersLocked
 }) => {
-  const [currentDepMode, setCurrentDepMode] = useState<DeploymentMode>(
-    deploymentMode || StorageService.getDeploymentMode()
-  );
-
-  useEffect(() => {
-    if (deploymentMode) {
-      setCurrentDepMode(deploymentMode);
-    }
-  }, [deploymentMode]);
-
-  const handleModeChange = (mode: DeploymentMode) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
-    setCurrentDepMode(mode);
-    onDeploymentModeChange?.(mode);
-  };
   // Tab sequence:
   // 1. Allgemeine Einstellungen
   // 2. Vereinsstammdaten
@@ -414,7 +395,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const timestamp = new Date().toLocaleString('de-DE');
 
     const clientInfo = bugIncludeSystemInfo
-      ? `App v${CURRENT_APP_VERSION} | Modus: ${currentDepMode} | UA: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'n/a'} | Screen: ${typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'n/a'}`
+      ? `App v${CURRENT_APP_VERSION} | UA: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'n/a'} | Screen: ${typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'n/a'}`
       : 'Keine Diagnosedaten';
 
     const reportPayload = {
@@ -425,7 +406,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       contactName: bugContactName.trim() || undefined,
       contactEmail: bugContactEmail.trim() || undefined,
       appVersion: `v${CURRENT_APP_VERSION}`,
-      deploymentMode: currentDepMode,
       clientDetails: clientInfo,
     };
 
@@ -474,7 +454,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             Absender_Name: bugContactName.trim() || 'Anonym / Nicht angegeben',
             Absender_Email: bugContactEmail.trim() || 'Keine Angabe',
             App_Version: `v${CURRENT_APP_VERSION}`,
-            Betriebsmodus: currentDepMode,
+            Betriebsmodus: 'Lokal',
             System_Info: clientInfo,
             Eingangszeit: timestamp,
           };
@@ -2793,11 +2773,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* TAB 5: BETRIEBSMODI & DEPLOYMENT HUB */}
       {activeTab === 'deployment' && (
         <div className="space-y-6 animate-in fade-in duration-150">
-          <DeploymentHubSettingsPanel
-            currentMode={currentDepMode}
-            onModeChange={handleModeChange}
-            onDataReload={onDataReload}
-          />
+          <DeploymentHubSettingsPanel />
         </div>
       )}
 
@@ -3395,7 +3371,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                 <div className="p-3 bg-slate-950/80 rounded-xl font-mono text-[11px] text-slate-300 space-y-1 border border-slate-800/80">
                   <div><span className="text-slate-500">App-Version:</span> v{CURRENT_APP_VERSION}</div>
-                  <div><span className="text-slate-500">Betriebsmodus:</span> {currentDepMode}</div>
                   <div><span className="text-slate-500">Plattform:</span> {typeof navigator !== 'undefined' ? (navigator.userAgent.includes('Windows') ? 'Windows' : navigator.userAgent.includes('Mac') ? 'macOS' : navigator.userAgent.includes('Linux') ? 'Linux' : 'Web/Mobil') : 'Web'}</div>
                   <div><span className="text-slate-500">Auflösung:</span> {typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'n/a'}</div>
                   <div><span className="text-slate-500">Sprache:</span> {typeof navigator !== 'undefined' ? navigator.language : 'de-DE'}</div>

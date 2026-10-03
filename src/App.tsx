@@ -180,7 +180,6 @@ export default function App() {
     else window.localStorage.removeItem(VIEW_MODE_OVERRIDE_KEY);
   };
   const [loading, setLoading] = useState(true);
-  const [deploymentMode, setDeploymentMode] = useState<import('./types').DeploymentMode>(StorageService.getDeploymentMode());
 
   // Theme Management (Light, Dark, System)
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
@@ -1814,9 +1813,7 @@ export default function App() {
           </button>
 
           {/* App Version Tile & 1-Klick Update Popover */}
-          <AppVersionBadge
-            currentMode={deploymentMode}
-          />
+          <AppVersionBadge />
         </div>
       </aside>
 
@@ -2372,8 +2369,6 @@ export default function App() {
                 onOpenUserManage={() => setUserManageOpen(true)}
                 currentTheme={theme}
                 onThemeChange={(newTheme) => setTheme(newTheme)}
-                deploymentMode={deploymentMode}
-                onDeploymentModeChange={(newMode) => setDeploymentMode(newMode)}
                 initialTab={settingsActiveTab}
                 onTabChange={(tab) => setSettingsActiveTab(tab)}
                 canEdit={mayEdit('settings')}

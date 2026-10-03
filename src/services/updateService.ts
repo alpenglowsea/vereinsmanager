@@ -424,14 +424,4 @@ export class UpdateService {
     }
   }
 
-  /**
-   * Befehle für Docker / Eigener Server (Lösung B)
-   */
-  static getDockerUpdateCommand(): string {
-    return 'docker compose pull && docker compose up -d';
-  }
-
-  static getDockerFullRebuildCommand(): string {
-    return 'git pull && docker compose down && docker compose up -d --build';
-  }
 }

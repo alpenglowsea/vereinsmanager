@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { DeploymentMode } from '../types';
 import { StorageService } from '../services/storage';
 import {
   CheckCircle2,
@@ -11,29 +10,13 @@ import {
   RefreshCw
 } from 'lucide-react';
 
-interface DeploymentHubSettingsPanelProps {
-  currentMode: DeploymentMode;
-  onModeChange: (mode: DeploymentMode) => void;
-  onDataReload?: () => void;
-}
-
 /**
- * Es gibt nur noch den lokalen Betrieb (Schritt 5 der Vereinfachung hat den
- * Cloud-Betrieb entfernt; der eigene Server-Betrieb war bereits zuvor weg).
- * "currentMode" kann trotzdem noch einen alten Wert aus einer früheren
- * Fassung tragen — etwa "cloud", wenn jemand von dort aus aktualisiert hat.
- * Das ändert an der Funktion nichts mehr (jede Operation läuft ohnehin nur
- * noch lokal), aber die Oberfläche soll das nicht stillschweigend als
- * Normalzustand anzeigen, deshalb bleibt die Möglichkeit, explizit auf
- * "local" zurückzusetzen.
+ * Es gibt nur noch den lokalen Betrieb (Schritt 4 der Vereinfachung hat den
+ * eigenen Server-Betrieb entfernt, Schritt 5 den Cloud-Betrieb). Dieses Feld
+ * zeigt deshalb nur noch den unveränderlichen lokalen Zustand an und bietet
+ * den lokalen Datenbestand samt Sicherungs-Download zum Download an.
  */
-export const DeploymentHubSettingsPanel: React.FC<DeploymentHubSettingsPanelProps> = ({
-  currentMode,
-  onModeChange,
-  onDataReload
-}) => {
-  const isLocalActive = currentMode === 'local';
-
+export const DeploymentHubSettingsPanel: React.FC = () => {
   const [localStats, setLocalStats] = useState<{
     members: number;
     transactions: number;
@@ -57,12 +40,6 @@ export const DeploymentHubSettingsPanel: React.FC<DeploymentHubSettingsPanelProp
     } catch (e) {
       console.warn('Fehler beim Laden der lokalen Statistiken:', e);
     }
-  };
-
-  const handleActivateLocal = () => {
-    StorageService.setDeploymentMode('local');
-    onModeChange('local');
-    onDataReload?.();
   };
 
   const handleDownloadBackup = async () => {
@@ -100,20 +77,10 @@ export const DeploymentHubSettingsPanel: React.FC<DeploymentHubSettingsPanelProp
             </div>
           </div>
 
-          {isLocalActive ? (
-            <div className="flex items-center gap-2 text-2xs px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-bold">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Aktiv auf diesem Gerät</span>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={handleActivateLocal}
-              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-2xs font-bold transition-colors cursor-pointer shadow-xs"
-            >
-              Zu lokalem Offline-Modus wechseln
-            </button>
-          )}
+          <div className="flex items-center gap-2 text-2xs px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-bold">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Aktiv auf diesem Gerät</span>
+          </div>
         </div>
 
         <div className="pt-5 space-y-4">
