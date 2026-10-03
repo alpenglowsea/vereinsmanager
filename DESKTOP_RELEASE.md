@@ -106,8 +106,9 @@ Alles, was einen Server braucht, lief dort ins Leere: E-Mail-Versand,
 Belegerkennung, Buchungsvorschläge, Protokollauswertung. Ein Aufruf an
 `/api/...` fand schlicht niemanden, der antwortet.
 
-Jetzt bringt das Programm denselben Server mit, den auch der Docker-Betrieb
-verwendet. Im fertigen Paket stecken deshalb zusätzlich:
+Jetzt bringt das Programm denselben Server mit, der auch beim Start aus dem
+Projektordner (die Start-Skripte) läuft. Im fertigen Paket stecken deshalb
+zusätzlich:
 
 | Was | Wofür |
 |---|---|
@@ -166,18 +167,16 @@ Der Schlüssel steht dabei **hinter dem Doppelkreuz**. Alles danach ist ein
 sogenanntes Fragment und wird vom Browser nie an den Server geschickt — er
 taucht deshalb in keinem Zugriffsprotokoll auf.
 
-Angehängt wird er nur, wenn der Server ausschließlich auf dem eigenen Rechner
-lauscht. Das ist in der Desktop-Fassung der Fall: Sie setzt `VM_HOST=127.0.0.1`,
-damit der Server aus dem Netzwerk gar nicht erreichbar ist. Im Docker-Betrieb
-lauscht er weiterhin auf allen Adressen — dort unterbleibt das Anhängen, weil
-der Schlüssel sonst in Protokollen landete, die anderswo aufbewahrt werden.
+Der Server lauscht grundsätzlich fest nur auf `127.0.0.1` — aus dem Netzwerk
+ist er nie erreichbar, egal ob Desktop-Fassung oder Start aus dem
+Projektordner. Der Schlüssel wird deshalb immer angehängt.
 
 **Wenn der Server nicht startet**, öffnet sich das Fenster trotzdem, dann mit
-der mitgelieferten Oberfläche ohne Server. Die Anwendung verhält sich in diesem
-Fall genau wie die bisherige Desktop-Fassung: Mitglieder, Finanzen und alles
-Übrige arbeiten normal weiter, nur E-Mail-Versand und KI-Funktionen fehlen.
-Lieber das als ein Programm, das gar nicht erst aufgeht. Was schiefging, steht
-in der Konsolenausgabe des Programms.
+der mitgelieferten Oberfläche ohne Server. Mitglieder, Finanzen und alle
+übrigen Bereiche arbeiten normal weiter — nur der Fehlerbericht-Knopf in den
+Einstellungen fehlt, da er den Server braucht. Lieber das als ein Programm,
+das gar nicht erst aufgeht. Was schiefging, steht in der Konsolenausgabe des
+Programms.
 
 ---
 

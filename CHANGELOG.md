@@ -4,6 +4,88 @@ Alle relevanten Änderungen und Versionsstände des VereinsManagers werden in di
 
 ---
 
+## [Unreleased] — Vereinfachung auf eine einzige Betriebsart
+
+Grundlegende Umstellung: Statt drei Betriebsarten (lokal allein / lokal mit
+Supabase-Cloud / gehosteter eigener Server) gibt es jetzt nur noch eine
+einzige — rein lokal, ein Gerät. Zusammen mit KI-Funktionen und
+E-Mail-Versand sind auch alle Funktionen entfernt, die nur für eine der
+beiden anderen Betriebsarten existierten. Vollständige Begründung und
+Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
+(Projektdokumentation, nicht Teil dieses Repositories).
+
+### 🤖 KI-Funktionen vollständig entfernt
+
+- Belegerkennung (OCR), Buchungsvorschläge und automatische
+  Protokollauswertung samt der zugehörigen Google-Gemini-Anbindung komplett
+  entfernt — acht Dateien gelöscht, Server-Endpunkte und Freigabe-Verwaltung
+  aus `server.ts` entfernt, Abhängigkeit `@google/genai` entfernt.
+
+### ✉️ SMTP/E-Mail-Versand entfernt
+
+- Direktversand von Sitzungseinladungen und -protokollen über einen
+  vereinseigenen SMTP-Server entfernt. Protokolle werden weiterhin als PDF
+  exportiert und lassen sich über das lokale E-Mail-Programm verschicken
+  (`mailto:`-Link) — nur der zusätzliche Direktversand ab der Anwendung
+  selbst ist weggefallen.
+- Die serverseitige Verschlüsselungsschicht, die ausschließlich das
+  SMTP-Passwort schützte, ist mit entfernt worden, da es dieses Passwort
+  nicht mehr gibt.
+
+### 🖥️ Eigener Server-Betrieb entfernt
+
+- Die Betriebsart „gehostet" (eigener Server mit eigener SQLite-Datenbank,
+  eigenen Benutzerkonten und feingranularen Rechten) ist komplett entfernt.
+  Die zugrunde liegende Erkenntnis: Die eigentlichen Vereinsdaten lagen auch
+  in dieser Betriebsart immer lokal im Browser — der eigene Server bot nur
+  eine zusätzliche Anmeldesperre, keine geteilten Daten.
+- Die allgemeine Zugriffsschranke vor den `/api`-Routen (Zugriffsschlüssel)
+  bleibt erhalten — sie war nie betriebsart-spezifisch.
+
+### ☁️ Cloud-/Supabase-Betrieb entfernt
+
+- Die Betriebsart „lokal mit Supabase" (Zwei-Wege-Synchronisation zwischen
+  mehreren Geräten über eine Cloud-Datenbank) ist komplett entfernt, inkl.
+  des gesamten Supabase-Unterbaus, der Cloud-Benutzerverwaltung und der
+  SQL-Dateien für Schema und Zugriffsregeln.
+- **Mitgliederbefragung komplett entfernt:** Diese Funktion setzte den
+  Cloud-Betrieb voraus und ist mit ihm entfernt worden — Ansicht,
+  Navigationspunkt, Speicherfunktionen, Typen und der Eintrag in der
+  Datensicherung.
+
+### 🧹 Aufräumen
+
+- Den Typ für die (jetzt nicht mehr vorhandene) Auswahl zwischen
+  Betriebsarten vollständig aus dem Code entfernt.
+- **Docker komplett entfernt** (`Dockerfile`, `docker-compose.yml`,
+  `.dockerignore`, `nginx.conf`) — es gibt nur noch die eine lokale
+  Betriebsart, für die kein Container nötig ist.
+- **Server hört nur noch auf diesem einen Gerät:** Der mitgelieferte Server
+  lauscht jetzt fest auf `127.0.0.1` statt wie bisher auf allen Adressen —
+  er ist aus dem Netzwerk nicht mehr erreichbar.
+- **Mobil-Ansicht komplett entfernt:** Die eigene, für schmale Bildschirme
+  gebaute Ansicht mit Tab-Leiste ist entfernt — ihre Grundlage (Zugriff von
+  einem zweiten, mobilen Gerät auf dieselben Daten) war an die jetzt
+  entfernten Mehrgeräte-Betriebsarten gebunden.
+- **Öffentliches Aufnahmeformular nicht mehr von außen erreichbar:** Der
+  URL-Aufruf, über den das Aufnahmeformular ohne Anmeldung von außen
+  aufgerufen werden konnte (samt teilbarem Link und QR-Code), ist entfernt —
+  seine Grundlage (ein von außen erreichbarer Server) ist mit der
+  Localhost-only-Entscheidung oben entfallen. Das Formular selbst bleibt für
+  die manuelle Erfassung durch den Vorstand erhalten.
+- **`/api/health` entfernt:** Diese offene Statusseite diente ausschließlich
+  der Container-Überwachung durch Docker und ist mit Docker entfernt worden.
+- Ein dabei gefundener, kleiner Folgefehler korrigiert: Das
+  Aufnahmeformular zeigte noch ein „SSL & DSGVO-konform"-Abzeichen, das seit
+  dem rein lokalen Betrieb ohne SSL schlicht falsch war.
+- Dokumentation auf den neuen Stand gebracht: `README.md` grundlegend
+  überarbeitet, `DEPLOYMENT_GUIDE_DE.md` komplett entfernt (beschrieb
+  ausschließlich die jetzt entfernten Betriebsarten), `DESKTOP_RELEASE.md`
+  und `.github/workflows/release-desktop.yml` von Erwähnungen der
+  entfernten Funktionen bereinigt.
+
+---
+
 ## [1.0.0] - 2026-09-28
 
 ### 🧪 309 Tests in 20 Dateien, alle grün — erstes Release

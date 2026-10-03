@@ -180,10 +180,11 @@ jobs:
 
             *Keine Installation von Node.js oder Webservern erforderlich. Einfach herunterladen und per Doppelklick starten.*
 
-            Seit dieser Fassung bringt das Programm den Anwendungsserver mit.
-            Dadurch funktionieren auch in der Desktop-Fassung der E-Mail-Versand,
-            die Belegerkennung und die KI-Funktionen. Das Paket ist dadurch um
-            etwa 30 MB gewachsen.
+            Das Programm bringt einen kleinen Anwendungsserver mit, der
+            ausschließlich auf diesem einen Rechner lauscht (`127.0.0.1`) und
+            aus dem Netzwerk nicht erreichbar ist. Dadurch funktioniert auch
+            in der Desktop-Fassung der Fehlerbericht-Knopf in den
+            Einstellungen.
           releaseDraft: false
           # Als Vorabversion gekennzeichnet: GitHub zeigt sie dann nicht als
           # "Latest release" an, und niemand lädt sie versehentlich in dem

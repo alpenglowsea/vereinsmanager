@@ -1,14 +1,14 @@
 # 🏛️ VereinsManager
 
-> **Moderne, DSGVO-konforme und revisionssichere Vereinsverwaltung für gemeinnützige Vereine (e.V.) in Deutschland.**  
-> Unterstützt Offline-First-Betrieb im Browser, Desktop-App (Tauri) sowie standortunabhängiges Arbeiten im Vorstandsteam via Cloud-Synchronisation (Supabase PostgreSQL).
+> **Kostenlose, DSGVO-konforme und revisionssichere Vereinsverwaltung für gemeinnützige Vereine (e.V.) in Deutschland.**  
+> Läuft vollständig lokal auf einem Gerät — als native Desktop-App (Tauri) oder im Browser —, ohne Cloud, ohne Abonnement, ohne dass irgendetwas den Rechner verlässt.
 
 ---
 
 ## 📑 Inhaltsverzeichnis
 
 - [Überblick & Leitphilosophie](#-überblick--leitphilosophie)
-- [Systemarchitektur & Betriebsmodi](#-systemarchitektur--betriebsmodi)
+- [Systemarchitektur](#-systemarchitektur)
 - [Die 7 Hauptfunktionen der App im Detail](#-die-7-hauptfunktionen-der-app-im-detail)
   - [1. Mitgliederverwaltung & Mitgliederbetreuung](#1-mitgliederverwaltung--mitgliederbetreuung)
   - [2. Finanz- & Kassenverwaltung (inkl. 4 Sphären & Rechnungen)](#2-finanz--kassenverwaltung-inkl-4-sphären--rechnungen)
@@ -20,16 +20,13 @@
 - [Detaillierte Beschreibung der komplexesten Kernfunktionen](#-detaillierte-beschreibung-der-komplexesten-kernfunktionen)
   - [1. Das 4-Sphären-Gemeinnützigkeitsmodell (§ 52 AO)](#1-das-4-sphären-gemeinnützigkeitsmodell--52-ao)
   - [2. Der SEPA-Lastschriftlauf (pain.008 XML) & Mandatsprüfung](#2-der-sepa-lastschriftlauf-pain008-xml--mandatsprüfung)
-  - [3. Hybride Offline-First- & Cloud-Synchronisation](#3-hybride-offline-first---cloud-synchronisation)
-  - [4. DIN 5008 Rechnungs-Engine & Blanko-Briefpapier-Offset](#4-din-5008-rechnungs-engine--blanko-briefpapier-offset)
-  - [5. Sitzungsdienst, Beschlussbuch & DSGVO-konformer SMTP-Versand](#5-sitzungsdienst-beschlussbuch--dsgvo-konformer-smtp-versand)
+  - [3. DIN 5008 Rechnungs-Engine & Blanko-Briefpapier-Offset](#3-din-5008-rechnungs-engine--blanko-briefpapier-offset)
+  - [4. Sitzungsdienst & Beschlussbuch](#4-sitzungsdienst--beschlussbuch)
 - [Installations- & Betriebsanleitung](#-installations---betriebsanleitung)
   - [Voraussetzungen](#voraussetzungen)
-  - [Lokale Entwicklung / Schnellstart](#lokale-entwicklung--schnellstart)
-  - [Produktions-Build & Serverstart](#produktions-build--serverstart)
-  - [Cloud-Synchronisation mit Supabase einrichten](#cloud-synchronisation-mit-supabase-einrichten)
-  - [SMTP-Postausgangsserver konfigurieren](#smtp-postausgangsserver-konfigurieren)
-  - [Desktop-App mit Tauri kompilieren](#desktop-app-mit-tauri-kompilieren)
+  - [Die Desktop-App nutzen (empfohlener Weg)](#die-desktop-app-nutzen-empfohlener-weg)
+  - [Alternativ: Start aus dem Quellcode im Browser](#alternativ-start-aus-dem-quellcode-im-browser)
+  - [Zugriffsschlüssel des Servers](#zugriffsschlüssel-des-servers)
 - [Datensicherheit, Revisionssicherheit & Backups](#-datensicherheit-revisionssicherheit--backups)
 - [Lizenz](#-lizenz)
 
@@ -37,53 +34,39 @@
 
 ## 🌟 Überblick & Leitphilosophie
 
-**VereinsManager** wurde speziell entwickelt, um ehrenamtlichen Vereinsvorständen, Schatzmeistern, Abteilungsleitern und Geschäftsstellen ein professionelles, intuitives Werkzeug an die Hand zu geben, ohne sie in kostspielige Software-Abonnements oder proprietäre Cloud-Silos zu zwingen.
+**VereinsManager** wurde speziell entwickelt, um ehrenamtlichen Vereinsvorständen, Schatzmeistern, Abteilungsleitern und Geschäftsstellen ein professionelles, intuitives Werkzeug an die Hand zu geben, ohne sie in kostspielige Software-Abonnements oder Cloud-Silos zu zwingen.
 
-* **100 % Datensouveränität:** Daten verbleiben lokal auf Ihrem Rechner (IndexedDB) oder in Ihrer eigenen, dedizierten Cloud-Instanz (Supabase).
+* **100 % Datensouveränität:** Alle Daten verbleiben ausschließlich lokal auf dem eigenen Rechner (Browser-Datenbank). Es gibt keinen Cloud-Dienst, an den etwas übertragen wird.
 * **Vollständige Rechtssicherheit für deutsche e.V.:** Berücksichtigt die strengen Vorgaben der Abgabenordnung (AO), des BGB, der DSGVO sowie die Richtlinien des Bundesfinanzministeriums (BMF).
-* **Keine Zwangsserver:** Die Basisanwendung läuft vollständig clientseitig im Webbrowser – auch komplett ohne aktive Internetverbindung.
+* **Ein Gerät, keine Serverinfrastruktur:** Die Anwendung ist bewusst auf einen einzigen Arbeitsplatz zugeschnitten (z. B. den Rechner des Kassenwarts oder im Vereinsheim) — kein eigener Server, kein Netzwerkzugriff von außen, keine Cloud-Anmeldung.
 
 ---
 
-## 🏗️ Systemarchitektur & Betriebsmodi
+## 🏗️ Systemarchitektur
 
-Die Anwendung vereint drei flexible Betriebsmodi in einer einzigen Codebasis
-— zusätzlich lässt sich die Oberfläche selbst wahlweise im Browser, als
-native Desktop-App (Tauri v2, Windows/macOS/Linux) oder in einer schlanken
-Mobil-Ansicht für unterwegs nutzen, mit identischer Anmeldung und
-identischen Rechten in allen dreien:
+VereinsManager läuft vollständig auf einem einzigen Gerät. Es gibt bewusst nur eine Betriebsart:
 
 ```text
         ┌──────────────────────────────────────────────────────────────────────┐
         │                        VereinsManager Frontend                       │
         │              (React 19 + TypeScript + Tailwind CSS)                  │
-        └───────────────────┬─────────────────────┬──────────────────────┬─────┘
-                             │                     │                      │
-                     Modus 1:│             Modus 2:│              Modus 3:│
-                lokal allein │    lokal mit Supabase                gehostet
-                             ▼                     ▼                      ▼
-        ┌────────────────────────┐  ┌───────────────────────┐  ┌──────────────────────────┐
-        │    Browser IndexedDB   │  │  Supabase (Postgres)  │  │  Node.js Express API +   │
-        │  (100 % Offline-First) │  │ (Zwei-Wege-Sync & Team)│  │  eigene SQLite-Datenbank │
-        │                        │  │                        │  │  (eigene Konten & Rechte)│
-        └────────────────────────┘  └───────────────────────┘  └──────────────────────────┘
+        └───────────────────────────────────┬────────────────────────────────┘
+                                              │
+                                              ▼
+                                ┌────────────────────────┐
+                                │   Browser-Datenbank     │
+                                │  (100 % lokal, offline) │
+                                └────────────────────────┘
 ```
 
-1. **Modus 1: lokal allein (Offline-First / IndexedDB)**  
-   Daten werden ausschließlich im lokalen Browserspeicher gehalten. Perfekt für Einzel-Kassenwarte, die keine Serverinfrastruktur verwalten möchten.
-2. **Modus 2: lokal mit Supabase (Cloud-Sync)**  
-   Ermöglicht mehreren Vorstandsmitgliedern ortsunabhängiges Arbeiten mit bidirektionalem Datenabgleich, Konflikterkennung und Echtzeit-Statusanzeige — Konten und Rollen werden über Supabase Auth verwaltet.
-3. **Modus 3: gehostet (eigener Server mit eigener Datenbank)**  
-   Der Verein betreibt einen eigenen Server (Docker, NAS, vServer) — Anwendung **und** Daten liegen dort, in einer eigenen SQLite-Datenbank. Eigene Konten je Person mit fein einstellbaren Rechten für 18 Bereiche, eigenem „Passwort vergessen" und ganz ohne Supabase. Details siehe [`DEPLOYMENT_GUIDE_DE.md`](DEPLOYMENT_GUIDE_DE.md).
+Alle Vereinsdaten (Mitglieder, Buchungen, Dokumente, Einstellungen …) liegen ausschließlich in der Browser-Datenbank dieses einen Geräts. Es gibt keinen Datenabgleich zwischen mehreren Geräten und keine Mehrbenutzer-Anmeldung — wer die App nutzt, nutzt sie an diesem einen Arbeitsplatz.
 
-Zusätzlich, unabhängig vom Betriebsmodus: **Tauri v2** liefert native
-Installationspakete für Windows (.exe), macOS (.dmg) und Linux (.AppImage)
-mit Zugriff auf lokale Dateisysteme und Hardware-Drucker, und eine eigene,
-schlanke **Mobil-Ansicht** blendet sich auf schmalen Bildschirmen automatisch
-ein — mit denselben Daten, derselben Anmeldung und denselben Rechten wie am
-Desktop, nur auf die wichtigsten Aufgaben unterwegs zugeschnitten
-(Mitglied nachschlagen, Termine, Buchung mit Belegfoto erfassen,
-Sitzungsdienst, Dokumente).
+**Zwei gleichwertige Wege, dieselbe Anwendung zu öffnen:**
+
+1. **Als native Desktop-App (Tauri v2)** — der empfohlene Weg für den laufenden Betrieb. Fertige Installationspakete für Windows (`.exe`/`.msi`), macOS (`.dmg`) und Linux (`.deb`/`.AppImage`) über GitHub Releases. Die App bringt einen kleinen, mitgelieferten Server mit, der ausschließlich auf diesem einen Rechner lauscht (`127.0.0.1`) — aus dem Netzwerk ist er nicht erreichbar.
+2. **Direkt aus dem Quellcode im Systembrowser** — über die beiliegenden Startskripte (`start-windows.bat` / `start-mac-linux.sh`). Praktisch zum Ausprobieren oder für die Entwicklung; nutzt denselben, nur lokal lauschenden Server.
+
+In beiden Fällen dieselbe Anwendung, dieselben Daten, derselbe Funktionsumfang.
 
 ---
 
@@ -97,9 +80,9 @@ VereinsManager gliedert sich in **sieben voll integrierte Hauptmodule**, die sä
 ├──────────────┬──────────────┬──────────────┬──────────────┬──────────────┬──────────────┬──────────────┤
 │ 1. MITGLIEDER│ 2. FINANZEN  │ 3. KONTAKTE  │ 4. KALENDER  │ 5. SITZUNGEN │ 6. INVENTAR  │ 7. DOKUMENTE │
 │ • Stammdaten │ • 4 Sphären  │ • Partner    │ • Termine    │ • Versammlung│ • Geräte     │ • Belegarchiv│
-│ • Beiträge   │ • Eigene Kto.│ • Sponsoren  │ • Sparten    │ • Beschlüsse │ • Ausleihe an│ • OCR-Scanner│
-│ • Online-Antr│ • SEPA XML   │ • Verbände   │ • Räume      │ • Protokolle │   Mitglieder │ • Revision   │
-│ • Umfragen   │ • EÜR / DIN  │ • Schnittst. │ • iCal-Sync  │ • SMTP-Mail  │ • Prüffristen│ • Verknüpfung│
+│ • Beiträge   │ • Eigene Kto.│ • Sponsoren  │ • Sparten    │ • Beschlüsse │ • Ausleihe an│ • Revision   │
+│ • Online-Antr│ • SEPA XML   │ • Verbände   │ • Räume      │ • Protokolle │   Mitglieder │ • Verknüpfung│
+│ • Statistiken│ • EÜR / DIN  │ • Schnittst. │ • iCal-Sync  │ • PDF-Export │ • Prüffristen│ • Volltext   │
 └──────────────┴──────────────┴──────────────┴──────────────┴──────────────┴──────────────┴──────────────┘
 ```
 
@@ -115,24 +98,18 @@ Das zentrale Nervensystem der Vereinsorganisation:
   * Hinterlegung von Bankverbindungen (IBAN/BIC) und SEPA-Mandatsdaten (Mandatsreferenz, Ausstellungsdatum).
 * **Beitragsstrukturen & Zahlungsrhythmen:**
   * Freie Zuweisung von Monats-, Quartals-, Halbjahres- und Jahresbeiträgen.
-  * **Option *„Beitragsfrei“*:** Für Ehrenmitglieder, Schiedsrichter oder beurlaubte Mitglieder. Befreit automatisch von Pflichtangaben (IBAN/BIC), sperrt den Einzug und hebt den Status in der Kartei hervor.
+  * **Option *„Beitragsfrei"*:** Für Ehrenmitglieder, Schiedsrichter oder beurlaubte Mitglieder. Befreit automatisch von Pflichtangaben (IBAN/BIC), sperrt den Einzug und hebt den Status in der Kartei hervor.
   * Frei wählbarer Fälligkeitstag (1. oder 15. des Monats) für maßgeschneiderte Kassenläufe.
 * **Status- & Spartenmanagement:**
   * Statusarten: *Aktiv*, *Passiv*, *Ehrenmitglied* und *Ausgetreten*.
   * **Automatische Beitragssperre:** Bei Status *Ausgetreten* wird das Mitglied sofort vor versehentlichen SEPA-Einzügen oder Rechnungsstellungen geschützt.
   * Beliebig viele Abteilungen/Sparten (z. B. Fußball, Turnen, Tennis) mit individueller Zuordnung und Sortierung per Drag & Drop.
-* **Online-Aufnahmeanträge & Digitales Aufnahmewesen:**
-  * Responsives Online-Formular für Smartphone, Tablet und PC mit digitaler Signatur (Touchscreen/Maus).
+* **Digitale Aufnahmeanträge:**
+  * Digitales Aufnahmeformular mit Signaturfeld (Touchscreen/Maus) zur Erfassung durch den Vorstand — etwa am eigenen Gerät bei einem Vereinstermin oder beim Nacherfassen eines Papierantrags.
   * Automatische Erfassung des SEPA-Lastschriftmandats mit rechtssicherem Bestätigungstext.
-  * Übersicht aller eingegangenen Anträge für den Vorstand mit 1-Klick-Übernahme in den regulären Mitgliederbestand.
+  * Übersicht aller erfassten Anträge für den Vorstand mit 1-Klick-Übernahme in den regulären Mitgliederbestand.
 * **Mitglieder-Statistiken & Demografie:**
   * Grafische Analysen der Altersverteilung, Geschlechteranteile, Spartenbelegungen und Eintritts-/Austrittstrends.
-* **Mitgliederbefragung & Meinungsbilder (Neu in v1.2.3):**
-  * Erstellung interner Befragungen mit 6 Fragetypen: 1–5 Sterne, 0–10 NPS-Skala, Single-/Multiple-Choice, Ja/Nein/Enthaltung und Freitext.
-  * Registrierungsfreie Stimmabgabe für Mitglieder via Direktlink.
-  * **Einmal-Token-Schutz:** Automatische Generierung fälschungssicherer Einmal-Links gegen Mehrfachabstimmungen.
-  * Multi-Channel-Versand per **WhatsApp-Direktlink**, E-Mail-Vorlage, druckfertiger PDF-Teilnehmerliste oder CSV.
-  * Live-Auswertungen, Net Promoter Score (NPS) und druckfertiger PDF-Ergebnisbericht für Vorstandssitzungen.
 * **Massen-Import, Export & Etiketten:**
   * CSV/Excel-Import mit intelligentem Spalten-Mapping.
   * Export nach CSV, Excel, vCard (.vcf) sowie druckfertige PDF-Mitgliederlisten und Adressetiketten.
@@ -146,7 +123,7 @@ Rechtssichere und transparente Buchführung für den ehrenamtlichen Schatzmeiste
 * **Das 4-Sphären-Buchungsjournal (§ 52 AO):**
   * Strikte Trennung aller Einnahmen und Ausgaben in *Ideeller Bereich*, *Vermögensverwaltung*, *Zweckbetrieb* und *Wirtschaftlicher Geschäftsbetrieb* (nach SKR 42).
   * Lückenloses Buchungsjournal mit automatischer Belegnummerierung, Buchungstext, Beleg-Upload und Steuersatz (0%, 7%, 19%).
-* **Flexible Kontenverwaltung (Neu in v1.2.3):**
+* **Flexible Kontenverwaltung:**
   * Beliebig viele eigene Zahlungskonten anlegen: Girokonten, Sparkassen, Festgeldkonten, Barkassen und PayPal.
   * Anpassbare IBAN, BIC und Anfangsbestände.
   * **Drag & Drop Sortierung:** Kontokarten per Maus in die gewünschte Reihenfolge schieben.
@@ -216,9 +193,8 @@ Rechtssichere Durchführung und Dokumentation von Gremiensitzungen:
   * Lückenlose, fortlaufende Beschlussnummerierung (`BES-JJJJ-XXX`) mit Dokumentation von Ja-, Nein- und Enthaltungsstimmen.
 * **Digitale Signatur:**
   * Unterschriftserfassung auf Touchscreen, Tablet oder per Maus für Sitzungsleiter und Protokollführer.
-* **DSGVO-konformer SMTP-Relay-Versand:**
-  * Direkter E-Mail-Versand von Einladungen und Protokollen samt PDF über den vereinseigenen SMTP-Server.
-  * **Automatischer BCC-Schutz:** Alle Mitglieder und Vorstände werden ausnahmslos per Blindkopie adressiert, um E-Mail-Adressen vor fremden Blicken zu schützen.
+* **Protokoll-Versand:**
+  * Fertiges Protokoll als PDF exportieren und über das lokale E-Mail-Programm an Mitglieder und Vorstände verschicken (`mailto:`-Link mit vorausgefülltem Text, Anhang wird separat heruntergeladen).
 
 ---
 
@@ -229,7 +205,7 @@ Transparente Verwaltung aller Sachwerte und Betriebsmittel des Vereins:
 * **Sachmittelkatalog:**
   * Erfassung von Trainingsmaterialien, Bällen, Trikotsätzen, Turngeräten, IT-Equipment, Fahrzeugen, Werkzeugen und Schlüsseln.
   * Anschaffungspreise, Zeitwerte, Seriennummern und Aufbewahrungsorte.
-* **Verknüpfung von Inventar und Mitgliedern (Neu in v1.2.3):**
+* **Verknüpfung von Inventar und Mitgliedern:**
   * **Direkte Ausleihe an Vereinsmitglieder:** Zuweisung von Gegenständen an registrierte Mitglieder mit Auswahl aus der aktiven Mitgliederliste.
   * Erfassung von Ausleihdatum, geplantem Rückgabedatum und Zustand bei Übergabe.
   * **1-Klick-Rücknahme:** Schnelle Rückbuchung direkt aus der Tabelle oder Kachelkarte mit sofortiger Freigabe des Gegenstands.
@@ -250,15 +226,12 @@ GoBD-konforme digitale Ablage für alle vereinsrelevanten Dokumente:
 
 * **Strukturierte Ordner- & Kategorienhierarchie:**
   * Strukturierte Ablage für Satzungen, Registerauszüge (VR), Freistellungsbescheide, Pacht- und Mietverträge, Sitzungsprotokolle und Kassenbelege.
-* **KI-gestützter Dokumenten- & Belegscanner:**
-  * Multimodale Texterkennung (OCR via Google Gemini) für Belegscans, Rechnungs-PDFs und Smartphone-Fotos.
-  * Automatische Extraktion von Rechnungsdatum, Bruttobetrag, Belegnummer und Zahlungsempfänger mit 1-Klick-Übernahme in das Kassenjournal.
 * **Verknüpfung zu Buchungen & Mitgliedern:**
   * Revisionssichere Bindung hochgeladener Belege an die jeweiligen Buchungssätze im Journal und Aufnahmeanträge an das Mitglied.
 * **Revisionssicheres Audit-Log:**
-  * Unveränderliche Protokollierung aller Dateioperationen (Upload, Bearbeitung, Löschung) mit Benutzer- und Zeitstempel.
+  * Unveränderliche Protokollierung aller Dateioperationen (Upload, Bearbeitung, Löschung) mit Zeitstempel.
 * **Integrierter Dokumentenbetrachter:**
-  * Direkte Vorschau von PDFs, Scans und Bildern im Webbrowser oder Desktop-Client ohne externe Programme.
+  * Direkte Vorschau von PDFs, Scans und Bildern direkt in der Anwendung, ohne externe Programme.
 
 ---
 
@@ -307,20 +280,7 @@ Der automatische Einzug von Mitgliedsbeiträgen erfolgt über den europäischen 
 
 ---
 
-### 3. Hybride Offline-First- & Cloud-Synchronisation
-
-Um Ausfallsicherheit und mobile Unabhängigkeit auf dem Sportplatz mit kollaborativer Vorstandsarbeit zu verbinden, nutzt VereinsManager eine **Multi-Tier-Speicherarchitektur**:
-
-* **Lokaler Cache (IndexedDB):** Alle Lese- und Schreibvorgänge erfolgen mit 0 ms Latenz primär gegen die lokale IndexedDB im Browser.
-* **Sync-Engine (`SupabaseService`):**
-  * Erkennt online/offline Statuswechsel automatisch.
-  * Beim Verbindungsaufbau gleicht ein Zeitstempel-basierter Delta-Algorithmus veränderte Datensätze (`updated_at`) mit der Cloud-PostgreSQL-Datenbank ab.
-  * Bei gleichzeitigen Bearbeitungen greift eine deterministische *Last-Write-Wins*-Regel mit automatischer Versionierung, sodass keine Daten verloren gehen.
-  * Eine visuelle Status-Pille in der Navigationsleiste informiert permanent über den Synchronisationszustand (*Online / Synchronisiert*, *Synchronisiere...* oder *Offline-Modus*).
-
----
-
-### 4. DIN 5008 Rechnungs-Engine & Blanko-Briefpapier-Offset
+### 3. DIN 5008 Rechnungs-Engine & Blanko-Briefpapier-Offset
 
 Die Rechnungserstellung erfüllt formell und optisch alle Kriterien der **DIN 5008** (Geschäftsbriefe Form A und Form B):
 
@@ -335,16 +295,14 @@ Die Rechnungserstellung erfüllt formell und optisch alle Kriterien der **DIN 50
 
 ---
 
-### 5. Sitzungsdienst, Beschlussbuch & DSGVO-konformer SMTP-Versand
+### 4. Sitzungsdienst & Beschlussbuch
 
 Für rechtskonforme Vorstandssitzungen und Mitgliederversammlungen nach § 32 BGB:
 
 * **Tagesordnungen & Quorum:** Automatische Ermittlung der Beschlussfähigkeit anhand der Anwesenheitsliste und der Vereinssatzung.
 * **Beschlussfassung:** Jeder Beschluss erhält eine eindeutige, fortlaufende Nummer (`BES-JJJJ-XXX`) und dokumentiert Ja-, Nein- und Enthaltungsstimmen.
 * **Digitale Signatur:** Protokollführer und 1. Vorsitzender können das Protokoll direkt auf einem Touchscreen (Tablet, Smartphone) oder per Maus digital gegenzeichnen.
-* **DSGVO-konformer SMTP-Relay-Versand:**
-  * Der Versand von Einladungen und Protokollen samt generierter PDF erfolgt wahlweise über den lokalen Mail-Client (`mailto:`) oder **direkt aus der Anwendung über den konfigurierten SMTP-Server des Vereins** (z. B. IONOS, Strato, Gmail).
-  * **DSGVO-Schutz:** Alle Empfänger werden ausnahmslos als Blindkopie (**BCC**) adressiert. So wird verhindert, dass private E-Mail-Adressen von Mitgliedern offengelegt werden.
+* **Versand:** Das fertige Protokoll samt PDF wird über das lokale E-Mail-Programm verschickt (`mailto:`-Link) — ein direkter Versand ab der Anwendung selbst findet nicht statt.
 
 ---
 
@@ -352,167 +310,49 @@ Für rechtskonforme Vorstandssitzungen und Mitgliederversammlungen nach § 32 BG
 
 ### Voraussetzungen
 
+Für die fertigen Installationspakete (empfohlener Weg) wird nichts weiter benötigt — siehe unten.
+
+Nur für den Start aus dem Quellcode:
 * **Node.js:** Version 20.x oder 22.x LTS
 * **npm:** Version 9.x oder neuer
-* Ein moderner Webbrowser (Chrome, Firefox, Safari, Edge)
 
-### Lokale Entwicklung / Schnellstart
+### Die Desktop-App nutzen (empfohlener Weg)
 
-1. **Repository klonen:**
-   ```bash
-   git clone https://github.com/alpenglowsea/vereinsmanager.git
-   cd vereinsmanager
-   ```
+1. Unter den [GitHub Releases](https://github.com/alpenglowsea/vereinsmanager/releases) das passende Paket herunterladen:
+   * **Windows:** `.exe`-Installer oder `.msi`
+   * **macOS:** `.dmg` (Apple Silicon: M1 und neuer)
+   * **Linux:** `.deb` (empfohlen) oder `.AppImage`
+2. Installieren bzw. starten — die App öffnet ihr eigenes Fenster und bringt den dafür nötigen Server gleich mit. Er lauscht ausschließlich auf diesem Rechner (`127.0.0.1`) und ist aus dem Netzwerk nicht erreichbar.
 
-2. **Abhängigkeiten installieren:**
-   ```bash
-   npm install
-   ```
-
-3. **Entwicklungsserver starten:**
-   ```bash
-   npm run dev
-   ```
-   Die Anwendung startet standardmäßig auf:  
-   `http://localhost:3000`
+Details zum Bau eigener Releases: [`DESKTOP_RELEASE.md`](DESKTOP_RELEASE.md).
 
 ---
 
-### Produktions-Build & Serverstart
+### Alternativ: Start aus dem Quellcode im Browser
 
-Für den produktiven Einsatz auf einem vServer, Cloud Run oder Docker-Container:
+```bash
+git clone https://github.com/alpenglowsea/vereinsmanager.git
+cd vereinsmanager
+npm install
+```
 
-1. **Frontend & Backend kompilieren:**
-   ```bash
-   npm run build
-   ```
-   *Kompiliert das Vite-Frontend nach `dist/` und bündelt das Express-Backend nach `dist/server.cjs`.*
+Danach eines der beiliegenden Startskripte ausführen:
+* **Windows:** Doppelklick auf `start-windows.bat`
+* **macOS / Linux:** `./start-mac-linux.sh`
 
-2. **Produktionsserver starten:**
-   ```bash
-   npm start
-   ```
+Beide installieren bei Bedarf die Pakete, starten den lokalen Server und öffnen die Anwendung automatisch im Systembrowser — mit demselben Zugriffsschlüssel-Mechanismus wie die Desktop-App (siehe unten), nur eben im Browserfenster statt im eigenen Programmfenster.
 
----
-
-### Cloud-Synchronisation mit Supabase einrichten
-
-Wenn Sie im Vorstandsteam gemeinsam mit denselben Daten arbeiten möchten:
-
-1. Erstellen Sie ein kostenloses Projekt auf [supabase.com](https://supabase.com) — Region `Central EU (Frankfurt / eu-central-1)`, wichtig für die DSGVO.
-2. Öffnen Sie in Supabase den **SQL Editor**, fügen Sie den **vollständigen Inhalt** der Datei [`supabase_schema.sql`](supabase_schema.sql) aus diesem Repository ein und klicken Sie auf **Run**.
-
-   Diese Datei ist die einzige, stets aktuelle Quelle für das Tabellen-Schema
-   — sie wächst mit jeder neuen Funktion mit. Ein einzelner SQL-Block an
-   dieser Stelle in der README würde bei jeder Erweiterung doppelt gepflegt
-   werden müssen und wäre über kurz oder lang veraltet; deshalb steht hier
-   bewusst kein eigenes Schema mehr, sondern nur der Verweis darauf.
-3. Für Zugriffsregeln (Row Level Security) und die Ratenbegrenzung des
-   öffentlichen Aufnahmeformulars zusätzlich [`supabase_rls.sql`](supabase_rls.sql)
-   im selben SQL Editor ausführen.
-4. Hinterlegen Sie Ihre Projekt-URL und den `anon`-Key in der `.env`-Datei oder in der Web-Oberfläche unter **Systemeinstellungen > 5. Betriebsmodi**:
-   ```env
-   VITE_SUPABASE_URL=https://ihr-projekt.supabase.co
-   VITE_SUPABASE_ANON_KEY=ihr-anon-key
-   ```
-
----
-
-### SMTP-Postausgangsserver konfigurieren
-
-Für den automatischen Versand von Sitzungseinladungen und Protokollen:
-
-1. Öffnen Sie in der Anwendung die **Systemeinstellungen > 2. Vereinsstammdaten**.
-2. Scrollen Sie zum Bereich **SMTP-Server für den Sitzungsdienst & E-Mail-Versand**.
-3. Wählen Sie entweder einen Schnellwahl-Button (*IONOS, Strato, Gmail, GMX, Web.de, Telekom*) oder tragen Sie Ihre Zugangsdaten manuell ein:
-   * **Host:** z. B. `smtp.ionos.de`
-   * **Port:** `587` (STARTTLS) oder `465` (SSL)
-   * **Benutzer & Passwort:** Ihre E-Mail-Zugangsdaten
-4. Klicken Sie auf **Zugangsdaten auf dem Server speichern** und anschließend auf
-   **Speichern & Verbindung testen**, um die Funktionsfähigkeit sofort zu verifizieren.
-
-**Wo diese Zugangsdaten liegen — und warum nicht bei den Vereinsdaten**
-
-Seit Fassung 1.3 speichert die Anwendung diese Angaben auf dem Server, auf dem sie
-läuft (Ordner `daten/`, per `VM_DATA_DIR` verlegbar; im Docker-Betrieb im Volume
-`vereinsmanager_daten`). Das Passwort wird dort mit AES-256-GCM verschlüsselt
-abgelegt; der Schlüssel liegt in einer eigenen Datei daneben, beide nur für den
-Besitzer lesbar.
-
-Das hat drei Folgen, die Sie kennen sollten:
-
-* Das Passwort steht **in keiner Datensicherung** und in keiner Browser-Datenbank.
-  Es verlässt den Server auch beim Versand nicht mehr.
-* Die Anwendung kann es **nicht wieder anzeigen** — nur ersetzen oder entfernen.
-* Nach einer Neuinstallation, einem Umzug oder einem `docker compose down -v`
-  müssen die Zugangsdaten **einmalig neu eingetragen** werden.
-
-Wer vollen Zugriff auf den Server hat, kann das Passwort weiterhin auslesen: Der
-Server muss es im Klartext verwenden, um sich beim Mailanbieter anzumelden.
-Hashen wie bei den Benutzerkonten der Anwendung ist deshalb nicht möglich.
-
-In der **Desktop-Fassung (Tauri)** ist kein Server enthalten. Dort lassen sich
-keine Zugangsdaten hinterlegen, und der Direktversand steht nicht zur Verfügung;
-der Versand über das lokale E-Mail-Programm funktioniert weiterhin.
+Für die reine Entwicklung (Hot-Reload) steht außerdem `npm run dev` zur Verfügung; die Anwendung läuft dann unter `http://localhost:3000`.
 
 ---
 
 ### Zugriffsschlüssel des Servers
 
-Der Server beantwortet seit Fassung 1.3 keinen `/api`-Aufruf mehr ohne Ausweis.
-Betroffen sind E-Mail-Versand, Belegerkennung, alle KI-Funktionen und — im
-gehosteten Betrieb (Modus 3) — auch die eigenen Benutzerkonten und deren
-Rechteverwaltung. Ohne diesen Schutz könnte jeder, der die Adresse eines im
-Internet erreichbaren Servers kennt, über das Postfach des Vereins Mails
-verschicken oder auf dessen Rechnung KI-Anfragen stellen.
+Der mitgelieferte Server beantwortet keinen `/api`-Aufruf ohne Ausweis. Das betrifft heute nur noch den Fehlerbericht-Knopf in den Einstellungen (`/api/submit-bugreport`) — alle anderen Bereiche (Mitglieder, Finanzen, Dokumente, …) arbeiten unabhängig vom Server, direkt in der Browser-Datenbank.
 
-Es genügt einer von zwei Ausweisen:
+Der Zugriffsschlüssel entsteht beim ersten Start von selbst. Sowohl die Desktop-App als auch die Startskripte übergeben ihn automatisch — hier ist normalerweise nichts zu tun. Nur falls das einmal nicht funktioniert hat (z. B. durch gesperrten Browser-Speicher im privaten Modus), zeigt die Anwendung eine Maske zum manuellen Eintragen; der Schlüssel steht dann in der Startausgabe des Servers (das Fenster bzw. Terminal, in dem er läuft).
 
-**1. Der Zugriffsschlüssel dieser Installation.** Er entsteht beim ersten Start
-von selbst und steht in der Startausgabe des Servers:
-
-```bash
-docker compose logs vereinsmanager    # Docker / NAS
-```
-
-* **Lokalbetrieb:** Das mitgelieferte Startskript liest ihn aus und hängt ihn
-  an die Adresse an, die es im Browser öffnet. Hier ist nichts zu tun.
-* **Docker / NAS:** Einmalig je Browser unter *Einstellungen → Allgemein*
-  eintragen. Alternativ `VM_ACCESS_KEY` in der `.env` setzen — dann bleibt der
-  Schlüssel auch nach einem Neuaufbau des Containers derselbe.
-
-**2. Das Anmeldetoken aus dem Cloud-Betrieb.** Sind `SUPABASE_URL` und
-`SUPABASE_ANON_KEY` zusätzlich als Umgebungsvariablen des **Servers** gesetzt
-(nicht nur als `VITE_`-Werte, die gelten allein für den Browser), prüft der
-Server das Anmeldetoken bei Supabase nach. Dann genügt die normale Anmeldung
-in der App.
-
-Die Statusseite `/api/health` bleibt offen, damit Docker den Container
-überwachen kann.
-
-> Der Zugriffsschlüssel allein hält Fremde draußen, unterscheidet aber die
-> eigenen Leute nicht voneinander. Dafür gibt es persönliche Konten — im
-> gehosteten Betrieb (Modus 3) mit eigenen, fein einstellbaren Rechten direkt
-> auf dem eigenen Server, im Cloud-Betrieb (Modus 2) über Supabase. Beide
-> Wege bestehen zusätzlich zum Zugriffsschlüssel, nicht anstelle davon —
-> Näheres dazu in [`DEPLOYMENT_GUIDE_DE.md`](DEPLOYMENT_GUIDE_DE.md).
-
----
-
-### Desktop-App mit Tauri kompilieren
-
-Die Desktop-Version benötigt [Rust](https://rustup.rs/) und das Tauri CLI.
-
-* **Im Entwicklungsmodus ausführen:**
-  ```bash
-  npm run tauri dev
-  ```
-* **Installationspakete (Setup.exe / DMG / AppImage) erstellen:**
-  ```bash
-  npm run tauri build
-  ```
-  Die fertigen Installationsdateien befinden sich anschließend in:  
-  `src-tauri/target/release/bundle/`
+Da der Server ausschließlich auf `127.0.0.1` lauscht, kann ohnehin niemand außerhalb dieses einen Rechners auf ihn zugreifen.
 
 ---
 
@@ -520,7 +360,7 @@ Die Desktop-Version benötigt [Rust](https://rustup.rs/) und das Tauri CLI.
 
 * **Keine externen Tracking-Dienste:** Keine Cookies von Drittanbietern, keine Telemetrie-Tracker.
 * **1-Klick-Gesamt-Backup:**  
-  Unter **Systemeinstellungen > 4. Datensicherung & Import** kann zu jedem Zeitpunkt eine vollständige, unverschlüsselte JSON-Sicherungsdatei der gesamten Vereinsdatenbank (Mitglieder, Buchungen, Belege, Rechnungen, Protokolle, Einstellungen) heruntergeladen und auf einem USB-Stick oder Netzlaufwerk archiviert werden.
+  Unter **Systemeinstellungen > Datensicherung & Import** kann zu jedem Zeitpunkt eine vollständige, unverschlüsselte JSON-Sicherungsdatei der gesamten Vereinsdatenbank (Mitglieder, Buchungen, Belege, Rechnungen, Protokolle, Einstellungen) heruntergeladen und auf einem USB-Stick oder Netzlaufwerk archiviert werden.
 * **Wiederherstellung (Restore):**  
   Die gesicherte JSON-Datei kann in jeder frischen VereinsManager-Instanz mit einem Klick vollständig wieder eingespielt werden.
 
