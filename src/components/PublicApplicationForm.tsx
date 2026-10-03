@@ -63,15 +63,13 @@ interface PublicApplicationFormProps {
   templateSettings?: ApplicationTemplateSettings;
   onSubmitApplication: (app: OnlineMembershipApplication) => Promise<void>;
   onClose?: () => void;
-  isStandalone?: boolean;
 }
 
 export const PublicApplicationForm: React.FC<PublicApplicationFormProps> = ({
   settings,
   templateSettings,
   onSubmitApplication,
-  onClose,
-  isStandalone = false
+  onClose
 }) => {
   // Form step: 1 = Personal, 2 = Membership, 3 = Payment & SEPA, 4 = Legal & Signatures, 5 = Preview & Submit, 6 = Success
   const [step, setStep] = useState<number>(1);
@@ -377,7 +375,7 @@ export const PublicApplicationForm: React.FC<PublicApplicationFormProps> = ({
   };
 
   return (
-    <div className={`w-full max-w-4xl mx-auto ${isStandalone ? 'min-h-screen py-6 px-4 bg-slate-900' : 'p-2'}`}>
+    <div className="w-full max-w-4xl mx-auto p-2">
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
         {/* 1. Header Banner */}
         <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-6 sm:p-8 relative">
@@ -386,10 +384,6 @@ export const PublicApplicationForm: React.FC<PublicApplicationFormProps> = ({
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-0.5 bg-blue-500/20 text-blue-200 border border-blue-400/30 rounded-full text-2xs font-bold uppercase tracking-wider">
                   {settings.associationNumber || 'Eingetragener Verein (e.V.)'}
-                </span>
-                <span className="inline-flex items-center gap-1 text-2xs text-emerald-300 font-semibold bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-800/40">
-                  <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                  SSL & DSGVO-konform
                 </span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
@@ -401,7 +395,7 @@ export const PublicApplicationForm: React.FC<PublicApplicationFormProps> = ({
             </div>
 
             {/* Close button if inside modal */}
-            {onClose && !isStandalone && (
+            {onClose && (
               <button
                 type="button"
                 onClick={onClose}

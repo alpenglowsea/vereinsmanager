@@ -6,9 +6,6 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  Copy,
-  Check,
-  QrCode,
   Settings,
   Download,
   Trash2,
@@ -80,24 +77,6 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
   const [selectedApp, setSelectedApp] = useState<OnlineMembershipApplication | null>(null);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isPublicFormModalOpen, setIsPublicFormModalOpen] = useState(false);
-  const [showQrModal, setShowQrModal] = useState(false);
-  const [copiedLink, setCopiedLink] = useState(false);
-
-  // Direct shareable link URL
-  const shareableUrl = useMemo(() => {
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      url.searchParams.set('view', 'antrag');
-      return url.toString();
-    }
-    return 'https://tsv-musterstadt.de/#antrag';
-  }, []);
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(shareableUrl);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
-  };
 
   // Stats
   const stats = useMemo(() => {
@@ -199,51 +178,7 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
         </div>
       </div>
 
-      {/* 2. Shareable Link Box */}
-      <div className="p-4 sm:p-5 bg-white border border-slate-200 rounded-2xl shadow-2xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-1 max-w-xl">
-            <h3 className="text-sm sm:text-base font-bold text-slate-900">
-              Online-Aufnahmeantrag für Ihre Vereinswebsite & Social Media
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Teilen Sie diesen Link mit Interessenten, verlinken Sie ihn auf Ihrer Homepage oder nutzen Sie den QR-Code für Aushänge im Vereinsheim.
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-            {/* Input displaying URL */}
-            <div className="relative flex-1 sm:w-80">
-              <input
-                type="text"
-                readOnly
-                value={shareableUrl}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-700 focus:outline-hidden select-all"
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-2xs transition-colors cursor-pointer"
-            >
-              {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedLink ? 'Kopiert!' : 'Link kopieren'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowQrModal(true)}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 transition-colors cursor-pointer"
-            >
-              <QrCode className="w-3.5 h-3.5 text-slate-600" />
-              <span>QR-Code</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Stats Bar */}
+      {/* 2. Stats Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div
           onClick={() => setStatusFilter('pending')}
@@ -310,7 +245,7 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
         </div>
       </div>
 
-      {/* 4. Search & Filter Bar */}
+      {/* 3. Search & Filter Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="relative w-full sm:w-72">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -350,7 +285,7 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
         </div>
       </div>
 
-      {/* 5. Applications Table / List */}
+      {/* 4. Applications Table / List */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         {filteredApps.length === 0 ? (
           <div className="p-12 text-center space-y-3">
@@ -361,7 +296,7 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
               {searchTerm || statusFilter !== 'all' || departmentFilter !== 'all'
                 ? 'Passen Sie Ihre Such- oder Filterkriterien an.'
-                : 'Es liegen aktuell noch keine Aufnahmeanträge vor. Nutzen Sie den Button "+ Antragsformular testen / öffnen", um einen Antrag einzureichen.'}
+                : 'Es liegen aktuell noch keine Aufnahmeanträge vor. Nutzen Sie den Button "Antrag einreichen", um einen Antrag zu erfassen.'}
             </p>
             <button
               type="button"
@@ -565,61 +500,11 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
                 await onSubmitNewApplication(app);
               }}
               onClose={() => setIsPublicFormModalOpen(false)}
-              isStandalone={false}
             />
           </div>
         </div>
       )}
 
-      {/* QR Code Modal */}
-      {showQrModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900">QR-Code Aufnahmeantrag</h3>
-              <button
-                type="button"
-                onClick={() => setShowQrModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl inline-block">
-              {/* QR Code SVG / API rendering */}
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
-                  shareableUrl
-                )}`}
-                alt="QR-Code Aufnahmeantrag"
-                className="w-48 h-48 mx-auto rounded-lg"
-              />
-            </div>
-
-            <p className="text-2xs text-slate-500">
-              Scannen Sie diesen QR-Code mit der Smartphone-Kamera, um direkt zum digitalen Aufnahmeformular von <strong>{settings.clubName}</strong> zu gelangen.
-            </p>
-
-            <div className="pt-2 flex gap-2">
-              <button
-                type="button"
-                onClick={handleCopyLink}
-                className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors"
-              >
-                Link kopieren
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowQrModal(false)}
-                className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors"
-              >
-                Fertig
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

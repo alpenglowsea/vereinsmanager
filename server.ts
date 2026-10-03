@@ -16,38 +16,18 @@ dotenv.config();
 // Vite-Entwicklungsserver zu starten — siehe die Bedingung um den Aufruf von
 // startServer() am Dateiende.
 export const app = express();
-// Port aus der Umgebung übernehmen (z. B. in Docker oder hinter einem
-// Reverse-Proxy), sonst 3000 als Standard.
+// Port aus der Umgebung übernehmen, falls 3000 auf diesem Rechner schon
+// belegt ist, sonst 3000 als Standard.
 const PORT = Number(process.env.PORT) || 3000;
 
 // Auf welcher Netzwerkadresse gelauscht wird.
 //
-// "0.0.0.0" heißt: auf allen — der Server ist dann aus dem ganzen Netzwerk
-// erreichbar. Für Docker und den NAS-Betrieb ist das richtig und nötig, denn
-// dort greifen andere Rechner zu.
-//
-// Die Desktop-Fassung setzt dagegen VM_HOST=127.0.0.1. Dann nimmt der Server
-// ausschließlich Anfragen vom eigenen Rechner an. Er gehört dort allein dem
-// Programm, das ihn gestartet hat; im WLAN eines Vereinsheims hat er nichts
-// zu suchen. Der Zugriffsschlüssel würde Fremde zwar abweisen — besser ist
-// aber, wenn ihre Anfragen gar nicht erst ankommen.
-const HOST = process.env.VM_HOST || "0.0.0.0";
-
-// Lauscht der Server nur auf dem eigenen Rechner, kann außer dem Programm,
-// das ihn gestartet hat, niemand mit ihm sprechen. Nur dann gibt er den
-// Zugriffsschlüssel in der Bereitschaftsmeldung mit aus (siehe
-// starteLauscher). Bei "0.0.0.0" unterbleibt das: Dort landete er in
-// Docker-Protokollen, die durchaus anderswo aufbewahrt werden.
-const NUR_EIGENER_RECHNER =
-  HOST === "127.0.0.1" || HOST === "localhost" || HOST === "::1";
-
-// Hinter einem Reverse-Proxy (Traefik, nginx, Synology-Portalanmeldung)
-// steht die Adresse des Besuchers im Kopf "X-Forwarded-For"; ohne diese
-// Zeile sähe der Server nur immer wieder die Adresse des Proxys. Die "1"
-// bedeutet: genau einem vorgelagerten Proxy wird geglaubt. Das wird für
-// die geplante Ratenbegrenzung des öffentlichen Aufnahmeformulars
-// gebraucht — sonst würde entweder jeder oder niemand ausgebremst.
-app.set("trust proxy", 1);
+// Es gibt nur die eine Betriebsart: ein Server, der ausschließlich auf dem
+// eigenen Rechner läuft und ausschließlich von dort erreichbar ist. "Vom
+// eigenen Rechner" heißt technisch "127.0.0.1" — niemand sonst im Netzwerk
+// bekommt überhaupt eine Verbindung zustande, der Zugriffsschlüssel ist
+// damit eine zweite Absicherung, keine einzige.
+const HOST = "127.0.0.1";
 
 // Antworten unterwegs komprimieren. Das fertige Browser-Bundle ist
 // mehrere Megabyte groß und schrumpft dabei auf etwa ein Drittel. Früher
@@ -83,9 +63,10 @@ const STUNDE = 60 * MINUTE;
 const bremseAllgemein = new RateLimiter({ limit: 120, windowMs: 5 * MINUTE });
 const bremseMeldung   = new RateLimiter({ limit: 5,   windowMs: STUNDE });
 
-// Die Kennung des Absenders. Hinter einem Reverse-Proxy liefert
-// req.ip dank "trust proxy" oben die echte Adresse des Aufrufers.
-// Sie wird nur im Arbeitsspeicher gezählt und nirgends gespeichert.
+// Die Kennung des Absenders. Da der Server nur auf 127.0.0.1 lauscht, ist das
+// in der Praxis immer dieselbe Adresse — die Zählung dient trotzdem als
+// zusätzliche Bremse. Sie wird nur im Arbeitsspeicher gezählt und nirgends
+// gespeichert.
 const absender = (req: express.Request): string => req.ip || "unbekannt";
 
 const bremse =
@@ -108,14 +89,8 @@ const bremse =
     });
   };
 
-// Gilt für alles unter /api. Die Statusseite ist ausgenommen: Docker fragt
-// sie alle 30 Sekunden ab, und eine Bremse, die den eigenen Healthcheck
-// aussperrt, würde den Container in eine Neustartschleife schicken.
+// Gilt für alles unter /api.
 app.use("/api", (req, res, next) => {
-  if (req.path === "/health") {
-    next();
-    return;
-  }
   bremse(bremseAllgemein, "allgemein")(req, res, next);
 });
 
@@ -125,9 +100,6 @@ app.use("/api", (req, res, next) => {
 //
 // Steht vor dem Einlesen des Anfragekörpers: Ein fremder Aufruf soll nicht
 // erst 50 MB Anhang hochladen dürfen, bevor er abgewiesen wird.
-//
-// Die Statusseite bleibt offen — Docker fragt sie alle 30 Sekunden ab und
-// kann keinen Schlüssel mitschicken. Sie verrät nichts außer "Server läuft".
 //
 // Einzelheiten zum Zugriffsschlüssel: src/server/apiAuth.ts
 
@@ -154,11 +126,6 @@ const zugriffsschluessel = (() => {
 })();
 
 app.use("/api", (req, res, next) => {
-  if (req.path === "/health") {
-    next();
-    return;
-  }
-
   pruefeZugriff(
     {
       zugriffsschluessel: req.headers[ZUGRIFF_HEADER],
@@ -185,14 +152,6 @@ app.use("/api", (req, res, next) => {
 // Body parser for JSON and large payloads (PDF / Image Base64)
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-
-// Health check endpoint
-app.get("/api/health", (req, res) => {
-  res.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-  });
-});
 
 /**
  * POST /api/submit-bugreport
@@ -348,10 +307,10 @@ async function startServer() {
   } else {
     // Wo liegt die gebaute Oberfläche?
     //
-    // Im Docker-Betrieb und beim Start aus dem Projektordner liegt sie unter
-    // "dist" neben dem Arbeitsverzeichnis. In der Desktop-Fassung startet der
-    // Server aber als mitgeliefertes Programm, und das Arbeitsverzeichnis ist
-    // dann unvorhersehbar. Deshalb wird zuerst neben der Server-Datei selbst
+    // Beim Start aus dem Projektordner liegt sie unter "dist" neben dem
+    // Arbeitsverzeichnis. In der Desktop-Fassung startet der Server aber als
+    // mitgeliefertes Programm, und das Arbeitsverzeichnis ist dann
+    // unvorhersehbar. Deshalb wird zuerst neben der Server-Datei selbst
     // gesucht und erst danach im Arbeitsverzeichnis.
     //
     // __dirname gibt es nur in der gebauten Fassung (esbuild erzeugt CommonJS).
@@ -415,19 +374,14 @@ async function startServer() {
  * Er steht bewusst hinter dem Doppelkreuz: Alles danach ist ein "Fragment" und
  * wird vom Browser NICHT an den Server geschickt. Der Schlüssel taucht deshalb
  * in keinem Zugriffsprotokoll auf.
- *
- * Angehängt wird er nur, wenn der Server allein auf dem eigenen Rechner
- * lauscht. Im Docker-Betrieb bliebe die Zeile sonst mitsamt Schlüssel in den
- * Protokollen stehen.
  */
 function starteLauscher(port: number, versucheUebrig: number): void {
   const lauscher = app.listen(port, HOST, () => {
     console.log(`VereinsManager Server running on ${HOST}:${port}`);
 
     // Der Zugriffsschlüssel wird beim Start ausgegeben, weil es sonst keinen
-    // Weg gäbe, an ihn heranzukommen: Im Docker-Betrieb liegt die
-    // Konfigurationsdatei im Volume, und niemand öffnet dort eine Datei. Wer
-    // die Ausgabe des Servers lesen kann, hat ohnehin Zugriff auf den Server.
+    // Weg gäbe, an ihn heranzukommen. Wer die Ausgabe des Servers lesen kann,
+    // hat ohnehin Zugriff auf den Server.
     if (zugriffsschluessel.quelle === "umgebung") {
       console.log("Zugriffsschlüssel: aus VM_ACCESS_KEY übernommen.");
     } else {
@@ -436,9 +390,9 @@ function starteLauscher(port: number, versucheUebrig: number): void {
       console.log(`      ${zugriffsschluessel.key}`);
       console.log("");
       console.log("  Wird in der Desktop-Fassung und beim Start über das mitgelieferte");
-      console.log("  Skript automatisch übergeben. Nur wenn die App von einem anderen");
-      console.log("  Rechner aus geöffnet wird (Docker, NAS), ist er dort einmalig unter");
-      console.log("  Einstellungen → Allgemein einzutragen.");
+      console.log("  Skript automatisch übergeben — hier muss normalerweise nichts");
+      console.log("  eingetragen werden. Nur falls das einmal nicht funktioniert, lässt er");
+      console.log("  sich unter Einstellungen → Allgemein auch von Hand eintragen.");
       if (zugriffsschluessel.neuErzeugt) {
         console.log("  (soeben neu erzeugt)");
       }
@@ -446,10 +400,9 @@ function starteLauscher(port: number, versucheUebrig: number): void {
     }
 
     // Muss die letzte Zeile sein: Die Desktop-Fassung wartet darauf.
-    const fensterAdresse = NUR_EIGENER_RECHNER
-      ? `http://127.0.0.1:${port}/#zugriff=${encodeURIComponent(zugriffsschluessel.key)}`
-      : `http://127.0.0.1:${port}`;
-    console.log(`VM_SERVER_BEREIT ${fensterAdresse}`);
+    console.log(
+      `VM_SERVER_BEREIT http://127.0.0.1:${port}/#zugriff=${encodeURIComponent(zugriffsschluessel.key)}`
+    );
   });
 
   lauscher.on("error", (fehler: NodeJS.ErrnoException) => {

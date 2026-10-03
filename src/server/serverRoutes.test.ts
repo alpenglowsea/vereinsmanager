@@ -96,9 +96,4 @@ describe('Zugriffsschutz (gilt für alle /api-Routen)', () => {
     expect(antwort.body.success).toBe(true);
   });
 
-  it('lässt die Statusseite /api/health ohne Zugriffsschlüssel durch (Docker fragt sie ohne Ausweis ab)', async () => {
-    const antwort = await request(app).get('/api/health');
-    expect(antwort.status).toBe(200);
-    expect(antwort.body.status).toBe('ok');
-  });
 });

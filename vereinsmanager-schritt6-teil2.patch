@@ -1,0 +1,3124 @@
+diff --git a/server.ts b/server.ts
+index 5e05715..2e8c2c6 100644
+--- a/server.ts
++++ b/server.ts
+@@ -16,30 +16,18 @@ dotenv.config();
+ // Vite-Entwicklungsserver zu starten — siehe die Bedingung um den Aufruf von
+ // startServer() am Dateiende.
+ export const app = express();
+-// Port aus der Umgebung übernehmen (z. B. in Docker oder hinter einem
+-// Reverse-Proxy), sonst 3000 als Standard.
++// Port aus der Umgebung übernehmen, falls 3000 auf diesem Rechner schon
++// belegt ist, sonst 3000 als Standard.
+ const PORT = Number(process.env.PORT) || 3000;
+ 
+ // Auf welcher Netzwerkadresse gelauscht wird.
+ //
+-// "0.0.0.0" heißt: auf allen — der Server ist dann aus dem ganzen Netzwerk
+-// erreichbar. Für Docker und den NAS-Betrieb ist das richtig und nötig, denn
+-// dort greifen andere Rechner zu.
+-//
+-// Die Desktop-Fassung setzt dagegen VM_HOST=127.0.0.1. Dann nimmt der Server
+-// ausschließlich Anfragen vom eigenen Rechner an. Er gehört dort allein dem
+-// Programm, das ihn gestartet hat; im WLAN eines Vereinsheims hat er nichts
+-// zu suchen. Der Zugriffsschlüssel würde Fremde zwar abweisen — besser ist
+-// aber, wenn ihre Anfragen gar nicht erst ankommen.
+-const HOST = process.env.VM_HOST || "0.0.0.0";
+-
+-// Lauscht der Server nur auf dem eigenen Rechner, kann außer dem Programm,
+-// das ihn gestartet hat, niemand mit ihm sprechen. Nur dann gibt er den
+-// Zugriffsschlüssel in der Bereitschaftsmeldung mit aus (siehe
+-// starteLauscher). Bei "0.0.0.0" unterbleibt das: Dort landete er in
+-// Docker-Protokollen, die durchaus anderswo aufbewahrt werden.
+-const NUR_EIGENER_RECHNER =
+-  HOST === "127.0.0.1" || HOST === "localhost" || HOST === "::1";
++// Es gibt nur die eine Betriebsart: ein Server, der ausschließlich auf dem
++// eigenen Rechner läuft und ausschließlich von dort erreichbar ist. "Vom
++// eigenen Rechner" heißt technisch "127.0.0.1" — niemand sonst im Netzwerk
++// bekommt überhaupt eine Verbindung zustande, der Zugriffsschlüssel ist
++// damit eine zweite Absicherung, keine einzige.
++const HOST = "127.0.0.1";
+ 
+ // Hinter einem Reverse-Proxy (Traefik, nginx, Synology-Portalanmeldung)
+ // steht die Adresse des Besuchers im Kopf "X-Forwarded-For"; ohne diese
+@@ -348,10 +336,10 @@ async function startServer() {
+   } else {
+     // Wo liegt die gebaute Oberfläche?
+     //
+-    // Im Docker-Betrieb und beim Start aus dem Projektordner liegt sie unter
+-    // "dist" neben dem Arbeitsverzeichnis. In der Desktop-Fassung startet der
+-    // Server aber als mitgeliefertes Programm, und das Arbeitsverzeichnis ist
+-    // dann unvorhersehbar. Deshalb wird zuerst neben der Server-Datei selbst
++    // Beim Start aus dem Projektordner liegt sie unter "dist" neben dem
++    // Arbeitsverzeichnis. In der Desktop-Fassung startet der Server aber als
++    // mitgeliefertes Programm, und das Arbeitsverzeichnis ist dann
++    // unvorhersehbar. Deshalb wird zuerst neben der Server-Datei selbst
+     // gesucht und erst danach im Arbeitsverzeichnis.
+     //
+     // __dirname gibt es nur in der gebauten Fassung (esbuild erzeugt CommonJS).
+@@ -415,19 +403,14 @@ async function startServer() {
+  * Er steht bewusst hinter dem Doppelkreuz: Alles danach ist ein "Fragment" und
+  * wird vom Browser NICHT an den Server geschickt. Der Schlüssel taucht deshalb
+  * in keinem Zugriffsprotokoll auf.
+- *
+- * Angehängt wird er nur, wenn der Server allein auf dem eigenen Rechner
+- * lauscht. Im Docker-Betrieb bliebe die Zeile sonst mitsamt Schlüssel in den
+- * Protokollen stehen.
+  */
+ function starteLauscher(port: number, versucheUebrig: number): void {
+   const lauscher = app.listen(port, HOST, () => {
+     console.log(`VereinsManager Server running on ${HOST}:${port}`);
+ 
+     // Der Zugriffsschlüssel wird beim Start ausgegeben, weil es sonst keinen
+-    // Weg gäbe, an ihn heranzukommen: Im Docker-Betrieb liegt die
+-    // Konfigurationsdatei im Volume, und niemand öffnet dort eine Datei. Wer
+-    // die Ausgabe des Servers lesen kann, hat ohnehin Zugriff auf den Server.
++    // Weg gäbe, an ihn heranzukommen. Wer die Ausgabe des Servers lesen kann,
++    // hat ohnehin Zugriff auf den Server.
+     if (zugriffsschluessel.quelle === "umgebung") {
+       console.log("Zugriffsschlüssel: aus VM_ACCESS_KEY übernommen.");
+     } else {
+@@ -436,9 +419,9 @@ function starteLauscher(port: number, versucheUebrig: number): void {
+       console.log(`      ${zugriffsschluessel.key}`);
+       console.log("");
+       console.log("  Wird in der Desktop-Fassung und beim Start über das mitgelieferte");
+-      console.log("  Skript automatisch übergeben. Nur wenn die App von einem anderen");
+-      console.log("  Rechner aus geöffnet wird (Docker, NAS), ist er dort einmalig unter");
+-      console.log("  Einstellungen → Allgemein einzutragen.");
++      console.log("  Skript automatisch übergeben — hier muss normalerweise nichts");
++      console.log("  eingetragen werden. Nur falls das einmal nicht funktioniert, lässt er");
++      console.log("  sich unter Einstellungen → Allgemein auch von Hand eintragen.");
+       if (zugriffsschluessel.neuErzeugt) {
+         console.log("  (soeben neu erzeugt)");
+       }
+@@ -446,10 +429,9 @@ function starteLauscher(port: number, versucheUebrig: number): void {
+     }
+ 
+     // Muss die letzte Zeile sein: Die Desktop-Fassung wartet darauf.
+-    const fensterAdresse = NUR_EIGENER_RECHNER
+-      ? `http://127.0.0.1:${port}/#zugriff=${encodeURIComponent(zugriffsschluessel.key)}`
+-      : `http://127.0.0.1:${port}`;
+-    console.log(`VM_SERVER_BEREIT ${fensterAdresse}`);
++    console.log(
++      `VM_SERVER_BEREIT http://127.0.0.1:${port}/#zugriff=${encodeURIComponent(zugriffsschluessel.key)}`
++    );
+   });
+ 
+   lauscher.on("error", (fehler: NodeJS.ErrnoException) => {
+diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
+index 265b366..e4d8e37 100644
+--- a/src-tauri/src/main.rs
++++ b/src-tauri/src/main.rs
+@@ -8,8 +8,8 @@
+ //! lief in der Desktop-Fassung deshalb ins Leere: Ein Aufruf an `/api/...`
+ //! fand niemanden, der antwortet.
+ //!
+-//! Seit Fassung 1.3 bringt das Programm den Server mit, den auch der
+-//! Docker-Betrieb verwendet. Mitgeliefert werden:
++//! Seit Fassung 1.3 bringt das Programm denselben Server mit, der auch beim
++//! Start aus dem Projektordner läuft. Mitgeliefert werden:
+ //!
+ //!   binaries/vm-node             die Node-Laufzeitumgebung (bei Tauri
+ //!                                "Sidecar" genannt, je Plattform eine)
+@@ -129,16 +129,7 @@ async fn starte_server(app: &tauri::AppHandle) -> Option<String> {
+         // Ohne diese Angabe legte der Server seine Konfiguration neben das
+         // Programm — in der Desktop-Fassung ein Verzeichnis, in das er je nach
+         // Betriebssystem gar nicht schreiben darf.
+-        .env("VM_DATA_DIR", datenverzeichnis.to_string_lossy().to_string())
+-        // Nur auf dem eigenen Rechner lauschen. Ohne diese Angabe nähme der
+-        // Server Anfragen aus dem ganzen Netzwerk an — richtig für Docker,
+-        // falsch für ein Programm auf einem Schreibtisch.
+-        //
+-        // Diese Angabe entscheidet zugleich darüber, ob der Server den
+-        // Zugriffsschlüssel an seine Bereitschaftsmeldung anhängt. Genau daraus
+-        // baut sich das Fenster unten seine Adresse — deshalb muss in der
+-        // Desktop-Fassung niemand einen Schlüssel eintippen.
+-        .env("VM_HOST", "127.0.0.1");
++        .env("VM_DATA_DIR", datenverzeichnis.to_string_lossy().to_string());
+ 
+     let (mut ausgabe, kind) = match befehl.spawn() {
+         Ok(ergebnis) => ergebnis,
+diff --git a/src/App.tsx b/src/App.tsx
+index ba5f5e4..67a7af3 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -57,13 +57,6 @@ import { CalendarView } from './components/CalendarView';
+ import { OnlineApplicationsView } from './components/OnlineApplicationsView';
+ import { MeetingsView } from './components/MeetingsView';
+ import { PublicApplicationForm } from './components/PublicApplicationForm';
+-import { MobileShell, type MobileTab } from './components/MobileShell';
+-import { MobileDashboardView } from './components/MobileDashboardView';
+-import { MobileMembersView } from './components/MobileMembersView';
+-import { MobileCalendarView } from './components/MobileCalendarView';
+-import { MobileFinanceView } from './components/MobileFinanceView';
+-import { MobileMeetingsView } from './components/MobileMeetingsView';
+-import { MobileDocumentsView } from './components/MobileDocumentsView';
+ 
+ // Modals & Drawers
+ import { DashboardConfigModal } from './components/DashboardConfigModal';
+@@ -121,8 +114,7 @@ import {
+   FileSignature,
+   SlidersHorizontal,
+   Contact,
+-  ScrollText,
+-  Smartphone
++  ScrollText
+ } from 'lucide-react';
+ 
+ /**
+@@ -133,52 +125,10 @@ import {
+  */
+ type ActiveTab = Exclude<PermissionArea, 'users'>;
+ 
+-/**
+- * Schlüssel für die von Hand gewählte Ansicht (Mobil-Ansicht erzwingen oder
+- * abschalten). Bewusst im Browser des Geräts gespeichert, nicht in den
+- * Benutzereinstellungen der Datenbank: Es ist eine Eigenschaft des Geräts
+- * ("das hier ist mein Telefon"), keine Eigenschaft der Person.
+- */
+-const VIEW_MODE_OVERRIDE_KEY = 'vm_view_mode_override';
+-
+-function readViewModeOverride(): 'mobile' | 'desktop' | null {
+-  if (typeof window === 'undefined') return null;
+-  const stored = window.localStorage.getItem(VIEW_MODE_OVERRIDE_KEY);
+-  return stored === 'mobile' || stored === 'desktop' ? stored : null;
+-}
+-
+ export default function App() {
+   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+   const [settingsActiveTab, setSettingsActiveTab] = useState<'general' | 'club' | 'users' | 'backup' | 'deployment' | 'support' | 'bugreport'>('general');
+   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+-
+-  /**
+-   * Mobil-Ansicht: aktiv, wenn entweder automatisch erkannt (Bildschirm
+-   * schmaler als 768px) oder von Hand über den Umschalter gewählt. Die Wahl
+-   * per Hand übersteuert die automatische Erkennung, bis sie wieder
+-   * aufgehoben wird — sonst könnte sich jemand mit großem Tablet nicht für
+-   * die Desktop-Ansicht entscheiden, und ein schmales Testfenster am
+-   * Rechner ließe sich nicht willentlich in der Mobil-Ansicht halten.
+-   */
+-  const [viewModeOverride, setViewModeOverrideState] = useState<'mobile' | 'desktop' | null>(readViewModeOverride);
+-  const [isNarrowViewport, setIsNarrowViewport] = useState<boolean>(() => {
+-    if (typeof window === 'undefined') return false;
+-    return window.matchMedia('(max-width: 767px)').matches;
+-  });
+-  useEffect(() => {
+-    if (typeof window === 'undefined') return;
+-    const mediaQuery = window.matchMedia('(max-width: 767px)');
+-    const handleChange = (event: MediaQueryListEvent) => setIsNarrowViewport(event.matches);
+-    mediaQuery.addEventListener('change', handleChange);
+-    return () => mediaQuery.removeEventListener('change', handleChange);
+-  }, []);
+-  const isMobileView = viewModeOverride ? viewModeOverride === 'mobile' : isNarrowViewport;
+-  const setViewModeOverride = (value: 'mobile' | 'desktop' | null) => {
+-    setViewModeOverrideState(value);
+-    if (typeof window === 'undefined') return;
+-    if (value) window.localStorage.setItem(VIEW_MODE_OVERRIDE_KEY, value);
+-    else window.localStorage.removeItem(VIEW_MODE_OVERRIDE_KEY);
+-  };
+   const [loading, setLoading] = useState(true);
+ 
+   // Theme Management (Light, Dark, System)
+@@ -1232,80 +1182,6 @@ export default function App() {
+     setActiveTab(tab);
+   };
+ 
+-  // ---------------------------------------------------------------------
+-  // Mobil-Ansicht
+-  //
+-  // Eine schlanke, für Touch gebaute Ansicht mit ausgewählten Kernfunktionen
+-  // für den Zugriff von unterwegs. Bewusst kein zweiter, unabhängiger
+-  // App-Baum: Sie steht erst NACH der Anmeldesperre, damit sie dieselben
+-  // bereits geladenen Daten, dieselbe Anmeldung und dieselbe Rechteprüfung
+-  // (mayAccess) verwendet wie die Desktop-Ansicht — nur die Darstellung ist
+-  // eine andere.
+-  // ---------------------------------------------------------------------
+-  if (isMobileView) {
+-    return (
+-      <MobileShell
+-        clubName={settings.clubName}
+-        clubLogoUrl={settings.clubLogoUrl}
+-        mayAccess={(area) => mayAccess(area as ActiveTab)}
+-        onSwitchToDesktop={() => setViewModeOverride('desktop')}
+-        onLogout={() => AuthService.logout()}
+-        renderTabContent={(tab: MobileTab, goToMobileTab) => {
+-          if (tab === 'dashboard') {
+-            return (
+-              <MobileDashboardView
+-                members={members}
+-                transactions={transactions}
+-                accounts={accounts}
+-                meetings={meetings}
+-                applications={onlineApplications}
+-                calendarRefreshKey={calendarRefreshKey}
+-                mayAccess={(area) => mayAccess(area as ActiveTab)}
+-                onNavigateTab={goToMobileTab}
+-              />
+-            );
+-          }
+-          if (tab === 'members') {
+-            return <MobileMembersView members={members} />;
+-          }
+-          if (tab === 'calendar') {
+-            return <MobileCalendarView calendarRefreshKey={calendarRefreshKey} members={members} />;
+-          }
+-          if (tab === 'finance') {
+-            return (
+-              <MobileFinanceView
+-                accounts={accounts}
+-                settings={settings}
+-                existingTransactions={transactions}
+-                nextDocNumber={nextDocNumber}
+-                canEdit={mayEdit('finance')}
+-                onSave={handleSaveTransaction}
+-                onNavigateTab={goToMobileTab}
+-              />
+-            );
+-          }
+-          if (tab === 'meetings') {
+-            return (
+-              <MobileMeetingsView
+-                meetings={meetings}
+-              />
+-            );
+-          }
+-          return (
+-            <MobileDocumentsView
+-              documents={documents}
+-              folders={folders}
+-              members={members}
+-              transactions={transactions}
+-              canEdit={mayEdit('documents')}
+-              onSaveDocuments={handleSaveBatchDocuments}
+-            />
+-          );
+-        }}
+-      />
+-    );
+-  }
+-
+   return (
+     <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
+       {/* Mobile Drawer Overlay */}
+@@ -1983,19 +1859,6 @@ export default function App() {
+                       </button>
+                     )}
+ 
+-                    <button
+-                      type="button"
+-                      onClick={() => {
+-                        setUserDropdownOpen(false);
+-                        setViewModeOverride('mobile');
+-                      }}
+-                      className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg text-left transition-colors"
+-                      title="Zum Testen: zeigt die schlanke Ansicht für unterwegs, auch auf diesem Gerät"
+-                    >
+-                      <Smartphone className="w-4 h-4 text-blue-600" />
+-                      <span>Mobil-Ansicht (Test)</span>
+-                    </button>
+-
+                     <button
+                       type="button"
+                       onClick={() => {
+diff --git a/src/components/MobileCalendarView.tsx b/src/components/MobileCalendarView.tsx
+deleted file mode 100644
+index 534ca7c..0000000
+--- a/src/components/MobileCalendarView.tsx
++++ /dev/null
+@@ -1,646 +0,0 @@
+-/**
+- * @license
+- * SPDX-License-Identifier: Apache-2.0
+- */
+-
+-import { useEffect, useMemo, useState } from 'react';
+-import { CalendarEvent, CalendarEventCategory, CalendarViewMode, Member } from '../types';
+-import { StorageService } from '../services/storage';
+-import { CalendarService, ExpandedEventInstance } from '../services/calendarService';
+-import {
+-  CalendarDays,
+-  CalendarRange,
+-  Clock,
+-  List,
+-  MapPin,
+-  Users,
+-  ArrowLeft,
+-  ExternalLink,
+-  ChevronLeft,
+-  ChevronRight,
+-  Gift,
+-  Award,
+-  Repeat
+-} from 'lucide-react';
+-
+-/**
+- * Termine (Mobil-Ansicht)
+- * ---------------------------------------------------------------------------
+- * Weiterhin bewusst nur LESEND: Termine anlegen, ändern, Einladungen
+- * versenden bleibt der Desktop-Ansicht vorbehalten. Neu ist der Umschalter
+- * zwischen vier Ansichten — Monat, Woche, Tag und Liste — genau wie am
+- * Desktop (CalendarView.tsx), nur für den schmalen Bildschirm neu
+- * zusammengesetzt statt 1:1 übernommen: Das dichte 7-Spalten-Gitter des
+- * Desktops mit vollen Terminkacheln pro Zelle wäre auf einem Telefon
+- * unlesbar klein. Monat und Woche zeigen deshalb nur einen Punkt pro
+- * Termin; tippt man auf einen Tag, erscheint darunter dieselbe
+- * ausführliche Terminliste wie in der Tagesansicht.
+- *
+- * Terminaufbereitung (Wiederholungen, Geburtstage/Jubiläen) läuft jetzt
+- * über denselben CalendarService wie am Desktop, für alle vier Ansichten
+- * einheitlich. Das behebt nebenbei einen Fehler der ursprünglichen
+- * Agenda-Liste aus Schritt "Termine/Kalender": Sie filterte nur die
+- * rohen Termin-Einträge, ohne Wiederholungen aufzulösen — ein
+- * wöchentliches Training wäre dort nur an seinem ursprünglichen
+- * Starttag aufgetaucht und danach aus "anstehend" verschwunden, obwohl
+- * es sich ja jede Woche wiederholt. CalendarService.expandEventsForRange
+- * löst das korrekt auf (siehe Desktop-Kalender). Die Liste bleibt dabei
+- * wie am Desktop auf die nächsten 60 Tage begrenzt — nicht unbegrenzt,
+- * damit sich ein jährlich wiederkehrender Termin nicht endlos weit in
+- * die Zukunft auffächert.
+- *
+- * Geburtstage/Jubiläen (CalendarService.getSpecialItems) erscheinen nur
+- * in Monat/Woche/Tag, nicht in der Liste — genau wie am Desktop, wo die
+- * Listenansicht ebenfalls nur Termine zeigt.
+- */
+-
+-/** Heutiges Datum als YYYY-MM-DD in der LOKALEN Zeitzone. */
+-function todayKey(): string {
+-  return CalendarService.formatDate(new Date());
+-}
+-
+-function formatDateHeading(dateKey: string): string {
+-  const today = todayKey();
+-  const tomorrow = CalendarService.formatDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
+-  if (dateKey === today) return 'Heute';
+-  if (dateKey === tomorrow) return 'Morgen';
+-  return CalendarService.parseLocalDate(dateKey).toLocaleDateString('de-DE', {
+-    weekday: 'long',
+-    day: '2-digit',
+-    month: '2-digit',
+-    year: 'numeric'
+-  });
+-}
+-
+-/** Zeitangabe für Termin oder Terminvorkommen — beide haben dieselben drei Felder. */
+-function timeLabel(evt: { isAllDay: boolean; startTime?: string; endTime?: string }): string {
+-  if (evt.isAllDay) return 'Ganztägig';
+-  if (evt.startTime && evt.endTime) return `${evt.startTime} - ${evt.endTime} Uhr`;
+-  if (evt.startTime) return `${evt.startTime} Uhr`;
+-  return 'Ohne Uhrzeit';
+-}
+-
+-const MONTH_NAMES = [
+-  'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+-  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
+-];
+-const DAY_NAMES_FULL = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+-const DAY_NAMES_SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+-
+-const VIEW_MODES: { mode: CalendarViewMode; label: string; icon: typeof CalendarDays }[] = [
+-  { mode: 'month', label: 'Monat', icon: CalendarDays },
+-  { mode: 'week', label: 'Woche', icon: CalendarRange },
+-  { mode: 'day', label: 'Tag', icon: Clock },
+-  { mode: 'agenda', label: 'Liste', icon: List }
+-];
+-
+-interface MobileCalendarViewProps {
+-  /** Wird von App.tsx hochgezählt, sobald ein Termin gespeichert wurde. */
+-  calendarRefreshKey?: number;
+-  /** Für Geburtstage/Jubiläen in Monat, Woche und Tag — wie am Desktop. */
+-  members: Member[];
+-}
+-
+-export function MobileCalendarView({ calendarRefreshKey, members }: MobileCalendarViewProps) {
+-  const [events, setEvents] = useState<CalendarEvent[]>([]);
+-  const [categories, setCategories] = useState<CalendarEventCategory[]>([]);
+-  const [isLoading, setIsLoading] = useState(true);
+-  const [selectedId, setSelectedId] = useState<string | null>(null);
+-
+-  const [viewMode, setViewMode] = useState<CalendarViewMode>('agenda');
+-  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+-  const [selectedDayKey, setSelectedDayKey] = useState<string>(() => todayKey());
+-
+-  useEffect(() => {
+-    let cancelled = false;
+-    setIsLoading(true);
+-    Promise.all([StorageService.getCalendarEvents(), StorageService.getCalendarCategories()])
+-      .then(([loadedEvents, loadedCategories]) => {
+-        if (cancelled) return;
+-        setEvents(loadedEvents || []);
+-        setCategories(loadedCategories || []);
+-      })
+-      .catch(err => {
+-        console.warn('Termine für die mobile Ansicht konnten nicht geladen werden:', err);
+-        if (!cancelled) {
+-          setEvents([]);
+-          setCategories([]);
+-        }
+-      })
+-      .finally(() => {
+-        if (!cancelled) setIsLoading(false);
+-      });
+-    return () => {
+-      cancelled = true;
+-    };
+-  }, [calendarRefreshKey]);
+-
+-  const categoryMap = useMemo(() => {
+-    const map = new Map<string, CalendarEventCategory>();
+-    categories.forEach(c => map.set(c.id, c));
+-    return map;
+-  }, [categories]);
+-
+-  const todayStr = todayKey();
+-
+-  // Sichtbarer Zeitraum je Ansicht — dieselbe Berechnung wie am Desktop
+-  // (CalendarView.tsx), damit Monat/Woche/Tag exakt dieselben Grenzen
+-  // (Montag als Wochenanfang usw.) verwenden.
+-  const { rangeStart, rangeEnd, headerTitle } = useMemo(() => {
+-    const y = currentDate.getFullYear();
+-    const m = currentDate.getMonth();
+-
+-    if (viewMode === 'month') {
+-      const firstOfMonth = new Date(y, m, 1);
+-      const firstDayOfWeek = (firstOfMonth.getDay() + 6) % 7; // 0 = Mo
+-      const start = new Date(firstOfMonth);
+-      start.setDate(start.getDate() - firstDayOfWeek);
+-
+-      const lastOfMonth = new Date(y, m + 1, 0);
+-      const lastDayOfWeek = (lastOfMonth.getDay() + 6) % 7;
+-      const end = new Date(lastOfMonth);
+-      end.setDate(end.getDate() + (6 - lastDayOfWeek));
+-
+-      return {
+-        rangeStart: CalendarService.formatDate(start),
+-        rangeEnd: CalendarService.formatDate(end),
+-        headerTitle: `${MONTH_NAMES[m]} ${y}`
+-      };
+-    }
+-
+-    if (viewMode === 'week') {
+-      const curDayOfWeek = (currentDate.getDay() + 6) % 7;
+-      const start = new Date(currentDate);
+-      start.setDate(start.getDate() - curDayOfWeek);
+-      const end = new Date(start);
+-      end.setDate(end.getDate() + 6);
+-
+-      const d = new Date(Date.UTC(y, m, currentDate.getDate()));
+-      const dayNum = d.getUTCDay() || 7;
+-      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+-      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+-      const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+-
+-      return {
+-        rangeStart: CalendarService.formatDate(start),
+-        rangeEnd: CalendarService.formatDate(end),
+-        headerTitle: `KW ${weekNo} · ${start.getDate()}.${start.getMonth() + 1}.–${end.getDate()}.${end.getMonth() + 1}.`
+-      };
+-    }
+-
+-    if (viewMode === 'day') {
+-      const curStr = CalendarService.formatDate(currentDate);
+-      return {
+-        rangeStart: curStr,
+-        rangeEnd: curStr,
+-        headerTitle: `${DAY_NAMES_FULL[currentDate.getDay()]}, ${currentDate.getDate()}. ${MONTH_NAMES[m]} ${y}`
+-      };
+-    }
+-
+-    // Liste: nächste 60 Tage ab heute — wie die Desktop-Agenda-Ansicht.
+-    const start = new Date();
+-    const end = new Date();
+-    end.setDate(end.getDate() + 60);
+-    return {
+-      rangeStart: CalendarService.formatDate(start),
+-      rangeEnd: CalendarService.formatDate(end),
+-      headerTitle: ''
+-    };
+-  }, [viewMode, currentDate]);
+-
+-  // Wiederholungen korrekt auflösen (siehe Erklärung oben) — für alle vier
+-  // Ansichten aus derselben Quelle.
+-  const expandedEvents = useMemo(
+-    () => CalendarService.expandEventsForRange(events, rangeStart, rangeEnd),
+-    [events, rangeStart, rangeEnd]
+-  );
+-
+-  const specialItems = useMemo(() => {
+-    const all = CalendarService.getSpecialItems(members, currentDate.getFullYear());
+-    return all.filter(item => item.date >= rangeStart && item.date <= rangeEnd);
+-  }, [members, currentDate, rangeStart, rangeEnd]);
+-
+-  const eventsForDay = (dateStr: string) => expandedEvents.filter(e => e.date === dateStr);
+-  const specialsForDay = (dateStr: string) => specialItems.filter(s => s.date === dateStr);
+-
+-  // Liste: nach Starttag gruppiert.
+-  const groupedByDate = useMemo(() => {
+-    if (viewMode !== 'agenda') return [];
+-    const groups: { dateKey: string; items: ExpandedEventInstance[] }[] = [];
+-    expandedEvents.forEach(evt => {
+-      const last = groups[groups.length - 1];
+-      if (last && last.dateKey === evt.date) {
+-        last.items.push(evt);
+-      } else {
+-        groups.push({ dateKey: evt.date, items: [evt] });
+-      }
+-    });
+-    return groups;
+-  }, [viewMode, expandedEvents]);
+-
+-  // Monatsgitter: 42 Zellen inkl. Rand-Tage des Vor-/Folgemonats, je nur ein
+-  // Punkt pro Termin statt der vollen Kachel des Desktops.
+-  const monthGridDays = useMemo(() => {
+-    if (viewMode !== 'month') return [];
+-    const days: {
+-      dateStr: string;
+-      dayNumber: number;
+-      isCurrentMonth: boolean;
+-      isToday: boolean;
+-      dotColors: string[];
+-      hasMore: boolean;
+-      hasSpecial: boolean;
+-    }[] = [];
+-
+-    const start = CalendarService.parseLocalDate(rangeStart);
+-    const end = CalendarService.parseLocalDate(rangeEnd);
+-    const curMonth = currentDate.getMonth();
+-    const cur = new Date(start);
+-
+-    while (cur <= end) {
+-      const dateStr = CalendarService.formatDate(cur);
+-      const dayEvents = eventsForDay(dateStr);
+-      const daySpecials = specialsForDay(dateStr);
+-      days.push({
+-        dateStr,
+-        dayNumber: cur.getDate(),
+-        isCurrentMonth: cur.getMonth() === curMonth,
+-        isToday: dateStr === todayStr,
+-        dotColors: dayEvents.slice(0, 3).map(e => categoryMap.get(e.originalEvent.categoryId)?.color || '#3b82f6'),
+-        hasMore: dayEvents.length > 3,
+-        hasSpecial: daySpecials.length > 0
+-      });
+-      cur.setDate(cur.getDate() + 1);
+-    }
+-    return days;
+-    // eslint-disable-next-line react-hooks/exhaustive-deps
+-  }, [viewMode, rangeStart, rangeEnd, currentDate, todayStr, expandedEvents, specialItems, categoryMap]);
+-
+-  // Wochenstreifen: 7 Tage, ebenfalls nur Punkte statt voller Kacheln.
+-  const weekStripDays = useMemo(() => {
+-    if (viewMode !== 'week') return [];
+-    const days: { dateStr: string; dayName: string; dayNumber: number; isToday: boolean; eventCount: number; hasSpecial: boolean }[] = [];
+-    const start = CalendarService.parseLocalDate(rangeStart);
+-
+-    for (let i = 0; i < 7; i++) {
+-      const d = new Date(start);
+-      d.setDate(d.getDate() + i);
+-      const dateStr = CalendarService.formatDate(d);
+-      days.push({
+-        dateStr,
+-        dayName: DAY_NAMES_SHORT[i],
+-        dayNumber: d.getDate(),
+-        isToday: dateStr === todayStr,
+-        eventCount: eventsForDay(dateStr).length,
+-        hasSpecial: specialsForDay(dateStr).length > 0
+-      });
+-    }
+-    return days;
+-    // eslint-disable-next-line react-hooks/exhaustive-deps
+-  }, [viewMode, rangeStart, todayStr, expandedEvents, specialItems]);
+-
+-  const selectedDayInRange = selectedDayKey >= rangeStart && selectedDayKey <= rangeEnd ? selectedDayKey : null;
+-
+-  const goPrev = () => {
+-    const d = new Date(currentDate);
+-    if (viewMode === 'month') d.setMonth(d.getMonth() - 1);
+-    else if (viewMode === 'week') d.setDate(d.getDate() - 7);
+-    else d.setDate(d.getDate() - 1);
+-    setCurrentDate(d);
+-  };
+-
+-  const goNext = () => {
+-    const d = new Date(currentDate);
+-    if (viewMode === 'month') d.setMonth(d.getMonth() + 1);
+-    else if (viewMode === 'week') d.setDate(d.getDate() + 7);
+-    else d.setDate(d.getDate() + 1);
+-    setCurrentDate(d);
+-  };
+-
+-  const goToday = () => {
+-    const now = new Date();
+-    setCurrentDate(now);
+-    setSelectedDayKey(CalendarService.formatDate(now));
+-  };
+-
+-  const selectedEvent = selectedId ? events.find(e => e.id === selectedId) ?? null : null;
+-
+-  if (selectedEvent) {
+-    const cat = categoryMap.get(selectedEvent.categoryId);
+-    const mapsUrl =
+-      selectedEvent.locationLat !== undefined && selectedEvent.locationLng !== undefined
+-        ? `https://www.google.com/maps/search/?api=1&query=${selectedEvent.locationLat},${selectedEvent.locationLng}`
+-        : null;
+-
+-    return (
+-      <div className="p-4 space-y-4 pb-6">
+-        <button
+-          type="button"
+-          onClick={() => setSelectedId(null)}
+-          className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 cursor-pointer"
+-        >
+-          <ArrowLeft className="w-4 h-4" />
+-          Zurück zur Übersicht
+-        </button>
+-
+-        <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3">
+-          {cat && (
+-            <span className={`inline-block text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${cat.badgeBg} ${cat.badgeText}`}>
+-              {cat.name}
+-            </span>
+-          )}
+-          <p className="text-lg font-bold text-slate-900">{selectedEvent.title}</p>
+-          {selectedEvent.description && (
+-            <p className="text-sm text-slate-600 whitespace-pre-wrap">{selectedEvent.description}</p>
+-          )}
+-        </div>
+-
+-        <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3">
+-          <div className="flex items-center gap-3 text-sm text-slate-700">
+-            <CalendarDays className="w-4 h-4 text-indigo-500 shrink-0" />
+-            <span>{formatDateHeading(selectedEvent.startDate)}</span>
+-          </div>
+-          <div className="flex items-center gap-3 text-sm text-slate-700">
+-            <Clock className="w-4 h-4 text-indigo-500 shrink-0" />
+-            <span>{timeLabel(selectedEvent)}</span>
+-          </div>
+-          {selectedEvent.location && (
+-            <div className="flex items-start gap-3 text-sm text-slate-700">
+-              <MapPin className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+-              <div className="min-w-0">
+-                <span>{selectedEvent.location}</span>
+-                {mapsUrl && (
+-                  <a
+-                    href={mapsUrl}
+-                    target="_blank"
+-                    rel="noopener noreferrer"
+-                    className="flex items-center gap-1 text-blue-600 text-xs font-semibold mt-1 underline"
+-                  >
+-                    In Karten öffnen <ExternalLink className="w-3 h-3" />
+-                  </a>
+-                )}
+-              </div>
+-            </div>
+-          )}
+-          {selectedEvent.participants.length > 0 && (
+-            <div className="flex items-center gap-3 text-sm text-slate-700">
+-              <Users className="w-4 h-4 text-indigo-500 shrink-0" />
+-              <span>
+-                {selectedEvent.participants.length}{' '}
+-                {selectedEvent.participants.length === 1 ? 'Teilnehmer' : 'Teilnehmer/innen'}
+-              </span>
+-            </div>
+-          )}
+-        </div>
+-      </div>
+-    );
+-  }
+-
+-  // Ausführliche Terminliste für genau einen Tag — von Monat, Woche und Tag
+-  // gemeinsam genutzt, damit ein angetippter Tag überall gleich aussieht.
+-  const renderDayDetailList = (dateStr: string) => {
+-    const dayEvents = eventsForDay(dateStr);
+-    const daySpecials = specialsForDay(dateStr);
+-
+-    if (dayEvents.length === 0 && daySpecials.length === 0) {
+-      return <p className="text-center text-xs text-slate-400 py-6">Keine Termine an diesem Tag</p>;
+-    }
+-
+-    return (
+-      <div className="space-y-1.5">
+-        {daySpecials.map(item => (
+-          <div
+-            key={item.id}
+-            title={item.details}
+-            className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-2 ${
+-              item.type === 'birthday'
+-                ? 'bg-amber-50 border-amber-200 text-amber-900'
+-                : 'bg-purple-50 border-purple-200 text-purple-900'
+-            }`}
+-          >
+-            {item.type === 'birthday' ? (
+-              <Gift className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+-            ) : (
+-              <Award className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+-            )}
+-            <span className="truncate">{item.title}</span>
+-          </div>
+-        ))}
+-
+-        {dayEvents.map(inst => {
+-          const e = inst.originalEvent;
+-          const cat = categoryMap.get(e.categoryId);
+-          return (
+-            <button
+-              key={inst.instanceId}
+-              type="button"
+-              onClick={() => setSelectedId(e.id)}
+-              className="w-full flex items-start justify-between gap-3 p-3.5 bg-white border border-slate-200 rounded-xl text-left cursor-pointer active:bg-slate-50"
+-            >
+-              <div className="min-w-0">
+-                <p className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+-                  {inst.isRecurrenceInstance && <Repeat className="w-3 h-3 text-slate-400 shrink-0" />}
+-                  <span className="truncate">{e.title}</span>
+-                </p>
+-                <p className="text-2xs text-slate-500 mt-0.5">{timeLabel(inst)}</p>
+-                {e.location && <p className="text-2xs text-slate-400 truncate mt-0.5">{e.location}</p>}
+-              </div>
+-              {cat && (
+-                <span className={`shrink-0 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${cat.badgeBg} ${cat.badgeText}`}>
+-                  {cat.name}
+-                </span>
+-              )}
+-            </button>
+-          );
+-        })}
+-      </div>
+-    );
+-  };
+-
+-  return (
+-    <div className="p-4 space-y-4 pb-6">
+-      {/* Umschalter Monat / Woche / Tag / Liste */}
+-      <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 rounded-xl">
+-        {VIEW_MODES.map(({ mode, label, icon: Icon }) => (
+-          <button
+-            key={mode}
+-            type="button"
+-            onClick={() => setViewMode(mode)}
+-            className={`flex flex-col items-center gap-0.5 py-1.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+-              viewMode === mode ? 'bg-white text-blue-900 shadow-xs' : 'text-slate-500'
+-            }`}
+-          >
+-            <Icon className="w-3.5 h-3.5" />
+-            <span>{label}</span>
+-          </button>
+-        ))}
+-      </div>
+-
+-      {isLoading ? (
+-        <p className="text-center text-sm text-slate-400 py-8">Lädt…</p>
+-      ) : viewMode === 'agenda' ? (
+-        groupedByDate.length === 0 ? (
+-          <div className="text-center py-12">
+-            <CalendarDays className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+-            <p className="text-sm text-slate-400">Keine anstehenden Termine in den nächsten 60 Tagen</p>
+-          </div>
+-        ) : (
+-          <div className="space-y-4">
+-            {groupedByDate.map(group => (
+-              <div key={group.dateKey}>
+-                <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 px-1">
+-                  {formatDateHeading(group.dateKey)}
+-                </p>
+-                <div className="space-y-1.5">
+-                  {group.items.map(inst => {
+-                    const e = inst.originalEvent;
+-                    const cat = categoryMap.get(e.categoryId);
+-                    return (
+-                      <button
+-                        key={inst.instanceId}
+-                        type="button"
+-                        onClick={() => setSelectedId(e.id)}
+-                        className="w-full flex items-start justify-between gap-3 p-3.5 bg-white border border-slate-200 rounded-xl text-left cursor-pointer active:bg-slate-50"
+-                      >
+-                        <div className="min-w-0">
+-                          <p className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+-                            {inst.isRecurrenceInstance && <Repeat className="w-3 h-3 text-slate-400 shrink-0" />}
+-                            <span className="truncate">{e.title}</span>
+-                          </p>
+-                          <p className="text-2xs text-slate-500 mt-0.5">{timeLabel(inst)}</p>
+-                          {e.location && <p className="text-2xs text-slate-400 truncate mt-0.5">{e.location}</p>}
+-                        </div>
+-                        {cat && (
+-                          <span
+-                            className={`shrink-0 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${cat.badgeBg} ${cat.badgeText}`}
+-                          >
+-                            {cat.name}
+-                          </span>
+-                        )}
+-                      </button>
+-                    );
+-                  })}
+-                </div>
+-              </div>
+-            ))}
+-          </div>
+-        )
+-      ) : (
+-        <div className="space-y-3">
+-          {/* Vor/Zurück-Navigation samt "Heute"-Sprung — für Monat, Woche, Tag */}
+-          <div className="flex items-center justify-between">
+-            <button
+-              type="button"
+-              onClick={goPrev}
+-              className="p-2 rounded-xl bg-slate-100 active:bg-slate-200 text-slate-700 cursor-pointer"
+-              title="Zurück"
+-            >
+-              <ChevronLeft className="w-4 h-4" />
+-            </button>
+-            <div className="flex flex-col items-center">
+-              <span className="text-sm font-bold text-slate-900 text-center">{headerTitle}</span>
+-              <button
+-                type="button"
+-                onClick={goToday}
+-                className="text-2xs font-bold text-blue-600 cursor-pointer"
+-              >
+-                Heute
+-              </button>
+-            </div>
+-            <button
+-              type="button"
+-              onClick={goNext}
+-              className="p-2 rounded-xl bg-slate-100 active:bg-slate-200 text-slate-700 cursor-pointer"
+-              title="Weiter"
+-            >
+-              <ChevronRight className="w-4 h-4" />
+-            </button>
+-          </div>
+-
+-          {viewMode === 'month' && (
+-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+-              <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50 text-center py-1.5">
+-                {DAY_NAMES_SHORT.map(d => (
+-                  <div key={d} className="text-[10px] font-bold text-slate-500">
+-                    {d}
+-                  </div>
+-                ))}
+-              </div>
+-              <div className="grid grid-cols-7 divide-x divide-y divide-slate-100">
+-                {monthGridDays.map(day => (
+-                  <button
+-                    key={day.dateStr}
+-                    type="button"
+-                    onClick={() => setSelectedDayKey(day.dateStr)}
+-                    className={`aspect-square flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
+-                      day.dateStr === selectedDayKey ? 'bg-blue-50' : 'bg-white'
+-                    }`}
+-                  >
+-                    <span
+-                      className={`text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center ${
+-                        day.isToday ? 'bg-blue-600 text-white' : day.isCurrentMonth ? 'text-slate-800' : 'text-slate-300'
+-                      }`}
+-                    >
+-                      {day.dayNumber}
+-                    </span>
+-                    <div className="flex items-center gap-0.5 h-1.5">
+-                      {day.dotColors.map((c, i) => (
+-                        <span key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c }} />
+-                      ))}
+-                      {day.hasMore && <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />}
+-                      {day.hasSpecial && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />}
+-                    </div>
+-                  </button>
+-                ))}
+-              </div>
+-            </div>
+-          )}
+-
+-          {viewMode === 'week' && (
+-            <div className="grid grid-cols-7 gap-1">
+-              {weekStripDays.map(d => (
+-                <button
+-                  key={d.dateStr}
+-                  type="button"
+-                  onClick={() => setSelectedDayKey(d.dateStr)}
+-                  className={`flex flex-col items-center gap-1 py-2 rounded-xl border cursor-pointer ${
+-                    d.dateStr === selectedDayKey ? 'bg-blue-50 border-blue-200' : 'bg-white border-slate-200'
+-                  }`}
+-                >
+-                  <span className="text-[10px] font-bold text-slate-500 uppercase">{d.dayName}</span>
+-                  <span
+-                    className={`text-sm font-black w-7 h-7 rounded-full flex items-center justify-center ${
+-                      d.isToday ? 'bg-blue-600 text-white' : 'text-slate-800'
+-                    }`}
+-                  >
+-                    {d.dayNumber}
+-                  </span>
+-                  <span className="flex items-center gap-0.5 h-1.5">
+-                    {d.eventCount > 0 && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+-                    {d.hasSpecial && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />}
+-                  </span>
+-                </button>
+-              ))}
+-            </div>
+-          )}
+-
+-          {/* Tagesliste: für Monat/Woche der angetippte Tag, für Tag immer der angezeigte Tag */}
+-          {viewMode === 'day' ? (
+-            renderDayDetailList(rangeStart)
+-          ) : (
+-            <div>
+-              <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 px-1">
+-                {selectedDayInRange ? formatDateHeading(selectedDayInRange) : 'Termine'}
+-              </p>
+-              {selectedDayInRange ? (
+-                renderDayDetailList(selectedDayInRange)
+-              ) : (
+-                <p className="text-center text-xs text-slate-400 py-6">Tippen Sie auf einen Tag, um seine Termine zu sehen.</p>
+-              )}
+-            </div>
+-          )}
+-        </div>
+-      )}
+-    </div>
+-  );
+-}
+diff --git a/src/components/MobileDashboardView.tsx b/src/components/MobileDashboardView.tsx
+deleted file mode 100644
+index ec6dc6f..0000000
+--- a/src/components/MobileDashboardView.tsx
++++ /dev/null
+@@ -1,267 +0,0 @@
+-/**
+- * @license
+- * SPDX-License-Identifier: Apache-2.0
+- */
+-
+-import { useEffect, useMemo, useState } from 'react';
+-import { Member, Transaction, FinancialAccount, Meeting, OnlineMembershipApplication, CalendarEvent, PermissionArea } from '../types';
+-import { StorageService } from '../services/storage';
+-import { Users, Wallet, ScrollText, CalendarDays, FileSignature, AlertTriangle, Check, ChevronRight } from 'lucide-react';
+-import type { MobileTab } from './MobileShell';
+-
+-/**
+- * Die Start-Kacheln der Mobil-Ansicht.
+- * ---------------------------------------------------------------------------
+- * Bewusst dieselben Berechnungen wie die Desktop-Kacheln (MembersKpiWidget,
+- * LiquidityWidget, MeetingsKpiWidget, UpcomingEventsWidget in
+- * DashboardWidgets/), damit hier niemals eine andere Zahl steht als am
+- * Desktop. Kein eigenes, zweites Regelwerk — nur eine schlankere Darstellung
+- * ohne die frei konfigurierbaren, per Drag & Drop anordenbaren Kacheln, die
+- * auf einem Touchscreen ohnehin keinen Sinn ergäben.
+- *
+- * Jede Kachel erscheint nur, wenn mayAccess() den jeweiligen Bereich erlaubt
+- * — exakt die gleiche Prüfung wie am Desktop (dort über WIDGET_AREA in
+- * DashboardView.tsx).
+- */
+-
+-/** Heutiges Datum als YYYY-MM-DD in der LOKALEN Zeitzone. */
+-function localDateKey(d: Date = new Date()): string {
+-  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+-}
+-
+-interface MobileDashboardViewProps {
+-  members: Member[];
+-  transactions: Transaction[];
+-  accounts: FinancialAccount[];
+-  meetings: Meeting[];
+-  applications: OnlineMembershipApplication[];
+-  /** Wird von App.tsx hochgezählt, sobald ein Termin gespeichert wurde. */
+-  calendarRefreshKey?: number;
+-  mayAccess: (area: PermissionArea) => boolean;
+-  onNavigateTab: (tab: MobileTab) => void;
+-}
+-
+-export function MobileDashboardView({
+-  members,
+-  transactions,
+-  accounts,
+-  meetings,
+-  applications,
+-  calendarRefreshKey,
+-  mayAccess,
+-  onNavigateTab
+-}: MobileDashboardViewProps) {
+-  // --- Mitglieder ----------------------------------------------------------
+-  const currentMembers = useMemo(
+-    () =>
+-      members.filter(
+-        m => m.status !== 'terminated' && m.membershipType !== 'ausgetreten' && m.membershipType !== 'terminated'
+-      ),
+-    [members]
+-  );
+-  const activeMembers = useMemo(() => members.filter(m => m.status === 'active'), [members]);
+-  const passiveMembers = useMemo(() => members.filter(m => m.status === 'passive'), [members]);
+-  const currentYear = new Date().getFullYear().toString();
+-  const newThisYear = useMemo(
+-    () => members.filter(m => m.entryDate && m.entryDate.startsWith(currentYear)).length,
+-    [members, currentYear]
+-  );
+-
+-  // --- Finanzen: Kontostand, identische Rechnung wie LiquidityWidget -------
+-  const totalLiquidity = useMemo(() => {
+-    const balances: Record<string, number> = {};
+-    accounts.forEach(acc => {
+-      balances[acc.id] = acc.initialBalance || 0;
+-    });
+-    transactions.forEach(tx => {
+-      if (tx.type === 'transfer' && tx.targetAccountId) {
+-        if (balances[tx.accountId] !== undefined) balances[tx.accountId] -= Math.abs(tx.amount);
+-        if (balances[tx.targetAccountId] !== undefined) balances[tx.targetAccountId] += Math.abs(tx.amount);
+-      } else if (balances[tx.accountId] !== undefined) {
+-        balances[tx.accountId] += tx.amount;
+-      }
+-    });
+-    return (Object.values(balances) as number[]).reduce((sum, b) => sum + b, 0);
+-  }, [accounts, transactions]);
+-
+-  // --- Sitzungsdienst --------------------------------------------------------
+-  const { upcomingMeetings, openProtocols } = useMemo(() => {
+-    const today = localDateKey();
+-    let upcoming = 0;
+-    let open = 0;
+-    meetings.forEach(m => {
+-      if (m.date >= today && m.status !== 'cancelled') upcoming++;
+-      if (m.status === 'draft' || m.status === 'review') open++;
+-    });
+-    return { upcomingMeetings: upcoming, openProtocols: open };
+-  }, [meetings]);
+-
+-  // --- Termine: eigener Ladevorgang, wie am Desktop (UpcomingEventsWidget) --
+-  const [events, setEvents] = useState<CalendarEvent[]>([]);
+-  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+-  useEffect(() => {
+-    let cancelled = false;
+-    setIsLoadingEvents(true);
+-    StorageService.getCalendarEvents()
+-      .then(loaded => {
+-        if (!cancelled) setEvents(loaded || []);
+-      })
+-      .catch(err => {
+-        console.warn('Termine für die mobile Übersicht konnten nicht geladen werden:', err);
+-        if (!cancelled) setEvents([]);
+-      })
+-      .finally(() => {
+-        if (!cancelled) setIsLoadingEvents(false);
+-      });
+-    return () => {
+-      cancelled = true;
+-    };
+-  }, [calendarRefreshKey]);
+-
+-  const upcomingEvents = useMemo(() => {
+-    const today = localDateKey();
+-    return events
+-      .filter(evt => (evt.endDate || evt.startDate) >= today)
+-      .sort((a, b) => {
+-        const byDate = a.startDate.localeCompare(b.startDate);
+-        if (byDate !== 0) return byDate;
+-        return (a.startTime || '').localeCompare(b.startTime || '');
+-      })
+-      .slice(0, 3);
+-  }, [events]);
+-
+-  // --- Offene Aufnahmeanträge ------------------------------------------------
+-  const pendingApplications = useMemo(() => applications.filter(a => a.status === 'pending'), [applications]);
+-
+-  const hasAnyTile =
+-    mayAccess('members') || mayAccess('finance') || mayAccess('calendar') || mayAccess('meetings');
+-
+-  return (
+-    <div className="p-4 space-y-3 pb-6">
+-      {mayAccess('online_applications') && pendingApplications.length > 0 && (
+-        <button
+-          type="button"
+-          onClick={() => onNavigateTab('members')}
+-          className="w-full flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-left cursor-pointer"
+-        >
+-          <div className="p-2 bg-amber-500 text-white rounded-xl shrink-0">
+-            <FileSignature className="w-4 h-4" />
+-          </div>
+-          <div className="flex-1 min-w-0">
+-            <p className="text-xs font-bold text-amber-900">
+-              {pendingApplications.length === 1
+-                ? '1 neuer Aufnahmeantrag'
+-                : `${pendingApplications.length} neue Aufnahmeanträge`}
+-            </p>
+-            <p className="text-2xs text-amber-700">Zur Prüfung freigegeben</p>
+-          </div>
+-          <ChevronRight className="w-4 h-4 text-amber-400 shrink-0" />
+-        </button>
+-      )}
+-
+-      {mayAccess('members') && (
+-        <button
+-          type="button"
+-          onClick={() => onNavigateTab('members')}
+-          className="w-full text-left p-4 bg-white border border-slate-200 rounded-2xl cursor-pointer active:bg-slate-50"
+-        >
+-          <div className="flex items-center justify-between text-slate-500 mb-1.5">
+-            <span className="text-2xs font-bold uppercase tracking-wider">Mitgliederbestand</span>
+-            <Users className="w-4 h-4 text-blue-500" />
+-          </div>
+-          <div className="text-2xl font-black font-mono text-slate-900">{currentMembers.length}</div>
+-          <div className="flex items-center gap-3 mt-1.5 text-2xs text-slate-500">
+-            <span className="text-emerald-600 font-semibold">{activeMembers.length} aktiv</span>
+-            <span>{passiveMembers.length} passiv</span>
+-            {newThisYear > 0 && (
+-              <span className="text-blue-600 font-bold">
+-                +{newThisYear} ({currentYear})
+-              </span>
+-            )}
+-          </div>
+-        </button>
+-      )}
+-
+-      {mayAccess('finance') && (
+-        <button
+-          type="button"
+-          onClick={() => onNavigateTab('finance')}
+-          className="w-full text-left p-4 bg-white border border-slate-200 rounded-2xl cursor-pointer active:bg-slate-50"
+-        >
+-          <div className="flex items-center justify-between text-slate-500 mb-1.5">
+-            <span className="text-2xs font-bold uppercase tracking-wider">Kontostand (gesamt)</span>
+-            <Wallet className="w-4 h-4 text-emerald-500" />
+-          </div>
+-          <div className={`text-2xl font-black font-mono ${totalLiquidity < 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+-            {totalLiquidity.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+-          </div>
+-          <p className="text-2xs text-slate-500 mt-1.5">
+-            {accounts.length} {accounts.length === 1 ? 'Konto' : 'Konten'}
+-          </p>
+-        </button>
+-      )}
+-
+-      {mayAccess('calendar') && (
+-        <button
+-          type="button"
+-          onClick={() => onNavigateTab('calendar')}
+-          className="w-full text-left p-4 bg-white border border-slate-200 rounded-2xl cursor-pointer active:bg-slate-50"
+-        >
+-          <div className="flex items-center justify-between text-slate-500 mb-2">
+-            <span className="text-2xs font-bold uppercase tracking-wider">Nächste Termine</span>
+-            <CalendarDays className="w-4 h-4 text-indigo-500" />
+-          </div>
+-          {isLoadingEvents ? (
+-            <p className="text-xs text-slate-400">Lädt…</p>
+-          ) : upcomingEvents.length > 0 ? (
+-            <div className="space-y-2">
+-              {upcomingEvents.map(evt => (
+-                <div key={evt.id} className="flex items-center justify-between text-xs">
+-                  <span className="font-semibold text-slate-800 truncate max-w-[65%]">{evt.title}</span>
+-                  <span className="text-slate-400 font-mono text-2xs shrink-0">
+-                    {new Date(evt.startDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+-                  </span>
+-                </div>
+-              ))}
+-            </div>
+-          ) : (
+-            <p className="text-xs text-slate-400">Keine anstehenden Termine</p>
+-          )}
+-        </button>
+-      )}
+-
+-      {mayAccess('meetings') && (
+-        <button
+-          type="button"
+-          onClick={() => onNavigateTab('meetings')}
+-          className="w-full text-left p-4 bg-white border border-slate-200 rounded-2xl cursor-pointer active:bg-slate-50"
+-        >
+-          <div className="flex items-center justify-between text-slate-500 mb-1.5">
+-            <span className="text-2xs font-bold uppercase tracking-wider">Sitzungsdienst</span>
+-            <ScrollText className="w-4 h-4 text-rose-500" />
+-          </div>
+-          <div className="text-2xl font-black font-mono text-slate-900">
+-            {upcomingMeetings} <span className="text-xs font-medium text-slate-400">geplant</span>
+-          </div>
+-          <div className="mt-1.5 text-2xs">
+-            {openProtocols > 0 ? (
+-              <span className="text-amber-600 font-semibold inline-flex items-center gap-1">
+-                <AlertTriangle className="w-3 h-3" /> {openProtocols} Protokoll-Entwürfe offen
+-              </span>
+-            ) : (
+-              <span className="text-emerald-600 font-medium inline-flex items-center gap-1">
+-                <Check className="w-3 h-3" /> Alle Protokolle genehmigt
+-              </span>
+-            )}
+-          </div>
+-        </button>
+-      )}
+-
+-      {!hasAnyTile && (
+-        <div className="p-6 text-center text-sm text-slate-500">
+-          Für dieses Konto sind hier noch keine Bereiche freigegeben.
+-        </div>
+-      )}
+-    </div>
+-  );
+-}
+diff --git a/src/components/MobileDocumentsView.tsx b/src/components/MobileDocumentsView.tsx
+deleted file mode 100644
+index e1a394a..0000000
+--- a/src/components/MobileDocumentsView.tsx
++++ /dev/null
+@@ -1,394 +0,0 @@
+-/**
+- * @license
+- * SPDX-License-Identifier: Apache-2.0
+- */
+-
+-import { useMemo, useState } from 'react';
+-import { ClubDocument, DocumentCategory, DocumentFolder, Member, Transaction } from '../types';
+-import { DocumentUploadModal } from './DocumentUploadModal';
+-import { DocumentViewerModal, CATEGORY_CONFIG } from './DocumentViewerModal';
+-import { lockClass, lockTitle } from '../utils/uiLock';
+-import {
+-  Search,
+-  Upload,
+-  FileText,
+-  FileSpreadsheet,
+-  Image as ImageIcon,
+-  ChevronRight,
+-  Lock,
+-  CheckCircle2,
+-  SlidersHorizontal,
+-  X
+-} from 'lucide-react';
+-
+-/**
+- * Dokumente (Mobil-Ansicht, schlank)
+- * ---------------------------------------------------------------------------
+- * Bewusst nur ansehen, suchen und hochladen — keine Ordnerverwaltung
+- * (anlegen, löschen, verschieben von Ordnern). Das war deine ausdrückliche
+- * Wahl gegenüber der vollen Dokumentenverwaltung.
+- *
+- * Zum Ansehen und Hochladen wird NICHTS neu gebaut: Beide Bildschirme sind
+- * exakt dieselben Bauteile wie am Desktop (DocumentViewerModal,
+- * DocumentUploadModal) — unverändert wiederverwendet, so wie schon die
+- * Beleg-Kamera und die Audioaufnahme in den vorigen Schritten. Dass
+- * DocumentViewerModal seine Schaltfläche "Metadaten bearbeiten" nur zeigt,
+- * wenn man ihr eine onEdit-Funktion übergibt, ist der Grund, warum "schlank"
+- * hier ganz ohne Sonderfall auskommt: Es wird schlicht keine onEdit-Funktion
+- * übergeben.
+- *
+- * Einzige bewusste Ergänzung: Beim Hochladen kann weiterhin ein
+- * VORHANDENER Ordner ausgewählt werden (die Auswahl steckt schon in
+- * DocumentUploadModal) — das ist kein Anlegen/Verwalten von Ordnern,
+- * sondern nur "wo soll die Datei hin", und hilft, dass am Desktop nicht
+- * plötzlich alles im Hauptverzeichnis landet, was jemand unterwegs
+- * hochgeladen hat.
+- *
+- * Filter & Sortierung (neu): Kategorie, Dateiformat, Jahr und Sortierung
+- * übernehmen wörtlich dieselbe Logik wie am Desktop (DocumentsView.tsx) —
+- * dieselben vier Sortieroptionen, dieselbe Erkennung von PDF/Bild/
+- * Office/Text anhand Dateiendung und MIME-Typ. Die Bedienung (Filter-Knopf
+- * mit Zähler-Abzeichen, aufklappbares Feld) folgt demselben Muster wie
+- * gerade eben bei den Mitgliedern.
+- *
+- * Bewusste Abweichung vom bisherigen Verhalten: Die Liste sortierte bisher
+- * nach Hochlade-Zeitpunkt (uploadDate). Jetzt ist "Neueste zuerst" — wie am
+- * Desktop — nach dem DOKUMENTENDATUM (date, z. B. das Datum auf dem Beleg
+- * selbst) sortiert, nicht nach dem technischen Zeitpunkt des Hochladens.
+- * Das passt in aller Regel besser zum Inhalt, kann sich aber von der
+- * bisherigen Reihenfolge unterscheiden, wenn ein älteres Dokument erst
+- * kürzlich nachgetragen wurde.
+- */
+-
+-type FormatFilter = 'all' | 'pdf' | 'images' | 'office' | 'text';
+-type SortOption = 'date_desc' | 'date_asc' | 'title_asc' | 'size_desc';
+-
+-const SORT_LABELS: Record<SortOption, string> = {
+-  date_desc: 'Neueste zuerst',
+-  date_asc: 'Älteste zuerst',
+-  title_asc: 'Titel (A-Z)',
+-  size_desc: 'Dateigröße (absteigend)'
+-};
+-
+-interface MobileDocumentsViewProps {
+-  documents: ClubDocument[];
+-  folders: DocumentFolder[];
+-  members: Member[];
+-  transactions: Transaction[];
+-  /** Darf die Person im Bereich "Dokumente" etwas hochladen? */
+-  canEdit: boolean;
+-  onSaveDocuments: (docs: ClubDocument[]) => Promise<void>;
+-}
+-
+-function formatFileSize(bytes: number): string {
+-  if (!bytes) return '0 KB';
+-  if (bytes < 1024) return `${bytes} B`;
+-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+-}
+-
+-function isPdfDoc(doc: ClubDocument): boolean {
+-  return doc.fileType.includes('pdf') || doc.fileName.toLowerCase().endsWith('.pdf');
+-}
+-function isImageDoc(doc: ClubDocument): boolean {
+-  return doc.fileType.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(doc.fileName);
+-}
+-function isOfficeDoc(doc: ClubDocument): boolean {
+-  return (
+-    /\.(docx?|xlsx?|pptx?|odt|ods)$/i.test(doc.fileName) ||
+-    doc.fileType.includes('officedocument') ||
+-    doc.fileType.includes('msword') ||
+-    doc.fileType.includes('excel')
+-  );
+-}
+-function isTextDoc(doc: ClubDocument): boolean {
+-  return doc.fileType.includes('text') || doc.fileType.includes('csv') || /\.(txt|csv|log|md)$/i.test(doc.fileName);
+-}
+-
+-function FileIcon({ doc }: { doc: ClubDocument }) {
+-  if (isImageDoc(doc)) return <ImageIcon className="w-4 h-4" />;
+-  if (isOfficeDoc(doc)) return <FileSpreadsheet className="w-4 h-4" />;
+-  return <FileText className="w-4 h-4" />;
+-}
+-
+-export function MobileDocumentsView({
+-  documents,
+-  folders,
+-  members,
+-  transactions,
+-  canEdit,
+-  onSaveDocuments
+-}: MobileDocumentsViewProps) {
+-  const [query, setQuery] = useState('');
+-  const [selectedId, setSelectedId] = useState<string | null>(null);
+-  const [uploadOpen, setUploadOpen] = useState(false);
+-  const [lastUploadCount, setLastUploadCount] = useState<number | null>(null);
+-
+-  const [filtersOpen, setFiltersOpen] = useState(false);
+-  const [categoryFilter, setCategoryFilter] = useState<DocumentCategory | 'all'>('all');
+-  const [formatFilter, setFormatFilter] = useState<FormatFilter>('all');
+-  const [yearFilter, setYearFilter] = useState<string>('all');
+-  const [sortBy, setSortBy] = useState<SortOption>('date_desc');
+-
+-  const availableYears = useMemo(() => {
+-    const years = new Set<string>();
+-    documents.forEach(d => {
+-      const y = d.date?.split('-')[0];
+-      if (y) years.add(y);
+-    });
+-    return Array.from(years).sort((a, b) => b.localeCompare(a));
+-  }, [documents]);
+-
+-  const activeFilterCount = [categoryFilter !== 'all', formatFilter !== 'all', yearFilter !== 'all'].filter(
+-    Boolean
+-  ).length;
+-
+-  const resetFilters = () => {
+-    setCategoryFilter('all');
+-    setFormatFilter('all');
+-    setYearFilter('all');
+-  };
+-
+-  const filteredDocuments = useMemo(() => {
+-    const q = query.trim().toLowerCase();
+-    return documents
+-      .filter(d => {
+-        if (categoryFilter !== 'all' && d.category !== categoryFilter) return false;
+-
+-        if (formatFilter === 'pdf' && !isPdfDoc(d)) return false;
+-        if (formatFilter === 'images' && !isImageDoc(d)) return false;
+-        if (formatFilter === 'office' && !isOfficeDoc(d)) return false;
+-        if (formatFilter === 'text' && !isTextDoc(d)) return false;
+-
+-        if (yearFilter !== 'all' && !(d.date || '').startsWith(yearFilter)) return false;
+-
+-        if (q) {
+-          const categoryLabel = CATEGORY_CONFIG[d.category]?.label || '';
+-          const matches =
+-            d.title.toLowerCase().includes(q) ||
+-            d.fileName.toLowerCase().includes(q) ||
+-            categoryLabel.toLowerCase().includes(q) ||
+-            (d.tags || []).some(t => t.toLowerCase().includes(q)) ||
+-            (d.memberName || '').toLowerCase().includes(q);
+-          if (!matches) return false;
+-        }
+-
+-        return true;
+-      })
+-      .sort((a, b) => {
+-        if (sortBy === 'date_desc') return (b.date || '').localeCompare(a.date || '');
+-        if (sortBy === 'date_asc') return (a.date || '').localeCompare(b.date || '');
+-        if (sortBy === 'title_asc') return a.title.localeCompare(b.title);
+-        if (sortBy === 'size_desc') return (b.fileSize || 0) - (a.fileSize || 0);
+-        return 0;
+-      });
+-  }, [documents, query, categoryFilter, formatFilter, yearFilter, sortBy]);
+-
+-  const selectedDocument = selectedId ? documents.find(d => d.id === selectedId) ?? null : null;
+-
+-  const handleUploadSave = async (docs: ClubDocument[]) => {
+-    await onSaveDocuments(docs);
+-    setLastUploadCount(docs.length);
+-  };
+-
+-  return (
+-    <div className="p-4 space-y-3 pb-6">
+-      <button
+-        type="button"
+-        title={lockTitle(canEdit, 'Dokument hochladen')}
+-        onClick={() => {
+-          if (!canEdit) return;
+-          setLastUploadCount(null);
+-          setUploadOpen(true);
+-        }}
+-        className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 text-white text-sm font-bold cursor-pointer${lockClass(
+-          canEdit
+-        )}`}
+-      >
+-        <Upload className="w-4 h-4" />
+-        Dokument hochladen
+-      </button>
+-
+-      {lastUploadCount !== null && (
+-        <div className="flex items-start gap-2.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl px-4 py-3">
+-          <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" />
+-          <p className="text-xs leading-snug">
+-            <strong>
+-              {lastUploadCount === 1 ? '1 Dokument' : `${lastUploadCount} Dokumente`} hochgeladen.
+-            </strong>{' '}
+-            Im Vereinsarchiv abgelegt.
+-          </p>
+-        </div>
+-      )}
+-
+-      {!canEdit && (
+-        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3">
+-          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
+-          <p className="text-xs leading-snug">
+-            <strong>Nur Leserecht.</strong> Sie können Dokumente einsehen, aber keine neuen hochladen.
+-          </p>
+-        </div>
+-      )}
+-
+-      <div className="flex gap-2">
+-        <div className="relative flex-1">
+-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+-          <input
+-            type="text"
+-            value={query}
+-            onChange={e => setQuery(e.target.value)}
+-            placeholder="Titel, Kategorie, Schlagwort …"
+-            className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+-          />
+-        </div>
+-        <button
+-          type="button"
+-          onClick={() => setFiltersOpen(o => !o)}
+-          className={`relative shrink-0 px-3 rounded-xl border cursor-pointer flex items-center justify-center ${
+-            filtersOpen || activeFilterCount > 0
+-              ? 'bg-blue-600 border-blue-600 text-white'
+-              : 'bg-white border-slate-200 text-slate-500'
+-          }`}
+-          title="Filter & Sortierung"
+-        >
+-          <SlidersHorizontal className="w-4 h-4" />
+-          {activeFilterCount > 0 && (
+-            <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 flex items-center justify-center rounded-full bg-rose-600 text-white text-[10px] font-bold">
+-              {activeFilterCount}
+-            </span>
+-          )}
+-        </button>
+-      </div>
+-
+-      {filtersOpen && (
+-        <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-3">
+-          <div>
+-            <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Kategorie</p>
+-            <div className="flex flex-wrap gap-1.5">
+-              {(Object.keys(CATEGORY_CONFIG) as DocumentCategory[]).map(cat => {
+-                const isActive = categoryFilter === cat;
+-                return (
+-                  <button
+-                    key={cat}
+-                    type="button"
+-                    onClick={() => setCategoryFilter(isActive ? 'all' : cat)}
+-                    className={`px-2.5 py-1 rounded-full text-2xs font-bold cursor-pointer transition-colors ${
+-                      isActive ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
+-                    }`}
+-                  >
+-                    {CATEGORY_CONFIG[cat].label}
+-                  </button>
+-                );
+-              })}
+-            </div>
+-          </div>
+-
+-          <div className="grid grid-cols-2 gap-2">
+-            <div>
+-              <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 mb-1">Dateiformat</p>
+-              <select
+-                value={formatFilter}
+-                onChange={e => setFormatFilter(e.target.value as FormatFilter)}
+-                className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+-              >
+-                <option value="all">Alle Formate</option>
+-                <option value="pdf">Nur PDFs</option>
+-                <option value="images">Bilder & Scans</option>
+-                <option value="office">Office & Tabellen</option>
+-                <option value="text">Textdateien & CSV</option>
+-              </select>
+-            </div>
+-            <div>
+-              <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 mb-1">Jahr</p>
+-              <select
+-                value={yearFilter}
+-                onChange={e => setYearFilter(e.target.value)}
+-                className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+-              >
+-                <option value="all">Alle Jahre</option>
+-                {availableYears.map(y => (
+-                  <option key={y} value={y}>
+-                    {y}
+-                  </option>
+-                ))}
+-              </select>
+-            </div>
+-          </div>
+-
+-          <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+-            <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 shrink-0">Sortieren</p>
+-            <select
+-              value={sortBy}
+-              onChange={e => setSortBy(e.target.value as SortOption)}
+-              className="flex-1 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+-            >
+-              {(Object.keys(SORT_LABELS) as SortOption[]).map(opt => (
+-                <option key={opt} value={opt}>
+-                  {SORT_LABELS[opt]}
+-                </option>
+-              ))}
+-            </select>
+-          </div>
+-
+-          {activeFilterCount > 0 && (
+-            <button
+-              type="button"
+-              onClick={resetFilters}
+-              className="w-full flex items-center justify-center gap-1.5 py-1.5 text-2xs font-semibold text-blue-600 cursor-pointer"
+-            >
+-              <X className="w-3 h-3" />
+-              Filter zurücksetzen
+-            </button>
+-          )}
+-        </div>
+-      )}
+-
+-      {filteredDocuments.length === 0 ? (
+-        <div className="text-center py-12">
+-          <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+-          <p className="text-sm text-slate-400">Keine Dokumente gefunden</p>
+-        </div>
+-      ) : (
+-        <div className="space-y-1.5">
+-          {filteredDocuments.map(doc => {
+-            const categoryInfo = CATEGORY_CONFIG[doc.category];
+-            return (
+-              <button
+-                key={doc.id}
+-                type="button"
+-                onClick={() => setSelectedId(doc.id)}
+-                className="w-full flex items-center justify-between gap-3 p-3.5 bg-white border border-slate-200 rounded-xl text-left cursor-pointer active:bg-slate-50"
+-              >
+-                <div className="flex items-center gap-2.5 min-w-0">
+-                  <div className="p-2 bg-slate-100 text-slate-600 rounded-lg shrink-0">
+-                    <FileIcon doc={doc} />
+-                  </div>
+-                  <div className="min-w-0">
+-                    <p className="text-sm font-semibold text-slate-900 truncate">{doc.title}</p>
+-                    <p className="text-2xs text-slate-500 truncate">
+-                      {categoryInfo?.label || 'Sonstiges'} · {formatFileSize(doc.fileSize)}
+-                    </p>
+-                  </div>
+-                </div>
+-                <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
+-              </button>
+-            );
+-          })}
+-        </div>
+-      )}
+-
+-      {selectedDocument && <DocumentViewerModal document={selectedDocument} onClose={() => setSelectedId(null)} />}
+-
+-      {uploadOpen && (
+-        <DocumentUploadModal
+-          isOpen={uploadOpen}
+-          onClose={() => setUploadOpen(false)}
+-          onSaveDocuments={handleUploadSave}
+-          members={members}
+-          transactions={transactions}
+-          folders={folders}
+-        />
+-      )}
+-    </div>
+-  );
+-}
+diff --git a/src/components/MobileFinanceView.tsx b/src/components/MobileFinanceView.tsx
+deleted file mode 100644
+index d7acfe4..0000000
+--- a/src/components/MobileFinanceView.tsx
++++ /dev/null
+@@ -1,534 +0,0 @@
+-/**
+- * @license
+- * SPDX-License-Identifier: Apache-2.0
+- */
+-
+-import { useMemo, useState } from 'react';
+-import { Transaction, FinancialAccount, ClubSettings, ReceiptAttachment, TaxSphere, Skr42MainCategory } from '../types';
+-import { useSkr42 } from '../hooks/useSkr42';
+-import { TAX_SPHERES, getAllSkr42MainCategories, getAllSkr42SubCategories } from '../data/taxSpheres';
+-import { SearchableAccountSelect, SearchableAccountOption } from './SearchableAccountSelect';
+-import { ReceiptCameraScannerModal } from './ReceiptCameraScannerModal';
+-import type { MobileTab } from './MobileShell';
+-import { Camera, CheckCircle2, ChevronRight, Lock, FileText, Trash2 } from 'lucide-react';
+-
+-/**
+- * Buchung erfassen (Mobil-Ansicht)
+- * ---------------------------------------------------------------------------
+- * Der Kern dieses Bildschirms: eine Buchung erfassen UND direkt den Beleg
+- * dazu fotografieren — der Anwendungsfall "gerade eben eingekauft, Beleg
+- * gleich digitalisieren, bevor er verloren geht".
+- *
+- * Die Kamera-Erfassung selbst ist NICHT neu gebaut: Sie verwendet
+- * ReceiptCameraScannerModal unverändert wieder, dasselbe Bauteil wie am
+- * Desktop (das mit "onAttachReceipt" ohnehin schon für genau diesen Fall
+- * vorgesehen war — nur bisher nirgends von außerhalb der Desktop-Buchungs-
+- * maske erreichbar). Gespeichert wird über denselben Weg wie am Desktop
+- * (App.tsx: handleSaveTransaction) — keine zweite Speicherlogik.
+- *
+- * Nummernkreis & Konto (SKR 42) werden — genau wie am Desktop in
+- * TransactionFormModal.tsx — als zwei zusammenhängende Felder erfasst statt
+- * als eine einzelne "Kategorie": erst der Nummernkreis (Hauptkonto), dann
+- * das Konto darin. Dafür wird sogar dasselbe Auswahl-Bauteil wiederverwendet
+- * (SearchableAccountSelect) und dieselben Hilfsfunktionen aus
+- * data/taxSpheres.ts (getAllSkr42MainCategories/-SubCategories), damit hier
+- * niemals eine Auswahl entsteht, die es am Desktop nicht gibt. Wichtig,
+- * exakt wie am Desktop: Der Nummernkreis ist NICHT auf den gewählten Typ
+- * (Einnahme/Ausgabe) beschränkt — beide Kontenlisten stehen immer zur
+- * Auswahl, gruppiert nach Einnahmen-/Ausgaben-Konten (siehe Hinweis bei
+- * Skr42MainCategory in src/types.ts: Konto und Sphäre sind unabhängig).
+- */
+-
+-interface MobileFinanceViewProps {
+-  accounts: FinancialAccount[];
+-  settings: ClubSettings;
+-  existingTransactions: Transaction[];
+-  nextDocNumber: string;
+-  /** Darf die Person in "Buchungen & Kassenbuch" etwas anlegen? */
+-  canEdit: boolean;
+-  onSave: (tx: Transaction) => void | Promise<void>;
+-  onNavigateTab: (tab: MobileTab) => void;
+-}
+-
+-interface Draft {
+-  type: 'income' | 'expense';
+-  amountText: string;
+-  date: string;
+-  accountId: string;
+-  sphere: TaxSphere;
+-  department: string; // '' = Gesamtverein (keine Sparte)
+-  mainCategoryId: string;
+-  mainCategory: string; // z.B. "40000 - Echte Mitgliedsbeiträge"
+-  subCategory: string; // z.B. "40010 - ..." (label)
+-  skrAccount: string; // z.B. "40010"
+-  vatRate: 0 | 7 | 19;
+-  partner: string;
+-  bookingText: string;
+-  receipt: ReceiptAttachment | null;
+-  documentNumber: string;
+-}
+-
+-function emptyDraft(accounts: FinancialAccount[], docNumber: string, skr42: readonly Skr42MainCategory[]): Draft {
+-  // Vorbelegung mit dem ersten Ausgaben-Nummernkreis, weil der Typ auch mit
+-  // "Ausgabe" startet — dieselbe Fallback-Logik wie am Desktop
+-  // (TransactionFormModal.tsx). Die Wahl bleibt danach völlig frei.
+-  const initialMains = getAllSkr42MainCategories('expense', skr42);
+-  const firstMain = initialMains[0] || skr42[0];
+-  const firstSub = firstMain?.subCategories[0];
+-  return {
+-    type: 'expense',
+-    amountText: '',
+-    date: new Date().toISOString().split('T')[0],
+-    accountId: accounts[0]?.id || '',
+-    sphere: 'ideell',
+-    department: '',
+-    mainCategoryId: firstMain?.id || '',
+-    mainCategory: firstMain ? `${firstMain.code} - ${firstMain.name}` : '',
+-    subCategory: firstSub?.label || '',
+-    skrAccount: firstSub?.code || '',
+-    vatRate: firstSub?.vatRateDefault ?? 0,
+-    partner: '',
+-    bookingText: '',
+-    receipt: null,
+-    documentNumber: docNumber
+-  };
+-}
+-
+-const SPHERE_ORDER: TaxSphere[] = ['ideell', 'vermoegen', 'zweckbetrieb', 'wirtschaftlich'];
+-
+-export function MobileFinanceView({
+-  accounts,
+-  settings,
+-  existingTransactions,
+-  nextDocNumber,
+-  canEdit,
+-  onSave,
+-  onNavigateTab
+-}: MobileFinanceViewProps) {
+-  const skr42 = useSkr42();
+-  const [draft, setDraft] = useState<Draft>(() => emptyDraft(accounts, nextDocNumber, skr42));
+-  const [scannerOpen, setScannerOpen] = useState(false);
+-  const [isSaving, setIsSaving] = useState(false);
+-  const [justSaved, setJustSaved] = useState(false);
+-  const [saveError, setSaveError] = useState<string | null>(null);
+-
+-  // Alle Nummernkreise, unabhängig vom gewählten Typ (Einnahme/Ausgabe) —
+-  // siehe Erklärung oben. Gruppiert nach Einnahmen/Ausgaben, damit man sich
+-  // in der Liste trotzdem zurechtfindet.
+-  const mainCategories = useMemo(() => getAllSkr42MainCategories(undefined, skr42), [skr42]);
+-  const mainCatOptions: SearchableAccountOption[] = useMemo(
+-    () =>
+-      mainCategories.map(main => ({
+-        value: main.id,
+-        code: main.code,
+-        name: main.name,
+-        label: `${main.code} - ${main.name}`,
+-        group: main.type === 'income' ? 'Einnahmen-Konten (Erträge / Erlöse)' : 'Ausgaben-Konten (Kosten / Aufwand)',
+-        isCustom: main.isCustom
+-      })),
+-    [mainCategories]
+-  );
+-
+-  const subCategories = useMemo(
+-    () => getAllSkr42SubCategories(undefined, draft.mainCategoryId, skr42),
+-    [draft.mainCategoryId, skr42]
+-  );
+-  const subCatOptions: SearchableAccountOption[] = useMemo(
+-    () =>
+-      subCategories.map(sub => ({
+-        value: sub.label,
+-        code: sub.code,
+-        name: sub.name,
+-        label: sub.label,
+-        vatRateDefault: sub.vatRateDefault,
+-        isCustom: sub.isCustom
+-      })),
+-    [subCategories]
+-  );
+-
+-  const handleMainCatChange = (mainCatId: string) => {
+-    const main = mainCategories.find(m => m.id === mainCatId || m.code === mainCatId);
+-    if (!main) return;
+-    const firstSub = main.subCategories[0];
+-    setDraft(d => ({
+-      ...d,
+-      mainCategoryId: main.id,
+-      mainCategory: `${main.code} - ${main.name}`,
+-      subCategory: firstSub?.label || '',
+-      skrAccount: firstSub?.code || '',
+-      vatRate: firstSub?.vatRateDefault ?? 0
+-    }));
+-  };
+-
+-  const handleSubCatChange = (subCatLabel: string) => {
+-    const sub = subCategories.find(s => s.label === subCatLabel || s.code === subCatLabel || s.name === subCatLabel);
+-    setDraft(d => ({
+-      ...d,
+-      subCategory: subCatLabel,
+-      skrAccount: sub?.code || '',
+-      vatRate: sub ? sub.vatRateDefault : d.vatRate
+-    }));
+-  };
+-
+-  // ---------------------------------------------------------------------
+-  // Nur Leserecht: keine Eingabemaske, sondern derselbe Hinweis wie in den
+-  // anderen Bereichen der App. Wichtig, damit ein Sichern nicht lautlos
+-  // ins Leere läuft — die zentrale Rechtesperre in App.tsx zeigt ihren
+-  // Hinweis nur im Desktop-Baum, den die Mobil-Ansicht nicht rendert.
+-  // ---------------------------------------------------------------------
+-  if (!canEdit) {
+-    return (
+-      <div className="p-4">
+-        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3">
+-          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
+-          <p className="text-xs leading-snug">
+-            <strong>Nur Leserecht.</strong> Ihre Rolle darf Buchungen einsehen, aber keine neuen anlegen. Wenden Sie
+-            sich an den Vorstand, wenn Sie hier Buchungen erfassen müssen.
+-          </p>
+-        </div>
+-      </div>
+-    );
+-  }
+-
+-  if (justSaved) {
+-    return (
+-      <div className="p-6 flex flex-col items-center text-center gap-3 mt-16">
+-        <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center">
+-          <CheckCircle2 className="w-7 h-7 text-emerald-600" />
+-        </div>
+-        <p className="text-sm font-bold text-slate-800">Buchung gespeichert</p>
+-        <div className="flex flex-col gap-2 w-full max-w-xs pt-2">
+-          <button
+-            type="button"
+-            onClick={() => {
+-              setDraft(emptyDraft(accounts, nextDocNumber, skr42));
+-              setJustSaved(false);
+-            }}
+-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+-          >
+-            Weitere Buchung erfassen
+-          </button>
+-          <button
+-            type="button"
+-            onClick={() => onNavigateTab('dashboard')}
+-            className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+-          >
+-            Fertig
+-          </button>
+-        </div>
+-      </div>
+-    );
+-  }
+-
+-  const amountValid = /^\d+([.,]\d{1,2})?$/.test(draft.amountText.trim());
+-  const canSubmit =
+-    amountValid &&
+-    !!draft.accountId &&
+-    !!draft.mainCategoryId &&
+-    !!draft.subCategory &&
+-    draft.documentNumber.trim().length > 0 &&
+-    draft.partner.trim().length > 0 &&
+-    !isSaving;
+-
+-  const handleSubmit = async () => {
+-    if (!canSubmit) return;
+-    setIsSaving(true);
+-    setSaveError(null);
+-    try {
+-      const parsedAmount = Number.parseFloat(draft.amountText.trim().replace(',', '.'));
+-      const signedAmount = draft.type === 'expense' ? -Math.abs(parsedAmount) : Math.abs(parsedAmount);
+-      const now = new Date().toISOString();
+-      const tx: Transaction = {
+-        id: `tx-${Date.now()}`,
+-        date: draft.date,
+-        amount: signedAmount,
+-        type: draft.type,
+-        accountId: draft.accountId,
+-        documentNumber: draft.documentNumber.trim(),
+-        bookingText: draft.bookingText.trim() || draft.subCategory,
+-        partner: draft.partner.trim(),
+-        sphere: draft.sphere,
+-        department: draft.department || undefined,
+-        mainCategory: draft.mainCategory,
+-        subCategory: draft.subCategory,
+-        skrAccount: draft.skrAccount,
+-        category: draft.subCategory,
+-        vatRate: draft.vatRate,
+-        receipt: draft.receipt || undefined,
+-        createdAt: now,
+-        updatedAt: now
+-      };
+-      await onSave(tx);
+-      setJustSaved(true);
+-    } catch (err) {
+-      console.error('Buchung konnte nicht gespeichert werden:', err);
+-      setSaveError('Die Buchung konnte nicht gespeichert werden. Bitte erneut versuchen.');
+-    } finally {
+-      setIsSaving(false);
+-    }
+-  };
+-
+-  return (
+-    <div className="p-4 space-y-4 pb-8">
+-      {/* Beleg — bewusst zuerst, weil das Fotografieren "bevor der Zettel verloren geht" der Auslöser für diesen Bildschirm ist. */}
+-      {draft.receipt ? (
+-        <div className="p-4 bg-emerald-50 border-2 border-emerald-200 rounded-2xl flex items-center gap-3">
+-          <div className="w-12 h-12 rounded-xl bg-white border border-emerald-200 flex items-center justify-center overflow-hidden shrink-0">
+-            {draft.receipt.type.startsWith('image/') ? (
+-              <img src={draft.receipt.dataUrl} alt="Beleg" className="w-full h-full object-cover" />
+-            ) : (
+-              <FileText className="w-5 h-5 text-emerald-600" />
+-            )}
+-          </div>
+-          <div className="flex-1 min-w-0">
+-            <p className="text-xs font-bold text-emerald-800 truncate">{draft.receipt.name}</p>
+-            <p className="text-2xs text-emerald-600">Beleg digitalisiert</p>
+-          </div>
+-          <button
+-            type="button"
+-            onClick={() => setDraft(d => ({ ...d, receipt: null }))}
+-            title="Beleg entfernen"
+-            className="p-2 text-emerald-700 hover:bg-emerald-100 rounded-lg cursor-pointer shrink-0"
+-          >
+-            <Trash2 className="w-4 h-4" />
+-          </button>
+-        </div>
+-      ) : (
+-        <button
+-          type="button"
+-          onClick={() => setScannerOpen(true)}
+-          className="w-full flex items-center gap-3 p-4 rounded-2xl border-2 border-dashed border-blue-300 bg-blue-50 cursor-pointer active:bg-blue-100"
+-        >
+-          <div className="p-2.5 bg-blue-500 text-white rounded-xl shrink-0">
+-            <Camera className="w-5 h-5" />
+-          </div>
+-          <div className="flex-1 text-left">
+-            <p className="text-sm font-bold text-blue-900">Beleg fotografieren</p>
+-            <p className="text-2xs text-blue-600">Optional, aber empfohlen</p>
+-          </div>
+-          <ChevronRight className="w-4 h-4 text-blue-400" />
+-        </button>
+-      )}
+-
+-      {/* Typ, Betrag, Datum & Belegnummer */}
+-      <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3">
+-        <div className="grid grid-cols-2 gap-2">
+-          <button
+-            type="button"
+-            onClick={() => setDraft(d => ({ ...d, type: 'expense' }))}
+-            className={`py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+-              draft.type === 'expense' ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-500'
+-            }`}
+-          >
+-            Ausgabe
+-          </button>
+-          <button
+-            type="button"
+-            onClick={() => setDraft(d => ({ ...d, type: 'income' }))}
+-            className={`py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+-              draft.type === 'income' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'
+-            }`}
+-          >
+-            Einnahme
+-          </button>
+-        </div>
+-        <div>
+-          <label className="block text-2xs font-bold uppercase tracking-wider text-slate-400 mb-1">Betrag</label>
+-          <div className="relative">
+-            <input
+-              type="text"
+-              inputMode="decimal"
+-              value={draft.amountText}
+-              onChange={e => setDraft(d => ({ ...d, amountText: e.target.value }))}
+-              placeholder="0,00"
+-              className="w-full pl-3 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-lg font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+-            />
+-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold">€</span>
+-          </div>
+-          {draft.amountText.trim().length > 0 && !amountValid && (
+-            <p className="text-2xs text-rose-600 mt-1">Bitte einen gültigen Betrag eingeben, z. B. 24,90</p>
+-          )}
+-        </div>
+-        <div className="grid grid-cols-2 gap-2">
+-          <div>
+-            <label className="block text-2xs font-bold uppercase tracking-wider text-slate-400 mb-1">Datum</label>
+-            <input
+-              type="date"
+-              value={draft.date}
+-              onChange={e => setDraft(d => ({ ...d, date: e.target.value }))}
+-              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+-            />
+-          </div>
+-          <div>
+-            <label className="block text-2xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+-              Belegnummer
+-            </label>
+-            <input
+-              type="text"
+-              value={draft.documentNumber}
+-              onChange={e => setDraft(d => ({ ...d, documentNumber: e.target.value }))}
+-              placeholder="BE-2025-001"
+-              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+-            />
+-            {draft.documentNumber.trim().length === 0 && (
+-              <p className="text-2xs text-rose-600 mt-1">Belegnummer ist erforderlich</p>
+-            )}
+-          </div>
+-        </div>
+-      </div>
+-
+-      {/* Bankkonto / Barkasse */}
+-      <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3">
+-        <div>
+-          <label className="block text-2xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+-            Bankkonto / Barkasse
+-          </label>
+-          <select
+-            value={draft.accountId}
+-            onChange={e => setDraft(d => ({ ...d, accountId: e.target.value }))}
+-            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+-          >
+-            {accounts.length === 0 && <option value="">Kein Konto angelegt</option>}
+-            {accounts.map(acc => (
+-              <option key={acc.id} value={acc.id}>
+-                {acc.name}
+-              </option>
+-            ))}
+-          </select>
+-        </div>
+-      </div>
+-
+-      {/* Nummernkreis, Konto (SKR 42), Sparte & Umsatzsteuer */}
+-      <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3">
+-        <SearchableAccountSelect
+-          label="Nummernkreis (SKR 42)"
+-          value={draft.mainCategoryId}
+-          onChange={handleMainCatChange}
+-          options={mainCatOptions}
+-          placeholder="Nummernkreis auswählen …"
+-          searchPlaceholder="Nummer oder Nummernkreis tippen …"
+-        />
+-        <SearchableAccountSelect
+-          label="Konto (SKR 42)"
+-          value={draft.subCategory}
+-          onChange={handleSubCatChange}
+-          options={subCatOptions}
+-          placeholder="Konto auswählen …"
+-          searchPlaceholder="Nummer oder Begriff tippen …"
+-        />
+-        <div>
+-          <label className="block text-2xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+-            Sparte / Abteilung
+-          </label>
+-          <select
+-            value={draft.department}
+-            onChange={e => setDraft(d => ({ ...d, department: e.target.value }))}
+-            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+-          >
+-            <option value="">Gesamtverein (keine Sparte)</option>
+-            {settings.departments.map(dept => (
+-              <option key={dept} value={dept}>
+-                {dept}
+-              </option>
+-            ))}
+-          </select>
+-        </div>
+-        <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+-          <span className="font-mono text-2xs font-bold bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-blue-800">
+-            SKR 42: {draft.skrAccount || '–'}
+-          </span>
+-          <div className="flex items-center gap-2">
+-            <label className="text-2xs font-bold text-slate-500 uppercase tracking-wider">Umsatzsteuer</label>
+-            <select
+-              value={draft.vatRate}
+-              onChange={e => setDraft(d => ({ ...d, vatRate: Number.parseInt(e.target.value, 10) as 0 | 7 | 19 }))}
+-              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+-            >
+-              <option value={0}>0% (stfrei / ideell)</option>
+-              <option value={7}>7% (ermäßigt / Zweckbetrieb)</option>
+-              <option value={19}>19% (Regelsatz / wirtschaftlich)</option>
+-            </select>
+-          </div>
+-        </div>
+-      </div>
+-
+-      {/* Steuerliche Sphäre */}
+-      <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-2">
+-        <label className="block text-2xs font-bold uppercase tracking-wider text-slate-400">Steuerliche Sphäre</label>
+-        <div className="grid grid-cols-2 gap-2">
+-          {SPHERE_ORDER.map(sphereId => {
+-            const info = TAX_SPHERES[sphereId];
+-            const isActive = draft.sphere === sphereId;
+-            return (
+-              <button
+-                key={sphereId}
+-                type="button"
+-                onClick={() => setDraft(d => ({ ...d, sphere: sphereId }))}
+-                className={`px-2.5 py-2 rounded-xl text-2xs font-bold transition-colors cursor-pointer text-left ${
+-                  isActive ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'
+-                }`}
+-              >
+-                {info.name}
+-              </button>
+-            );
+-          })}
+-        </div>
+-        <p className="text-2xs text-slate-400">{TAX_SPHERES[draft.sphere].subtitle}</p>
+-      </div>
+-
+-      {/* Partner & Verwendungszweck */}
+-      <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3">
+-        <div>
+-          <label className="block text-2xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+-            {draft.type === 'expense' ? 'Zahlungsempfänger' : 'Einzahler'}
+-          </label>
+-          <input
+-            type="text"
+-            value={draft.partner}
+-            onChange={e => setDraft(d => ({ ...d, partner: e.target.value }))}
+-            placeholder="z. B. Sportgeschäft Meyer"
+-            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+-          />
+-        </div>
+-        <div>
+-          <label className="block text-2xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+-            Verwendungszweck (optional)
+-          </label>
+-          <input
+-            type="text"
+-            value={draft.bookingText}
+-            onChange={e => setDraft(d => ({ ...d, bookingText: e.target.value }))}
+-            placeholder={draft.subCategory || 'z. B. Trikots 2. Mannschaft'}
+-            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+-          />
+-        </div>
+-      </div>
+-
+-      {saveError && <p className="text-xs text-rose-600 text-center">{saveError}</p>}
+-
+-      <button
+-        type="button"
+-        disabled={!canSubmit}
+-        onClick={handleSubmit}
+-        className={`w-full py-3.5 rounded-2xl text-sm font-bold transition-colors cursor-pointer ${
+-          canSubmit ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+-        }`}
+-      >
+-        {isSaving ? 'Speichert …' : 'Buchung speichern'}
+-      </button>
+-
+-      {scannerOpen && (
+-        <ReceiptCameraScannerModal
+-          prefillDocumentNumber={draft.documentNumber}
+-          prefillPartner={draft.partner}
+-          prefillBookingText={draft.bookingText}
+-          existingTransactions={existingTransactions}
+-          accounts={accounts}
+-          settings={settings}
+-          onAttachReceipt={receipt => setDraft(d => ({ ...d, receipt }))}
+-          onClose={() => setScannerOpen(false)}
+-        />
+-      )}
+-    </div>
+-  );
+-}
+diff --git a/src/components/MobileMeetingsView.tsx b/src/components/MobileMeetingsView.tsx
+deleted file mode 100644
+index b9efe14..0000000
+--- a/src/components/MobileMeetingsView.tsx
++++ /dev/null
+@@ -1,243 +0,0 @@
+-/**
+- * @license
+- * SPDX-License-Identifier: Apache-2.0
+- */
+-
+-import { useMemo, useState } from 'react';
+-import { Meeting, MeetingType, MeetingStatus } from '../types';
+-import {
+-  ArrowLeft,
+-  Search,
+-  ChevronRight,
+-  CalendarDays,
+-  MapPin,
+-  Users,
+-  FileText,
+-  ScrollText,
+-  Scale
+-} from 'lucide-react';
+-
+-/**
+- * Sitzungsdienst (Mobil-Ansicht)
+- * ---------------------------------------------------------------------------
+- * Zweck: eine bereits angelegte Sitzung unterwegs nachschlagen. Anlegen,
+- * Ändern und Löschen von Sitzungen bleiben der Desktop-Ansicht vorbehalten
+- * — hier geht es nur um das Nachschlagen einer bestehenden Sitzung.
+- */
+-
+-const STATUS_BADGE: Record<MeetingStatus, { label: string; className: string }> = {
+-  approved: { label: 'GENEHMIGT', className: 'bg-emerald-100 text-emerald-800' },
+-  review: { label: 'IN PRÜFUNG', className: 'bg-amber-100 text-amber-800' },
+-  draft: { label: 'ENTWURF', className: 'bg-slate-100 text-slate-700' },
+-  in_progress: { label: 'LÄUFT', className: 'bg-blue-100 text-blue-800' },
+-  scheduled: { label: 'GEPLANT', className: 'bg-indigo-100 text-indigo-800' },
+-  cancelled: { label: 'ABGESAGT', className: 'bg-rose-100 text-rose-800' }
+-};
+-
+-// Dieselben Bezeichnungen wie in MeetingsView.tsx (Desktop), damit unterwegs
+-// nicht versehentlich ein anderes Wort für denselben Sitzungstyp auftaucht.
+-const TYPE_LABELS: Record<MeetingType, string> = {
+-  board: 'Vorstandssitzung',
+-  general_assembly: 'Mitgliederversammlung',
+-  extraordinary_assembly: 'Außerordentliche MV',
+-  committee: 'Ausschuss / Fachbereich',
+-  department: 'Abteilungsversammlung',
+-  other: 'Sonstige Sitzung'
+-};
+-
+-function formatMeetingDate(dateStr: string): string {
+-  if (!dateStr) return '';
+-  return new Date(`${dateStr}T00:00:00`).toLocaleDateString('de-DE', {
+-    weekday: 'short',
+-    day: '2-digit',
+-    month: '2-digit',
+-    year: 'numeric'
+-  });
+-}
+-
+-function timeRangeLabel(meeting: Meeting): string {
+-  if (meeting.startTime && meeting.endTime) return `${meeting.startTime} - ${meeting.endTime} Uhr`;
+-  if (meeting.startTime) return `${meeting.startTime} Uhr`;
+-  return '';
+-}
+-
+-interface MobileMeetingsViewProps {
+-  meetings: Meeting[];
+-}
+-
+-export function MobileMeetingsView({ meetings }: MobileMeetingsViewProps) {
+-  const [query, setQuery] = useState('');
+-  const [selectedId, setSelectedId] = useState<string | null>(null);
+-
+-  const sortedMeetings = useMemo(
+-    () => [...meetings].sort((a, b) => `${b.date}${b.startTime}`.localeCompare(`${a.date}${a.startTime}`)),
+-    [meetings]
+-  );
+-
+-  const filteredMeetings = useMemo(() => {
+-    const q = query.trim().toLowerCase();
+-    if (!q) return sortedMeetings;
+-    return sortedMeetings.filter(
+-      m =>
+-        m.title.toLowerCase().includes(q) ||
+-        m.location.toLowerCase().includes(q) ||
+-        m.chairperson.toLowerCase().includes(q)
+-    );
+-  }, [sortedMeetings, query]);
+-
+-  // Immer der aktuelle Stand aus der (von App.tsx geladenen) Liste, damit die
+-  // Ansicht nach dem Speichern automatisch die neuen Daten zeigt.
+-  const selectedMeeting = selectedId ? meetings.find(m => m.id === selectedId) ?? null : null;
+-
+-  if (selectedMeeting) {
+-    const badge = STATUS_BADGE[selectedMeeting.status];
+-    const totalResolutions = selectedMeeting.agenda.reduce((acc, top) => acc + (top.resolutions?.length || 0), 0);
+-
+-    return (
+-      <div className="p-4 space-y-4 pb-6">
+-        <button
+-          type="button"
+-          onClick={() => setSelectedId(null)}
+-          className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 cursor-pointer"
+-        >
+-          <ArrowLeft className="w-4 h-4" />
+-          Zurück zur Liste
+-        </button>
+-
+-        <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3">
+-          <div className="flex items-start justify-between gap-3">
+-            <p className="text-lg font-bold text-slate-900 min-w-0">{selectedMeeting.title}</p>
+-            <span
+-              className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${badge.className}`}
+-            >
+-              {badge.label}
+-            </span>
+-          </div>
+-          <span className="inline-block px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-100 text-purple-800">
+-            {TYPE_LABELS[selectedMeeting.type] || 'Sitzung'}
+-          </span>
+-        </div>
+-
+-        <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3">
+-          <div className="flex items-center gap-3 text-sm text-slate-700">
+-            <CalendarDays className="w-4 h-4 text-indigo-500 shrink-0" />
+-            <span>
+-              {formatMeetingDate(selectedMeeting.date)}
+-              {timeRangeLabel(selectedMeeting) ? ` · ${timeRangeLabel(selectedMeeting)}` : ''}
+-            </span>
+-          </div>
+-          {selectedMeeting.location && (
+-            <div className="flex items-center gap-3 text-sm text-slate-700">
+-              <MapPin className="w-4 h-4 text-indigo-500 shrink-0" />
+-              <span>{selectedMeeting.location}</span>
+-            </div>
+-          )}
+-          <div className="flex items-center gap-3 text-sm text-slate-700">
+-            <Users className="w-4 h-4 text-indigo-500 shrink-0" />
+-            <span>
+-              {selectedMeeting.chairperson} (Leitung) · {selectedMeeting.minuteKeeper} (Protokoll)
+-            </span>
+-          </div>
+-        </div>
+-
+-        <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-2.5">
+-          <p className="text-2xs font-bold uppercase tracking-wider text-slate-400">
+-            Tagesordnung ({selectedMeeting.agenda.length} {selectedMeeting.agenda.length === 1 ? 'TOP' : 'TOPs'})
+-          </p>
+-          {selectedMeeting.agenda.length === 0 ? (
+-            <p className="text-xs text-slate-400">Noch keine Tagesordnungspunkte erfasst.</p>
+-          ) : (
+-            <div className="space-y-1.5">
+-              {selectedMeeting.agenda.map(top => (
+-                <div key={top.id} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+-                  <div className="flex items-center justify-between gap-2">
+-                    <p className="text-xs font-semibold text-slate-800 min-w-0 truncate">
+-                      <span className="text-purple-700 mr-1.5">{top.number}:</span>
+-                      {top.title}
+-                    </p>
+-                    {top.resolutions && top.resolutions.length > 0 && (
+-                      <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
+-                        <Scale className="w-2.5 h-2.5" />
+-                        {top.resolutions.length}
+-                      </span>
+-                    )}
+-                  </div>
+-                  {top.discussionNotes && (
+-                    <p className="text-2xs text-slate-500 mt-1 line-clamp-2">{top.discussionNotes}</p>
+-                  )}
+-                </div>
+-              ))}
+-            </div>
+-          )}
+-          {totalResolutions > 0 && (
+-            <p className="text-2xs text-slate-400 pt-1">
+-              {totalResolutions} {totalResolutions === 1 ? 'Beschluss' : 'Beschlüsse'} insgesamt
+-            </p>
+-          )}
+-        </div>
+-
+-        {selectedMeeting.generalNotes && (
+-          <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-1.5">
+-            <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+-              <FileText className="w-3.5 h-3.5" />
+-              Notizen
+-            </p>
+-            <p className="text-xs text-slate-600 whitespace-pre-wrap">{selectedMeeting.generalNotes}</p>
+-          </div>
+-        )}
+-
+-      </div>
+-    );
+-  }
+-
+-  return (
+-    <div className="p-4 space-y-3 pb-6">
+-      <div className="relative">
+-        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+-        <input
+-          type="text"
+-          value={query}
+-          onChange={e => setQuery(e.target.value)}
+-          placeholder="Titel, Ort, Leitung …"
+-          className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+-        />
+-      </div>
+-
+-      {filteredMeetings.length === 0 ? (
+-        <div className="text-center py-12">
+-          <ScrollText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+-          <p className="text-sm text-slate-400">Keine Sitzungen gefunden</p>
+-        </div>
+-      ) : (
+-        <div className="space-y-1.5">
+-          {filteredMeetings.map(meeting => {
+-            const badge = STATUS_BADGE[meeting.status];
+-            return (
+-              <button
+-                key={meeting.id}
+-                type="button"
+-                onClick={() => setSelectedId(meeting.id)}
+-                className="w-full flex items-center justify-between gap-3 p-3.5 bg-white border border-slate-200 rounded-xl text-left cursor-pointer active:bg-slate-50"
+-              >
+-                <div className="min-w-0">
+-                  <p className="text-sm font-semibold text-slate-900 truncate">{meeting.title}</p>
+-                  <p className="text-2xs text-slate-500 truncate">
+-                    {formatMeetingDate(meeting.date)} · {TYPE_LABELS[meeting.type] || 'Sitzung'}
+-                  </p>
+-                </div>
+-                <div className="flex items-center gap-2 shrink-0">
+-                  <span
+-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${badge.className}`}
+-                  >
+-                    {badge.label}
+-                  </span>
+-                  <ChevronRight className="w-4 h-4 text-slate-300" />
+-                </div>
+-              </button>
+-            );
+-          })}
+-        </div>
+-      )}
+-    </div>
+-  );
+-}
+diff --git a/src/components/MobileMembersView.tsx b/src/components/MobileMembersView.tsx
+deleted file mode 100644
+index ca10942..0000000
+--- a/src/components/MobileMembersView.tsx
++++ /dev/null
+@@ -1,420 +0,0 @@
+-/**
+- * @license
+- * SPDX-License-Identifier: Apache-2.0
+- */
+-
+-import { useMemo, useState } from 'react';
+-import { Member } from '../types';
+-import {
+-  Search,
+-  ArrowLeft,
+-  Phone,
+-  Mail,
+-  MapPin,
+-  CalendarDays,
+-  Wallet,
+-  ChevronRight,
+-  SlidersHorizontal,
+-  ArrowUp,
+-  ArrowDown,
+-  X
+-} from 'lucide-react';
+-
+-/**
+- * Mitglied nachschlagen (Mobil-Ansicht)
+- * ---------------------------------------------------------------------------
+- * Bewusst nur LESEND: Anlegen, Ändern und Löschen bleiben der Desktop-
+- * Ansicht vorbehalten — das hier ist für die Frage "wie war noch die
+- * Telefonnummer/Adresse von …", nicht für die Pflege der Stammdaten.
+- *
+- * Bewusst NICHT gezeigt: Bankverbindung (IBAN/BIC) und interne Notizen. Wer
+- * unterwegs kurz nachschaut, braucht das in aller Regel nicht — und ein
+- * Blick übers Handy-Display sollte nicht gleich eine Kontonummer zeigen.
+- * Wer das doch braucht, findet es in der Desktop-Ansicht.
+- *
+- * Filter (Status, Abteilung, Mitgliedstyp) und Sortierung orientieren sich
+- * an den Filtern der Desktop-MembersView.tsx — bewusst nur eine kleine,
+- * mobil-taugliche Auswahl statt aller 26 sortierbaren Tabellenspalten dort:
+- * Auf dem Handy gibt es keine Tabelle mit Spaltenköpfen zum Anklicken.
+- * Standardmäßig eingeklappt, damit die Liste beim Öffnen nicht von Filtern
+- * verstellt wird — die meisten werden hier ohnehin zuerst suchen.
+- */
+-
+-// Dieselbe Beschriftung wie in MembersView.tsx, damit unterwegs nicht
+-// versehentlich ein anderes Wort für denselben Wert auftaucht.
+-const MEMBERSHIP_TYPE_LABELS: Record<string, string> = {
+-  full: 'Vollmitglied',
+-  reduced: 'Ermäßigt',
+-  youth: 'Jugend / Kinder',
+-  family: 'Familie',
+-  supporting: 'Förderer / Sponsor',
+-  honorary: 'Ehrenmitglied',
+-  ausgetreten: 'Ausgetreten',
+-  terminated: 'Gekündigt'
+-};
+-
+-const FEE_PERIOD_LABELS: Record<string, string> = {
+-  monthly: 'monatlich',
+-  quarterly: 'vierteljährlich',
+-  half_yearly: 'halbjährlich',
+-  yearly: 'jährlich',
+-  none: 'beitragsfrei'
+-};
+-
+-const STATUS_BADGE: Record<Member['status'], { label: string; className: string }> = {
+-  active: { label: 'AKTIV', className: 'bg-emerald-100 text-emerald-800' },
+-  passive: { label: 'PASSIV', className: 'bg-slate-100 text-slate-700' },
+-  honorary: { label: 'EHREN', className: 'bg-amber-100 text-amber-800' },
+-  suspended: { label: 'RUHEND', className: 'bg-yellow-100 text-yellow-800' },
+-  terminated: { label: 'GEKÜNDIGT', className: 'bg-rose-100 text-rose-800' }
+-};
+-
+-const STATUS_FILTER_OPTIONS: { value: Member['status']; label: string }[] = [
+-  { value: 'active', label: 'Aktiv' },
+-  { value: 'passive', label: 'Passiv' },
+-  { value: 'honorary', label: 'Ehren' },
+-  { value: 'suspended', label: 'Ruhend' },
+-  { value: 'terminated', label: 'Gekündigt' }
+-];
+-
+-type SortField = 'name' | 'number' | 'entryDate' | 'status';
+-
+-const SORT_LABELS: Record<SortField, string> = {
+-  name: 'Name',
+-  number: 'Mitgliedsnummer',
+-  entryDate: 'Eintrittsdatum',
+-  status: 'Status'
+-};
+-
+-interface MobileMembersViewProps {
+-  members: Member[];
+-}
+-
+-export function MobileMembersView({ members }: MobileMembersViewProps) {
+-  const [query, setQuery] = useState('');
+-  const [selectedId, setSelectedId] = useState<string | null>(null);
+-  const [filtersOpen, setFiltersOpen] = useState(false);
+-  const [statusFilter, setStatusFilter] = useState<Member['status'] | 'all'>('all');
+-  const [deptFilter, setDeptFilter] = useState<string>('all');
+-  const [typeFilter, setTypeFilter] = useState<string>('all');
+-  const [sortBy, setSortBy] = useState<SortField>('name');
+-  const [sortAsc, setSortAsc] = useState(true);
+-
+-  const departmentOptions = useMemo(() => {
+-    const set = new Set<string>();
+-    members.forEach(m => {
+-      if (m.department) set.add(m.department);
+-    });
+-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'de'));
+-  }, [members]);
+-
+-  const typeOptions = useMemo(() => {
+-    const set = new Set<string>();
+-    members.forEach(m => set.add(m.membershipType));
+-    return Array.from(set);
+-  }, [members]);
+-
+-  const activeFilterCount = [statusFilter !== 'all', deptFilter !== 'all', typeFilter !== 'all'].filter(
+-    Boolean
+-  ).length;
+-
+-  const resetFilters = () => {
+-    setStatusFilter('all');
+-    setDeptFilter('all');
+-    setTypeFilter('all');
+-  };
+-
+-  const filteredMembers = useMemo(() => {
+-    const q = query.trim().toLowerCase();
+-    const filtered = members.filter(m => {
+-      if (statusFilter !== 'all' && m.status !== statusFilter) return false;
+-      if (deptFilter !== 'all' && m.department !== deptFilter) return false;
+-      if (typeFilter !== 'all' && m.membershipType !== typeFilter) return false;
+-      if (!q) return true;
+-      return (
+-        `${m.firstName} ${m.lastName}`.toLowerCase().includes(q) ||
+-        m.memberNumber.toLowerCase().includes(q) ||
+-        m.email.toLowerCase().includes(q) ||
+-        m.department.toLowerCase().includes(q)
+-      );
+-    });
+-
+-    const sorted = [...filtered].sort((a, b) => {
+-      let cmp = 0;
+-      if (sortBy === 'name') {
+-        cmp = `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, 'de');
+-      } else if (sortBy === 'number') {
+-        cmp = a.memberNumber.localeCompare(b.memberNumber, 'de', { numeric: true });
+-      } else if (sortBy === 'entryDate') {
+-        cmp = a.entryDate.localeCompare(b.entryDate);
+-      } else if (sortBy === 'status') {
+-        cmp = a.status.localeCompare(b.status);
+-      }
+-      return sortAsc ? cmp : -cmp;
+-    });
+-
+-    return sorted;
+-  }, [members, query, statusFilter, deptFilter, typeFilter, sortBy, sortAsc]);
+-
+-  const selectedMember = selectedId ? members.find(m => m.id === selectedId) ?? null : null;
+-
+-  if (selectedMember) {
+-    const badge = STATUS_BADGE[selectedMember.status];
+-    const fullAddress = [
+-      `${selectedMember.address.street} ${selectedMember.address.houseNumber}`.trim(),
+-      `${selectedMember.address.zip} ${selectedMember.address.city}`.trim()
+-    ]
+-      .filter(part => part.trim().length > 0)
+-      .join(', ');
+-
+-    return (
+-      <div className="p-4 space-y-4 pb-6">
+-        <button
+-          type="button"
+-          onClick={() => setSelectedId(null)}
+-          className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 cursor-pointer"
+-        >
+-          <ArrowLeft className="w-4 h-4" />
+-          Zurück zur Liste
+-        </button>
+-
+-        <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3">
+-          <div className="flex items-start justify-between gap-3">
+-            <div className="min-w-0">
+-              <p className="text-lg font-bold text-slate-900 truncate">
+-                {selectedMember.firstName} {selectedMember.lastName}
+-              </p>
+-              <p className="text-2xs text-slate-500 font-mono">Mitglieds-Nr. {selectedMember.memberNumber}</p>
+-            </div>
+-            <span
+-              className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${badge.className}`}
+-            >
+-              {badge.label}
+-            </span>
+-          </div>
+-          <div className="flex items-center gap-2 text-xs text-slate-600">
+-            <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold">
+-              {MEMBERSHIP_TYPE_LABELS[selectedMember.membershipType] || selectedMember.membershipType}
+-            </span>
+-            {selectedMember.department && (
+-              <>
+-                <span className="text-slate-400">•</span>
+-                <span>{selectedMember.department}</span>
+-              </>
+-            )}
+-          </div>
+-        </div>
+-
+-        <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3">
+-          <p className="text-2xs font-bold uppercase tracking-wider text-slate-400">Kontakt</p>
+-          {selectedMember.phone && (
+-            <a href={`tel:${selectedMember.phone}`} className="flex items-center gap-3 text-sm text-slate-700">
+-              <Phone className="w-4 h-4 text-blue-500 shrink-0" />
+-              <span className="underline">{selectedMember.phone}</span>
+-            </a>
+-          )}
+-          {selectedMember.email && (
+-            <a href={`mailto:${selectedMember.email}`} className="flex items-center gap-3 text-sm text-slate-700">
+-              <Mail className="w-4 h-4 text-blue-500 shrink-0" />
+-              <span className="underline truncate">{selectedMember.email}</span>
+-            </a>
+-          )}
+-          {fullAddress && (
+-            <div className="flex items-start gap-3 text-sm text-slate-700">
+-              <MapPin className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+-              <span>{fullAddress}</span>
+-            </div>
+-          )}
+-          {!selectedMember.phone && !selectedMember.email && !fullAddress && (
+-            <p className="text-xs text-slate-400">Keine Kontaktdaten hinterlegt</p>
+-          )}
+-        </div>
+-
+-        <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3">
+-          <p className="text-2xs font-bold uppercase tracking-wider text-slate-400">Mitgliedschaft & Beitrag</p>
+-          <div className="flex items-center gap-3 text-sm text-slate-700">
+-            <CalendarDays className="w-4 h-4 text-blue-500 shrink-0" />
+-            <span>
+-              Eintritt: {new Date(selectedMember.entryDate).toLocaleDateString('de-DE')}
+-              {selectedMember.exitDate &&
+-                ` · Austritt: ${new Date(selectedMember.exitDate).toLocaleDateString('de-DE')}`}
+-            </span>
+-          </div>
+-          <div className="flex items-center gap-3 text-sm text-slate-700">
+-            <Wallet className="w-4 h-4 text-blue-500 shrink-0" />
+-            <span>
+-              {selectedMember.feeAmount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
+-              € ({FEE_PERIOD_LABELS[selectedMember.feePeriod] || selectedMember.feePeriod})
+-            </span>
+-          </div>
+-        </div>
+-
+-        <p className="text-2xs text-slate-400 text-center px-4">
+-          Nur zum Nachschlagen. Bankverbindung und interne Notizen sind hier bewusst nicht sichtbar — dafür bitte die
+-          Desktop-Ansicht öffnen.
+-        </p>
+-      </div>
+-    );
+-  }
+-
+-  return (
+-    <div className="p-4 space-y-3 pb-6">
+-      <div className="flex gap-2">
+-        <div className="relative flex-1">
+-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+-          <input
+-            type="text"
+-            value={query}
+-            onChange={e => setQuery(e.target.value)}
+-            placeholder="Name, Mitgliedsnummer, Sparte …"
+-            className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+-          />
+-        </div>
+-        <button
+-          type="button"
+-          onClick={() => setFiltersOpen(o => !o)}
+-          className={`relative shrink-0 px-3 rounded-xl border cursor-pointer flex items-center justify-center ${
+-            filtersOpen || activeFilterCount > 0
+-              ? 'bg-blue-600 border-blue-600 text-white'
+-              : 'bg-white border-slate-200 text-slate-500'
+-          }`}
+-          title="Filter & Sortierung"
+-        >
+-          <SlidersHorizontal className="w-4 h-4" />
+-          {activeFilterCount > 0 && (
+-            <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 flex items-center justify-center rounded-full bg-rose-600 text-white text-[10px] font-bold">
+-              {activeFilterCount}
+-            </span>
+-          )}
+-        </button>
+-      </div>
+-
+-      {filtersOpen && (
+-        <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-3">
+-          <div>
+-            <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Status</p>
+-            <div className="flex flex-wrap gap-1.5">
+-              {STATUS_FILTER_OPTIONS.map(opt => {
+-                const isActive = statusFilter === opt.value;
+-                return (
+-                  <button
+-                    key={opt.value}
+-                    type="button"
+-                    onClick={() => setStatusFilter(isActive ? 'all' : opt.value)}
+-                    className={`px-2.5 py-1 rounded-full text-2xs font-bold cursor-pointer transition-colors ${
+-                      isActive ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
+-                    }`}
+-                  >
+-                    {opt.label}
+-                  </button>
+-                );
+-              })}
+-            </div>
+-          </div>
+-
+-          <div className="grid grid-cols-2 gap-2">
+-            <div>
+-              <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 mb-1">Abteilung</p>
+-              <select
+-                value={deptFilter}
+-                onChange={e => setDeptFilter(e.target.value)}
+-                className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+-              >
+-                <option value="all">Alle</option>
+-                {departmentOptions.map(dept => (
+-                  <option key={dept} value={dept}>
+-                    {dept}
+-                  </option>
+-                ))}
+-              </select>
+-            </div>
+-            <div>
+-              <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 mb-1">Mitgliedstyp</p>
+-              <select
+-                value={typeFilter}
+-                onChange={e => setTypeFilter(e.target.value)}
+-                className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+-              >
+-                <option value="all">Alle</option>
+-                {typeOptions.map(type => (
+-                  <option key={type} value={type}>
+-                    {MEMBERSHIP_TYPE_LABELS[type] || type}
+-                  </option>
+-                ))}
+-              </select>
+-            </div>
+-          </div>
+-
+-          <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+-            <p className="text-2xs font-bold uppercase tracking-wider text-slate-400 shrink-0">Sortieren</p>
+-            <select
+-              value={sortBy}
+-              onChange={e => setSortBy(e.target.value as SortField)}
+-              className="flex-1 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+-            >
+-              {(Object.keys(SORT_LABELS) as SortField[]).map(field => (
+-                <option key={field} value={field}>
+-                  {SORT_LABELS[field]}
+-                </option>
+-              ))}
+-            </select>
+-            <button
+-              type="button"
+-              onClick={() => setSortAsc(a => !a)}
+-              title={sortAsc ? 'Aufsteigend' : 'Absteigend'}
+-              className="p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 cursor-pointer shrink-0"
+-            >
+-              {sortAsc ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+-            </button>
+-          </div>
+-
+-          {activeFilterCount > 0 && (
+-            <button
+-              type="button"
+-              onClick={resetFilters}
+-              className="w-full flex items-center justify-center gap-1.5 py-1.5 text-2xs font-semibold text-blue-600 cursor-pointer"
+-            >
+-              <X className="w-3 h-3" />
+-              Filter zurücksetzen
+-            </button>
+-          )}
+-        </div>
+-      )}
+-
+-      {filteredMembers.length === 0 ? (
+-        <p className="text-center text-sm text-slate-400 py-8">Keine Mitglieder gefunden.</p>
+-      ) : (
+-        <div className="space-y-1.5">
+-          {filteredMembers.map(member => {
+-            const badge = STATUS_BADGE[member.status];
+-            return (
+-              <button
+-                key={member.id}
+-                type="button"
+-                onClick={() => setSelectedId(member.id)}
+-                className="w-full flex items-center justify-between gap-3 p-3.5 bg-white border border-slate-200 rounded-xl text-left cursor-pointer active:bg-slate-50"
+-              >
+-                <div className="min-w-0">
+-                  <p className="text-sm font-semibold text-slate-900 truncate">
+-                    {member.firstName} {member.lastName}
+-                  </p>
+-                  <p className="text-2xs text-slate-500 truncate">
+-                    {member.department || 'Ohne Abteilung'} · Nr. {member.memberNumber}
+-                  </p>
+-                </div>
+-                <div className="flex items-center gap-2 shrink-0">
+-                  <span
+-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${badge.className}`}
+-                  >
+-                    {badge.label}
+-                  </span>
+-                  <ChevronRight className="w-4 h-4 text-slate-300" />
+-                </div>
+-              </button>
+-            );
+-          })}
+-        </div>
+-      )}
+-    </div>
+-  );
+-}
+diff --git a/src/components/MobileShell.tsx b/src/components/MobileShell.tsx
+deleted file mode 100644
+index ed4654c..0000000
+--- a/src/components/MobileShell.tsx
++++ /dev/null
+@@ -1,183 +0,0 @@
+-/**
+- * @license
+- * SPDX-License-Identifier: Apache-2.0
+- */
+-
+-import { useState, type ReactNode } from 'react';
+-import { LayoutDashboard, Users, CalendarDays, Wallet, Vote, FolderArchive, Monitor, LogOut } from 'lucide-react';
+-import { PermissionArea } from '../types';
+-
+-/**
+- * Die schlanke Mobil-Ansicht für den Zugriff von unterwegs.
+- * ---------------------------------------------------------------------------
+- * Bewusst KEIN zweiter, unabhängiger App-Baum: Dieses Bauteil bekommt von
+- * App.tsx nur die bereits geladenen Daten und die bestehende Rechteprüfung
+- * (mayAccess) übergeben — dieselbe Anmeldung, dieselben Berechtigungen,
+- * dieselben Daten wie die Desktop-Ansicht. Nur die Darstellung ist anders:
+- * eine Tab-Leiste am unteren Bildschirmrand statt einer Seitenleiste, große
+- * Tippflächen statt dichter Tabellen, keine Rechtsklick-Menüs (die gibt es
+- * auf einem Touchscreen nicht).
+- *
+- * Jede Kachel erscheint nur, wenn die Person laut ihren Berechtigungen
+- * mindestens Lesezugriff auf den jeweiligen Bereich hat — exakt dieselbe
+- * Prüfung wie am Desktop, kein zweites Regelwerk.
+- */
+-export type MobileTab = 'dashboard' | 'members' | 'calendar' | 'finance' | 'meetings' | 'documents';
+-
+-interface MobileTabDefinition {
+-  id: MobileTab;
+-  area: PermissionArea;
+-  label: string;
+-  icon: typeof LayoutDashboard;
+-}
+-
+-const MOBILE_TABS: MobileTabDefinition[] = [
+-  { id: 'dashboard', area: 'dashboard', label: 'Start', icon: LayoutDashboard },
+-  { id: 'members', area: 'members', label: 'Mitglieder', icon: Users },
+-  { id: 'calendar', area: 'calendar', label: 'Termine', icon: CalendarDays },
+-  { id: 'finance', area: 'finance', label: 'Buchung', icon: Wallet },
+-  { id: 'meetings', area: 'meetings', label: 'Sitzungen', icon: Vote },
+-  { id: 'documents', area: 'documents', label: 'Dokumente', icon: FolderArchive }
+-];
+-
+-interface MobileShellProps {
+-  clubName: string;
+-  clubLogoUrl?: string;
+-  /** Darf der Benutzer diesen Bereich sehen? Identische Prüfung wie am Desktop. */
+-  mayAccess: (area: PermissionArea) => boolean;
+-  onSwitchToDesktop: () => void;
+-  onLogout: () => void;
+-  /**
+-   * Liefert den Inhalt für den jeweils aktiven Tab. Der zweite Parameter
+-   * erlaubt einem Bildschirm, gezielt zu einem anderen Tab zu wechseln (z. B.
+-   * eine Kachel auf dem Start-Bildschirm, die zu "Mitglieder" führt) — ohne
+-   * gesperrte Bereiche, die Prüfung läuft hier zentral mit.
+-   */
+-  renderTabContent: (tab: MobileTab, goToTab: (target: MobileTab) => void) => ReactNode;
+-}
+-
+-export function MobileShell({
+-  clubName,
+-  clubLogoUrl,
+-  mayAccess,
+-  onSwitchToDesktop,
+-  onLogout,
+-  renderTabContent
+-}: MobileShellProps) {
+-  const availableTabs = MOBILE_TABS.filter(tab => mayAccess(tab.area));
+-  const [selectedTab, setSelectedTab] = useState<MobileTab | null>(() => availableTabs[0]?.id ?? null);
+-
+-  // Falls sich die Rechte ändern (z. B. weil ein anderes Konto angemeldet
+-  // wurde) und der zuletzt gewählte Tab nicht mehr erlaubt ist: auf den
+-  // ersten weiterhin erlaubten Tab ausweichen, statt eine gesperrte Ansicht
+-  // stehen zu lassen.
+-  const activeTab =
+-    selectedTab && availableTabs.some(tab => tab.id === selectedTab) ? selectedTab : availableTabs[0]?.id ?? null;
+-
+-  /** Wechselt den Tab, aber nur, wenn er laut Rechten überhaupt erlaubt ist. */
+-  const goToTab = (target: MobileTab) => {
+-    if (availableTabs.some(tab => tab.id === target)) {
+-      setSelectedTab(target);
+-    }
+-  };
+-
+-  return (
+-    <div className="flex flex-col h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
+-      {/* Kopfzeile */}
+-      <header className="shrink-0 bg-slate-900 text-white px-4 py-3 flex items-center justify-between shadow-sm">
+-        <div className="flex items-center gap-2.5 min-w-0">
+-          <div className="w-8 h-8 rounded-lg bg-white p-1 flex items-center justify-center overflow-hidden shrink-0">
+-            <img
+-              src={clubLogoUrl || '/logo_transparent.png'}
+-              alt={clubName || 'VereinsManager Logo'}
+-              className="w-full h-full object-contain"
+-              onError={e => {
+-                if (e.currentTarget.src !== window.location.origin + '/logo_transparent.png') {
+-                  e.currentTarget.src = '/logo_transparent.png';
+-                }
+-              }}
+-            />
+-          </div>
+-          <span className="text-sm font-bold truncate">{clubName || 'VereinsManager'}</span>
+-        </div>
+-        <div className="flex items-center gap-1 shrink-0">
+-          <button
+-            type="button"
+-            onClick={onSwitchToDesktop}
+-            title="Zur Desktop-Ansicht wechseln"
+-            className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+-          >
+-            <Monitor className="w-5 h-5" />
+-          </button>
+-          <button
+-            type="button"
+-            onClick={onLogout}
+-            title="Abmelden"
+-            className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+-          >
+-            <LogOut className="w-5 h-5" />
+-          </button>
+-        </div>
+-      </header>
+-
+-      {/* Inhalt des jeweils aktiven Bereichs */}
+-      <main className="flex-1 overflow-y-auto">
+-        {activeTab ? (
+-          renderTabContent(activeTab, goToTab)
+-        ) : (
+-          <div className="p-6 text-center text-sm text-slate-500">
+-            Für dieses Konto ist in der Mobil-Ansicht kein Bereich freigegeben. Wenden Sie sich an den Vorstand, wenn
+-            Sie hier Zugriff benötigen.
+-          </div>
+-        )}
+-      </main>
+-
+-      {/* Tab-Leiste am unteren Bildschirmrand */}
+-      {availableTabs.length > 0 && (
+-        <nav
+-          className="shrink-0 bg-white border-t border-slate-200 flex items-stretch"
+-          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+-        >
+-          {availableTabs.map(tab => {
+-            const Icon = tab.icon;
+-            const isActive = tab.id === activeTab;
+-            return (
+-              <button
+-                key={tab.id}
+-                type="button"
+-                onClick={() => setSelectedTab(tab.id)}
+-                className={`flex-1 flex flex-col items-center gap-1 py-2.5 text-2xs font-semibold transition-colors cursor-pointer ${
+-                  isActive ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
+-                }`}
+-              >
+-                <Icon className={`w-5 h-5 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
+-                <span>{tab.label}</span>
+-              </button>
+-            );
+-          })}
+-        </nav>
+-      )}
+-    </div>
+-  );
+-}
+-
+-/**
+- * Platzhalter für einen Bereich, der in einem der nächsten Bauschritte durch
+- * die tatsächliche Ansicht ersetzt wird. Bewusst freundlich formuliert statt
+- * technisch ("nicht implementiert"), weil hier eine Vereinsperson steht, kein
+- * Entwickler.
+- */
+-export function MobilePlaceholderView({ label }: { label: string }) {
+-  return (
+-    <div className="p-6 flex flex-col items-center text-center gap-2 mt-12">
+-      <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500 text-xl font-bold">
+-        …
+-      </div>
+-      <p className="text-sm font-bold text-slate-700">{label} folgt in Kürze</p>
+-      <p className="text-xs text-slate-500 max-w-xs">
+-        Dieser Bereich der Mobil-Ansicht wird als Nächstes gebaut. Die Navigation und Berechtigungsprüfung stehen
+-        bereits.
+-      </p>
+-    </div>
+-  );
+-}
+diff --git a/src/components/ServerAccessKeyPanel.tsx b/src/components/ServerAccessKeyPanel.tsx
+index 512fd33..7822504 100644
+--- a/src/components/ServerAccessKeyPanel.tsx
++++ b/src/components/ServerAccessKeyPanel.tsx
+@@ -12,13 +12,15 @@ import {
+  * ---------------------------------------------------------------------------
+  *
+  * Der Server beantwortet seit Fassung 1.3 keinen /api-Aufruf mehr ohne
+- * Ausweis. Im Lokalbetrieb regelt das Startskript alles von selbst; sichtbar
+- * wird diese Maske erst dann, wenn die App von einem anderen Rechner aus
+- * geöffnet wird — typischerweise bei einer Installation auf einem NAS.
++ * Ausweis. Das Startskript regelt das normalerweise von selbst — diese Maske
++ * in ihrer ausführlichen Form wird nur sichtbar, wenn die automatische
++ * Übergabe aus irgendeinem Grund nicht ankam (z. B. privater Modus mit
++ * gesperrtem Browser-Speicher, oder die Adresse wurde ohne den
++ * Zugriffsschlüssel im Fragment geöffnet).
+  *
+  * Geprüft wird mit einem echten, geschützten Aufruf (/api/access-check). Die
+- * Statusseite taugt dafür nicht: Sie ist absichtlich offen, damit Docker sie
+- * abfragen kann, und würde deshalb auch ohne gültigen Schlüssel antworten.
++ * Statusseite taugt dafür nicht: Sie ist absichtlich offen und würde deshalb
++ * auch ohne gültigen Schlüssel antworten.
+  *
+  * Was hängt heute noch an diesem Schlüssel? Nach der Entfernung von KI
+  * (Schritt 2) und E-Mail-Versand (Schritt 3) ist das nur noch der
+@@ -153,15 +155,13 @@ export const ServerAccessKeyPanel: React.FC = () => {
+         </p>
+         <ul className="list-disc pl-5 space-y-1">
+           <li>
+-            <strong>Docker / NAS:</strong> <code>docker logs vereinsmanager_app</code>
+-          </li>
+-          <li>
+-            <strong>Eigener Start:</strong> im Fenster, in dem der Server läuft
++            im Fenster, in dem der Server läuft (z. B. das vom Startskript geöffnete Terminal)
+           </li>
+         </ul>
+         <p>
+-          Wer die App auf demselben Rechner über das mitgelieferte Startskript öffnet, muss hier
+-          nichts eintragen — dort wird der Schlüssel automatisch übergeben.
++          Wer die App über das mitgelieferte Startskript öffnet, muss hier normalerweise nichts
++          eintragen — dort wird der Schlüssel automatisch übergeben. Diese Maske ist nur für den
++          Fall gedacht, dass das einmal nicht funktioniert hat.
+         </p>
+       </div>
+ 
+diff --git a/src/server/instanceConfig.ts b/src/server/instanceConfig.ts
+index f81193a..c79503d 100644
+--- a/src/server/instanceConfig.ts
++++ b/src/server/instanceConfig.ts
+@@ -22,7 +22,9 @@
+  * ins Leere, was Node stillschweigend hinnimmt.
+  *
+  * Über eine Umgebungsvariable lässt sich das Verzeichnis verlegen:
+- *   VM_DATA_DIR     anderes Verzeichnis (z. B. ein Docker-Volume)
++ *   VM_DATA_DIR     anderes Verzeichnis (so setzt es z. B. die
++ *                   Desktop-Fassung, auf ein Verzeichnis, in das sie
++ *                   betriebssystembedingt schreiben darf)
+  */
+ 
+ import crypto from 'node:crypto';
+diff --git a/src/server/serverRoutes.test.ts b/src/server/serverRoutes.test.ts
+index 40c5591..4f36880 100644
+--- a/src/server/serverRoutes.test.ts
++++ b/src/server/serverRoutes.test.ts
+@@ -96,7 +96,7 @@ describe('Zugriffsschutz (gilt für alle /api-Routen)', () => {
+     expect(antwort.body.success).toBe(true);
+   });
+ 
+-  it('lässt die Statusseite /api/health ohne Zugriffsschlüssel durch (Docker fragt sie ohne Ausweis ab)', async () => {
++  it('lässt die Statusseite /api/health ohne Zugriffsschlüssel durch (bewusst offen)', async () => {
+     const antwort = await request(app).get('/api/health');
+     expect(antwort.status).toBe(200);
+     expect(antwort.body.status).toBe('ok');

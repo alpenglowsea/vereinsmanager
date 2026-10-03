@@ -12,13 +12,13 @@ import {
  * ---------------------------------------------------------------------------
  *
  * Der Server beantwortet seit Fassung 1.3 keinen /api-Aufruf mehr ohne
- * Ausweis. Im Lokalbetrieb regelt das Startskript alles von selbst; sichtbar
- * wird diese Maske erst dann, wenn die App von einem anderen Rechner aus
- * geöffnet wird — typischerweise bei einer Installation auf einem NAS.
+ * Ausweis. Das Startskript regelt das normalerweise von selbst — diese Maske
+ * in ihrer ausführlichen Form wird nur sichtbar, wenn die automatische
+ * Übergabe aus irgendeinem Grund nicht ankam (z. B. privater Modus mit
+ * gesperrtem Browser-Speicher, oder die Adresse wurde ohne den
+ * Zugriffsschlüssel im Fragment geöffnet).
  *
- * Geprüft wird mit einem echten, geschützten Aufruf (/api/access-check). Die
- * Statusseite taugt dafür nicht: Sie ist absichtlich offen, damit Docker sie
- * abfragen kann, und würde deshalb auch ohne gültigen Schlüssel antworten.
+ * Geprüft wird mit einem echten, geschützten Aufruf (/api/access-check).
  *
  * Was hängt heute noch an diesem Schlüssel? Nach der Entfernung von KI
  * (Schritt 2) und E-Mail-Versand (Schritt 3) ist das nur noch der
@@ -153,15 +153,13 @@ export const ServerAccessKeyPanel: React.FC = () => {
         </p>
         <ul className="list-disc pl-5 space-y-1">
           <li>
-            <strong>Docker / NAS:</strong> <code>docker logs vereinsmanager_app</code>
-          </li>
-          <li>
-            <strong>Eigener Start:</strong> im Fenster, in dem der Server läuft
+            im Fenster, in dem der Server läuft (z. B. das vom Startskript geöffnete Terminal)
           </li>
         </ul>
         <p>
-          Wer die App auf demselben Rechner über das mitgelieferte Startskript öffnet, muss hier
-          nichts eintragen — dort wird der Schlüssel automatisch übergeben.
+          Wer die App über das mitgelieferte Startskript öffnet, muss hier normalerweise nichts
+          eintragen — dort wird der Schlüssel automatisch übergeben. Diese Maske ist nur für den
+          Fall gedacht, dass das einmal nicht funktioniert hat.
         </p>
       </div>
 

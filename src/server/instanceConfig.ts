@@ -22,7 +22,9 @@
  * ins Leere, was Node stillschweigend hinnimmt.
  *
  * Über eine Umgebungsvariable lässt sich das Verzeichnis verlegen:
- *   VM_DATA_DIR     anderes Verzeichnis (z. B. ein Docker-Volume)
+ *   VM_DATA_DIR     anderes Verzeichnis (so setzt es z. B. die
+ *                   Desktop-Fassung, auf ein Verzeichnis, in das sie
+ *                   betriebssystembedingt schreiben darf)
  */
 
 import crypto from 'node:crypto';

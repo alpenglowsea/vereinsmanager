@@ -56,14 +56,6 @@ import { DocumentsView } from './components/DocumentsView';
 import { CalendarView } from './components/CalendarView';
 import { OnlineApplicationsView } from './components/OnlineApplicationsView';
 import { MeetingsView } from './components/MeetingsView';
-import { PublicApplicationForm } from './components/PublicApplicationForm';
-import { MobileShell, type MobileTab } from './components/MobileShell';
-import { MobileDashboardView } from './components/MobileDashboardView';
-import { MobileMembersView } from './components/MobileMembersView';
-import { MobileCalendarView } from './components/MobileCalendarView';
-import { MobileFinanceView } from './components/MobileFinanceView';
-import { MobileMeetingsView } from './components/MobileMeetingsView';
-import { MobileDocumentsView } from './components/MobileDocumentsView';
 
 // Modals & Drawers
 import { DashboardConfigModal } from './components/DashboardConfigModal';
@@ -121,8 +113,7 @@ import {
   FileSignature,
   SlidersHorizontal,
   Contact,
-  ScrollText,
-  Smartphone
+  ScrollText
 } from 'lucide-react';
 
 /**
@@ -133,52 +124,10 @@ import {
  */
 type ActiveTab = Exclude<PermissionArea, 'users'>;
 
-/**
- * Schlüssel für die von Hand gewählte Ansicht (Mobil-Ansicht erzwingen oder
- * abschalten). Bewusst im Browser des Geräts gespeichert, nicht in den
- * Benutzereinstellungen der Datenbank: Es ist eine Eigenschaft des Geräts
- * ("das hier ist mein Telefon"), keine Eigenschaft der Person.
- */
-const VIEW_MODE_OVERRIDE_KEY = 'vm_view_mode_override';
-
-function readViewModeOverride(): 'mobile' | 'desktop' | null {
-  if (typeof window === 'undefined') return null;
-  const stored = window.localStorage.getItem(VIEW_MODE_OVERRIDE_KEY);
-  return stored === 'mobile' || stored === 'desktop' ? stored : null;
-}
-
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [settingsActiveTab, setSettingsActiveTab] = useState<'general' | 'club' | 'users' | 'backup' | 'deployment' | 'support' | 'bugreport'>('general');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  /**
-   * Mobil-Ansicht: aktiv, wenn entweder automatisch erkannt (Bildschirm
-   * schmaler als 768px) oder von Hand über den Umschalter gewählt. Die Wahl
-   * per Hand übersteuert die automatische Erkennung, bis sie wieder
-   * aufgehoben wird — sonst könnte sich jemand mit großem Tablet nicht für
-   * die Desktop-Ansicht entscheiden, und ein schmales Testfenster am
-   * Rechner ließe sich nicht willentlich in der Mobil-Ansicht halten.
-   */
-  const [viewModeOverride, setViewModeOverrideState] = useState<'mobile' | 'desktop' | null>(readViewModeOverride);
-  const [isNarrowViewport, setIsNarrowViewport] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(max-width: 767px)').matches;
-  });
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mediaQuery = window.matchMedia('(max-width: 767px)');
-    const handleChange = (event: MediaQueryListEvent) => setIsNarrowViewport(event.matches);
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
-  const isMobileView = viewModeOverride ? viewModeOverride === 'mobile' : isNarrowViewport;
-  const setViewModeOverride = (value: 'mobile' | 'desktop' | null) => {
-    setViewModeOverrideState(value);
-    if (typeof window === 'undefined') return;
-    if (value) window.localStorage.setItem(VIEW_MODE_OVERRIDE_KEY, value);
-    else window.localStorage.removeItem(VIEW_MODE_OVERRIDE_KEY);
-  };
   const [loading, setLoading] = useState(true);
 
   // Theme Management (Light, Dark, System)
@@ -244,16 +193,6 @@ export default function App() {
     defaultFeeRules: { full: 18.0, reduced: 12.0, youth: 10.0, family: 30.0, supporting: 25.0 },
     requirePhotoConsent: true,
     requireHealthConfirmation: true
-  });
-  const [isPublicFormMode, setIsPublicFormMode] = useState<boolean>(() => {
-    // Genau prüfen statt nur "enthält irgendwo das Wort": Seit das Formular
-    // ohne Anmeldung erreichbar ist, entscheidet dieser Wert darüber, ob ein
-    // Besucher das Antragsformular oder das Anmeldefenster sieht. Ein
-    // zufälliger Parameter wie "?platform=..." darf das nicht auslösen.
-    if (typeof window === 'undefined') return false;
-    const params = new URLSearchParams(window.location.search);
-    const view = (params.get('view') || '').toLowerCase();
-    return view === 'antrag' || view === 'form' || params.has('antrag');
   });
   const [settings, setSettings] = useState<ClubSettings>({
     clubName: 'TSV Musterstadt 1890 e.V.',
@@ -1169,28 +1108,6 @@ export default function App() {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // Öffentlicher Aufnahmeantrag
-  //
-  // Ein Interessent füllt das Formular direkt an diesem Rechner aus, etwa bei
-  // der Anmeldung im Vereinsheim, und soll dafür nicht angemeldet sein
-  // müssen. Deshalb steht dieser Abschnitt VOR der Anmeldesperre.
-  // ---------------------------------------------------------------------
-  if (isPublicFormMode && !authSession.isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-slate-900">
-        <PublicApplicationForm
-          settings={settings}
-          templateSettings={applicationSettings}
-          isStandalone
-          onSubmitApplication={async (app) => {
-            await StorageService.saveOnlineApplication(app);
-          }}
-        />
-      </div>
-    );
-  }
-
   // Auth Gate: If user is not authenticated, show Login Screen
   if (!authSession.isAuthenticated) {
     return (
@@ -1231,80 +1148,6 @@ export default function App() {
     if (!mayAccess(tab)) return;
     setActiveTab(tab);
   };
-
-  // ---------------------------------------------------------------------
-  // Mobil-Ansicht
-  //
-  // Eine schlanke, für Touch gebaute Ansicht mit ausgewählten Kernfunktionen
-  // für den Zugriff von unterwegs. Bewusst kein zweiter, unabhängiger
-  // App-Baum: Sie steht erst NACH der Anmeldesperre, damit sie dieselben
-  // bereits geladenen Daten, dieselbe Anmeldung und dieselbe Rechteprüfung
-  // (mayAccess) verwendet wie die Desktop-Ansicht — nur die Darstellung ist
-  // eine andere.
-  // ---------------------------------------------------------------------
-  if (isMobileView) {
-    return (
-      <MobileShell
-        clubName={settings.clubName}
-        clubLogoUrl={settings.clubLogoUrl}
-        mayAccess={(area) => mayAccess(area as ActiveTab)}
-        onSwitchToDesktop={() => setViewModeOverride('desktop')}
-        onLogout={() => AuthService.logout()}
-        renderTabContent={(tab: MobileTab, goToMobileTab) => {
-          if (tab === 'dashboard') {
-            return (
-              <MobileDashboardView
-                members={members}
-                transactions={transactions}
-                accounts={accounts}
-                meetings={meetings}
-                applications={onlineApplications}
-                calendarRefreshKey={calendarRefreshKey}
-                mayAccess={(area) => mayAccess(area as ActiveTab)}
-                onNavigateTab={goToMobileTab}
-              />
-            );
-          }
-          if (tab === 'members') {
-            return <MobileMembersView members={members} />;
-          }
-          if (tab === 'calendar') {
-            return <MobileCalendarView calendarRefreshKey={calendarRefreshKey} members={members} />;
-          }
-          if (tab === 'finance') {
-            return (
-              <MobileFinanceView
-                accounts={accounts}
-                settings={settings}
-                existingTransactions={transactions}
-                nextDocNumber={nextDocNumber}
-                canEdit={mayEdit('finance')}
-                onSave={handleSaveTransaction}
-                onNavigateTab={goToMobileTab}
-              />
-            );
-          }
-          if (tab === 'meetings') {
-            return (
-              <MobileMeetingsView
-                meetings={meetings}
-              />
-            );
-          }
-          return (
-            <MobileDocumentsView
-              documents={documents}
-              folders={folders}
-              members={members}
-              transactions={transactions}
-              canEdit={mayEdit('documents')}
-              onSaveDocuments={handleSaveBatchDocuments}
-            />
-          );
-        }}
-      />
-    );
-  }
 
   return (
     <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
@@ -1982,19 +1825,6 @@ export default function App() {
                         <span>Benutzerverwaltung & Rechte</span>
                       </button>
                     )}
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUserDropdownOpen(false);
-                        setViewModeOverride('mobile');
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg text-left transition-colors"
-                      title="Zum Testen: zeigt die schlanke Ansicht für unterwegs, auch auf diesem Gerät"
-                    >
-                      <Smartphone className="w-4 h-4 text-blue-600" />
-                      <span>Mobil-Ansicht (Test)</span>
-                    </button>
 
                     <button
                       type="button"
@@ -2779,49 +2609,6 @@ export default function App() {
             StorageService.saveDashboardConfig(DEFAULT_DASHBOARD_CONFIG);
           }}
         />
-      )}
-
-      {/* Public Online Membership Application Modal / Standalone Mode */}
-      {isPublicFormMode && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-200">
-          <div className="bg-slate-50 w-full max-w-4xl min-h-screen sm:min-h-0 sm:rounded-3xl shadow-2xl overflow-hidden my-auto flex flex-col border border-slate-700">
-            <div className="bg-slate-900 text-white px-5 sm:px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 bg-blue-600/30 text-blue-400 rounded-lg border border-blue-500/30">
-                  <FileSignature className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-white">
-                    Öffentliches Antragsformular — Live-Vorschau
-                  </h3>
-                  <p className="text-[11px] text-slate-400">
-                    Dieser Dialog simuliert das Antragsformular für Interessenten am Smartphone oder PC
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsPublicFormMode(false)}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border border-slate-700"
-              >
-                <X className="w-4 h-4" />
-                <span>Schließen</span>
-              </button>
-            </div>
-            <div className="p-3 sm:p-6 overflow-y-auto flex-1 bg-slate-100">
-              <PublicApplicationForm
-                settings={settings}
-                templateSettings={applicationSettings}
-                onSubmitApplication={async (app) => {
-                  await StorageService.saveOnlineApplication(app);
-                  await loadData();
-                  setIsPublicFormMode(false);
-                }}
-                onClose={() => setIsPublicFormMode(false)}
-              />
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Hinweis bei fehlender Berechtigung */}
