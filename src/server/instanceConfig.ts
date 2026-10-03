@@ -59,14 +59,6 @@ export interface AccessKeyInfo {
  * Moduls zwischengespeichert. Das kostet nichts und macht die Tests möglich:
  * sie setzen VM_DATA_DIR auf ein Wegwerf-Verzeichnis.
  */
-/**
- * Exportiert für src/server/db/localDb.ts: Die lokale SQLite-Datenbank des
- * eigenen Servers (Betriebsart 3) liegt bewusst im selben Verzeichnis wie
- * diese Konfigurationsdateien — dieselbe VM_DATA_DIR-Variable, derselbe Ort,
- * dieselbe Sicherungslogik. Eine zweite, eigene Definition dieser Funktion in
- * localDb.ts hätte auseinanderlaufen können, sobald sich hier einmal etwas
- * ändert (z. B. ein anderer Vorgabe-Pfad).
- */
 export function dataDir(): string {
   const eingestellt = process.env.VM_DATA_DIR?.trim();
   return eingestellt ? path.resolve(eingestellt) : path.join(process.cwd(), 'daten');

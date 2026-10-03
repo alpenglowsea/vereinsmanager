@@ -9,7 +9,6 @@ import {
   canView,
   isViewOnlyArea,
   migrateLegacyPermissions,
-  parseUserPermissions,
   permissionsFrom
 } from './permissions';
 
@@ -162,48 +161,3 @@ describe('Übernahme alter Benutzerkonten', () => {
   });
 });
 
-/**
- * Neu für Stufe 3 (serverseitige Rechteprüfung des eigenen Servers, siehe
- * server.ts, Route PUT /api/local-server/users/:id/permissions): Anders als
- * migrateLegacyPermissions() oben, das großzügig ist (fehlende Bereiche
- * gelten als erlaubt), verlangt parseUserPermissions() eine vollständige
- * Angabe — wer über die API Rechte setzt, soll nicht aus einem Versehen
- * (einem vergessenen Feld) mehr bekommen, als beabsichtigt war.
- */
-describe('parseUserPermissions', () => {
-  it('akzeptiert eine vollständige, gültige Struktur unverändert', () => {
-    expect(parseUserPermissions(ALL_AREAS_EDIT)).toEqual(ALL_AREAS_EDIT);
-    expect(parseUserPermissions(ALL_AREAS_NONE)).toEqual(ALL_AREAS_NONE);
-  });
-
-  it('lehnt einen fehlenden Bereich ab (kein stillschweigendes Auffüllen)', () => {
-    const unvollstaendig: Record<string, unknown> = { ...ALL_AREAS_EDIT };
-    delete unvollstaendig[ALL_AREAS[0]];
-    expect(parseUserPermissions(unvollstaendig)).toBeNull();
-  });
-
-  it('lehnt einen ungültigen Wert in einem Bereich ab', () => {
-    const ungueltig: Record<string, unknown> = { ...ALL_AREAS_EDIT, members: 'voll' };
-    expect(parseUserPermissions(ungueltig)).toBeNull();
-  });
-
-  it('lehnt null, undefined, Zahlen, Zeichenketten und Arrays ab', () => {
-    expect(parseUserPermissions(null)).toBeNull();
-    expect(parseUserPermissions(undefined)).toBeNull();
-    expect(parseUserPermissions(42)).toBeNull();
-    expect(parseUserPermissions('edit')).toBeNull();
-    expect(parseUserPermissions([])).toBeNull();
-  });
-
-  it('schwächt "edit" auf einem reinen Auswertungsbereich zu "view" ab, lehnt es aber nicht ab', () => {
-    const eingabe = { ...ALL_AREAS_NONE, dashboard: 'edit' as const };
-    const ergebnis = parseUserPermissions(eingabe);
-    expect(ergebnis).not.toBeNull();
-    expect(ergebnis!.dashboard).toBe('view');
-  });
-
-  it('ignoriert zusätzliche, unbekannte Schlüssel im Eingabeobjekt', () => {
-    const eingabe = { ...ALL_AREAS_EDIT, irgendwas_erfundenes: 'edit' };
-    expect(parseUserPermissions(eingabe)).toEqual(ALL_AREAS_EDIT);
-  });
-});

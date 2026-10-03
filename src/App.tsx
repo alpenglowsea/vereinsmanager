@@ -96,7 +96,6 @@ import { DonationFormModal } from './components/DonationFormModal';
 import { MeetingFormModal } from './components/MeetingFormModal';
 import { CalendarEventModal } from './components/CalendarEventModal';
 import { LoginScreen } from './components/LoginScreen';
-import { ForcedPasswordChangeScreen } from './components/ForcedPasswordChangeScreen';
 import { UserManageModal } from './components/UserManageModal';
 import { AppVersionBadge } from './components/AppVersionBadge';
 
@@ -1319,15 +1318,6 @@ export default function App() {
 
   const currentUser = authSession.user;
 
-  // Pflicht-Passwortänderung im gehosteten Betrieb: Ein vom Vorstand mit
-  // Anfangspasswort angelegtes Konto muss dieses zuerst durch ein eigenes
-  // ersetzen, bevor es irgendetwas anderes in der Anwendung sieht. Bewusst
-  // VOR jeder weiteren Weiche hier, damit kein Bildschirm dazwischen
-  // aufblitzt (siehe ForcedPasswordChangeScreen.tsx für den Ablauf danach).
-  if (currentUser && currentUser.mustChangePassword) {
-    return <ForcedPasswordChangeScreen settings={settings} user={currentUser} />;
-  }
-
   const canEditFinances = mayEdit('finance');
   const canEditMembers = mayEdit('members');
   const canManageUsers = mayEdit('users');
@@ -2533,7 +2523,6 @@ export default function App() {
                 onLocked={() => requireEdit('settings')}
                 canManageUsers={mayEdit('users')}
                 currentCloudUserId={authSession.loginMethod === 'supabase' ? currentUser?.id : undefined}
-                currentLocalServerUserId={authSession.loginMethod === 'localserver' ? currentUser?.id : undefined}
                 onUsersLocked={() => requireEdit('users')}
                 />
             )}

@@ -16,9 +16,15 @@ import {
  * wird diese Maske erst dann, wenn die App von einem anderen Rechner aus
  * geöffnet wird — typischerweise bei einer Installation auf einem NAS.
  *
- * Geprüft wird mit einem echten, geschützten Aufruf. Die Statusseite taugt
- * dafür nicht: Sie ist absichtlich offen, damit Docker sie abfragen kann, und
- * würde deshalb auch ohne gültigen Schlüssel antworten.
+ * Geprüft wird mit einem echten, geschützten Aufruf (/api/access-check). Die
+ * Statusseite taugt dafür nicht: Sie ist absichtlich offen, damit Docker sie
+ * abfragen kann, und würde deshalb auch ohne gültigen Schlüssel antworten.
+ *
+ * Was hängt heute noch an diesem Schlüssel? Nach der Entfernung von KI
+ * (Schritt 2) und E-Mail-Versand (Schritt 3) ist das nur noch der
+ * Fehlerbericht-Knopf (/api/submit-bugreport) — der Schlüssel verhindert,
+ * dass Fremde über die Adresse dieser Installation beliebig viele
+ * Fehlerberichte einreichen.
  */
 
 type Zustand = 'pruefend' | 'ok' | 'kein_zugriff' | 'server_weg';
@@ -36,9 +42,8 @@ export const ServerAccessKeyPanel: React.FC = () => {
     setZustand('pruefend');
     try {
       // Irgendeine geschützte Route genügt — es geht nur um die Antwort auf
-      // den Zugriffsschlüssel, nicht um den Inhalt. "auth/status" braucht
-      // dafür keine Anmeldung, nur den Schlüssel (siehe server.ts).
-      const antwort = await apiFetch('/api/local-server/auth/status');
+      // den Zugriffsschlüssel, nicht um den Inhalt (siehe server.ts).
+      const antwort = await apiFetch('/api/access-check');
       if (antwort.ok) {
         setZustand('ok');
         return;
@@ -72,8 +77,8 @@ export const ServerAccessKeyPanel: React.FC = () => {
         <div className="flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-200">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>
-            <strong>Serververbindung in Ordnung.</strong> E-Mail-Versand, Belegerkennung und
-            KI-Funktionen stehen zur Verfügung.
+            <strong>Serververbindung in Ordnung.</strong> Der Fehlerbericht-Knopf in den
+            Einstellungen kann damit genutzt werden.
           </span>
         </div>
         <button
@@ -105,8 +110,8 @@ export const ServerAccessKeyPanel: React.FC = () => {
             Kein Server erreichbar.
           </strong>
           Mitgliederverwaltung, Finanzen und alle übrigen Bereiche arbeiten normal weiter. Nicht
-          zur Verfügung stehen der E-Mail-Versand, die Belegerkennung und die KI-Funktionen — die
-          brauchen den Server. In der Desktop-Fassung ist das der Normalzustand.
+          zur Verfügung steht nur der Fehlerbericht-Knopf in den Einstellungen — der braucht den
+          Server. In der Desktop-Fassung ist das der Normalzustand.
         </div>
       </div>
     );
@@ -134,7 +139,7 @@ export const ServerAccessKeyPanel: React.FC = () => {
         <div className="flex items-start gap-2 p-3 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/60 rounded-xl text-xs text-amber-900 dark:text-amber-200">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <div>
-            Ohne diesen Schlüssel bleiben E-Mail-Versand, Belegerkennung und die KI-Funktionen
+            Ohne diesen Schlüssel bleibt nur der Fehlerbericht-Knopf in den Einstellungen
             gesperrt. Alle übrigen Bereiche arbeiten normal weiter.
           </div>
         </div>
@@ -142,9 +147,9 @@ export const ServerAccessKeyPanel: React.FC = () => {
 
       <div className="text-xs text-slate-600 dark:text-slate-300 space-y-1.5">
         <p>
-          Der Schlüssel schützt den Server davor, dass Fremde über das Postfach des Vereins Mails
-          verschicken oder auf dessen Rechnung KI-Anfragen stellen. Er wird beim ersten Start
-          erzeugt und in der Startausgabe des Servers angezeigt:
+          Der Schlüssel schützt den Server davor, dass Fremde über diese Installation beliebig
+          viele Fehlerberichte einreichen. Er wird beim ersten Start erzeugt und in der
+          Startausgabe des Servers angezeigt:
         </p>
         <ul className="list-disc pl-5 space-y-1">
           <li>

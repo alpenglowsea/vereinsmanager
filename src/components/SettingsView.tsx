@@ -6,7 +6,6 @@ import { SnapshotService, AutoSnapshot } from '../services/snapshotService';
 import { CURRENT_APP_VERSION } from '../services/updateService';
 import { PermissionMatrix } from './PermissionMatrix';
 import { CloudUserAdminPanel } from './CloudUserAdminPanel';
-import { LocalServerUserAdminPanel } from './LocalServerUserAdminPanel';
 import { usesNativeCrypto } from '../services/passwordService';
 import { apiFetch } from '../services/apiClient';
 import { ServerAccessKeyPanel } from './ServerAccessKeyPanel';
@@ -111,8 +110,6 @@ interface SettingsViewProps {
   onUsersLocked?: () => void;
   /** Kennung des angemeldeten Cloud-Benutzers (nur im Cloud-Betrieb gesetzt). */
   currentCloudUserId?: string;
-  /** Kennung des angemeldeten Benutzers (nur im gehosteten Betrieb gesetzt). */
-  currentLocalServerUserId?: string;
 }
 
 /** Neue Benutzer starten gesperrt — freigeschaltet wird bewusst. */
@@ -196,8 +193,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onLocked,
   canManageUsers = true,
   onUsersLocked,
-  currentCloudUserId,
-  currentLocalServerUserId
+  currentCloudUserId
 }) => {
   const [currentDepMode, setCurrentDepMode] = useState<DeploymentMode>(
     deploymentMode || StorageService.getDeploymentMode()
@@ -225,8 +221,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   /** Läuft die Anwendung gegen eine Cloud-Datenbank? */
   const isCloudMode = deploymentMode === 'cloud';
-  /** Läuft die Anwendung gegen den eigenen Server (Betriebsart 3, SQLite)? */
-  const isSelfhostedMode = deploymentMode === 'selfhosted';
   const prevInitialTabRef = useRef(initialTab);
 
   const switchTab = (tab: SettingsTab) => {
@@ -395,7 +389,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       report += `==================================================\n`;
       report += `6. SYSTEM- & DIAGNOSE-DATEN:\n`;
       report += `- App-Version: v${CURRENT_APP_VERSION}\n`;
-      report += `- Betriebsmodus: ${currentDepMode === 'cloud' ? 'Cloud-Hosting (Supabase EU)' : currentDepMode === 'selfhosted' ? 'Selbsthoster (Docker Server)' : 'Lokaler Einzelplatz (IndexedDB)'}\n`;
+      report += `- Betriebsmodus: ${currentDepMode === 'cloud' ? 'Cloud-Hosting (Supabase EU)' : 'Lokaler Einzelplatz (IndexedDB)'}\n`;
       report += `- Zeitstempel: ${new Date().toLocaleString('de-DE')}\n`;
       report += `- Browser & Plattform: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'Unbekannt'}\n`;
       report += `- Sprache: ${typeof navigator !== 'undefined' ? navigator.language : 'de-DE'}\n`;
@@ -2241,24 +2235,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       )}
 
-      {/*
-        Im gehosteten Betrieb (Betriebsart 3, eigener Server) liegen die
-        Konten ebenfalls nicht im Browser, sondern in der SQLite-Datenbank
-        des Servers — eine dritte, eigene Maske aus demselben Grund wie beim
-        Cloud-Betrieb oben: Die lokale Liste unten kennt diese Konten gar
-        nicht.
-      */}
-      {activeTab === 'users' && isSelfhostedMode && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs animate-in fade-in duration-150">
-          <LocalServerUserAdminPanel
-            currentUserId={currentLocalServerUserId}
-            canManage={canManageUsers}
-            onLocked={onUsersLocked}
-          />
-        </div>
-      )}
-
-      {activeTab === 'users' && !isCloudMode && !isSelfhostedMode && (
+      {activeTab === 'users' && !isCloudMode && (
         <div className="space-y-6 animate-in fade-in duration-150">
           {/* Was der Passwortschutz im lokalen Betrieb leistet — und was nicht.
               Ohne diesen Hinweis hält ein Verein die Anmeldung leicht für einen

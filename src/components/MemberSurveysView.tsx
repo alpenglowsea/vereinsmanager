@@ -188,8 +188,6 @@ export const MemberSurveysView: React.FC<MemberSurveysViewProps> = ({
                   <strong className="text-slate-700 dark:text-slate-200">
                     {currentMode === 'local'
                       ? 'Lokaler Betrieb (Browser / IndexedDB)'
-                      : currentMode === 'selfhosted'
-                      ? 'Eigener Server / NAS (Selfhosted)'
                       : 'Cloud-Modus (Supabase nicht verbunden)'}
                   </strong>
                 </span>

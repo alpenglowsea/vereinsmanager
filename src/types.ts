@@ -461,14 +461,6 @@ export interface AppUser {
   lastLogin?: string;
   createdAt: string;
   updatedAt?: string;
-  /**
-   * Nur im gehosteten Betrieb (Betriebsart "selfhosted", eigener Server mit
-   * SQLite): Ein vom Vorstand neu angelegtes Konto bekommt ein
-   * Anfangspasswort und muss es bei der ersten Anmeldung selbst ändern,
-   * bevor es weiterarbeiten kann. In den anderen Betriebsarten bleibt das
-   * Feld leer/false — dort gibt es dieses Konzept nicht.
-   */
-  mustChangePassword?: boolean;
 }
 
 export interface SecuritySettings {
@@ -485,7 +477,7 @@ export interface SupabaseConfig {
 export interface UserAuthSession {
   user: AppUser | null;
   isAuthenticated: boolean;
-  loginMethod?: 'user' | 'demo' | 'supabase' | 'localserver';
+  loginMethod?: 'user' | 'demo' | 'supabase';
   loginTime?: string;
 }
 

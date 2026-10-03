@@ -168,36 +168,6 @@ export const canView = (permissions: UserPermissions, area: PermissionArea): boo
 export const canEdit = (permissions: UserPermissions, area: PermissionArea): boolean =>
   permissions[area] === 'edit' && !isViewOnlyArea(area);
 
-// --- Eingabeprüfung (serverseitig) ---------------------------------------
-
-/**
- * Prüft, ob ein von außen kommender Wert (z. B. der Inhalt einer API-
- * Anfrage) eine vollständige, gültige UserPermissions-Struktur ist: für
- * JEDEN der Bereiche oben genau einer der drei Werte, nichts fehlt. Anders
- * als migrateLegacyPermissions() weiter unten füllt diese Funktion NICHTS
- * stillschweigend auf — wer die Rechte eines Kontos setzt, muss für jeden
- * Bereich sagen, was gelten soll, sonst kommt null zurück. Das ist bewusst
- * strenger: Bei einer Migration alter Daten soll niemand Rechte verlieren,
- * die er gestern hatte; beim expliziten Setzen neuer Rechte über die API
- * soll dagegen niemand aus einem Versehen (ein vergessenes Feld im
- * gesendeten Objekt) plötzlich Vollzugriff bekommen.
- *
- * Erzwingt dieselbe "viewOnly"-Regel wie fill()/permissionsFrom() oben:
- * "edit" auf einem reinen Auswertungsbereich wird zu "view" abgeschwächt,
- * nie abgelehnt.
- */
-export function parseUserPermissions(value: unknown): UserPermissions | null {
-  if (!value || typeof value !== 'object') return null;
-  const quelle = value as Record<string, unknown>;
-  const ergebnis = {} as UserPermissions;
-  for (const bereich of ALL_AREAS) {
-    const wert = quelle[bereich];
-    if (wert !== 'none' && wert !== 'view' && wert !== 'edit') return null;
-    ergebnis[bereich] = isViewOnlyArea(bereich) && wert === 'edit' ? 'view' : wert;
-  }
-  return ergebnis;
-}
-
 // --- Vorlagen ------------------------------------------------------------
 
 function fill(level: AccessLevel): UserPermissions {

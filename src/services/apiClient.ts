@@ -22,12 +22,9 @@
  * auf dem ohnehin die Vereinsdaten liegen; er eröffnet keinen Zugang, den der
  * Besitzer dieses Browsers nicht ohnehin hätte.
  *
- * Dazu kommt seit Betriebsart 3 (eigener Server, siehe
- * services/localServerAuth.ts) ein DRITTER, davon unabhängiger Ausweis: das
- * Sitzungstoken der Anmeldung an genau diesem Server. Er beantwortet eine
- * andere Frage als die zwei oben ("darf diese Anfrage den Server überhaupt
- * erreichen") — nämlich "als wer". Deshalb wird er hier zusätzlich mitgeschickt,
- * nicht statt der anderen beiden.
+ * Bis zur Entfernung des eigenen Server-Betriebs (Betriebsart 3) kam hier ein
+ * dritter, davon unabhängiger Ausweis dazu: das Sitzungstoken der Anmeldung
+ * an jenem Server. Mit der Betriebsart ist auch er entfallen.
  */
 
 import { getSupabaseClient } from './supabaseClient';
@@ -167,43 +164,6 @@ async function cloudToken(): Promise<string | null> {
   }
 }
 
-const SPEICHER_SITZUNG = 'vm_local_server_sitzung';
-
-/**
- * Kopfzeile für das Sitzungstoken des eigenen Servers (Betriebsart 3) — muss
- * mit SITZUNG_HEADER in src/server/localAuth.ts übereinstimmen (dort
- * kleingeschrieben, hier nur aus Lesbarkeitsgründen anders geschrieben —
- * HTTP-Kopfzeilen unterscheiden nicht zwischen Groß- und Kleinschreibung).
- */
-const SITZUNG_HEADER = 'X-VM-Sitzung';
-
-/**
- * Liest das Sitzungstoken des eigenen Servers, ohne den Umweg über
- * localServerAuth.ts — sonst entstünde ein Kreis (jene Datei ruft apiFetch()
- * auf, apiFetch() bräuchte von dort das Token).
- */
-function localServerSitzungLesen(): string {
-  try {
-    return localStorage.getItem(SPEICHER_SITZUNG) || '';
-  } catch {
-    return '';
-  }
-}
-
-export function getLocalServerSitzung(): string {
-  return localServerSitzungLesen();
-}
-
-export function setLocalServerSitzung(token: string): void {
-  try {
-    const sauber = token.trim();
-    if (sauber) localStorage.setItem(SPEICHER_SITZUNG, sauber);
-    else localStorage.removeItem(SPEICHER_SITZUNG);
-  } catch {
-    // siehe sicherLesen() oben — kein Grund, die App anzuhalten.
-  }
-}
-
 /**
  * Ruft einen /api-Endpunkt auf und hängt den Ausweis an. Ansonsten verhält es
  * sich wie das gewöhnliche fetch(): Der Aufrufer bekommt die Antwort, wie sie
@@ -218,13 +178,8 @@ export async function apiFetch(pfad: string, init: RequestInit = {}): Promise<Re
   // Beide Ausweise mitschicken, wenn beide vorhanden sind. Wäre nur der
   // Schlüssel dabei und dieser veraltet — etwa nach einem Neuaufbau des
   // Containers —, scheiterte der Aufruf, obwohl die Person angemeldet ist.
-  // Die Sitzung liegt bereits im Browser; die Abfrage löst keinen
-  // Netzwerkaufruf aus, solange das Token gültig ist.
   const token = await cloudToken();
   if (token) kopfzeilen.set('Authorization', `Bearer ${token}`);
-
-  const sitzung = localServerSitzungLesen();
-  if (sitzung) kopfzeilen.set(SITZUNG_HEADER, sitzung);
 
   return fetch(pfad, { ...init, headers: kopfzeilen });
 }
