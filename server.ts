@@ -5,11 +5,7 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 import { RateLimiter } from "./src/utils/rateLimit";
 import { readAccessKey } from "./src/server/instanceConfig";
-import {
-  ZUGRIFF_HEADER,
-  pruefeZugriff,
-  erstelleCloudPruefer,
-} from "./src/server/apiAuth";
+import { ZUGRIFF_HEADER, pruefeZugriff } from "./src/server/apiAuth";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -133,7 +129,7 @@ app.use("/api", (req, res, next) => {
 // Die Statusseite bleibt offen — Docker fragt sie alle 30 Sekunden ab und
 // kann keinen Schlüssel mitschicken. Sie verrät nichts außer "Server läuft".
 //
-// Einzelheiten zu den zwei anerkannten Ausweisen: src/server/apiAuth.ts
+// Einzelheiten zum Zugriffsschlüssel: src/server/apiAuth.ts
 
 const zugriffsschluessel = (() => {
   try {
@@ -157,14 +153,6 @@ const zugriffsschluessel = (() => {
   }
 })();
 
-// Für die Prüfung von Supabase-Anmeldetoken braucht der Server eigene Werte.
-// Die VITE_-Variablen helfen hier nicht: Die werden beim Bauen in das
-// Browser-JavaScript geschrieben und existieren im Serverprozess nicht.
-const cloudPruefer = erstelleCloudPruefer(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
-);
-
 app.use("/api", (req, res, next) => {
   if (req.path === "/health") {
     next();
@@ -174,21 +162,17 @@ app.use("/api", (req, res, next) => {
   pruefeZugriff(
     {
       zugriffsschluessel: req.headers[ZUGRIFF_HEADER],
-      authorization: req.headers.authorization,
     },
-    zugriffsschluessel.key,
-    cloudPruefer
+    zugriffsschluessel.key
   )
     .then((ergebnis) => {
       if (ergebnis.erlaubt) {
         next();
         return;
       }
-      // Der Statuscode bleibt für alle Ablehnungen 401. Der genaue Fall steht
-      // im "code": Nur bei ZUGRIFF_VERWEIGERT fragt die Oberfläche nach dem
-      // Zugriffsschlüssel — bei "nicht freigeschaltet" oder "Supabase nicht
-      // erreichbar" wäre diese Nachfrage ein Irrweg, weil kein Schlüssel der
-      // Welt das Problem löst. Dort zeigt sie nur den Text an.
+      // Der Statuscode bleibt für alle Ablehnungen 401. Aktuell gibt es nur
+      // einen Ablehnungsgrund (ZUGRIFF_VERWEIGERT); der "code" bleibt trotzdem
+      // im Antwortkörper, falls künftig weitere Fälle hinzukommen.
       res.status(401).json({
         success: false,
         error: ergebnis.grund,
@@ -460,14 +444,6 @@ function starteLauscher(port: number, versucheUebrig: number): void {
         console.log("  (soeben neu erzeugt)");
       }
       console.log("");
-    }
-
-    if (!cloudPruefer) {
-      console.log(
-        "Hinweis: SUPABASE_URL und SUPABASE_ANON_KEY sind auf dem Server nicht " +
-          "gesetzt. Anmeldetoken aus dem Cloud-Betrieb können deshalb nicht geprüft " +
-          "werden; es gilt allein der Zugriffsschlüssel."
-      );
     }
 
     // Muss die letzte Zeile sein: Die Desktop-Fassung wartet darauf.

@@ -5,7 +5,6 @@ import { AuthService } from '../services/authService';
 import { SnapshotService, AutoSnapshot } from '../services/snapshotService';
 import { CURRENT_APP_VERSION } from '../services/updateService';
 import { PermissionMatrix } from './PermissionMatrix';
-import { CloudUserAdminPanel } from './CloudUserAdminPanel';
 import { usesNativeCrypto } from '../services/passwordService';
 import { apiFetch } from '../services/apiClient';
 import { ServerAccessKeyPanel } from './ServerAccessKeyPanel';
@@ -108,8 +107,6 @@ interface SettingsViewProps {
   canManageUsers?: boolean;
   /** Hinweis, wenn die Benutzerverwaltung gesperrt ist. */
   onUsersLocked?: () => void;
-  /** Kennung des angemeldeten Cloud-Benutzers (nur im Cloud-Betrieb gesetzt). */
-  currentCloudUserId?: string;
 }
 
 /** Neue Benutzer starten gesperrt — freigeschaltet wird bewusst. */
@@ -192,8 +189,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   canEdit = true,
   onLocked,
   canManageUsers = true,
-  onUsersLocked,
-  currentCloudUserId
+  onUsersLocked
 }) => {
   const [currentDepMode, setCurrentDepMode] = useState<DeploymentMode>(
     deploymentMode || StorageService.getDeploymentMode()
@@ -219,8 +215,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // 6. Projekt unterstützen
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || 'general');
 
-  /** Läuft die Anwendung gegen eine Cloud-Datenbank? */
-  const isCloudMode = deploymentMode === 'cloud';
   const prevInitialTabRef = useRef(initialTab);
 
   const switchTab = (tab: SettingsTab) => {
@@ -389,7 +383,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       report += `==================================================\n`;
       report += `6. SYSTEM- & DIAGNOSE-DATEN:\n`;
       report += `- App-Version: v${CURRENT_APP_VERSION}\n`;
-      report += `- Betriebsmodus: ${currentDepMode === 'cloud' ? 'Cloud-Hosting (Supabase EU)' : 'Lokaler Einzelplatz (IndexedDB)'}\n`;
+      report += `- Betriebsmodus: Lokaler Einzelplatz (IndexedDB)\n`;
       report += `- Zeitstempel: ${new Date().toLocaleString('de-DE')}\n`;
       report += `- Browser & Plattform: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'Unbekannt'}\n`;
       report += `- Sprache: ${typeof navigator !== 'undefined' ? navigator.language : 'de-DE'}\n`;
@@ -2219,23 +2213,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       )}
 
       {/* TAB 3: BENUTZER & RECHTE */}
-      {/*
-        Im Cloud-Betrieb liegt die Benutzerliste in der Datenbank, nicht im
-        Browser — und neue Konten entstehen dort über Einladungen. Deshalb eine
-        eigene Maske statt der lokalen Liste; sonst würde der Vorstand Benutzer
-        anlegen, die in der Cloud niemand kennt.
-      */}
-      {activeTab === 'users' && isCloudMode && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs animate-in fade-in duration-150">
-          <CloudUserAdminPanel
-            currentUserId={currentCloudUserId}
-            canManage={canManageUsers}
-            onLocked={onUsersLocked}
-          />
-        </div>
-      )}
-
-      {activeTab === 'users' && !isCloudMode && (
+      {activeTab === 'users' && (
         <div className="space-y-6 animate-in fade-in duration-150">
           {/* Was der Passwortschutz im lokalen Betrieb leistet — und was nicht.
               Ohne diesen Hinweis hält ein Verein die Anmeldung leicht für einen

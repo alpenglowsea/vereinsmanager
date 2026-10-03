@@ -9,12 +9,10 @@ import {
   Check,
   ExternalLink,
   X,
-  Cloud,
   Server,
   Terminal,
   ShieldCheck,
   Zap,
-  RotateCcw,
   CheckCheck
 } from 'lucide-react';
 
@@ -132,11 +130,6 @@ export const AppVersionBadge: React.FC<AppVersionBadgeProps> = ({
       currentVersion: ver,
       isUpdateAvailable: false
     }));
-  };
-
-  // 1-Click Cloud Reload (Zero-Touch)
-  const handleExecuteCloudReload = () => {
-    UpdateService.executeCloudReload();
   };
 
   // Copy Docker update command
@@ -321,42 +314,6 @@ export const AppVersionBadge: React.FC<AppVersionBadgeProps> = ({
                     <span>Ihre Desktop-App ist auf dem neuesten Stand. Alle Module sind aktuell.</span>
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* =================================================================== */}
-            {/* FALL 2: CLOUD-BETRIEB (ZERO-TOUCH WEB-APP) */}
-            {/* =================================================================== */}
-            {currentMode === 'cloud' && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-2xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
-                    <Cloud className="w-3.5 h-3.5" />
-                    <span>Zero-Touch Cloud-Updates</span>
-                  </span>
-                  <span className="text-2xs px-2 py-0.5 rounded-full font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
-                    Vollautomatisch
-                  </span>
-                </div>
-
-                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800/60 space-y-2 text-2xs text-emerald-950 dark:text-emerald-200">
-                  <div className="font-bold flex items-center gap-1.5 text-xs text-emerald-900 dark:text-emerald-100">
-                    <Zap className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Automatische Hoster-Bereitstellung</span>
-                  </div>
-                  <p className="leading-relaxed">
-                    Im Cloud-Modus wird die Web-App bei jedem neuen Release auf GitHub direkt von Ihrem Webhoster (Netlify, Vercel, Hetzner, etc.) aktualisiert.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleExecuteCloudReload}
-                  className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>App jetzt neu laden (Sofort-Aktualisierung)</span>
-                </button>
               </div>
             )}
 

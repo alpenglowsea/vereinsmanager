@@ -432,7 +432,6 @@ export type PermissionArea =
   | 'members'
   | 'online_applications'
   | 'member_analytics'
-  | 'member_surveys'
   | 'finance'
   | 'sepa'
   | 'invoices'
@@ -468,16 +467,10 @@ export interface SecuritySettings {
   autoLockMinutes: number; // 0 = never, 5, 15, 30, 60
 }
 
-export interface SupabaseConfig {
-  url: string;
-  anonKey: string;
-  isConfigured: boolean;
-}
-
 export interface UserAuthSession {
   user: AppUser | null;
   isAuthenticated: boolean;
-  loginMethod?: 'user' | 'demo' | 'supabase';
+  loginMethod?: 'user' | 'demo';
   loginTime?: string;
 }
 
@@ -1034,84 +1027,4 @@ export interface MeetingTemplateSettings {
   showRegisterExtractNotice: boolean; // Hinweiszeile für Notar / Amtsgericht
   accentColor: string; // Hex-Farbe
 }
-
-// ----------------------------------------------------
-// MITGLIEDERBEFRAGUNG & MEINUNGSBILDER
-// ----------------------------------------------------
-
-export type SurveyQuestionType =
-  | 'single_choice'
-  | 'multiple_choice'
-  | 'rating_stars'
-  | 'scale_10'
-  | 'text'
-  | 'yes_no';
-
-export interface SurveyQuestion {
-  id: string;
-  type: SurveyQuestionType;
-  title: string;
-  description?: string;
-  required: boolean;
-  options?: string[]; // Für single_choice und multiple_choice
-  minRating?: number; // Standard: 1
-  maxRating?: number; // Standard: 5
-  scaleMin?: number; // Standard: 0 oder 1
-  scaleMax?: number; // Standard: 10
-  scaleMinLabel?: string; // z.B. "Überhaupt nicht zufrieden"
-  scaleMaxLabel?: string; // z.B. "Vollkommen zufrieden"
-  order: number;
-}
-
-export type SurveyStatus = 'draft' | 'active' | 'closed';
-
-export interface MemberSurvey {
-  id: string;
-  title: string;
-  description: string;
-  category?: string; // z.B. "Mitgliederzufriedenheit", "Sportangebot", "Vereinsleben"
-  department?: string; // 'all' oder z.B. "Fußball", "Tennis"
-  status: SurveyStatus;
-  startDate: string; // YYYY-MM-DD
-  endDate?: string; // YYYY-MM-DD
-  anonymous: boolean; // Anonyme Auswertung (Antworten ohne Mitgliedsbezug)
-  useTokens: boolean; // Einmal-Token Switch (true = personengebundene Einmal-Links, false = öffentlicher Link)
-  allowMultipleSubmissions?: boolean;
-  questions: SurveyQuestion[];
-  createdById?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface MemberSurveyToken {
-  id: string;
-  surveyId: string;
-  memberId: string;
-  token: string;
-  memberName: string;
-  memberNumber: string;
-  memberEmail?: string;
-  memberPhone?: string;
-  memberDepartment?: string;
-  isUsed: boolean;
-  usedAt?: string;
-  invitedAt?: string;
-  inviteMethod?: 'whatsapp' | 'email' | 'manual';
-  createdAt: string;
-}
-
-export interface MemberSurveyResponse {
-  id: string;
-  surveyId: string;
-  token?: string;
-  memberId?: string;
-  memberName?: string;
-  submittedAt: string;
-  answers: Record<string, any>; // questionId -> value (string, string[], number)
-}
-
-
-
-
-
 

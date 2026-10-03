@@ -8,11 +8,12 @@
  *
  * Warum es sie gibt
  * ---------------------------------------------------------------------------
- * Die Sicherung war unvollständig: Von 24 Datenbereichen wanderten fünf nicht
- * mit — die Ordnerstruktur des Dokumentenarchivs, die Mitgliederbefragungen
- * samt Antworten und Teilnahme-Links sowie die Ausgabe von Vereinsinventar an
- * Mitglieder. Wer seinen Bestand auf einen anderen Rechner mitnahm, verlor sie
- * stillschweigend.
+ * Die Sicherung war unvollständig: Datenbereiche wanderten nicht mit — unter
+ * anderem die Ordnerstruktur des Dokumentenarchivs und die Ausgabe von
+ * Vereinsinventar an Mitglieder. Wer seinen Bestand auf einen anderen Rechner
+ * mitnahm, verlor sie stillschweigend. (Die damals ebenfalls betroffenen
+ * Mitgliederbefragungen gibt es inzwischen nicht mehr — die Funktion wurde
+ * komplett aus der Anwendung entfernt.)
  *
  * Damit das nicht wiederkommt, steht die Liste hier an einer Stelle, und
  * TypeScript wacht darüber:
@@ -55,10 +56,7 @@ export const STORES = {
   INVOICE_TEMPLATES: 'invoice_templates',
   MEETINGS: 'meetings',
   MEETING_TEMPLATES: 'meeting_templates',
-  MEMBER_INVENTORY: 'member_inventory',
-  SURVEYS: 'surveys',
-  SURVEY_RESPONSES: 'survey_responses',
-  SURVEY_TOKENS: 'survey_tokens'
+  MEMBER_INVENTORY: 'member_inventory'
 } as const;
 
 export type StoreName = (typeof STORES)[keyof typeof STORES];
@@ -126,9 +124,6 @@ export const SICHERUNGS_BEREICHE = {
     art: 'einzel',
     store: STORES.APPLICATION_SETTINGS
   },
-  surveys: { bezeichnung: 'Befragungen', art: 'liste', store: STORES.SURVEYS },
-  surveyResponses: { bezeichnung: 'Antworten auf Befragungen', art: 'liste', store: STORES.SURVEY_RESPONSES },
-  surveyTokens: { bezeichnung: 'Teilnahme-Links', art: 'liste', store: STORES.SURVEY_TOKENS },
   settings: { bezeichnung: 'Vereinsstammdaten', art: 'einzel', store: STORES.SETTINGS },
   users: { bezeichnung: 'Benutzerkonten', art: 'liste', store: null },
   securitySettings: { bezeichnung: 'Sicherheitseinstellungen', art: 'einzel', store: null }

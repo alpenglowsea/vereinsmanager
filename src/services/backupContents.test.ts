@@ -25,15 +25,9 @@ describe('Datensicherung: Vollstaendigkeit der Bereiche', () => {
     expect(fehlend).toEqual([]);
   });
 
-  it('fuehrt die fuenf frueher vergessenen Bereiche', () => {
+  it('fuehrt die zwei frueher vergessenen Bereiche', () => {
     // Diese fehlten bis Fassung 1.2 in der Sicherung. Wer umzog, verlor sie.
-    for (const schluessel of [
-      'folders',
-      'surveys',
-      'surveyResponses',
-      'surveyTokens',
-      'memberInventory'
-    ] as SicherungsSchluessel[]) {
+    for (const schluessel of ['folders', 'memberInventory'] as SicherungsSchluessel[]) {
       expect(SICHERUNGS_BEREICHE[schluessel]).toBeDefined();
     }
   });
@@ -72,7 +66,7 @@ describe('Datensicherung: Abgleich mit dem vorhandenen Bestand', () => {
 
   it('kommt mit fehlenden Bereichen in der Datei zurecht', () => {
     // Alte Sicherungen kennen die neuen Bereiche nicht.
-    const vergleich = vergleicheBereich('surveys', undefined, [{ id: 's1' }]);
+    const vergleich = vergleicheBereich('memberInventory', undefined, [{ id: 'z1' }]);
     expect(vergleich.inDatei).toBe(0);
     expect(vergleich.neu).toBe(0);
     expect(vergleich.vorhanden).toBe(1);

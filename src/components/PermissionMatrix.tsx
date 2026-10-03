@@ -159,8 +159,8 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
 
       <p className="text-2xs text-slate-600 dark:text-amber-200/80 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-lg p-2.5 leading-snug">
         <strong>Hinweis:</strong> Diese Rechte steuern, was in dieser Anwendung angezeigt und
-        bedient werden kann. Im Cloud-Betrieb muss der Zugriff zusätzlich in Supabase
-        abgesichert werden — sonst schützt die Einstellung nur die Bedienoberfläche.
+        bedient werden kann. Es gibt keinen Server, der das zusätzlich absichert — wer
+        technischen Zugriff auf diesen Rechner hat, kommt an alle Daten.
       </p>
     </div>
   );

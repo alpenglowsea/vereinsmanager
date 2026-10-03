@@ -1,17 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { AppUser, ClubSettings, DeploymentMode } from '../types';
+import React, { useState, useRef } from 'react';
+import { AppUser, ClubSettings } from '../types';
 import { AuthService } from '../services/authService';
 import { StorageService } from '../services/storage';
-import {
-  isCloudSetupPending,
-  sendPasswordReset,
-  getSupabaseClient,
-  getStoredSupabaseConfig,
-  saveStoredSupabaseConfig,
-  sanitizeSupabaseUrl,
-  testSupabaseConnection,
-  SUPABASE_SCHEMA_SQL
-} from '../services/supabaseClient';
 import { BackupImportDialog } from './BackupImportDialog';
 import { BereichsVergleich, ImportArt, SicherungsKopf } from '../services/backupContents';
 import {
@@ -24,104 +14,31 @@ import {
   Sparkles,
   ArrowRight,
   ShieldCheck,
-  Cloud,
   UserPlus,
   Mail,
   CheckCircle2,
   Upload,
   Database,
-  KeyRound,
-  Wifi,
-  HardDrive,
-  Copy
+  HardDrive
 } from 'lucide-react';
 
 interface LoginScreenProps {
   settings?: ClubSettings;
-  deploymentMode: DeploymentMode;
   onLoginSuccess: (user: AppUser) => void;
   onSettingsReload?: (newSettings: ClubSettings) => void;
-  /**
-   * Wird aufgerufen, wenn hier auf dem Anmeldebildschirm die Betriebsart
-   * gewechselt wird (siehe die Betriebsart-Auswahl im Registrieren-Tab
-   * unten) — damit App.tsx seinen deploymentMode-State nachzieht, ohne dass
-   * neu geladen werden muss.
-   */
-  onDeploymentModeChange?: (mode: DeploymentMode) => void;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
   settings,
-  deploymentMode,
   onLoginSuccess,
-  onSettingsReload,
-  onDeploymentModeChange
+  onSettingsReload
 }) => {
   const [activeTab, setActiveTab] = useState<'login' | 'register' | 'import'>('login');
-
-  // Cloud-Zugangsdaten-Formular (siehe Betriebsart-Auswahl im
-  // Registrieren-Tab weiter unten) — direkt auf dem Anmeldebildschirm
-  // erreichbar, damit sie nicht erst in den (nur angemeldet erreichbaren)
-  // Einstellungen eingetragen werden müssen. Vorbelegt mit bereits
-  // gespeicherten Werten, falls vorhanden (z. B. weil dieser Rechner schon
-  // einmal mit dieser Cloud-Datenbank verbunden war).
-  const [modeConfig, setModeConfig] = useState(() => getStoredSupabaseConfig());
-  const [modeStatus, setModeStatus] = useState<{ loading: boolean; success?: boolean; message?: string }>({
-    loading: false
-  });
-  const [effectiveMode, setEffectiveMode] = useState<DeploymentMode>(deploymentMode);
-
-  useEffect(() => {
-    setEffectiveMode(deploymentMode);
-  }, [deploymentMode]);
-
-  /**
-   * Welche Betriebsart im Registrieren-Tab gerade ausgewählt ist. Getrennt
-   * von effectiveMode, weil die Auswahl bei "Cloud" schon angezeigt werden
-   * muss, bevor die Verbindung geprüft und effectiveMode tatsächlich
-   * umgestellt wird (siehe handlePickCloud/handleSaveCloudConfig unten).
-   * Folgt effectiveMode, sobald sich das von aussen ändert (z. B. direkt
-   * nach dem Verbinden, oder weil schon vorher eine Betriebsart aktiv war).
-   */
-  const [regMode, setRegMode] = useState<DeploymentMode>(effectiveMode);
-  useEffect(() => {
-    setRegMode(effectiveMode);
-  }, [effectiveMode]);
-  // Ob das Cloud-Zugangsdaten-Formular im Registrieren-Tab aufgeklappt ist.
-  // Offen, solange noch keine funktionierende Verbindung besteht; einmal
-  // verbunden eingeklappt (nur noch ein "Zugangsdaten ändern"-Link), damit
-  // das Formular nicht unnötig im Weg steht.
-  const [cloudCredsOpen, setCloudCredsOpen] = useState(false);
-  // Rückmeldung für den "SQL kopieren"-Knopf in der Cloud-Anleitung unten.
-  const [copiedSql, setCopiedSql] = useState(false);
-  const handleCopySql = () => {
-    navigator.clipboard.writeText(SUPABASE_SCHEMA_SQL);
-    setCopiedSql(true);
-    setTimeout(() => setCopiedSql(false), 3000);
-  };
 
   // Login State
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-
-  /**
-   * "Passwort vergessen" — nur Cloud-Betrieb (nicht Lokalbetrieb, siehe
-   * unten).
-   */
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [resetNewPassword, setResetNewPassword] = useState('');
-  const [resetNewPasswordConfirm, setResetNewPasswordConfirm] = useState('');
-  const [showResetPassword, setShowResetPassword] = useState(false);
-  const [resetDone, setResetDone] = useState(false);
-  /**
-   * Cloud-Betrieb: Supabase erkennt einen Reset-Link von sich aus (der
-   * Client ist mit `detectSessionInUrl: true` angelegt, siehe
-   * supabaseClient.ts) und meldet das über ein eigenes Ereignis
-   * ("PASSWORD_RECOVERY", siehe der Effekt weiter unten).
-   */
-  const [cloudRecoveryActive, setCloudRecoveryActive] = useState(false);
 
   // Register State
   const [regClubName, setRegClubName] = useState('');
@@ -131,146 +48,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [regPassword, setRegPassword] = useState('');
   const [regPasswordConfirm, setRegPasswordConfirm] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
-  // Nur im Cloud-Betrieb und nur, wenn bereits ein Vorstand eingetragen ist:
-  // der Einladungscode (siehe cloudSetupPending unten). Für den allerersten
-  // Vorstand wird kein Code mehr gebraucht.
-  const [regSetupCode, setRegSetupCode] = useState('');
-  const isCloudRegistration = effectiveMode === 'cloud';
-  /**
-   * Der Import auf dem Anmeldebildschirm ist für den Lokalbetrieb gedacht:
-   * Bestand auf einen Stick, am anderen Rechner wieder einlesen. Im
-   * Cloud-Betrieb liegen die Daten in der Vereinsdatenbank; ein Import würde
-   * dort nur die Browser-Datenbank füllen und beim nächsten Laden wieder
-   * überschrieben.
-   */
-  const importMoeglich = effectiveMode !== 'cloud';
-  // Noch kein Benutzer in der Cloud-Datenbank? Dann richtet dieser Mensch den
-  // Verein ein — ganz ohne Code. Sonst ist er eingeladen worden und hat
-  // einen Einladungscode vom Vorstand.
-  const [cloudSetupPending, setCloudSetupPending] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    if (!isCloudRegistration) return;
-    let abgebrochen = false;
-    isCloudSetupPending().then(pending => {
-      if (!abgebrochen) setCloudSetupPending(pending);
-    });
-    return () => {
-      abgebrochen = true;
-    };
-  }, [isCloudRegistration]);
-
-  /**
-   * Cloud-Betrieb meldet ausschließlich über die E-Mail-Adresse an —
-   * AuthService.login() weist einen reinen Benutzernamen dort mit einer
-   * eigenen Fehlermeldung ab (siehe dort). Nur der Lokalbetrieb kennt
-   * weiterhin echte Benutzernamen ohne E-Mail. Das Eingabefeld unten zeigt
-   * entsprechend eine passende Bezeichnung, statt in jedem Betrieb
-   * gleichermaßen "Benutzername oder E-Mail" zu versprechen.
-   */
-  const anmeldungNurPerEmail = deploymentMode === 'cloud';
-
-  /**
-   * Cloud-Betrieb: Ein Reset-Link von Supabase führt zurück auf genau diese
-   * Adresse (siehe redirectTo bei handleForgotPasswordRequest unten) und
-   * hängt seine eigenen Angaben hinter das Doppelkreuz. Der Supabase-Client
-   * liest das beim Erzeugen selbst aus (detectSessionInUrl, siehe
-   * supabaseClient.ts) und meldet es über genau dieses Ereignis.
-   * getSupabaseClient() hier aufzurufen erzeugt den Client bei Bedarf erst
-   * (er entsteht sonst nirgends von selbst, solange niemand angemeldet ist).
-   */
-  useEffect(() => {
-    if (deploymentMode !== 'cloud') return;
-    const client = getSupabaseClient();
-    if (!client) return;
-    const { data } = client.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setCloudRecoveryActive(true);
-      }
-    });
-    return () => {
-      data.subscription.unsubscribe();
-    };
-  }, [deploymentMode]);
-
-  const handleForgotPasswordRequest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    if (!forgotEmail.trim() || !forgotEmail.includes('@')) {
-      setErrorMsg('Bitte eine gültige E-Mail-Adresse angeben.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Nur noch Cloud-Betrieb kennt "Passwort vergessen" — Supabase
-      // verschickt die Mail selbst und muss wissen, wohin der Link führen
-      // soll: auf genau diese laufende Installation (siehe die ausführliche
-      // Begründung bei sendPasswordReset in supabaseClient.ts).
-      const res = await sendPasswordReset(forgotEmail.trim(), window.location.origin);
-
-      if (res.success) {
-        setSuccessMsg(
-          'Falls zu dieser Adresse ein Konto besteht, wurde soeben eine E-Mail mit einem Link zum Zurücksetzen verschickt. Bitte diese E-Mail auf demselben Rechner öffnen, auf dem VereinsManager läuft — der Link führt sonst ins Leere.'
-        );
-      } else {
-        setErrorMsg(res.error || 'Die Anfrage ist fehlgeschlagen.');
-      }
-    } catch {
-      setErrorMsg('Unerwarteter Fehler bei der Anfrage.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /**
-   * Cloud-Betrieb: Der Reset-Link hat den Supabase-Client bereits in eine
-   * "Wiederherstellungs-Sitzung" versetzt (siehe der PASSWORD_RECOVERY-Effekt
-   * weiter oben) — die neue Anmeldung dort genügt Supabase bereits als
-   * Nachweis, dass die Person die E-Mail wirklich geöffnet hat. Es braucht
-   * deshalb kein eigenes Token: updateUser() setzt das Passwort direkt für
-   * das gerade erkannte Konto.
-   */
-  const handleCloudResetPasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    if (resetNewPassword !== resetNewPasswordConfirm) {
-      setErrorMsg('Die eingegebenen Passwörter stimmen nicht überein.');
-      return;
-    }
-
-    const client = getSupabaseClient();
-    if (!client) {
-      setErrorMsg('Supabase ist nicht erreichbar.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { error } = await client.auth.updateUser({ password: resetNewPassword });
-      if (!error) {
-        // Die Wiederherstellungs-Sitzung, die Supabase für diesen Vorgang
-        // angelegt hat, wieder abmelden: AuthService kennt sie ohnehin nicht
-        // (es merkt sich Anmeldungen nur über die eigene, ausdrückliche
-        // login()-Methode) — sie soll aber auch bei Supabase selbst nicht
-        // stehen bleiben. Die Person meldet sich gleich ganz normal über das
-        // Anmeldeformular an, mit dem gerade gesetzten Passwort.
-        await client.auth.signOut();
-        setResetDone(true);
-        setSuccessMsg('Das Passwort wurde geändert. Sie können sich jetzt damit anmelden.');
-      } else {
-        setErrorMsg(error.message || 'Das Passwort konnte nicht geändert werden.');
-      }
-    } catch {
-      setErrorMsg('Unerwarteter Fehler beim Zurücksetzen.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Import State
   const [isDragging, setIsDragging] = useState(false);
@@ -300,11 +77,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setSuccessMsg(null);
 
     if (!usernameInput.trim()) {
-      setErrorMsg(
-        anmeldungNurPerEmail
-          ? 'Bitte geben Sie Ihre E-Mail-Adresse ein.'
-          : 'Bitte geben Sie Ihren Benutzernamen oder Ihre E-Mail ein.'
-      );
+      setErrorMsg('Bitte geben Sie Ihren Benutzernamen oder Ihre E-Mail ein.');
       return;
     }
     if (!passwordInput) {
@@ -345,83 +118,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
   };
 
-  // ==========================================================================
-  // BETRIEBSART WÄHLEN — direkt im Registrieren-Tab (siehe dort weiter unten)
-  // ==========================================================================
-  //
-  // Stand bis 01.10.: Die Betriebsart-Wahl lag in einem eigenen Tab, nur über
-  // einen Fussknoten erreichbar. Ein neuer Anwender, der sich für Cloud
-  // entscheidet, landete dadurch auf dem Registrieren-Formular, ohne zu
-  // wissen, dass die Supabase-Zugangsdaten woanders eingetragen werden
-  // müssen — die beiden Schritte liefen logisch auseinander. Jetzt ist die
-  // Wahl Teil des Registrieren-Tabs selbst: erst Betriebsart aussuchen, bei
-  // Cloud gleich die Anleitung samt Zugangsdaten-Formular darunter, erst
-  // danach das eigentliche Kontoformular.
-  //
-  // Lokal braucht keine weitere Eingabe und wird sofort aktiviert. Nur Cloud
-  // verlangt die Supabase-Zugangsdaten — siehe handleSaveCloudConfig weiter
-  // unten, das erst nach erfolgreich geprüfter Verbindung tatsächlich auf
-  // "cloud" umstellt.
-
-  const uebernehmeBetriebsart = (mode: DeploymentMode) => {
-    StorageService.setDeploymentMode(mode);
-    setEffectiveMode(mode);
-    onDeploymentModeChange?.(mode);
-  };
-
-  const handlePickLocal = () => {
-    setRegMode('local');
-    setCloudCredsOpen(false);
-    uebernehmeBetriebsart('local');
-    setErrorMsg(null);
-    setSuccessMsg(null);
-  };
-
-  const handlePickCloud = () => {
-    setRegMode('cloud');
-    setErrorMsg(null);
-    setSuccessMsg(null);
-    // Nur aufklappen, wenn noch keine funktionierende Verbindung besteht —
-    // war dieser Rechner schon vorher mit Cloud verbunden, reicht der
-    // eingeklappte "Zugangsdaten ändern"-Link.
-    if (effectiveMode !== 'cloud') {
-      setCloudCredsOpen(true);
-    }
-  };
-
-  const handleSaveCloudConfig = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanUrl = sanitizeSupabaseUrl(modeConfig.url);
-    if (cleanUrl !== modeConfig.url) {
-      setModeConfig(prev => ({ ...prev, url: cleanUrl }));
-    }
-    if (!cleanUrl || !modeConfig.anonKey) {
-      setModeStatus({ loading: false, success: false, message: 'Bitte Project URL und Anon Key eintragen.' });
-      return;
-    }
-
-    setModeStatus({ loading: true });
-    saveStoredSupabaseConfig(cleanUrl, modeConfig.anonKey);
-    const res = await testSupabaseConnection(cleanUrl, modeConfig.anonKey);
-
-    if (!res.success) {
-      setModeStatus({
-        loading: false,
-        success: false,
-        message: `Verbindung fehlgeschlagen: ${res.error || 'unbekannter Fehler'}. Bitte URL und Key prüfen.`
-      });
-      return;
-    }
-
-    uebernehmeBetriebsart('cloud');
-    setModeStatus({ loading: false, success: true, message: 'Verbunden! Bitte unten das Konto anlegen.' });
-    setCloudCredsOpen(false);
-    // Direkt selbst abfragen statt auf den useEffect zu verlassen: War schon
-    // vorher Cloud-Betrieb aktiv (z. B. nur die Zugangsdaten geändert), würde
-    // sich isCloudRegistration nicht ändern und der Effekt nicht erneut laufen.
-    isCloudSetupPending().then(pending => setCloudSetupPending(pending));
-  };
-
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -460,8 +156,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         email: regEmail,
         username: regUsername,
         password: regPassword,
-        customRoleName: '1. Vorsitzender (Admin)',
-        setupCode: regSetupCode
+        customRoleName: '1. Vorsitzender (Admin)'
       });
 
       if (res.success && res.user) {
@@ -471,12 +166,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         setTimeout(() => {
           onLoginSuccess(res.user!);
         }, 600);
-      } else if (res.requiresEmailConfirmation) {
-        // Kein Fehler, sondern ein Zwischenschritt: Das Konto steht, es fehlt
-        // nur die Bestätigung per E-Mail.
-        setSuccessMsg(res.message || 'Bitte bestätigen Sie die E-Mail und melden Sie sich dann an.');
-        setActiveTab('login');
-        setUsernameInput(regEmail.trim().toLowerCase());
       } else {
         setErrorMsg(res.message || 'Registrierung fehlgeschlagen.');
       }
@@ -593,219 +282,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
   };
 
-  // "Passwort vergessen": Supabase hat den Reset-Link bereits erkannt (siehe
-  // der PASSWORD_RECOVERY-Effekt weiter oben) — das hat Vorrang vor jeder
-  // anderen Ansicht dieses Bildschirms.
-  if (deploymentMode === 'cloud' && cloudRecoveryActive) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
-        <div className="w-full max-w-md">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/80 overflow-hidden">
-            <div className="bg-slate-900 text-white p-6 sm:p-7 text-center relative overflow-hidden">
-              <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
-              <div className="absolute -left-8 -top-8 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
-              <div className="inline-flex items-center justify-center w-14 h-14 bg-white rounded-2xl shadow-lg mb-3 ring-4 ring-white/10 p-1.5 overflow-hidden">
-                <img
-                  src={settings?.clubLogoUrl || '/logo_transparent.png'}
-                  alt={clubName}
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    if (e.currentTarget.src !== window.location.origin + '/logo_transparent.png') {
-                      e.currentTarget.src = '/logo_transparent.png';
-                    }
-                  }}
-                />
-              </div>
-              <h1 className="text-xl font-extrabold text-white tracking-tight leading-tight">
-                Neues Passwort setzen
-              </h1>
-              <p className="text-xs text-slate-400 mt-1 font-medium">
-                {resetDone ? 'Erledigt' : 'Für Ihr Vereinskonto'}
-              </p>
-            </div>
-
-            <div className="p-6 sm:p-7 space-y-5">
-              {errorMsg && (
-                <div className="flex items-start gap-2.5 p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs">
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                  <div className="leading-relaxed font-medium">{errorMsg}</div>
-                </div>
-              )}
-              {successMsg && (
-                <div className="flex items-start gap-2.5 p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <div className="leading-relaxed font-medium">{successMsg}</div>
-                </div>
-              )}
-
-              {resetDone ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCloudRecoveryActive(false);
-                    setResetDone(false);
-                    setSuccessMsg(null);
-                  }}
-                  className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-bold rounded-xl shadow-md shadow-blue-600/20 hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span>Zur Anmeldung</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              ) : (
-                <form onSubmit={handleCloudResetPasswordSubmit} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-700">Neues Passwort *</label>
-                    <div className="relative">
-                      <input
-                        type={showResetPassword ? 'text' : 'password'}
-                        value={resetNewPassword}
-                        onChange={(e) => setResetNewPassword(e.target.value)}
-                        placeholder="••••••••"
-                        autoComplete="new-password"
-                        autoFocus
-                        required
-                        className="w-full pl-3.5 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowResetPassword(!showResetPassword)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
-                      >
-                        {showResetPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-700">Wiederholen *</label>
-                    <input
-                      type={showResetPassword ? 'text' : 'password'}
-                      value={resetNewPasswordConfirm}
-                      onChange={(e) => setResetNewPasswordConfirm(e.target.value)}
-                      placeholder="••••••••"
-                      autoComplete="new-password"
-                      required
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all outline-none"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-bold rounded-xl shadow-md shadow-blue-600/20 hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                  >
-                    {loading ? (
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <KeyRound className="w-4 h-4" />
-                        <span>Neues Passwort setzen</span>
-                      </>
-                    )}
-                  </button>
-                </form>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // "Passwort vergessen" — Anfrageformular (nur Cloud-Betrieb, siehe Link im
-  // Anmelde-Tab weiter unten).
-  if (deploymentMode === 'cloud' && showForgotPassword) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
-        <div className="w-full max-w-md">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/80 overflow-hidden">
-            <div className="bg-slate-900 text-white p-6 sm:p-7 text-center relative overflow-hidden">
-              <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
-              <div className="absolute -left-8 -top-8 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
-              <div className="inline-flex items-center justify-center w-14 h-14 bg-white rounded-2xl shadow-lg mb-3 ring-4 ring-white/10 p-1.5 overflow-hidden">
-                <img
-                  src={settings?.clubLogoUrl || '/logo_transparent.png'}
-                  alt={clubName}
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    if (e.currentTarget.src !== window.location.origin + '/logo_transparent.png') {
-                      e.currentTarget.src = '/logo_transparent.png';
-                    }
-                  }}
-                />
-              </div>
-              <h1 className="text-xl font-extrabold text-white tracking-tight leading-tight">Passwort vergessen</h1>
-              <p className="text-xs text-slate-400 mt-1 font-medium">Wir schicken Ihnen einen Link zum Zurücksetzen</p>
-            </div>
-
-            <div className="p-6 sm:p-7 space-y-5">
-              {errorMsg && (
-                <div className="flex items-start gap-2.5 p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs">
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                  <div className="leading-relaxed font-medium">{errorMsg}</div>
-                </div>
-              )}
-              {successMsg && (
-                <div className="flex items-start gap-2.5 p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <div className="leading-relaxed font-medium">{successMsg}</div>
-                </div>
-              )}
-
-              {!successMsg && (
-                <form onSubmit={handleForgotPasswordRequest} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-700">E-Mail-Adresse</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                        <Mail className="w-4 h-4" />
-                      </div>
-                      <input
-                        type="email"
-                        value={forgotEmail}
-                        onChange={(e) => setForgotEmail(e.target.value)}
-                        placeholder="ihre-adresse@verein.de"
-                        autoFocus
-                        required
-                        className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all outline-none"
-                      />
-                    </div>
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-bold rounded-xl shadow-md shadow-blue-600/20 hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                  >
-                    {loading ? (
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <span>Link zum Zurücksetzen schicken</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
-              )}
-
-              <div className="text-center pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowForgotPassword(false);
-                    setErrorMsg(null);
-                    setSuccessMsg(null);
-                  }}
-                  className="text-xs text-slate-500 hover:text-slate-800 font-semibold hover:underline cursor-pointer"
-                >
-                  ← Zurück zur Anmeldung
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
       <div className="w-full max-w-md">
@@ -840,16 +316,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               {activeTab === 'login'
                 ? 'VereinsManager – Sichere Vereinsverwaltung'
                 : activeTab === 'register'
-                ? 'Betriebsart wählen & kostenlos starten'
+                ? 'Kostenlos & lokal starten'
                 : 'JSON-Backup laden, um Verein & Konten wiederherzustellen'}
             </p>
 
             {/* Tab Switcher */}
-            <div
-              className={`mt-5 grid ${
-                importMoeglich ? 'grid-cols-3' : 'grid-cols-2'
-              } p-1 bg-slate-800/80 border border-slate-700/60 rounded-xl gap-1`}
-            >
+            <div className="mt-5 grid grid-cols-3 p-1 bg-slate-800/80 border border-slate-700/60 rounded-xl gap-1">
               <button
                 type="button"
                 onClick={() => {
@@ -881,29 +353,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <UserPlus className="w-3.5 h-3.5 shrink-0" />
                 <span>Registrieren</span>
               </button>
-              {/* Im Cloud-Betrieb gibt es diesen Weg bewusst nicht: Dort
-                  schreibt ein Import nur in die Datenbank des Browsers, und
-                  beim nächsten Laden überschreibt Supabase das wieder. Der
-                  Anwender sähe eine Erfolgsmeldung und hätte nichts gewonnen. */}
-              {importMoeglich && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('import');
-                    setErrorMsg(null);
-                    setSuccessMsg(null);
-                  }}
-                  className={`py-1.5 px-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                    activeTab === 'import'
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                  title="Datensicherung (.json) einspielen"
-                >
-                  <Upload className="w-3.5 h-3.5 shrink-0" />
-                  <span>Importieren</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('import');
+                  setErrorMsg(null);
+                  setSuccessMsg(null);
+                }}
+                className={`py-1.5 px-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  activeTab === 'import'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="Datensicherung (.json) einspielen"
+              >
+                <Upload className="w-3.5 h-3.5 shrink-0" />
+                <span>Importieren</span>
+              </button>
             </div>
           </div>
 
@@ -930,17 +396,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   {/* Username Input */}
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700">
-                      {anmeldungNurPerEmail ? 'E-Mail-Adresse' : 'Benutzername oder E-Mail'}
+                      Benutzername oder E-Mail
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                         <User className="w-4 h-4" />
                       </div>
                       <input
-                        type={anmeldungNurPerEmail ? 'email' : 'text'}
+                        type="text"
                         value={usernameInput}
                         onChange={(e) => setUsernameInput(e.target.value)}
-                        placeholder={anmeldungNurPerEmail ? 'vorstand@verein.de' : 'z. B. admin oder vorstand@verein.de'}
+                        placeholder="z. B. admin oder vorstand@verein.de"
                         autoComplete="username"
                         autoFocus
                         required
@@ -975,26 +441,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
-                    {/* Nur Cloud-Betrieb: per Supabase verschickter
-                        Reset-Link (siehe der Block weiter oben). Im
-                        Lokalbetrieb gibt es diesen Weg nicht — dort hilft
-                        ein JSON-Import weiter. */}
-                    {deploymentMode === 'cloud' && (
-                      <div className="text-right">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowForgotPassword(true);
-                            setForgotEmail(usernameInput.includes('@') ? usernameInput : '');
-                            setErrorMsg(null);
-                            setSuccessMsg(null);
-                          }}
-                          className="text-2xs text-blue-600 hover:text-blue-800 font-semibold hover:underline cursor-pointer"
-                        >
-                          Passwort vergessen?
-                        </button>
-                      </div>
-                    )}
                   </div>
 
                   {/* Submit Button */}
@@ -1062,172 +508,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             {/* TAB 2: REGISTER FORM */}
             {activeTab === 'register' && (
               <>
-                {/* 1. Betriebsart — direkt hier statt in einem eigenen Tab,
-                    damit von Anfang an klar ist, wo die Cloud-Zugangsdaten
-                    hingehören (siehe Begründung bei handlePickLocal/
-                    -Cloud weiter oben in dieser Datei). */}
-                <div className="space-y-2">
-                  <div className="text-2xs font-bold text-slate-500 uppercase tracking-wide">
-                    1. Betriebsart
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={handlePickLocal}
-                      className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
-                        regMode === 'local'
-                          ? 'border-slate-800 bg-slate-800 text-white shadow-sm'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'
-                      }`}
-                    >
-                      <HardDrive className="w-4 h-4" />
-                      <span className="text-2xs font-bold leading-tight">Lokal</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handlePickCloud}
-                      className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
-                        regMode === 'cloud'
-                          ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-blue-400'
-                      }`}
-                    >
-                      <Cloud className="w-4 h-4" />
-                      <span className="text-2xs font-bold leading-tight">Cloud</span>
-                    </button>
-                  </div>
-                  <p className="text-2xs text-slate-400 leading-snug">
-                    {regMode === 'local' &&
-                      'Daten liegen ausschliesslich im Browser dieses Rechners. Später jederzeit wechselbar.'}
-                    {regMode === 'cloud' &&
-                      'Mehrere Benutzer, von überall erreichbar — Daten liegen bei Supabase (EU-Server).'}
-                  </p>
-                </div>
-
-                {/* 2. Cloud: Anleitung + Zugangsdaten — nur solange noch
-                    keine funktionierende Verbindung besteht, oder wenn der
-                    Anwender sie nachträglich ändern will. */}
-                {regMode === 'cloud' && (effectiveMode !== 'cloud' || cloudCredsOpen) && (
-                  <div className="border border-blue-200 bg-blue-50/70 rounded-xl p-3.5 space-y-3">
-                    <div className="text-2xs font-bold text-blue-900 uppercase tracking-wide">
-                      2. Supabase-Projekt verbinden
-                    </div>
-                    <ol className="space-y-2 text-2xs text-blue-950 leading-relaxed list-decimal list-outside pl-4">
-                      <li>
-                        Kostenloses Konto auf{' '}
-                        <a
-                          href="https://supabase.com"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="underline font-semibold"
-                        >
-                          supabase.com
-                        </a>{' '}
-                        anlegen und ein neues Projekt erstellen (als Region möglichst „Europe" wählen).
-                      </li>
-                      <li>
-                        Im Projekt links auf <strong>SQL Editor</strong>, dort eine neue Abfrage
-                        anlegen, das Skript einfügen und mit <strong>Run</strong> ausführen:
-                        <div className="mt-1.5">
-                          <button
-                            type="button"
-                            onClick={handleCopySql}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white text-2xs font-bold rounded-lg transition-colors cursor-pointer"
-                          >
-                            <Copy className="w-3 h-3" />
-                            <span>{copiedSql ? 'Kopiert!' : 'SQL-Skript kopieren'}</span>
-                          </button>
-                        </div>
-                      </li>
-                      <li>
-                        Links auf <strong>Project Settings → API</strong> wechseln und dort die{' '}
-                        <strong>Project URL</strong> sowie den <strong>anon / public Key</strong> kopieren —
-                        unten eintragen.
-                      </li>
-                    </ol>
-
-                    {modeStatus.message && (
-                      <div
-                        className={`flex items-start gap-2 p-2.5 rounded-lg text-2xs leading-relaxed ${
-                          modeStatus.success
-                            ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
-                            : 'bg-rose-50 border border-rose-200 text-rose-800'
-                        }`}
-                      >
-                        {modeStatus.success ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        ) : (
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        )}
-                        <span>{modeStatus.message}</span>
-                      </div>
-                    )}
-
-                    <form onSubmit={handleSaveCloudConfig} className="space-y-2">
-                      <div className="space-y-1">
-                        <label className="block text-2xs font-bold text-slate-700">Project URL</label>
-                        <input
-                          type="text"
-                          value={modeConfig.url}
-                          onChange={(e) => setModeConfig(prev => ({ ...prev, url: e.target.value }))}
-                          placeholder="https://xxxxxxxx.supabase.co"
-                          autoComplete="off"
-                          spellCheck={false}
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-2xs font-mono text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="block text-2xs font-bold text-slate-700">Anon / Publishable Key</label>
-                        <input
-                          type="text"
-                          value={modeConfig.anonKey}
-                          onChange={(e) => setModeConfig(prev => ({ ...prev, anonKey: e.target.value }))}
-                          placeholder="eyJhbGciOi..."
-                          autoComplete="off"
-                          spellCheck={false}
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-2xs font-mono text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none"
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={modeStatus.loading}
-                        className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-60 cursor-pointer"
-                      >
-                        {modeStatus.loading ? (
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : (
-                          <>
-                            <Wifi className="w-3.5 h-3.5" />
-                            <span>Verbinden &amp; aktivieren</span>
-                          </>
-                        )}
-                      </button>
-                    </form>
-                  </div>
-                )}
-                {regMode === 'cloud' && effectiveMode === 'cloud' && !cloudCredsOpen && (
-                  <div className="flex items-center justify-between gap-2 p-2.5 bg-emerald-50/80 border border-emerald-200/80 rounded-xl text-2xs">
-                    <span className="flex items-center gap-1.5 text-emerald-900 font-semibold">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      Mit Supabase-Projekt verbunden
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setCloudCredsOpen(true)}
-                      className="text-blue-600 hover:text-blue-800 font-semibold hover:underline cursor-pointer shrink-0"
-                    >
-                      Zugangsdaten ändern
-                    </button>
-                  </div>
-                )}
-
-                {/* 3. Das Kontoformular selbst — bei Lokal sofort sichtbar,
-                    bei Cloud erst nach erfolgreich geprüfter Verbindung oben. */}
-                {(regMode === 'local' || (regMode === 'cloud' && effectiveMode === 'cloud')) && (
-                <>
-                <div className="text-2xs font-bold text-slate-500 uppercase tracking-wide pt-1">
-                  {regMode === 'cloud' ? '3. Vereinskonto' : '2. Vereinskonto'}
-                </div>
                 <form onSubmit={handleRegister} className="space-y-3.5">
                   {/* Club Name */}
                   <div className="space-y-1">
@@ -1344,40 +624,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     />
                   </div>
 
-                  {/* Einladungscode — nur im Cloud-Betrieb, und nur, wenn
-                      schon ein Vorstand eingetragen ist. Der allererste
-                      Vorstand braucht keinen Code. */}
-                  {isCloudRegistration && cloudSetupPending === false && (
-                    <div className="space-y-1 pt-1">
-                      <label className="block text-xs font-bold text-slate-700">Einladungscode *</label>
-                      <input
-                        type="text"
-                        value={regSetupCode}
-                        onChange={(e) => setRegSetupCode(e.target.value)}
-                        placeholder="ABCD-1234-EF56"
-                        required
-                        autoComplete="off"
-                        spellCheck={false}
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono tracking-wider text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none uppercase"
-                      />
-                      <p className="text-2xs text-slate-500 leading-snug">
-                        Für diesen Verein ist bereits ein Vorstand eingetragen. Sie brauchen
-                        daher einen <strong>Einladungscode</strong>, den Ihnen der Vorstand
-                        gibt. Melden Sie sich mit genau der E-Mail-Adresse an, an die die
-                        Einladung ausgestellt wurde.
-                      </p>
-                    </div>
-                  )}
-                  {isCloudRegistration && cloudSetupPending === true && (
-                    <div className="flex items-start gap-2 p-2.5 bg-emerald-50/80 border border-emerald-200/80 rounded-xl text-2xs text-emerald-900 leading-relaxed">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                      <span>
-                        Für diesen Verein ist noch kein Vorstand eingetragen — Sie werden es mit
-                        diesem Konto, ganz ohne Code.
-                      </span>
-                    </div>
-                  )}
-
                   {/* Submit Button */}
                   <button
                     type="submit"
@@ -1394,8 +640,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     )}
                   </button>
                 </form>
-                </>
-                )}
 
                 {/* Back to login button */}
                 <div className="text-center pt-1">
@@ -1423,12 +667,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   </div>
                   <p className="text-slate-600 text-[11px] leading-normal">
                     Laden Sie hier Ihre am anderen PC exportierte <span className="font-semibold text-slate-800">.json-Datensicherung</span> hoch. Alle Daten sowie <strong>Benutzerkonten & Rollen</strong> werden direkt in die lokale Live-Datenbank übertragen, sodass Sie sich anschließend direkt wie gewohnt anmelden können.
-                  </p>
-                  <p className="text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-2.5 py-1.5 text-[11px] leading-normal mt-1.5">
-                    <strong>Nur für den reinen Lokalbetrieb</strong> („Nur dieses Gerät") — die Datei
-                    landet ausschliesslich in der lokalen Browser-Datenbank. Für den Umzug in die
-                    Cloud bitte stattdessen „Registrieren" mit Betriebsart Cloud und danach
-                    Einstellungen → Betriebsmodi → „Lokale Daten in die Cloud übertragen" nutzen.
                   </p>
                 </div>
 
@@ -1495,46 +733,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
           </div>
 
-          {/* Footer Info — immer sichtbar, damit der Wechsel zu Cloud auch
-              aus dem Lokalbetrieb heraus entdeckt wird. Die Betriebsart
-              selbst wählt man seit 02.10. direkt im Registrieren-Tab (siehe
-              dort), der Footer verlinkt nur noch dorthin. */}
-          <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between text-2xs text-slate-500">
-            <div className="flex items-center gap-1.5">
-              {effectiveMode === 'local' && (
-                <>
-                  <HardDrive className="w-3.5 h-3.5 text-amber-600" />
-                  <span className="font-semibold text-slate-700">Nur dieses Gerät</span>
-                </>
-              )}
-              {effectiveMode === 'cloud' && (
-                <>
-                  <Cloud className="w-3.5 h-3.5 text-blue-600" />
-                  <span className="font-semibold text-slate-700">Cloud (Supabase EU)</span>
-                  <span
-                    className="text-slate-400"
-                    title="Im Cloud-Betrieb liegen die Daten in der Vereinsdatenbank. Eine Datensicherung wird dort nach der Anmeldung unter Einstellungen → Datensicherung eingespielt."
-                  >
-                    · Datensicherung nach der Anmeldung
-                  </span>
-                </>
-              )}
-            </div>
-
-            {activeTab !== 'register' && (
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('register');
-                  setModeStatus({ loading: false });
-                  setErrorMsg(null);
-                  setSuccessMsg(null);
-                }}
-                className="text-blue-600 hover:text-blue-800 font-semibold hover:underline cursor-pointer"
-              >
-                Betriebsart ändern
-              </button>
-            )}
+          {/* Footer Info */}
+          <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center gap-1.5 text-2xs text-slate-500">
+            <HardDrive className="w-3.5 h-3.5 text-amber-600" />
+            <span className="font-semibold text-slate-700">Nur dieses Gerät</span>
           </div>
         </div>
       </div>

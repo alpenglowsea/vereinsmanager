@@ -5,10 +5,9 @@ export const CURRENT_APP_VERSION = (import.meta as any).env?.VITE_APP_VERSION ||
 // Default release notes when a new version is detected or simulated
 const MOCK_LATEST_RELEASE = {
   version: CURRENT_APP_VERSION,
-  title: `VereinsManager v${CURRENT_APP_VERSION} – Mitgliederbefragung, Inventar-Mitgliederverknüpfung & flexible Kontenverwaltung`,
+  title: `VereinsManager v${CURRENT_APP_VERSION} – Inventar-Mitgliederverknüpfung & flexible Kontenverwaltung`,
   date: new Date().toISOString().split('T')[0],
   notes: [
-    '🗳️ Mitgliederbefragung & Meinungsbilder: Digitale Abstimmungen mit Einmal-Tokens, WhatsApp- & E-Mail-Versand, NPS-Auswertung und PDF-/CSV-Berichten',
     '📦 Verknüpfung von Inventar und Mitgliedern: Direkte Ausleihe und Rückgabe von Vereinsgegenständen an Mitglieder mit Statusprotokollierung',
     '🏦 Selbständiges Hinzufügen von Konten: Flexible Anlage eigener Buchungs- und Sachkonten mit dynamischer Sphären- und Kategoriezuordnung'
   ],
@@ -423,23 +422,6 @@ export class UpdateService {
     } catch (err: any) {
       return { success: false, error: err.message || 'Update-Vorgang fehlgeschlagen.' };
     }
-  }
-
-  /**
-   * 1-Klick Cloud Web-App Neuladen & Cache bereinigen (Zero-Touch)
-   */
-  static executeCloudReload() {
-    try {
-      if ('caches' in window) {
-        caches.keys().then(names => {
-          names.forEach(name => caches.delete(name));
-        });
-      }
-    } catch {
-      // Ignore
-    }
-    // Hard refresh without cache
-    window.location.reload();
   }
 
   /**

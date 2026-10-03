@@ -114,7 +114,6 @@ describe('Übernahme alter Benutzerkonten', () => {
       canManageDocuments: true,
       canManageInventory: true,
       canManageSettings: false,
-      canManageSurveys: false,
       canManageContacts: true,
       canManageCalendar: true,
       canManageMeetings: true,

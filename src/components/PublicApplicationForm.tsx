@@ -38,38 +38,18 @@ import {
  * Übersetzt einen Fehler beim Absenden in einen Satz, den ein Interessent
  * versteht.
  *
- * Hintergrund: Der Server bremst das öffentliche Formular, damit niemand es
- * mit Scheinanträgen fluten kann (siehe Abschnitt 7d in supabase_rls.sql).
- * Die Datenbank meldet das mit einer technischen Kennung. Ohne diese
- * Übersetzung stünde sie wörtlich auf dem Bildschirm eines Menschen, der
- * nur in einen Verein eintreten wollte.
- *
- * Wichtig ist dabei die Botschaft: Der Antrag ist nicht abgelehnt und nicht
- * verloren — er kam nur gerade nicht durch. Deshalb wird, wenn der Verein
- * eine Kontaktadresse hinterlegt hat, auf diesen zweiten Weg verwiesen.
+ * Das Formular speichert lokal auf diesem Gerät — ein Fehler hier ist damit
+ * untypisch (z. B. ein voller Gerätespeicher), nicht die Ablehnung eines
+ * Antrags. Wichtig ist dabei die Botschaft: Der Antrag ist nicht abgelehnt
+ * und nicht verloren — er kam nur gerade nicht durch. Deshalb wird, wenn der
+ * Verein eine Kontaktadresse hinterlegt hat, auf diesen zweiten Weg
+ * verwiesen.
  */
 export function absendeFehlerText(err: unknown, kontaktEmail?: string): string {
   const meldung = err instanceof Error ? err.message : String(err ?? '');
   const kontakt = kontaktEmail?.trim()
     ? ` Sie erreichen den Verein direkt unter ${kontaktEmail.trim()}.`
     : ' Bitte wenden Sie sich direkt an den Verein.';
-
-  if (meldung.includes('VM_ANTRAG_LIMIT_MAIL')) {
-    return (
-      'Von dieser E-Mail-Adresse wurden in den letzten 24 Stunden bereits mehrere Anträge ' +
-      'gestellt. Falls Ihr Antrag noch nicht angekommen ist, melden Sie sich bitte kurz.' +
-      kontakt
-    );
-  }
-
-  if (meldung.includes('VM_ANTRAG_LIMIT_GESAMT')) {
-    return (
-      'Das Formular nimmt gerade keine weiteren Anträge an — es sind in kurzer Zeit ' +
-      'ungewöhnlich viele eingegangen. Bitte versuchen Sie es in etwa einer Stunde noch ' +
-      'einmal; Ihre Eingaben bleiben so lange stehen.' +
-      kontakt
-    );
-  }
 
   if (!meldung) {
     return 'Beim Absenden des Antrags ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.' + kontakt;

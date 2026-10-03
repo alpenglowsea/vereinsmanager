@@ -30,8 +30,6 @@ import {
   MeetingTemplateSettings
 } from './types';
 import { StorageService } from './services/storage';
-import { PublicClubInfo, fetchPublicClubInfo, isCloudModeActive } from './services/supabaseClient';
-import { CloudStorageService } from './services/cloudStorage';
 import { AuthService } from './services/authService';
 import { PermissionArea, UserAuthSession, UserPermissions } from './types';
 import { AREA_LABEL, canEdit, canView, migrateLegacyPermissions } from './utils/permissions';
@@ -59,8 +57,6 @@ import { CalendarView } from './components/CalendarView';
 import { OnlineApplicationsView } from './components/OnlineApplicationsView';
 import { MeetingsView } from './components/MeetingsView';
 import { PublicApplicationForm } from './components/PublicApplicationForm';
-import { MemberSurveysView } from './components/MemberSurveysView';
-import { PublicSurveyView } from './components/PublicSurveyView';
 import { MobileShell, type MobileTab } from './components/MobileShell';
 import { MobileDashboardView } from './components/MobileDashboardView';
 import { MobileMembersView } from './components/MobileMembersView';
@@ -126,7 +122,6 @@ import {
   SlidersHorizontal,
   Contact,
   ScrollText,
-  Vote,
   Smartphone
 } from 'lucide-react';
 
@@ -227,15 +222,6 @@ export default function App() {
   /** Meldung, wenn eine Aktion an der fehlenden Berechtigung scheitert. */
   const [permissionNotice, setPermissionNotice] = useState<string | null>(null);
 
-  /**
-   * Vereinsangaben für das öffentliche Antragsformular.
-   *
-   * Im Cloud-Betrieb kommt ein Besucher ohne Anmeldung an keine Tabelle heran.
-   * Für das Formular reicht eine Handvoll Angaben — die liefert die Datenbank
-   * über eine eigene Funktion, die nur diese Felder herausgibt.
-   */
-  const [publicClubInfo, setPublicClubInfo] = useState<PublicClubInfo | null>(null);
-
   // Hinweis von selbst wieder ausblenden.
   useEffect(() => {
     if (!permissionNotice) return;
@@ -269,19 +255,6 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const view = (params.get('view') || '').toLowerCase();
     return view === 'antrag' || view === 'form' || params.has('antrag');
-  });
-  const [publicSurveyParams, setPublicSurveyParams] = useState<{ surveyId: string; token?: string } | null>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const sId = params.get('surveyId') || params.get('survey') || params.get('umfrage');
-      if (sId) {
-        return {
-          surveyId: sId,
-          token: params.get('token') || undefined
-        };
-      }
-    }
-    return null;
   });
   const [settings, setSettings] = useState<ClubSettings>({
     clubName: 'TSV Musterstadt 1890 e.V.',
@@ -410,19 +383,6 @@ export default function App() {
 
   // Load initial data from local IndexedDB
   const loadData = async () => {
-    // Ein Besucher auf dem öffentlichen Antragsformular ist nicht angemeldet.
-    // Im Cloud-Betrieb weist die Datenbank ihn bei jeder Tabelle zurück — das
-    // wäre eine Bildschirmseite voller Fehlermeldungen für Daten, die er
-    // ohnehin nicht sehen soll. Für das Formular genügt vm_public_club_info().
-    if (
-      isPublicFormMode &&
-      !AuthService.getSession().isAuthenticated &&
-      StorageService.getDeploymentMode() === 'cloud'
-    ) {
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       await StorageService.init();
@@ -497,8 +457,11 @@ export default function App() {
   // Berechtigungen des angemeldeten Benutzers
   //
   // WICHTIG: Das ist eine Bedienhilfe, keine Sicherheitsgrenze. Alles läuft
-  // im Browser des Nutzers und lässt sich dort umgehen. Verbindlich schützen
-  // kann nur der Server (Supabase Row Level Security).
+  // lokal im Browser des Nutzers und lässt sich dort umgehen — es gibt
+  // keinen Server mehr, der das verbindlich durchsetzen könnte. Gedacht ist
+  // das Rechtesystem für mehrere Benutzerkonten an einem gemeinsam genutzten
+  // Rechner (z. B. im Vereinsheim), nicht als Schutz vor jemandem mit
+  // technischem Zugriff auf diesen Rechner.
   // ---------------------------------------------------------------------
 
   /**
@@ -557,21 +520,6 @@ export default function App() {
     const saved = await StorageService.saveMeetingTemplate(template);
     setMeetingTemplateSettings(saved);
   };
-
-  // Angaben für das öffentliche Antragsformular nachladen, sobald klar ist,
-  // dass ein Besucher ohne Anmeldung davorsteht.
-  useEffect(() => {
-    if (!isPublicFormMode || authSession.isAuthenticated) return;
-    if (StorageService.getDeploymentMode() !== 'cloud') return;
-
-    let abgebrochen = false;
-    fetchPublicClubInfo().then(info => {
-      if (!abgebrochen) setPublicClubInfo(info);
-    });
-    return () => {
-      abgebrochen = true;
-    };
-  }, [isPublicFormMode, authSession.isAuthenticated]);
 
   // Verweis auf die jeweils aktuelle Fassung von loadData.
   //
@@ -1222,74 +1170,21 @@ export default function App() {
     );
   }
 
-  // Public Survey Participation Gate: Members can vote directly via link without registration/login
-  if (publicSurveyParams) {
-    return (
-      <PublicSurveyView
-        surveyId={publicSurveyParams.surveyId}
-        token={publicSurveyParams.token}
-        settings={settings}
-        onClose={() => {
-          if (typeof window !== 'undefined') {
-            window.history.replaceState({}, '', window.location.pathname);
-          }
-          setPublicSurveyParams(null);
-        }}
-      />
-    );
-  }
-
   // ---------------------------------------------------------------------
   // Öffentlicher Aufnahmeantrag
   //
-  // Ein Interessent, der den Link von der Vereinswebsite aufruft, ist nicht
-  // angemeldet und soll es auch nicht sein müssen. Deshalb steht dieser
-  // Abschnitt VOR der Anmeldesperre. Bisher landete genau dieser Mensch im
-  // Anmeldefenster — das Formular war zwar gebaut, aber unerreichbar.
-  //
-  // Angezeigt werden nur die Angaben, die die Datenbank für Besucher
-  // freigibt: Vereinsname, Abteilungen, Beiträge. An die Mitgliederdaten oder
-  // die Kontoverbindung kommt hier niemand.
+  // Ein Interessent füllt das Formular direkt an diesem Rechner aus, etwa bei
+  // der Anmeldung im Vereinsheim, und soll dafür nicht angemeldet sein
+  // müssen. Deshalb steht dieser Abschnitt VOR der Anmeldesperre.
   // ---------------------------------------------------------------------
   if (isPublicFormMode && !authSession.isAuthenticated) {
-    const publicSettings: ClubSettings = publicClubInfo
-      ? {
-          ...settings,
-          clubName: publicClubInfo.clubName || settings.clubName,
-          associationNumber: publicClubInfo.associationNumber || settings.associationNumber,
-          address: publicClubInfo.address || settings.address,
-          creditorId: publicClubInfo.creditorId || settings.creditorId,
-          departments: publicClubInfo.departments.length
-            ? publicClubInfo.departments
-            : settings.departments
-        }
-      : settings;
-
-    const publicTemplate: ApplicationTemplateSettings = publicClubInfo
-      ? { ...applicationSettings, ...publicClubInfo.template }
-      : applicationSettings;
-
     return (
       <div className="min-h-screen bg-slate-900">
         <PublicApplicationForm
-          settings={publicSettings}
-          templateSettings={publicTemplate}
+          settings={settings}
+          templateSettings={applicationSettings}
           isStandalone
           onSubmitApplication={async (app) => {
-            // Im Cloud-Betrieb geht der Antrag unmittelbar an die
-            // Vereinsdatenbank — bewusst ohne Zwischenspeicher im Browser
-            // des Interessenten. Zwei Gründe: Seine Daten haben dort nichts
-            // verloren, sobald er auf "Absenden" geklickt hat. Und käme die
-            // Übertragung nicht durch, läge in seinem Browser eine Kopie,
-            // von der der Verein nie erführe — der Antrag sähe abgeschickt
-            // aus, wäre es aber nicht.
-            if (isCloudModeActive()) {
-              await CloudStorageService.saveOnlineApplication(app, { asVisitor: true });
-              return;
-            }
-            // Ohne Cloud läuft das Formular auf dem Rechner des Vereins
-            // selbst, etwa bei der Anmeldung im Vereinsheim. Dann ist die
-            // lokale Ablage genau der richtige Ort.
             await StorageService.saveOnlineApplication(app);
           }}
         />
@@ -1302,7 +1197,6 @@ export default function App() {
     return (
       <LoginScreen
         settings={settings}
-        deploymentMode={deploymentMode}
         onLoginSuccess={(user) => {
           setActiveTab('dashboard');
           setAuthSession({ user, isAuthenticated: true, loginTime: new Date().toISOString() });
@@ -1311,7 +1205,6 @@ export default function App() {
         onSettingsReload={(newSettings) => {
           if (newSettings) setSettings(newSettings);
         }}
-        onDeploymentModeChange={(newMode) => setDeploymentMode(newMode)}
       />
     );
   }
@@ -1513,7 +1406,7 @@ export default function App() {
               type="button"
               onClick={() => setMembersMenuOpen(!membersMenuOpen)}
               className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer select-none ${
-                ['members', 'online_applications', 'member_analytics', 'member_surveys'].includes(activeTab)
+                ['members', 'online_applications', 'member_analytics'].includes(activeTab)
                   ? 'text-blue-300 bg-slate-800/50 hover:bg-slate-800 hover:text-white'
                   : 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-200'
               }`}
@@ -1604,26 +1497,6 @@ export default function App() {
                   <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
                   <span>Mitglieder-Statistiken</span>
                   {!mayAccess('member_analytics') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
-                </button>
-
-                <button
-                  type="button"
-                  disabled={!mayAccess('member_surveys')}
-                  title={mayAccess('member_surveys') ? undefined : NAV_LOCK_TITLE}
-                  id="nav-btn-member-surveys"
-                  onClick={() => {
-                    setActiveTab('member_surveys');
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                    activeTab === 'member_surveys'
-                      ? 'bg-blue-600 text-white font-semibold shadow-xs'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }${navLockClass('member_surveys')}`}
-                >
-                  <Vote className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Mitgliederbefragung</span>
-                  {!mayAccess('member_surveys') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
               </div>
             )}
@@ -2019,7 +1892,6 @@ export default function App() {
                 {activeTab === 'members' && 'Mitgliederverwaltung'}
                 {activeTab === 'online_applications' && 'Mitgliedsanträge & Digitales Aufnahmewesen'}
                 {activeTab === 'member_analytics' && 'Mitglieder-Statistiken & Demografie'}
-                {activeTab === 'member_surveys' && 'Mitgliederbefragung & Meinungsbilder'}
                 {activeTab === 'sepa' && 'Beitragslauf (SEPA-Lastschriften)'}
                 {activeTab === 'finance' && 'Finanz- & Kassenverwaltung'}
                 {activeTab === 'guv' && 'Einnahmen-Überschuss-Rechnung (EÜR / GuV)'}
@@ -2281,21 +2153,6 @@ export default function App() {
               <MemberAnalyticsView members={members} settings={settings} />
             )}
 
-            {/* Tab: Member Surveys & Feedback */}
-            {activeTab === 'member_surveys' && (
-              <MemberSurveysView
-                settings={settings}
-                members={members}
-                deploymentMode={deploymentMode}
-                onNavigateToSettings={() => {
-                  setSettingsActiveTab('deployment');
-                  goToTab('settings');
-                }}
-                canEdit={mayEdit('member_surveys')}
-                onLocked={() => requireEdit('member_surveys')}
-                />
-            )}
-
             {/* Tab: SEPA Direct Debit & Contribution Run */}
             {activeTab === 'sepa' && (
               <SepaRunView
@@ -2522,7 +2379,6 @@ export default function App() {
                 canEdit={mayEdit('settings')}
                 onLocked={() => requireEdit('settings')}
                 canManageUsers={mayEdit('users')}
-                currentCloudUserId={authSession.loginMethod === 'supabase' ? currentUser?.id : undefined}
                 onUsersLocked={() => requireEdit('users')}
                 />
             )}

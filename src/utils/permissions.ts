@@ -9,8 +9,10 @@ import { AccessLevel, PermissionArea, UserPermissions } from '../types';
  * trotzdem ein. Eine Stufenleiter kann diesen Zustand nicht abbilden.
  *
  * ACHTUNG: Das ist eine Bedienhilfe, keine Sicherheitsgrenze. Alles läuft
- * im Browser des Nutzers. Verbindlich durchsetzen kann nur der Server
- * (Supabase Row Level Security).
+ * lokal im Browser des Nutzers und lässt sich dort umgehen — es gibt keinen
+ * Server mehr, der das verbindlich durchsetzen könnte. Gedacht ist das für
+ * mehrere Benutzerkonten an einem gemeinsam genutzten Rechner, nicht als
+ * Schutz vor jemandem mit technischem Zugriff auf diesen Rechner.
  */
 
 export interface AreaDefinition {
@@ -54,13 +56,6 @@ export const AREA_DEFINITIONS: AreaDefinition[] = [
     viewOnly: true,
     description: 'Altersstruktur, Entwicklung und Abteilungsverteilung'
   },
-  {
-    id: 'member_surveys',
-    label: 'Mitgliederbefragungen',
-    group: 'Mitglieder',
-    description: 'Umfragen anlegen, versenden und auswerten'
-  },
-
   {
     id: 'finance',
     label: 'Buchungen & Kassenbuch',
@@ -263,7 +258,6 @@ export const ROLE_PRESETS: RolePreset[] = [
 interface LegacyPermissions {
   canViewMembers?: boolean;
   canEditMembers?: boolean;
-  canManageSurveys?: boolean;
   canViewFinances?: boolean;
   canEditFinances?: boolean;
   canExecuteSepa?: boolean;
@@ -317,7 +311,6 @@ export function migrateLegacyPermissions(raw: unknown): UserPermissions {
     members: level(viewMembers, editMembers),
     online_applications: level(viewMembers, editMembers),
     member_analytics: viewMembers ? 'view' : 'none',
-    member_surveys: level(yes(l.canManageSurveys), yes(l.canManageSurveys)),
     finance: level(viewFinances, editFinances),
     sepa: level(yes(l.canExecuteSepa), yes(l.canExecuteSepa)),
     invoices: level(viewFinances, editFinances),

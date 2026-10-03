@@ -2,19 +2,10 @@ import { AppUser, PermissionArea, SecuritySettings, UserAuthSession } from '../t
 import { FULL_PERMISSIONS, INITIAL_USERS, DEFAULT_SECURITY_SETTINGS } from '../data/roles';
 import { canEdit, canView, migrateLegacyPermissions } from '../utils/permissions';
 import { checkPasswordStrength, hashPassword, isHashed, verifyPassword } from './passwordService';
-import {
-  acceptInvitation,
-  claimFirstAdmin,
-  fetchClubUser,
-  getSupabaseClient,
-  isCloudModeActive,
-  isCloudSetupPending
-} from './supabaseClient';
 
 const STORAGE_KEY_USERS = 'vm_users_v2';
 const STORAGE_KEY_SECURITY = 'vm_security_settings_v2';
 const STORAGE_KEY_CURRENT_SESSION = 'vm_auth_session_v2';
-const STORAGE_KEY_SETUP = 'vm_cloud_setup_pending';
 
 /**
  * Ergänzt Berechtigungen, die es zum Zeitpunkt der Speicherung noch nicht gab.
@@ -179,7 +170,7 @@ export class AuthService {
   // LOGIN / LOGOUT / REGISTER
   // ==========================================
 
-  // Register New Club Administrator Account across all 3 modes
+  // Register New Club Administrator Account
   public static async register(params: {
     clubName: string;
     name: string;
@@ -187,13 +178,7 @@ export class AuthService {
     username: string;
     password: string;
     customRoleName?: string;
-    /**
-     * Nur im Cloud-Betrieb nötig, UND dort nur, wenn schon ein Vorstand
-     * eingetragen ist: der Einladungscode, den der Vorstand vergeben hat.
-     * Für den allerersten Vorstand braucht es keinen Code.
-     */
-    setupCode?: string;
-  }): Promise<{ success: boolean; message?: string; user?: AppUser; requiresEmailConfirmation?: boolean }> {
+  }): Promise<{ success: boolean; message?: string; user?: AppUser }> {
     const clubName = params.clubName.trim();
     const name = params.name.trim();
     const email = params.email.trim().toLowerCase();
@@ -217,56 +202,12 @@ export class AuthService {
       return { success: false, message: strength.message };
     }
 
-    // Im Cloud-Betrieb ist die Registrierung etwas anderes als lokal: Sie legt
-    // ein echtes Supabase-Konto an und trägt den Vorstand als ersten Benutzer
-    // in die Vereinsdatenbank ein. Schlägt das fehl, darf sie NICHT still auf
-    // einen lokalen Benutzer ausweichen — sonst stünde jemand mit einem
-    // Konto da, das in der Cloud nichts darf.
-    if (isCloudModeActive()) {
-      return this.registerCloud({
-        clubName,
-        name,
-        email,
-        username,
-        password,
-        setupCode: params.setupCode || '',
-        customRoleName: params.customRoleName
-      });
-    }
-
     const users = this.getUsers();
     if (users.some(u => u.username.toLowerCase() === username)) {
       return { success: false, message: `Der Benutzername "${username}" ist bereits vergeben.` };
     }
     if (users.some(u => u.email.toLowerCase() === email)) {
       return { success: false, message: `Die E-Mail-Adresse "${email}" ist bereits registriert.` };
-    }
-
-    // Try Supabase Auth if Supabase client is configured
-    let requiresEmailConfirmation = false;
-    const sb = getSupabaseClient();
-    if (sb) {
-      try {
-        const { data, error } = await sb.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              name,
-              username,
-              club_name: clubName,
-              role: 'Vorstand'
-            }
-          }
-        });
-        if (error) {
-          console.warn('Supabase Cloud Sign-Up Meldung:', error.message);
-        } else if (data?.user && !data?.session) {
-          requiresEmailConfirmation = true;
-        }
-      } catch (sbErr) {
-        console.warn('Supabase Auth error:', sbErr);
-      }
     }
 
     // Create new Admin User with full permissions
@@ -290,7 +231,7 @@ export class AuthService {
     this.currentSession = {
       user: newUser,
       isAuthenticated: true,
-      loginMethod: sb && !requiresEmailConfirmation ? 'supabase' : 'user',
+      loginMethod: 'user',
       loginTime: new Date().toISOString()
     };
 
@@ -301,143 +242,8 @@ export class AuthService {
     return {
       success: true,
       user: newUser,
-      requiresEmailConfirmation,
-      message: requiresEmailConfirmation
-        ? 'Vereinskonto erstellt! Bitte prüfen Sie Ihre E-Mails für die Supabase-Aktivierung.'
-        : 'Vereinskonto erfolgreich erstellt!'
+      message: 'Vereinskonto erfolgreich erstellt!'
     };
-  }
-
-  /**
-   * Registrierung im Cloud-Betrieb.
-   *
-   * Zwei Fälle: Entweder richtet jemand den Verein neu ein — dann braucht es
-   * keinen Code, nur die eingetragenen Zugangsdaten — oder er wurde vom
-   * Vorstand eingeladen und braucht dafür einen Einladungscode. Welcher Fall
-   * vorliegt, entscheidet die Datenbank, nicht der Anwender: Solange noch
-   * kein Benutzer eingetragen ist, ist es der erste; danach kann es nur eine
-   * Einladung sein.
-   */
-  private static async registerCloud(params: {
-    clubName: string;
-    name: string;
-    email: string;
-    username: string;
-    password: string;
-    /** Nur nötig, wenn schon ein Vorstand eingetragen ist (Einladungscode). */
-    setupCode?: string;
-    customRoleName?: string;
-  }): Promise<{ success: boolean; message?: string; user?: AppUser; requiresEmailConfirmation?: boolean }> {
-    const sb = getSupabaseClient();
-    if (!sb) {
-      return { success: false, message: 'Die Cloud-Datenbank ist nicht erreichbar.' };
-    }
-
-    const isFirstAdmin = await isCloudSetupPending();
-    const code = (params.setupCode || '').trim();
-
-    // Einen Code braucht nur, wer eingeladen wurde — der allererste Vorstand
-    // registriert sich allein mit den Zugangsdaten, die er selbst eingetragen
-    // hat.
-    if (!isFirstAdmin && !code) {
-      return {
-        success: false,
-        message: 'Bitte den Einladungscode eingeben, den Ihnen der Vorstand gegeben hat.'
-      };
-    }
-
-    const { data, error } = await sb.auth.signUp({
-      email: params.email,
-      password: params.password,
-      options: {
-        data: { name: params.name, username: params.username, club_name: params.clubName }
-      }
-    });
-
-    if (error) {
-      return { success: false, message: `Konto konnte nicht angelegt werden: ${error.message}` };
-    }
-
-    // Ohne Sitzung verlangt Supabase eine E-Mail-Bestätigung. Der Eintrag in
-    // die Vereinsdatenbank wird dann bei der ersten Anmeldung nachgeholt.
-    if (!data.session) {
-      this.rememberSetupCode(code, params.name, params.customRoleName, isFirstAdmin ? 'setup' : 'invite');
-      return {
-        success: false,
-        requiresEmailConfirmation: true,
-        message:
-          'Konto angelegt. Bitte bestätigen Sie jetzt die E-Mail von Supabase und melden ' +
-          'Sie sich anschliessend hier an — die Freischaltung wird dann abgeschlossen.'
-      };
-    }
-
-    const entry = isFirstAdmin
-      ? await claimFirstAdmin(params.name, params.customRoleName || '1. Vorsitzende(r)')
-      : await acceptInvitation(code);
-
-    if (!entry.success) {
-      return { success: false, message: entry.message };
-    }
-
-    this.forgetSetupCode();
-    const loginRes = await this.loginWithSupabase(params.email, params.password);
-    if (!loginRes.success) {
-      return { success: false, message: loginRes.message };
-    }
-
-    return {
-      success: true,
-      user: this.currentSession?.user || undefined,
-      message: isFirstAdmin
-        ? 'Vereinskonto erstellt und als Vorstand eingetragen.'
-        : 'Konto erstellt und für den Verein freigeschaltet.'
-    };
-  }
-
-  /**
-   * Zwischenspeichern, solange die E-Mail-Bestätigung aussteht, damit der
-   * Eintrag in die Vereinsdatenbank bei der ersten Anmeldung nachgeholt
-   * werden kann. "code" ist dabei nur für kind 'invite' tatsächlich ein
-   * Einladungscode — für kind 'setup' (der allererste Vorstand) bleibt er
-   * leer, da claimFirstAdmin() keinen Code mehr braucht.
-   */
-  private static rememberSetupCode(
-    code: string,
-    name: string,
-    roleLabel?: string,
-    kind: 'setup' | 'invite' = 'setup'
-  ) {
-    try {
-      localStorage.setItem(
-        STORAGE_KEY_SETUP,
-        JSON.stringify({ code, name, roleLabel: roleLabel || '1. Vorsitzende(r)', kind })
-      );
-    } catch {
-      // Ohne Zwischenspeicher muss der Code nach der Bestätigung erneut
-      // eingegeben werden — kein Grund, die Registrierung abzubrechen.
-    }
-  }
-
-  private static forgetSetupCode() {
-    try {
-      localStorage.removeItem(STORAGE_KEY_SETUP);
-    } catch {
-      // nichts zu tun
-    }
-  }
-
-  private static readSetupCode(): {
-    code: string;
-    name: string;
-    roleLabel: string;
-    kind?: 'setup' | 'invite';
-  } | null {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY_SETUP);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
   }
 
   // Standard Login with Username / Email and Password
@@ -447,26 +253,6 @@ export class AuthService {
 
     if (!term || !pass) {
       return { success: false, message: 'Bitte Benutzername und Passwort eingeben.' };
-    }
-
-    // Im Cloud-Betrieb entscheidet die Datenbank, nicht die lokale Liste.
-    //
-    // Das ist keine Feinheit: Die Zugriffsregeln des Servers kennen nur
-    // Supabase-Konten. Eine Anmeldung gegen die lokale Liste würde zwar die
-    // Oberfläche öffnen, aber jede Abfrage an die Datenbank liefe ohne
-    // Anmeldung — und käme seit der Absicherung leer zurück.
-    if (isCloudModeActive()) {
-      if (!term.includes('@')) {
-        return {
-          success: false,
-          message: 'Im Cloud-Betrieb melden Sie sich mit Ihrer E-Mail-Adresse an.'
-        };
-      }
-      const cloudRes = await this.loginWithSupabase(term, pass);
-      if (!cloudRes.success) {
-        return { success: false, message: cloudRes.message };
-      }
-      return { success: true, user: this.currentSession?.user || undefined };
     }
 
     const users = this.getUsers();
@@ -540,104 +326,6 @@ export class AuthService {
     this.notifyListeners();
 
     return { success: true, user: admin };
-  }
-
-  // Cloud Supabase Login (optional if configured)
-  public static async loginWithSupabase(email: string, password: string): Promise<{ success: boolean; message?: string }> {
-    try {
-      const sb = getSupabaseClient();
-      if (!sb) {
-        return { success: false, message: 'Supabase Cloud ist nicht eingerichtet.' };
-      }
-
-      const { data, error } = await sb.auth.signInWithPassword({
-        email: email.trim(),
-        password
-      });
-
-      if (error || !data.user) {
-        return { success: false, message: error?.message || 'Anmeldung fehlgeschlagen.' };
-      }
-
-      // Die Rechte kommen aus der Tabelle club_users in der Cloud-Datenbank
-      // — derselben, nach der sich auch die Zugriffsregeln des Servers
-      // richten. Früher bekam hier jede angemeldete Kennung Vollzugriff.
-      let clubUser = await fetchClubUser(data.user.id);
-
-      // Nachzügler-Fall 1: Die Registrierung verlangte eine E-Mail-Bestätigung,
-      // deshalb konnte der Eintrag damals nicht angelegt werden. Jetzt, bei
-      // der ersten Anmeldung, wird er mit dem gemerkten Namen/Rolle nachgeholt.
-      if (!clubUser) {
-        const pending = this.readSetupCode();
-        if (pending) {
-          const claim =
-            pending.kind === 'invite'
-              ? await acceptInvitation(pending.code)
-              : await claimFirstAdmin(pending.name, pending.roleLabel);
-          if (claim.success) {
-            this.forgetSetupCode();
-            clubUser = await fetchClubUser(data.user.id);
-          }
-        }
-      }
-
-      // Nachzügler-Fall 2: Der Merkzettel von Fall 1 fehlt — zum Beispiel,
-      // weil die Registrierung in einem anderen Browser oder in der
-      // installierten Tauri-App lief als diese Anmeldung (jede dieser
-      // Umgebungen hat ihren eigenen, getrennten localStorage-Topf), oder aus
-      // einem anderen Grund. claimFirstAdmin() ist dafür gefahrlos: Die
-      // Datenbank trägt nur ein, wenn club_users WIRKLICH noch leer ist, und
-      // meldet sonst nur "bereits eingerichtet" zurück — ein bereits
-      // laufender Verein kann durch diesen Versuch also nie überschrieben
-      // oder übernommen werden.
-      if (!clubUser) {
-        const vorname =
-          data.user.user_metadata?.name ||
-          data.user.user_metadata?.full_name ||
-          email.split('@')[0];
-        const claim = await claimFirstAdmin(vorname, '1. Vorsitzende(r)');
-        if (claim.success) {
-          clubUser = await fetchClubUser(data.user.id);
-        }
-      }
-
-      if (!clubUser || !clubUser.isActive) {
-        await sb.auth.signOut();
-        return {
-          success: false,
-          message:
-            'Anmeldung erfolgreich, aber dieses Konto ist für den Verein noch nicht ' +
-            'freigeschaltet. Der Vorstand muss es in der Benutzerverwaltung eintragen.'
-        };
-      }
-
-      const matchedUser: AppUser = {
-        id: data.user.id,
-        username: email.split('@')[0],
-        email: data.user.email || email,
-        name: clubUser.name || data.user.user_metadata?.full_name || email.split('@')[0],
-        password: '',
-        customRoleName: clubUser.roleName,
-        permissions: clubUser.permissions,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        lastLogin: new Date().toISOString()
-      };
-
-      this.currentSession = {
-        user: matchedUser,
-        isAuthenticated: true,
-        loginMethod: 'supabase',
-        loginTime: new Date().toISOString()
-      };
-
-      this.persistSession(this.currentSession);
-      this.startInactivityTracker();
-      this.notifyListeners();
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, message: err.message || 'Verbindungsfehler.' };
-    }
   }
 
   // Logout / Lock Session

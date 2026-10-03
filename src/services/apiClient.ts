@@ -6,15 +6,10 @@
  * Datei ist die einzige Stelle, die diesen Ausweis anhängt — jeder Aufruf an
  * den Server läuft über apiFetch().
  *
- * Es gibt zwei Ausweise für den Zugriff auf den Server selbst, einer genügt:
- *
- *   1. Der Zugriffsschlüssel dieser Installation. Im Lokalbetrieb hängt ihn
- *      das Startskript an die Adresse an, die es im Browser öffnet
- *      (…#zugriff=…). Die App liest ihn beim Start einmal aus und merkt ihn
- *      sich im Browser. Der Anwender bemerkt davon nichts.
- *
- *   2. Das Anmeldetoken aus dem Cloud-Betrieb. Ist jemand über Supabase
- *      angemeldet, genügt das — der Server fragt bei Supabase nach.
+ * Der Ausweis ist der Zugriffsschlüssel dieser Installation. Im Lokalbetrieb
+ * hängt ihn das Startskript an die Adresse an, die es im Browser öffnet
+ * (…#zugriff=…). Die App liest ihn beim Start einmal aus und merkt ihn sich
+ * im Browser. Der Anwender bemerkt davon nichts.
  *
  * Warum im Browser gespeichert (localStorage) und nicht im Speicher der
  * laufenden Seite? Weil sonst jedes Neuladen den Schlüssel verlöre und die
@@ -22,12 +17,11 @@
  * auf dem ohnehin die Vereinsdaten liegen; er eröffnet keinen Zugang, den der
  * Besitzer dieses Browsers nicht ohnehin hätte.
  *
- * Bis zur Entfernung des eigenen Server-Betriebs (Betriebsart 3) kam hier ein
- * dritter, davon unabhängiger Ausweis dazu: das Sitzungstoken der Anmeldung
- * an jenem Server. Mit der Betriebsart ist auch er entfallen.
+ * Frühere Fassungen kannten hier zwei weitere, davon unabhängige Ausweise:
+ * das Anmeldetoken des Cloud-Betriebs (Supabase) und das Sitzungstoken des
+ * eigenen Server-Betriebs (Betriebsart 3). Mit beiden Betriebsarten sind auch
+ * diese Ausweise entfallen — es gibt nur noch den einen, oben beschriebenen.
  */
-
-import { getSupabaseClient } from './supabaseClient';
 
 const SPEICHER_SCHLUESSEL = 'vm_zugriffsschluessel';
 
@@ -88,8 +82,8 @@ export function uebernehmeSchluesselAusAdresse(): void {
 
     setZugriffsschluessel(schluessel);
 
-    // Nur den eigenen Wert entfernen. Supabase legt beim Anmelden ebenfalls
-    // Angaben hinter der Raute ab; die dürfen nicht verlorengehen.
+    // Nur den eigenen Wert entfernen, nicht die ganze Raute — sie könnte noch
+    // andere Angaben tragen.
     teile.delete('zugriff');
     const rest = teile.toString();
     window.history.replaceState(
@@ -104,67 +98,6 @@ export function uebernehmeSchluesselAusAdresse(): void {
 }
 
 /**
- * Liest ein "Passwort vergessen"-Token aus der Adresszeile (…#reset-passwort=…).
- * Steht im selben Rautenteil wie …#zugriff=… (siehe
- * uebernehmeSchluesselAusAdresse oben) — ein Reset-Link enthält bewusst
- * beides zugleich, siehe server.ts: Ohne den Zugriffsschlüssel käme jemand,
- * der diesen Server zum ersten Mal von einem neuen Gerät aus aufruft, gar
- * nicht erst bis zur Anmeldemaske.
- *
- * Anders als beim Zugriffsschlüssel wird der Wert hier NICHT aus der Adresse
- * entfernt oder gemerkt — ein Neuladen der Seite soll die
- * "Neues Passwort setzen"-Maske nicht verlieren. Erst nach erfolgreichem
- * Zurücksetzen entfernt LoginScreen ihn selbst aus der Adresse.
- */
-export function lesePasswortResetToken(): string | null {
-  try {
-    const roh = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
-    if (!roh) return null;
-    const teile = new URLSearchParams(roh);
-    const token = teile.get('reset-passwort');
-    return token && token.trim() ? token.trim() : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Entfernt nur den eigenen "reset-passwort"-Wert wieder aus der Adresszeile
- * (nach erfolgreichem Zurücksetzen) — genau wie
- * uebernehmeSchluesselAusAdresse() das für "zugriff" tut, und aus demselben
- * Grund lässt sie den Rest der Raute (z. B. Supabase-Angaben) unberührt.
- */
-export function entfernePasswortResetAusAdresse(): void {
-  try {
-    const roh = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
-    if (!roh) return;
-    const teile = new URLSearchParams(roh);
-    if (!teile.has('reset-passwort')) return;
-    teile.delete('reset-passwort');
-    const rest = teile.toString();
-    window.history.replaceState(
-      null,
-      '',
-      `${window.location.pathname}${window.location.search}${rest ? `#${rest}` : ''}`
-    );
-  } catch {
-    // Kein Grund, die Anwendung anzuhalten — siehe sicherLesen() oben.
-  }
-}
-
-/** Anmeldetoken des Cloud-Betriebs, falls jemand angemeldet ist. */
-async function cloudToken(): Promise<string | null> {
-  try {
-    const client = getSupabaseClient();
-    if (!client) return null;
-    const { data } = await client.auth.getSession();
-    return data.session?.access_token || null;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Ruft einen /api-Endpunkt auf und hängt den Ausweis an. Ansonsten verhält es
  * sich wie das gewöhnliche fetch(): Der Aufrufer bekommt die Antwort, wie sie
  * ist, und wertet sie selbst aus.
@@ -174,12 +107,6 @@ export async function apiFetch(pfad: string, init: RequestInit = {}): Promise<Re
 
   const schluessel = sicherLesen();
   if (schluessel) kopfzeilen.set(ZUGRIFF_HEADER, schluessel);
-
-  // Beide Ausweise mitschicken, wenn beide vorhanden sind. Wäre nur der
-  // Schlüssel dabei und dieser veraltet — etwa nach einem Neuaufbau des
-  // Containers —, scheiterte der Aufruf, obwohl die Person angemeldet ist.
-  const token = await cloudToken();
-  if (token) kopfzeilen.set('Authorization', `Bearer ${token}`);
 
   return fetch(pfad, { ...init, headers: kopfzeilen });
 }
