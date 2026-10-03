@@ -4,16 +4,11 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Meeting, MeetingType, MeetingStatus, MeetingAttendee } from '../types';
-import { MeetingExtractedData } from '../services/meetingAiService';
-import { MeetingAudioRecorderModal } from './MeetingAudioRecorderModal';
-import { lockClass, lockTitle } from '../utils/uiLock';
+import { Meeting, MeetingType, MeetingStatus } from '../types';
 import {
   ArrowLeft,
   Search,
   ChevronRight,
-  Mic,
-  Lock,
   CalendarDays,
   MapPin,
   Users,
@@ -25,26 +20,9 @@ import {
 /**
  * Sitzungsdienst (Mobil-Ansicht)
  * ---------------------------------------------------------------------------
- * Zweck laut Vorgabe: eine bereits angelegte Sitzung unterwegs nachschlagen
- * UND ihr nachträglich eine Audioaufnahme hinzufügen ("sinnvollerweise kann
- * man dann auch die bereits angelegte Sitzung sehen und bearbeiten").
- *
- * Bewusst NICHT neu gebaut: die Aufnahme- und Auswertungslogik selbst. Es
- * wird exakt dasselbe Bauteil wiederverwendet, das auch die Desktop-
- * Sitzungsmaske für "Audio aufnehmen" einsetzt (MeetingAudioRecorderModal) —
- * inklusive der dort bereits vorhandenen Sperre für Mitgliederversammlungen
- * (§ 201 StGB) und der Gemini-Transkription. Dieser Bildschirm liefert dem
- * Bauteil nur den Kontext der ausgewählten Sitzung und übernimmt das
- * Ergebnis anschließend in genau derselben Weise, wie es die Desktop-
- * Sitzungsmaske tut (siehe MeetingFormModal.handleApplyExtractedData):
- * Titel/Datum/Ort/etc. werden überschrieben, wenn die Auswertung dazu etwas
- * erkannt hat, die Tagesordnung wird ERSETZT, wenn TOPs erkannt wurden,
- * Teilnehmer werden ergänzt (keine Duplikate nach Namen), und die
- * Transkript-Essenz wird an die Notizen angehängt.
- *
- * Anlegen und Löschen von Sitzungen bleiben der Desktop-Ansicht vorbehalten
- * — hier geht es nur um Nachschlagen und das nachträgliche Hinzufügen von
- * Audio zu einer bestehenden Sitzung.
+ * Zweck: eine bereits angelegte Sitzung unterwegs nachschlagen. Anlegen,
+ * Ändern und Löschen von Sitzungen bleiben der Desktop-Ansicht vorbehalten
+ * — hier geht es nur um das Nachschlagen einer bestehenden Sitzung.
  */
 
 const STATUS_BADGE: Record<MeetingStatus, { label: string; className: string }> = {
@@ -83,74 +61,13 @@ function timeRangeLabel(meeting: Meeting): string {
   return '';
 }
 
-/**
- * Übernimmt eine per Audio ausgewertete Sitzung in eine bestehende — exakt
- * dieselbe Zusammenführung wie MeetingFormModal.handleApplyExtractedData am
- * Desktop, nur auf einem fertigen Meeting-Objekt statt auf einzelnen
- * Formularfeldern angewendet.
- */
-function mergeAttendees(
-  existing: MeetingAttendee[],
-  extracted?: MeetingExtractedData['attendees']
-): MeetingAttendee[] {
-  if (!extracted || extracted.length === 0) return existing;
-  const existingNames = new Set(existing.map(a => a.name.toLowerCase()));
-  const toAdd: MeetingAttendee[] = extracted
-    .filter(a => a.name && !existingNames.has(a.name.toLowerCase()))
-    .map((a, idx) => ({
-      id: `att-ai-${Date.now()}-${idx}`,
-      name: a.name,
-      role: a.role || 'Teilnehmer',
-      present: a.present ?? true,
-      hasVotingRight: a.hasVotingRight ?? true,
-      isSignatory: Boolean(a.role?.toLowerCase().includes('vorsitz') || a.role?.toLowerCase().includes('leiter'))
-    }));
-  return toAdd.length > 0 ? [...existing, ...toAdd] : existing;
-}
-
-function mergeGeneralNotes(existing: string | undefined, data: MeetingExtractedData): string | undefined {
-  const extraNotes = [
-    data.generalNotes,
-    data.transcriptSummary ? `Audio-Transkript Essenz:\n${data.transcriptSummary}` : null,
-    data.extractedRawSummary ? `Notizen-Erfassung:\n${data.extractedRawSummary}` : null
-  ]
-    .filter(Boolean)
-    .join('\n\n');
-  if (!extraNotes) return existing;
-  return existing ? `${existing}\n\n${extraNotes}` : extraNotes;
-}
-
-function applyExtractedToMeeting(meeting: Meeting, data: MeetingExtractedData): Meeting {
-  return {
-    ...meeting,
-    title: data.title || meeting.title,
-    type: data.type || meeting.type,
-    date: data.date || meeting.date,
-    startTime: data.startTime || meeting.startTime,
-    endTime: data.endTime || meeting.endTime,
-    location: data.location || meeting.location,
-    chairperson: data.chairperson || meeting.chairperson,
-    minuteKeeper: data.minuteKeeper || meeting.minuteKeeper,
-    agenda: data.agenda && data.agenda.length > 0 ? data.agenda : meeting.agenda,
-    attendees: mergeAttendees(meeting.attendees, data.attendees),
-    generalNotes: mergeGeneralNotes(meeting.generalNotes, data)
-  };
-}
-
 interface MobileMeetingsViewProps {
   meetings: Meeting[];
-  /** Darf die Person im Bereich "Sitzungen" etwas ändern (hier: Audio hinzufügen)? */
-  canEdit: boolean;
-  onSave: (meeting: Meeting) => void | Promise<void>;
 }
 
-export function MobileMeetingsView({ meetings, canEdit, onSave }: MobileMeetingsViewProps) {
+export function MobileMeetingsView({ meetings }: MobileMeetingsViewProps) {
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [isAudioOpen, setIsAudioOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [justUpdated, setJustUpdated] = useState(false);
 
   const sortedMeetings = useMemo(
     () => [...meetings].sort((a, b) => `${b.date}${b.startTime}`.localeCompare(`${a.date}${a.startTime}`)),
@@ -172,23 +89,6 @@ export function MobileMeetingsView({ meetings, canEdit, onSave }: MobileMeetings
   // Ansicht nach dem Speichern automatisch die neuen Daten zeigt.
   const selectedMeeting = selectedId ? meetings.find(m => m.id === selectedId) ?? null : null;
 
-  const handleApplyAudioData = async (data: MeetingExtractedData) => {
-    if (!selectedMeeting) return;
-    const merged = applyExtractedToMeeting(selectedMeeting, data);
-    setIsAudioOpen(false);
-    setIsSaving(true);
-    setSaveError(null);
-    try {
-      await onSave(merged);
-      setJustUpdated(true);
-    } catch (err) {
-      console.error('Sitzung mit Audio-Auswertung konnte nicht gespeichert werden:', err);
-      setSaveError('Die Sitzung konnte nicht gespeichert werden. Bitte erneut versuchen.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   if (selectedMeeting) {
     const badge = STATUS_BADGE[selectedMeeting.status];
     const totalResolutions = selectedMeeting.agenda.reduce((acc, top) => acc + (top.resolutions?.length || 0), 0);
@@ -197,34 +97,12 @@ export function MobileMeetingsView({ meetings, canEdit, onSave }: MobileMeetings
       <div className="p-4 space-y-4 pb-6">
         <button
           type="button"
-          onClick={() => {
-            setSelectedId(null);
-            setJustUpdated(false);
-            setSaveError(null);
-          }}
+          onClick={() => setSelectedId(null)}
           className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           Zurück zur Liste
         </button>
-
-        {justUpdated && (
-          <div className="flex items-start gap-2.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl px-4 py-3">
-            <Mic className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" />
-            <p className="text-xs leading-snug">
-              <strong>Audio übernommen.</strong> Die Sitzung wurde mit der Auswertung aktualisiert.
-            </p>
-          </div>
-        )}
-
-        {!canEdit && (
-          <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3">
-            <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
-            <p className="text-xs leading-snug">
-              <strong>Nur Leserecht.</strong> Sie können diese Sitzung einsehen, aber keine Audioaufnahme hinzufügen.
-            </p>
-          </div>
-        )}
 
         <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3">
           <div className="flex items-start justify-between gap-3">
@@ -308,38 +186,6 @@ export function MobileMeetingsView({ meetings, canEdit, onSave }: MobileMeetings
           </div>
         )}
 
-        {saveError && <p className="text-xs text-rose-600 text-center">{saveError}</p>}
-
-        <button
-          type="button"
-          disabled={isSaving}
-          title={lockTitle(canEdit, 'Sitzungsaufnahme hinzufügen')}
-          onClick={() => {
-            if (!canEdit) return;
-            setJustUpdated(false);
-            setIsAudioOpen(true);
-          }}
-          className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold transition-colors cursor-pointer bg-purple-600 text-white${lockClass(
-            canEdit
-          )}`}
-        >
-          <Mic className="w-4 h-4" />
-          {isSaving ? 'Wird übernommen …' : 'Sitzungsaufnahme hinzufügen'}
-        </button>
-
-        {isAudioOpen && (
-          <MeetingAudioRecorderModal
-            isOpen={isAudioOpen}
-            onClose={() => setIsAudioOpen(false)}
-            meetingContext={{
-              title: selectedMeeting.title,
-              type: selectedMeeting.type,
-              date: selectedMeeting.date,
-              chairperson: selectedMeeting.chairperson
-            }}
-            onApplyData={handleApplyAudioData}
-          />
-        )}
       </div>
     );
   }
@@ -370,11 +216,7 @@ export function MobileMeetingsView({ meetings, canEdit, onSave }: MobileMeetings
               <button
                 key={meeting.id}
                 type="button"
-                onClick={() => {
-                  setSelectedId(meeting.id);
-                  setJustUpdated(false);
-                  setSaveError(null);
-                }}
+                onClick={() => setSelectedId(meeting.id)}
                 className="w-full flex items-center justify-between gap-3 p-3.5 bg-white border border-slate-200 rounded-xl text-left cursor-pointer active:bg-slate-50"
               >
                 <div className="min-w-0">

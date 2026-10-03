@@ -70,9 +70,9 @@ oeffne_browser() {
     else
         echo ""
         echo "[!] Der Zugriffsschlüssel des Servers konnte nicht gelesen werden."
-        echo "    Die App startet trotzdem. E-Mail-Versand, Belegerkennung und"
-        echo "    KI-Funktionen bleiben aber gesperrt. Der Schlüssel steht in der"
-        echo "    Ausgabe dieses Fensters und lässt sich in der App unter"
+        echo "    Die App startet trotzdem, aber ohne ihn lehnt der Server jeden"
+        echo "    /api-Aufruf ab. Der Schlüssel steht in der Ausgabe dieses"
+        echo "    Fensters und lässt sich in der App unter"
         echo "    Einstellungen -> Allgemein eintragen."
         echo ""
         oeffne_browser "http://localhost:3000"

@@ -18,8 +18,6 @@ import {
   Check,
   BookOpen,
   Mail,
-  Upload,
-  Mic,
   PenTool,
   X,
   Lock
@@ -35,11 +33,8 @@ import {
 import { MeetingPdfService } from '../services/meetingPdfService';
 import { MeetingFormModal } from './MeetingFormModal';
 import { MeetingTemplateModal } from './MeetingTemplateModal';
-import { MeetingNotesUploadModal } from './MeetingNotesUploadModal';
-import { MeetingAudioRecorderModal } from './MeetingAudioRecorderModal';
 import { MeetingSignatureModal } from './MeetingSignatureModal';
 import { MeetingEmailModal } from './MeetingEmailModal';
-import { MeetingExtractedData } from '../services/meetingAiService';
 import { lockClass, lockTitle } from '../utils/uiLock';
 
 interface MeetingsViewProps {
@@ -87,8 +82,6 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
   const [generatingInvitationId, setGeneratingInvitationId] = useState<string | null>(null);
-  const [isOverviewNotesModalOpen, setIsOverviewNotesModalOpen] = useState(false);
-  const [isOverviewAudioModalOpen, setIsOverviewAudioModalOpen] = useState(false);
   const [signatureModalMeeting, setSignatureModalMeeting] = useState<Meeting | null>(null);
   const [emailModalConfig, setEmailModalConfig] = useState<{
     isOpen: boolean;
@@ -99,49 +92,6 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
     meeting: Meeting;
     isExtract: boolean;
   } | null>(null);
-
-  // Apply extracted data from overview AI shortcuts into a new draft meeting
-  const handleApplyExtractedFromOverview = (data: MeetingExtractedData) => {
-    const newMeeting: Meeting = {
-      id: `meet-${Date.now()}`,
-      title: data.title || (data.type === 'board' ? 'Vorstandssitzung' : 'Mitgliederversammlung'),
-      type: data.type || 'board',
-      status: 'draft',
-      protocolType: 'results',
-      date: data.date || new Date().toISOString().split('T')[0],
-      startTime: data.startTime || '19:00',
-      endTime: data.endTime || '21:00',
-      location: data.location || 'Vereinsheim',
-      chairperson: data.chairperson || '1. Vorsitzender',
-      minuteKeeper: data.minuteKeeper || 'Schriftführer',
-      invitationCompliant: true,
-      quorumConfirmed: true,
-      totalEligibleVoters: 5,
-      agenda: data.agenda && data.agenda.length > 0 ? data.agenda : [],
-      attendees: (data.attendees || []).map((a, idx) => ({
-        id: `att-ai-${Date.now()}-${idx}`,
-        name: a.name,
-        role: a.role || 'Teilnehmer',
-        present: a.present ?? true,
-        hasVotingRight: a.hasVotingRight ?? true,
-        isSignatory: idx === 0 || a.role?.toLowerCase().includes('vorsitz') || false,
-      })),
-      generalNotes: [
-        data.generalNotes,
-        data.transcriptSummary ? `Audio-Transkript Essenz:\n${data.transcriptSummary}` : null,
-        data.extractedRawSummary ? `Notizen-Erfassung:\n${data.extractedRawSummary}` : null,
-      ]
-        .filter(Boolean)
-        .join('\n\n') || undefined,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    setMeetingToEdit(newMeeting);
-    setIsOverviewNotesModalOpen(false);
-    setIsOverviewAudioModalOpen(false);
-    setIsFormModalOpen(true);
-  };
 
   // Statistics
   const stats = useMemo(() => {
@@ -418,26 +368,6 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-          <button
-            type="button"
-            onClick={guard(() => setIsOverviewNotesModalOpen(true))}
-            className={`px-3.5 py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap${lockClass(canEdit)}`}
-            title={lockTitle(canEdit, 'Handschriftliche Notizen oder Scan als PDF/Foto hochladen und Protokoll erzeugen lassen')}
-          >
-            <Upload className="w-4 h-4 text-rose-600" />
-            <span>Notizen hochladen</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={guard(() => setIsOverviewAudioModalOpen(true))}
-            className={`px-3.5 py-2 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap${lockClass(canEdit)}`}
-            title={lockTitle(canEdit, 'Sitzungs-Audio aufnehmen oder Audiodatei hochladen (für Vorstand & Ausschüsse, nicht für MV)')}
-          >
-            <Mic className="w-4 h-4 text-purple-600" />
-            <span>Audio-Diktat / Aufnahme</span>
-          </button>
-
           <button
             type="button"
             onClick={handleCreateMeeting}
@@ -1089,27 +1019,6 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
         templateSettings={templateSettings}
         clubSettings={clubSettings}
         onSaveTemplate={onSaveTemplate}
-      />
-
-      {/* Overview AI Short-cuts */}
-      <MeetingNotesUploadModal
-        isOpen={isOverviewNotesModalOpen}
-        onClose={() => setIsOverviewNotesModalOpen(false)}
-        currentMeetingContext={{
-          type: 'board',
-          chairperson: clubSettings.chairman || '1. Vorsitzender',
-        }}
-        onApplyExtractedData={handleApplyExtractedFromOverview}
-      />
-
-      <MeetingAudioRecorderModal
-        isOpen={isOverviewAudioModalOpen}
-        onClose={() => setIsOverviewAudioModalOpen(false)}
-        meetingContext={{
-          type: 'board',
-          chairperson: clubSettings.chairman || '1. Vorsitzender',
-        }}
-        onApplyData={handleApplyExtractedFromOverview}
       />
 
       {/* PDF Download Choice Modal (if meeting has digital signatures) */}

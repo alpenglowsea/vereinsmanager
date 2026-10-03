@@ -44,24 +44,6 @@ let alterAccessKey: string | undefined;
 let app: any;
 let schliesseDb: () => void;
 
-/**
- * nodemailer wird komplett ersetzt: Diese Tests sollen echte HTTP-Aufrufe
- * gegen server.ts prüfen, aber unter keinen Umständen eine echte E-Mail
- * verschicken. createTransport() liefert stattdessen ein Objekt mit einer
- * vi.fn() als sendMail() — darüber lässt sich anschließend genau prüfen,
- * WAS verschickt worden wäre (z. B. ob der Link beide nötigen Angaben
- * trägt), ohne dass dafür ein echter Mailserver nötig ist.
- */
-vi.mock('nodemailer', () => {
-  return {
-    default: {
-      createTransport: vi.fn(() => ({
-        sendMail: vi.fn(async () => ({ messageId: 'test-nachricht' })),
-      })),
-    },
-  };
-});
-
 beforeEach(async () => {
   alterDataDir = process.env.VM_DATA_DIR;
   alterAccessKey = process.env.VM_ACCESS_KEY;
@@ -102,20 +84,6 @@ async function richteEinrichtungEin(
     .send({ email, name: 'Erika Musterfrau', password: passwort });
   expect(antwort.status).toBe(201);
   return antwort.body.sessionToken;
-}
-
-/** Trägt SMTP-Zugangsdaten ein, damit "Passwort vergessen" tatsächlich verschickt statt mit KEIN_SMTP abgelehnt wird. */
-async function richteSmtpEin(): Promise<void> {
-  const instanceConfigModul: any = await import('./instanceConfig');
-  instanceConfigModul.writeSmtpConfig({
-    host: 'smtp.beispiel.de',
-    port: 587,
-    secure: false,
-    user: 'verein@beispiel.de',
-    fromEmail: 'verein@beispiel.de',
-    fromName: 'Testverein',
-    password: 'smtp-geheim',
-  });
 }
 
 describe('Zugriffsschutz (gilt für alle /api-Routen)', () => {
@@ -207,74 +175,18 @@ describe('Ersteinrichtung und Anmeldung über die echten Routen', () => {
 });
 
 describe('"Passwort vergessen" über die echten Routen', () => {
-  it('meldet KEIN_SMTP, solange auf diesem Server kein E-Mail-Versand eingerichtet ist', async () => {
+  it('meldet KEIN_EMAIL_VERSAND für jede Adresse — dieser Server kann keine E-Mails mehr verschicken', async () => {
     await richteEinrichtungEin();
     const antwort = await request(app)
       .post('/api/local-server/auth/request-password-reset')
       .set('x-vm-zugriff', TEST_ZUGRIFFSSCHLUESSEL)
       .send({ email: 'a@b.de' });
     expect(antwort.status).toBe(400);
-    expect(antwort.body.code).toBe('KEIN_SMTP');
+    expect(antwort.body.code).toBe('KEIN_EMAIL_VERSAND');
   });
 
-  it(
-    'verschickt bei eingerichtetem SMTP einen Link mit Reset-Token UND Zugriffsschlüssel, und setzt damit ' +
-      'tatsächlich ein neues Passwort — das alte funktioniert danach nicht mehr',
-    async () => {
-      await richteEinrichtungEin('a@b.de', 'altesPasswort123');
-      await richteSmtpEin();
-
-      const anfrage = await request(app)
-        .post('/api/local-server/auth/request-password-reset')
-        .set('x-vm-zugriff', TEST_ZUGRIFFSSCHLUESSEL)
-        .send({ email: 'a@b.de' });
-      expect(anfrage.status).toBe(200);
-      expect(anfrage.body.success).toBe(true);
-
-      const nodemailerModul: any = await import('nodemailer');
-      const createTransportMock = nodemailerModul.default.createTransport;
-      expect(createTransportMock).toHaveBeenCalledTimes(1);
-      const sendMailMock = createTransportMock.mock.results[0].value.sendMail;
-      expect(sendMailMock).toHaveBeenCalledTimes(1);
-
-      const gesendet = sendMailMock.mock.calls[0][0];
-      expect(gesendet.to).toBe('a@b.de');
-      const linkMatch = (gesendet.text as string).match(/https?:\/\/\S+/);
-      expect(linkMatch).toBeTruthy();
-      const link = new URL(linkMatch![0]);
-      const fragment = new URLSearchParams(link.hash.slice(1));
-
-      // Der Link muss beides tragen — sonst käme jemand auf einem neuen
-      // Gerät nicht einmal bis zur Anmeldemaske (siehe Kommentar in
-      // server.ts bei request-password-reset, genau dieser Fall wurde vor
-      // der ersten Nutzung als Stolperstein gefunden).
-      expect(fragment.get('zugriff')).toBe(TEST_ZUGRIFFSSCHLUESSEL);
-      const token = fragment.get('reset-passwort');
-      expect(token).toBeTruthy();
-
-      const reset = await request(app)
-        .post('/api/local-server/auth/reset-password')
-        .set('x-vm-zugriff', TEST_ZUGRIFFSSCHLUESSEL)
-        .send({ token, newPassword: 'neuesPasswort456' });
-      expect(reset.status).toBe(200);
-
-      const alteAnmeldung = await request(app)
-        .post('/api/local-server/auth/login')
-        .set('x-vm-zugriff', TEST_ZUGRIFFSSCHLUESSEL)
-        .send({ email: 'a@b.de', password: 'altesPasswort123' });
-      expect(alteAnmeldung.status).toBe(401);
-
-      const neueAnmeldung = await request(app)
-        .post('/api/local-server/auth/login')
-        .set('x-vm-zugriff', TEST_ZUGRIFFSSCHLUESSEL)
-        .send({ email: 'a@b.de', password: 'neuesPasswort456' });
-      expect(neueAnmeldung.status).toBe(200);
-    }
-  );
-
-  it('gibt für eine unbekannte Adresse dieselbe Antwort wie für eine bekannte, verschickt dabei aber keine Mail', async () => {
+  it('antwortet für eine unbekannte Adresse genauso wie für eine bekannte', async () => {
     await richteEinrichtungEin('a@b.de', 'sicheresPasswort123');
-    await richteSmtpEin();
 
     const bekannt = await request(app)
       .post('/api/local-server/auth/request-password-reset')
@@ -285,13 +197,8 @@ describe('"Passwort vergessen" über die echten Routen', () => {
       .set('x-vm-zugriff', TEST_ZUGRIFFSSCHLUESSEL)
       .send({ email: 'niemand@b.de' });
 
-    expect(bekannt.status).toBe(200);
-    expect(unbekannt.status).toBe(200);
-    expect(bekannt.body.message).toBe(unbekannt.body.message);
-
-    const nodemailerModul: any = await import('nodemailer');
-    // Nur für die bekannte Adresse wurde tatsächlich ein Transport benutzt.
-    expect(nodemailerModul.default.createTransport).toHaveBeenCalledTimes(1);
+    expect(bekannt.status).toBe(unbekannt.status);
+    expect(bekannt.body.code).toBe(unbekannt.body.code);
   });
 
   it('lehnt einen unbekannten Reset-Token über die echte Route mit 400 ab', async () => {
@@ -308,10 +215,6 @@ describe('"Passwort vergessen" über die echten Routen', () => {
         .post('/api/local-server/auth/request-password-reset')
         .set('x-vm-zugriff', TEST_ZUGRIFFSSCHLUESSEL)
         .send({ email: 'niemand@b.de' });
-      // Kein SMTP eingerichtet in diesem Test — für die Ratenbegrenzung
-      // spielt das keine Rolle, sie sitzt VOR der eigentlichen Logik der
-      // Route (siehe server.ts, "bremse(bremsePasswortReset, …)" steht vor
-      // dem Handler).
       expect(antwort.status).toBe(400);
     }
     const sechster = await request(app)

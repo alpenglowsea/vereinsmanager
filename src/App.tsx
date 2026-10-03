@@ -1406,8 +1406,6 @@ export default function App() {
             return (
               <MobileMeetingsView
                 meetings={meetings}
-                canEdit={mayEdit('meetings')}
-                onSave={handleSaveMeeting}
               />
             );
           }

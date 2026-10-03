@@ -25,9 +25,9 @@ coverage/
 !.env.example
 *.local
 
-# Konfiguration dieser einen Installation: SMTP-Zugangsdaten und der
-# Schlüssel, mit dem das Passwort darin verschlüsselt ist. Gehört
-# niemandem außer diesem Rechner und darf niemals ins Repository.
+# Konfiguration dieser einen Installation: aktuell nur der
+# Zugriffsschlüssel für die /api-Endpunkte. Gehört niemandem außer
+# diesem Rechner und darf niemals ins Repository.
 daten/
 
 # Editor & Betriebssystem

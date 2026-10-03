@@ -25,9 +25,9 @@ src-tauri/gen/
 !.env.example
 *.local
 
-# Die Konfiguration der Entwicklungsmaschine (SMTP-Zugangsdaten samt
-# Schlüssel). Käme sie in das Image, trüge jeder Container die
-# Zugangsdaten zum Postfach des Entwicklers mit sich herum.
+# Die Konfiguration der Entwicklungsmaschine (aktuell nur der
+# Zugriffsschlüssel). Käme sie in das Image, trüge jeder Container den
+# Zugriffsschlüssel des Entwicklers mit sich herum.
 daten/
 
 # Nichts davon wird zum Bauen gebraucht.

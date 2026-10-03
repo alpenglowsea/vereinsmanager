@@ -195,8 +195,7 @@ export function createMember(eingabe: NeuesMitglied, db: DatabaseSync = getLocal
 
 /**
  * Ändert ein bestehendes Mitglied. Nur die mitgeschickten Felder werden
- * angefasst — wie bei writeSmtpConfig() in instanceConfig.ts gilt:
- * weggelassen heißt unverändert.
+ * angefasst: weggelassen heißt unverändert.
  *
  * Gibt null zurück, wenn es kein Mitglied mit dieser id gibt.
  */

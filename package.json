@@ -30,7 +30,7 @@
   },
   "//dependencies": [
     "Hier stehen NUR die Pakete, die der fertige Server zur Laufzeit",
-    "wirklich lädt — also die vier, die server.ts importiert, plus",
+    "wirklich lädt — also die zwei, die server.ts importiert, plus",
     "compression. Alles andere gehört unter devDependencies, auch React",
     "und die Oberflächen-Pakete: Vite baut daraus beim 'npm run build'",
     "fertiges JavaScript, das im Ordner dist/ landet. Danach wird das",
@@ -45,11 +45,9 @@
     "immer beide Listen."
   ],
   "dependencies": {
-    "@google/genai": "^2.4.0",
     "compression": "^1.7.4",
     "dotenv": "^17.2.3",
-    "express": "^4.21.2",
-    "nodemailer": "^10.0.0"
+    "express": "^4.21.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -59,7 +57,6 @@
     "@types/compression": "^1.7.5",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
-    "@types/nodemailer": "^8.0.1",
     "@types/papaparse": "^5.5.2",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.3.0",

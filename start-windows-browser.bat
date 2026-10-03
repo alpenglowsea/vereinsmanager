@@ -33,9 +33,9 @@ if defined SCHLUESSEL (
     start "" "http://localhost:3000/#zugriff=!SCHLUESSEL!"
 ) else (
     echo [!] Der Zugriffsschluessel des Servers konnte nicht gelesen werden.
-    echo     Die App startet trotzdem. E-Mail-Versand, Belegerkennung und
-    echo     KI-Funktionen bleiben aber gesperrt. Der Schluessel steht in der
-    echo     Ausgabe des Server-Fensters und laesst sich in der App unter
+    echo     Die App startet trotzdem, aber ohne ihn lehnt der Server jeden
+    echo     /api-Aufruf ab. Der Schluessel steht in der Ausgabe des
+    echo     Server-Fensters und laesst sich in der App unter
     echo     Einstellungen - Allgemein eintragen.
     timeout /t 8 >nul
     start "" "http://localhost:3000"

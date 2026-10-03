@@ -11,10 +11,7 @@ import {
   Scale,
   CheckCircle2,
   FileText,
-  Download,
-  Sparkles,
-  Mic,
-  Upload
+  Download
 } from 'lucide-react';
 import {
   Meeting,
@@ -30,10 +27,6 @@ import {
 } from '../types';
 import { MeetingPdfService } from '../services/meetingPdfService';
 import { DEFAULT_MEETING_TEMPLATE } from '../data/initialMeetings';
-import { MeetingNotesUploadModal } from './MeetingNotesUploadModal';
-import { MeetingAudioRecorderModal } from './MeetingAudioRecorderModal';
-import { MeetingAiAssistantModal } from './MeetingAiAssistantModal';
-import { MeetingExtractedData } from '../services/meetingAiService';
 
 interface MeetingFormModalProps {
   isOpen: boolean;
@@ -120,138 +113,6 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingInvitation, setIsGeneratingInvitation] = useState(false);
 
-  // AI & Media Modals State
-  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
-  const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
-  const [isAiAssistantOpen, setIsAiAssistantOpen] = useState(false);
-  const [aiAssistantConfig, setAiAssistantConfig] = useState<{
-    mode: 'resolution' | 'discussion' | 'agenda';
-    topIndex?: number;
-    initialInput?: string;
-  }>({ mode: 'resolution' });
-
-  // Handle data extracted from notes upload or audio transcription
-  const handleApplyExtractedData = (extracted: MeetingExtractedData) => {
-    if (extracted.title) setTitle(extracted.title);
-    if (extracted.type) setType(extracted.type);
-    if (extracted.date) setDate(extracted.date);
-    if (extracted.startTime) setStartTime(extracted.startTime);
-    if (extracted.endTime) setEndTime(extracted.endTime);
-    if (extracted.location) setLocation(extracted.location);
-    if (extracted.chairperson) setChairperson(extracted.chairperson);
-    if (extracted.minuteKeeper) setMinuteKeeper(extracted.minuteKeeper);
-
-    if (extracted.agenda && extracted.agenda.length > 0) {
-      setAgenda(extracted.agenda);
-    }
-
-    if (extracted.attendees && extracted.attendees.length > 0) {
-      const newAtts: MeetingAttendee[] = extracted.attendees.map((a, idx) => ({
-        id: `att-ai-${Date.now()}-${idx}`,
-        name: a.name,
-        role: a.role || 'Teilnehmer',
-        present: a.present ?? true,
-        hasVotingRight: a.hasVotingRight ?? true,
-        isSignatory: idx === 0 || a.role?.toLowerCase().includes('vorsitz') || a.role?.toLowerCase().includes('leiter') || false,
-      }));
-      setAttendees((prev) => {
-        if (prev.length === 0) return newAtts;
-        const existingNames = new Set(prev.map((p) => p.name.toLowerCase()));
-        const toAdd = newAtts.filter((na) => !existingNames.has(na.name.toLowerCase()));
-        return [...prev, ...toAdd];
-      });
-    }
-
-    if (extracted.generalNotes || extracted.transcriptSummary || extracted.extractedRawSummary) {
-      const extraNotes = [
-        extracted.generalNotes,
-        extracted.transcriptSummary ? `Audio-Transkript Essenz:\n${extracted.transcriptSummary}` : null,
-        extracted.extractedRawSummary ? `Notizen-Erfassung:\n${extracted.extractedRawSummary}` : null,
-      ]
-        .filter(Boolean)
-        .join('\n\n');
-
-      if (extraNotes) {
-        setGeneralNotes((prev) => (prev ? `${prev}\n\n${extraNotes}` : extraNotes));
-      }
-    }
-
-    // Automatically switch to Agenda tab so user immediately sees and can edit the extracted items
-    setActiveTab('agenda');
-  };
-
-  const handleOpenAiResolutionAssistant = (topIndex: number) => {
-    setAiAssistantConfig({
-      mode: 'resolution',
-      topIndex,
-      initialInput: '',
-    });
-    setIsAiAssistantOpen(true);
-  };
-
-  const handleOpenAiDiscussionAssistant = (topIndex: number) => {
-    setAiAssistantConfig({
-      mode: 'discussion',
-      topIndex,
-      initialInput: agenda[topIndex]?.discussionNotes || '',
-    });
-    setIsAiAssistantOpen(true);
-  };
-
-  const handleOpenAiAgendaAssistant = () => {
-    setAiAssistantConfig({
-      mode: 'agenda',
-      initialInput: title,
-    });
-    setIsAiAssistantOpen(true);
-  };
-
-  const handleApplyAiResolution = (res: Partial<MeetingResolution>) => {
-    if (aiAssistantConfig.topIndex === undefined) return;
-    const topIndex = aiAssistantConfig.topIndex;
-    const top = agenda[topIndex];
-    if (!top) return;
-
-    const newRes: MeetingResolution = {
-      id: `res-${Date.now()}`,
-      agendaItemNumber: top.number,
-      title: res.title || 'Beschlussantrag',
-      motionText: res.motionText || '',
-      proposer: res.proposer || chairperson,
-      votesFor: typeof totalEligibleVoters === 'number' ? totalEligibleVoters : 5,
-      votesAgainst: 0,
-      votesAbstain: 0,
-      result: res.result || 'accepted',
-      isTaxRelevant: Boolean(res.isTaxRelevant),
-      isRegisterRelevant: Boolean(res.isRegisterRelevant),
-      responsiblePerson: res.responsiblePerson || '',
-      notes: res.notes || '',
-    };
-
-    const nextTop = {
-      ...top,
-      resolutions: [...(top.resolutions || []), newRes],
-    };
-    const nextAgenda = [...agenda];
-    nextAgenda[topIndex] = nextTop;
-    setAgenda(nextAgenda);
-  };
-
-  const handleApplyAiDiscussion = (text: string) => {
-    if (aiAssistantConfig.topIndex === undefined) return;
-    handleUpdateTop(aiAssistantConfig.topIndex, { discussionNotes: text });
-  };
-
-  const handleApplyAiAgenda = (items: { number: string; title: string; description?: string }[]) => {
-    if (!items || items.length === 0) return;
-    const newTops: MeetingAgendaItem[] = items.map((it, idx) => ({
-      id: `top-${Date.now()}-${idx + 1}`,
-      number: it.number || `TOP ${idx + 1}`,
-      title: it.title || `Tagesordnungspunkt ${idx + 1}`,
-      discussionNotes: it.description || '',
-    }));
-    setAgenda(newTops);
-  };
 
   if (!isOpen) return null;
 
@@ -474,67 +335,6 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
               className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Smart AI Actions Toolbar */}
-        <div className="px-6 py-2.5 bg-gradient-to-r from-rose-50/80 via-purple-50/50 to-amber-50/60 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white border border-rose-200 rounded-lg text-rose-700 font-bold text-[11px] shadow-2xs">
-              <Sparkles className="w-3.5 h-3.5 text-rose-600" />
-              <span>KI-Protokolldienst</span>
-            </div>
-            <span className="text-[11px] text-slate-500 hidden md:inline">
-              Protokollentwurf aus Dokumenten, Audio oder Beschlussideen generieren & anpassen
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setIsNotesModalOpen(true)}
-              className="px-3 py-1.5 bg-white text-rose-700 border border-rose-200 hover:bg-rose-50 rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
-              title="Handschriftliche Notizen, Whiteboard-Fotos oder PDF-Scans hochladen"
-            >
-              <Upload className="w-3.5 h-3.5 text-rose-600" />
-              <span>Notizen importieren (PDF/Foto)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsAudioModalOpen(true)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer ${
-                type === 'general_assembly' || type === 'extraordinary_assembly'
-                  ? 'bg-slate-100 text-slate-500 border border-slate-200 hover:bg-amber-50 hover:text-amber-800 hover:border-amber-200'
-                  : 'bg-white text-purple-700 border border-purple-200 hover:bg-purple-50'
-              }`}
-              title={
-                type === 'general_assembly' || type === 'extraordinary_assembly'
-                  ? 'Audio-Erfassung ist für Mitgliederversammlungen aus Datenschutzgründen (DSGVO) gesperrt'
-                  : 'Vorstandssitzung oder Gremium per Mikrofon aufnehmen oder Audiodatei hochladen'
-              }
-            >
-              <Mic className="w-3.5 h-3.5" />
-              <span>Audio-Erfassung</span>
-              {(type === 'general_assembly' || type === 'extraordinary_assembly') && (
-                <span className="px-1.5 py-0.2 rounded text-[9px] bg-amber-200 text-amber-900 font-bold">
-                  Für MV gesperrt
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setAiAssistantConfig({ mode: 'resolution' });
-                setIsAiAssistantOpen(true);
-              }}
-              className="px-3 py-1.5 bg-white text-amber-800 border border-amber-200 hover:bg-amber-50 rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
-              title="Rechtssichere Beschlüsse formulieren oder Tagesordnung vorschlagen lassen"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-              <span>KI-Formulierungshilfe</span>
             </button>
           </div>
         </div>
@@ -944,15 +744,6 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={handleOpenAiAgendaAssistant}
-                    className="px-2.5 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold hover:bg-amber-100 flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors shrink-0"
-                    title="Tagesordnungsvorschläge passend zum Sitzungszweck generieren"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Tagesordnung vorschlagen</span>
-                  </button>
-                  <button
-                    type="button"
                     onClick={handleAddTop}
                     className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold hover:bg-rose-100 flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors shrink-0"
                     title="Neuen TOP hinzufügen"
@@ -1012,15 +803,6 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                         <label className="text-[11px] font-semibold text-slate-600">
                           Beratung, Aussprache & Diskussionsverlauf
                         </label>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenAiDiscussionAssistant(topIndex)}
-                          className="px-2 py-0.5 text-[10px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
-                          title="Notizen durch KI in sachlichen Protokolltext umwandeln"
-                        >
-                          <Sparkles className="w-3 h-3 text-amber-600" />
-                          <span>Notizen glätten</span>
-                        </button>
                       </div>
                       <textarea
                         rows={2}
@@ -1039,15 +821,6 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                           Beschlussfassungen & Anträge ({top.resolutions?.length || 0})
                         </span>
                         <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenAiResolutionAssistant(topIndex)}
-                            className="px-2.5 py-1 bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs shrink-0"
-                            title="Beschlussentwurf mit rechtssicherem Antragswortlaut formulieren lassen"
-                          >
-                            <Sparkles className="w-3 h-3 text-amber-600" />
-                            <span>Beschluss formulieren</span>
-                          </button>
                           <button
                             type="button"
                             onClick={() => handleAddResolution(topIndex)}
@@ -1483,49 +1256,6 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
             </div>
           </div>
         </form>
-
-        {/* Modals for AI Assistants & Media Analysis */}
-        <MeetingNotesUploadModal
-          isOpen={isNotesModalOpen}
-          onClose={() => setIsNotesModalOpen(false)}
-          currentMeetingContext={{
-            title,
-            type,
-            date,
-            chairperson,
-          }}
-          onApplyExtractedData={handleApplyExtractedData}
-        />
-
-        <MeetingAudioRecorderModal
-          isOpen={isAudioModalOpen}
-          onClose={() => setIsAudioModalOpen(false)}
-          meetingContext={{
-            title,
-            type,
-            date,
-            chairperson,
-          }}
-          onApplyData={handleApplyExtractedData}
-        />
-
-        <MeetingAiAssistantModal
-          isOpen={isAiAssistantOpen}
-          onClose={() => setIsAiAssistantOpen(false)}
-          mode={aiAssistantConfig.mode}
-          initialInput={aiAssistantConfig.initialInput}
-          context={{
-            meetingTitle: title,
-            meetingType: type,
-            topTitle:
-              aiAssistantConfig.topIndex !== undefined
-                ? agenda[aiAssistantConfig.topIndex]?.title
-                : undefined,
-          }}
-          onApplyResolution={handleApplyAiResolution}
-          onApplyDiscussion={handleApplyAiDiscussion}
-          onApplyAgenda={handleApplyAiAgenda}
-        />
       </div>
     </div>
   );

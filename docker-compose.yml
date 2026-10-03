@@ -5,9 +5,9 @@
 #  Erreichbar unter:  http://[Server-IP]:8080
 #  Anhalten:  docker compose down
 #
-#  Werte für GEMINI_API_KEY und die Supabase-Daten liest Docker
-#  Compose automatisch aus einer Datei namens ".env" neben dieser
-#  Datei. Vorlage dafür ist ".env.example".
+#  Werte für die Supabase-Daten liest Docker Compose automatisch aus
+#  einer Datei namens ".env" neben dieser Datei. Vorlage dafür ist
+#  ".env.example".
 # ==========================================================
 
 # Die frühere Zeile "version: '3.8'" ist entfallen: Sie wird von
@@ -46,19 +46,6 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      # API-Schlüssel für die KI-Funktionen. Ohne ihn läuft die App
-      # vollständig, nur Belegerkennung, Buchungsvorschläge und
-      # Protokollauswertung bleiben aus. Anders als die VITE_-Werte
-      # oben wird dieser Schlüssel NICHT in die Oberfläche
-      # eingebaut; er bleibt auf dem Server.
-      GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
-
-      # Nur nötig, wenn der Mailserver des Vereins ein selbst
-      # ausgestelltes Zertifikat verwendet (kommt bei Mailservern im
-      # eigenen Haus vor). Sonst weglassen: Ohne Zertifikatsprüfung
-      # könnte sich jemand im selben Netz zwischen Server und
-      # Mailanbieter schieben und das Passwort mitlesen.
-      # VM_SMTP_ALLOW_SELF_SIGNED: "true"
 
       # Zugriffsschlüssel für die /api-Endpunkte. Bleibt er leer, würfelt
       # der Server beim ersten Start selbst einen aus und zeigt ihn an:
@@ -80,10 +67,9 @@ services:
       SUPABASE_ANON_KEY: "${VITE_SUPABASE_ANON_KEY:-}"
 
     volumes:
-      # Hier liegen die Zugangsdaten zum Postfach des Vereins und der
-      # Schlüssel, mit dem das Passwort verschlüsselt ist. Ohne dieses
-      # Volume wären sie nach jedem "docker compose up --build" weg und
-      # müssten neu eingetragen werden.
+      # Hier liegt der Zugriffsschlüssel für die /api-Endpunkte. Ohne
+      # dieses Volume wäre er nach jedem "docker compose up --build" weg
+      # und jedes Vorstandsmitglied müsste ihn neu eintragen.
       #
       # Bewusst ein benanntes Volume und kein Ordner vom Server: Ein
       # eingehängter Ordner behält die Rechte des Servers, und auf einer
@@ -105,7 +91,7 @@ volumes:
 #
 #  Dieser Container liefert die Anwendung aus und rechnet — eine
 #  Datenbank enthält er nicht. Das oben eingerichtete Volume fasst
-#  keine Vereinsdaten, sondern nur die Zugangsdaten zum Postfach.
+#  keine Vereinsdaten, sondern nur den Zugriffsschlüssel.
 #  Wo die Vereinsdaten landen, entscheidet der Betriebsmodus, den die
 #  App unter Einstellungen → Cloud-Synchronisation kennt:
 #

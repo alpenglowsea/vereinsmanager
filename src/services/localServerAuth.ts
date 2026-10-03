@@ -231,11 +231,10 @@ export function entferneResetTokenAusAdresse(): void {
 }
 
 /**
- * Fordert einen Link zum Zurücksetzen des Passworts an. Antwortet bewusst
- * IMMER mit derselben Erfolgsmeldung, unabhängig davon, ob die eingegebene
- * Adresse zu einem Konto gehört (siehe server.ts) — die einzige Ausnahme ist
- * eine ehrliche Auskunft über den ganzen Server, falls dort noch gar kein
- * E-Mail-Versand eingerichtet ist (code "KEIN_SMTP").
+ * Fordert einen Link zum Zurücksetzen des Passworts an. Dieser Server kann
+ * seit der Entfernung von SMTP keine E-Mails mehr verschicken — die Antwort
+ * ist deshalb für jede Adresse dieselbe ehrliche Absage (code
+ * "KEIN_EMAIL_VERSAND", siehe server.ts).
  */
 export async function passwortVergessenAnfordern(
   email: string

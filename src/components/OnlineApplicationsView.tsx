@@ -12,7 +12,6 @@ import {
   Settings,
   Download,
   Trash2,
-  Sparkles,
   PenTool,
   Lock
 } from 'lucide-react';
@@ -25,7 +24,6 @@ import {
 import { ApplicationReviewModal } from './ApplicationReviewModal';
 import { ApplicationTemplateModal } from './ApplicationTemplateModal';
 import { PublicApplicationForm } from './PublicApplicationForm';
-import { ApplicationPdfImporterModal } from './ApplicationPdfImporterModal';
 import { generateMembershipApplicationPdf } from '../services/membershipPdfService';
 import { lockClass, lockTitle } from '../utils/uiLock';
 
@@ -81,7 +79,6 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
   // Modals state
   const [selectedApp, setSelectedApp] = useState<OnlineMembershipApplication | null>(null);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-  const [isPdfImporterModalOpen, setIsPdfImporterModalOpen] = useState(false);
   const [isPublicFormModalOpen, setIsPublicFormModalOpen] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -180,16 +177,6 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
 
           {/* Top Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={guard(() => setIsPdfImporterModalOpen(true))}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-300 shadow-2xs transition-all cursor-pointer${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'Ausgefüllten PDF-Antrag oder Scan einlesen')}
-            >
-              <Sparkles className="w-4 h-4 text-emerald-600" />
-              <span>PDF-Antrag / Scan importieren</span>
-            </button>
-
             <button
               type="button"
               onClick={guard(() => setIsTemplateModalOpen(true))}
@@ -555,18 +542,6 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
         />
       )}
 
-      {/* PDF / Scan Importer Modal with Gemini AI */}
-      {isPdfImporterModalOpen && (
-        <ApplicationPdfImporterModal
-          isOpen={isPdfImporterModalOpen}
-          onClose={() => setIsPdfImporterModalOpen(false)}
-          settings={settings}
-          onApplicationImported={async (app) => {
-            await onSubmitNewApplication(app);
-            setSelectedApp(app);
-          }}
-        />
-      )}
 
       {/* Template Settings Modal */}
       {isTemplateModalOpen && (

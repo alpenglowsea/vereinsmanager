@@ -2,9 +2,8 @@
 #  Dockerfile für den VereinsManager
 #
 #  Der Container startet den Express-Server aus server.ts. Dieser
-#  liefert die Oberfläche aus UND beantwortet die /api/-Aufrufe:
-#  Belegerkennung, Buchungsvorschläge, Protokollauswertung,
-#  E-Mail-Versand, SMTP-Test und Fehlermeldungen.
+#  liefert die Oberfläche aus UND beantwortet die /api/-Aufrufe
+#  (Mitglieder, Benutzer, Fehlermeldungen und mehr).
 #
 #  Die frühere Fassung hat nur die fertige Oberfläche mit einem
 #  nginx ausgeliefert. Das Backend war gar nicht im Image. Jeder
@@ -70,26 +69,25 @@ ENV PORT=3000
 COPY package.json package-lock.json ./
 
 # --omit=dev installiert nur die "dependencies" aus der package.json,
-# nicht die "devDependencies". Übrig bleiben die fünf Pakete, die der
-# Server im Betrieb wirklich lädt: express, compression, dotenv,
-# nodemailer und @google/genai. Alles rund um die Oberfläche (React,
-# Tailwind, jspdf, lucide-react …) wurde in Stufe 1 bereits zu
-# fertigem JavaScript in dist/ verarbeitet und wird hier nicht mehr
-# gebraucht.
+# nicht die "devDependencies". Übrig bleiben die drei Pakete, die der
+# Server im Betrieb wirklich lädt: express, compression und dotenv.
+# Alles rund um die Oberfläche (React, Tailwind, jspdf, lucide-react …)
+# wurde in Stufe 1 bereits zu fertigem JavaScript in dist/ verarbeitet
+# und wird hier nicht mehr gebraucht.
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
 
-# Verzeichnis für die Konfiguration dieser Installation: die
-# SMTP-Zugangsdaten und der Schlüssel, mit dem das Passwort darin
-# verschlüsselt ist (siehe src/server/instanceConfig.ts).
+# Verzeichnis für die Konfiguration dieser Installation: aktuell nur der
+# Zugriffsschlüssel für die /api-Endpunkte (siehe
+# src/server/instanceConfig.ts).
 #
 # Es muss SCHON IM IMAGE liegen und dem Benutzer "node" gehören. Grund:
 # Hängt Docker beim ersten Start ein Volume an diese Stelle, übernimmt
 # es Rechte und Eigentümer von dem Verzeichnis, das im Image darunter
 # liegt. Fehlt es hier, legt Docker eines an, das dem Administrator
 # gehört — der Server läuft aber als "node" und könnte dann nichts
-# hineinschreiben. Die Zugangsdaten ließen sich nicht speichern.
+# hineinschreiben. Der Zugriffsschlüssel ließe sich nicht speichern.
 RUN mkdir -p /app/daten && chown node:node /app/daten
 ENV VM_DATA_DIR=/app/daten
 

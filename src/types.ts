@@ -249,43 +249,6 @@ export interface ClubSettings {
   taxExemptionDate?: string; // z.B. '10.01.2024'
   taxAssessmentPeriod?: string; // z.B. '2021 bis 2023'
   promotedPurposes?: string; // z.B. 'Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)'
-  // Hinweis zu den KI-Einstellungen:
-  // Anbieter, Modell, Adresse und vor allem der API-Schlüssel standen hier
-  // früher mit drin. Damit lagen sie in der IndexedDB jedes Browsers, in jeder
-  // Datensicherung und im Cloud-Betrieb zusätzlich in Supabase. Seit Fassung
-  // 0.9 liegen sie auf dem Server dieser Installation
-  // (src/server/instanceConfig.ts) und werden über
-  // src/services/aiConfigService.ts angesprochen. Der Schlüssel verlässt den
-  // Server nicht mehr.
-  //
-  // Hinweis zu den SMTP-Zugangsdaten:
-  // Sie standen hier früher mit drin — Hostname, Benutzer und Passwort im
-  // Klartext. Damit lagen sie in der IndexedDB jedes Browsers und in jeder
-  // Datensicherung. Seit Fassung 1.3 liegen sie auf dem Server dieser
-  // Installation (src/server/instanceConfig.ts) und werden über
-  // src/services/smtpConfigService.ts angesprochen. Das Passwort verlässt den
-  // Server nicht mehr.
-}
-
-/**
- * Der Anbieter, mit dem die KI-Funktionen sprechen. Seit Fassung 0.9 nur noch
- * einer; die ausführliche Begründung steht in src/server/instanceConfig.ts.
- */
-export type AiProviderType = 'gemini';
-
-export interface BookingAiSuggestion {
-  sphere: TaxSphere;
-  mainCategoryId?: string;
-  mainCategoryName: string;
-  mainCategoryCode: string;
-  subCategoryLabel: string;
-  subCategoryCode: string;
-  subCategoryName: string;
-  vatRate: 0 | 7 | 19;
-  type: 'income' | 'expense';
-  suggestedBookingText?: string;
-  confidence: number;
-  reasoning: string;
 }
 
 // SEPA Lastschrift & Beitragslauf Typen

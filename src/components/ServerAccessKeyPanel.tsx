@@ -35,7 +35,10 @@ export const ServerAccessKeyPanel: React.FC = () => {
   const pruefeZugang = useCallback(async () => {
     setZustand('pruefend');
     try {
-      const antwort = await apiFetch('/api/smtp/config');
+      // Irgendeine geschützte Route genügt — es geht nur um die Antwort auf
+      // den Zugriffsschlüssel, nicht um den Inhalt. "auth/status" braucht
+      // dafür keine Anmeldung, nur den Schlüssel (siehe server.ts).
+      const antwort = await apiFetch('/api/local-server/auth/status');
       if (antwort.ok) {
         setZustand('ok');
         return;
