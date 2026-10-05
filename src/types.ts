@@ -34,6 +34,7 @@ export interface Member {
   lastName: string;
   gender: Gender;
   birthDate?: string;
+  nationality?: string;
   avatarUrl?: string; // Base64 data URL or picture
   address: Address;
   phone: string;
@@ -49,6 +50,14 @@ export interface Member {
   bankDetails: BankDetails;
   notes: string;
   dataPrivacyConsent: boolean;
+  // Gesetzlicher Vertreter (bei Minderjährigen / unter 18 Jahren) — kommt aus
+  // dem Online-Aufnahmeformular (OnlineApplication) und bleibt beim Mitglied
+  // sichtbar, auch nachdem der Antrag selbst angenommen und abgelegt wurde.
+  isMinor?: boolean;
+  guardianName?: string;
+  guardianRelation?: string; // z.B. 'Mutter', 'Vater', 'Gesetzlicher Vormund'
+  guardianPhone?: string;
+  guardianEmail?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -416,57 +425,22 @@ export interface ClubDocument {
   updatedAt: string;
 }
 
-// Benutzer & Rechteverwaltung
+// Gerätesperre
 /**
- * Zugriffsstufe je Bereich.
- * 'none' = Menüpunkt gesperrt, 'view' = nur ansehen, 'edit' = ändern und löschen.
+ * Ein einziges, geräte-lokales Passwort sperrt die Anwendung — keine
+ * einzelnen Benutzerkonten mehr, keine Bereichsrechte. Es schützt nur vor
+ * einem zufälligen Blick an einem unbeaufsichtigten, entsperrten Rechner;
+ * siehe src/services/authService.ts für das, was es NICHT leistet.
  */
-export type AccessLevel = 'none' | 'view' | 'edit';
-
-/** Ein Eintrag der Navigationsleiste. Siehe src/utils/permissions.ts. */
-export type PermissionArea =
-  | 'dashboard'
-  | 'members'
-  | 'online_applications'
-  | 'member_analytics'
-  | 'finance'
-  | 'sepa'
-  | 'invoices'
-  | 'donations'
-  | 'guv'
-  | 'finance_analytics'
-  | 'contacts'
-  | 'calendar'
-  | 'meetings'
-  | 'inventory'
-  | 'documents'
-  | 'settings'
-  | 'users';
-
-export type UserPermissions = Record<PermissionArea, AccessLevel>;
-
-export interface AppUser {
-  id: string;
-  username: string; // e.g. "admin", "schatzmeister", "kassenpruefer"
-  email: string;
-  name: string;
-  password: string; // Plaintext or hashed password
-  customRoleName?: string; // Optional descriptive title e.g. "1. Vorsitzender", "Kassenwart"
-  permissions: UserPermissions;
-  isActive: boolean;
-  lastLogin?: string;
-  createdAt: string;
-  updatedAt?: string;
+export interface DeviceAccount {
+  benutzername: string;
+  passwortPruefwert: string; // siehe src/services/passwordService.ts
+  erstelltAm: string;
 }
 
-export interface SecuritySettings {
-  authRequired: boolean;
-  autoLockMinutes: number; // 0 = never, 5, 15, 30, 60
-}
-
-export interface UserAuthSession {
-  user: AppUser | null;
+export interface AuthSession {
   isAuthenticated: boolean;
+  benutzername?: string;
   loginMethod?: 'user' | 'demo';
   loginTime?: string;
 }
@@ -640,8 +614,6 @@ export interface OnlineMembershipApplication {
   // Rechtliche Zustimmungen & Einwilligungen
   dataPrivacyConsent: boolean;
   statuteConsent: boolean; // Satzung & Ordnungen anerkannt
-  photoConsent: boolean; // Einwilligung für Vereinsfotos/Medien
-  healthConfirmation: boolean; // Sporttauglichkeit / Gesundheitliche Eignung
 
   // Digitale Unterschriften (Base64 PNG Data URLs)
   applicantSignature?: string;
@@ -656,50 +628,6 @@ export interface OnlineMembershipApplication {
   customTemplateUsed?: boolean;
 }
 
-export interface ExtractedApplicationData {
-  firstName?: string;
-  lastName?: string;
-  gender?: 'm' | 'w' | 'd' | 'none';
-  birthDate?: string;
-  nationality?: string;
-  phone?: string;
-  email?: string;
-  address?: {
-    street?: string;
-    houseNumber?: string;
-    zip?: string;
-    city?: string;
-    country?: string;
-  };
-  department?: string;
-  membershipType?: 'full' | 'reduced' | 'youth' | 'family' | 'supporting' | 'honorary';
-  feePeriod?: 'monthly' | 'quarterly' | 'half_yearly' | 'yearly';
-  feeAmount?: number;
-  entryDate?: string;
-  paymentMethod?: 'sepa' | 'transfer' | 'cash' | 'standing_order';
-  bankDetails?: {
-    iban?: string;
-    bic?: string;
-    bankName?: string;
-    accountHolder?: string;
-    mandateDate?: string;
-  };
-  isMinor?: boolean;
-  guardianName?: string;
-  guardianPhone?: string;
-  guardianEmail?: string;
-  guardianRelation?: string;
-  dataPrivacyConsent?: boolean;
-  statuteConsent?: boolean;
-  photoConsent?: boolean;
-  healthConfirmation?: boolean;
-  hasApplicantSignature?: boolean;
-  hasGuardianSignature?: boolean;
-  hasSepaSignature?: boolean;
-  notes?: string;
-  confidence?: number;
-  rawExtractedTextSummary?: string;
-}
 
 export interface ApplicationTemplateSettings {
   clubLogoUrl?: string;
@@ -717,8 +645,6 @@ export interface ApplicationTemplateSettings {
     family: number;
     supporting: number;
   };
-  requirePhotoConsent?: boolean;
-  requireHealthConfirmation?: boolean;
   contactEmail?: string;
   notificationEmail?: string;
 }

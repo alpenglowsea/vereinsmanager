@@ -1,39 +1,35 @@
-import React, { useState, useRef } from 'react';
-import { AppUser, ClubSettings } from '../types';
+import React, { useState } from 'react';
+import { ClubSettings } from '../types';
 import { AuthService } from '../services/authService';
-import { StorageService } from '../services/storage';
-import { BackupImportDialog } from './BackupImportDialog';
-import { BereichsVergleich, ImportArt, SicherungsKopf } from '../services/backupContents';
 import {
   Lock,
   User,
   Eye,
   EyeOff,
-  Building2,
   AlertCircle,
   Sparkles,
   ArrowRight,
   ShieldCheck,
   UserPlus,
-  Mail,
-  CheckCircle2,
-  Upload,
-  Database,
   HardDrive
 } from 'lucide-react';
 
 interface LoginScreenProps {
   settings?: ClubSettings;
-  onLoginSuccess: (user: AppUser) => void;
-  onSettingsReload?: (newSettings: ClubSettings) => void;
+  onLoginSuccess: () => void;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({
-  settings,
-  onLoginSuccess,
-  onSettingsReload
-}) => {
-  const [activeTab, setActiveTab] = useState<'login' | 'register' | 'import'>('login');
+/**
+ * Anmeldebildschirm im lokalen Betrieb.
+ *
+ * Es gibt genau ein Passwort pro Gerät (siehe authService.ts) — keine
+ * einzelnen Benutzerkonten, keine Bereichsrechte mehr. "Registrieren" legt
+ * dieses eine Passwort fest; das geht nur, solange noch keines existiert.
+ * Was danach mit den Vereinsdaten passiert (neuer Verein oder Import einer
+ * Sicherung), entscheidet erst das EinrichtungsModal NACH der Anmeldung.
+ */
+export const LoginScreen: React.FC<LoginScreenProps> = ({ settings, onLoginSuccess }) => {
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
 
   // Login State
   const [usernameInput, setUsernameInput] = useState('');
@@ -41,32 +37,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [showPassword, setShowPassword] = useState(false);
 
   // Register State
-  const [regClubName, setRegClubName] = useState('');
-  const [regFullName, setRegFullName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
   const [regUsername, setRegUsername] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regPasswordConfirm, setRegPasswordConfirm] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
 
-  // Import State
-  const [isDragging, setIsDragging] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  /**
-   * Die gelesene, aber noch nicht eingespielte Datei samt Abgleich. Solange
-   * hier etwas steht, ist der Bestätigungsdialog offen und am Datenbestand
-   * wurde noch nichts verändert.
-   */
-  const [importVorschau, setImportVorschau] = useState<{
-    dateiName: string;
-    text: string;
-    kopf: SicherungsKopf;
-    vergleich: BereichsVergleich[];
-  } | null>(null);
-
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const clubName = settings?.clubName || 'VereinsManager';
@@ -74,24 +50,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
-    setSuccessMsg(null);
 
-    if (!usernameInput.trim()) {
-      setErrorMsg('Bitte geben Sie Ihren Benutzernamen oder Ihre E-Mail ein.');
-      return;
-    }
-    if (!passwordInput) {
-      setErrorMsg('Bitte geben Sie Ihr Passwort ein.');
+    if (!usernameInput.trim() || !passwordInput) {
+      setErrorMsg('Bitte Benutzername und Passwort eingeben.');
       return;
     }
 
     setLoading(true);
     try {
-      const res = await AuthService.login(usernameInput, passwordInput);
-      if (res.success && res.user) {
-        onLoginSuccess(res.user);
+      const res = await AuthService.meldeAn(usernameInput, passwordInput);
+      if (res.success) {
+        onLoginSuccess();
       } else {
-        setErrorMsg(res.message || 'Anmeldung fehlgeschlagen. Bitte Zugangsdaten prüfen.');
+        setErrorMsg(res.message || 'Anmeldung fehlgeschlagen.');
       }
     } catch {
       setErrorMsg('Unerwarteter Fehler bei der Anmeldung.');
@@ -102,15 +73,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   const handleDemoLogin = async () => {
     setErrorMsg(null);
-    setSuccessMsg(null);
     setLoading(true);
     try {
-      const res = await AuthService.loginDemo();
-      if (res.success && res.user) {
-        onLoginSuccess(res.user);
-      } else {
-        setErrorMsg('Demo-Zugang konnte nicht geladen werden.');
-      }
+      await AuthService.loginDemo();
+      onLoginSuccess();
     } catch {
       setErrorMsg('Fehler beim Demo-Login.');
     } finally {
@@ -121,26 +87,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
-    setSuccessMsg(null);
 
-    if (!regClubName.trim()) {
-      setErrorMsg('Bitte geben Sie den Namen Ihres Vereins ein.');
-      return;
-    }
-    if (!regFullName.trim()) {
-      setErrorMsg('Bitte Ihren Namen (Vorstand/Ansprechpartner) eingeben.');
-      return;
-    }
-    if (!regEmail.trim() || !regEmail.includes('@')) {
-      setErrorMsg('Bitte eine gültige E-Mail-Adresse angeben.');
-      return;
-    }
     if (!regUsername.trim() || regUsername.trim().length < 3) {
       setErrorMsg('Der Benutzername muss mindestens 3 Zeichen lang sein.');
       return;
     }
-    if (!regPassword || regPassword.length < 4) {
-      setErrorMsg('Das Passwort muss mindestens 4 Zeichen lang sein.');
+    if (!regPassword) {
+      setErrorMsg('Bitte ein Passwort vergeben.');
       return;
     }
     if (regPassword !== regPasswordConfirm) {
@@ -150,22 +103,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
     setLoading(true);
     try {
-      const res = await AuthService.register({
-        clubName: regClubName,
-        name: regFullName,
-        email: regEmail,
-        username: regUsername,
-        password: regPassword,
-        customRoleName: '1. Vorsitzender (Admin)'
-      });
-
-      if (res.success && res.user) {
-        // Initialize the live club settings with the entered club name
-        await StorageService.initLiveClub(regClubName, regFullName, regEmail);
-        setSuccessMsg(res.message || 'Konto erfolgreich angelegt! Anmeldung erfolgt...');
-        setTimeout(() => {
-          onLoginSuccess(res.user!);
-        }, 600);
+      const res = await AuthService.registriere(regUsername, regPassword);
+      if (res.success) {
+        onLoginSuccess();
       } else {
         setErrorMsg(res.message || 'Registrierung fehlgeschlagen.');
       }
@@ -173,112 +113,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       setErrorMsg(err?.message || 'Unerwarteter Fehler bei der Registrierung.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  /**
-   * Erster Schritt: Datei lesen, prüfen und mit dem vorhandenen Bestand
-   * abgleichen. Eingespielt wird hier noch nichts — das Ergebnis geht in den
-   * Bestätigungsdialog.
-   *
-   * Bis Fassung 1.2 wurde an dieser Stelle sofort überschrieben. Eine falsch
-   * erwischte Datei genügte, und der Bestand des Vereins war weg.
-   */
-  const processBackupFile = async (file: File) => {
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') {
-      setErrorMsg('Bitte wählen Sie eine gültige .json-Sicherungsdatei aus.');
-      return;
-    }
-
-    setImporting(true);
-    try {
-      const text = await file.text();
-      const { kopf, vergleich } = await StorageService.analysiereSicherung(text);
-      setImportVorschau({ dateiName: file.name, text, kopf, vergleich });
-    } catch (err: any) {
-      console.error('Import-Vorschau fehlgeschlagen:', err);
-      setErrorMsg(err?.message || 'Die Datei konnte nicht gelesen werden.');
-    } finally {
-      setImporting(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  /** Zweiter Schritt: Der Anwender hat im Dialog bestätigt. */
-  const fuehreImportAus = async (art: ImportArt) => {
-    if (!importVorschau) return;
-
-    setErrorMsg(null);
-    setSuccessMsg(null);
-    setImporting(true);
-
-    try {
-      const res = await StorageService.importFullBackup(importVorschau.text, 'live', art);
-      setImportVorschau(null);
-
-      const newSettings = await StorageService.getSettings();
-      if (onSettingsReload && newSettings) {
-        onSettingsReload(newSettings);
-      }
-
-      // Switch to login tab
-      setActiveTab('login');
-
-      const hinweisKopie = res.sicherheitskopie
-        ? ''
-        : ' Achtung: Die Sicherheitskopie des vorherigen Bestands konnte nicht angelegt werden.';
-      const wasGeschah = art === 'ersetzen' ? 'eingespielt' : 'ergänzt';
-
-      if (res.usersCount > 0) {
-        const firstUser = res.restoredUsers?.[0]?.username || 'admin';
-        setUsernameInput(firstUser);
-        setPasswordInput('');
-        setSuccessMsg(
-          `Datensicherung von „${res.clubName || 'Verein'}“ erfolgreich ${wasGeschah}! (${res.membersCount} Mitglieder, ${res.transactionsCount} Buchungen, ${res.usersCount} Benutzerkonto/en). Sie können sich jetzt direkt mit Ihren Zugangsdaten anmelden.${hinweisKopie}`
-        );
-      } else {
-        setUsernameInput('admin');
-        setPasswordInput('');
-        setSuccessMsg(
-          `Datensicherung von „${res.clubName || 'Verein'}“ erfolgreich ${wasGeschah} (${res.membersCount} Mitglieder, ${res.transactionsCount} Buchungen). Hinweis: Da in dieser älteren Sicherung noch keine Benutzerkonten exportiert waren, können Sie sich mit dem Standard-Konto „admin“ (Passwort: „admin“) anmelden.${hinweisKopie}`
-        );
-      }
-    } catch (err: any) {
-      console.error('Import error on login screen:', err);
-      setErrorMsg(`Fehler beim Einspielen der Datensicherung: ${err?.message || 'Ungültige Datei'}`);
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processBackupFile(file);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      processBackupFile(file);
     }
   };
 
@@ -306,28 +140,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             </div>
 
             <h1 className="text-xl font-extrabold text-white tracking-tight leading-tight">
-              {activeTab === 'login'
-                ? clubName
-                : activeTab === 'register'
-                ? 'Neues Vereinskonto anlegen'
-                : 'Datensicherung importieren'}
+              {activeTab === 'login' ? clubName : 'Gerätepasswort anlegen'}
             </h1>
             <p className="text-xs text-slate-400 mt-1 font-medium">
               {activeTab === 'login'
                 ? 'VereinsManager – Sichere Vereinsverwaltung'
-                : activeTab === 'register'
-                ? 'Kostenlos & lokal starten'
-                : 'JSON-Backup laden, um Verein & Konten wiederherzustellen'}
+                : 'Einmalig für dieses Gerät'}
             </p>
 
             {/* Tab Switcher */}
-            <div className="mt-5 grid grid-cols-3 p-1 bg-slate-800/80 border border-slate-700/60 rounded-xl gap-1">
+            <div className="mt-5 grid grid-cols-2 p-1 bg-slate-800/80 border border-slate-700/60 rounded-xl gap-1">
               <button
                 type="button"
                 onClick={() => {
                   setActiveTab('login');
                   setErrorMsg(null);
-                  setSuccessMsg(null);
                 }}
                 className={`py-1.5 px-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
                   activeTab === 'login'
@@ -342,7 +169,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 onClick={() => {
                   setActiveTab('register');
                   setErrorMsg(null);
-                  setSuccessMsg(null);
                 }}
                 className={`py-1.5 px-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
                   activeTab === 'register'
@@ -353,39 +179,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <UserPlus className="w-3.5 h-3.5 shrink-0" />
                 <span>Registrieren</span>
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('import');
-                  setErrorMsg(null);
-                  setSuccessMsg(null);
-                }}
-                className={`py-1.5 px-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                  activeTab === 'import'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-                title="Datensicherung (.json) einspielen"
-              >
-                <Upload className="w-3.5 h-3.5 shrink-0" />
-                <span>Importieren</span>
-              </button>
             </div>
           </div>
 
           {/* Form Area */}
           <div className="p-6 sm:p-7 space-y-5">
-            {/* Feedback Messages */}
             {errorMsg && (
               <div className="flex items-start gap-2.5 p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs">
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                 <div className="leading-relaxed font-medium">{errorMsg}</div>
-              </div>
-            )}
-            {successMsg && (
-              <div className="flex items-start gap-2.5 p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <div className="leading-relaxed font-medium">{successMsg}</div>
               </div>
             )}
 
@@ -393,11 +195,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             {activeTab === 'login' && (
               <>
                 <form onSubmit={handleLogin} className="space-y-4">
-                  {/* Username Input */}
                   <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-700">
-                      Benutzername oder E-Mail
-                    </label>
+                    <label className="block text-xs font-bold text-slate-700">Benutzername</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                         <User className="w-4 h-4" />
@@ -406,7 +205,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         type="text"
                         value={usernameInput}
                         onChange={(e) => setUsernameInput(e.target.value)}
-                        placeholder="z. B. admin oder vorstand@verein.de"
                         autoComplete="username"
                         autoFocus
                         required
@@ -415,11 +213,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     </div>
                   </div>
 
-                  {/* Password Input */}
                   <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-700">
-                      Passwort
-                    </label>
+                    <label className="block text-xs font-bold text-slate-700">Passwort</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                         <Lock className="w-4 h-4" />
@@ -443,7 +238,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     </div>
                   </div>
 
-                  {/* Submit Button */}
                   <button
                     type="submit"
                     disabled={loading}
@@ -460,7 +254,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   </button>
                 </form>
 
-                {/* Divider */}
                 <div className="relative flex items-center justify-center">
                   <div className="border-t border-slate-200 w-full" />
                   <span className="bg-white px-3 text-2xs font-bold uppercase tracking-wider text-slate-400 shrink-0">
@@ -468,27 +261,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   </span>
                 </div>
 
-                  {/* Demo Access Action Box */}
-                  <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3.5 space-y-2 text-center">
-                    <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-amber-900">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Getrennter Demo-Modus</span>
-                    </div>
-                    <p className="text-2xs text-amber-800/90 leading-relaxed">
-                      Testen Sie alle Funktionen mit fiktiven Beispieldaten. Echte Vereinsdaten bleiben strikt getrennt.
-                    </p>
-                    <div className="pt-1">
-                      <button
-                        type="button"
-                        onClick={handleDemoLogin}
-                        disabled={loading}
-                        className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 text-white" />
-                        <span>Demo-Modus starten</span>
-                      </button>
-                    </div>
+                <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3.5 space-y-2 text-center">
+                  <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-amber-900">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Getrennter Demo-Modus</span>
                   </div>
+                  <p className="text-2xs text-amber-800/90 leading-relaxed">
+                    Testen Sie alle Funktionen mit fiktiven Beispieldaten. Echte Vereinsdaten bleiben strikt getrennt.
+                  </p>
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={handleDemoLogin}
+                      disabled={loading}
+                      className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-white" />
+                      <span>Demo-Modus starten</span>
+                    </button>
+                  </div>
+                </div>
 
                 <div className="text-center pt-1">
                   <button
@@ -499,7 +291,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     }}
                     className="text-xs text-blue-600 hover:text-blue-800 font-semibold hover:underline cursor-pointer"
                   >
-                    Noch kein Vereinskonto? Jetzt registrieren →
+                    Noch kein Konto auf diesem Gerät? Jetzt anlegen →
                   </button>
                 </div>
               </>
@@ -509,111 +301,42 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             {activeTab === 'register' && (
               <>
                 <form onSubmit={handleRegister} className="space-y-3.5">
-                  {/* Club Name */}
                   <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">
-                      Vereinsname *
-                    </label>
+                    <label className="block text-xs font-bold text-slate-700">Benutzername *</label>
+                    <input
+                      type="text"
+                      value={regUsername}
+                      onChange={(e) => setRegUsername(e.target.value)}
+                      placeholder="z. B. vorstand"
+                      autoFocus
+                      required
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-700">Passwort *</label>
                     <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                        <Building2 className="w-4 h-4" />
-                      </div>
                       <input
-                        type="text"
-                        value={regClubName}
-                        onChange={(e) => setRegClubName(e.target.value)}
-                        placeholder="z. B. SV Eintracht 1924 e.V."
+                        type={showRegPassword ? 'text' : 'password'}
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                        placeholder="••••••••"
                         required
-                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none"
+                        className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegPassword(!showRegPassword)}
+                        className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600"
+                      >
+                        {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
                     </div>
                   </div>
 
-                  {/* Full Name */}
                   <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">
-                      Vor- & Nachname (Vorstand / Admin) *
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                        <User className="w-4 h-4" />
-                      </div>
-                      <input
-                        type="text"
-                        value={regFullName}
-                        onChange={(e) => setRegFullName(e.target.value)}
-                        placeholder="z. B. Klaus Weber"
-                        required
-                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Email */}
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">
-                      E-Mail-Adresse *
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                        <Mail className="w-4 h-4" />
-                      </div>
-                      <input
-                        type="email"
-                        value={regEmail}
-                        onChange={(e) => setRegEmail(e.target.value)}
-                        placeholder="vorstand@mein-verein.de"
-                        required
-                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Username & Password Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <div className="space-y-1">
-                      <label className="block text-xs font-bold text-slate-700">
-                        Benutzername *
-                      </label>
-                      <input
-                        type="text"
-                        value={regUsername}
-                        onChange={(e) => setRegUsername(e.target.value)}
-                        placeholder="vorstand"
-                        required
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="block text-xs font-bold text-slate-700">
-                        Passwort *
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showRegPassword ? 'text' : 'password'}
-                          value={regPassword}
-                          onChange={(e) => setRegPassword(e.target.value)}
-                          placeholder="••••••••"
-                          required
-                          className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowRegPassword(!showRegPassword)}
-                          className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600"
-                        >
-                          {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Confirm Password */}
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">
-                      Passwort wiederholen *
-                    </label>
+                    <label className="block text-xs font-bold text-slate-700">Passwort wiederholen *</label>
                     <input
                       type={showRegPassword ? 'text' : 'password'}
                       value={regPasswordConfirm}
@@ -624,7 +347,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     />
                   </div>
 
-                  {/* Submit Button */}
                   <button
                     type="submit"
                     disabled={loading}
@@ -635,13 +357,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     ) : (
                       <>
                         <UserPlus className="w-4 h-4" />
-                        <span>Vereinskonto erstellen & starten</span>
+                        <span>Konto anlegen & starten</span>
                       </>
                     )}
                   </button>
                 </form>
 
-                {/* Back to login button */}
                 <div className="text-center pt-1">
                   <button
                     type="button"
@@ -651,86 +372,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     }}
                     className="text-xs text-slate-500 hover:text-slate-800 font-semibold hover:underline cursor-pointer"
                   >
-                    ← Bereits registriert? Zum Login
+                    ← Bereits eingerichtet? Zum Login
                   </button>
                 </div>
               </>
             )}
-
-            {/* TAB 3: IMPORT BACKUP */}
-            {activeTab === 'import' && (
-              <div className="space-y-4">
-                <div className="p-3.5 bg-blue-50/80 border border-blue-200/80 rounded-xl text-xs text-blue-900 leading-relaxed space-y-1">
-                  <div className="font-bold flex items-center gap-1.5 text-blue-950">
-                    <Database className="w-4 h-4 text-blue-600 shrink-0" />
-                    <span>Nahtloser Umzug auf diesen Rechner</span>
-                  </div>
-                  <p className="text-slate-600 text-[11px] leading-normal">
-                    Laden Sie hier Ihre am anderen PC exportierte <span className="font-semibold text-slate-800">.json-Datensicherung</span> hoch. Alle Daten sowie <strong>Benutzerkonten & Rollen</strong> werden direkt in die lokale Live-Datenbank übertragen, sodass Sie sich anschließend direkt wie gewohnt anmelden können.
-                  </p>
-                </div>
-
-                {/* Dropzone */}
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() => !importing && fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
-                    isDragging
-                      ? 'border-blue-600 bg-blue-50/70 scale-[1.01]'
-                      : 'border-slate-300 hover:border-blue-500 hover:bg-slate-50/80 bg-white'
-                  }`}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".json,application/json"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    id="login-backup-file-input"
-                  />
-
-                  {importing ? (
-                    <div className="py-4 flex flex-col items-center justify-center gap-2.5">
-                      <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                      <div className="text-xs font-bold text-slate-800">Datensicherung wird importiert...</div>
-                      <div className="text-2xs text-slate-500">Datenbank & Benutzerkonten werden eingerichtet</div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm">
-                        <Upload className="w-6 h-6" />
-                      </div>
-                      <div className="mt-1">
-                        <span className="text-xs font-bold text-blue-600 hover:underline">
-                          JSON-Sicherung auswählen
-                        </span>
-                        <span className="text-xs text-slate-500"> oder Datei hierher ziehen</span>
-                      </div>
-                      <p className="text-2xs text-slate-400 font-medium">
-                        Unterstützt VereinsManager .json Sicherungsdateien
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Back to login button */}
-                <div className="text-center pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab('login');
-                      setErrorMsg(null);
-                    }}
-                    className="text-xs text-slate-500 hover:text-slate-800 font-semibold hover:underline cursor-pointer"
-                  >
-                    ← Zurück zur Anmeldung
-                  </button>
-                </div>
-              </div>
-            )}
-
           </div>
 
           {/* Footer Info */}
@@ -740,18 +386,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Bestätigung vor dem Einspielen. Solange dieser Dialog offen ist,
-          wurde am Datenbestand noch nichts verändert. */}
-      <BackupImportDialog
-        isOpen={Boolean(importVorschau)}
-        dateiName={importVorschau?.dateiName || ''}
-        kopf={importVorschau?.kopf || {}}
-        vergleich={importVorschau?.vergleich || []}
-        laeuft={importing}
-        onAbbrechen={() => setImportVorschau(null)}
-        onBestaetigen={fuehreImportAus}
-      />
     </div>
   );
 };

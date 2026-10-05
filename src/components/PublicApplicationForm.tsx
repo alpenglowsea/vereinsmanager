@@ -118,8 +118,6 @@ export const PublicApplicationForm: React.FC<PublicApplicationFormProps> = ({
   // Consents
   const [dataPrivacyConsent, setDataPrivacyConsent] = useState(false);
   const [statuteConsent, setStatuteConsent] = useState(false);
-  const [photoConsent, setPhotoConsent] = useState(true);
-  const [healthConfirmation, setHealthConfirmation] = useState(true);
 
   // Signatures (PNG Base64)
   const [applicantSignature, setApplicantSignature] = useState<string | undefined>(undefined);
@@ -324,8 +322,6 @@ export const PublicApplicationForm: React.FC<PublicApplicationFormProps> = ({
       },
       dataPrivacyConsent,
       statuteConsent,
-      photoConsent,
-      healthConfirmation,
       applicantSignature,
       applicantSignatureDate: now,
       guardianSignature: isMinor ? guardianSignature : undefined,
@@ -1114,39 +1110,6 @@ export const PublicApplicationForm: React.FC<PublicApplicationFormProps> = ({
                   </div>
                 </label>
 
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={photoConsent}
-                    onChange={e => setPhotoConsent(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
-                  />
-                  <div className="text-xs text-slate-700">
-                    <strong className="text-slate-900 block">
-                      Einwilligung Foto- und Videoaufnahmen (Freiwillig)
-                    </strong>
-                    <span>
-                      Ich bin damit einverstanden, dass Fotos/Videos von Wettkämpfen und Vereinsfesten im Rahmen der Berichterstattung auf der Vereinswebsite oder im Vereinsheft veröffentlicht werden dürfen.
-                    </span>
-                  </div>
-                </label>
-
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={healthConfirmation}
-                    onChange={e => setHealthConfirmation(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
-                  />
-                  <div className="text-xs text-slate-700">
-                    <strong className="text-slate-900 block">
-                      Sporttauglichkeit & Gesundheitliche Eignung
-                    </strong>
-                    <span>
-                      Ich bestätige, dass keine ärztlichen Bedenken gegen eine sportliche Betätigung im Verein vorliegen.
-                    </span>
-                  </div>
-                </label>
               </div>
 
               {/* Unterschriften-Pads */}

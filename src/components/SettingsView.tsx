@@ -1,23 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ClubSettings, AppUser, UserPermissions, Address, BoardMember } from '../types';
+import { ClubSettings, Address, BoardMember } from '../types';
 import { StorageService } from '../services/storage';
 import { AuthService } from '../services/authService';
 import { SnapshotService, AutoSnapshot } from '../services/snapshotService';
 import { CURRENT_APP_VERSION } from '../services/updateService';
-import { PermissionMatrix } from './PermissionMatrix';
 import { usesNativeCrypto } from '../services/passwordService';
 import { apiFetch } from '../services/apiClient';
-import { ServerAccessKeyPanel } from './ServerAccessKeyPanel';
 import { BackupImportDialog } from './BackupImportDialog';
+import { BackupExportDialog } from './BackupExportDialog';
+import { BackupPasswordDialog } from './BackupPasswordDialog';
+import { istVerschluesselt, verschluessleSicherung, entschluessleSicherung } from '../services/backupCrypto';
 import { BereichsVergleich, ImportArt, SicherungsKopf } from '../services/backupContents';
-import {
-  AREA_DEFINITIONS,
-  canEdit as areaCanEdit,
-  canView as areaCanView,
-  migrateLegacyPermissions,
-  permissionsFrom
-} from '../utils/permissions';
-import { DeploymentHubSettingsPanel } from './DeploymentHubSettingsPanel';
 import { openExternalUrl } from '../utils/externalLink';
 import { saveBlobWithLocationPicker } from '../utils/fileExportHelper';
 import QRCode from 'qrcode';
@@ -25,7 +18,6 @@ import {
   Settings,
   Building,
   Database,
-  Globe,
   Users,
   Shield,
   ShieldCheck,
@@ -39,8 +31,6 @@ import {
   Laptop,
   CheckCircle2,
   AlertTriangle,
-  UserPlus,
-  Edit3,
   User as UserIcon,
   Eye,
   EyeOff,
@@ -69,7 +59,8 @@ import {
   Archive,
   GripVertical,
   Plus,
-  Lock
+  Lock,
+  FileText
 } from 'lucide-react';
 import { lockClass, lockTitle } from '../utils/uiLock';
 
@@ -92,7 +83,6 @@ interface SettingsViewProps {
   settings: ClubSettings;
   onSaveSettings: (settings: ClubSettings) => void;
   onDataReload?: () => void;
-  onOpenUserManage?: () => void;
   currentTheme: 'light' | 'dark' | 'system';
   onThemeChange: (theme: 'light' | 'dark' | 'system') => void;
   initialTab?: SettingsTab;
@@ -101,14 +91,7 @@ interface SettingsViewProps {
   canEdit?: boolean;
   /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
   onLocked?: () => void;
-  /** Eigenes Recht: Benutzerkonten und Rechte verwalten. */
-  canManageUsers?: boolean;
-  /** Hinweis, wenn die Benutzerverwaltung gesperrt ist. */
-  onUsersLocked?: () => void;
 }
-
-/** Neue Benutzer starten gesperrt — freigeschaltet wird bewusst. */
-const DEFAULT_BLANK_PERMISSIONS: UserPermissions = permissionsFrom('none', { dashboard: 'view' });
 
 export const parseClubAddress = (addr: Address | string | undefined): Address => {
   if (!addr) return { street: '', houseNumber: '', zip: '', city: '', country: 'Deutschland' };
@@ -172,7 +155,7 @@ export const getInitialBoardMembers = (s: ClubSettings): BoardMember[] => {
   return list;
 };
 
-type SettingsTab = 'general' | 'club' | 'users' | 'backup' | 'deployment' | 'support' | 'bugreport';
+type SettingsTab = 'general' | 'club' | 'backup' | 'support' | 'bugreport';
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
@@ -183,17 +166,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   initialTab,
   onTabChange,
   canEdit = true,
-  onLocked,
-  canManageUsers = true,
-  onUsersLocked
+  onLocked
 }) => {
   // Tab sequence:
   // 1. Allgemeine Einstellungen
   // 2. Vereinsstammdaten
-  // 3. Benutzer & Rechte
-  // 4. Datensicherung und Import
-  // 5. Betriebsmodi
-  // 6. Projekt unterstützen
+  // 3. Datensicherung und Import
+  // 4. Projekt unterstützen
+  // 5. Problem melden
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || 'general');
 
   const prevInitialTabRef = useRef(initialTab);
@@ -261,7 +241,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     type: 'success' | 'error' | 'info';
     text: string;
   } | null>(null);
-  const [usersList, setUsersList] = useState<AppUser[]>(() => AuthService.getUsers());
   const [qrModalOpen, setQrModalOpen] = useState(false);
 
   // QR-Code für die freiwillige Projektunterstützung (Tab 6): wird aus
@@ -287,16 +266,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     };
   }, []);
 
-  // User In-Place Editing State
-  const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [isCreatingUser, setIsCreatingUser] = useState(false);
-  const [userFormUsername, setUserFormUsername] = useState('');
-  const [userFormName, setUserFormName] = useState('');
-  const [userFormEmail, setUserFormEmail] = useState('');
-  const [userFormRole, setUserFormRole] = useState('');
-  const [userFormPassword, setUserFormPassword] = useState('');
-  const [userFormPermissions, setUserFormPermissions] = useState<UserPermissions>({ ...DEFAULT_BLANK_PERMISSIONS });
-  const [userFormIsActive, setUserFormIsActive] = useState(true);
+  // Gerätepasswort ändern (Tab 3)
+  const [newDevicePassword, setNewDevicePassword] = useState('');
+  const [newDevicePasswordRepeat, setNewDevicePasswordRepeat] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [userMsg, setUserMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -305,6 +277,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
    * Solange hier etwas steht, ist der Bestätigungsdialog offen und am
    * Datenbestand wurde noch nichts verändert.
    */
+  // Datensicherung: Auswahl mit/ohne Passwort beim Erstellen, Passwortabfrage
+  // beim Einspielen einer verschlüsselten Datei.
+  const [exportDialogOffen, setExportDialogOffen] = useState(false);
+  const [exportLaeuft, setExportLaeuft] = useState(false);
+  const [passwortAbfrage, setPasswortAbfrage] = useState<{ dateiName: string; text: string } | null>(null);
   const [importVorschau, setImportVorschau] = useState<{
     dateiName: string;
     text: string;
@@ -591,127 +568,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setSubmittedTicket(null);
   };
 
-  const startEditUser = (user: AppUser) => {
-    setEditingUserId(user.id);
-    setIsCreatingUser(false);
-    setUserFormUsername(user.username);
-    setUserFormName(user.name);
-    setUserFormEmail(user.email || '');
-    setUserFormRole(user.customRoleName || '');
-    setUserFormPassword('');
-    setUserFormPermissions({ ...user.permissions });
-    setUserFormIsActive(user.isActive !== false);
-    setShowPassword(false);
-    setUserMsg(null);
-  };
-
-  const startCreateUser = () => {
-    setEditingUserId(null);
-    setIsCreatingUser(true);
-    setUserFormUsername('');
-    setUserFormName('');
-    setUserFormEmail('');
-    setUserFormRole('');
-    setUserFormPassword('');
-    setUserFormPermissions({ ...DEFAULT_BLANK_PERMISSIONS });
-    setUserFormIsActive(true);
-    setShowPassword(false);
-    setUserMsg(null);
-  };
-
-  const cancelEditUser = () => {
-    setEditingUserId(null);
-    setIsCreatingUser(false);
-    setUserMsg(null);
-  };
-
-  const handleSaveUserForm = async (e: React.FormEvent) => {
-    if (!canManageUsers) { if (onUsersLocked) onUsersLocked(); return; }
+  const handleChangeDevicePassword = async (e: React.FormEvent) => {
+    if (!canEdit) { if (onLocked) onLocked(); return; }
     e.preventDefault();
-    if (!userFormUsername.trim() || !userFormName.trim()) {
-      setUserMsg({ type: 'error', text: 'Benutzername und vollständiger Name sind Pflichtfelder.' });
+    if (!newDevicePassword.trim()) {
+      setUserMsg({ type: 'error', text: 'Bitte geben Sie ein neues Passwort ein.' });
       return;
     }
-
-    if (isCreatingUser) {
-      if (!userFormPassword.trim()) {
-        setUserMsg({ type: 'error', text: 'Bitte vergeben Sie ein initiales Passwort für das neue Konto.' });
+    if (newDevicePassword !== newDevicePasswordRepeat) {
+      setUserMsg({ type: 'error', text: 'Die beiden Passwörter stimmen nicht überein.' });
+      return;
+    }
+    try {
+      const res = await AuthService.aendereBenutzerPasswort(newDevicePassword);
+      if (!res.success) {
+        setUserMsg({ type: 'error', text: res.message || 'Das Passwort konnte nicht geändert werden.' });
         return;
       }
-      try {
-        const newUser: AppUser = {
-          id: `user-${Date.now()}`,
-          username: userFormUsername.trim().toLowerCase(),
-          name: userFormName.trim(),
-          email: userFormEmail.trim(),
-          // Klartext hat im Speicher nichts verloren — das übernimmt
-          // saveUserWithPassword und legt nur einen Prüfwert ab.
-          password: '',
-          customRoleName: userFormRole.trim() || 'Benutzer',
-          permissions: userFormPermissions,
-          isActive: userFormIsActive,
-          createdAt: new Date().toISOString()
-        };
-        const res = await AuthService.saveUserWithPassword(newUser, userFormPassword);
-        if (!res.success) {
-          setUserMsg({ type: 'error', text: res.message || 'Fehler beim Anlegen des Benutzers.' });
-          return;
-        }
-        setUsersList(AuthService.getUsers());
-        setIsCreatingUser(false);
-        setUserMsg({ type: 'success', text: `Benutzer "${userFormName}" erfolgreich angelegt.` });
-        setTimeout(() => setUserMsg(null), 3500);
-        onDataReload?.();
-      } catch (err: any) {
-        setUserMsg({ type: 'error', text: err.message || 'Fehler beim Anlegen des Benutzers.' });
-      }
-    } else if (editingUserId) {
-      try {
-        const existing = usersList.find(u => u.id === editingUserId);
-        const updatedUser: AppUser = {
-          id: editingUserId,
-          username: userFormUsername.trim().toLowerCase(),
-          name: userFormName.trim(),
-          email: userFormEmail.trim(),
-          password: '',
-          customRoleName: userFormRole.trim() || 'Benutzer',
-          permissions: userFormPermissions,
-          isActive: userFormIsActive,
-          createdAt: existing?.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        // Leeres Feld heisst: bisheriges Passwort behalten.
-        const res = await AuthService.saveUserWithPassword(updatedUser, userFormPassword);
-        if (!res.success) {
-          setUserMsg({ type: 'error', text: res.message || 'Fehler beim Aktualisieren des Benutzers.' });
-          return;
-        }
-        setUsersList(AuthService.getUsers());
-        setEditingUserId(null);
-        setUserMsg({ type: 'success', text: `Benutzer "${userFormName}" erfolgreich aktualisiert.` });
-        setTimeout(() => setUserMsg(null), 3500);
-        onDataReload?.();
-      } catch (err: any) {
-        setUserMsg({ type: 'error', text: err.message || 'Fehler beim Aktualisieren des Benutzers.' });
-      }
-    }
-  };
-
-  const handleDeleteUser = (user: AppUser) => {
-    if (!canManageUsers) { if (onUsersLocked) onUsersLocked(); return; }
-    if (usersList.length <= 1) {
-      alert('Der letzte verbleibende Administrator kann nicht gelöscht werden.');
-      return;
-    }
-    if (window.confirm(`Benutzerkonto "${user.name}" (${user.username}) wirklich unwiderruflich löschen?`)) {
-      AuthService.deleteUser(user.id);
-      setUsersList(AuthService.getUsers());
-      if (editingUserId === user.id) {
-        setEditingUserId(null);
-      }
-      setUserMsg({ type: 'success', text: `Benutzer "${user.name}" wurde gelöscht.` });
-      setTimeout(() => setUserMsg(null), 3000);
-      onDataReload?.();
+      setNewDevicePassword('');
+      setNewDevicePasswordRepeat('');
+      setShowPassword(false);
+      setUserMsg({ type: 'success', text: 'Das Passwort wurde geändert.' });
+      setTimeout(() => setUserMsg(null), 3500);
+    } catch (err: any) {
+      setUserMsg({ type: 'error', text: err.message || 'Das Passwort konnte nicht geändert werden.' });
     }
   };
 
@@ -968,30 +848,43 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }));
   };
 
-  // Full Backup Export with destination folder selection
-  const handleExportBackup = async () => {
+  // Full Backup Export with destination folder selection.
+  // Beide Knöpfe (Kopfzeile und Datensicherungs-Reiter) öffnen zuerst die
+  // Auswahl "mit Passwort / ohne Passwort".
+  const handleExportBackup = () => {
+    setExportDialogOffen(true);
+  };
+
+  const fuehreExportAus = async (passwort: string | null) => {
+    setExportLaeuft(true);
     try {
-      const json = await StorageService.exportFullBackup();
-      const blob = new Blob([json], { type: 'application/json' });
+      const klartext = await StorageService.exportFullBackup();
+      const inhalt = passwort ? await verschluessleSicherung(klartext, passwort) : klartext;
+      const blob = new Blob([inhalt], { type: 'application/json' });
       const dateStr = new Date().toISOString().split('T')[0];
       const safeClub = (formData.clubName || 'Verein').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_');
-      const filename = `VereinsManager_Sicherung_${safeClub}_${dateStr}.json`;
+      const filename = `VereinsManager_Sicherung_${safeClub}_${dateStr}${passwort ? '_verschluesselt' : ''}.json`;
 
       const result = await saveBlobWithLocationPicker(blob, filename, {
-        description: 'JSON-Datensicherungsdatei (*.json)',
+        description: passwort
+          ? 'Verschlüsselte Datensicherungsdatei (*.json)'
+          : 'JSON-Datensicherungsdatei (*.json)',
         mimeType: 'application/json',
         extension: '.json'
       });
 
+      setExportDialogOffen(false);
       if (result.cancelled) {
         setStatusMsg({ type: 'info', text: 'Sicherung abgebrochen (kein Speicherort gewählt).' });
         setTimeout(() => setStatusMsg(null), 3000);
       } else if (result.success) {
         setStatusMsg({
           type: 'success',
-          text: result.method === 'picker'
-            ? `Datensicherung erfolgreich gespeichert als: "${result.fileName}"`
-            : `Datensicherung "${result.fileName}" erfolgreich gespeichert.`
+          text:
+            (result.method === 'picker'
+              ? `Datensicherung erfolgreich gespeichert als: "${result.fileName}"`
+              : `Datensicherung "${result.fileName}" erfolgreich gespeichert.`) +
+            (passwort ? ' Sie ist mit Ihrem Passwort verschlüsselt.' : '')
         });
         setTimeout(() => setStatusMsg(null), 4500);
       } else {
@@ -1000,8 +893,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       }
     } catch (err: any) {
       console.error('Fehler beim Export der Sicherung:', err);
-      setStatusMsg({ type: 'error', text: 'Fehler beim Erstellen der Sicherung.' });
+      setExportDialogOffen(false);
+      setStatusMsg({ type: 'error', text: err?.message || 'Fehler beim Erstellen der Sicherung.' });
       setTimeout(() => setStatusMsg(null), 4000);
+    } finally {
+      setExportLaeuft(false);
     }
   };
 
@@ -1017,6 +913,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     // Ersetzen und Ergänzen.
     try {
       const text = await file.text();
+      if (istVerschluesselt(text)) {
+        // Erst das Passwort abfragen; danach geht es wie bei jeder Sicherung weiter.
+        setPasswortAbfrage({ dateiName: file.name, text });
+        return;
+      }
       const { kopf, vergleich } = await StorageService.analysiereSicherung(text);
       setImportVorschau({ dateiName: file.name, text, kopf, vergleich });
     } catch (err: any) {
@@ -1027,6 +928,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       });
     } finally {
       e.target.value = '';
+    }
+  };
+
+  /** Gibt null bei Erfolg zurück, sonst die Fehlermeldung für den Dialog. */
+  const entschluesseleSicherung = async (passwort: string): Promise<string | null> => {
+    if (!passwortAbfrage) return 'Keine Datei ausgewählt.';
+    try {
+      const klartext = await entschluessleSicherung(passwortAbfrage.text, passwort);
+      const { kopf, vergleich } = await StorageService.analysiereSicherung(klartext);
+      setImportVorschau({ dateiName: passwortAbfrage.dateiName, text: klartext, kopf, vergleich });
+      setPasswortAbfrage(null);
+      return null;
+    } catch (err: any) {
+      return err?.message || 'Die Sicherung konnte nicht entschlüsselt werden.';
     }
   };
 
@@ -1043,7 +958,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         : ' Achtung: Die Sicherheitskopie des vorherigen Bestands konnte nicht angelegt werden.';
       setStatusMsg({
         type: 'success',
-        text: `Sicherung erfolgreich ${art === 'ersetzen' ? 'eingespielt' : 'ergänzt'} (${result.membersCount} Mitglieder, ${result.transactionsCount} Buchungen${result.usersCount ? `, ${result.usersCount} Benutzerkonten` : ''}).${hinweisKopie}`
+        text: `Sicherung erfolgreich ${art === 'ersetzen' ? 'eingespielt' : 'ergänzt'} (${result.membersCount} Mitglieder, ${result.transactionsCount} Buchungen).${hinweisKopie}`
       });
       setTimeout(() => setStatusMsg(null), 6000);
     } catch (err: any) {
@@ -1060,25 +975,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  // Reset to Demo
-  const handleResetToDemo = async () => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
-    if (window.confirm('Möchten Sie die Datenbank wirklich auf die Muster-Vereinsdaten zurücksetzen?')) {
-      await StorageService.resetToDemoData();
-      onDataReload?.();
-      setStatusMsg({ type: 'success', text: 'Muster-Vereinsdaten wurden erfolgreich geladen.' });
-      setTimeout(() => setStatusMsg(null), 3000);
-    }
-  };
-
   // Wipe All
   const handleWipeAll = async () => {
     if (!canEdit) { if (onLocked) onLocked(); return; }
     if (window.confirm('ACHTUNG: Möchten Sie wirklich ALLE Mitglieder, Buchungen und Konten löschen? Diese Aktion kann nicht rückgängig gemacht werden!')) {
-      await StorageService.clearAllData();
-      onDataReload?.();
-      setStatusMsg({ type: 'success', text: 'Alle lokalen Daten wurden gelöscht.' });
-      setTimeout(() => setStatusMsg(null), 3000);
+      try {
+        await StorageService.clearAllData();
+        onDataReload?.();
+        setStatusMsg({ type: 'success', text: 'Alle lokalen Daten wurden gelöscht.' });
+      } catch (err: any) {
+        console.error('Fehler beim Löschen aller Daten:', err);
+        setStatusMsg({
+          type: 'error',
+          text: `Nicht alles konnte gelöscht werden: ${err?.message || 'unbekannter Fehler'}. Bitte erneut versuchen.`
+        });
+      }
+      setTimeout(() => setStatusMsg(null), 4000);
     }
   };
 
@@ -1087,6 +999,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [loadingSnapshots, setLoadingSnapshots] = useState(false);
   const [isScanningLegacy, setIsScanningLegacy] = useState(false);
   const [legacyScanFeedback, setLegacyScanFeedback] = useState<string | null>(null);
+  const [localStats, setLocalStats] = useState<{
+    members: number;
+    transactions: number;
+    accounts: number;
+    inventory: number;
+    sepaRuns: number;
+    documents: number;
+    donations: number;
+    calendarEvents: number;
+    auditLogs: number;
+  } | null>(null);
 
   const loadSnapshotsList = async () => {
     try {
@@ -1100,9 +1023,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
+  const loadLocalStats = async () => {
+    try {
+      const stats = await StorageService.getLocalDataStats();
+      setLocalStats(stats);
+    } catch (e) {
+      console.warn('Fehler beim Laden der lokalen Statistiken:', e);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'backup') {
       loadSnapshotsList();
+      loadLocalStats();
     }
   }, [activeTab]);
 
@@ -1213,7 +1146,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 Systemeinstellungen
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                Konfigurieren Sie Erscheinungsbild, Vereinsstammdaten, Zugriffsrechte, Backups und Betriebsmodi.
+                Konfigurieren Sie Erscheinungsbild, Vereinsstammdaten, Zugriffsrechte und Backups.
               </p>
             </div>
           </div>
@@ -1260,24 +1193,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <span>2. Vereinsstammdaten</span>
           </button>
 
-          {/* 3. Benutzer & Rechte */}
-          <button
-            type="button"
-            onClick={() => {
-              setUsersList(AuthService.getUsers());
-              switchTab('users');
-            }}
-            className={`pb-3.5 px-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'users'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400 font-bold'
-                : 'border-transparent hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>3. Benutzer & Rechte</span>
-          </button>
-
-          {/* 4. Datensicherung und Import */}
+          {/* 3. Datensicherung und Import */}
           <button
             type="button"
             onClick={() => switchTab('backup')}
@@ -1288,24 +1204,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             }`}
           >
             <Database className="w-4 h-4" />
-            <span>4. Datensicherung und Import</span>
+            <span>3. Datensicherung und Import</span>
           </button>
 
-          {/* 5. Betriebsmodi */}
-          <button
-            type="button"
-            onClick={() => switchTab('deployment')}
-            className={`pb-3.5 px-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'deployment'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400 font-bold'
-                : 'border-transparent hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <Globe className="w-4 h-4" />
-            <span>5. Betriebsmodi</span>
-          </button>
-
-          {/* 6. Projekt unterstützen */}
+          {/* 4. Projekt unterstützen */}
           <button
             type="button"
             onClick={() => switchTab('support')}
@@ -1316,10 +1218,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             }`}
           >
             <Heart className={`w-4 h-4 ${activeTab === 'support' ? 'text-rose-500 fill-rose-500' : 'text-rose-400'}`} />
-            <span>6. Projekt unterstützen</span>
+            <span>4. Projekt unterstützen</span>
           </button>
 
-          {/* 7. Problem melden (Bugreporting) */}
+          {/* 5. Problem melden (Bugreporting) */}
           <button
             type="button"
             onClick={() => switchTab('bugreport')}
@@ -1330,7 +1232,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             }`}
           >
             <Bug className="w-4 h-4 text-amber-500" />
-            <span>7. Problem melden</span>
+            <span>5. Problem melden</span>
           </button>
         </div>
       </div>
@@ -1360,11 +1262,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* TAB 1: ALLGEMEINE EINSTELLUNGEN (inkl. Dark Mode Funktion) */}
       {activeTab === 'general' && (
         <div className="space-y-6 animate-in fade-in duration-150">
-          {/* Zugriffsschlüssel des Servers. Im Normalfall nur eine einzeilige
-              Bestätigung; zur vollen Karte wird das erst, wenn der Server
-              diesen Browser nicht anerkennt. */}
-          <ServerAccessKeyPanel />
-
           {/* Dark Mode & Erscheinungsbild Card */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-5">
             <div className="flex items-center justify-between">
@@ -1549,45 +1446,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <option value="10-01">01. Oktober (Herbststart)</option>
                 </select>
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Zentrale Kontakt-E-Mail
-                </label>
-                <input
-                  type="email"
-                  value={formData.email || ''}
-                  onChange={e => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="kontakt@tsv-musterstadt.de"
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Telefonnummer Geschäftsstelle
-                </label>
-                <input
-                  type="tel"
-                  value={formData.phone || ''}
-                  onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+49 (0) 1234 56789"
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Vereins-Website
-                </label>
-                <input
-                  type="url"
-                  value={formData.website || ''}
-                  onChange={e => setFormData({ ...formData, website: e.target.value })}
-                  placeholder="https://www.tsv-musterstadt1890.de"
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
             </div>
 
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
@@ -1601,12 +1459,134 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </form>
 
+          {/* Passwort dieses Geräts */}
+          {/* Was der Passwortschutz im lokalen Betrieb leistet — und was nicht.
+              Ohne diesen Hinweis hält ein Verein die Anmeldung leicht für einen
+              Schutz der Daten, der sie nicht ist. */}
+          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 rounded-2xl p-4 flex items-start gap-3">
+            <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <div className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed space-y-1.5">
+              <p>
+                <strong>Das Passwort</strong> wird nicht im Klartext gespeichert, sondern nur
+                als Prüfwert, aus dem sich das Passwort nicht zurückrechnen lässt. Es gehört zu
+                diesem Gerät und reist nicht mit einer Datensicherung mit.
+              </p>
+              <p>
+                <strong>Die Vereinsdaten selbst</strong> — Mitglieder, Bankverbindungen,
+                Kassenbuch — liegen auf diesem Gerät unverschlüsselt. Wer an den Rechner
+                kommt, kommt an die Daten, auch ohne Passwort. Die Anmeldung schützt nur gegen
+                einen zufälligen Blick an einem unbeaufsichtigten, entsperrten Gerät; sie
+                ersetzt keinen Schutz des Geräts selbst. Dafür sorgt die
+                Festplattenverschlüsselung Ihres Betriebssystems (Windows: BitLocker bzw.
+                „Geräteverschlüsselung"), und ein Bildschirmschoner mit Kennwort.
+              </p>
+              {!usesNativeCrypto() && (
+                <p className="font-semibold">
+                  Hinweis: Dieser Browser stellt keine gesicherte Kryptographie bereit —
+                  das passiert, wenn die Anwendung über „http://" statt „https://"
+                  ausgeliefert wird. Das Passwort wird dann mit einem schwächeren
+                  Ersatzverfahren gesichert. Über „https://" oder direkt auf dem Gerät ist
+                  der Schutz deutlich besser.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Feedback Alert if present */}
+          {userMsg && (
+            <div
+              className={`p-4 rounded-2xl text-xs font-semibold flex items-center gap-3 animate-in fade-in ${
+                userMsg.type === 'success'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
+                  : 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
+              }`}
+            >
+              {userMsg.type === 'success' ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+              )}
+              <span>{userMsg.text}</span>
+            </div>
+          )}
+
+          <form
+            onSubmit={handleChangeDevicePassword}
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-5"
+          >
+            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="p-2.5 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-2xl">
+                <UserIcon className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Passwort ändern
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Es gibt genau ein Passwort für dieses Gerät. Jeder, der sich anmeldet, hat
+                  vollen Zugriff — es gibt keine einzelnen Benutzerkonten oder Bereichsrechte
+                  mehr.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Neues Passwort
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={newDevicePassword}
+                    onChange={(e) => setNewDevicePassword(e.target.value)}
+                    placeholder="Sicheres Passwort vergeben..."
+                    required
+                    className="w-full px-3.5 py-2 pr-10 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Neues Passwort wiederholen
+                </label>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={newDevicePasswordRepeat}
+                  onChange={(e) => setNewDevicePasswordRepeat(e.target.value)}
+                  placeholder="Zur Kontrolle erneut eingeben"
+                  required
+                  className="w-full px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="submit"
+                className={`px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-xs${lockClass(canEdit)}`}
+                title={lockTitle(canEdit, 'Passwort ändern')}
+              >
+                Passwort ändern
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
       {/* TAB 2: VEREINSSTAMMDATEN */}
       {activeTab === 'club' && (
-        <form onSubmit={handleSaveClub} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-6 animate-in fade-in duration-150">
+        <form onSubmit={handleSaveClub} className="space-y-5 animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
           <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
             <div className="p-2.5 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-2xl">
               <Building className="w-5 h-5" />
@@ -1620,10 +1600,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </p>
             </div>
           </div>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Vereinslogo Upload Box */}
-            <div className="col-span-1 md:col-span-2 p-5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-start sm:items-center gap-4">
                   {/* Logo Preview Avatar */}
@@ -1686,9 +1665,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   )}
                 </div>
               </div>
-            </div>
+          </div>
 
-            <div className="col-span-1 md:col-span-2">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
+            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="p-2.5 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-2xl">
+                <Building className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Vereinsname &amp; Vereinsanschrift</h3>
+              </div>
+            </div>
+            <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Offizieller Vereinsname *
               </label>
@@ -1701,119 +1689,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 placeholder="z.B. TSV Musterstadt 1890 e.V."
               />
             </div>
-
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Vereinsregisternummer (VR-Nr.)
-              </label>
-              <input
-                type="text"
-                value={formData.associationNumber}
-                onChange={e => setFormData({ ...formData, associationNumber: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                placeholder="z.B. VR 48219 Amtsgericht Musterstadt"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Steuernummer (Finanzamt)
-              </label>
-              <input
-                type="text"
-                value={formData.taxNumber}
-                onChange={e => setFormData({ ...formData, taxNumber: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                placeholder="z.B. 112/5840/1922"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Zuständiges Finanzamt
-              </label>
-              <input
-                type="text"
-                value={formData.taxOffice || ''}
-                onChange={e => setFormData({ ...formData, taxOffice: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                placeholder="z.B. Finanzamt Musterstadt"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Datum Freistellungsbescheid (Gemeinnützigkeit)
-              </label>
-              <input
-                type="text"
-                value={formData.taxExemptionDate || ''}
-                onChange={e => setFormData({ ...formData, taxExemptionDate: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                placeholder="z.B. 15.03.2024"
-              />
-            </div>
-
-            {/* SEPA Creditor & Banking Box */}
-            <div className="col-span-1 md:col-span-2 p-4 sm:p-5 bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 rounded-2xl space-y-3">
-              <div className="flex items-center gap-2 text-xs font-bold text-blue-900 dark:text-blue-300">
-                <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                <span>SEPA-Gläubiger- & Vereinskonto-Stammdaten (für Lastschriften)</span>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Diese Angaben werden als Gläubiger (Creditor) in die offiziellen SEPA XML-Dateien (pain.008) für Ihre Bank eingebettet.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Gläubiger-ID (CI) *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.creditorId}
-                    onChange={e => setFormData({ ...formData, creditorId: e.target.value.toUpperCase().trim() })}
-                    className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                    placeholder="DE98ZZZ09999999999"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Vereins-IBAN (Gutschrift) *
-                  </label>
-                  <input
-                    type="text"
-                    value={formatIbanWithSpaces(formData.creditorIban || '')}
-                    onChange={e => {
-                      const clean = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                      setFormData({ ...formData, creditorIban: clean });
-                    }}
-                    className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 tracking-wider"
-                    placeholder="DE89 3705 0198 0000 0123 45"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Vereins-BIC / SWIFT
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.creditorBic || ''}
-                    onChange={e => setFormData({ ...formData, creditorBic: e.target.value.toUpperCase().trim() })}
-                    className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                    placeholder="BYLADEM1001"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Structured Address: Street, House No, Zip, City */}
-            <div className="col-span-1 md:col-span-2 p-4 sm:p-5 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/80 rounded-2xl space-y-3">
-              <label className="block text-xs font-bold text-slate-900 dark:text-white">
-                Offizielle Vereinsanschrift (Geschäftsstelle / Sitz)
-              </label>
+              <label className="block text-xs font-bold text-slate-900 dark:text-white mb-2">Offizielle Vereinsanschrift (Geschäftsstelle / Sitz)</label>
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                 <div className="sm:col-span-8">
                   <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
@@ -1865,9 +1742,60 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Vorstandsmitglieder & Vertretungsberechtigte */}
-            <div className="col-span-1 md:col-span-2 p-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-2xl space-y-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
+            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="p-2.5 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-2xl">
+                <Mail className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Kontaktdaten des Vereins</h3>
+              </div>
+            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Zentrale Kontakt-E-Mail
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email || ''}
+                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="kontakt@tsv-musterstadt.de"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Telefonnummer Geschäftsstelle
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phone || ''}
+                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="+49 (0) 1234 56789"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Vereins-Website
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.website || ''}
+                    onChange={e => setFormData({ ...formData, website: e.target.value })}
+                    placeholder="https://www.tsv-musterstadt1890.de"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-700">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 flex items-center justify-center shrink-0">
@@ -2033,12 +1961,126 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 );
               })}
               </div>
-            </div>
-
           </div>
 
-          {/* Department configuration with Drag & Drop Sorting */}
-          <div className="pt-5 border-t border-slate-200 dark:border-slate-800 space-y-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
+            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="p-2.5 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-2xl">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Steuerliche Angaben</h3>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Vereinsregisternummer (VR-Nr.)
+              </label>
+              <input
+                type="text"
+                value={formData.associationNumber}
+                onChange={e => setFormData({ ...formData, associationNumber: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                placeholder="z.B. VR 48219 Amtsgericht Musterstadt"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Steuernummer (Finanzamt)
+              </label>
+              <input
+                type="text"
+                value={formData.taxNumber}
+                onChange={e => setFormData({ ...formData, taxNumber: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                placeholder="z.B. 112/5840/1922"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Zuständiges Finanzamt
+              </label>
+              <input
+                type="text"
+                value={formData.taxOffice || ''}
+                onChange={e => setFormData({ ...formData, taxOffice: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                placeholder="z.B. Finanzamt Musterstadt"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Datum Freistellungsbescheid
+              </label>
+              <input
+                type="text"
+                value={formData.taxExemptionDate || ''}
+                onChange={e => setFormData({ ...formData, taxExemptionDate: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                placeholder="z.B. 15.03.2024"
+              />
+            </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
+              <div className="flex items-center gap-2 text-xs font-bold text-blue-900 dark:text-blue-300">
+                <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span>SEPA-Gläubiger- & Vereinskonto-Stammdaten</span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Diese Angaben werden als Gläubiger (Creditor) in die offiziellen SEPA XML-Dateien (pain.008) für Ihre Bank eingebettet.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Gläubiger-ID (CI) *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.creditorId}
+                    onChange={e => setFormData({ ...formData, creditorId: e.target.value.toUpperCase().trim() })}
+                    className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    placeholder="DE98ZZZ09999999999"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Vereins-IBAN (Gutschrift) *
+                  </label>
+                  <input
+                    type="text"
+                    value={formatIbanWithSpaces(formData.creditorIban || '')}
+                    onChange={e => {
+                      const clean = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                      setFormData({ ...formData, creditorIban: clean });
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 tracking-wider"
+                    placeholder="DE89 3705 0198 0000 0123 45"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Vereins-BIC / SWIFT
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.creditorBic || ''}
+                    onChange={e => setFormData({ ...formData, creditorBic: e.target.value.toUpperCase().trim() })}
+                    className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    placeholder="BYLADEM1001"
+                  />
+                </div>
+              </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <label className="block text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -2141,7 +2183,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
-          {/* Action & Feedback Footer with Prominent Save Button & Instant Notification */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
           <div className="pt-5 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             {/* Inline Feedback Banner directly in view of the user */}
             <div className="flex-1">
@@ -2189,325 +2231,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </button>
             </div>
           </div>
-        </form>
-      )}
-
-      {/* TAB 3: BENUTZER & RECHTE */}
-      {activeTab === 'users' && (
-        <div className="space-y-6 animate-in fade-in duration-150">
-          {/* Was der Passwortschutz im lokalen Betrieb leistet — und was nicht.
-              Ohne diesen Hinweis hält ein Verein die Anmeldung leicht für einen
-              Schutz der Daten, der sie nicht ist. */}
-          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 rounded-2xl p-4 flex items-start gap-3">
-            <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
-            <div className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed space-y-1.5">
-              <p>
-                <strong>Passwörter</strong> werden nicht mehr im Klartext gespeichert, sondern
-                nur noch als Prüfwert, aus dem sich das Passwort nicht zurückrechnen lässt.
-                Bestehende Konten wurden beim ersten Start umgestellt — niemand muss etwas
-                neu vergeben.
-              </p>
-              <p>
-                <strong>Die Vereinsdaten selbst</strong> — Mitglieder, Bankverbindungen,
-                Kassenbuch — liegen auf diesem Gerät unverschlüsselt. Wer an den Rechner
-                kommt, kommt an die Daten, auch ohne Passwort. Die Anmeldung regelt, wer
-                womit arbeiten darf; sie ersetzt keinen Schutz des Geräts. Dafür sorgt die
-                Festplattenverschlüsselung Ihres Betriebssystems (Windows: BitLocker bzw.
-                „Geräteverschlüsselung"), und ein Bildschirmschoner mit Kennwort.
-              </p>
-              {!usesNativeCrypto() && (
-                <p className="font-semibold">
-                  Hinweis: Dieser Browser stellt keine gesicherte Kryptographie bereit —
-                  das passiert, wenn die Anwendung über „http://" statt „https://"
-                  ausgeliefert wird. Die Passwörter werden dann mit einem schwächeren
-                  Ersatzverfahren gesichert. Über „https://" oder direkt auf dem Gerät ist
-                  der Schutz deutlich besser.
-                </p>
-              )}
-            </div>
           </div>
-
-          {/* Feedback Alert if present */}
-          {userMsg && (
-            <div
-              className={`p-4 rounded-2xl text-xs font-semibold flex items-center gap-3 animate-in fade-in ${
-                userMsg.type === 'success'
-                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
-                  : 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
-              }`}
-            >
-              {userMsg.type === 'success' ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              ) : (
-                <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
-              )}
-              <span>{userMsg.text}</span>
-            </div>
-          )}
-
-          {/* In-Place User Editor Form */}
-          {(isCreatingUser || editingUserId) ? (
-            <form
-              onSubmit={handleSaveUserForm}
-              className="bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800/80 rounded-3xl p-6 shadow-xs space-y-5"
-            >
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-blue-600 text-white rounded-2xl shadow-xs">
-                    <UserIcon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      {isCreatingUser
-                        ? 'Neues Vereinskonto anlegen'
-                        : `Rechte & Daten bearbeiten: ${userFormName || userFormUsername}`}
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Passen Sie Zugriffsrechte, Zugangsdaten und Rollenbezeichnung für dieses Vorstandsmitglied an.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={cancelEditUser}
-                  className="text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-semibold px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                >
-                  Abbrechen
-                </button>
-              </div>
-
-              {/* User Data Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Vollständiger Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={userFormName}
-                    onChange={(e) => setUserFormName(e.target.value)}
-                    placeholder="z. B. Sabine Weber"
-                    required
-                    className="w-full px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Benutzername (Login) *
-                  </label>
-                  <input
-                    type="text"
-                    value={userFormUsername}
-                    onChange={(e) => setUserFormUsername(e.target.value)}
-                    placeholder="z. B. s.weber oder schatzmeister"
-                    required
-                    className="w-full px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-medium text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Funktion / Rollenbezeichnung
-                  </label>
-                  <input
-                    type="text"
-                    value={userFormRole}
-                    onChange={(e) => setUserFormRole(e.target.value)}
-                    placeholder="z. B. Schatzmeisterin, Kassenprüfer, Geschäftsstelle"
-                    className="w-full px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    {isCreatingUser ? 'Passwort *' : 'Neues Passwort (leer lassen = unverändert)'}
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={userFormPassword}
-                      onChange={(e) => setUserFormPassword(e.target.value)}
-                      placeholder={isCreatingUser ? 'Sicheres Passwort vergeben...' : 'Nur ausfüllen bei Änderung'}
-                      required={isCreatingUser}
-                      className="w-full px-3.5 py-2 pr-10 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    E-Mail-Adresse (optional)
-                  </label>
-                  <input
-                    type="email"
-                    value={userFormEmail}
-                    onChange={(e) => setUserFormEmail(e.target.value)}
-                    placeholder="kontakt@verein.de"
-                    className="w-full px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="flex items-end pb-0.5">
-                  <label className="flex items-center gap-3 cursor-pointer bg-slate-50 dark:bg-slate-800 px-3.5 py-2 border border-slate-200 dark:border-slate-700 rounded-xl w-full hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={userFormIsActive}
-                      onChange={(e) => setUserFormIsActive(e.target.checked)}
-                      className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
-                    />
-                    <div className="text-xs">
-                      <span className="font-bold text-slate-800 dark:text-slate-200 block">Konto aktiv</span>
-                      <span className="text-2xs text-slate-500 dark:text-slate-400">Benutzer kann sich am System anmelden</span>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
-              {/* Rechte je Menüpunkt */}
-              <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div>
-                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    Zugriffsrechte je Menüpunkt
-                  </div>
-                  <p className="text-2xs text-slate-500 dark:text-slate-400">
-                    Für jeden Bereich einzeln: gesperrt, nur ansehen oder bearbeiten.
-                  </p>
-                </div>
-                <PermissionMatrix
-                  value={userFormPermissions}
-                  onChange={setUserFormPermissions}
-                />
-              </div>
-
-              {/* Form Buttons */}
-              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={cancelEditUser}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-colors cursor-pointer"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  className={`px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-xs${lockClass(canManageUsers)}`}
-                  title={lockTitle(canManageUsers, 'Benutzerkonto speichern')}
-                >
-                  {isCreatingUser ? 'Konto anlegen' : 'Änderungen speichern'}
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-2xl">
-                    <Shield className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      Vereinsbenutzer & Rollenverwaltung
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Verwalten Sie Login-Zugänge für Vorstände, Abteilungsleiter, Kassenprüfer und Mitarbeiter.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={startCreateUser}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs shrink-0 cursor-pointer"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Neuen Benutzer anlegen</span>
-                </button>
-              </div>
-
-              {/* Users List */}
-              <div className="space-y-3">
-                {usersList.map((user) => {
-                  const perms = migrateLegacyPermissions(user.permissions);
-                  const permCount = AREA_DEFINITIONS.filter(a => areaCanView(perms, a.id)).length;
-                  const isFullAdmin = areaCanEdit(perms, 'users') && areaCanEdit(perms, 'settings');
-
-                  return (
-                    <div
-                      key={user.id}
-                      className="p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs ${
-                          isFullAdmin
-                            ? 'bg-rose-600 text-white'
-                            : areaCanEdit(perms, 'finance')
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-blue-600 text-white'
-                        }`}>
-                          {user.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                              {user.name}
-                            </span>
-                            {user.isActive === false && (
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                                Inaktiv
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
-                            <span className="font-mono bg-white dark:bg-slate-700 px-1.5 py-0.2 rounded border border-slate-200 dark:border-slate-600 text-2xs text-slate-700 dark:text-slate-300">
-                              {user.username}
-                            </span>
-                            {user.customRoleName && (
-                              <span className="text-slate-700 dark:text-slate-300 font-semibold truncate">
-                                • {user.customRoleName}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                        <span className="text-[11px] px-2.5 py-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-600 dark:text-slate-300 font-medium">
-                          {isFullAdmin ? 'Vollzugriff (Admin)' : `${permCount} von ${AREA_DEFINITIONS.length} Bereichen`}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => startEditUser(user)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-xl transition-colors cursor-pointer"
-                          title="Benutzer bearbeiten"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteUser(user)}
-                          disabled={usersList.length <= 1}
-                          className="p-2 text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-700 rounded-xl transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                          title="Benutzer löschen"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
+        </form>
       )}
 
       {/* TAB 4: DATENSICHERUNG UND IMPORT */}
@@ -2691,6 +2416,51 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               )}
             </div>
 
+            {/* Aktueller lokaler Datenbestand */}
+            <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-5 bg-slate-50/50 dark:bg-slate-800/40 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Database className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span>Aktueller lokaler Datenbestand auf diesem Gerät</span>
+                </h4>
+                <button
+                  type="button"
+                  onClick={loadLocalStats}
+                  className="text-2xs text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Aktualisieren</span>
+                </button>
+              </div>
+
+              {localStats ? (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60">
+                    <div className="text-slate-500 dark:text-slate-400 text-2xs">Mitglieder</div>
+                    <div className="text-base font-bold text-slate-900 dark:text-white mt-0.5">{localStats.members}</div>
+                  </div>
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60">
+                    <div className="text-slate-500 dark:text-slate-400 text-2xs">Buchungen</div>
+                    <div className="text-base font-bold text-slate-900 dark:text-white mt-0.5">{localStats.transactions}</div>
+                  </div>
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60">
+                    <div className="text-slate-500 dark:text-slate-400 text-2xs">Finanzkonten</div>
+                    <div className="text-base font-bold text-slate-900 dark:text-white mt-0.5">{localStats.accounts}</div>
+                  </div>
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60">
+                    <div className="text-slate-500 dark:text-slate-400 text-2xs">Inventar</div>
+                    <div className="text-base font-bold text-slate-900 dark:text-white mt-0.5">{localStats.inventory}</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-2xs text-slate-400">Statistiken werden geladen...</div>
+              )}
+
+              <p className="text-2xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Diese Daten liegen ausschließlich auf diesem Gerät. Die Sicherung unten ist die einzige Möglichkeit, sie vor einem Geräteverlust oder -defekt zu schützen.
+              </p>
+            </div>
+
             {/* Export Backup Card */}
             <div className="p-5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
@@ -2699,7 +2469,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <span>Vollständige Datensicherung herunterladen (JSON)</span>
                 </h4>
                 <p className="text-2xs sm:text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
-                  Exportiert alle Mitglieder, Kassenbuchungen, Belegdateien, Konten, Spendenquittungen, Anträge und Revisionsprotokolle in eine unverschlüsselte JSON-Datei.
+                  Exportiert alle Mitglieder, Kassenbuchungen, Belegdateien, Konten, Spendenquittungen, Anträge und Revisionsprotokolle in eine JSON-Datei — auf Wunsch mit Passwort verschlüsselt, sodass sie sich ohne dieses Passwort nicht lesen lässt.
                 </p>
               </div>
               <button
@@ -2741,21 +2511,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="border border-rose-200 dark:border-rose-900/60 rounded-2xl p-5 bg-rose-50/50 dark:bg-rose-950/20 space-y-4">
               <h4 className="text-xs font-bold text-rose-900 dark:text-rose-300 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                <span>Datenbankverwaltung & Zurücksetzen</span>
+                <span>Alle lokalen Daten löschen</span>
               </h4>
               <p className="text-2xs text-rose-800 dark:text-rose-300">
-                Verwenden Sie diese Aktionen, um zu Testzwecken Beispieldaten zu laden oder den lokalen Datenbestand vollständig zu leeren.
+                Löscht den gesamten lokalen Datenbestand dieses Geräts vollständig: Mitglieder, Buchungen, Belege, Vereinsstammdaten, Vorlagen und alle automatischen Sicherheitskopien. Das Gerätepasswort bleibt erhalten.
               </p>
               <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={handleResetToDemo}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-colors cursor-pointer"
-                >
-                  <RefreshCw className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  <span>Musterdaten laden (TSV Musterstadt)</span>
-                </button>
-
                 <button
                   type="button"
                   onClick={handleWipeAll}
@@ -2770,14 +2531,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       )}
 
-      {/* TAB 5: BETRIEBSMODI & DEPLOYMENT HUB */}
-      {activeTab === 'deployment' && (
-        <div className="space-y-6 animate-in fade-in duration-150">
-          <DeploymentHubSettingsPanel />
-        </div>
-      )}
-
-      {/* TAB 6: PROJEKT UNTERSTÜTZEN & SPENDEN */}
+      {/* TAB 5: PROJEKT UNTERSTÜTZEN & SPENDEN */}
       {activeTab === 'support' && (
         <div className="space-y-6 animate-in fade-in duration-150">
           {/* Header Banner */}
@@ -2968,7 +2722,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 7: BUGREPORTING & PROBLEM MELDEN                                      */}
+      {/* TAB 6: BUGREPORTING & PROBLEM MELDEN                                      */}
       {/* ========================================================================= */}
       {activeTab === 'bugreport' && (
         <div className="space-y-6 animate-in fade-in duration-200">
@@ -3115,11 +2869,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <option value="Dokumente & Archiv">📁 Dokumente & Archiv (Dateiverwaltung)</option>
                     </optgroup>
                     <optgroup label="Systemeinstellungen">
-                      <option value="Einstellungen: 1. Allgemeine Einstellungen">⚙️ Einstellungen: 1. Allgemeine Einstellungen</option>
+                      <option value="Einstellungen: 1. Allgemeine Einstellungen">⚙️ Einstellungen: 1. Allgemeine Einstellungen & Passwort</option>
                       <option value="Einstellungen: 2. Vereinsstammdaten">🏛️ Einstellungen: 2. Vereinsstammdaten & Logo</option>
-                      <option value="Einstellungen: 3. Benutzer & Rechte">🛡️ Einstellungen: 3. Benutzerkonten & Zugriffsrechte</option>
-                      <option value="Einstellungen: 4. Datensicherung & Import">💾 Einstellungen: 4. Datensicherung & Import</option>
-                      <option value="Einstellungen: 5. Betriebsmodi">🌐 Einstellungen: 5. Betriebsmodi & Deployment Hub</option>
+                      <option value="Einstellungen: 3. Datensicherung & Import">💾 Einstellungen: 3. Datensicherung & Import</option>
                     </optgroup>
                     <optgroup label="Sicherheit & Allgemein">
                       <option value="Login, Authentifizierung & Sitzung">🔒 Login, Authentifizierung & Sitzung</option>
@@ -3536,6 +3288,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         onAbbrechen={() => setImportVorschau(null)}
         onBestaetigen={fuehreImportAus}
       />
+
+      {/* Bedingt eingebunden, damit eingetippte Passwörter beim Schließen
+          nicht im Zustand der Seite zurückbleiben. */}
+      {exportDialogOffen && (
+        <BackupExportDialog
+          isOpen
+          laeuft={exportLaeuft}
+          onAbbrechen={() => setExportDialogOffen(false)}
+          onBestaetigen={fuehreExportAus}
+        />
+      )}
+      {passwortAbfrage && (
+        <BackupPasswordDialog
+          isOpen
+          dateiName={passwortAbfrage.dateiName}
+          onEntschluesseln={entschluesseleSicherung}
+          onAbbrechen={() => setPasswortAbfrage(null)}
+        />
+      )}
     </div>
   );
 };

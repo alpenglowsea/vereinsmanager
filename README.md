@@ -26,7 +26,6 @@
   - [Voraussetzungen](#voraussetzungen)
   - [Die Desktop-App nutzen (empfohlener Weg)](#die-desktop-app-nutzen-empfohlener-weg)
   - [Alternativ: Start aus dem Quellcode im Browser](#alternativ-start-aus-dem-quellcode-im-browser)
-  - [Zugriffsschlüssel des Servers](#zugriffsschlüssel-des-servers)
 - [Datensicherheit, Revisionssicherheit & Backups](#-datensicherheit-revisionssicherheit--backups)
 - [Lizenz](#-lizenz)
 
@@ -340,19 +339,9 @@ Danach eines der beiliegenden Startskripte ausführen:
 * **Windows:** Doppelklick auf `start-windows.bat`
 * **macOS / Linux:** `./start-mac-linux.sh`
 
-Beide installieren bei Bedarf die Pakete, starten den lokalen Server und öffnen die Anwendung automatisch im Systembrowser — mit demselben Zugriffsschlüssel-Mechanismus wie die Desktop-App (siehe unten), nur eben im Browserfenster statt im eigenen Programmfenster.
+Beide installieren bei Bedarf die Pakete, starten den lokalen Server und öffnen die Anwendung automatisch im Systembrowser, genau wie die Desktop-App, nur eben im Browserfenster statt im eigenen Programmfenster. Der Server beantwortet dabei nur einen einzigen `/api`-Aufruf (den Fehlerbericht-Knopf in den Einstellungen) und lauscht ausschließlich auf `127.0.0.1` — alle anderen Bereiche (Mitglieder, Finanzen, Dokumente, …) arbeiten unabhängig vom Server, direkt in der Browser-Datenbank.
 
 Für die reine Entwicklung (Hot-Reload) steht außerdem `npm run dev` zur Verfügung; die Anwendung läuft dann unter `http://localhost:3000`.
-
----
-
-### Zugriffsschlüssel des Servers
-
-Der mitgelieferte Server beantwortet keinen `/api`-Aufruf ohne Ausweis. Das betrifft heute nur noch den Fehlerbericht-Knopf in den Einstellungen (`/api/submit-bugreport`) — alle anderen Bereiche (Mitglieder, Finanzen, Dokumente, …) arbeiten unabhängig vom Server, direkt in der Browser-Datenbank.
-
-Der Zugriffsschlüssel entsteht beim ersten Start von selbst. Sowohl die Desktop-App als auch die Startskripte übergeben ihn automatisch — hier ist normalerweise nichts zu tun. Nur falls das einmal nicht funktioniert hat (z. B. durch gesperrten Browser-Speicher im privaten Modus), zeigt die Anwendung eine Maske zum manuellen Eintragen; der Schlüssel steht dann in der Startausgabe des Servers (das Fenster bzw. Terminal, in dem er läuft).
-
-Da der Server ausschließlich auf `127.0.0.1` lauscht, kann ohnehin niemand außerhalb dieses einen Rechners auf ihn zugreifen.
 
 ---
 
@@ -360,7 +349,7 @@ Da der Server ausschließlich auf `127.0.0.1` lauscht, kann ohnehin niemand auß
 
 * **Keine externen Tracking-Dienste:** Keine Cookies von Drittanbietern, keine Telemetrie-Tracker.
 * **1-Klick-Gesamt-Backup:**  
-  Unter **Systemeinstellungen > Datensicherung & Import** kann zu jedem Zeitpunkt eine vollständige, unverschlüsselte JSON-Sicherungsdatei der gesamten Vereinsdatenbank (Mitglieder, Buchungen, Belege, Rechnungen, Protokolle, Einstellungen) heruntergeladen und auf einem USB-Stick oder Netzlaufwerk archiviert werden.
+  Unter **Systemeinstellungen > Datensicherung & Import** kann zu jedem Zeitpunkt eine vollständige JSON-Sicherungsdatei der gesamten Vereinsdatenbank (Mitglieder, Buchungen, Belege, Rechnungen, Protokolle, Einstellungen) heruntergeladen und auf einem USB-Stick oder Netzlaufwerk archiviert werden. Auf Wunsch wird sie mit einem Passwort verschlüsselt (AES-256, Schlüssel per PBKDF2); ohne das Passwort lässt sie sich nicht lesen — es gibt keine Wiederherstellung. Ohne Passwort ist die Datei reiner Text und für jeden lesbar, der sie öffnet.
 * **Wiederherstellung (Restore):**  
   Die gesicherte JSON-Datei kann in jeder frischen VereinsManager-Instanz mit einem Klick vollständig wieder eingespielt werden.
 

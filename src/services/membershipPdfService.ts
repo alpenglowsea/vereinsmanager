@@ -342,21 +342,7 @@ export function generateMembershipApplicationPdf(
   doc.setFont('helvetica', 'normal');
   doc.text(`Die Vereinssatzung und Beitragsordnung von ${settings.clubName} werden vollinhaltlich anerkannt.`, col1 + 45, y + 7.5);
 
-  if (app.photoConsent) {
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${checkChar} Foto- & Mediennutzung:`, col1, y + 11.5);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Einwilligung zur Veröffentlichung von Foto-/Videoaufnahmen von Sportveranstaltungen im Rahmen der Vereinsarbeit.', col1 + 45, y + 11.5);
-  }
-
-  if (app.healthConfirmation) {
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${checkChar} Sportgesundheit:`, col1, y + 15.5);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Bestätigung, dass keine gesundheitlichen Bedenken gegen eine aktive sportliche Betätigung im Verein bestehen.', col1 + 45, y + 15.5);
-  }
-
-  y += app.healthConfirmation ? 20 : 15;
+  y += 15;
 
   // 8. Unterschriften-Bereich
   y = drawSectionHeader('6. Rechtsverbindliche Unterschriften', y);

@@ -3,41 +3,19 @@
 ::  Hilfsskript. Wird von start-windows.bat aufgerufen und
 ::  nicht von Hand gestartet.
 ::
-::  Aufgabe: warten, bis der Server seinen Zugriffsschluessel
-::  geschrieben hat, und dann den Browser mit diesem Schluessel
-::  in der Adresse oeffnen. Alles hinter dem Rautezeichen
-::  schickt der Browser NICHT an den Server — der Schluessel
-::  landet damit in keinem Serverprotokoll.
+::  Aufgabe: warten, bis der Server antwortet, und dann den
+::  Browser oeffnen. Der Server braucht beim allerersten Start
+::  einen Moment, weil Vite die Oberflaeche erst uebersetzen muss.
 :: ==========================================================
-setlocal enabledelayedexpansion
+setlocal
 cd /d "%~dp0"
 
-set SCHLUESSEL=
-
-:: Wurde ein eigener Schluessel vorgegeben, steht er nicht in der
-:: Konfigurationsdatei — dann gilt dieser.
-if defined VM_ACCESS_KEY set SCHLUESSEL=%VM_ACCESS_KEY%
-
-if not defined SCHLUESSEL (
-    for /l %%v in (1,1,100) do (
-        if exist "daten\konfiguration.json" (
-            for /f "usebackq delims=" %%a in (`powershell -NoProfile -Command "try{(Get-Content -Raw 'daten\konfiguration.json' ^| ConvertFrom-Json).accessKey}catch{''}"`) do set SCHLUESSEL=%%a
-        )
-        if defined SCHLUESSEL goto :gefunden
-        powershell -NoProfile -Command "Start-Sleep -Milliseconds 300" >nul
-    )
+for /l %%v in (1,1,100) do (
+    powershell -NoProfile -Command "try { Invoke-WebRequest -Uri 'http://localhost:3000' -UseBasicParsing -TimeoutSec 1 | Out-Null; exit 0 } catch { exit 1 }"
+    if not errorlevel 1 goto :bereit
+    powershell -NoProfile -Command "Start-Sleep -Milliseconds 300" >nul
 )
 
-:gefunden
-if defined SCHLUESSEL (
-    start "" "http://localhost:3000/#zugriff=!SCHLUESSEL!"
-) else (
-    echo [!] Der Zugriffsschluessel des Servers konnte nicht gelesen werden.
-    echo     Die App startet trotzdem, aber ohne ihn lehnt der Server jeden
-    echo     /api-Aufruf ab. Der Schluessel steht in der Ausgabe des
-    echo     Server-Fensters und laesst sich in der App unter
-    echo     Einstellungen - Allgemein eintragen.
-    timeout /t 8 >nul
-    start "" "http://localhost:3000"
-)
+:bereit
+start "" "http://localhost:3000"
 endlocal

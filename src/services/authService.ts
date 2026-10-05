@@ -1,106 +1,77 @@
-import { AppUser, PermissionArea, SecuritySettings, UserAuthSession } from '../types';
-import { FULL_PERMISSIONS, INITIAL_USERS, DEFAULT_SECURITY_SETTINGS } from '../data/roles';
-import { canEdit, canView, migrateLegacyPermissions } from '../utils/permissions';
-import { checkPasswordStrength, hashPassword, isHashed, verifyPassword } from './passwordService';
+import { AuthSession, DeviceAccount } from '../types';
+import { checkPasswordStrength, hashPassword, verifyPassword } from './passwordService';
 
-const STORAGE_KEY_USERS = 'vm_users_v2';
-const STORAGE_KEY_SECURITY = 'vm_security_settings_v2';
-const STORAGE_KEY_CURRENT_SESSION = 'vm_auth_session_v2';
+const STORAGE_KEY_ACCOUNT = 'vm_device_account_v1';
+const STORAGE_KEY_CURRENT_SESSION = 'vm_auth_session_v1';
+const STORAGE_KEY_AUTO_LOCK_MINUTES = 'vm_auto_lock_minutes_v1';
+
+/** 0 = nie, sonst Minuten Inaktivität bis zur automatischen Sperre. */
+const DEFAULT_AUTO_LOCK_MINUTES = 15;
 
 /**
- * Ergänzt Berechtigungen, die es zum Zeitpunkt der Speicherung noch nicht gab.
+ * Anmeldung für den lokalen Betrieb.
  *
- * Fehlende Felder werden als ERLAUBT gewertet, nicht als verboten: Wer gestern
- * Zugriff auf die Kontakte hatte, darf ihn durch ein Programm-Update nicht
- * verlieren. Der Vorstand kann jederzeit nachträglich einschränken — ein
- * stillschweigendes Aussperren könnte er dagegen nicht einmal erklären.
+ * WAS DAS LEISTET UND WAS NICHT
+ *
+ * Es gibt genau ein Passwort pro Gerät, kein Benutzerkonto, keine
+ * Bereichsrechte mehr. Es sperrt nur die Bedienoberfläche gegen einen
+ * zufälligen Blick an einem unbeaufsichtigten, entsperrten Rechner — es ist
+ * keine Verschlüsselung der Vereinsdaten. Wer an die Browser-Datenbank
+ * dieses Geräts kommt (Entwicklerwerkzeuge, Dateisystem), kommt auch ohne
+ * dieses Passwort an die Daten. Siehe passwordService.ts für denselben
+ * Hinweis zum Passwort selbst.
+ *
+ * Das Passwort reist bewusst NICHT mit einer Datensicherung mit (siehe
+ * storage.ts, EINGERICHTET_KEY) — es gehört zu diesem Gerät, nicht zum
+ * Verein.
  */
-function withDefaultPermissions(user: AppUser): AppUser {
-  return { ...user, permissions: migrateLegacyPermissions(user.permissions) };
-}
-
 export class AuthService {
-  private static cachedUsers: AppUser[] | null = null;
-  private static cachedSecurity: SecuritySettings | null = null;
-  private static currentSession: UserAuthSession | null = null;
-  private static listeners: Array<(session: UserAuthSession) => void> = [];
+  private static currentSession: AuthSession | null = null;
+  private static listeners: Array<(session: AuthSession) => void> = [];
   private static inactivityTimer: any = null;
 
-  // Initialize Auth Service
-  public static async init(): Promise<UserAuthSession> {
-    const sec = this.getSecuritySettings();
+  // ==========================================
+  // INIT / SESSION
+  // ==========================================
+  public static async init(): Promise<AuthSession> {
+    this.raeumeAltbestandAuf();
 
-    // Ensure users exist
-    const users = this.getUsers();
-    if (users.length === 0) {
-      this.saveUsers(INITIAL_USERS);
-    }
+    const storedSession =
+      localStorage.getItem(STORAGE_KEY_CURRENT_SESSION) ||
+      sessionStorage.getItem(STORAGE_KEY_CURRENT_SESSION);
 
-    // Klartext-Passwörter aus der Zeit vor dieser Umstellung ersetzen.
-    // Das passiert einmalig und unbemerkt; die Anmeldung funktioniert danach
-    // unverändert weiter, nur steht im Speicher kein lesbares Passwort mehr.
-    await this.upgradeStoredPasswords();
-
-    // Check stored session
-    const storedSession = localStorage.getItem(STORAGE_KEY_CURRENT_SESSION) || sessionStorage.getItem(STORAGE_KEY_CURRENT_SESSION);
     if (storedSession) {
       try {
-        const parsed: UserAuthSession = JSON.parse(storedSession);
-        
-        // Auto-lock inactivity check
-        if (sec.authRequired && sec.autoLockMinutes > 0 && parsed.isAuthenticated) {
-          const lastActivity = Number(localStorage.getItem('vm_last_activity') || Date.now());
-          const maxInactivityMs = sec.autoLockMinutes * 60 * 1000;
-          if (Date.now() - lastActivity > maxInactivityMs) {
-            this.currentSession = { user: null, isAuthenticated: false };
-            this.persistSession(this.currentSession);
-            return this.currentSession;
+        const parsed: AuthSession = JSON.parse(storedSession);
+
+        // Automatische Sperre nach Inaktivität
+        if (parsed.isAuthenticated) {
+          const autoLockMinutes = this.getAutoLockMinutes();
+          if (autoLockMinutes > 0) {
+            const lastActivity = Number(localStorage.getItem('vm_last_activity') || Date.now());
+            const maxInactivityMs = autoLockMinutes * 60 * 1000;
+            if (Date.now() - lastActivity > maxInactivityMs) {
+              this.currentSession = { isAuthenticated: false };
+              this.persistSession(this.currentSession);
+              return this.currentSession;
+            }
           }
         }
 
-        // Verify user still exists and is active
-        if (parsed.user) {
-          const currentFreshUser = this.getUsers().find(u => u.id === parsed.user?.id);
-          if (currentFreshUser && currentFreshUser.isActive) {
-            this.currentSession = {
-              ...parsed,
-              user: currentFreshUser
-            };
-          } else {
-            this.currentSession = { user: null, isAuthenticated: false };
-          }
-        } else {
-          this.currentSession = parsed;
-        }
-
-        this.startInactivityTracker();
+        this.currentSession = parsed;
+        if (parsed.isAuthenticated) this.startInactivityTracker();
         return this.currentSession;
       } catch {
         // ignore
       }
     }
 
-    // Default session if auth not required:
-    if (!sec.authRequired) {
-      const allUsers = this.getUsers();
-      this.currentSession = {
-        user: allUsers[0] || INITIAL_USERS[0],
-        isAuthenticated: true,
-        loginTime: new Date().toISOString()
-      };
-    } else {
-      this.currentSession = {
-        user: null,
-        isAuthenticated: false
-      };
-    }
-
+    this.currentSession = { isAuthenticated: false };
     this.persistSession(this.currentSession);
     return this.currentSession;
   }
 
-  // Session Listeners
-  public static onAuthStateChanged(callback: (session: UserAuthSession) => void): () => void {
+  public static onAuthStateChanged(callback: (session: AuthSession) => void): () => void {
     this.listeners.push(callback);
     return () => {
       this.listeners = this.listeners.filter(cb => cb !== callback);
@@ -126,12 +97,12 @@ export class AuthService {
     this.recordActivity();
 
     this.inactivityTimer = setInterval(() => {
-      const sec = this.getSecuritySettings();
-      if (!sec.authRequired || sec.autoLockMinutes <= 0) return;
+      const autoLockMinutes = this.getAutoLockMinutes();
+      if (autoLockMinutes <= 0) return;
       if (!this.currentSession?.isAuthenticated) return;
 
       const lastActivity = Number(localStorage.getItem('vm_last_activity') || Date.now());
-      const maxInactivityMs = sec.autoLockMinutes * 60 * 1000;
+      const maxInactivityMs = autoLockMinutes * 60 * 1000;
 
       if (Date.now() - lastActivity > maxInactivityMs) {
         this.lockSession();
@@ -139,201 +110,216 @@ export class AuthService {
     }, 30000);
   }
 
-  // Get current active session
-  public static getSession(): UserAuthSession {
+  public static getSession(): AuthSession {
     if (!this.currentSession) {
       const stored = localStorage.getItem(STORAGE_KEY_CURRENT_SESSION);
       if (stored) {
         try {
           this.currentSession = JSON.parse(stored);
         } catch {
-          this.currentSession = { user: null, isAuthenticated: false };
+          this.currentSession = { isAuthenticated: false };
         }
       } else {
-        this.currentSession = { user: null, isAuthenticated: false };
+        this.currentSession = { isAuthenticated: false };
       }
     }
     return this.currentSession;
   }
 
-  public static getCurrentUser(): AppUser | null {
-    return this.getSession().user;
+  public static isAuthenticated(): boolean {
+    return Boolean(this.getSession().isAuthenticated);
   }
 
-  // Helper to check if current session is isolated Demo Mode
+  /** Isolierter Demo-Modus mit fiktiven Beispieldaten, ohne jedes Passwort. */
   public static isDemoMode(): boolean {
     const session = this.getSession();
     return Boolean(session?.isAuthenticated && session?.loginMethod === 'demo');
   }
 
+  private static persistSession(session: AuthSession) {
+    try {
+      localStorage.setItem(STORAGE_KEY_CURRENT_SESSION, JSON.stringify(session));
+    } catch (err) {
+      console.warn('[AuthService] Sitzung konnte nicht gespeichert werden:', err);
+    }
+    this.recordActivity();
+  }
+
+  /**
+   * Räumt verwaiste Speicherreste der früheren Mehrbenutzer-/Rechteverwaltung
+   * weg. Die darin enthaltenen Konten werden NICHT übernommen — eine
+   * bestehende Installation hat ihre Vereinsdaten bereits (daran ändert sich
+   * nichts), muss aber einmalig über "Registrieren" ein neues, einziges
+   * Gerätepasswort vergeben.
+   */
+  private static raeumeAltbestandAuf(): void {
+    try {
+      localStorage.removeItem('vm_users_v2');
+      localStorage.removeItem('vm_security_settings_v2');
+      localStorage.removeItem('vm_auth_session_v2');
+    } catch {
+      // Kein Problem, wenn das nicht geht — es ist nur Aufräumen.
+    }
+  }
+
   // ==========================================
-  // LOGIN / LOGOUT / REGISTER
+  // GERÄTEKONTO
   // ==========================================
 
-  // Register New Club Administrator Account
-  public static async register(params: {
-    clubName: string;
-    name: string;
-    email: string;
-    username: string;
-    password: string;
-    customRoleName?: string;
-  }): Promise<{ success: boolean; message?: string; user?: AppUser }> {
-    const clubName = params.clubName.trim();
-    const name = params.name.trim();
-    const email = params.email.trim().toLowerCase();
-    const username = params.username.trim().toLowerCase();
-    const password = params.password.trim();
+  /** Existiert auf diesem Gerät bereits ein Passwort? */
+  public static hatKonto(): boolean {
+    return Boolean(this.getAccount());
+  }
 
-    if (!clubName) {
-      return { success: false, message: 'Bitte geben Sie einen Vereinsnamen ein.' };
+  private static getAccount(): DeviceAccount | null {
+    const stored = localStorage.getItem(STORAGE_KEY_ACCOUNT);
+    if (!stored) return null;
+    try {
+      return JSON.parse(stored) as DeviceAccount;
+    } catch {
+      return null;
     }
-    if (!name) {
-      return { success: false, message: 'Bitte Ihren Namen (Vorstand / Ansprechpartner) eingeben.' };
+  }
+
+  private static saveAccount(account: DeviceAccount): void {
+    try {
+      localStorage.setItem(STORAGE_KEY_ACCOUNT, JSON.stringify(account));
+    } catch (err) {
+      console.warn('[AuthService] Gerätekonto konnte nicht gespeichert werden:', err);
     }
-    if (!email || !email.includes('@')) {
-      return { success: false, message: 'Bitte eine gültige E-Mail-Adresse eingeben.' };
+  }
+
+  // ==========================================
+  // REGISTRIEREN / ANMELDEN / ABMELDEN
+  // ==========================================
+
+  /**
+   * Legt das (einzige) Passwort für dieses Gerät an.
+   *
+   * Lehnt ab, wenn schon eines existiert — ein zweiter Versuch auf einem
+   * bereits eingerichteten Gerät würde sonst entweder ein zweites,
+   * konkurrierendes Konto erzeugen oder das bestehende stillschweigend
+   * überschreiben. Beides wäre falsch: Auf diesem Gerät liegen dann ja
+   * schon Daten, die jemand mit dem bestehenden Passwort angelegt hat.
+   */
+  public static async registriere(
+    benutzername: string,
+    passwort: string
+  ): Promise<{ success: boolean; message?: string }> {
+    if (this.hatKonto()) {
+      return {
+        success: false,
+        message:
+          'Auf diesem Gerät ist bereits ein Konto eingerichtet. Bitte melden Sie sich stattdessen an.'
+      };
     }
-    if (!username || username.length < 3) {
+
+    const name = benutzername.trim();
+    if (!name || name.length < 3) {
       return { success: false, message: 'Der Benutzername muss mindestens 3 Zeichen lang sein.' };
     }
-    const strength = checkPasswordStrength(password);
-    if (!strength.ok) {
-      return { success: false, message: strength.message };
+
+    const staerke = checkPasswordStrength(passwort);
+    if (!staerke.ok) {
+      return { success: false, message: staerke.message };
     }
 
-    const users = this.getUsers();
-    if (users.some(u => u.username.toLowerCase() === username)) {
-      return { success: false, message: `Der Benutzername "${username}" ist bereits vergeben.` };
-    }
-    if (users.some(u => u.email.toLowerCase() === email)) {
-      return { success: false, message: `Die E-Mail-Adresse "${email}" ist bereits registriert.` };
-    }
-
-    // Create new Admin User with full permissions
-    const newUser: AppUser = {
-      id: `usr-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
-      username,
-      email,
-      name,
-      password: await hashPassword(password),
-      customRoleName: params.customRoleName || '1. Vorsitzender (Admin)',
-      permissions: { ...FULL_PERMISSIONS },
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      lastLogin: new Date().toISOString()
+    const account: DeviceAccount = {
+      benutzername: name,
+      passwortPruefwert: await hashPassword(passwort.trim()),
+      erstelltAm: new Date().toISOString()
     };
+    this.saveAccount(account);
 
-    // Save to users list
-    this.saveUser(newUser);
-
-    // Switch to live session
     this.currentSession = {
-      user: newUser,
       isAuthenticated: true,
+      benutzername: account.benutzername,
       loginMethod: 'user',
       loginTime: new Date().toISOString()
     };
-
     this.persistSession(this.currentSession);
     this.startInactivityTracker();
     this.notifyListeners();
 
-    return {
-      success: true,
-      user: newUser,
-      message: 'Vereinskonto erfolgreich erstellt!'
-    };
+    return { success: true };
   }
 
-  // Standard Login with Username / Email and Password
-  public static async login(usernameOrEmail: string, password: string): Promise<{ success: boolean; message?: string; user?: AppUser }> {
-    const term = usernameOrEmail.trim().toLowerCase();
-    const pass = password.trim();
-
-    if (!term || !pass) {
-      return { success: false, message: 'Bitte Benutzername und Passwort eingeben.' };
+  public static async meldeAn(
+    benutzername: string,
+    passwort: string
+  ): Promise<{ success: boolean; message?: string }> {
+    const account = this.getAccount();
+    if (!account) {
+      return {
+        success: false,
+        message: 'Auf diesem Gerät ist noch kein Konto eingerichtet. Bitte zuerst registrieren.'
+      };
     }
 
-    const users = this.getUsers();
-    const user = users.find(u => 
-      (u.username.toLowerCase() === term || u.email.toLowerCase() === term)
-    );
+    const term = benutzername.trim().toLowerCase();
+    const check = await verifyPassword(passwort.trim(), account.passwortPruefwert);
 
-    if (!user) {
-      return { success: false, message: 'Benutzername oder E-Mail existiert nicht.' };
+    // Benutzername und Passwort werden bewusst in einer gemeinsamen
+    // Fehlermeldung beantwortet — sonst ließe sich erraten, welcher Teil
+    // schon stimmt.
+    if (term !== account.benutzername.toLowerCase() || !check.ok) {
+      return { success: false, message: 'Benutzername oder Passwort ist nicht korrekt.' };
     }
 
-    if (!user.isActive) {
-      return { success: false, message: 'Dieses Benutzerkonto wurde deaktiviert. Bitte an den Vorstand wenden.' };
-    }
-
-    const check = await verifyPassword(pass, user.password || '');
-    if (!check.ok) {
-      return { success: false, message: 'Das eingegebene Passwort ist nicht korrekt.' };
-    }
-
-    // Konto stammt noch aus der Zeit der Klartext-Passwörter: jetzt umstellen.
     if (check.needsUpgrade) {
       try {
-        user.password = await hashPassword(pass);
+        account.passwortPruefwert = await hashPassword(passwort.trim());
+        this.saveAccount(account);
       } catch (err) {
         console.warn('[AuthService] Passwort konnte nicht umgestellt werden:', err);
       }
     }
 
-    // Login successful
-    user.lastLogin = new Date().toISOString();
-    this.saveUser(user);
-
     this.currentSession = {
-      user,
       isAuthenticated: true,
+      benutzername: account.benutzername,
       loginMethod: 'user',
       loginTime: new Date().toISOString()
     };
-
     this.persistSession(this.currentSession);
     this.startInactivityTracker();
     this.notifyListeners();
 
-    return { success: true, user };
+    return { success: true };
   }
 
-  // One-Click Demo Login (Admin demo access)
-  public static async loginDemo(): Promise<{ success: boolean; user?: AppUser }> {
-    const users = this.getUsers();
-    let admin = users.find(
-      u => u.username === 'admin' || (u.permissions && canEdit(u.permissions, 'users'))
-    );
-    if (!admin) {
-      admin = INITIAL_USERS[0];
-      this.saveUser(admin);
+  /** Ändert das Passwort des bestehenden Gerätekontos. */
+  public static async aendereBenutzerPasswort(
+    neuesPasswort: string
+  ): Promise<{ success: boolean; message?: string }> {
+    const account = this.getAccount();
+    if (!account) {
+      return { success: false, message: 'Auf diesem Gerät ist kein Konto eingerichtet.' };
     }
+    const staerke = checkPasswordStrength(neuesPasswort);
+    if (!staerke.ok) {
+      return { success: false, message: staerke.message };
+    }
+    account.passwortPruefwert = await hashPassword(neuesPasswort.trim());
+    this.saveAccount(account);
+    return { success: true };
+  }
 
-    admin.lastLogin = new Date().toISOString();
-    this.saveUser(admin);
-
+  // Isolierter Demo-Zugang — fiktive Beispieldaten, ohne Gerätekonto/Passwort.
+  public static async loginDemo(): Promise<{ success: boolean }> {
     this.currentSession = {
-      user: admin,
       isAuthenticated: true,
       loginMethod: 'demo',
       loginTime: new Date().toISOString()
     };
-
     this.persistSession(this.currentSession);
     this.startInactivityTracker();
     this.notifyListeners();
-
-    return { success: true, user: admin };
+    return { success: true };
   }
 
-  // Logout / Lock Session
   public static logout() {
-    this.currentSession = {
-      user: null,
-      isAuthenticated: false
-    };
+    this.currentSession = { isAuthenticated: false };
     this.persistSession(this.currentSession);
     if (this.inactivityTimer) clearInterval(this.inactivityTimer);
     this.notifyListeners();
@@ -343,215 +329,21 @@ export class AuthService {
     this.logout();
   }
 
-  private static persistSession(session: UserAuthSession) {
-    try {
-      // Der Prüfwert des Passworts gehört in die Benutzerliste, nicht in die
-      // gespeicherte Sitzung. Er würde dort nur ein zweites Mal herumliegen.
-      const schlank: UserAuthSession = session.user
-        ? { ...session, user: { ...session.user, password: '' } }
-        : session;
-      localStorage.setItem(STORAGE_KEY_CURRENT_SESSION, JSON.stringify(schlank));
-    } catch (err) {
-      console.warn('[AuthService] Could not persist session:', err);
-    }
-    this.recordActivity();
-  }
-
   // ==========================================
-  // USER MANAGEMENT CRUD (Controlled by Admin in Settings)
+  // AUTOMATISCHE SPERRE NACH INAKTIVITÄT
   // ==========================================
-  public static getUsers(): AppUser[] {
-    if (this.cachedUsers) return this.cachedUsers;
-    const stored = localStorage.getItem(STORAGE_KEY_USERS);
-    if (stored) {
-      try {
-        const parsed: AppUser[] = JSON.parse(stored);
-        this.cachedUsers = parsed.map(withDefaultPermissions);
-        return this.cachedUsers!;
-      } catch {
-        // fallback
-      }
-    }
-    this.cachedUsers = [...INITIAL_USERS];
+  public static getAutoLockMinutes(): number {
+    const stored = localStorage.getItem(STORAGE_KEY_AUTO_LOCK_MINUTES);
+    const parsed = stored !== null ? Number(stored) : NaN;
+    return Number.isFinite(parsed) ? parsed : DEFAULT_AUTO_LOCK_MINUTES;
+  }
+
+  public static setAutoLockMinutes(minutes: number): void {
     try {
-      localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(this.cachedUsers));
+      localStorage.setItem(STORAGE_KEY_AUTO_LOCK_MINUTES, String(minutes));
     } catch (err) {
-      console.warn('Benutzerliste konnte nicht in localStorage gesichert werden (vermutlich Speicherplatz erschöpft):', err);
-    }
-    return this.cachedUsers;
-  }
-
-  public static saveUsers(users: AppUser[]): void {
-    this.cachedUsers = users;
-    try {
-      localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
-    } catch (err) {
-      console.warn('[AuthService] Could not save users to localStorage (quota exceeded):', err);
-    }
-  }
-
-  /**
-   * Klartext-Passwörter aus dem Altbestand durch Prüfwerte ersetzen.
-   *
-   * Läuft einmal beim Start. Die Passwörter selbst ändern sich nicht — nur
-   * das, was davon gespeichert wird. Niemand muss etwas neu vergeben.
-   */
-  private static async upgradeStoredPasswords(): Promise<void> {
-    const users = this.getUsers();
-    const betroffen = users.filter(u => u.password && !isHashed(u.password));
-    if (betroffen.length === 0) return;
-
-    try {
-      for (const user of betroffen) {
-        user.password = await hashPassword(user.password as string);
-      }
-      this.saveUsers(users);
-      console.info(
-        `[AuthService] ${betroffen.length} Passwort(e) auf gesicherte Speicherung umgestellt.`
-      );
-    } catch (err) {
-      // Schlägt das fehl, bleibt der alte Zustand bestehen. Besser als ein
-      // Verein, der sich nach einem halb durchgeführten Umbau nicht mehr
-      // anmelden kann.
-      console.warn('[AuthService] Umstellung der Passwörter fehlgeschlagen:', err);
-    }
-  }
-
-  /**
-   * Benutzer speichern und dabei ein neues Passwort setzen.
-   *
-   * Der Weg für alle Masken: Ein leeres Passwort lässt das bisherige
-   * unverändert. Ein neues wird geprüft und nur als Prüfwert abgelegt.
-   */
-  public static async saveUserWithPassword(
-    user: AppUser,
-    neuesPasswort: string
-  ): Promise<{ success: boolean; message?: string }> {
-    const plain = (neuesPasswort || '').trim();
-    const bestehend = this.getUsers().find(u => u.id === user.id);
-
-    if (!plain) {
-      if (!bestehend?.password) {
-        return { success: false, message: 'Bitte ein Passwort für dieses Konto vergeben.' };
-      }
-      this.saveUser({ ...user, password: bestehend.password });
-      return { success: true };
-    }
-
-    const strength = checkPasswordStrength(plain);
-    if (!strength.ok) {
-      return { success: false, message: strength.message };
-    }
-
-    try {
-      this.saveUser({ ...user, password: await hashPassword(plain) });
-      return { success: true };
-    } catch (err: any) {
-      return {
-        success: false,
-        message: err?.message || 'Das Passwort konnte nicht gesichert gespeichert werden.'
-      };
-    }
-  }
-
-  /**
-   * ACHTUNG: Diese Methode schreibt niemals ein Klartext-Passwort in den
-   * Speicher. Kommt eines herein — etwa aus einer Maske, die noch nicht
-   * umgestellt ist —, wird der bisherige Prüfwert beibehalten und eine
-   * Warnung ausgegeben. Lieber ein unverändertes Passwort als ein lesbares.
-   */
-  public static saveUser(user: AppUser): void {
-    const users = this.getUsers();
-    const index = users.findIndex(u => u.id === user.id);
-
-    if (user.password && !isHashed(user.password)) {
-      console.warn(
-        '[AuthService] Klartext-Passwort abgewiesen. Bitte saveUserWithPassword() verwenden.'
-      );
-      user = { ...user, password: index >= 0 ? users[index].password : '' };
-    }
-
-    let updatedUser: AppUser;
-    if (index >= 0) {
-      updatedUser = { ...user, updatedAt: new Date().toISOString() };
-      users[index] = updatedUser;
-    } else {
-      updatedUser = { ...user, createdAt: new Date().toISOString() };
-      users.push(updatedUser);
-    }
-    this.saveUsers(users);
-
-    // If active session user matches the modified user, update session and notify listeners immediately
-    if (this.currentSession?.user?.id === user.id) {
-      this.currentSession = {
-        ...this.currentSession,
-        user: updatedUser
-      };
-      this.persistSession(this.currentSession);
-      this.notifyListeners();
-    }
-  }
-
-  public static deleteUser(userId: string): boolean {
-    const users = this.getUsers();
-    const filtered = users.filter(u => u.id !== userId);
-    if (filtered.length === users.length) return false;
-    this.saveUsers(filtered);
-
-    // If current logged-in user was deleted, logout
-    if (this.currentSession?.user?.id === userId) {
-      this.logout();
-    }
-    return true;
-  }
-
-  // ==========================================
-  // SECURITY SETTINGS
-  // ==========================================
-  public static getSecuritySettings(): SecuritySettings {
-    if (this.cachedSecurity) return this.cachedSecurity;
-    const stored = localStorage.getItem(STORAGE_KEY_SECURITY);
-    if (stored) {
-      try {
-        this.cachedSecurity = JSON.parse(stored);
-        return this.cachedSecurity!;
-      } catch {
-        // fallback
-      }
-    }
-    this.cachedSecurity = { ...DEFAULT_SECURITY_SETTINGS };
-    try {
-      localStorage.setItem(STORAGE_KEY_SECURITY, JSON.stringify(this.cachedSecurity));
-    } catch (err) {
-      console.warn('Sicherheitseinstellungen konnten nicht gesichert werden:', err);
-    }
-    return this.cachedSecurity;
-  }
-
-  public static saveSecuritySettings(settings: SecuritySettings): void {
-    this.cachedSecurity = settings;
-    try {
-      localStorage.setItem(STORAGE_KEY_SECURITY, JSON.stringify(settings));
-    } catch (err) {
-      console.warn('[AuthService] Could not save security settings to localStorage:', err);
+      console.warn('[AuthService] Einstellung zur automatischen Sperre konnte nicht gespeichert werden:', err);
     }
     this.startInactivityTracker();
-  }
-
-  // ==========================================
-  // PERMISSION CHECKERS
-  // ==========================================
-  /** Darf der angemeldete Benutzer diesen Bereich öffnen? */
-  public static canView(area: PermissionArea): boolean {
-    const user = this.getCurrentUser();
-    if (!user || !user.permissions) return false;
-    return canView(user.permissions, area);
-  }
-
-  /** Darf der angemeldete Benutzer in diesem Bereich etwas ändern? */
-  public static canEdit(area: PermissionArea): boolean {
-    const user = this.getCurrentUser();
-    if (!user || !user.permissions) return false;
-    return canEdit(user.permissions, area);
   }
 }

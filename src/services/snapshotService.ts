@@ -248,6 +248,35 @@ export class SnapshotService {
   }
 
   /**
+   * Löscht ALLE Snapshots.
+   *
+   * Wird von "Alle lokalen Daten löschen" aufgerufen. Ohne diesen Schritt
+   * blieben bis zu zwölf vollständige Kopien des Datenbestands zurück — und
+   * beim nächsten Start hätte die Altdaten-Prüfung (`scanAndRecoverLegacyData`)
+   * die gerade gelöschten Daten aus genau diesen Kopien wiederhergestellt.
+   *
+   * Anders als `deleteSnapshot` schluckt diese Funktion Fehler bewusst NICHT:
+   * Wer "alles löschen" wählt, muss erfahren, wenn etwas stehen geblieben ist.
+   * Ist die Snapshot-Datenbank gar nicht erst verfügbar, gibt es auch nichts
+   * zu löschen.
+   */
+  public static async deleteAllSnapshots(): Promise<void> {
+    if (typeof indexedDB === 'undefined') return;
+    const db = await openSnapshotsDB();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(SNAPSHOTS_STORE, 'readwrite');
+        tx.objectStore(SNAPSHOTS_STORE).clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    } finally {
+      db.close();
+    }
+  }
+
+  /**
    * Begrenzt die Anzahl der Snapshots auf MAX_SNAPSHOTS
    */
   private static async pruneSnapshots(): Promise<void> {

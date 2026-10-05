@@ -58,6 +58,12 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
     lastName: member?.lastName || '',
     gender: member?.gender || 'none',
     birthDate: member?.birthDate || '',
+    nationality: member?.nationality || '',
+    isMinor: member?.isMinor ?? false,
+    guardianName: member?.guardianName || '',
+    guardianRelation: member?.guardianRelation || 'Mutter',
+    guardianPhone: member?.guardianPhone || '',
+    guardianEmail: member?.guardianEmail || '',
     address: {
       street: member?.address?.street || '',
       houseNumber: member?.address?.houseNumber || '',
@@ -501,7 +507,7 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Mitgliedsnummer *
@@ -544,6 +550,89 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Staatsangehörigkeit
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.nationality || ''}
+                      onChange={e => setFormData({ ...formData, nationality: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="z.B. Deutsch"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200 space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.isMinor ?? false}
+                      onChange={e => setFormData({ ...formData, isMinor: e.target.checked })}
+                      className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500"
+                    />
+                    <span className="text-xs font-semibold text-slate-700">
+                      Minderjähriges Mitglied — hat einen gesetzlichen Vertreter
+                    </span>
+                  </label>
+
+                  {formData.isMinor && (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pl-6">
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Name des Erziehungsberechtigten
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.guardianName || ''}
+                          onChange={e => setFormData({ ...formData, guardianName: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Vorname Nachname"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Verhältnis
+                        </label>
+                        <select
+                          value={formData.guardianRelation || 'Mutter'}
+                          onChange={e => setFormData({ ...formData, guardianRelation: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                        >
+                          <option value="Mutter">Mutter</option>
+                          <option value="Vater">Vater</option>
+                          <option value="Gesetzlicher Vormund">Gesetzlicher Vormund</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Telefon
+                        </label>
+                        <input
+                          type="tel"
+                          value={formData.guardianPhone || ''}
+                          onChange={e => setFormData({ ...formData, guardianPhone: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+
+                      <div className="md:col-span-4">
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          E-Mail
+                        </label>
+                        <input
+                          type="email"
+                          value={formData.guardianEmail || ''}
+                          onChange={e => setFormData({ ...formData, guardianEmail: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

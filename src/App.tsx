@@ -31,8 +31,7 @@ import {
 } from './types';
 import { StorageService } from './services/storage';
 import { AuthService } from './services/authService';
-import { PermissionArea, UserAuthSession, UserPermissions } from './types';
-import { AREA_LABEL, canEdit, canView, migrateLegacyPermissions } from './utils/permissions';
+import { AuthSession } from './types';
 import { formatClubAddress } from './utils/clubAddress';
 import { UserDashboardConfig } from './types/dashboard';
 import { DEFAULT_DASHBOARD_CONFIG } from './data/defaultDashboard';
@@ -84,7 +83,7 @@ import { DonationFormModal } from './components/DonationFormModal';
 import { MeetingFormModal } from './components/MeetingFormModal';
 import { CalendarEventModal } from './components/CalendarEventModal';
 import { LoginScreen } from './components/LoginScreen';
-import { UserManageModal } from './components/UserManageModal';
+import { EinrichtungsModal } from './components/EinrichtungsModal';
 import { AppVersionBadge } from './components/AppVersionBadge';
 
 // Icons
@@ -107,7 +106,6 @@ import {
   FileText,
   HeartHandshake,
   LogOut,
-  ShieldAlert,
   UserCog,
   CalendarDays,
   FileSignature,
@@ -116,17 +114,28 @@ import {
   ScrollText
 } from 'lucide-react';
 
-/**
- * Die Menüpunkte der Navigationsleiste. Absichtlich aus PermissionArea
- * abgeleitet: So kann kein Menüpunkt entstehen, für den es keine
- * Berechtigung gibt (und umgekehrt). 'users' ist kein eigener Menüpunkt,
- * sondern ein Reiter innerhalb der Einstellungen.
- */
-type ActiveTab = Exclude<PermissionArea, 'users'>;
+/** Die Menüpunkte der Navigationsleiste. */
+type ActiveTab =
+  | 'dashboard'
+  | 'members'
+  | 'online_applications'
+  | 'member_analytics'
+  | 'finance'
+  | 'sepa'
+  | 'invoices'
+  | 'donations'
+  | 'guv'
+  | 'finance_analytics'
+  | 'contacts'
+  | 'calendar'
+  | 'meetings'
+  | 'inventory'
+  | 'documents'
+  | 'settings';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
-  const [settingsActiveTab, setSettingsActiveTab] = useState<'general' | 'club' | 'users' | 'backup' | 'deployment' | 'support' | 'bugreport'>('general');
+  const [settingsActiveTab, setSettingsActiveTab] = useState<'general' | 'club' | 'backup' | 'support' | 'bugreport'>('general');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -164,19 +173,21 @@ export default function App() {
     }
   }, [theme]);
 
-  // Authentication & RBAC State
-  const [authSession, setAuthSession] = useState<UserAuthSession>(() => AuthService.getSession());
+  // Authentication State — ein einziges Gerätepasswort, siehe authService.ts
+  const [authSession, setAuthSession] = useState<AuthSession>(() => AuthService.getSession());
 
-  /** Meldung, wenn eine Aktion an der fehlenden Berechtigung scheitert. */
-  const [permissionNotice, setPermissionNotice] = useState<string | null>(null);
+  /**
+   * Braucht dieses Gerät noch die Ersteinrichtung (neuer Verein oder
+   * Import)? Wird nach jeder erfolgreichen Anmeldung/Registrierung geprüft;
+   * siehe StorageService.brauchtEinrichtung.
+   */
+  const [needsSetup, setNeedsSetup] = useState(false);
 
-  // Hinweis von selbst wieder ausblenden.
-  useEffect(() => {
-    if (!permissionNotice) return;
-    const timer = setTimeout(() => setPermissionNotice(null), 6000);
-    return () => clearTimeout(timer);
-  }, [permissionNotice]);
-  const [userManageOpen, setUserManageOpen] = useState(false);
+  const pruefeEinrichtung = async () => {
+    const braucht = await StorageService.brauchtEinrichtung();
+    setNeedsSetup(braucht);
+  };
+
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
   // Core App State
@@ -190,9 +201,7 @@ export default function App() {
   const [applicationSettings, setApplicationSettings] = useState<ApplicationTemplateSettings>({
     headerText: 'Herzlich willkommen beim TSV Musterstadt 1890 e.V.! Füllen Sie den Online-Aufnahmeantrag bitte vollständig aus.',
     notificationEmail: 'vorstand@tsv-musterstadt1890.de',
-    defaultFeeRules: { full: 18.0, reduced: 12.0, youth: 10.0, family: 30.0, supporting: 25.0 },
-    requirePhotoConsent: true,
-    requireHealthConfirmation: true
+    defaultFeeRules: { full: 18.0, reduced: 12.0, youth: 10.0, family: 30.0, supporting: 25.0 }
   });
   const [settings, setSettings] = useState<ClubSettings>({
     clubName: 'TSV Musterstadt 1890 e.V.',
@@ -392,46 +401,18 @@ export default function App() {
   };
 
   // ---------------------------------------------------------------------
-  // Berechtigungen des angemeldeten Benutzers
+  // Frühere Bereichsrechte
   //
-  // WICHTIG: Das ist eine Bedienhilfe, keine Sicherheitsgrenze. Alles läuft
-  // lokal im Browser des Nutzers und lässt sich dort umgehen — es gibt
-  // keinen Server mehr, der das verbindlich durchsetzen könnte. Gedacht ist
-  // das Rechtesystem für mehrere Benutzerkonten an einem gemeinsam genutzten
-  // Rechner (z. B. im Vereinsheim), nicht als Schutz vor jemandem mit
-  // technischem Zugriff auf diesen Rechner.
+  // Es gab einmal ein Rechtesystem für mehrere Benutzerkonten an einem
+  // gemeinsam genutzten Rechner (z. B. im Vereinsheim): je Person "kein
+  // Zugriff/lesen/bearbeiten" für 18 Bereiche. Das ist jetzt ersetzt durch
+  // ein einziges Gerätepasswort (siehe authService.ts) — wer angemeldet
+  // ist, darf alles. mayAccess/mayEdit/requireEdit bleiben als Namen an den
+  // vielen Aufrufstellen erhalten, geben jetzt aber immer "erlaubt" zurück.
   // ---------------------------------------------------------------------
-
-  /**
-   * Ohne angemeldeten Benutzer (Anmeldung abgeschaltet) gilt Vollzugriff —
-   * sonst wäre die Anwendung ohne Anmeldung unbedienbar. Gespeicherte Konten
-   * im alten Format werden beim Lesen übersetzt.
-   */
-  const userPermissions: UserPermissions = migrateLegacyPermissions(
-    authSession.user?.permissions
-  );
-
-  /** Darf der Benutzer diesen Menüpunkt öffnen? */
-  const mayAccess = (tab: ActiveTab): boolean => canView(userPermissions, tab);
-
-  /** Darf der Benutzer in diesem Bereich etwas ändern? */
-  const mayEdit = (area: PermissionArea): boolean => canEdit(userPermissions, area);
-
-  /**
-   * Schreibsperre. Steht als erste Zeile in jeder ändernden Funktion.
-   *
-   * Absichtlich hier und nicht an den Knöpfen: Ein übersehener Knopf wäre
-   * eine offene Tür. Hier kommt jeder Weg vorbei — auch der über eine
-   * Kachel, einen Querverweis oder eine Massenaktion.
-   */
-  const requireEdit = (area: PermissionArea): boolean => {
-    if (mayEdit(area)) return true;
-    setPermissionNotice(
-      `Keine Berechtigung zum Bearbeiten: ${AREA_LABEL[area]}. ` +
-        'Wenden Sie sich an den Vorstand, wenn Sie hier Änderungen vornehmen müssen.'
-    );
-    return false;
-  };
+  const mayAccess = (_tab?: ActiveTab): boolean => true;
+  const mayEdit = (_area?: string): boolean => true;
+  const requireEdit = (_area?: string): boolean => true;
 
   const handleSaveMeeting = async (meeting: Meeting) => {
     if (!requireEdit('meetings')) return;
@@ -487,18 +468,24 @@ export default function App() {
       setAuthSession(session);
       if (session.isAuthenticated) {
         setActiveTab('dashboard');
+        await pruefeEinrichtung();
       }
       await loadDataRef.current();
     });
 
     const unsubscribe = AuthService.onAuthStateChanged(async session => {
       if (!isMounted) return;
+      let wurdeGeradeAngemeldet = false;
       setAuthSession(prev => {
         if (!prev.isAuthenticated && session.isAuthenticated) {
           setActiveTab('dashboard');
+          wurdeGeradeAngemeldet = true;
         }
         return session;
       });
+      if (wurdeGeradeAngemeldet) {
+        await pruefeEinrichtung();
+      }
       await loadDataRef.current();
     });
 
@@ -1042,7 +1029,7 @@ export default function App() {
     const res = await StorageService.approveOnlineApplication(
       appId,
       overrides,
-      author || currentUser?.name || 'Vorstand'
+      author || currentUser || 'Vorstand'
     );
     await loadData();
     return res;
@@ -1053,7 +1040,7 @@ export default function App() {
     await StorageService.rejectOnlineApplication(
       appId,
       reason,
-      author || currentUser?.name || 'Vorstand'
+      author || currentUser || 'Vorstand'
     );
     await loadData();
   };
@@ -1113,30 +1100,28 @@ export default function App() {
     return (
       <LoginScreen
         settings={settings}
-        onLoginSuccess={(user) => {
+        onLoginSuccess={async () => {
           setActiveTab('dashboard');
-          setAuthSession({ user, isAuthenticated: true, loginTime: new Date().toISOString() });
+          setAuthSession(AuthService.getSession());
+          await pruefeEinrichtung();
           loadData();
-        }}
-        onSettingsReload={(newSettings) => {
-          if (newSettings) setSettings(newSettings);
         }}
       />
     );
   }
 
-  const currentUser = authSession.user;
+  // Zweites Tor: Anmeldung erfolgreich, aber auf diesem Gerät liegt noch
+  // kein Verein vor (frisch oder nach "Alle lokalen Daten löschen").
+  if (needsSetup) {
+    return <EinrichtungsModal onFertig={() => { setNeedsSetup(false); loadData(); }} />;
+  }
 
-  const canEditFinances = mayEdit('finance');
-  const canEditMembers = mayEdit('members');
-  const canManageUsers = mayEdit('users');
-  const isReadOnly = !canEditFinances && !canEditMembers;
+  const currentUser = authSession.benutzername;
 
-  /** Zusatzklassen für einen gesperrten Navigationseintrag. */
-  const navLockClass = (tab: ActiveTab): string =>
-    mayAccess(tab) ? '' : ' opacity-40 cursor-not-allowed';
+  /** Zusatzklassen für einen gesperrten Navigationseintrag — nicht mehr in Gebrauch, da niemand mehr gesperrt wird. */
+  const navLockClass = (_tab?: ActiveTab): string => '';
 
-  const NAV_LOCK_TITLE = 'Ihre Rolle hat für diesen Bereich keine Berechtigung';
+  const NAV_LOCK_TITLE = undefined;
 
   /**
    * Bereichswechsel aus der Anwendung heraus (Kacheln, Querverweise).
@@ -1753,14 +1738,6 @@ export default function App() {
 
           {/* Right Header User & Actions */}
           <div className="flex items-center gap-2.5 shrink-0">
-            {/* Read-Only Badge for Auditor */}
-            {isReadOnly && (
-              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-full text-xs font-medium">
-                <ShieldAlert className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                <span>Kassenprüfer (Nur Leserecht)</span>
-              </div>
-            )}
-
             {/* User Profile & Session Dropdown */}
             <div className="relative">
               <button
@@ -1769,15 +1746,11 @@ export default function App() {
                 className="flex items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl transition-all cursor-pointer"
               >
                 <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                  {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                  {currentUser ? currentUser.charAt(0).toUpperCase() : 'U'}
                 </div>
                 <div className="text-left hidden sm:block">
                   <div className="text-xs font-bold text-slate-800 dark:text-white truncate max-w-[120px] leading-tight">
-                    {currentUser?.name || 'Benutzer'}
-                  </div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${canManageUsers ? 'bg-rose-500' : canEditFinances ? 'bg-emerald-500' : 'bg-blue-500'}`} />
-                    <span>{currentUser?.customRoleName || (canManageUsers ? 'Administrator' : 'Benutzer')}</span>
+                    {currentUser || 'Benutzer'}
                   </div>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -1791,11 +1764,8 @@ export default function App() {
                   />
                   <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-2 z-40 space-y-1 animate-in fade-in zoom-in-95 duration-100 text-xs">
                     <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-100 dark:border-slate-700 mb-2">
-                      <div className="font-bold text-slate-900 dark:text-white truncate">{currentUser?.name}</div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate">Login: {currentUser?.username}</div>
-                      <div className="mt-2 inline-block px-2 py-0.5 rounded text-[10px] font-semibold border bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800">
-                        {currentUser?.customRoleName || (canManageUsers ? 'Administrator' : 'Benutzer')}
-                      </div>
+                      <div className="font-bold text-slate-900 dark:text-white truncate">{currentUser}</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">Angemeldet auf diesem Gerät</div>
                     </div>
 
                     <button
@@ -1811,20 +1781,18 @@ export default function App() {
                       <span>Systemeinstellungen</span>
                     </button>
 
-                    {canManageUsers && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUserDropdownOpen(false);
-                          setSettingsActiveTab('users');
-                          goToTab('settings');
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-left transition-colors cursor-pointer"
-                      >
-                        <UserCog className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                        <span>Benutzerverwaltung & Rechte</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserDropdownOpen(false);
+                        setSettingsActiveTab('general');
+                        goToTab('settings');
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-left transition-colors cursor-pointer"
+                    >
+                      <UserCog className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <span>Passwort ändern</span>
+                    </button>
 
                     <button
                       type="button"
@@ -1847,7 +1815,7 @@ export default function App() {
                       className="w-full flex items-center gap-2 px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-lg text-left transition-colors"
                     >
                       <LogOut className="w-4 h-4 text-rose-600" />
-                      <span>Abmelden / Benutzer wechseln</span>
+                      <span>Abmelden</span>
                     </button>
                   </div>
                 </>
@@ -1930,7 +1898,6 @@ export default function App() {
                   setInventoryFormOpen(true);
                 }}
                 onOpenNewDocument={() => setNewDocChoiceOpen(true)}
-                userPermissions={userPermissions}
               />
             )}
 
@@ -1964,7 +1931,7 @@ export default function App() {
                 members={members}
                 settings={settings}
                 templateSettings={applicationSettings}
-                currentUser={currentUser?.name || 'Vorstand'}
+                currentUser={currentUser || 'Vorstand'}
                 onApproveApplication={handleApproveApplication}
                 onRejectApplication={handleRejectApplication}
                 onDeleteApplication={handleDeleteApplication}
@@ -2196,15 +2163,12 @@ export default function App() {
                 settings={settings}
                 onSaveSettings={handleSaveSettings}
                 onDataReload={loadData}
-                onOpenUserManage={() => setUserManageOpen(true)}
                 currentTheme={theme}
                 onThemeChange={(newTheme) => setTheme(newTheme)}
                 initialTab={settingsActiveTab}
                 onTabChange={(tab) => setSettingsActiveTab(tab)}
                 canEdit={mayEdit('settings')}
                 onLocked={() => requireEdit('settings')}
-                canManageUsers={mayEdit('users')}
-                onUsersLocked={() => requireEdit('users')}
                 />
             )}
           </div>
@@ -2547,19 +2511,6 @@ export default function App() {
         />
       )}
 
-      {/* User & Role Management Modal (Admin only) */}
-      {userManageOpen && (
-        <UserManageModal
-          currentUserId={currentUser?.id || ''}
-          onClose={() => setUserManageOpen(false)}
-          onUserChanged={() => {
-            // Refresh session if active user was edited
-            const updatedSession = AuthService.getSession();
-            setAuthSession(updatedSession);
-          }}
-        />
-      )}
-
       {/* Calendar Event Modal (Quick Action) */}
       {calendarEventModalOpen && (
         <CalendarEventModal
@@ -2609,24 +2560,6 @@ export default function App() {
             StorageService.saveDashboardConfig(DEFAULT_DASHBOARD_CONFIG);
           }}
         />
-      )}
-
-      {/* Hinweis bei fehlender Berechtigung */}
-      {permissionNotice && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] max-w-md w-[calc(100%-2rem)]">
-          <div className="bg-slate-900 text-white rounded-2xl shadow-2xl border border-slate-700 px-4 py-3 flex items-start gap-3">
-            <Lock className="w-4 h-4 mt-0.5 text-amber-400 shrink-0" />
-            <p className="text-xs leading-snug flex-1">{permissionNotice}</p>
-            <button
-              type="button"
-              onClick={() => setPermissionNotice(null)}
-              className="text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0"
-              title="Hinweis schließen"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
       )}
     </div>
   );

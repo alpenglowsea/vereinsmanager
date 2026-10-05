@@ -12,6 +12,58 @@ einzige — rein lokal, ein Gerät. Zusammen mit KI-Funktionen und
 E-Mail-Versand sind auch alle Funktionen entfernt, die nur für eine der
 beiden anderen Betriebsarten existierten. Vollständige Begründung und
 Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
+
+### Schritt 7f — „Alle lokalen Daten löschen“ löscht wirklich alles; Muster-Knopf entfernt
+
+- „Alle lokalen Daten löschen“ ließ bisher Vereinsstammdaten, Ordner,
+  Vorlagen, Inventar-Ausgaben, Anwendungs- und Startseiten-Einstellungen sowie
+  einige Reste im localStorage stehen. Jetzt wird jeder Datenbereich geleert
+  (die Schleife läuft über `STORES`, ein neuer Bereich wird automatisch
+  mitgeleert). Danach legt die App die leere Grundausstattung an (zwei
+  Starter-Konten, Ordner, Kalender-Kategorien, neutrale Stammdaten). Das
+  Gerätepasswort, die Farbwahl und die automatische Sperre bleiben.
+- Die Grundausstattung ist aus dem Start (`init`) in die gemeinsame Funktion
+  `legeGrundausstattungAn` gewandert; Start und Löschen nutzen denselben Code.
+- Der Knopf „Musterdaten laden (TSV Musterstadt)“ und `resetToDemoData()` sind
+  entfernt: Er überschrieb die echten Vereinsdaten mit Beispieldaten; für
+  Beispieldaten gibt es die Demo, die eine eigene Datenbank hat.
+
+### Schritt 7e — „Alle lokalen Daten löschen“ löscht auch die Snapshots
+
+- Die automatischen Sicherheitskopien (Snapshots) blieben beim Löschen aller
+  Daten zurück: bis zu zwölf vollständige, unverschlüsselte Kopien des
+  Bestands. Schlimmer noch: Beim nächsten Start stellte die Altdaten-Prüfung
+  die gerade gelöschten Daten aus genau diesen Kopien wieder her.
+- Jetzt werden beim Löschen alle Snapshots mitgelöscht, eine wartende
+  automatische Sicherung wird verworfen, und während des Löschens entsteht
+  keine neue. Schlägt das Löschen der Snapshots fehl, meldet die Oberfläche
+  einen Fehler, statt Erfolg anzuzeigen. Drei neue Tests.
+
+### Schritt 7d — Verschlüsselte Datensicherung (optional)
+
+- Beim Erstellen einer Sicherung fragt die App, ob sie mit Passwort
+  verschlüsselt werden soll (vorgewählt, aber nicht erzwungen). Verfahren:
+  AES-256-GCM, Schlüssel per PBKDF2-SHA256 mit 600 000 Runden, Salz und
+  Startzahl zufällig je Datei. Ein falsches Passwort oder eine veränderte
+  Datei wird erkannt.
+- Deutlicher Hinweis im Dialog: Das Passwort ist nicht wiederherstellbar;
+  das Erstellen verlangt eine Bestätigung.
+- Beim Einspielen (Einstellungen und Ersteinrichtung) wird eine verschlüsselte
+  Datei erkannt und das Passwort abgefragt. Alte, unverschlüsselte Sicherungen
+  lassen sich wie bisher einspielen.
+- Ohne `crypto.subtle` (App über „http://“ von einer fremden Adresse) ist die
+  Verschlüsselung nicht verfügbar; die App sagt das, statt auf eine
+  selbstgebaute Verschlüsselung auszuweichen. Elf neue Tests.
+
+### Schritt 7c — Vereinsstammdaten neu geordnet, Import korrigiert
+
+- Reiter „Vereinsstammdaten“ in sieben Kacheln gegliedert: Logo, Name &
+  Anschrift, Kontaktdaten, Vorstand, Steuerliche Angaben, SEPA, Abteilungen.
+- Beim Einspielen einer Sicherung im Modus „nur Ergänzen“ verdrängten die
+  Muster-Stammdaten eines frischen Geräts die echten Angaben aus der Datei
+  (Vorstand, VR-Nr., Steuernummer …). Die Stammdaten werden jetzt feldweise
+  zusammengeführt: selbst Eingetragenes bleibt, leere Felder und unberührte
+  Mustertexte werden aus der Datei gefüllt. Fünf neue Tests.
 (Projektdokumentation, nicht Teil dieses Repositories).
 
 ### 🤖 KI-Funktionen vollständig entfernt
@@ -40,7 +92,8 @@ Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
   in dieser Betriebsart immer lokal im Browser — der eigene Server bot nur
   eine zusätzliche Anmeldesperre, keine geteilten Daten.
 - Die allgemeine Zugriffsschranke vor den `/api`-Routen (Zugriffsschlüssel)
-  bleibt erhalten — sie war nie betriebsart-spezifisch.
+  blieb an dieser Stelle zunächst erhalten — sie war nie betriebsart-spezifisch
+  (siehe aber unten: sie ist inzwischen ebenfalls entfernt).
 
 ### ☁️ Cloud-/Supabase-Betrieb entfernt
 
@@ -83,6 +136,65 @@ Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
   ausschließlich die jetzt entfernten Betriebsarten), `DESKTOP_RELEASE.md`
   und `.github/workflows/release-desktop.yml` von Erwähnungen der
   entfernten Funktionen bereinigt.
+
+### 🔐 Benutzerverwaltung durch ein einziges Gerätepasswort ersetzt
+
+- Das Rechtesystem (18 einzeln einstellbare Bereiche je Person, serverseitig
+  durchgesetzt) ist komplett entfernt. Es war an die jetzt entfernte eigene
+  Server-Variante gebunden und ergab allein lokal keinen Sinn mehr: Zugriff
+  auf einen Rechner mit VereinsManager bedeutet ohnehin schon Zugriff auf
+  die Vereinsdaten selbst — eine feinere Sperre innerhalb der Anwendung
+  täuschte dort einen Schutz vor, den es nicht gab.
+- Es gibt jetzt genau ein Passwort pro Gerät. Wer es kennt, hat vollen
+  Zugriff — keine einzelnen Benutzerkonten, keine Rollen, keine
+  Bereichsrechte mehr.
+- Anmeldemaske: Der „Importieren"-Reiter ist entfallen (Import geschieht
+  jetzt im neuen Einrichtungs-Dialog, siehe unten), „Registrieren" ist auf
+  Benutzername und Passwort verschlankt.
+- **Neu: Einrichtungs-Dialog.** Erscheint nach der ersten erfolgreichen
+  Anmeldung oder Registrierung, wenn auf diesem Gerät noch keine
+  Vereinsdaten liegen — Wahl zwischen „Neuen Verein anlegen" und
+  „Vorhandene Daten importieren" (.json-Sicherung). Bewusst *nach* der
+  Anmeldung statt davor, damit das Gerätepasswort in jedem Fall schon
+  feststeht, bevor irgendetwas mit Vereinsdaten passiert.
+- Der Dialog erscheint auch nach einer gewöhnlichen Anmeldung, nicht nur
+  nach einer Registrierung — sonst stünde jemand, der zuvor „Alle lokalen
+  Daten löschen" genutzt hat, vor einem leeren, unerklärten Dashboard statt
+  vor der Wahl zwischen neu anlegen und importieren.
+- Das Gerätepasswort reist nicht mehr mit der Datensicherung (.json) mit —
+  es gehört zu diesem einen Gerät, nicht zum Verein. Eine importierte
+  Sicherung überschreibt dadurch nie das Passwort des Zielgeräts, und eine
+  weitergegebene Sicherung gibt nie versehentlich ein Passwort mit weiter.
+- Bestehende Installationen mit einem alten Mehrbenutzerkonto müssen sich
+  einmalig neu „registrieren", um ein neues Gerätepasswort zu vergeben. Die
+  Vereinsdaten selbst sind davon nicht betroffen und werden unverändert
+  erkannt — eine automatische Übernahme der alten Konten findet nicht statt.
+- Gelöschte Dateien: `src/data/roles.ts`, `src/utils/permissions.ts` (samt
+  Test), `src/components/PermissionMatrix.tsx`,
+  `src/components/UserManageModal.tsx`.
+
+### 🔑 Server-Zugriffsschlüssel entfernt
+
+- Der reguläre Weg ist die Nutzung über die Tauri-Desktop-App — ein
+  zusätzlicher Zugriffsschlüssel vor den `/api`-Routen bot dort (zusätzlich
+  zur Localhost-only-Bindung oben) keinen echten Zugewinn mehr und ist
+  entfernt.
+
+### 📋 Aufnahmeformular: Staatsangehörigkeit und Erziehungsberechtigte ergänzt, Foto-Einwilligung/Gesundheitsbestätigung entfernt
+
+- Neu, mit der Mitgliederdatenbank verknüpft: Staatsangehörigkeit sowie —
+  bei Minderjährigen — Name, Verhältnis, Telefon und E-Mail des
+  Erziehungsberechtigten.
+- Die Fragen nach Foto-Einwilligung und Gesundheitsbestätigung im Formular
+  waren überflüssig und sind entfallen, samt der zugehörigen, nie genutzten
+  Einstellungen `requirePhotoConsent`/`requireHealthConfirmation`.
+
+### 🧹 Aufräumen (Einstellungen)
+
+- Reiter „Betriebsmodi" aus den Einstellungen entfernt — es gibt nur noch
+  die eine Betriebsart.
+- Die Kachel „Aktueller lokaler Datenbestand auf diesem Gerät" ist von dort
+  in den Tab „Datensicherung" gewandert, wo sie inhaltlich besser hinpasst.
 
 ---
 

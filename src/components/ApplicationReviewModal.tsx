@@ -367,18 +367,6 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   <span>Satzung & Beitragsordnung anerkannt</span>
                 </div>
-                {application.photoConsent && (
-                  <div className="flex items-center gap-1.5 text-slate-700">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                    <span>Einwilligung Foto-/Medienveröffentlichung erteilt</span>
-                  </div>
-                )}
-                {application.healthConfirmation && (
-                  <div className="flex items-center gap-1.5 text-slate-700">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                    <span>Sportgesundheit bestätigt</span>
-                  </div>
-                )}
               </div>
             </div>
           </div>

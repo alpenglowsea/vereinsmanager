@@ -6,8 +6,8 @@ import {
   vergleicheBereich,
   vergleicheSicherung,
   ergaenzeListe,
-  ergaenzeBenutzer,
   ergaenzeEinzelstueck,
+  ergaenzeStammdaten,
   leseSicherung
 } from './backupContents';
 
@@ -93,18 +93,6 @@ describe('Datensicherung: nur Fehlendes ergaenzen', () => {
     expect(ergebnis.find(e => e.id === 'm2')?.name).toBe('neu');
   });
 
-  it('haelt Konten mit gleichem Anmeldenamen heraus', () => {
-    // Zwei Konten mit demselben Anmeldenamen waeren nicht mehr unterscheidbar.
-    const ergebnis = ergaenzeBenutzer(
-      [
-        { id: 'u9', username: 'Admin' },
-        { id: 'u2', username: 'kassenwart' }
-      ],
-      [{ id: 'u1', username: 'admin' }]
-    );
-    expect(ergebnis.map(u => u.id)).toEqual(['u1', 'u2']);
-  });
-
   it('nimmt ein Einzelstueck nur, wenn hier keines liegt', () => {
     expect(ergaenzeEinzelstueck({ a: 1 }, { a: 2 })).toEqual({ a: 2 });
     expect(ergaenzeEinzelstueck({ a: 1 }, undefined)).toEqual({ a: 1 });
@@ -139,5 +127,53 @@ describe('Datensicherung: Datei einlesen', () => {
   it('weist eine fremde Datei ab', () => {
     // Sonst liefe der Einspielvorgang an und leerte den Bestand.
     expect(() => leseSicherung(JSON.stringify({ irgendwas: 1 }))).toThrow(/Datensicherung/);
+  });
+});
+
+describe('Datensicherung: Vereinsstammdaten beim Ergaenzen', () => {
+  const platzhalter = {
+    clubName: 'TSV Muster',
+    associationNumber: 'VR 1',
+    taxNumber: '111',
+    boardMembers: [{ id: 'bm-1', role: 'Vors', name: 'Muster' }]
+  };
+
+  it('ersetzt unberuehrte Mustertexte durch die Angaben aus der Datei', () => {
+    const datei = {
+      clubName: 'SV Echt',
+      associationNumber: 'VR 99',
+      taxNumber: '222',
+      boardMembers: [{ id: 'x', role: '1. Vorsitzender', name: 'Erika Echt' }]
+    };
+    const r = ergaenzeStammdaten(datei, { id: 'main', ...platzhalter }, platzhalter)!;
+    expect(r.clubName).toBe('SV Echt');
+    expect(r.associationNumber).toBe('VR 99');
+    expect(r.taxNumber).toBe('222');
+    expect(r.boardMembers).toEqual(datei.boardMembers);
+  });
+
+  it('behaelt Angaben, die hier selbst eingetragen wurden', () => {
+    const vorhanden = { id: 'main', ...platzhalter, taxNumber: '333' };
+    const r = ergaenzeStammdaten({ taxNumber: '222', associationNumber: 'VR 99' }, vorhanden, platzhalter)!;
+    expect(r.taxNumber).toBe('333');
+    expect(r.associationNumber).toBe('VR 99');
+  });
+
+  it('fuellt leere Felder und ueberschreibt nie mit leeren Werten', () => {
+    const vorhanden = { id: 'main', ...platzhalter, taxNumber: '', clubName: 'Eigener Name' };
+    const r = ergaenzeStammdaten({ taxNumber: '222', clubName: '' }, vorhanden, platzhalter)!;
+    expect(r.taxNumber).toBe('222');
+    expect(r.clubName).toBe('Eigener Name');
+  });
+
+  it('verwirft die Muster-Vorstandsliste, wenn die Datei nur aeltere Felder kennt', () => {
+    const r = ergaenzeStammdaten({ chairman: 'Erika Echt' }, { id: 'main', ...platzhalter }, platzhalter)!;
+    expect(r.boardMembers).toBeUndefined();
+    expect(r.chairman).toBe('Erika Echt');
+  });
+
+  it('liefert den Bestand, wenn die Datei keine Stammdaten hat', () => {
+    const vorhanden = { id: 'main', ...platzhalter };
+    expect(ergaenzeStammdaten(undefined, vorhanden, platzhalter)).toBe(vorhanden);
   });
 });

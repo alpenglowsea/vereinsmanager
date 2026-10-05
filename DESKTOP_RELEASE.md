@@ -145,31 +145,21 @@ eingetragenes Fenster ginge sofort beim Start auf und zeigte eine Fehlerseite,
 solange der Server noch hochfährt. Größe, Titel und Adresse stehen jetzt in
 `src-tauri/src/main.rs`.
 
-Der Server sucht sich einen freien Port, falls 3000 belegt ist, und legt seine
-Konfiguration im Datenverzeichnis der Anwendung ab — nicht neben dem Programm,
-wo ein Update sie überschreiben könnte.
-
-### Warum niemand einen Zugriffsschlüssel eintippen muss
-
-Die `/api`-Endpunkte verlangen einen Zugriffsschlüssel; ohne ihn weist der
-Server jeden Aufruf ab. In der Desktop-Fassung bekommt die Oberfläche ihn
-geschenkt: Der Server hängt ihn an seine Bereitschaftsmeldung an —
+Der Server sucht sich einen freien Port, falls 3000 belegt ist. Die
+Bereitschaftsmeldung, auf die die Desktop-Fassung wartet, sieht entsprechend
+schlicht aus:
 
 ```
-VM_SERVER_BEREIT http://127.0.0.1:3000/#zugriff=<schlüssel>
+VM_SERVER_BEREIT http://127.0.0.1:3000/
 ```
-
-— und das Programm öffnet sein Fenster auf genau dieser Adresse. Die Oberfläche
-liest den Schlüssel beim Start aus, merkt ihn sich und entfernt ihn wieder aus
-der Adresszeile (`src/services/apiClient.ts`).
-
-Der Schlüssel steht dabei **hinter dem Doppelkreuz**. Alles danach ist ein
-sogenanntes Fragment und wird vom Browser nie an den Server geschickt — er
-taucht deshalb in keinem Zugriffsprotokoll auf.
 
 Der Server lauscht grundsätzlich fest nur auf `127.0.0.1` — aus dem Netzwerk
 ist er nie erreichbar, egal ob Desktop-Fassung oder Start aus dem
-Projektordner. Der Schlüssel wird deshalb immer angehängt.
+Projektordner. Einen Zugriffsschlüssel oder einen anderen Ausweis verlangt er
+seit Schritt 7 der Vereinfachung nicht mehr (früher gab es hier einen
+installationsweiten Schlüssel, den die Oberfläche automatisch aus der
+Fensteradresse übernahm — da ohnehin nur dieser eine Rechner den Server
+erreichen kann, bot er keinen echten Zugewinn mehr).
 
 **Wenn der Server nicht startet**, öffnet sich das Fenster trotzdem, dann mit
 der mitgelieferten Oberfläche ohne Server. Mitglieder, Finanzen und alle

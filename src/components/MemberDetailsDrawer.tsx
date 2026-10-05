@@ -656,6 +656,13 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
                   </div>
 
                   <div>
+                    <span className="text-slate-400 text-[11px] block mb-0.5">Staatsangehörigkeit</span>
+                    <span className="font-medium text-slate-800">
+                      {member.nationality || '–'}
+                    </span>
+                  </div>
+
+                  <div>
                     <span className="text-slate-400 text-[11px] block mb-0.5">Wohnanschrift</span>
                     <span className="font-medium text-slate-800 leading-relaxed block">
                       <MapPin className="w-3 h-3 text-slate-400 inline mr-1" />
@@ -664,6 +671,37 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
                       {member.address.country && member.address.country !== 'Deutschland' && ` (${member.address.country})`}
                     </span>
                   </div>
+
+                  {member.isMinor && (
+                    <div className="col-span-1 sm:col-span-2 pt-2 border-t border-slate-100">
+                      <span className="text-slate-400 text-[11px] block mb-1">Gesetzlicher Vertreter (minderjähriges Mitglied)</span>
+                      <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg space-y-1">
+                        <div className="font-medium text-slate-800">
+                          {member.guardianName || '–'}
+                          {member.guardianRelation && (
+                            <span className="text-slate-500 font-normal"> ({member.guardianRelation})</span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 text-slate-600">
+                          {member.guardianPhone && (
+                            <a href={`tel:${member.guardianPhone}`} className="text-blue-600 hover:underline flex items-center gap-1">
+                              <Phone className="w-3 h-3" />
+                              {member.guardianPhone}
+                            </a>
+                          )}
+                          {member.guardianEmail && (
+                            <a href={`mailto:${member.guardianEmail}`} className="text-blue-600 hover:underline flex items-center gap-1">
+                              <Mail className="w-3 h-3" />
+                              {member.guardianEmail}
+                            </a>
+                          )}
+                          {!member.guardianPhone && !member.guardianEmail && (
+                            <span className="text-slate-400 italic">Keine Kontaktdaten erfasst</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="col-span-1 sm:col-span-2 pt-2 border-t border-slate-100">
                     <span className="text-slate-400 text-[11px] block mb-1">Erreichbarkeit & Kontakt</span>

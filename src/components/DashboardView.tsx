@@ -13,8 +13,6 @@ import {
   Meeting
 } from '../types';
 import { UserDashboardConfig, WidgetColSpan } from '../types/dashboard';
-import { PermissionArea, UserPermissions } from '../types';
-import { canEdit, canView } from '../utils/permissions';
 import { AVAILABLE_DASHBOARD_WIDGETS } from '../data/defaultDashboard';
 import { WidgetWrapper } from './DashboardWidgets/WidgetWrapper';
 import {
@@ -57,38 +55,6 @@ import {
   ArrowRight
 } from 'lucide-react';
 
-/**
- * Welche Kachel gehört zu welchem Menüpunkt?
- *
- * Kacheln ohne Eintrag (Vereinskopf, Schnellzugriff) bleiben immer sichtbar;
- * der Schnellzugriff blendet seine Knöpfe selbst nach Rechten aus.
- */
-const WIDGET_AREA: Record<string, PermissionArea | undefined> = {
-  members_kpi: 'members',
-  departments_distribution: 'members',
-  upcoming_birthdays: 'members',
-  recent_members: 'members',
-  demographics_distribution: 'member_analytics',
-  online_applications_kpi: 'online_applications',
-  total_liquidity: 'finance',
-  annual_balance: 'finance',
-  recent_journal_transactions: 'finance',
-  cashflow_chart: 'finance_analytics',
-  wgb_limit_monitor: 'guv',
-  tax_spheres_overview: 'guv',
-  sepa_debit_monitor: 'sepa',
-  donations_summary: 'donations',
-  invoices_overview: 'invoices',
-  invoices_kpi: 'invoices',
-  contacts_summary: 'contacts',
-  contacts_kpi: 'contacts',
-  meetings_summary: 'meetings',
-  meetings_kpi: 'meetings',
-  upcoming_events: 'calendar',
-  inventory_overview: 'inventory',
-  documents_archive_kpi: 'documents'
-};
-
 interface DashboardViewProps {
   members: Member[];
   transactions: Transaction[];
@@ -115,8 +81,6 @@ interface DashboardViewProps {
   onOpenNewDocument?: () => void;
   /** Wird hochgezählt, wenn ein Termin gespeichert wurde. */
   calendarRefreshKey?: number;
-  /** Rechte des angemeldeten Benutzers. Fehlt sie, gilt Vollzugriff. */
-  userPermissions?: UserPermissions;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -143,8 +107,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenCreateEvent,
   onOpenCreateInventory,
   onOpenNewDocument,
-  calendarRefreshKey,
-  userPermissions
+  calendarRefreshKey
 }) => {
   // Widget definitions lookup
   const definitionsMap = useMemo(() => {
@@ -158,25 +121,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return (applications || []).filter((a) => a.status === 'pending');
   }, [applications]);
 
-  // Sorted enabled widgets — Kacheln aus gesperrten Bereichen fallen weg.
-  //
-  // Sonst stünden auf der Startseite genau die Zahlen, die der Menüpunkt
-  // daneben verweigert: Mitgliederzahl, Kontostand, offene Rechnungen.
+  // Sorted enabled widgets.
   const enabledWidgets = useMemo(() => {
-    const perms = userPermissions;
     return [...(dashboardConfig.widgets || [])]
       .filter((w) => w.enabled)
-      .filter((w) => {
-        if (!perms) return true;
-        const area = WIDGET_AREA[w.id];
-        return !area || canView(perms, area);
-      })
       .sort((a, b) => a.order - b.order);
-  }, [dashboardConfig, userPermissions]);
+  }, [dashboardConfig]);
 
-  /** Darf der Benutzer in diesem Bereich etwas anlegen? */
-  const mayEdit = (area: PermissionArea): boolean =>
-    !userPermissions || canEdit(userPermissions, area);
+  // Es gibt keine Bereichsrechte mehr — einmal angemeldet, darf überall
+  // angelegt werden. Die Funktion bleibt als einfacher Platzhalter stehen,
+  // damit die Aufrufe weiter unten unverändert bleiben können.
+  const mayEdit = (_area?: string): boolean => true;
 
   const hasClubHeader = useMemo(() => {
     return enabledWidgets.some((w) => w.id === 'club_header');

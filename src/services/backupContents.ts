@@ -124,9 +124,10 @@ export const SICHERUNGS_BEREICHE = {
     art: 'einzel',
     store: STORES.APPLICATION_SETTINGS
   },
-  settings: { bezeichnung: 'Vereinsstammdaten', art: 'einzel', store: STORES.SETTINGS },
-  users: { bezeichnung: 'Benutzerkonten', art: 'liste', store: null },
-  securitySettings: { bezeichnung: 'Sicherheitseinstellungen', art: 'einzel', store: null }
+  settings: { bezeichnung: 'Vereinsstammdaten', art: 'einzel', store: STORES.SETTINGS }
+  // Das Gerätepasswort gehört bewusst NICHT hierher: Es sperrt dieses eine
+  // Gerät, nicht die Vereinsdaten, und reist deshalb nicht mit einer
+  // Sicherung mit. Siehe src/services/authService.ts.
 } as const satisfies Record<string, BereichDefinition>;
 
 export type SicherungsSchluessel = keyof typeof SICHERUNGS_BEREICHE;
@@ -264,34 +265,60 @@ export function ergaenzeListe<T extends { id?: string }>(ausDatei: T[], vorhande
   return [...vorhanden, ...ergaenzt];
 }
 
-/**
- * Wie ergaenzeListe, prüft aber zusätzlich den Anmeldenamen.
- *
- * Zwei Konten mit demselben Anmeldenamen, aber unterschiedlicher Kennung wären
- * ein Problem: Bei der Anmeldung entschiede der Zufall, welches genommen wird.
- * Solche Konten aus der Datei bleiben deshalb draußen.
- */
-export function ergaenzeBenutzer<T extends { id?: string; username?: string }>(
-  ausDatei: T[],
-  vorhanden: T[]
-): T[] {
-  const bekannteKennungen = new Set(vorhanden.map(e => e?.id).filter(Boolean));
-  const bekannteNamen = new Set(
-    vorhanden.map(e => e?.username?.trim().toLowerCase()).filter(Boolean)
-  );
-  const ergaenzt = ausDatei.filter(
-    e =>
-      e?.id &&
-      !bekannteKennungen.has(e.id) &&
-      !bekannteNamen.has(e?.username?.trim().toLowerCase() || '')
-  );
-  return [...vorhanden, ...ergaenzt];
-}
-
 /** Einzelstück: Beim Ergänzen behält ein vorhandener Datensatz den Vorrang. */
 export function ergaenzeEinzelstueck<T>(ausDatei: T | null | undefined, vorhanden: T | null | undefined): T | null {
   if (vorhandenesEinzelstueck(vorhanden)) return vorhanden as T;
   return vorhandenesEinzelstueck(ausDatei) ? (ausDatei as T) : null;
+}
+
+/**
+ * Führt die Vereinsstammdaten (Name, Vorstand, VR-Nr., Steuernummer, …) beim
+ * "nur Ergänzen" feldweise zusammen.
+ *
+ * Warum nicht einfach `ergaenzeEinzelstueck`? Auf einem frisch eingerichteten
+ * Gerät liegen schon die Muster-Stammdaten ("TSV Musterstadt") in der
+ * Datenbank. Als "vorhanden" gezählt, hätten sie die echten Angaben aus der
+ * Datei verdrängt — Vorstand, VR-Nr. und Steuernummer wären verloren.
+ *
+ * Regel je Feld: Ein Wert, den der Anwender selbst eingetragen hat, bleibt.
+ * Ein leeres Feld oder ein noch unberührter Mustertext (`platzhalter`)
+ * wird durch den Wert aus der Datei ersetzt, sofern die Datei einen hat.
+ */
+export function ergaenzeStammdaten(
+  ausDatei: Record<string, unknown> | null | undefined,
+  vorhanden: Record<string, unknown> | null | undefined,
+  platzhalter: Record<string, unknown>
+): Record<string, unknown> | null {
+  if (!vorhandenesEinzelstueck(ausDatei)) return vorhanden ?? null;
+  if (!vorhandenesEinzelstueck(vorhanden)) return ausDatei as Record<string, unknown>;
+
+  const istLeer = (w: unknown): boolean =>
+    w === undefined ||
+    w === null ||
+    (typeof w === 'string' && w.trim() === '') ||
+    (Array.isArray(w) && w.length === 0);
+  const gleich = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
+
+  const datei = ausDatei as Record<string, unknown>;
+  const ergebnis: Record<string, unknown> = { ...(vorhanden as Record<string, unknown>) };
+
+  for (const schluessel of Object.keys(datei)) {
+    if (schluessel === 'id') continue;
+    const neu = datei[schluessel];
+    if (istLeer(neu)) continue;
+    const alt = ergebnis[schluessel];
+    if (istLeer(alt) || gleich(alt, platzhalter[schluessel])) {
+      ergebnis[schluessel] = neu;
+    }
+  }
+
+  // Ältere Dateien kennen nur "chairman"/"treasurer" statt einer Vorstandsliste.
+  // Liegt hier noch die Muster-Liste und bringt die Datei keine eigene mit,
+  // würde sonst der Mustervorstand neben dem echten Namen stehen bleiben.
+  if (istLeer(datei.boardMembers) && gleich(ergebnis.boardMembers, platzhalter.boardMembers)) {
+    delete ergebnis.boardMembers;
+  }
+  return ergebnis;
 }
 
 // ---------------------------------------------------------------------------

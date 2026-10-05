@@ -2,19 +2,19 @@ import express from "express";
 import compression from "compression";
 import path from "path";
 import fs from "node:fs";
-import crypto from "node:crypto";
 import { RateLimiter } from "./src/utils/rateLimit";
-import { readAccessKey } from "./src/server/instanceConfig";
-import { ZUGRIFF_HEADER, pruefeZugriff } from "./src/server/apiAuth";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-// Exportiert (nur) für src/server/serverRoutes.test.ts: Echte Tests gegen
-// die tatsächlichen Routen brauchen Zugriff auf "app", ohne dabei über
-// startServer() weiter unten einen echten Port zu belegen oder einen
-// Vite-Entwicklungsserver zu starten — siehe die Bedingung um den Aufruf von
-// startServer() am Dateiende.
+// Exportiert für Tests gegen die tatsächlichen Routen, die Zugriff auf "app"
+// brauchen, ohne dabei über startServer() weiter unten einen echten Port zu
+// belegen oder einen Vite-Entwicklungsserver zu starten — siehe die
+// Bedingung um den Aufruf von startServer() am Dateiende (VM_TEST_NO_LISTEN).
+// Derzeit nutzt kein Test diesen Export mehr (sein einziger Verwender,
+// serverRoutes.test.ts, testete ausschließlich den jetzt entfernten
+// Zugriffsschlüssel) — bewusst stehen gelassen für einen künftigen
+// Routen-Test.
 export const app = express();
 // Port aus der Umgebung übernehmen, falls 3000 auf diesem Rechner schon
 // belegt ist, sonst 3000 als Standard.
@@ -25,8 +25,7 @@ const PORT = Number(process.env.PORT) || 3000;
 // Es gibt nur die eine Betriebsart: ein Server, der ausschließlich auf dem
 // eigenen Rechner läuft und ausschließlich von dort erreichbar ist. "Vom
 // eigenen Rechner" heißt technisch "127.0.0.1" — niemand sonst im Netzwerk
-// bekommt überhaupt eine Verbindung zustande, der Zugriffsschlüssel ist
-// damit eine zweite Absicherung, keine einzige.
+// bekommt überhaupt eine Verbindung zustande.
 const HOST = "127.0.0.1";
 
 // Antworten unterwegs komprimieren. Das fertige Browser-Bundle ist
@@ -51,9 +50,8 @@ app.use((_req, res, next) => {
 // Ratenbegrenzung
 // ---------------------------------------------------------------------------
 //
-// Der Zugriffsschlüssel weiter unten ("Zugriffsschutz") hält Fremde
-// draussen, unterscheidet aber niemanden voneinander, der ihn kennt — und
-// diese Ratenbegrenzung hier greift zusätzlich, unabhängig davon, WER
+// Der Server nimmt nur von diesem einen Rechner Anfragen an (siehe HOST
+// oben). Diese Ratenbegrenzung greift zusätzlich — unabhängig davon, WER
 // aufruft.
 //
 //   allgemein — schützt den Server davor, unter Last zusammenzubrechen
@@ -92,61 +90,6 @@ const bremse =
 // Gilt für alles unter /api.
 app.use("/api", (req, res, next) => {
   bremse(bremseAllgemein, "allgemein")(req, res, next);
-});
-
-// ---------------------------------------------------------------------------
-// Zugriffsschutz
-// ---------------------------------------------------------------------------
-//
-// Steht vor dem Einlesen des Anfragekörpers: Ein fremder Aufruf soll nicht
-// erst 50 MB Anhang hochladen dürfen, bevor er abgewiesen wird.
-//
-// Einzelheiten zum Zugriffsschlüssel: src/server/apiAuth.ts
-
-const zugriffsschluessel = (() => {
-  try {
-    return readAccessKey();
-  } catch (fehler) {
-    // Lässt sich der Schlüssel nicht ablegen (etwa weil das Datenverzeichnis
-    // nicht beschreibbar ist), läuft der Server mit einem flüchtigen weiter,
-    // statt gar nicht zu starten. Er ändert sich dann bei jedem Neustart.
-    console.error(
-      "Der Zugriffsschlüssel konnte nicht gespeichert werden. Der Server " +
-        "arbeitet mit einem flüchtigen Schlüssel weiter, der sich bei jedem " +
-        "Neustart ändert. Abhilfe: VM_ACCESS_KEY setzen oder dafür sorgen, " +
-        "dass das Verzeichnis aus VM_DATA_DIR beschreibbar ist.",
-      fehler
-    );
-    return {
-      key: crypto.randomBytes(16).toString("hex"),
-      quelle: "datei" as const,
-      neuErzeugt: true,
-    };
-  }
-})();
-
-app.use("/api", (req, res, next) => {
-  pruefeZugriff(
-    {
-      zugriffsschluessel: req.headers[ZUGRIFF_HEADER],
-    },
-    zugriffsschluessel.key
-  )
-    .then((ergebnis) => {
-      if (ergebnis.erlaubt) {
-        next();
-        return;
-      }
-      // Der Statuscode bleibt für alle Ablehnungen 401. Aktuell gibt es nur
-      // einen Ablehnungsgrund (ZUGRIFF_VERWEIGERT); der "code" bleibt trotzdem
-      // im Antwortkörper, falls künftig weitere Fälle hinzukommen.
-      res.status(401).json({
-        success: false,
-        error: ergebnis.grund,
-        code: ergebnis.code || "ZUGRIFF_VERWEIGERT",
-      });
-    })
-    .catch(next);
 });
 
 // Body parser for JSON and large payloads (PDF / Image Base64)
@@ -253,29 +196,6 @@ app.post("/api/submit-bugreport", bremse(bremseMeldung, "Fehlermeldung"), async 
   }
 });
 
-// ---------------------------------------------------------------------------
-// Prüf-Route für den Zugriffsschlüssel
-// ---------------------------------------------------------------------------
-//
-// Bis einschliesslich Schritt 3 der Vereinfachung gab es hier den ganzen
-// eigenen Server-Betrieb (Betriebsart 3: Benutzerkonten samt Rechten in
-// einer eigenen SQLite-Datenbank, siehe src/server/localAuth.ts und
-// src/server/db/*). Diese Betriebsart entfällt — ihr einziger praktischer
-// Nutzen war eine Anmeldesperre vor der Oberfläche; die eigentlichen
-// Vereinsdaten lagen schon vorher, genau wie im reinen Lokalbetrieb, nur im
-// Browser der jeweiligen Person (siehe die Entfernung dieser Betriebsart in
-// der Übergabe).
-//
-// Übrig bleibt der Bedarf von src/components/ServerAccessKeyPanel.tsx: Die
-// Oberfläche muss irgendeine geschützte Route abfragen können, um zu sehen,
-// ob der im Browser hinterlegte Zugriffsschlüssel vom Server überhaupt noch
-// anerkannt wird. Der Inhalt der Antwort spielt dafür keine Rolle — wichtig
-// ist nur, dass "Zugriffsschutz" oben die Anfrage ohne gültigen Schlüssel
-// gar nicht erst bis hierher durchlässt.
-app.get("/api/access-check", (_req, res) => {
-  res.json({ success: true });
-});
-
 // Vite middleware & SPA serving
 async function startServer() {
   // Ein /api/-Aufruf, den es nicht gibt, muss als solcher erkennbar sein.
@@ -359,50 +279,19 @@ async function startServer() {
  *
  * Die letzte Zeile der Startausgabe ist bewusst maschinenlesbar:
  *
- *     VM_SERVER_BEREIT http://127.0.0.1:3000/#zugriff=<schlüssel>
+ *     VM_SERVER_BEREIT http://127.0.0.1:3000/
  *
  * Die Desktop-Fassung wartet auf genau diese Zeile und öffnet ihr Fenster auf
  * der genannten Adresse — sonst zeigte sie eine Fehlerseite, weil der Server
- * noch startet.
- *
- * Der angehängte Zugriffsschlüssel ist der Grund, warum in der Desktop-Fassung
- * niemand etwas eintippen muss: Die Oberfläche liest ihn beim Start aus der
- * Adresse aus, merkt ihn sich und entfernt ihn wieder (siehe
- * src/services/apiClient.ts). Genau denselben Weg nimmt das Startskript für
- * den Browser-Betrieb.
- *
- * Er steht bewusst hinter dem Doppelkreuz: Alles danach ist ein "Fragment" und
- * wird vom Browser NICHT an den Server geschickt. Der Schlüssel taucht deshalb
- * in keinem Zugriffsprotokoll auf.
+ * noch startet. Genau denselben Weg nimmt das Startskript für den
+ * Browser-Betrieb.
  */
 function starteLauscher(port: number, versucheUebrig: number): void {
   const lauscher = app.listen(port, HOST, () => {
     console.log(`VereinsManager Server running on ${HOST}:${port}`);
 
-    // Der Zugriffsschlüssel wird beim Start ausgegeben, weil es sonst keinen
-    // Weg gäbe, an ihn heranzukommen. Wer die Ausgabe des Servers lesen kann,
-    // hat ohnehin Zugriff auf den Server.
-    if (zugriffsschluessel.quelle === "umgebung") {
-      console.log("Zugriffsschlüssel: aus VM_ACCESS_KEY übernommen.");
-    } else {
-      console.log("");
-      console.log("  Zugriffsschlüssel dieser Installation:");
-      console.log(`      ${zugriffsschluessel.key}`);
-      console.log("");
-      console.log("  Wird in der Desktop-Fassung und beim Start über das mitgelieferte");
-      console.log("  Skript automatisch übergeben — hier muss normalerweise nichts");
-      console.log("  eingetragen werden. Nur falls das einmal nicht funktioniert, lässt er");
-      console.log("  sich unter Einstellungen → Allgemein auch von Hand eintragen.");
-      if (zugriffsschluessel.neuErzeugt) {
-        console.log("  (soeben neu erzeugt)");
-      }
-      console.log("");
-    }
-
     // Muss die letzte Zeile sein: Die Desktop-Fassung wartet darauf.
-    console.log(
-      `VM_SERVER_BEREIT http://127.0.0.1:${port}/#zugriff=${encodeURIComponent(zugriffsschluessel.key)}`
-    );
+    console.log(`VM_SERVER_BEREIT http://127.0.0.1:${port}/`);
   });
 
   lauscher.on("error", (fehler: NodeJS.ErrnoException) => {
@@ -416,11 +305,10 @@ function starteLauscher(port: number, versucheUebrig: number): void {
   });
 }
 
-// VM_TEST_NO_LISTEN ist ausschließlich für serverRoutes.test.ts gedacht,
-// genau wie VM_DATA_DIR es bereits ist (siehe dort). Ohne diese Bedingung
-// würde schon das bloße Importieren dieser Datei in einem Test einen echten
-// Netzwerk-Port belegen und einen Vite-Entwicklungsserver hochfahren — beides
-// unerwünscht und bei parallel laufenden Testdateien eine Quelle für
+// VM_TEST_NO_LISTEN ist für einen Test gedacht, der server.ts importiert, um
+// gegen die echten /api-Routen zu prüfen, ohne dabei einen echten
+// Netzwerk-Port zu belegen oder einen Vite-Entwicklungsserver hochzufahren —
+// beides unerwünscht und bei parallel laufenden Testdateien eine Quelle für
 // Port-Kollisionen. Jeder bisherige Startweg (npm run dev, der gebaute
 // Server, die Desktop-Fassung) setzt diese Variable nicht und startet
 // deshalb unverändert wie zuvor.

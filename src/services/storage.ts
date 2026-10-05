@@ -22,7 +22,6 @@ import {
   InvoiceTemplateSettings,
   Meeting,
   MeetingTemplateSettings,
-  AppUser,
   MemberInventoryAssignment
 } from '../types';
 import { UserDashboardConfig } from '../types/dashboard';
@@ -48,9 +47,29 @@ import {
   leseSicherung,
   vergleicheSicherung,
   ergaenzeListe,
-  ergaenzeBenutzer,
-  ergaenzeEinzelstueck
+  ergaenzeEinzelstueck,
+  ergaenzeStammdaten
 } from './backupContents';
+
+/**
+ * Wurde dieses Gerät schon mit einem Verein eingerichtet (neu angelegt oder
+ * eine Sicherung importiert)? Entscheidet, ob nach dem Anmelden/Registrieren
+ * das Auswahl-Modal ("Neuen Verein anlegen" / "Daten importieren") erscheint.
+ *
+ * Bewusst ein eigenes, einfaches Merkmal statt an einer Datenmenge
+ * (z. B. Mitgliederzahl) festgemacht: Ein frisch angelegter Verein hat
+ * zu Recht noch null Mitglieder — das darf das Auswahl-Modal nicht erneut
+ * auslösen.
+ */
+const EINGERICHTET_KEY = 'vm_verein_eingerichtet';
+
+function markiereAlsEingerichtet(): void {
+  try {
+    localStorage.setItem(EINGERICHTET_KEY, 'true');
+  } catch (err) {
+    console.warn('[StorageService] Konnte "eingerichtet"-Merkmal nicht speichern:', err);
+  }
+}
 
 const LIVE_DB_NAME = 'VereinsManager_LiveDB_v1';
 const DEMO_DB_NAME = 'VereinsManager_DemoDB_v1';
@@ -200,9 +219,7 @@ const DEFAULT_APPLICATION_SETTINGS: ApplicationTemplateSettings = {
     youth: 10.0,
     family: 30.0,
     supporting: 25.0
-  },
-  requirePhotoConsent: true,
-  requireHealthConfirmation: true
+  }
 };
 
 const SAMPLE_SIG_PNG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60" viewBox="0 0 200 60"><path d="M 20 40 Q 50 10, 80 35 T 140 30 T 180 35" fill="none" stroke="%230f172a" stroke-width="3" stroke-linecap="round"/></svg>';
@@ -251,8 +268,6 @@ const INITIAL_APPLICATIONS: OnlineMembershipApplication[] = [
     },
     dataPrivacyConsent: true,
     statuteConsent: true,
-    photoConsent: true,
-    healthConfirmation: true,
     applicantSignature: SAMPLE_SIG_PNG,
     applicantSignatureDate: '2026-03-01T14:18:00.000Z',
     guardianSignature: SAMPLE_SIG_PNG,
@@ -297,8 +312,6 @@ const INITIAL_APPLICATIONS: OnlineMembershipApplication[] = [
     },
     dataPrivacyConsent: true,
     statuteConsent: true,
-    photoConsent: true,
-    healthConfirmation: true,
     applicantSignature: SAMPLE_SIG_PNG,
     applicantSignatureDate: '2026-02-28T09:44:00.000Z',
     sepaSignature: SAMPLE_SIG_PNG,
@@ -1234,69 +1247,9 @@ export const StorageService = {
           }
         }
 
-        // 2. Nur initialisieren, wenn Konten wirklich leer sind
-        const existingAccounts = await getAllFromStore<FinancialAccount>(STORES.ACCOUNTS);
-        if (existingAccounts.length === 0) {
-          const starterAccounts: FinancialAccount[] = [
-            {
-              id: 'acc-main',
-              name: 'Girokonto (Hauptkonto)',
-              accountType: 'bank',
-              iban: '',
-              bic: '',
-              initialBalance: 0.00,
-              color: 'emerald',
-              description: 'Hauptkonto für Beitrags- und Rechnungswesen',
-              createdAt: new Date().toISOString()
-            },
-            {
-              id: 'acc-cash',
-              name: 'Vereinskasse (Bargeld)',
-              accountType: 'cash',
-              initialBalance: 0.00,
-              color: 'amber',
-              description: 'Handkasse für Veranstaltungen und Barbelege',
-              createdAt: new Date().toISOString()
-            }
-          ];
-          await saveAllToStore(STORES.ACCOUNTS, starterAccounts);
-        }
-
-        // 3. Ordner-Struktur für Dokumente nur bei Bedarf anlegen
-        const existingFolders = await getAllFromStore<DocumentFolder>(STORES.FOLDERS);
-        if (existingFolders.length === 0) {
-          await saveAllToStore(STORES.FOLDERS, getInitialFolders());
-        }
-
-        // 4. Kalender-Kategorien nur anlegen falls leer
-        const existingCategories = await getAllFromStore<CalendarEventCategory>(STORES.CALENDAR_CATEGORIES);
-        if (existingCategories.length === 0) {
-          await saveAllToStore(STORES.CALENDAR_CATEGORIES, DEFAULT_CALENDAR_CATEGORIES);
-        }
-
-        // 5. Vereinsstammdaten nur initialisieren, falls keine vorhanden sind
-        const currentSettings = await getItemFromStore<ClubSettings>(STORES.SETTINGS, 'main');
-        if (!currentSettings) {
-          await putItemToStore(STORES.SETTINGS, {
-            id: 'main',
-            clubName: 'Mein Sportverein e.V.',
-            associationNumber: '',
-            taxNumber: '',
-            taxOffice: '',
-            taxExemptionDate: '',
-            taxAssessmentPeriod: '',
-            promotedPurposes: 'Förderung des Sports',
-            creditorId: '',
-            creditorIban: '',
-            creditorBic: '',
-            creditorAccountId: 'acc-main',
-            address: '',
-            chairman: '',
-            treasurer: '',
-            email: '',
-            departments: DEFAULT_DEPARTMENTS
-          });
-        }
+        // 2.–5. Grundausstattung (Konten, Ordner, Kategorien, Stammdaten) nur dort
+        // anlegen, wo noch nichts vorhanden ist
+        await this.legeGrundausstattungAn();
 
         // SICHERHEIT: Bestehende Daten in STORES.MEMBERS, TRANSACTIONS, CONTACTS, INVOICES,
         // MEETINGS, INVENTORY, DOCUMENTS, DONATIONS usw. werden NIEMALS mit [] überschrieben!
@@ -1312,6 +1265,79 @@ export const StorageService = {
       } catch (err) {
         console.warn('Initialisierung Live-DB:', err);
       }
+    }
+  },
+
+  /**
+   * Legt die leere Grundausstattung eines Vereins an: zwei Starter-Konten,
+   * die Dokumentenordner, die Kalender-Kategorien und neutrale Stammdaten.
+   * Jeder Bereich wird nur angelegt, wenn er noch leer ist — Vorhandenes
+   * bleibt unangetastet. Wird beim Start und nach "Alle lokalen Daten
+   * löschen" aufgerufen.
+   */
+  async legeGrundausstattungAn(): Promise<void> {
+    // 2. Nur initialisieren, wenn Konten wirklich leer sind
+    const existingAccounts = await getAllFromStore<FinancialAccount>(STORES.ACCOUNTS);
+    if (existingAccounts.length === 0) {
+      const starterAccounts: FinancialAccount[] = [
+        {
+          id: 'acc-main',
+          name: 'Girokonto (Hauptkonto)',
+          accountType: 'bank',
+          iban: '',
+          bic: '',
+          initialBalance: 0.00,
+          color: 'emerald',
+          description: 'Hauptkonto für Beitrags- und Rechnungswesen',
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: 'acc-cash',
+          name: 'Vereinskasse (Bargeld)',
+          accountType: 'cash',
+          initialBalance: 0.00,
+          color: 'amber',
+          description: 'Handkasse für Veranstaltungen und Barbelege',
+          createdAt: new Date().toISOString()
+        }
+      ];
+      await saveAllToStore(STORES.ACCOUNTS, starterAccounts);
+    }
+
+    // 3. Ordner-Struktur für Dokumente nur bei Bedarf anlegen
+    const existingFolders = await getAllFromStore<DocumentFolder>(STORES.FOLDERS);
+    if (existingFolders.length === 0) {
+      await saveAllToStore(STORES.FOLDERS, getInitialFolders());
+    }
+
+    // 4. Kalender-Kategorien nur anlegen falls leer
+    const existingCategories = await getAllFromStore<CalendarEventCategory>(STORES.CALENDAR_CATEGORIES);
+    if (existingCategories.length === 0) {
+      await saveAllToStore(STORES.CALENDAR_CATEGORIES, DEFAULT_CALENDAR_CATEGORIES);
+    }
+
+    // 5. Vereinsstammdaten nur initialisieren, falls keine vorhanden sind
+    const currentSettings = await getItemFromStore<ClubSettings>(STORES.SETTINGS, 'main');
+    if (!currentSettings) {
+      await putItemToStore(STORES.SETTINGS, {
+        id: 'main',
+        clubName: 'Mein Sportverein e.V.',
+        associationNumber: '',
+        taxNumber: '',
+        taxOffice: '',
+        taxExemptionDate: '',
+        taxAssessmentPeriod: '',
+        promotedPurposes: 'Förderung des Sports',
+        creditorId: '',
+        creditorIban: '',
+        creditorBic: '',
+        creditorAccountId: 'acc-main',
+        address: '',
+        chairman: '',
+        treasurer: '',
+        email: '',
+        departments: DEFAULT_DEPARTMENTS
+      });
     }
   },
 
@@ -1348,6 +1374,36 @@ export const StorageService = {
       departments: current?.departments?.length ? current.departments : DEFAULT_DEPARTMENTS
     };
     await this.saveSettings(updated);
+    markiereAlsEingerichtet();
+  },
+
+  /**
+   * Braucht dieses Gerät noch die Ersteinrichtung (neuer Verein oder Import)?
+   *
+   * Rückwärts-kompatibel: Eine Installation von vor diesem Merkmal hat das
+   * `EINGERICHTET_KEY`-Merkmal noch nicht gesetzt, obwohl längst echte Daten
+   * vorliegen. Darum zählt hilfsweise auch, ob schon Mitglieder oder
+   * Buchungen vorhanden sind — und holt das Merkmal in dem Fall gleich nach,
+   * damit die nächste Prüfung wieder den schnellen, klaren Weg nimmt.
+   */
+  async brauchtEinrichtung(): Promise<boolean> {
+    if (isDemoModeActive()) return false;
+    try {
+      if (localStorage.getItem(EINGERICHTET_KEY) === 'true') return false;
+    } catch {
+      // ohne localStorage im Zweifel weiter unten über die Daten prüfen
+    }
+
+    const [members, transactions] = await Promise.all([
+      getAllFromStore<Member>(STORES.MEMBERS),
+      getAllFromStore<Transaction>(STORES.TRANSACTIONS)
+    ]);
+
+    if (members.length > 0 || transactions.length > 0) {
+      markiereAlsEingerichtet();
+      return false;
+    }
+    return true;
   },
 
   // Members
@@ -2827,6 +2883,7 @@ export const StorageService = {
       lastName: app.lastName,
       gender: app.gender,
       birthDate: app.birthDate,
+      nationality: app.nationality,
       address: app.address,
       phone: app.phone,
       email: app.email,
@@ -2850,6 +2907,11 @@ export const StorageService = {
         .filter(Boolean)
         .join(' | ') || `Digitaler Aufnahmeantrag ${app.applicationNumber}`,
       dataPrivacyConsent: app.dataPrivacyConsent,
+      isMinor: app.isMinor,
+      guardianName: app.isMinor ? app.guardianName : undefined,
+      guardianRelation: app.isMinor ? app.guardianRelation : undefined,
+      guardianPhone: app.isMinor ? app.guardianPhone : undefined,
+      guardianEmail: app.isMinor ? app.guardianEmail : undefined,
       createdAt: now,
       updatedAt: now
     };
@@ -3000,9 +3062,6 @@ export const StorageService = {
       getAllFromStore<MemberInventoryAssignment>(STORES.MEMBER_INVENTORY)
     ]);
 
-    const users = AuthService.getUsers();
-    const securitySettings = AuthService.getSecuritySettings();
-
     // Der Typ SicherungsDaten verlangt jeden Bereich aus SICHERUNGS_BEREICHE.
     // Wer künftig einen Datenbereich hinzufügt und ihn hier vergisst, bekommt
     // beim `npm run check` einen Fehler — statt eine unvollständige Sicherung.
@@ -3027,9 +3086,7 @@ export const StorageService = {
       calendarCategories,
       onlineApplications,
       applicationSettings,
-      settings,
-      users,
-      securitySettings
+      settings
     };
 
     const backup = {
@@ -3094,9 +3151,7 @@ export const StorageService = {
     meetingsCount: number;
     invoicesCount: number;
     contactsCount: number;
-    usersCount: number;
     clubName?: string;
-    restoredUsers: AppUser[];
     /** Wurde die Sicherheitskopie angelegt? */
     sicherheitskopie: boolean;
     art: ImportArt;
@@ -3108,8 +3163,6 @@ export const StorageService = {
     // Bereiche werden unten einzeln mit Vorgabewerten entpackt; deshalb hier
     // bewusst eine offene Form statt eines vorgetäuschten Typs.
     const data = daten as Record<string, any>;
-    const parsed = JSON.parse(jsonString);
-
     // Sicherheitskopie des jetzigen Bestands, bevor irgendetwas überschrieben
     // wird. Schlägt sie fehl, läuft der Import trotzdem weiter — das Ergebnis
     // sagt es aber, damit die Oberfläche darauf hinweisen kann.
@@ -3153,9 +3206,7 @@ export const StorageService = {
         calendarCategories = [],
         onlineApplications = [],
         applicationSettings,
-        settings,
-        users = [],
-        securitySettings
+        settings
       } = data;
 
       // By default target the Live DB so that restored data is available for real usage
@@ -3238,30 +3289,32 @@ export const StorageService = {
         const { bereinigt: settingsBereinigt } = ohneVeralteteSmtpFelder(
           settings as Record<string, unknown>
         );
-        await uebernehmeEinzelstueck(STORES.SETTINGS, 'main', settingsBereinigt);
+        if (art === 'ergaenzen') {
+          // Feldweise: Muster-Stammdaten eines frischen Geräts dürfen die
+          // echten Angaben aus der Datei nicht verdrängen.
+          const vorhandene = await getItemFromStore<Record<string, unknown>>(
+            STORES.SETTINGS,
+            'main',
+            dbTarget
+          );
+          const zusammen = ergaenzeStammdaten(
+            settingsBereinigt as Record<string, unknown>,
+            vorhandene,
+            DEFAULT_SETTINGS as unknown as Record<string, unknown>
+          );
+          if (zusammen) await putItemToStore(STORES.SETTINGS, { ...zusammen, id: 'main' }, dbTarget);
+        } else {
+          await uebernehmeEinzelstueck(STORES.SETTINGS, 'main', settingsBereinigt);
+        }
       }
 
-      // Restore Users & Security Settings
-      let usersCount = 0;
-      const ausDateiUsers: AppUser[] = Array.isArray(users) && users.length > 0
-        ? users
-        : (Array.isArray(parsed.users) && parsed.users.length > 0 ? parsed.users : []);
-
-      // Beim Ergänzen bleiben die hier vorhandenen Konten unverändert; aus der
-      // Datei kommen nur solche hinzu, deren Kennung UND Anmeldename hier noch
-      // nicht vergeben sind. Zwei Konten mit demselben Anmeldenamen wären bei
-      // der Anmeldung nicht mehr auseinanderzuhalten.
-      const resolvedUsers: AppUser[] =
-        art === 'ergaenzen' ? ergaenzeBenutzer(ausDateiUsers, AuthService.getUsers()) : ausDateiUsers;
-
-      if (resolvedUsers.length > 0) {
-        AuthService.saveUsers(resolvedUsers);
-        usersCount = resolvedUsers.length;
-      }
-
-      const resolvedSecurity = securitySettings || parsed.securitySettings;
-      if (resolvedSecurity && art === 'ersetzen') {
-        AuthService.saveSecuritySettings(resolvedSecurity);
+      // Das Gerätepasswort reist bewusst nicht mit einer Sicherung mit (siehe
+      // EINGERICHTET_KEY oben) — es sperrt dieses eine Gerät, nicht die
+      // importierten Vereinsdaten. Eine alte Sicherung kann noch `users`/
+      // `securitySettings`-Felder enthalten; die werden hier schlicht nicht
+      // mehr gelesen.
+      if (targetEnv === 'live') {
+        markiereAlsEingerichtet();
       }
 
       return {
@@ -3274,9 +3327,7 @@ export const StorageService = {
         meetingsCount: meetings.length,
         invoicesCount: invoices.length,
         contactsCount: contacts.length,
-        usersCount,
         clubName: settings?.clubName,
-        restoredUsers: resolvedUsers,
         sicherheitskopie,
         art
       };
@@ -3302,46 +3353,78 @@ export const StorageService = {
     return config;
   },
 
-  async resetToDemoData(): Promise<void> {
-    await saveAllToStore(STORES.ACCOUNTS, INITIAL_ACCOUNTS);
-    await saveAllToStore(STORES.MEMBERS, INITIAL_MEMBERS);
-    await saveAllToStore(STORES.TRANSACTIONS, INITIAL_TRANSACTIONS);
-    await saveAllToStore(STORES.AUDIT_LOGS, INITIAL_AUDIT_LOGS);
-    await saveAllToStore(STORES.INVENTORY, INITIAL_INVENTORY);
-    await saveAllToStore(STORES.SEPA_RUNS, []);
-    await saveAllToStore(STORES.DOCUMENTS, getInitialDocuments());
-    await saveAllToStore(STORES.DONATIONS, INITIAL_DONATIONS);
-    await saveAllToStore(STORES.CONTACTS, INITIAL_CONTACTS);
-    await saveAllToStore(STORES.INVOICES, INITIAL_INVOICES);
-    await putItemToStore(STORES.INVOICE_TEMPLATES, { id: 'main_template', ...DEFAULT_INVOICE_TEMPLATE });
-    await saveAllToStore(STORES.MEETINGS, INITIAL_MEETINGS);
-    await putItemToStore(STORES.MEETING_TEMPLATES, { id: 'main_template', ...DEFAULT_MEETING_TEMPLATE });
-    await putItemToStore(STORES.DASHBOARD_CONFIG, { id: 'main_dashboard', ...DEFAULT_DASHBOARD_CONFIG });
-    await saveAllToStore(STORES.CALENDAR_CATEGORIES, DEFAULT_CALENDAR_CATEGORIES);
-    await saveAllToStore(STORES.CALENDAR_EVENTS, INITIAL_CALENDAR_EVENTS);
-    await saveAllToStore(STORES.ONLINE_APPLICATIONS, INITIAL_APPLICATIONS);
-    await putItemToStore(STORES.APPLICATION_SETTINGS, { id: 'main', ...DEFAULT_APPLICATION_SETTINGS });
-    await putItemToStore(STORES.SETTINGS, { id: 'main', ...DEFAULT_SETTINGS });
-    await this.syncReceiptsToDocuments();
-    await this.syncDonationsToDocuments();
+  async clearAllData(): Promise<void> {
+    // Beim Leeren darf kein neuer Snapshot entstehen: Jeder Schreibvorgang
+    // unten würde sonst die 4-Sekunden-Uhr der automatischen Snapshots
+    // anstoßen, und der Snapshot käme erst NACH dem Löschen der alten. Eine
+    // schon laufende Uhr wird deshalb verworfen. (Dieselbe Sperre nutzt der
+    // Import einer Sicherung.)
+    if (snapshotTimer) {
+      clearTimeout(snapshotTimer);
+      snapshotTimer = null;
+    }
+    const sperreVorher = isImportingBackup;
+    isImportingBackup = true;
+    try {
+      await this.leereAlleBereiche();
+      // Auch die automatischen Sicherheitskopien (Snapshots) gehören zu "alle
+      // Daten": Sie enthalten den vollständigen Bestand, und die Altdaten-
+      // Prüfung beim nächsten Start würde die Daten sonst aus ihnen
+      // wiederherstellen.
+      const { SnapshotService } = await import('./snapshotService');
+      await SnapshotService.deleteAllSnapshots();
+    } finally {
+      isImportingBackup = sperreVorher;
+      if (snapshotTimer) {
+        clearTimeout(snapshotTimer);
+        snapshotTimer = null;
+      }
+    }
   },
 
-  async clearAllData(): Promise<void> {
-    await saveAllToStore(STORES.ACCOUNTS, []);
-    await saveAllToStore(STORES.MEMBERS, []);
-    await saveAllToStore(STORES.TRANSACTIONS, []);
-    await saveAllToStore(STORES.AUDIT_LOGS, []);
-    await saveAllToStore(STORES.INVENTORY, []);
-    await saveAllToStore(STORES.SEPA_RUNS, []);
-    await saveAllToStore(STORES.DOCUMENTS, []);
-    await saveAllToStore(STORES.DONATIONS, []);
-    await saveAllToStore(STORES.CONTACTS, []);
-    await saveAllToStore(STORES.INVOICES, []);
-    await saveAllToStore(STORES.MEETINGS, []);
-    await putItemToStore(STORES.DASHBOARD_CONFIG, { id: 'main_dashboard', ...DEFAULT_DASHBOARD_CONFIG });
-    await saveAllToStore(STORES.CALENDAR_CATEGORIES, DEFAULT_CALENDAR_CATEGORIES);
-    await saveAllToStore(STORES.CALENDAR_EVENTS, []);
-    await saveAllToStore(STORES.ONLINE_APPLICATIONS, []);
+  /**
+   * Leert ALLE Datenbereiche und die zugehörigen Reste im localStorage
+   * (Teil von `clearAllData`) und legt danach die leere Grundausstattung an.
+   *
+   * Die Schleife läuft über `STORES` statt über eine handgeschriebene Liste:
+   * Die alte Liste hatte Ordner, Vorlagen, Inventar-Ausgaben und die
+   * Vereinsstammdaten vergessen — "Alle lokalen Daten löschen" ließ sie
+   * stehen. Ein neu hinzukommender Datenbereich wird so automatisch mit
+   * geleert.
+   *
+   * Nicht gelöscht wird, was zum Gerät und nicht zum Verein gehört: das
+   * Gerätepasswort, die Farbwahl und die Einstellung zur automatischen
+   * Sperre.
+   */
+  async leereAlleBereiche(): Promise<void> {
+    const bereiche = Object.values(STORES);
+    for (const bereich of bereiche) {
+      await saveAllToStore(bereich, []);
+    }
+
+    try {
+      const prefix = getStorePrefix();
+      for (const bereich of bereiche) {
+        localStorage.removeItem(`${prefix}${bereich}`);
+      }
+      // Reste, die zum Verein gehören und außerhalb der Datenbank liegen.
+      // EINGERICHTET_KEY: Ohne das Zurücksetzen würde das Gerät nach dem
+      // Löschen weiterhin als "eingerichtet" gelten — die nächste Anmeldung
+      // zeigte dann ein leeres Dashboard statt der Wahl zwischen "Neuen
+      // Verein anlegen" und "Daten importieren".
+      for (const schluessel of [
+        EINGERICHTET_KEY,
+        'vm_accounts_order',
+        'vm_custom_skr42_accounts',
+        'vm_last_snapshot_meta'
+      ]) {
+        localStorage.removeItem(schluessel);
+      }
+    } catch (err) {
+      console.warn('[StorageService] Konnte Reste im localStorage nicht entfernen:', err);
+    }
+
+    await this.legeGrundausstattungAn();
   }
 };
 
