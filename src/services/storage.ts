@@ -40,6 +40,7 @@ import { getMembershipApplicationPdfDataUrl } from './membershipPdfService';
 import { AuthService } from './authService';
 import {
   STORES,
+  SICHERUNGS_BEREICHE,
   SicherungsDaten,
   SicherungsKopf,
   BereichsVergleich,
@@ -1061,6 +1062,81 @@ async function saveAllToStore<T extends { id: string }>(storeName: string, items
     }
     if (items.length > 0 && !isImportingBackup) triggerAutoSnapshot();
   }
+}
+
+/**
+ * Schreibt eine ganze Liste in einen Datenbereich — und sagt es laut, wenn das
+ * nicht klappt.
+ *
+ * Anders als `saveAllToStore` gibt es hier KEINEN stillen Ausweg in den
+ * localStorage. Der fasst nur 5 MB und nimmt in `saveAllToStore` ohnehin nur
+ * Listen bis 25 Einträge: Kleine Bereiche (Kontakte) erschienen nach einem
+ * missglückten Einspielen deshalb scheinbar korrekt, große (Mitglieder,
+ * Buchungen, Dokumente) verschwanden spurlos. Für das Einspielen einer
+ * Datensicherung ist das nicht hinnehmbar.
+ *
+ * Nach dem Schreiben wird nachgezählt: Es muss genau so viele Einträge geben,
+ * wie die Liste verschiedene Kennungen hat.
+ */
+async function schreibeListeStreng(
+  storeName: string,
+  items: { id: string }[],
+  dbNameOverride?: string
+): Promise<void> {
+  const ohneKennung = items.filter(
+    i => !i || typeof i !== 'object' || i.id === undefined || i.id === null || i.id === ''
+  ).length;
+  if (ohneKennung > 0) {
+    throw new Error(`${ohneKennung} Einträge ohne Kennung (id)`);
+  }
+
+  const db = await openDB(dbNameOverride);
+  if (!db.objectStoreNames.contains(storeName)) {
+    throw new Error('der Datenbereich fehlt in der Browser-Datenbank');
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Schreibfehler der Browser-Datenbank'));
+    tx.onabort = () => reject(tx.error || new Error('Schreibvorgang abgebrochen (vermutlich zu wenig Speicherplatz)'));
+    try {
+      const store = tx.objectStore(storeName);
+      store.clear();
+      items.forEach(item => store.put(item));
+    } catch (err) {
+      try {
+        tx.abort();
+      } catch {
+        // schon abgebrochen
+      }
+      reject(err);
+    }
+  });
+
+  const erwartet = new Set(items.map(i => i.id)).size;
+  const gespeichert = await new Promise<number>((resolve, reject) => {
+    const req = db.transaction(storeName, 'readonly').objectStore(storeName).count();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error('Nachzählen fehlgeschlagen'));
+  });
+  if (gespeichert !== erwartet) {
+    throw new Error(`nur ${gespeichert} von ${erwartet} Einträgen gespeichert`);
+  }
+}
+
+function beschreibeFehler(err: unknown): string {
+  if (err && typeof err === 'object') {
+    const e = err as { name?: string; message?: string };
+    const teile = [e.name, e.message].filter(Boolean);
+    if (teile.length > 0) return teile.join(': ');
+  }
+  return String(err ?? 'unbekannter Fehler');
+}
+
+function bezeichnungDesBereichs(storeName: string): string {
+  const treffer = Object.values(SICHERUNGS_BEREICHE).find(b => b.store === storeName);
+  return treffer ? treffer.bezeichnung : storeName;
 }
 
 async function getItemFromStore<T>(storeName: string, id: string, dbNameOverride?: string): Promise<T | null> {
@@ -3204,7 +3280,7 @@ export const StorageService = {
        * ausdrücklich leere Liste ist dagegen eine Aussage und wird beim
        * Ersetzen auch übernommen.
        */
-      const uebernehmeListe = async (
+      const uebernehmeListeOhneFangnetz = async (
         store: string,
         ausDatei: unknown,
         vorhandenErmitteln?: () => Promise<{ id: string }[]>
@@ -3217,11 +3293,28 @@ export const StorageService = {
           const vorhanden = vorhandenErmitteln
             ? await vorhandenErmitteln()
             : await getAllFromStore<{ id: string }>(store, dbTarget);
-          await saveAllToStore(store, ergaenzeListe(liste, vorhanden), dbTarget);
+          await schreibeListeStreng(store, ergaenzeListe(liste, vorhanden), dbTarget);
           return;
         }
 
-        await saveAllToStore(store, liste, dbTarget);
+        await schreibeListeStreng(store, liste, dbTarget);
+      };
+
+      // Fehler werden gesammelt statt sofort geworfen: Ein Bereich, der sich
+      // nicht schreiben lässt, soll die übrigen nicht mitreißen — und am Ende
+      // muss die Meldung ALLE betroffenen Bereiche nennen.
+      const fehlgeschlagen: string[] = [];
+      const uebernehmeListe = async (
+        store: string,
+        ausDatei: unknown,
+        vorhandenErmitteln?: () => Promise<{ id: string }[]>
+      ): Promise<void> => {
+        try {
+          await uebernehmeListeOhneFangnetz(store, ausDatei, vorhandenErmitteln);
+        } catch (err) {
+          console.error(`[importFullBackup] Bereich "${store}" konnte nicht gespeichert werden:`, err);
+          fehlgeschlagen.push(`${bezeichnungDesBereichs(store)} (${beschreibeFehler(err)})`);
+        }
       };
 
       /**
@@ -3296,6 +3389,15 @@ export const StorageService = {
       // importierten Vereinsdaten. Eine alte Sicherung kann noch `users`/
       // `securitySettings`-Felder enthalten; die werden hier schlicht nicht
       // mehr gelesen.
+      if (fehlgeschlagen.length > 0) {
+        throw new Error(
+          'Nicht alles konnte gespeichert werden: ' +
+            fehlgeschlagen.join('; ') +
+            '. Die übrigen Bereiche wurden eingespielt. Die Sicherheitskopie vor dem Einspielen ' +
+            'liegt unter Einstellungen → Datensicherung.'
+        );
+      }
+
       if (targetEnv === 'live') {
         markiereAlsEingerichtet();
       }

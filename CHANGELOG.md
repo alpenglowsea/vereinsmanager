@@ -13,6 +13,20 @@ E-Mail-Versand sind auch alle Funktionen entfernt, die nur für eine der
 beiden anderen Betriebsarten existierten. Vollständige Begründung und
 Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
 
+### Nachtrag nach dem ersten Test der Linux-Fassung — Einspielen meldet Fehler jetzt laut
+
+- Beim Einspielen einer Datensicherung (z. B. Linux-AppImage, frisches Gerät)
+  kamen Kontakte an, Mitglieder, Buchungen und Dokumente fehlten, ohne dass
+  eine Fehlermeldung erschien. Ursache der Stille: Der Speichercode wich bei
+  einem Fehler der Browser-Datenbank unbemerkt auf den kleinen
+  localStorage aus, der nur Listen bis 25 Einträge aufnimmt. Kleine Bereiche
+  sahen dadurch heil aus, große verschwanden.
+- Das Einspielen schreibt jetzt ohne diesen Ausweg, zählt jeden Bereich nach
+  dem Schreiben nach und nennt am Ende alle Bereiche, die nicht gespeichert
+  werden konnten, samt der Fehlerursache.
+- **Die eigentliche Ursache des Fehlers auf dem Linux-Gerät ist damit noch
+  nicht behoben**, sondern wird erst durch die neue Meldung sichtbar.
+
 ### Release 1.1.0 — Version, Pakete, Update-Prüfung
 
 - Versionsnummer auf 1.1.0 (`package.json`, `package-lock.json`, `tauri.conf.json`, `Cargo.toml`).
