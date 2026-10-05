@@ -29,10 +29,8 @@ import {
   Trash2,
   BookOpen,
   Eye,
-  X,
-  Lock
+  X
 } from 'lucide-react';
-import { lockClass, lockTitle } from '../utils/uiLock';
 import { LoadingState } from './LoadingState';
 
 interface SepaRunViewProps {
@@ -41,10 +39,6 @@ interface SepaRunViewProps {
   accounts: FinancialAccount[];
   onOpenSettings: () => void;
   onRefreshData?: () => void;
-  /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
-  canEdit?: boolean;
-  /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
-  onLocked?: () => void;
 }
 
 export const SepaRunView: React.FC<SepaRunViewProps> = ({
@@ -53,8 +47,6 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
   accounts,
   onOpenSettings,
   onRefreshData,
-  canEdit = true,
-  onLocked
 }) => {
   const [activeTab, setActiveTab] = useState<'create' | 'history'>('create');
 
@@ -258,7 +250,6 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
 
   // Generate XML and trigger download
   const handleGenerateAndDownloadXml = async () => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     const validItems = items.filter(i => i.selected && i.isValid);
     if (validItems.length === 0) {
       alert('Keine gültigen Lastschriftposten ausgewählt.');
@@ -335,7 +326,6 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
 
   // Book SEPA run to Accounting
   const handleBookToLedger = async (run: SepaRunHistory) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (!selectedTargetAccountId) {
       alert('Bitte wählen Sie ein Vereinskonto für die Gutschrift aus.');
       return;
@@ -372,7 +362,6 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
   };
 
   const handleDeleteHistoryRun = async (id: string) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (window.confirm('Diesen archivierten Beitragslauf aus der Historie entfernen?')) {
       await StorageService.deleteSepaRun(id);
       await loadHistory();
@@ -381,15 +370,6 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150 relative pb-16">
-      {/* Hinweis auf reines Leserecht */}
-      {!canEdit && (
-        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5">
-          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
-          <p className="text-xs leading-snug">
-            <strong>Nur Leserecht.</strong> Sie können den Beitragslauf und das Lastschrift-Archiv einsehen. Lastschriftdatei erzeugen, ins Kassenbuch übernehmen und Läufe löschen sind für Ihre Rolle gesperrt — die betreffenden Knöpfe sind ausgegraut.
-          </p>
-        </div>
-      )}
 
       {/* Toast Notification */}
       {successToast && (
@@ -808,8 +788,8 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                   type="button"
                   onClick={handleGenerateAndDownloadXml}
                   disabled={stats.validSelectedCount === 0 || !isCreditorConfigured}
-                  className={`flex-1 bg-white hover:bg-blue-50 text-blue-900 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed${lockClass(canEdit)}`}
-                  title={lockTitle(canEdit, 'SEPA-Lastschriftdatei erzeugen und herunterladen')}
+                  className="flex-1 bg-white hover:bg-blue-50 text-blue-900 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="SEPA-Lastschriftdatei erzeugen und herunterladen"
                 >
                   <Download className="w-4 h-4 text-blue-600" />
                   <span>XML herunterladen</span>
@@ -1169,8 +1149,8 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                               type="button"
                               onClick={() => handleBookToLedger(run)}
                               disabled={isBookingRunning}
-                              className={`px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors shadow-2xs flex items-center gap-1.5${lockClass(canEdit)}`}
-                              title={lockTitle(canEdit, 'Lastschriften als Einnahmen ins Kassenbuch übernehmen')}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors shadow-2xs flex items-center gap-1.5"
+                              title="Lastschriften als Einnahmen ins Kassenbuch übernehmen"
                             >
                               <BookOpen className="w-3.5 h-3.5" />
                               <span>Verbuchen</span>
@@ -1182,8 +1162,8 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDeleteHistoryRun(run.id)}
-                          className={`p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors${lockClass(canEdit)}`}
-                          title={lockTitle(canEdit, 'Aus Historie löschen')}
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Aus Historie löschen"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

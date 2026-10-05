@@ -128,11 +128,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       .sort((a, b) => a.order - b.order);
   }, [dashboardConfig]);
 
-  // Es gibt keine Bereichsrechte mehr — einmal angemeldet, darf überall
-  // angelegt werden. Die Funktion bleibt als einfacher Platzhalter stehen,
-  // damit die Aufrufe weiter unten unverändert bleiben können.
-  const mayEdit = (_area?: string): boolean => true;
-
   const hasClubHeader = useMemo(() => {
     return enabledWidgets.some((w) => w.id === 'club_header');
   }, [enabledWidgets]);
@@ -226,13 +221,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       case 'quick_actions':
         return (
           <QuickActionsWidget
-            onOpenCreateMember={mayEdit('members') ? onOpenCreateMember : undefined}
-            onOpenCreateTx={mayEdit('finance') ? onOpenCreateTx : undefined}
-            onOpenCreateInvoice={mayEdit('invoices') ? onOpenCreateInvoice : undefined}
-            onOpenCreateContact={mayEdit('contacts') ? onOpenCreateContact : undefined}
-            onOpenCreateEvent={mayEdit('calendar') ? onOpenCreateEvent : undefined}
-            onOpenCreateInventory={mayEdit('inventory') ? onOpenCreateInventory : undefined}
-            onOpenNewDocument={mayEdit('documents') ? onOpenNewDocument : undefined}
+            onOpenCreateMember={onOpenCreateMember}
+            onOpenCreateTx={onOpenCreateTx}
+            onOpenCreateInvoice={onOpenCreateInvoice}
+            onOpenCreateContact={onOpenCreateContact}
+            onOpenCreateEvent={onOpenCreateEvent}
+            onOpenCreateInventory={onOpenCreateInventory}
+            onOpenNewDocument={onOpenNewDocument}
           />
         );
       case 'club_header':
@@ -270,7 +265,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <InvoicesOverviewWidget
             invoices={invoices}
             onNavigate={onNavigate}
-            onOpenCreateInvoice={mayEdit('invoices') ? onOpenCreateInvoice : undefined}
+            onOpenCreateInvoice={onOpenCreateInvoice}
           />
         );
       case 'invoices_kpi':
@@ -280,7 +275,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <ContactsSummaryWidget
             contacts={contacts}
             onNavigate={onNavigate}
-            onOpenCreateContact={mayEdit('contacts') ? onOpenCreateContact : undefined}
+            onOpenCreateContact={onOpenCreateContact}
           />
         );
       case 'contacts_kpi':
@@ -290,7 +285,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <MeetingsSummaryWidget
             meetings={meetings}
             onNavigate={onNavigate}
-            onOpenCreateMeeting={mayEdit('meetings') ? onOpenCreateMeeting : undefined}
+            onOpenCreateMeeting={onOpenCreateMeeting}
           />
         );
       case 'meetings_kpi':
@@ -299,7 +294,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         return (
           <UpcomingEventsWidget
             onNavigate={onNavigate}
-            onOpenCreateEvent={mayEdit('calendar') ? onOpenCreateEvent : undefined}
+            onOpenCreateEvent={onOpenCreateEvent}
             refreshKey={calendarRefreshKey}
           />
         );

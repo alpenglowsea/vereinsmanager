@@ -1230,24 +1230,7 @@ export const StorageService = {
     } else {
       // LIVE Mode Initialization with STRICT ZERO-DATA-LOSS GUARANTEE
       try {
-        // 1. Altdaten-Prüfung: Falls die aktuelle Live-DB leer ist (z.B. nach einem App-Update),
-        // führen wir automatisch einen Notfall-Scan über ältere Datenbanken und LocalStorage aus.
-        const currentMembers = await getAllFromStore<Member>(STORES.MEMBERS);
-        const currentTx = await getAllFromStore<Transaction>(STORES.TRANSACTIONS);
-
-        if (currentMembers.length === 0 && currentTx.length === 0) {
-          try {
-            const { SnapshotService } = await import('./snapshotService');
-            const recovery = await SnapshotService.scanAndRecoverLegacyData();
-            if (recovery.recovered) {
-              console.info(`[StorageService] Altdaten nach Update erfolgreich wiederhergestellt: ${recovery.details}`);
-            }
-          } catch (scanErr) {
-            console.warn('[StorageService] Altdaten-Scan nicht verfügbar:', scanErr);
-          }
-        }
-
-        // 2.–5. Grundausstattung (Konten, Ordner, Kategorien, Stammdaten) nur dort
+        // Grundausstattung (Konten, Ordner, Kategorien, Stammdaten) nur dort
         // anlegen, wo noch nichts vorhanden ist
         await this.legeGrundausstattungAn();
 
@@ -3368,9 +3351,7 @@ export const StorageService = {
     try {
       await this.leereAlleBereiche();
       // Auch die automatischen Sicherheitskopien (Snapshots) gehören zu "alle
-      // Daten": Sie enthalten den vollständigen Bestand, und die Altdaten-
-      // Prüfung beim nächsten Start würde die Daten sonst aus ihnen
-      // wiederherstellen.
+      // Daten": Sie enthalten den vollständigen Bestand.
       const { SnapshotService } = await import('./snapshotService');
       await SnapshotService.deleteAllSnapshots();
     } finally {

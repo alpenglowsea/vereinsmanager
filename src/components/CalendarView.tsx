@@ -38,36 +38,23 @@ import {
   Trash2,
   Compass,
   X,
-  Sparkles,
-  Lock
+  Sparkles
 } from 'lucide-react';
-import { lockClass, lockTitle } from '../utils/uiLock';
 import { LoadingState } from './LoadingState';
 
 interface CalendarViewProps {
   members: Member[];
   settings: ClubSettings;
-  /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
-  canEdit?: boolean;
-  /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
-  onLocked?: () => void;
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
   members,
   settings,
-  canEdit = true,
-  onLocked
 }) => {
   /**
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
-  const guard = (action: () => void) => () => {
-    if (canEdit) action();
-    else if (onLocked) onLocked();
-  };
-
   // Calendar Events & Categories State
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [categories, setCategories] = useState<CalendarEventCategory[]>([]);
@@ -306,13 +293,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   // CRUD Event handlers
   const handleSaveEvent = async (eventToSave: CalendarEvent) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     await StorageService.saveCalendarEvent(eventToSave);
     await loadCalendarData();
   };
 
   const handleDeleteEvent = async (id: string) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     await StorageService.deleteCalendarEvent(id);
     if (selectedDetailEvent?.id === id) {
       setSelectedDetailEvent(null);
@@ -321,32 +306,27 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   };
 
   const handleSaveCategory = async (catToSave: CalendarEventCategory) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     await StorageService.saveCalendarCategory(catToSave);
     await loadCalendarData();
   };
 
   const handleDeleteCategory = async (id: string) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     await StorageService.deleteCalendarCategory(id);
     await loadCalendarData();
   };
 
   const handleImportSuccess = async (importedEvents: CalendarEvent[]) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     await StorageService.batchSaveCalendarEvents(importedEvents);
     await loadCalendarData();
   };
 
   const handleOpenAddEventModal = (dateStr?: string) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     setEditingEvent(null);
     setModalInitialDate(dateStr || CalendarService.formatDate(currentDate));
     setIsEventModalOpen(true);
   };
 
   const handleOpenEditEventModal = (event: CalendarEvent) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     setEditingEvent(event);
     setIsEventModalOpen(true);
   };
@@ -450,15 +430,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Hinweis auf reines Leserecht */}
-      {!canEdit && (
-        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5">
-          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
-          <p className="text-xs leading-snug">
-            <strong>Nur Leserecht.</strong> Sie können den Vereinskalender einsehen und exportieren. Termine anlegen, ändern und löschen sind für Ihre Rolle gesperrt — die betreffenden Knöpfe sind ausgegraut.
-          </p>
-        </div>
-      )}
 
       {/* Top Header & View Controls */}
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-5">
@@ -553,9 +524,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             {/* Actions: Categories, Import, Export, + Neuer Termin */}
             <button
               type="button"
-              onClick={guard(() => setIsCategoryModalOpen(true))}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-bold shadow-2xs hover:bg-slate-50 transition-colors${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'Terminarten und Farben verwalten')}
+              onClick={() => setIsCategoryModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-bold shadow-2xs hover:bg-slate-50 transition-colors"
+              title="Terminarten und Farben verwalten"
             >
               <Palette className="w-3.5 h-3.5 text-purple-600" />
               <span className="hidden sm:inline">Kategorien</span>
@@ -563,9 +534,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
             <button
               type="button"
-              onClick={guard(() => setIsImportModalOpen(true))}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-bold shadow-2xs hover:bg-slate-50 transition-colors${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'iCal oder CSV importieren')}
+              onClick={() => setIsImportModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-bold shadow-2xs hover:bg-slate-50 transition-colors"
+              title="iCal oder CSV importieren"
             >
               <Upload className="w-3.5 h-3.5 text-emerald-600" />
               <span className="hidden sm:inline">Import</span>
@@ -584,8 +555,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             <button
               type="button"
               onClick={() => handleOpenAddEventModal()}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition-all hover:scale-102${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'Neuen Termin anlegen')}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition-all hover:scale-102"
+              title="Neuen Termin anlegen"
             >
               <Plus className="w-4 h-4" />
               <span>Neuer Termin</span>
@@ -952,8 +923,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   <button
                     type="button"
                     onClick={() => handleOpenAddEventModal(d.dateStr)}
-                    className={`w-full h-24 border border-dashed border-slate-200 hover:border-blue-400 rounded-xl flex items-center justify-center text-slate-300 hover:text-blue-500 transition-colors${lockClass(canEdit)}`}
-                    title={lockTitle(canEdit, 'Termin anlegen')}
+                    className="w-full h-24 border border-dashed border-slate-200 hover:border-blue-400 rounded-xl flex items-center justify-center text-slate-300 hover:text-blue-500 transition-colors"
+                    title="Termin anlegen"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -1004,8 +975,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <button
                   type="button"
                   onClick={() => handleOpenAddEventModal(rangeStart)}
-                  className={`mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors${lockClass(canEdit)}`}
-                  title={lockTitle(canEdit, 'Termin anlegen')}
+                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
+                  title="Termin anlegen"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Termin für diesen Tag anlegen</span>
@@ -1086,8 +1057,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       <button
                         type="button"
                         onClick={() => handleOpenEditEventModal(e)}
-                        className={`p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors${lockClass(canEdit)}`}
-                        title={lockTitle(canEdit, 'Bearbeiten')}
+                        className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                        title="Bearbeiten"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -1095,8 +1066,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       <button
                         type="button"
                         onClick={() => handleDeleteEvent(e.id)}
-                        className={`p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition-colors${lockClass(canEdit)}`}
-                        title={lockTitle(canEdit, 'Löschen')}
+                        className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
+                        title="Löschen"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

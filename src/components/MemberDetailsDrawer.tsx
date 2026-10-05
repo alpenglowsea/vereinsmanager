@@ -30,7 +30,6 @@ import {
   FileText,
   Loader2
 } from 'lucide-react';
-import { lockClass, lockTitle } from '../utils/uiLock';
 
 interface MemberDetailsDrawerProps {
   member: Member | null;
@@ -42,10 +41,6 @@ interface MemberDetailsDrawerProps {
   onDelete?: (id: string) => void;
   onSaveMember?: (member: Member) => void;
   onClose: () => void;
-  /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
-  canEdit?: boolean;
-  /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
-  onLocked?: () => void;
 }
 
 export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
@@ -58,18 +53,11 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
   onDelete,
   onSaveMember,
   onClose,
-  canEdit = true,
-  onLocked
 }) => {
   /**
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
-  const guard = (action: () => void) => () => {
-    if (canEdit) action();
-    else if (onLocked) onLocked();
-  };
-
   const [tab, setTab] = useState<'details' | 'history' | 'inventory'>('details');
   const [copiedIban, setCopiedIban] = useState(false);
   const [logs, setLogs] = useState<MemberAuditLog[]>(auditLogs || []);
@@ -130,7 +118,6 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
   }, [inventory]);
 
   const handleSaveNewAssignment = async () => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (!member || !newAssignmentItem) return;
     const inv = inventoryList.find(i => i.id === newAssignmentItem);
     const parsedContrib = newHasContribution
@@ -164,13 +151,11 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
   };
 
   const handleUpdateAssignment = async (updated: MemberInventoryAssignment) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     await StorageService.saveMemberInventoryAssignment(updated);
     await loadAssignments();
   };
 
   const handleToggleReturn = async (item: MemberInventoryAssignment) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     const isNowReturned = item.status !== 'returned';
     const updated: MemberInventoryAssignment = {
       ...item,
@@ -182,7 +167,6 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
   };
 
   const handleDeleteAssignment = async (id: string) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (window.confirm('Gegenstand-Verknüpfung wirklich entfernen?')) {
       await StorageService.deleteMemberInventoryAssignment(id);
       await loadAssignments();
@@ -190,7 +174,6 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
   };
 
   const handleStartEdit = (a: MemberInventoryAssignment) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     setEditingAssignmentId(a.id);
     setEditItem(a.inventoryItemId);
     setEditQuantity(a.quantity);
@@ -201,7 +184,6 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
   };
 
   const handleSaveEdit = async () => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (!editingAssignmentId || !member) return;
     const existing = memberAssignments.find(a => a.id === editingAssignmentId);
     if (!existing) return;
@@ -341,7 +323,6 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
 
   // Avatar file upload handler with downscaling
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -392,7 +373,6 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
   };
 
   const handleRemovePhoto = (e: React.MouseEvent) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     e.stopPropagation();
     if (window.confirm('Profilbild entfernen?')) {
       const updatedMember: Member = {
@@ -461,9 +441,7 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
                   {/* Hover Overlay */}
                   <div className="absolute inset-0 bg-slate-900/60 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl text-[10px] font-semibold text-center p-1">
                     <Camera className="w-4 h-4 mb-0.5" />
-                    <span>
-                      {!canEdit ? 'Gesperrt' : member.avatarUrl ? 'Ändern' : 'Hochladen'}
-                    </span>
+                    <span>{member.avatarUrl ? 'Ändern' : 'Hochladen'}</span>
                   </div>
                 </div>
 
@@ -528,12 +506,12 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={guard(() => {
+                onClick={() => {
                   onClose();
                   onEdit(member);
-                })}
-                className={`p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors${lockClass(canEdit)}`}
-                title={lockTitle(canEdit, 'Mitglied bearbeiten')}
+                }}
+                className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                title="Mitglied bearbeiten"
               >
                 <Edit2 className="w-4 h-4" />
               </button>
@@ -541,14 +519,14 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
               {onDelete && (
                 <button
                   type="button"
-                  onClick={guard(() => {
+                  onClick={() => {
                     if (window.confirm(`Möchten Sie das Mitglied ${member.firstName} ${member.lastName} (${member.memberNumber}) wirklich unwiderruflich löschen?`)) {
                       onDelete(member.id);
                       onClose();
                     }
-                  })}
-                  className={`p-2 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors${lockClass(canEdit)}`}
-                  title={lockTitle(canEdit, 'Mitglied löschen')}
+                  }}
+                  className="p-2 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                  title="Mitglied löschen"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -948,14 +926,14 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
                   {!isAddingAssignment && (
                     <button
                       type="button"
-                      onClick={guard(() => {
+                      onClick={() => {
                         setIsAddingAssignment(true);
                         if (inventoryList.length > 0 && !newAssignmentItem) {
                           setNewAssignmentItem(inventoryList[0].id);
                         }
-                      })}
-                      className={`px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition-colors${lockClass(canEdit)}`}
-                      title={lockTitle(canEdit, 'Gegenstand mit diesem Mitglied verknüpfen')}
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition-colors"
+                      title="Gegenstand mit diesem Mitglied verknüpfen"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Gegenstand verknüpfen</span>
@@ -1366,12 +1344,12 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
             </button>
             <button
               type="button"
-              onClick={guard(() => {
+              onClick={() => {
                 onClose();
                 onEdit(member);
-              })}
-              className={`px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'Mitglied bearbeiten')}
+              }}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs"
+              title="Mitglied bearbeiten"
             >
               <Edit2 className="w-4 h-4" />
               Bearbeiten

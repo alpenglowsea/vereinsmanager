@@ -9,8 +9,7 @@ import {
   Settings,
   Download,
   Trash2,
-  PenTool,
-  Lock
+  PenTool
 } from 'lucide-react';
 import {
   OnlineMembershipApplication,
@@ -22,7 +21,6 @@ import { ApplicationReviewModal } from './ApplicationReviewModal';
 import { ApplicationTemplateModal } from './ApplicationTemplateModal';
 import { PublicApplicationForm } from './PublicApplicationForm';
 import { generateMembershipApplicationPdf } from '../services/membershipPdfService';
-import { lockClass, lockTitle } from '../utils/uiLock';
 
 interface OnlineApplicationsViewProps {
   applications: OnlineMembershipApplication[];
@@ -39,10 +37,6 @@ interface OnlineApplicationsViewProps {
   onSubmitNewApplication: (app: OnlineMembershipApplication) => Promise<void>;
   onSaveTemplateSettings: (updated: ApplicationTemplateSettings) => Promise<void>;
   currentUser?: string;
-  /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
-  canEdit?: boolean;
-  /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
-  onLocked?: () => void;
 }
 
 export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
@@ -56,18 +50,11 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
   onSubmitNewApplication,
   onSaveTemplateSettings,
   currentUser = 'Vorstand / Administrator',
-  canEdit = true,
-  onLocked
 }) => {
   /**
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
-  const guard = (action: () => void) => () => {
-    if (canEdit) action();
-    else if (onLocked) onLocked();
-  };
-
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
@@ -116,7 +103,6 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
   // Delete with confirm
   const handleDelete = async (appId: string, name: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (confirm(`Möchten Sie den Antrag von ${name} wirklich löschen?`)) {
       await onDeleteApplication(appId);
     }
@@ -124,15 +110,6 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Hinweis auf reines Leserecht */}
-      {!canEdit && (
-        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5">
-          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
-          <p className="text-xs leading-snug">
-            <strong>Nur Leserecht.</strong> Sie können eingegangene Anträge einsehen und als PDF herunterladen. Annehmen, Ablehnen und Löschen sind für Ihre Rolle gesperrt — die betreffenden Knöpfe sind ausgegraut.
-          </p>
-        </div>
-      )}
 
       {/* 1. Header & Actions Card */}
       <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-2xs">
@@ -158,9 +135,9 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={guard(() => setIsTemplateModalOpen(true))}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl border border-slate-300 shadow-2xs transition-colors cursor-pointer${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'PDF-Vorlage und Gebühren einstellen')}
+              onClick={() => setIsTemplateModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl border border-slate-300 shadow-2xs transition-colors cursor-pointer"
+              title="PDF-Vorlage und Gebühren einstellen"
             >
               <Settings className="w-4 h-4 text-slate-500" />
               <span>PDF-Vorlage & Gebühren</span>
@@ -448,8 +425,8 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
                         <button
                           type="button"
                           onClick={e => handleDelete(app.id, `${app.firstName} ${app.lastName}`, e)}
-                          className={`p-1.5 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 rounded-lg border border-slate-200 hover:border-rose-200 transition-colors${lockClass(canEdit)}`}
-                          title={lockTitle(canEdit, 'Antrag löschen')}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 rounded-lg border border-slate-200 hover:border-rose-200 transition-colors"
+                          title="Antrag löschen"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

@@ -1,4 +1,4 @@
-import { ContactType, ClubContact } from '../types';
+import { ContactType } from '../types';
 
 export interface ContactTypeMeta {
   id: ContactType;
@@ -98,22 +98,3 @@ export const CONTACT_TYPE_MAP = new Map<ContactType, ContactTypeMeta>(
   CONTACT_TYPES_LIST.map(t => [t.id, t])
 );
 
-export function getContactTypeMeta(type: ContactType): ContactTypeMeta {
-  return CONTACT_TYPE_MAP.get(type) || {
-    id: type,
-    label: type,
-    description: '',
-    badgeBg: 'bg-slate-100 dark:bg-slate-800',
-    badgeText: 'text-slate-700 dark:text-slate-300',
-    badgeBorder: 'border-slate-300 dark:border-slate-700',
-    accentColor: '#64748b'
-  };
-}
-
-export function computeContactDisplayName(c: Partial<ClubContact>): string {
-  if (c.personType === 'legal') {
-    return (c.companyName || '').trim() || 'Unbenannte Firma';
-  }
-  const parts = [c.salutation, c.firstName, c.lastName].filter(Boolean);
-  return parts.join(' ').trim() || 'Unbenannte Person';
-}

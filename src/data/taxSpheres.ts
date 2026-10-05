@@ -613,43 +613,6 @@ export const findSkr42MainForSub = (subNameOrCode: string): Skr42MainCategory | 
 };
 
 /**
- * Finds a specific SKR42 subcategory by code, label, or name
- */
-export const findSkr42SubCategory = (codeOrLabel: string): { sub: Skr42SubCategory; main: Skr42MainCategory } | undefined => {
-  if (!codeOrLabel) return undefined;
-  const clean = codeOrLabel.trim().toLowerCase();
-  const rawCode = codeOrLabel.trim();
-
-  // Check direct 5-digit search
-  for (const main of SKR42_STRUCTURE) {
-    for (const sub of main.subCategories) {
-      if (
-        sub.code === rawCode ||
-        sub.label.toLowerCase() === clean ||
-        sub.name.toLowerCase() === clean ||
-        clean.startsWith(sub.code)
-      ) {
-        return { sub, main };
-      }
-    }
-  }
-
-  // Check legacy 4-digit mapping
-  const mapped = LEGACY_CODE_MAP[rawCode];
-  if (mapped) {
-    for (const main of SKR42_STRUCTURE) {
-      for (const sub of main.subCategories) {
-        if (sub.code === mapped) {
-          return { sub, main };
-        }
-      }
-    }
-  }
-
-  return undefined;
-};
-
-/**
  * Flache Kategorie-Listen für einfache Dropdowns (z.B. Bankimport), die nur
  * nach Einnahme/Ausgabe unterscheiden. Bis Fassung 1.x hieß das
  * SPHERE_CATEGORIES und filterte zusätzlich nach Sphäre — entfallen aus dem

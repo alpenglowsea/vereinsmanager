@@ -19,8 +19,7 @@ import {
   BookOpen,
   Mail,
   PenTool,
-  X,
-  Lock
+  X
 } from 'lucide-react';
 import {
   Meeting,
@@ -35,7 +34,6 @@ import { MeetingFormModal } from './MeetingFormModal';
 import { MeetingTemplateModal } from './MeetingTemplateModal';
 import { MeetingSignatureModal } from './MeetingSignatureModal';
 import { MeetingEmailModal } from './MeetingEmailModal';
-import { lockClass, lockTitle } from '../utils/uiLock';
 
 interface MeetingsViewProps {
   meetings: Meeting[];
@@ -45,10 +43,6 @@ interface MeetingsViewProps {
   onSaveMeeting: (meeting: Meeting) => Promise<void>;
   onDeleteMeeting: (meetingId: string) => Promise<void>;
   onSaveTemplate: (settings: MeetingTemplateSettings) => Promise<void>;
-  /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
-  canEdit?: boolean;
-  /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
-  onLocked?: () => void;
 }
 
 export const MeetingsView: React.FC<MeetingsViewProps> = ({
@@ -59,18 +53,11 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
   onSaveMeeting,
   onDeleteMeeting,
   onSaveTemplate,
-  canEdit = true,
-  onLocked
 }) => {
   /**
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
-  const guard = (action: () => void) => () => {
-    if (canEdit) action();
-    else if (onLocked) onLocked();
-  };
-
   const [activeTab, setActiveTab] = useState<'meetings' | 'resolutions' | 'template'>('meetings');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -188,13 +175,11 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
   }, [allResolutions, resolutionFilter, searchQuery]);
 
   const handleCreateMeeting = () => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     setMeetingToEdit(null);
     setIsFormModalOpen(true);
   };
 
   const handleEditMeeting = (m: Meeting) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     setMeetingToEdit(m);
     setIsFormModalOpen(true);
   };
@@ -341,15 +326,6 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Hinweis auf reines Leserecht */}
-      {!canEdit && (
-        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5">
-          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
-          <p className="text-xs leading-snug">
-            <strong>Nur Leserecht.</strong> Sie können Sitzungen, Protokolle und Beschlüsse einsehen und ausdrucken. Anlegen, Ändern und Löschen sind für Ihre Rolle gesperrt — die betreffenden Knöpfe sind ausgegraut.
-          </p>
-        </div>
-      )}
 
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs">
@@ -371,8 +347,8 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
           <button
             type="button"
             onClick={handleCreateMeeting}
-            className={`px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0${lockClass(canEdit)}`}
-            title={lockTitle(canEdit, 'Neue Sitzung anlegen')}
+            className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0"
+            title="Neue Sitzung anlegen"
           >
             <Plus className="w-4 h-4" />
             <span>Neue Sitzung erfassen</span>
@@ -527,8 +503,8 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
               <button
                 type="button"
                 onClick={handleCreateMeeting}
-                className={`inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700 cursor-pointer shadow-xs${lockClass(canEdit)}`}
-                title={lockTitle(canEdit, 'Neue Sitzung anlegen')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700 cursor-pointer shadow-xs"
+                title="Neue Sitzung anlegen"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Neue Sitzung anlegen</span>
@@ -580,9 +556,9 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                         ) : (
                           <button
                             type="button"
-                            onClick={guard(() => setSignatureModalMeeting(m))}
-                            className={`inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full transition-colors cursor-pointer shadow-2xs${lockClass(canEdit)}`}
-                            title={lockTitle(canEdit, 'Protokoll am PC mit Maus oder am Smartphone mit Finger digital unterzeichnen')}
+                            onClick={() => setSignatureModalMeeting(m)}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full transition-colors cursor-pointer shadow-2xs"
+                            title="Protokoll am PC mit Maus oder am Smartphone mit Finger digital unterzeichnen"
                           >
                             <PenTool className="w-3 h-3 text-rose-500" />
                             <span>Digital unterschreiben</span>
@@ -610,13 +586,13 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
 
                         <button
                           type="button"
-                          onClick={guard(() => {
+                          onClick={() => {
                             if (confirm(`Möchten Sie die Sitzung "${m.title}" wirklich löschen?`)) {
                               onDeleteMeeting(m.id);
                             }
-                          })}
-                          className={`h-7 w-7 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors flex items-center justify-center cursor-pointer shrink-0${lockClass(canEdit)}`}
-                          title={lockTitle(canEdit, 'Sitzung löschen')}
+                          }}
+                          className="h-7 w-7 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors flex items-center justify-center cursor-pointer shrink-0"
+                          title="Sitzung löschen"
                         >
                           <Trash2 className="w-4 h-4 shrink-0" />
                         </button>

@@ -22,20 +22,3 @@ export function formatClubAddress(address: Address | string | undefined | null):
   return [streetLine, cityLine].filter(Boolean).join(', ');
 }
 
-/**
- * Nur der Ort – für Formulierungen wie "Musterstadt, den 01.01.2026".
- * Liegt die Adresse als Zeichenkette vor, wird der Teil nach dem letzten
- * Komma als Ort angenommen.
- */
-export function extractCity(address: Address | string | undefined | null): string {
-  if (!address) return '';
-
-  if (typeof address === 'string') {
-    const parts = address.split(',');
-    const last = parts[parts.length - 1]?.trim() || '';
-    // "12345 Musterstadt" -> "Musterstadt"
-    return last.replace(/^\d{4,5}\s+/, '') || address.trim();
-  }
-
-  return address.city?.trim() || '';
-}

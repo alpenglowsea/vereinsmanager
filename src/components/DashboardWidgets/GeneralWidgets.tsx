@@ -135,18 +135,6 @@ export const QuickActionsWidget: React.FC<QuickActionsWidgetProps> = ({
             <span>Dokument</span>
           </button>
         )}
-
-        {!onOpenCreateMember &&
-          !onOpenCreateTx &&
-          !onOpenCreateInvoice &&
-          !onOpenCreateContact &&
-          !onOpenCreateEvent &&
-          !onOpenCreateInventory &&
-          !onOpenNewDocument && (
-            <span className="text-xs text-slate-400 dark:text-slate-500">
-              Für Ihre Rolle ist hier nichts zu erfassen.
-            </span>
-          )}
       </div>
     </div>
   );

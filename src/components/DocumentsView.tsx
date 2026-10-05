@@ -26,14 +26,12 @@ import {
   FolderArchive,
   ChevronRight,
   ChevronDown,
-  FolderTree,
-  Lock
+  FolderTree
 } from 'lucide-react';
 import { CATEGORY_CONFIG } from './DocumentViewerModal';
 import { FolderModal } from './FolderModal';
 import { MoveToFolderModal } from './MoveToFolderModal';
 import { DeleteFolderModal } from './DeleteFolderModal';
-import { lockClass, lockTitle } from '../utils/uiLock';
 
 interface DocumentsViewProps {
   documents: ClubDocument[];
@@ -47,10 +45,6 @@ interface DocumentsViewProps {
   onSaveFolder?: (folder: DocumentFolder) => Promise<void>;
   onDeleteFolder?: (folderId: string) => Promise<void>;
   onBatchMoveToFolder?: (docIds: string[], folderId: string | null, targetCategory?: DocumentCategory) => Promise<void>;
-  /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
-  canEdit?: boolean;
-  /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
-  onLocked?: () => void;
 }
 
 type FormatFilter = 'all' | 'pdf' | 'images' | 'office' | 'text';
@@ -68,18 +62,11 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   onSaveFolder,
   onDeleteFolder,
   onBatchMoveToFolder,
-  canEdit = true,
-  onLocked
 }) => {
   /**
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
-  const guard = (action: () => void) => () => {
-    if (canEdit) action();
-    else if (onLocked) onLocked();
-  };
-
   // Navigation & Filtering State
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<DocumentCategory | 'all'>('all');
@@ -287,7 +274,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
 
   // Trigger Move for batch or single
   const handleOpenMoveModal = (docs: ClubDocument[]) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     setMoveModalDocs(docs);
     setMoveModalOpen(true);
   };
@@ -407,11 +393,11 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
               <button
                 type="button"
                 title="Unterordner erstellen"
-                onClick={guard(() => {
+                onClick={() => {
                   setFolderModalParentId(folder.id);
                   setEditingFolder(null);
                   setFolderModalOpen(true);
-                })}
+                }}
                 className="p-1 hover:bg-black/10 rounded transition-colors"
               >
                 <Plus className="w-3 h-3" />
@@ -419,10 +405,10 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
               <button
                 type="button"
                 title="Ordner bearbeiten"
-                onClick={guard(() => {
+                onClick={() => {
                   setEditingFolder(folder);
                   setFolderModalOpen(true);
-                })}
+                }}
                 className="p-1 hover:bg-black/10 rounded transition-colors"
               >
                 <Edit3 className="w-3 h-3" />
@@ -453,15 +439,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
 
   return (
     <div id="documents-view-container" className="flex flex-col lg:flex-row h-full w-full gap-6">
-      {/* Hinweis auf reines Leserecht */}
-      {!canEdit && (
-        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5">
-          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
-          <p className="text-xs leading-snug">
-            <strong>Nur Leserecht.</strong> Sie können Dokumente einsehen und herunterladen. Hochladen, Ändern, Verschieben und Löschen sind für Ihre Rolle gesperrt — die betreffenden Knöpfe sind ausgegraut.
-          </p>
-        </div>
-      )}
 
       {/* 1. LEFT SIDEBAR: Hierarchical Explorer & Categories */}
       <div className="w-full lg:w-72 shrink-0 space-y-4">
@@ -470,9 +447,9 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
           <button
             id="btn-upload-new-doc"
             type="button"
-            onClick={guard(() => onOpenUpload(undefined, selectedFolderId))}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors${lockClass(canEdit)}`}
-            title={lockTitle(canEdit, 'Dokument hochladen')}
+            onClick={() => onOpenUpload(undefined, selectedFolderId)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors"
+            title="Dokument hochladen"
           >
             <Upload className="w-4 h-4" />
             <span>Dokument hochladen</span>
@@ -482,11 +459,11 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             <button
               id="btn-create-root-folder"
               type="button"
-              onClick={guard(() => {
+              onClick={() => {
                 setFolderModalParentId(selectedFolderId || null);
                 setEditingFolder(null);
                 setFolderModalOpen(true);
-              })}
+              }}
               className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-medium transition-colors border border-slate-200"
             >
               <FolderPlus className="w-3.5 h-3.5 text-blue-600" />
@@ -496,9 +473,9 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             <button
               id="btn-scan-doc-camera"
               type="button"
-              onClick={guard(onOpenScanner)}
-              className={`flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-medium transition-colors border border-slate-200${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'Beleg mit Kamera scannen')}
+              onClick={onOpenScanner}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-medium transition-colors border border-slate-200"
+              title="Beleg mit Kamera scannen"
             >
               <Camera className="w-3.5 h-3.5 text-indigo-600" />
               <span>Beleg scannen</span>
@@ -517,11 +494,11 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             </div>
             <button
               type="button"
-              onClick={guard(() => {
+              onClick={() => {
                 setFolderModalParentId(null);
                 setEditingFolder(null);
                 setFolderModalOpen(true);
-              })}
+              }}
               title="Hauptordner anlegen"
               className="p-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 text-[11px] font-medium"
             >
@@ -661,11 +638,11 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                     <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100" onClick={e => e.stopPropagation()}>
                       <button
                         type="button"
-                        onClick={guard(() => {
+                        onClick={() => {
                           setFolderModalParentId(sub.id);
                           setEditingFolder(null);
                           setFolderModalOpen(true);
-                        })}
+                        }}
                         title="Unterordner anlegen"
                         className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                       >
@@ -673,10 +650,10 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={guard(() => {
+                        onClick={() => {
                           setEditingFolder(sub);
                           setFolderModalOpen(true);
-                        })}
+                        }}
                         title="Bearbeiten"
                         className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                       >
@@ -806,8 +783,8 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
               <button
                 type="button"
                 onClick={() => handleOpenMoveModal(documents.filter(d => selectedIds.has(d.id)))}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold rounded-xl transition-colors${lockClass(canEdit)}`}
-                title={lockTitle(canEdit, 'Markierte Dokumente in einen Ordner verschieben')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold rounded-xl transition-colors"
+                title="Markierte Dokumente in einen Ordner verschieben"
               >
                 <FolderInput className="w-3.5 h-3.5" />
                 <span>In Ordner verschieben</span>
@@ -824,9 +801,9 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
 
               <button
                 type="button"
-                onClick={guard(() => setBatchDeleteConfirmOpen(true))}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl transition-colors${lockClass(canEdit)}`}
-                title={lockTitle(canEdit, 'Alle markierten Dokumente löschen')}
+                onClick={() => setBatchDeleteConfirmOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl transition-colors"
+                title="Alle markierten Dokumente löschen"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Löschen</span>
@@ -854,9 +831,9 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             <div className="flex justify-center gap-3 pt-2">
               <button
                 type="button"
-                onClick={guard(() => onOpenUpload(undefined, selectedFolderId))}
-                className={`px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors inline-flex items-center gap-2${lockClass(canEdit)}`}
-                title={lockTitle(canEdit, 'Dokument hochladen')}
+                onClick={() => onOpenUpload(undefined, selectedFolderId)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors inline-flex items-center gap-2"
+                title="Dokument hochladen"
               >
                 <Upload className="w-3.5 h-3.5" />
                 <span>Dokument hier ablegen</span>
@@ -914,24 +891,24 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                         <button
                           type="button"
                           onClick={() => handleOpenMoveModal([doc])}
-                          className={`p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors${lockClass(canEdit)}`}
-                          title={lockTitle(canEdit, 'In Ordner verschieben')}
+                          className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="In Ordner verschieben"
                         >
                           <FolderInput className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
-                          onClick={guard(() => onOpenEdit(doc))}
-                          className={`p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors${lockClass(canEdit)}`}
-                          title={lockTitle(canEdit, 'Bearbeiten')}
+                          onClick={() => onOpenEdit(doc)}
+                          className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                          title="Bearbeiten"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
-                          onClick={guard(() => setDeleteConfirmDoc(doc))}
-                          className={`p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors${lockClass(canEdit)}`}
-                          title={lockTitle(canEdit, 'Löschen')}
+                          onClick={() => setDeleteConfirmDoc(doc)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Löschen"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1124,24 +1101,24 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                           <button
                             type="button"
                             onClick={() => handleOpenMoveModal([doc])}
-                            className={`p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors${lockClass(canEdit)}`}
-                            title={lockTitle(canEdit, 'In Ordner verschieben')}
+                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="In Ordner verschieben"
                           >
                             <FolderInput className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
-                            onClick={guard(() => onOpenEdit(doc))}
-                            className={`p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-lg transition-colors${lockClass(canEdit)}`}
-                            title={lockTitle(canEdit, 'Bearbeiten')}
+                            onClick={() => onOpenEdit(doc)}
+                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-lg transition-colors"
+                            title="Bearbeiten"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
-                            onClick={guard(() => setDeleteConfirmDoc(doc))}
-                            className={`p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors${lockClass(canEdit)}`}
-                            title={lockTitle(canEdit, 'Löschen')}
+                            onClick={() => setDeleteConfirmDoc(doc)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Löschen"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -1168,7 +1145,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             setFolderModalParentId(null);
           }}
           onSave={async (folderData) => {
-            if (!canEdit) { if (onLocked) onLocked(); return; }
             if (onSaveFolder) {
               await onSaveFolder(folderData);
             }
@@ -1188,7 +1164,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
           isOpen={!!deletingFolder}
           onClose={() => setDeletingFolder(null)}
           onConfirm={async (folderId) => {
-            if (!canEdit) { if (onLocked) onLocked(); return; }
             if (onDeleteFolder) {
               await onDeleteFolder(folderId);
             }
@@ -1212,7 +1187,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             setMoveModalDocs([]);
           }}
           onMove={async (docIds, targetFolderId, targetCategory) => {
-            if (!canEdit) { if (onLocked) onLocked(); return; }
             if (onBatchMoveToFolder) {
               await onBatchMoveToFolder(docIds, targetFolderId, targetCategory);
             }

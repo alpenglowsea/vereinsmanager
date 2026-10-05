@@ -257,22 +257,20 @@ export class AuthService {
     }
 
     const term = benutzername.trim().toLowerCase();
-    const check = await verifyPassword(passwort.trim(), account.passwortPruefwert);
+    let passwortStimmt: boolean;
+    try {
+      passwortStimmt = await verifyPassword(passwort.trim(), account.passwortPruefwert);
+    } catch (err: any) {
+      // Nur der Fall "Browser ohne Kryptographie" — das darf nicht als
+      // falsches Passwort erscheinen.
+      return { success: false, message: err?.message || 'Die Anmeldung konnte nicht geprüft werden.' };
+    }
 
     // Benutzername und Passwort werden bewusst in einer gemeinsamen
     // Fehlermeldung beantwortet — sonst ließe sich erraten, welcher Teil
     // schon stimmt.
-    if (term !== account.benutzername.toLowerCase() || !check.ok) {
+    if (term !== account.benutzername.toLowerCase() || !passwortStimmt) {
       return { success: false, message: 'Benutzername oder Passwort ist nicht korrekt.' };
-    }
-
-    if (check.needsUpgrade) {
-      try {
-        account.passwortPruefwert = await hashPassword(passwort.trim());
-        this.saveAccount(account);
-      } catch (err) {
-        console.warn('[AuthService] Passwort konnte nicht umgestellt werden:', err);
-      }
     }
 
     this.currentSession = {

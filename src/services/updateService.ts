@@ -22,7 +22,6 @@ const MOCK_LATEST_RELEASE = {
 const STORAGE_KEY_SIMULATE_UPDATE = 'vereinsmanager_simulated_update_available';
 const STORAGE_KEY_INSTALLED_VERSION = 'vereinsmanager_installed_version';
 const STORAGE_KEY_GITHUB_REPO = 'vm_github_repo';
-const STORAGE_KEY_GITHUB_TOKEN = 'vm_github_token';
 
 export class UpdateService {
   /**
@@ -63,26 +62,6 @@ export class UpdateService {
       }
     } catch (err) {
       console.warn('GitHub-Repository konnte nicht gespeichert werden:', err);
-    }
-  }
-
-  static getGitHubToken(): string | null {
-    try {
-      return localStorage.getItem(STORAGE_KEY_GITHUB_TOKEN)?.trim() || null;
-    } catch {
-      return null;
-    }
-  }
-
-  static setGitHubToken(token: string | null) {
-    try {
-      if (token && token.trim()) {
-        localStorage.setItem(STORAGE_KEY_GITHUB_TOKEN, token.trim());
-      } else {
-        localStorage.removeItem(STORAGE_KEY_GITHUB_TOKEN);
-      }
-    } catch (err) {
-      console.warn('GitHub-Zugriffstoken konnte nicht gespeichert werden:', err);
     }
   }
 
@@ -180,14 +159,10 @@ export class UpdateService {
     const isSimulated = this.isUpdateSimulated();
     const currentVer = await this.getCurrentVersion();
     const repo = this.getGitHubRepo();
-    const token = this.getGitHubToken();
 
     const headers: Record<string, string> = {
       Accept: 'application/vnd.github.v3+json',
     };
-    if (token) {
-      headers['Authorization'] = `token ${token}`;
-    }
 
     try {
       // 1. Abfrage des GitHub Repositories: /releases/latest

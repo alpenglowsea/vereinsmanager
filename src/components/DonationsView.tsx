@@ -25,10 +25,8 @@ import {
   Package,
   ShieldCheck,
   Info,
-  CheckCircle2,
-  Lock
+  CheckCircle2
 } from 'lucide-react';
-import { lockClass, lockTitle } from '../utils/uiLock';
 
 type DonationSortField =
   | 'date'
@@ -113,10 +111,6 @@ interface DonationsViewProps {
   onEditReceipt: (receipt: DonationReceipt) => void;
   onDeleteReceipt: (id: string) => void;
   onViewDocument?: (doc: ClubDocument) => void;
-  /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
-  canEdit?: boolean;
-  /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
-  onLocked?: () => void;
 }
 
 export const DonationsView: React.FC<DonationsViewProps> = ({
@@ -127,18 +121,11 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
   onEditReceipt,
   onDeleteReceipt,
   onViewDocument,
-  canEdit = true,
-  onLocked
 }) => {
   /**
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
-  const guard = (action: () => void) => () => {
-    if (canEdit) action();
-    else if (onLocked) onLocked();
-  };
-
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<'all' | 'money' | 'goods'>('all');
   const { sortBy, sortDirection, handleSort } = useSortableColumns<DonationSortField>('date', 'desc'); // neueste zuerst
@@ -495,15 +482,6 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Hinweis auf reines Leserecht */}
-      {!canEdit && (
-        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5">
-          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
-          <p className="text-xs leading-snug">
-            <strong>Nur Leserecht.</strong> Sie können ausgestellte Zuwendungsbestätigungen einsehen und herunterladen. Neue ausstellen, ändern und löschen sind für Ihre Rolle gesperrt — die betreffenden Knöpfe sind ausgegraut.
-          </p>
-        </div>
-      )}
 
       {/* Top Banner / Header */}
       <div className="bg-white rounded-2xl p-6 text-slate-900 border border-slate-200 shadow-2xs relative overflow-hidden">
@@ -523,9 +501,9 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
 
           <div className="flex items-center gap-3">
             <button
-              onClick={guard(onOpenCreateModal)}
-              className={`px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-2xs flex items-center gap-2 text-xs cursor-pointer${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'Neue Zuwendungsbestätigung ausstellen')}
+              onClick={onOpenCreateModal}
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-2xs flex items-center gap-2 text-xs cursor-pointer"
+              title="Neue Zuwendungsbestätigung ausstellen"
             >
               <Plus className="w-4 h-4" />
               <span>Neue Zuwendungsbestätigung</span>
@@ -682,9 +660,9 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
               Für die gewählten Filter liegen noch keine Spendenbescheinigungen vor. Erstellen Sie eine neue Bestätigung mit dem BMF-Muster.
             </p>
             <button
-              onClick={guard(onOpenCreateModal)}
-              className={`mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors inline-flex items-center gap-1.5${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'Neue Zuwendungsbestätigung ausstellen')}
+              onClick={onOpenCreateModal}
+              className="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors inline-flex items-center gap-1.5"
+              title="Neue Zuwendungsbestätigung ausstellen"
             >
               <Plus className="w-4 h-4" />
               <span>Neue Zuwendungsbestätigung anlegen</span>
@@ -922,9 +900,9 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                           {/* Edit */}
                           <button
                             type="button"
-                            onClick={guard(() => onEditReceipt(receipt))}
-                            className={`p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors${lockClass(canEdit)}`}
-                            title={lockTitle(canEdit, 'Bearbeiten')}
+                            onClick={() => onEditReceipt(receipt)}
+                            className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                            title="Bearbeiten"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
@@ -932,13 +910,13 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                           {/* Delete */}
                           <button
                             type="button"
-                            onClick={guard(() => {
+                            onClick={() => {
                               if (confirm(`Möchten Sie die Zuwendungsbestätigung ${receipt.receiptNumber} wirklich löschen?`)) {
                                 onDeleteReceipt(receipt.id);
                               }
-                            })}
-                            className={`p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-colors${lockClass(canEdit)}`}
-                            title={lockTitle(canEdit, 'Löschen')}
+                            }}
+                            className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-colors"
+                            title="Löschen"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

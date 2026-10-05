@@ -1,9 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import {
   MIN_PASSWORD_LENGTH,
   checkPasswordStrength,
   hashPassword,
-  isHashed,
   verifyPassword
 } from './passwordService';
 
@@ -32,25 +31,16 @@ const alsBase64 = (text: string): string =>
   btoa(String.fromCharCode(...new TextEncoder().encode(text)));
 
 describe('Passwortprüfwerte', () => {
-  it('erkennt Klartext und Prüfwert auseinander', async () => {
-    expect(isHashed('admin')).toBe(false);
-    expect(isHashed('')).toBe(false);
-    expect(isHashed(undefined)).toBe(false);
-    expect(isHashed(await hashPassword('Turnhalle-Schluessel'))).toBe(true);
-  });
-
   it('bestätigt das richtige Passwort', async () => {
     const gespeichert = await hashPassword('Vereinskasse2026');
-    const ergebnis = await verifyPassword('Vereinskasse2026', gespeichert);
-    expect(ergebnis.ok).toBe(true);
-    expect(ergebnis.needsUpgrade).toBe(false);
+    expect(await verifyPassword('Vereinskasse2026', gespeichert)).toBe(true);
   });
 
   it('lehnt falsche Passwörter ab', async () => {
     const gespeichert = await hashPassword('Vereinskasse2026');
-    expect((await verifyPassword('vereinskasse2026', gespeichert)).ok).toBe(false);
-    expect((await verifyPassword('Vereinskasse202', gespeichert)).ok).toBe(false);
-    expect((await verifyPassword('', gespeichert)).ok).toBe(false);
+    expect(await verifyPassword('vereinskasse2026', gespeichert)).toBe(false);
+    expect(await verifyPassword('Vereinskasse202', gespeichert)).toBe(false);
+    expect(await verifyPassword('', gespeichert)).toBe(false);
   });
 
   it('erzeugt für dasselbe Passwort zwei verschiedene Prüfwerte', async () => {
@@ -59,8 +49,8 @@ describe('Passwortprüfwerte', () => {
     const a = await hashPassword('Turnhalle-Schluessel');
     const b = await hashPassword('Turnhalle-Schluessel');
     expect(a).not.toBe(b);
-    expect((await verifyPassword('Turnhalle-Schluessel', a)).ok).toBe(true);
-    expect((await verifyPassword('Turnhalle-Schluessel', b)).ok).toBe(true);
+    expect(await verifyPassword('Turnhalle-Schluessel', a)).toBe(true);
+    expect(await verifyPassword('Turnhalle-Schluessel', b)).toBe(true);
   });
 
   it('enthält das Passwort nicht im Klartext', async () => {
@@ -72,31 +62,35 @@ describe('Passwortprüfwerte', () => {
   it('stimmt mit einer unabhängigen Umsetzung überein', async () => {
     for (const fall of REFERENZWERTE) {
       const gespeichert = `pbkdf2$sha256$${fall.runden}$${alsBase64(fall.salzText)}$${fall.erwartet}`;
-      const ergebnis = await verifyPassword(fall.passwort, gespeichert);
-      expect(ergebnis.ok).toBe(true);
+      expect(await verifyPassword(fall.passwort, gespeichert)).toBe(true);
     }
   });
 
   it('lehnt beschädigte Prüfwerte ab, statt sie durchzuwinken', async () => {
-    expect((await verifyPassword('egal', 'pbkdf2$sha256$abc')).ok).toBe(false);
-    expect((await verifyPassword('egal', 'pbkdf2$sha256$0$xx$yy')).ok).toBe(false);
-    expect((await verifyPassword('egal', '')).ok).toBe(false);
+    expect(await verifyPassword('egal', 'pbkdf2$sha256$abc')).toBe(false);
+    expect(await verifyPassword('egal', 'pbkdf2$sha256$0$xx$yy')).toBe(false);
+    expect(await verifyPassword('egal', '')).toBe(false);
   });
 });
 
-describe('Übernahme alter Konten', () => {
-  it('lässt ein Klartext-Passwort weiterhin funktionieren', async () => {
-    // Wer vor der Umstellung ein Konto hatte, soll sich nach dem Update
-    // anmelden können — und dabei still auf den Prüfwert umgestellt werden.
-    const ergebnis = await verifyPassword('admin', 'admin');
-    expect(ergebnis.ok).toBe(true);
-    expect(ergebnis.needsUpgrade).toBe(true);
+describe('Klartext und fehlende Kryptographie', () => {
+  const urspruenglich = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+
+  afterEach(() => {
+    if (urspruenglich) Object.defineProperty(globalThis, 'crypto', urspruenglich);
   });
 
-  it('lehnt ein falsches Passwort auch gegen Klartext ab', async () => {
-    const ergebnis = await verifyPassword('falsch', 'admin');
-    expect(ergebnis.ok).toBe(false);
-    expect(ergebnis.needsUpgrade).toBe(false);
+  it('lässt ein Klartext-Passwort nie als Prüfwert gelten', async () => {
+    // Früher wurden Klartext-Konten aus der Mehrbenutzerzeit erkannt und
+    // umgestellt. Seit es nur noch das Gerätekonto gibt, gibt es sie nicht mehr.
+    expect(await verifyPassword('admin', 'admin')).toBe(false);
+  });
+
+  it('meldet fehlende Kryptographie, statt ein falsches Passwort vorzutäuschen', async () => {
+    const gespeichert = await hashPassword('Turnhalle-Schluessel');
+    Object.defineProperty(globalThis, 'crypto', { value: undefined, configurable: true });
+    await expect(verifyPassword('Turnhalle-Schluessel', gespeichert)).rejects.toThrow(/Kryptographie/);
+    await expect(hashPassword('Turnhalle-Schluessel')).rejects.toThrow(/Kryptographie/);
   });
 });
 

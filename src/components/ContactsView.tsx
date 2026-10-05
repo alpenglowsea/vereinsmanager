@@ -25,10 +25,8 @@ import {
   Square,
   Receipt,
   FileText,
-  X,
-  Lock
+  X
 } from 'lucide-react';
-import { lockClass, lockTitle } from '../utils/uiLock';
 
 type ContactSortField =
   | 'number'
@@ -122,10 +120,6 @@ interface ContactsViewProps {
   onCreateBookingForContact: (contact: ClubContact) => void;
   onCreateInvoiceForContact?: (contact: ClubContact) => void;
   onOpenImport?: () => void;
-  /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
-  canEdit?: boolean;
-  /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
-  onLocked?: () => void;
 }
 
 export const ContactsView: React.FC<ContactsViewProps> = ({
@@ -139,18 +133,11 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
   onCreateBookingForContact,
   onCreateInvoiceForContact,
   onOpenImport,
-  canEdit = true,
-  onLocked
 }) => {
   /**
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
-  const guard = (action: () => void) => () => {
-    if (canEdit) action();
-    else if (onLocked) onLocked();
-  };
-
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [personTypeFilter, setPersonTypeFilter] = useState<'all' | ContactPersonType>('all');
@@ -602,7 +589,6 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
   };
 
   const handleBulkDelete = async () => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (!onBulkDeleteContacts || selectedIds.size === 0) return;
     if (
       window.confirm(
@@ -616,15 +602,6 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150 relative pb-16">
-      {/* Hinweis auf reines Leserecht */}
-      {!canEdit && (
-        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5">
-          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
-          <p className="text-xs leading-snug">
-            <strong>Nur Leserecht.</strong> Sie können Kontakte einsehen und exportieren. Anlegen, Ändern und Löschen sind für Ihre Rolle gesperrt — die betreffenden Knöpfe sind ausgegraut.
-          </p>
-        </div>
-      )}
 
       {/* Metric Cards: Kontakte Gesamt & Kontakte nach Kategorie/Rolle */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-5">
@@ -795,8 +772,8 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
               <button
                 type="button"
                 onClick={handleBulkDelete}
-                className={`bg-rose-600/90 hover:bg-rose-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer${lockClass(canEdit)}`}
-                title={lockTitle(canEdit, 'Alle markierten Kontakte löschen')}
+                className="bg-rose-600/90 hover:bg-rose-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                title="Alle markierten Kontakte löschen"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Ausgewählte löschen</span>
@@ -859,9 +836,9 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
             {onOpenImport && (
               <button
                 type="button"
-                onClick={guard(onOpenImport)}
-                className={`text-xs bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer${lockClass(canEdit)}`}
-                title={lockTitle(canEdit, 'Kontakte aus Google Sheets oder CSV-Datei importieren')}
+                onClick={onOpenImport}
+                className="text-xs bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                title="Kontakte aus Google Sheets oder CSV-Datei importieren"
               >
                 <Upload className="w-3.5 h-3.5 text-blue-600" />
                 <span>CSV / Sheets Import</span>
@@ -890,9 +867,9 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
 
             <button
               type="button"
-              onClick={guard(onOpenCreate)}
-              className={`bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'Neuen Kontakt anlegen')}
+              onClick={onOpenCreate}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+              title="Neuen Kontakt anlegen"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Neuer Kontakt</span>
@@ -1363,9 +1340,9 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                           {/* Edit */}
                           <button
                             type="button"
-                            onClick={guard(() => onOpenEdit(contact))}
-                            className={`p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0${lockClass(canEdit)}`}
-                            title={lockTitle(canEdit, 'Kontakt bearbeiten')}
+                            onClick={() => onOpenEdit(contact)}
+                            className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0"
+                            title="Kontakt bearbeiten"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
@@ -1373,7 +1350,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                           {/* Delete */}
                           <button
                             type="button"
-                            onClick={guard(() => {
+                            onClick={() => {
                               if (
                                 window.confirm(
                                   `Möchten Sie den Kontakt "${contact.displayName}" wirklich löschen?`
@@ -1381,9 +1358,9 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                               ) {
                                 onDeleteContact(contact.id);
                               }
-                            })}
-                            className={`p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer${lockClass(canEdit)}`}
-                            title={lockTitle(canEdit, 'Kontakt löschen')}
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="Kontakt löschen"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -1408,9 +1385,9 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                     </p>
                     <button
                       type="button"
-                      onClick={guard(onOpenCreate)}
-                      className={`mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5 cursor-pointer${lockClass(canEdit)}`}
-                      title={lockTitle(canEdit, 'Neuen Kontakt anlegen')}
+                      onClick={onOpenCreate}
+                      className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                      title="Neuen Kontakt anlegen"
                     >
                       <Plus className="w-4 h-4" />
                       <span>Ersten Kontakt anlegen</span>

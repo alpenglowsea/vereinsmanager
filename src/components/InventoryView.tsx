@@ -36,10 +36,8 @@ import {
   Clock,
   CheckCircle2,
   FileDown,
-  X,
-  Lock
+  X
 } from 'lucide-react';
-import { lockClass, lockTitle } from '../utils/uiLock';
 
 type InventorySortField =
   | 'name'
@@ -117,10 +115,6 @@ interface InventoryViewProps {
   onDeleteItem: (id: string) => void;
   onBulkUpdateItems?: (ids: string[], updates: InventoryBulkUpdates) => Promise<void>;
   onBulkDeleteItems?: (ids: string[]) => Promise<void>;
-  /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
-  canEdit?: boolean;
-  /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
-  onLocked?: () => void;
 }
 
 export const InventoryView: React.FC<InventoryViewProps> = ({
@@ -133,18 +127,11 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   onDeleteItem,
   onBulkUpdateItems,
   onBulkDeleteItems,
-  canEdit = true,
-  onLocked
 }) => {
   /**
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
-  const guard = (action: () => void) => () => {
-    if (canEdit) action();
-    else if (onLocked) onLocked();
-  };
-
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
@@ -648,7 +635,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   };
 
   const handleBulkUpdate = async (updates: InventoryBulkUpdates) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     const ids = Array.from(selectedItemIds) as string[];
     if (ids.length === 0) return;
     setIsBulkProcessing(true);
@@ -668,7 +654,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   };
 
   const handleBulkDelete = async () => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     const ids = Array.from(selectedItemIds) as string[];
     if (ids.length === 0) return;
     setIsBulkProcessing(true);
@@ -704,15 +689,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Hinweis auf reines Leserecht */}
-      {!canEdit && (
-        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5">
-          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
-          <p className="text-xs leading-snug">
-            <strong>Nur Leserecht.</strong> Sie können den Materialbestand einsehen und exportieren. Erfassen, Ändern und Löschen sind für Ihre Rolle gesperrt — die betreffenden Knöpfe sind ausgegraut.
-          </p>
-        </div>
-      )}
 
       {/* Top Header Card */}
       <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -755,9 +731,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
           <button
             type="button"
-            onClick={guard(onOpenCreate)}
-            className={`px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs hover:shadow transition-all flex items-center gap-2${lockClass(canEdit)}`}
-            title={lockTitle(canEdit, 'Neuen Gegenstand erfassen')}
+            onClick={onOpenCreate}
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs hover:shadow transition-all flex items-center gap-2"
+            title="Neuen Gegenstand erfassen"
           >
             <Plus className="w-4 h-4" />
             <span>Neuen Gegenstand erfassen</span>
@@ -1077,9 +1053,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           </p>
           <button
             type="button"
-            onClick={guard(onOpenCreate)}
-            className={`px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors inline-flex items-center gap-2${lockClass(canEdit)}`}
-            title={lockTitle(canEdit, 'Neuen Gegenstand erfassen')}
+            onClick={onOpenCreate}
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors inline-flex items-center gap-2"
+            title="Neuen Gegenstand erfassen"
           >
             <Plus className="w-4 h-4" />
             <span>Ersten Gegenstand anlegen</span>
@@ -1337,17 +1313,17 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
-                            onClick={guard(() => onOpenEdit(item))}
-                            className={`p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors${lockClass(canEdit)}`}
-                            title={lockTitle(canEdit, 'Gegenstand bearbeiten')}
+                            onClick={() => onOpenEdit(item)}
+                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Gegenstand bearbeiten"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
-                            onClick={guard(() => setDeleteConfirmId(item.id))}
-                            className={`p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors${lockClass(canEdit)}`}
-                            title={lockTitle(canEdit, 'Gegenstand löschen')}
+                            onClick={() => setDeleteConfirmId(item.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Gegenstand löschen"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -1508,18 +1484,18 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={guard(() => onOpenEdit(item))}
-                      className={`px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50 border border-blue-200 rounded-lg transition-colors flex items-center gap-1${lockClass(canEdit)}`}
-                      title={lockTitle(canEdit, 'Gegenstand bearbeiten')}
+                      onClick={() => onOpenEdit(item)}
+                      className="px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50 border border-blue-200 rounded-lg transition-colors flex items-center gap-1"
+                      title="Gegenstand bearbeiten"
                     >
                       <Edit2 className="w-3 h-3" />
                       <span>Bearbeiten</span>
                     </button>
                     <button
                       type="button"
-                      onClick={guard(() => setDeleteConfirmId(item.id))}
-                      className={`p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors${lockClass(canEdit)}`}
-                      title={lockTitle(canEdit, 'Löschen')}
+                      onClick={() => setDeleteConfirmId(item.id)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                      title="Löschen"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -1656,12 +1632,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           inventory={inventory}
           settings={settings}
           onUpdateAssignment={async (updated) => {
-            if (!canEdit) { if (onLocked) onLocked(); return; }
             await StorageService.saveMemberInventoryAssignment(updated);
             await loadAssignments();
           }}
           onDeleteAssignment={async (id) => {
-            if (!canEdit) { if (onLocked) onLocked(); return; }
             await StorageService.deleteMemberInventoryAssignment(id);
             await loadAssignments();
           }}

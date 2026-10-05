@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Member, ClubSettings, MemberBulkUpdates } from '../types';
 import { ExportService } from '../services/exportService';
-import { lockClass, lockTitle } from '../utils/uiLock';
 import { MemberBulkEditModal } from './MemberBulkEditModal';
 import { TablePagination, PageSizeOption } from './TablePagination';
 import { SortableResizableTh } from './SortableResizableTh';
@@ -22,7 +21,6 @@ import {
   CheckCircle2,
   SlidersHorizontal,
   AlertTriangle,
-  Lock,
   X
 } from 'lucide-react';
 
@@ -175,10 +173,6 @@ interface MembersViewProps {
   onBulkDeleteMembers?: (ids: string[]) => Promise<void>;
   onOpenImport: () => void;
   onNavigateToSepa?: () => void;
-  /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
-  canEdit?: boolean;
-  /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
-  onLocked?: () => void;
 }
 
 export const MembersView: React.FC<MembersViewProps> = ({
@@ -192,18 +186,11 @@ export const MembersView: React.FC<MembersViewProps> = ({
   onBulkDeleteMembers,
   onOpenImport,
   onNavigateToSepa,
-  canEdit = true,
-  onLocked
 }) => {
   /**
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
-  const guard = (action: () => void) => () => {
-    if (canEdit) action();
-    else if (onLocked) onLocked();
-  };
-
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -956,19 +943,6 @@ export const MembersView: React.FC<MembersViewProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150 relative pb-16">
-      {/* Hinweis auf reines Leserecht — damit niemand erst durch Probieren
-          herausfindet, warum die Knöpfe grau sind. */}
-      {!canEdit && (
-        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5">
-          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
-          <p className="text-xs leading-snug">
-            <strong>Nur Leserecht.</strong> Sie können die Mitgliederdaten einsehen,
-            auswerten und exportieren. Anlegen, Ändern und Löschen sind für Ihre
-            Rolle gesperrt — die betreffenden Knöpfe sind ausgegraut.
-          </p>
-        </div>
-      )}
-
       {/* Metric Cards: Mitglieder Gesamt & Mitglieder je Sparte */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Kachel 1: Mitglieder Gesamt */}
@@ -1138,9 +1112,9 @@ export const MembersView: React.FC<MembersViewProps> = ({
           <div className="flex items-center flex-wrap gap-2">
             <button
               type="button"
-              onClick={guard(() => setIsBulkEditOpen(true))}
-              className={`bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'Stammdaten aller markierten Mitglieder ändern')}
+              onClick={() => setIsBulkEditOpen(true)}
+              className="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
+              title="Stammdaten aller markierten Mitglieder ändern"
             >
               <SlidersHorizontal className="w-4 h-4" />
               <span>Stammdaten bearbeiten</span>
@@ -1148,9 +1122,9 @@ export const MembersView: React.FC<MembersViewProps> = ({
 
             <button
               type="button"
-              onClick={guard(() => setIsBulkDeleteConfirmOpen(true))}
-              className={`bg-rose-600/90 hover:bg-rose-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'Alle markierten Mitglieder löschen')}
+              onClick={() => setIsBulkDeleteConfirmOpen(true)}
+              className="bg-rose-600/90 hover:bg-rose-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
+              title="Alle markierten Mitglieder löschen"
             >
               <Trash2 className="w-4 h-4" />
               <span>Ausgewählte löschen</span>
@@ -1223,9 +1197,9 @@ export const MembersView: React.FC<MembersViewProps> = ({
 
             <button
               type="button"
-              onClick={guard(onOpenImport)}
-              className={`text-xs bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'Mitglieder aus Google Sheets oder CSV-Datei importieren')}
+              onClick={onOpenImport}
+              className="text-xs bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs"
+              title="Mitglieder aus Google Sheets oder CSV-Datei importieren"
             >
               <Upload className="w-3.5 h-3.5 text-blue-600" />
               <span>CSV / Sheets Import</span>
@@ -1255,9 +1229,9 @@ export const MembersView: React.FC<MembersViewProps> = ({
 
             <button
               type="button"
-              onClick={guard(onOpenCreate)}
-              className={`bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'Neues Mitglied anlegen')}
+              onClick={onOpenCreate}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+              title="Neues Mitglied anlegen"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Neues Mitglied</span>
@@ -1681,21 +1655,21 @@ export const MembersView: React.FC<MembersViewProps> = ({
                         </button>
                         <button
                           type="button"
-                          onClick={guard(() => onOpenEdit(member))}
-                          className={`p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors${lockClass(canEdit)}`}
-                          title={lockTitle(canEdit, 'Bearbeiten')}
+                          onClick={() => onOpenEdit(member)}
+                          className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          title="Bearbeiten"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
-                          onClick={guard(() => {
+                          onClick={() => {
                             if (window.confirm(`Mitglied ${member.firstName} ${member.lastName} (${member.memberNumber}) wirklich löschen?`)) {
                               onDeleteMember(member.id);
                             }
-                          })}
-                          className={`p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors${lockClass(canEdit)}`}
-                          title={lockTitle(canEdit, 'Löschen')}
+                          }}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                          title="Löschen"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

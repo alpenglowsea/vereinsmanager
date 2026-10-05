@@ -13,6 +13,35 @@ E-Mail-Versand sind auch alle Funktionen entfernt, die nur für eine der
 beiden anderen Betriebsarten existierten. Vollständige Begründung und
 Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
 
+### Schritt 7g — Tote Reste aufgeräumt
+
+- **Passwortprüfung:** Der eigene Ersatzweg für Browser ohne `crypto.subtle`
+  (JavaScript-Eigenbau von PBKDF2) und die Klartext-Prüfung alter Passwörter
+  sind entfernt. Gespeicherte Passwörter bleiben gültig (gleiches Verfahren,
+  gleiches Format). Fehlt dem Browser die Funktion (App über `http://` von
+  einer anderen Adresse als `localhost` geöffnet), meldet die Anmeldung das
+  jetzt klar, statt auf Selbstgebautes auszuweichen.
+- **Rechte-Gerüst entfernt:** Seit der Umstellung auf ein Gerätepasswort darf
+  jeder alles. Die Attrappen `mayAccess`/`mayEdit`/`requireEdit`, die Hilfsfunktion
+  `guard`, die Props `canEdit`/`onLocked`, `lockClass`/`lockTitle`
+  (`src/utils/uiLock.ts` gelöscht), die „Nur Leserecht“-Hinweise und die
+  grauen Navigations-Sperren sind aus allen Ansichten raus (rund 460 Stellen).
+  Das Verhalten der App ändert sich dadurch nicht.
+- **Notfall-Scan entfernt:** `scanAndRecoverLegacyData` samt Knopf in den
+  Einstellungen und automatischem Aufruf beim Start. Er suchte in Speicherorten
+  (`vm_members`, `club_members`, `VereinsManager_DB` …), die in der gesamten
+  Git-Geschichte nie von der App beschrieben wurden. Snapshots lassen sich
+  weiterhin unter Einstellungen wiederherstellen.
+- **GitHub-Zugriffstoken:** `getGitHubToken`/`setGitHubToken` entfernt; es gab
+  keinen Aufrufer, die Update-Abfrage braucht für das öffentliche Repository
+  kein Token.
+- **Nie benutzt:** Die Datei `DocumentMoveModal.tsx`, vier Funktionen
+  (`getContactTypeMeta`, `computeContactDisplayName`, `findSkr42SubCategory`,
+  `extractCity`), die alten PayPal-Bilder (rund 1,4 MB in `public/` und
+  `src/assets/`, der QR-Code wird längst im Programm erzeugt), `Caddyfile.example`
+  (verwies auf nicht mehr vorhandene Docker-Dateien) sowie die Reste aus Google
+  AI Studio (`metadata.json`, `assets/.aistudio/`).
+
 ### Schritt 7f — „Alle lokalen Daten löschen“ löscht wirklich alles; Muster-Knopf entfernt
 
 - „Alle lokalen Daten löschen“ ließ bisher Vereinsstammdaten, Ordner,

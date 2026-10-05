@@ -4,7 +4,6 @@ import { StorageService } from '../services/storage';
 import { AuthService } from '../services/authService';
 import { SnapshotService, AutoSnapshot } from '../services/snapshotService';
 import { CURRENT_APP_VERSION } from '../services/updateService';
-import { usesNativeCrypto } from '../services/passwordService';
 import { apiFetch } from '../services/apiClient';
 import { BackupImportDialog } from './BackupImportDialog';
 import { BackupExportDialog } from './BackupExportDialog';
@@ -54,7 +53,6 @@ import {
   Info,
   History,
   RotateCcw,
-  Search,
   Clock,
   Archive,
   GripVertical,
@@ -62,7 +60,6 @@ import {
   Lock,
   FileText
 } from 'lucide-react';
-import { lockClass, lockTitle } from '../utils/uiLock';
 
 /**
  * Freiwillige Unterstützung des Projekts (Tab "Projekt unterstützen").
@@ -87,10 +84,6 @@ interface SettingsViewProps {
   onThemeChange: (theme: 'light' | 'dark' | 'system') => void;
   initialTab?: SettingsTab;
   onTabChange?: (tab: SettingsTab) => void;
-  /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
-  canEdit?: boolean;
-  /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
-  onLocked?: () => void;
 }
 
 export const parseClubAddress = (addr: Address | string | undefined): Address => {
@@ -165,8 +158,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onThemeChange,
   initialTab,
   onTabChange,
-  canEdit = true,
-  onLocked
 }) => {
   // Tab sequence:
   // 1. Allgemeine Einstellungen
@@ -569,7 +560,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleChangeDevicePassword = async (e: React.FormEvent) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     e.preventDefault();
     if (!newDevicePassword.trim()) {
       setUserMsg({ type: 'error', text: 'Bitte geben Sie ein neues Passwort ein.' });
@@ -596,7 +586,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleSaveClub = async (e: React.FormEvent) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     e.preventDefault();
     setIsSavingClub(true);
     setClubSaveSuccess(false);
@@ -644,7 +633,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // Board Members Handlers
   const handleAddBoardMember = () => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     const newId = `bm-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     setBoardMembers(prev => [
       ...prev,
@@ -659,14 +647,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleUpdateBoardMember = (id: string, field: keyof BoardMember, value: string) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     setBoardMembers(prev =>
       prev.map(bm => (bm.id === id ? { ...bm, [field]: value } : bm))
     );
   };
 
   const handleRemoveBoardMember = (id: string) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (boardMembers.length <= 1) {
       alert('Mindestens ein Vorstandsmitglied muss hinterlegt sein.');
       return;
@@ -690,7 +676,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleBoardDrop = (e: React.DragEvent, targetIndex: number) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     e.preventDefault();
     if (draggedBoardIndex === null || draggedBoardIndex === targetIndex) {
       setDraggedBoardIndex(null);
@@ -734,7 +719,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleDeptDrop = (e: React.DragEvent, targetIndex: number) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     e.preventDefault();
     if (draggedDeptIndex === null || draggedDeptIndex === targetIndex) {
       setDraggedDeptIndex(null);
@@ -784,7 +768,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -816,7 +799,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleRemoveLogo = () => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     const updated = { ...formData, clubLogoUrl: undefined };
     setFormData(updated);
     onSaveSettings(updated);
@@ -825,7 +807,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleAddDepartment = () => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (!newDepartment.trim()) return;
     if (formData.departments.includes(newDepartment.trim())) return;
     const updatedDepts = [...formData.departments, newDepartment.trim()];
@@ -837,7 +818,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleRemoveDepartment = (dept: string) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (formData.departments.length <= 1) {
       alert('Mindestens eine Sparte/Abteilung muss vorhanden sein.');
       return;
@@ -903,7 +883,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // Full Backup Import
   const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -977,7 +956,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // Wipe All
   const handleWipeAll = async () => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (window.confirm('ACHTUNG: Möchten Sie wirklich ALLE Mitglieder, Buchungen und Konten löschen? Diese Aktion kann nicht rückgängig gemacht werden!')) {
       try {
         await StorageService.clearAllData();
@@ -994,11 +972,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  // Auto-Snapshots & Legacy Recovery State & Handlers
+  // Auto-Snapshots: Zustand und Handler
   const [snapshots, setSnapshots] = useState<AutoSnapshot[]>([]);
   const [loadingSnapshots, setLoadingSnapshots] = useState(false);
-  const [isScanningLegacy, setIsScanningLegacy] = useState(false);
-  const [legacyScanFeedback, setLegacyScanFeedback] = useState<string | null>(null);
   const [localStats, setLocalStats] = useState<{
     members: number;
     transactions: number;
@@ -1040,7 +1016,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   }, [activeTab]);
 
   const handleCreateManualSnapshot = async () => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     try {
       const snap = await SnapshotService.createSnapshot('manual', 'Manuell gesicherter Snapshot');
       if (snap) {
@@ -1060,7 +1035,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleRestoreSnapshot = async (snapId: string, label: string) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (!window.confirm(`Möchten Sie diesen Snapshot ("${label}") wirklich wiederherstellen? Aktuelle Daten werden auf diesen Stand zurückgesetzt.`)) {
       return;
     }
@@ -1084,30 +1058,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleDeleteSnapshot = async (snapId: string) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     if (!window.confirm('Möchten Sie diesen Snapshot wirklich löschen?')) return;
     await SnapshotService.deleteSnapshot(snapId);
     loadSnapshotsList();
-  };
-
-  const handleRunLegacyScan = async () => {
-    setIsScanningLegacy(true);
-    setLegacyScanFeedback(null);
-    try {
-      const res = await SnapshotService.scanAndRecoverLegacyData();
-      if (res.recovered) {
-        onDataReload?.();
-        setLegacyScanFeedback(`✅ ${res.details}`);
-        setStatusMsg({ type: 'success', text: `Altdaten aus "${res.source}" gerettet!` });
-        loadSnapshotsList();
-      } else {
-        setLegacyScanFeedback('ℹ️ Es wurden keine Altdaten in anderen Browser-Speichern oder früheren Datenbanken gefunden.');
-      }
-    } catch (e: any) {
-      setLegacyScanFeedback(`Fehler beim Scan: ${e.message || 'Unbekannter Fehler'}`);
-    } finally {
-      setIsScanningLegacy(false);
-    }
   };
 
   // Theme selection handler
@@ -1124,15 +1077,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      {/* Hinweis auf reines Leserecht */}
-      {!canEdit && (
-        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5">
-          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
-          <p className="text-xs leading-snug">
-            <strong>Nur Leserecht.</strong> Sie können die Vereinseinstellungen einsehen und Sicherungen herunterladen. Ändern, Zurücksetzen und Einspielen sind für Ihre Rolle gesperrt — die betreffenden Knöpfe sind ausgegraut.
-          </p>
-        </div>
-      )}
 
       {/* Page Header */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-7 shadow-xs">
@@ -1146,7 +1090,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 Systemeinstellungen
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                Konfigurieren Sie Erscheinungsbild, Vereinsstammdaten, Zugriffsrechte und Backups.
+                Konfigurieren Sie Erscheinungsbild, Vereinsstammdaten, Passwort und Backups.
               </p>
             </div>
           </div>
@@ -1451,8 +1395,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
               <button
                 type="submit"
-                className={`px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer${lockClass(canEdit)}`}
-                title={lockTitle(canEdit, 'Allgemeine Einstellungen speichern')}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                title="Allgemeine Einstellungen speichern"
               >
                 Allgemeine Einstellungen speichern
               </button>
@@ -1480,15 +1424,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 Festplattenverschlüsselung Ihres Betriebssystems (Windows: BitLocker bzw.
                 „Geräteverschlüsselung"), und ein Bildschirmschoner mit Kennwort.
               </p>
-              {!usesNativeCrypto() && (
-                <p className="font-semibold">
-                  Hinweis: Dieser Browser stellt keine gesicherte Kryptographie bereit —
-                  das passiert, wenn die Anwendung über „http://" statt „https://"
-                  ausgeliefert wird. Das Passwort wird dann mit einem schwächeren
-                  Ersatzverfahren gesichert. Über „https://" oder direkt auf dem Gerät ist
-                  der Schutz deutlich besser.
-                </p>
-              )}
             </div>
           </div>
 
@@ -1573,8 +1508,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="submit"
-                className={`px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-xs${lockClass(canEdit)}`}
-                title={lockTitle(canEdit, 'Passwort ändern')}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-xs"
+                title="Passwort ändern"
               >
                 Passwort ändern
               </button>
@@ -2209,8 +2144,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   clubSaveSuccess
                     ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-400/60 shadow-emerald-600/20'
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
-                }${lockClass(canEdit)}`}
-                title={lockTitle(canEdit, 'Vereinsstammdaten speichern')}
+                }`}
+                title="Vereinsstammdaten speichern"
               >
                 {isSavingClub ? (
                   <>
@@ -2382,36 +2317,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       </div>
                     );
                   })}
-                </div>
-              )}
-            </div>
-
-            {/* Legacy Data Rescue Scan */}
-            <div className="border border-blue-200 dark:border-blue-900/60 rounded-2xl p-5 bg-blue-50/40 dark:bg-blue-950/20 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-blue-950 dark:text-blue-200 flex items-center gap-2">
-                    <Search className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    <span>Notfall-Scan: Altdaten aus früheren Versionen suchen & retten</span>
-                  </h4>
-                  <p className="text-2xs text-blue-800/80 dark:text-blue-300 mt-1 max-w-xl">
-                    Fehlen Ihnen nach einem Update Daten? Dieser Scan durchsucht alle älteren Browser-Datenbanken und früheren Speicherbereiche und führt gefundene Datensätze sicher in die aktuelle Version zusammen.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleRunLegacyScan}
-                  disabled={isScanningLegacy}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-xl shadow-2xs transition-colors shrink-0 disabled:opacity-50 cursor-pointer"
-                >
-                  <Search className={`w-3.5 h-3.5 ${isScanningLegacy ? 'animate-spin' : ''}`} />
-                  <span>{isScanningLegacy ? 'Scanne Speicher...' : 'Altdaten-Scan starten'}</span>
-                </button>
-              </div>
-
-              {legacyScanFeedback && (
-                <div className="p-3 bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded-xl text-xs text-slate-800 dark:text-slate-200 animate-in fade-in duration-200">
-                  {legacyScanFeedback}
                 </div>
               )}
             </div>

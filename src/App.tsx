@@ -400,22 +400,7 @@ export default function App() {
     }
   };
 
-  // ---------------------------------------------------------------------
-  // Frühere Bereichsrechte
-  //
-  // Es gab einmal ein Rechtesystem für mehrere Benutzerkonten an einem
-  // gemeinsam genutzten Rechner (z. B. im Vereinsheim): je Person "kein
-  // Zugriff/lesen/bearbeiten" für 18 Bereiche. Das ist jetzt ersetzt durch
-  // ein einziges Gerätepasswort (siehe authService.ts) — wer angemeldet
-  // ist, darf alles. mayAccess/mayEdit/requireEdit bleiben als Namen an den
-  // vielen Aufrufstellen erhalten, geben jetzt aber immer "erlaubt" zurück.
-  // ---------------------------------------------------------------------
-  const mayAccess = (_tab?: ActiveTab): boolean => true;
-  const mayEdit = (_area?: string): boolean => true;
-  const requireEdit = (_area?: string): boolean => true;
-
   const handleSaveMeeting = async (meeting: Meeting) => {
-    if (!requireEdit('meetings')) return;
     const saved = await StorageService.saveMeeting(meeting);
     setMeetings(prev => {
       const idx = prev.findIndex(m => m.id === saved.id);
@@ -429,13 +414,11 @@ export default function App() {
   };
 
   const handleDeleteMeeting = async (meetingId: string) => {
-    if (!requireEdit('meetings')) return;
     await StorageService.deleteMeeting(meetingId);
     setMeetings(prev => prev.filter(m => m.id !== meetingId));
   };
 
   const handleSaveMeetingTemplate = async (template: MeetingTemplateSettings) => {
-    if (!requireEdit('meetings')) return;
     const saved = await StorageService.saveMeetingTemplate(template);
     setMeetingTemplateSettings(saved);
   };
@@ -524,7 +507,6 @@ export default function App() {
 
   // Member CRUD handlers
   const handleSaveMember = async (memberData: Member, attachedDoc?: ClubDocument) => {
-    if (!requireEdit('members')) return;
     const isNew = !members.some(m => m.id === memberData.id);
     await StorageService.saveMember(memberData, isNew ? 'Mitglied neu angelegt' : 'Stammdaten aktualisiert');
     const updated = await StorageService.getMembers();
@@ -545,7 +527,6 @@ export default function App() {
   };
 
   const handleDeleteMember = async (id: string) => {
-    if (!requireEdit('members')) return;
     await StorageService.deleteMember(id);
     const updated = await StorageService.getMembers();
     setMembers(updated);
@@ -555,7 +536,6 @@ export default function App() {
   };
 
   const handleBulkUpdateMembers = async (ids: string[], updates: MemberBulkUpdates) => {
-    if (!requireEdit('members')) return;
     await StorageService.bulkUpdateMembers(ids, updates);
     const updated = await StorageService.getMembers();
     setMembers(updated);
@@ -566,7 +546,6 @@ export default function App() {
   };
 
   const handleBulkDeleteMembers = async (ids: string[]) => {
-    if (!requireEdit('members')) return;
     await StorageService.deleteMultipleMembers(ids);
     const updated = await StorageService.getMembers();
     setMembers(updated);
@@ -577,7 +556,6 @@ export default function App() {
 
   // Batch Member CSV Import
   const handleBatchMemberImport = async (importedMembers: Member[]) => {
-    if (!requireEdit('members')) return;
     await StorageService.batchSaveMembers(importedMembers);
     const updated = await StorageService.getMembers();
     setMembers(updated);
@@ -585,7 +563,6 @@ export default function App() {
 
   // Contact CRUD handlers
   const handleSaveContact = async (contactData: ClubContact) => {
-    if (!requireEdit('contacts')) return;
     await StorageService.saveContact(contactData);
     const updated = await StorageService.getContacts();
     setContacts(updated);
@@ -599,7 +576,6 @@ export default function App() {
   };
 
   const handleDeleteContact = async (id: string) => {
-    if (!requireEdit('contacts')) return;
     await StorageService.deleteContact(id);
     const updated = await StorageService.getContacts();
     setContacts(updated);
@@ -609,7 +585,6 @@ export default function App() {
   };
 
   const handleBulkDeleteContacts = async (ids: string[]) => {
-    if (!requireEdit('contacts')) return;
     for (const id of ids) {
       await StorageService.deleteContact(id);
     }
@@ -621,7 +596,6 @@ export default function App() {
   };
 
   const handleBatchImportContacts = async (importedContacts: ClubContact[]) => {
-    if (!requireEdit('contacts')) return;
     for (const c of importedContacts) {
       await StorageService.saveContact(c);
     }
@@ -630,7 +604,6 @@ export default function App() {
   };
 
   const handleQuickCreateContact = (initialName: string, initialType?: ContactType) => {
-    if (!requireEdit('contacts')) return;
     setEditingContact(null);
     setInitialContactFormName(initialName);
     setInitialContactFormType(initialType);
@@ -639,7 +612,6 @@ export default function App() {
 
   // Transaction CRUD handlers
   const handleSaveTransaction = async (txData: Transaction) => {
-    if (!requireEdit('finance')) return;
     await StorageService.saveTransaction(txData);
     const updated = await StorageService.getTransactions();
     setTransactions(updated);
@@ -648,21 +620,18 @@ export default function App() {
   };
 
   const handleDeleteTransaction = async (id: string) => {
-    if (!requireEdit('finance')) return;
     await StorageService.deleteTransaction(id);
     const updated = await StorageService.getTransactions();
     setTransactions(updated);
   };
 
   const handleBulkUpdateTransactions = async (ids: string[], updates: TransactionBulkUpdates) => {
-    if (!requireEdit('finance')) return;
     await StorageService.bulkUpdateTransactions(ids, updates);
     const updated = await StorageService.getTransactions();
     setTransactions(updated);
   };
 
   const handleBulkDeleteTransactions = async (ids: string[]) => {
-    if (!requireEdit('finance')) return;
     await StorageService.deleteMultipleTransactions(ids);
     const updated = await StorageService.getTransactions();
     setTransactions(updated);
@@ -670,7 +639,6 @@ export default function App() {
 
   // Camera Receipt Scanner Handlers
   const handleScannerLinkToTransaction = async (transactionId: string, receipt: ReceiptAttachment) => {
-    if (!requireEdit('finance')) return;
     const targetTx = transactions.find(t => t.id === transactionId);
     if (!targetTx) return;
     const updatedTx: Transaction = {
@@ -686,7 +654,6 @@ export default function App() {
   };
 
   const handleScannerCreateTransactionWithReceipt = (receipt: ReceiptAttachment) => {
-    if (!requireEdit('finance')) return;
     const newTxStub: Transaction = {
       id: `tx-${Date.now()}`,
       documentNumber: nextDocNumber,
@@ -710,14 +677,12 @@ export default function App() {
   };
 
   const handleQuickScanReceipt = (tx: Transaction) => {
-    if (!requireEdit('finance')) return;
     setScannerTargetTx(tx);
     setReceiptScannerOpen(true);
   };
 
   // Bank CSV Batch Import
   const handleBankImport = async (importedTxs: Transaction[]) => {
-    if (!requireEdit('finance')) return;
     await StorageService.batchSaveTransactions(importedTxs);
     const updated = await StorageService.getTransactions();
     setTransactions(updated);
@@ -725,7 +690,6 @@ export default function App() {
 
   // Excel & Google Sheets Batch Import
   const handleBatchTransactionImport = async (importedTxs: Transaction[]) => {
-    if (!requireEdit('finance')) return;
     await StorageService.batchSaveTransactions(importedTxs);
     const updated = await StorageService.getTransactions();
     setTransactions(updated);
@@ -733,21 +697,18 @@ export default function App() {
 
   // Account handlers
   const handleSaveAccount = async (account: FinancialAccount) => {
-    if (!requireEdit('finance')) return;
     await StorageService.saveAccount(account);
     const updated = await StorageService.getAccounts();
     setAccounts(updated);
   };
 
   const handleDeleteAccount = async (id: string) => {
-    if (!requireEdit('finance')) return;
     await StorageService.deleteAccount(id);
     const updated = await StorageService.getAccounts();
     setAccounts(updated);
   };
 
   const handleReorderAccounts = async (reordered: FinancialAccount[]) => {
-    if (!requireEdit('finance')) return;
     const withOrder = reordered.map((a, idx) => ({ ...a, order: idx }));
     setAccounts(withOrder);
     await StorageService.saveAccounts(withOrder);
@@ -755,7 +716,6 @@ export default function App() {
 
   // Inventory CRUD handlers
   const handleSaveInventoryItem = async (item: InventoryItem) => {
-    if (!requireEdit('inventory')) return;
     await StorageService.saveInventoryItem(item);
     const updated = await StorageService.getInventory();
     setInventory(updated);
@@ -764,21 +724,18 @@ export default function App() {
   };
 
   const handleDeleteInventoryItem = async (id: string) => {
-    if (!requireEdit('inventory')) return;
     await StorageService.deleteInventoryItem(id);
     const updated = await StorageService.getInventory();
     setInventory(updated);
   };
 
   const handleBulkUpdateInventoryItems = async (ids: string[], updates: InventoryBulkUpdates) => {
-    if (!requireEdit('inventory')) return;
     await StorageService.bulkUpdateInventoryItems(ids, updates);
     const updated = await StorageService.getInventory();
     setInventory(updated);
   };
 
   const handleBulkDeleteInventoryItems = async (ids: string[]) => {
-    if (!requireEdit('inventory')) return;
     await StorageService.deleteMultipleInventoryItems(ids);
     const updated = await StorageService.getInventory();
     setInventory(updated);
@@ -786,28 +743,24 @@ export default function App() {
 
   // Settings handler
   const handleSaveSettings = async (newSettings: ClubSettings) => {
-    if (!requireEdit('settings')) return;
     await StorageService.saveSettings(newSettings);
     setSettings(newSettings);
   };
 
   // Document Management handlers
   const handleSaveBatchDocuments = async (newDocs: ClubDocument[]) => {
-    if (!requireEdit('documents')) return;
     await StorageService.saveBatchDocuments(newDocs);
     const updated = await StorageService.getDocuments();
     setDocuments(updated);
   };
 
   const handleSaveSingleDocument = async (doc: ClubDocument) => {
-    if (!requireEdit('documents')) return;
     await StorageService.saveDocument(doc);
     const updated = await StorageService.getDocuments();
     setDocuments(updated);
   };
 
   const handleUpdateDocument = async (updatedDoc: ClubDocument) => {
-    if (!requireEdit('documents')) return;
     await StorageService.saveDocument(updatedDoc);
     const updated = await StorageService.getDocuments();
     setDocuments(updated);
@@ -817,7 +770,6 @@ export default function App() {
   };
 
   const handleDeleteDocument = async (id: string) => {
-    if (!requireEdit('documents')) return;
     await StorageService.deleteDocument(id);
     const updated = await StorageService.getDocuments();
     setDocuments(updated);
@@ -827,7 +779,6 @@ export default function App() {
   };
 
   const handleBatchDeleteDocuments = async (ids: string[]) => {
-    if (!requireEdit('documents')) return;
     await StorageService.deleteMultipleDocuments(ids);
     const updated = await StorageService.getDocuments();
     setDocuments(updated);
@@ -842,14 +793,12 @@ export default function App() {
 
   // Folder CRUD handlers
   const handleSaveFolder = async (folderData: DocumentFolder) => {
-    if (!requireEdit('documents')) return;
     await StorageService.saveFolder(folderData);
     const updated = await StorageService.getFolders();
     setFolders(updated);
   };
 
   const handleDeleteFolder = async (folderId: string) => {
-    if (!requireEdit('documents')) return;
     await StorageService.deleteFolder(folderId);
     const [updatedFolders, updatedDocs] = await Promise.all([
       StorageService.getFolders(),
@@ -864,7 +813,6 @@ export default function App() {
     targetFolderId: string | null,
     targetCategory?: DocumentCategory
   ) => {
-    if (!requireEdit('documents')) return;
     await StorageService.batchMoveDocumentsToFolder(docIds, targetFolderId, targetCategory);
     const updated = await StorageService.getDocuments();
     setDocuments(updated);
@@ -885,7 +833,6 @@ export default function App() {
       targetAccountId?: string;
     }
   ) => {
-    if (!requireEdit('donations')) return;
     await StorageService.saveDonationReceipt(receipt, options);
     const [updatedDonations, updatedDocs, updatedTxs] = await Promise.all([
       StorageService.getDonations(),
@@ -900,7 +847,6 @@ export default function App() {
   };
 
   const handleDeleteDonationReceipt = async (id: string) => {
-    if (!requireEdit('donations')) return;
     await StorageService.deleteDonationReceipt(id);
     const [updatedDonations, updatedDocs] = await Promise.all([
       StorageService.getDonations(),
@@ -911,13 +857,11 @@ export default function App() {
   };
 
   const handleEditDonationReceipt = (receipt: DonationReceipt) => {
-    if (!requireEdit('donations')) return;
     setEditingDonation(receipt);
     setDonationFormOpen(true);
   };
 
   const handleOpenCreateDonation = () => {
-    if (!requireEdit('donations')) return;
     setEditingDonation(null);
     setDonationFormOpen(true);
   };
@@ -926,7 +870,6 @@ export default function App() {
   const nextInvoiceNumber = `RE-${new Date().getFullYear()}-${String(invoices.length + 1).padStart(3, '0')}`;
 
   const handleSaveInvoice = async (invoice: ClubInvoice, saveToDocuments: boolean = true) => {
-    if (!requireEdit('invoices')) return;
     const toSave: ClubInvoice = { ...invoice };
     if (saveToDocuments) {
       try {
@@ -950,7 +893,6 @@ export default function App() {
   };
 
   const handleDeleteInvoice = async (id: string) => {
-    if (!requireEdit('invoices')) return;
     await StorageService.deleteInvoice(id);
     const updatedInvoices = await StorageService.getInvoices();
     setInvoices(updatedInvoices);
@@ -960,7 +902,6 @@ export default function App() {
   };
 
   const handleBulkDeleteInvoices = async (ids: string[]) => {
-    if (!requireEdit('invoices')) return;
     for (const id of ids) {
       await StorageService.deleteInvoice(id);
     }
@@ -970,14 +911,12 @@ export default function App() {
 
 
   const handleSaveInvoiceTemplate = async (newTemplate: InvoiceTemplateSettings) => {
-    if (!requireEdit('invoices')) return;
     await StorageService.saveInvoiceTemplate(newTemplate);
     setInvoiceTemplateSettings(newTemplate);
     setInvoiceTemplateModalOpen(false);
   };
 
   const handleCreateInvoiceForContact = (contact: ClubContact) => {
-    if (!requireEdit('invoices')) return;
     setEditingInvoice(null);
     setPrefillInvoiceRecipient({
       id: contact.id,
@@ -1009,23 +948,14 @@ export default function App() {
   // --- Online-Aufnahmeanträge -------------------------------------------
 
   /**
-   * Antrag annehmen. Verlangt Schreibrecht auf die Anträge UND auf die
-   * Mitglieder, denn dabei entsteht ein neues Mitglied.
-   *
-   * Wirft bei fehlender Berechtigung eine Ausnahme statt still nichts zu
-   * tun: Die Maske wartet auf das angelegte Mitglied und zeigt den Text
-   * der Ausnahme als Fehlermeldung an.
+   * Antrag annehmen: legt dabei ein neues Mitglied an. Die Maske wartet auf
+   * das angelegte Mitglied und zeigt eine Ausnahme als Fehlermeldung an.
    */
   const handleApproveApplication = async (
     appId: string,
     overrides: Partial<Member>,
     author: string
   ): Promise<{ member: Member; documentId: string }> => {
-    if (!mayEdit('online_applications') || !mayEdit('members')) {
-      throw new Error(
-        'Keine Berechtigung: Anträge annehmen setzt das Recht voraus, Mitglieder anzulegen.'
-      );
-    }
     const res = await StorageService.approveOnlineApplication(
       appId,
       overrides,
@@ -1036,7 +966,6 @@ export default function App() {
   };
 
   const handleRejectApplication = async (appId: string, reason: string, author: string) => {
-    if (!requireEdit('online_applications')) return;
     await StorageService.rejectOnlineApplication(
       appId,
       reason,
@@ -1046,25 +975,21 @@ export default function App() {
   };
 
   const handleDeleteApplication = async (id: string) => {
-    if (!requireEdit('online_applications')) return;
     await StorageService.deleteOnlineApplication(id);
     await loadData();
   };
 
   const handleSaveApplicationTemplate = async (newSettings: ApplicationTemplateSettings) => {
-    if (!requireEdit('online_applications')) return;
     await StorageService.saveApplicationTemplateSettings(newSettings);
     await loadData();
   };
 
   const handleAddApplication = async (newApp: OnlineMembershipApplication) => {
-    if (!requireEdit('online_applications')) return;
     await StorageService.saveOnlineApplication(newApp);
     await loadData();
   };
 
   const handleOpenCreateCalendarEvent = async () => {
-    if (!requireEdit('calendar')) return;
     try {
       const cats = await StorageService.getCalendarCategories();
       setCalendarCategories(cats);
@@ -1075,7 +1000,6 @@ export default function App() {
   };
 
   const handleSaveCalendarEvent = async (eventData: CalendarEvent) => {
-    if (!requireEdit('calendar')) return;
     await StorageService.saveCalendarEvent(eventData);
     setCalendarEventModalOpen(false);
     setCalendarRefreshKey(k => k + 1);
@@ -1117,22 +1041,6 @@ export default function App() {
   }
 
   const currentUser = authSession.benutzername;
-
-  /** Zusatzklassen für einen gesperrten Navigationseintrag — nicht mehr in Gebrauch, da niemand mehr gesperrt wird. */
-  const navLockClass = (_tab?: ActiveTab): string => '';
-
-  const NAV_LOCK_TITLE = undefined;
-
-  /**
-   * Bereichswechsel aus der Anwendung heraus (Kacheln, Querverweise).
-   * Führt ins Leere, wenn die Berechtigung fehlt — sonst könnte ein
-   * Verweis jemanden in einen Bereich befördern, den die Navigation
-   * für ihn gesperrt hat.
-   */
-  const goToTab = (tab: ActiveTab) => {
-    if (!mayAccess(tab)) return;
-    setActiveTab(tab);
-  };
 
   return (
     <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
@@ -1254,8 +1162,6 @@ export default function App() {
               <div className="pl-2 pr-1 space-y-1 mt-1 border-l border-slate-800 ml-4">
                 <button
                   type="button"
-                  disabled={!mayAccess('members')}
-                  title={mayAccess('members') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('members');
                     setMobileMenuOpen(false);
@@ -1264,17 +1170,14 @@ export default function App() {
                     activeTab === 'members'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }${navLockClass('members')}`}
+                  }`}
                 >
                   <Users className="w-3.5 h-3.5 text-blue-400" />
                   <span>Mitgliederverwaltung</span>
-                  {!mayAccess('members') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
 
                 <button
                   type="button"
-                  disabled={!mayAccess('online_applications')}
-                  title={mayAccess('online_applications') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('online_applications');
                     setMobileMenuOpen(false);
@@ -1283,7 +1186,7 @@ export default function App() {
                     activeTab === 'online_applications'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }${navLockClass('online_applications')}`}
+                  }`}
                 >
                   <div className="flex items-center gap-2">
                     <FileSignature className="w-3.5 h-3.5 text-blue-400" />
@@ -1304,13 +1207,10 @@ export default function App() {
                       {onlineApplications.length}
                     </span>
                   )}
-                  {!mayAccess('online_applications') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
 
                 <button
                   type="button"
-                  disabled={!mayAccess('member_analytics')}
-                  title={mayAccess('member_analytics') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('member_analytics');
                     setMobileMenuOpen(false);
@@ -1319,11 +1219,10 @@ export default function App() {
                     activeTab === 'member_analytics'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }${navLockClass('member_analytics')}`}
+                  }`}
                 >
                   <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
                   <span>Mitglieder-Statistiken</span>
-                  {!mayAccess('member_analytics') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
               </div>
             )}
@@ -1358,8 +1257,6 @@ export default function App() {
                 {/* 3a. Buchungen & Konten */}
                 <button
                   type="button"
-                  disabled={!mayAccess('finance')}
-                  title={mayAccess('finance') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('finance');
                     setMobileMenuOpen(false);
@@ -1368,18 +1265,15 @@ export default function App() {
                     activeTab === 'finance'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }${navLockClass('finance')}`}
+                  }`}
                 >
                   <Wallet className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Buchungen & Journal</span>
-                  {!mayAccess('finance') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
 
                 {/* 3b. Beitragslauf (SEPA) */}
                 <button
                   type="button"
-                  disabled={!mayAccess('sepa')}
-                  title={mayAccess('sepa') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('sepa');
                     setMobileMenuOpen(false);
@@ -1388,7 +1282,7 @@ export default function App() {
                     activeTab === 'sepa'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }${navLockClass('sepa')}`}
+                  }`}
                 >
                   <div className="flex items-center gap-2">
                     <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
@@ -1403,14 +1297,11 @@ export default function App() {
                   >
                     SEPA
                   </span>
-                  {!mayAccess('sepa') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
 
                 {/* 3c. EÜR / GuV */}
                 <button
                   type="button"
-                  disabled={!mayAccess('guv')}
-                  title={mayAccess('guv') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('guv');
                     setMobileMenuOpen(false);
@@ -1419,19 +1310,16 @@ export default function App() {
                     activeTab === 'guv'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }${navLockClass('guv')}`}
+                  }`}
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
                   <span>EÜR / GuV</span>
-                  {!mayAccess('guv') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
 
                 {/* 3d. Rechnungen & Vorlagen */}
                 <button
                   id="nav-btn-invoices"
                   type="button"
-                  disabled={!mayAccess('invoices')}
-                  title={mayAccess('invoices') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('invoices');
                     setMobileMenuOpen(false);
@@ -1440,19 +1328,16 @@ export default function App() {
                     activeTab === 'invoices'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }${navLockClass('invoices')}`}
+                  }`}
                 >
                   <FileText className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Rechnungen</span>
-                  {!mayAccess('invoices') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
 
                 {/* 3e. Geld- & Sachzuwendungen (BMF Muster) */}
                 <button
                   id="nav-btn-donations"
                   type="button"
-                  disabled={!mayAccess('donations')}
-                  title={mayAccess('donations') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('donations');
                     setMobileMenuOpen(false);
@@ -1461,18 +1346,15 @@ export default function App() {
                     activeTab === 'donations'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }${navLockClass('donations')}`}
+                  }`}
                 >
                   <HeartHandshake className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Spenden</span>
-                  {!mayAccess('donations') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
 
                 {/* 3e. Finanz-Auswertungen */}
                 <button
                   type="button"
-                  disabled={!mayAccess('finance_analytics')}
-                  title={mayAccess('finance_analytics') ? undefined : NAV_LOCK_TITLE}
                   onClick={() => {
                     setActiveTab('finance_analytics');
                     setMobileMenuOpen(false);
@@ -1481,11 +1363,10 @@ export default function App() {
                     activeTab === 'finance_analytics'
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }${navLockClass('finance_analytics')}`}
+                  }`}
                 >
                   <PieChart className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Finanz-Auswertungen</span>
-                  {!mayAccess('finance_analytics') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
                 </button>
               </div>
             )}
@@ -1496,8 +1377,6 @@ export default function App() {
             <button
               id="nav-btn-contacts"
               type="button"
-              disabled={!mayAccess('contacts')}
-              title={mayAccess('contacts') ? undefined : NAV_LOCK_TITLE}
               onClick={() => {
                 setActiveTab('contacts');
                 setMobileMenuOpen(false);
@@ -1506,13 +1385,12 @@ export default function App() {
                 activeTab === 'contacts'
                   ? 'bg-blue-600 text-white shadow-xs font-bold'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-              }${navLockClass('contacts')}`}
+              }`}
             >
               <div className="flex items-center gap-2">
                 <Contact className={`w-4 h-4 ${activeTab === 'contacts' ? 'text-white' : 'text-cyan-400'}`} />
                 <span>Kontakte</span>
               </div>
-              {!mayAccess('contacts') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
             </button>
           </div>
 
@@ -1521,8 +1399,6 @@ export default function App() {
             <button
               id="nav-btn-calendar"
               type="button"
-              disabled={!mayAccess('calendar')}
-              title={mayAccess('calendar') ? undefined : NAV_LOCK_TITLE}
               onClick={() => {
                 setActiveTab('calendar');
                 setMobileMenuOpen(false);
@@ -1531,13 +1407,12 @@ export default function App() {
                 activeTab === 'calendar'
                   ? 'bg-blue-600 text-white shadow-xs font-bold'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-              }${navLockClass('calendar')}`}
+              }`}
             >
               <div className="flex items-center gap-2">
                 <CalendarDays className={`w-4 h-4 ${activeTab === 'calendar' ? 'text-white' : 'text-indigo-400'}`} />
                 <span>Kalender</span>
               </div>
-              {!mayAccess('calendar') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
             </button>
           </div>
 
@@ -1546,8 +1421,6 @@ export default function App() {
             <button
               id="nav-btn-meetings"
               type="button"
-              disabled={!mayAccess('meetings')}
-              title={mayAccess('meetings') ? undefined : NAV_LOCK_TITLE}
               onClick={() => {
                 setActiveTab('meetings');
                 setMobileMenuOpen(false);
@@ -1556,13 +1429,12 @@ export default function App() {
                 activeTab === 'meetings'
                   ? 'bg-blue-600 text-white shadow-xs font-bold'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-              }${navLockClass('meetings')}`}
+              }`}
             >
               <div className="flex items-center gap-2">
                 <ScrollText className={`w-4 h-4 ${activeTab === 'meetings' ? 'text-white' : 'text-rose-400'}`} />
                 <span>Sitzungen</span>
               </div>
-              {!mayAccess('meetings') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
             </button>
           </div>
 
@@ -1570,8 +1442,6 @@ export default function App() {
           <div className="pt-2">
             <button
               type="button"
-              disabled={!mayAccess('inventory')}
-              title={mayAccess('inventory') ? undefined : NAV_LOCK_TITLE}
               onClick={() => {
                 setActiveTab('inventory');
                 setMobileMenuOpen(false);
@@ -1580,11 +1450,10 @@ export default function App() {
                 activeTab === 'inventory'
                   ? 'bg-blue-600 text-white shadow-xs font-bold'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-              }${navLockClass('inventory')}`}
+              }`}
             >
               <Package className="w-4 h-4 text-purple-400" />
               <span>Inventar</span>
-              {!mayAccess('inventory') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
             </button>
           </div>
 
@@ -1593,8 +1462,6 @@ export default function App() {
             <button
               id="nav-btn-documents"
               type="button"
-              disabled={!mayAccess('documents')}
-              title={mayAccess('documents') ? undefined : NAV_LOCK_TITLE}
               onClick={() => {
                 setActiveTab('documents');
                 setMobileMenuOpen(false);
@@ -1603,11 +1470,10 @@ export default function App() {
                 activeTab === 'documents'
                   ? 'bg-blue-600 text-white shadow-xs font-bold'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-              }${navLockClass('documents')}`}
+              }`}
             >
               <FolderArchive className="w-4 h-4 text-amber-400" />
               <span>Dokumente</span>
-              {!mayAccess('documents') && <Lock className="w-3 h-3 ml-auto shrink-0 text-slate-500" />}
             </button>
           </div>
         </nav>
@@ -1620,7 +1486,7 @@ export default function App() {
             type="button"
             onClick={() => {
               setSettingsActiveTab('general');
-              goToTab('settings');
+              setActiveTab('settings');
               setMobileMenuOpen(false);
             }}
             className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -1773,7 +1639,7 @@ export default function App() {
                       onClick={() => {
                         setUserDropdownOpen(false);
                         setSettingsActiveTab('general');
-                        goToTab('settings');
+                        setActiveTab('settings');
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-left transition-colors cursor-pointer"
                     >
@@ -1786,7 +1652,7 @@ export default function App() {
                       onClick={() => {
                         setUserDropdownOpen(false);
                         setSettingsActiveTab('general');
-                        goToTab('settings');
+                        setActiveTab('settings');
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-left transition-colors cursor-pointer"
                     >
@@ -1868,7 +1734,7 @@ export default function App() {
                   StorageService.saveDashboardConfig(newConfig);
                 }}
                 onOpenDashboardConfigModal={() => setIsDashboardConfigOpen(true)}
-                onNavigate={(tab) => goToTab(tab)}
+                onNavigate={(tab) => setActiveTab(tab)}
                 onOpenCreateMember={() => {
                   setEditingMember(null);
                   setMemberFormOpen(true);
@@ -1919,8 +1785,6 @@ export default function App() {
                 onBulkUpdateMembers={handleBulkUpdateMembers}
                 onBulkDeleteMembers={handleBulkDeleteMembers}
                 onOpenImport={() => setMemberImportOpen(true)}
-                canEdit={mayEdit('members')}
-                onLocked={() => requireEdit('members')}
               />
             )}
 
@@ -1937,8 +1801,6 @@ export default function App() {
                 onDeleteApplication={handleDeleteApplication}
                 onSaveTemplateSettings={handleSaveApplicationTemplate}
                 onSubmitNewApplication={handleAddApplication}
-                canEdit={mayEdit('online_applications')}
-                onLocked={() => requireEdit('online_applications')}
                 />
             )}
 
@@ -1953,10 +1815,8 @@ export default function App() {
                 members={members}
                 settings={settings}
                 accounts={accounts}
-                onOpenSettings={() => goToTab('settings')}
+                onOpenSettings={() => setActiveTab('settings')}
                 onRefreshData={loadData}
-                canEdit={mayEdit('sepa')}
-                onLocked={() => requireEdit('sepa')}
                 />
             )}
 
@@ -1993,8 +1853,6 @@ export default function App() {
                   setActiveReceipt({ receipt, docNum, text });
                 }}
                 onReorderAccounts={handleReorderAccounts}
-                canEdit={mayEdit('finance')}
-                onLocked={() => requireEdit('finance')}
                 />
             )}
 
@@ -2027,8 +1885,6 @@ export default function App() {
                 onDeleteInvoice={handleDeleteInvoice}
                 onBulkDeleteInvoices={handleBulkDeleteInvoices}
                 onOpenTemplateConfig={() => setInvoiceTemplateModalOpen(true)}
-                canEdit={mayEdit('invoices')}
-                onLocked={() => requireEdit('invoices')}
                 />
             )}
 
@@ -2051,8 +1907,6 @@ export default function App() {
                 onEditReceipt={handleEditDonationReceipt}
                 onDeleteReceipt={handleDeleteDonationReceipt}
                 onViewDocument={(doc) => setDocViewerItem(doc)}
-                canEdit={mayEdit('donations')}
-                onLocked={() => requireEdit('donations')}
                 />
             )}
 
@@ -2081,8 +1935,6 @@ export default function App() {
                 }}
                 onCreateInvoiceForContact={handleCreateInvoiceForContact}
                 onOpenImport={() => setContactImportOpen(true)}
-                canEdit={mayEdit('contacts')}
-                onLocked={() => requireEdit('contacts')}
                 />
             )}
 
@@ -2104,8 +1956,6 @@ export default function App() {
                 onDeleteItem={handleDeleteInventoryItem}
                 onBulkUpdateItems={handleBulkUpdateInventoryItems}
                 onBulkDeleteItems={handleBulkDeleteInventoryItems}
-                canEdit={mayEdit('inventory')}
-                onLocked={() => requireEdit('inventory')}
                 />
             )}
 
@@ -2114,8 +1964,6 @@ export default function App() {
               <CalendarView
                 members={members}
                 settings={settings}
-                canEdit={mayEdit('calendar')}
-                onLocked={() => requireEdit('calendar')}
                 />
             )}
 
@@ -2129,8 +1977,6 @@ export default function App() {
                 onSaveMeeting={handleSaveMeeting}
                 onDeleteMeeting={handleDeleteMeeting}
                 onSaveTemplate={handleSaveMeetingTemplate}
-                canEdit={mayEdit('meetings')}
-                onLocked={() => requireEdit('meetings')}
                 />
             )}
 
@@ -2152,8 +1998,6 @@ export default function App() {
                 onSaveFolder={handleSaveFolder}
                 onDeleteFolder={handleDeleteFolder}
                 onBatchMoveToFolder={handleBatchMoveToFolder}
-                canEdit={mayEdit('documents')}
-                onLocked={() => requireEdit('documents')}
                 />
             )}
 
@@ -2167,8 +2011,6 @@ export default function App() {
                 onThemeChange={(newTheme) => setTheme(newTheme)}
                 initialTab={settingsActiveTab}
                 onTabChange={(tab) => setSettingsActiveTab(tab)}
-                canEdit={mayEdit('settings')}
-                onLocked={() => requireEdit('settings')}
                 />
             )}
           </div>
@@ -2305,8 +2147,6 @@ export default function App() {
             setEditingMember(m);
             setMemberFormOpen(true);
           }}
-          canEdit={mayEdit('members')}
-                onLocked={() => requireEdit('members')}
                 />
       )}
 

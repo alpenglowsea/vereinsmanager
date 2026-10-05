@@ -38,10 +38,8 @@ import {
   SlidersHorizontal,
   FileDown,
   X,
-  Split,
-  Lock
+  Split
 } from 'lucide-react';
-import { lockClass, lockTitle } from '../utils/uiLock';
 
 export type TransactionSortField =
   | 'date'
@@ -141,10 +139,6 @@ interface FinanceViewProps {
   onOpenReceiptViewer: (receipt: ReceiptAttachment, docNum: string, text: string) => void;
   onReorderAccounts?: (accounts: FinancialAccount[]) => void;
   onOpenDetailsTx?: (tx: Transaction) => void;
-  /** Darf der Benutzer hier etwas ändern? Fehlt die Angabe, gilt ja. */
-  canEdit?: boolean;
-  /** Wird gerufen, wenn jemand einen gesperrten Knopf betätigt. */
-  onLocked?: () => void;
 }
 
 export const FinanceView: React.FC<FinanceViewProps> = ({
@@ -166,18 +160,11 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   onOpenReceiptViewer,
   onReorderAccounts,
   onOpenDetailsTx,
-  canEdit = true,
-  onLocked
 }) => {
   /**
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
-  const guard = (action: () => void) => () => {
-    if (canEdit) action();
-    else if (onLocked) onLocked();
-  };
-
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('all');
   const [selectedSphere, setSelectedSphere] = useState<string>('all');
@@ -227,7 +214,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
     setLocalAccounts(next);
     setDraggedAccountIndex(null);
     setDragOverAccountIndex(null);
-    if (onReorderAccounts && canEdit) {
+    if (onReorderAccounts) {
       onReorderAccounts(next);
     }
   };
@@ -682,7 +669,6 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   };
 
   const handleBulkUpdate = async (updates: TransactionBulkUpdates) => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     const ids = Array.from(selectedTxIds) as string[];
     if (ids.length === 0) return;
     setIsBulkProcessing(true);
@@ -702,7 +688,6 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   };
 
   const handleBulkDelete = async () => {
-    if (!canEdit) { if (onLocked) onLocked(); return; }
     const ids = Array.from(selectedTxIds) as string[];
     if (ids.length === 0) return;
     setIsBulkProcessing(true);
@@ -758,15 +743,6 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
-      {/* Hinweis auf reines Leserecht */}
-      {!canEdit && (
-        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-2.5">
-          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
-          <p className="text-xs leading-snug">
-            <strong>Nur Leserecht.</strong> Sie können Buchungen, Konten und Belege einsehen, auswerten und exportieren. Erfassen, Ändern und Löschen sind für Ihre Rolle gesperrt — die betreffenden Knöpfe sind ausgegraut.
-          </p>
-        </div>
-      )}
 
       {/* Account Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -786,9 +762,9 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             <span className="text-slate-400">Finanzstatus</span>
             <button
               type="button"
-              onClick={guard(onOpenAccountManage)}
-              className={`text-blue-400 hover:underline font-semibold text-xs${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'Konten anlegen und bearbeiten')}
+              onClick={onOpenAccountManage}
+              className="text-blue-400 hover:underline font-semibold text-xs"
+              title="Konten anlegen und bearbeiten"
             >
               Konten verwalten →
             </button>
@@ -887,9 +863,9 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           <div className="flex items-center flex-wrap gap-2">
             <button
               type="button"
-              onClick={guard(() => setIsBulkEditOpen(true))}
-              className={`bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'Alle markierten Buchungen ändern')}
+              onClick={() => setIsBulkEditOpen(true)}
+              className="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              title="Alle markierten Buchungen ändern"
             >
               <SlidersHorizontal className="w-4 h-4" />
               <span>Sammelbearbeitung</span>
@@ -897,9 +873,9 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
 
             <button
               type="button"
-              onClick={guard(() => setIsBulkDeleteConfirmOpen(true))}
-              className={`bg-rose-600/90 hover:bg-rose-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'Alle markierten Buchungen löschen')}
+              onClick={() => setIsBulkDeleteConfirmOpen(true)}
+              className="bg-rose-600/90 hover:bg-rose-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              title="Alle markierten Buchungen löschen"
             >
               <Trash2 className="w-4 h-4" />
               <span>Ausgewählte löschen</span>
@@ -971,9 +947,9 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             {onOpenTransactionImport && (
               <button
                 type="button"
-                onClick={guard(onOpenTransactionImport)}
-                className={`text-xs bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs${lockClass(canEdit)}`}
-                title={lockTitle(canEdit, 'Buchungen direkt aus Excel oder Google Sheets importieren')}
+                onClick={onOpenTransactionImport}
+                className="text-xs bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs"
+                title="Buchungen direkt aus Excel oder Google Sheets importieren"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Excel / Sheets Import</span>
@@ -983,9 +959,9 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             {onOpenReceiptScanner && (
               <button
                 type="button"
-                onClick={guard(onOpenReceiptScanner)}
-                className={`text-xs bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 text-emerald-800 px-3.5 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs${lockClass(canEdit)}`}
-                title={lockTitle(canEdit, 'Physische Belege & Rechnungen mit Kamera scannen & als PDF digitalisieren')}
+                onClick={onOpenReceiptScanner}
+                className="text-xs bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 text-emerald-800 px-3.5 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs"
+                title="Physische Belege & Rechnungen mit Kamera scannen & als PDF digitalisieren"
               >
                 <Camera className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Beleg scannen</span>
@@ -994,9 +970,9 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
 
             <button
               type="button"
-              onClick={guard(onOpenBankImport)}
-              className={`text-xs bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-xs${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'Kontoauszug direkt aus Bank-CSV importieren')}
+              onClick={onOpenBankImport}
+              className="text-xs bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-xs"
+              title="Kontoauszug direkt aus Bank-CSV importieren"
             >
               <Upload className="w-3.5 h-3.5" />
               <span>Bank-Umsätze</span>
@@ -1004,9 +980,9 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
 
             <button
               type="button"
-              onClick={guard(onOpenCreateTx)}
-              className={`text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-xs${lockClass(canEdit)}`}
-              title={lockTitle(canEdit, 'Neue Buchung erfassen')}
+              onClick={onOpenCreateTx}
+              className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-xs"
+              title="Neue Buchung erfassen"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Neue Buchung</span>
@@ -1251,10 +1227,10 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                                       type="button"
                                       onClick={e => {
                                         e.stopPropagation();
-                                        guard(() => onOpenCreateContactFromTx(tx.partner, tx.type === 'income'))();
+                                        onOpenCreateContactFromTx(tx.partner, tx.type === 'income');
                                       }}
-                                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-3xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded transition-colors cursor-pointer${lockClass(canEdit)}`}
-                                      title={lockTitle(canEdit, `»${tx.partner}« ist noch nicht als Kontakt erfasst. Klicken zum Anlegen.`)}
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 text-3xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded transition-colors cursor-pointer"
+                                      title={`»${tx.partner}« ist noch nicht als Kontakt erfasst. Klicken zum Anlegen.`}
                                     >
                                       <UserPlus className="w-2.5 h-2.5 text-amber-600" />
                                       <span>+ Kontakt</span>
@@ -1330,16 +1306,14 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                                 type="button"
                                 onClick={e => {
                                   e.stopPropagation();
-                                  guard(() => {
-                                    if (onQuickScanReceipt) {
-                                      onQuickScanReceipt(tx);
-                                    } else {
-                                      onOpenEditTx(tx);
-                                    }
-                                  })();
+                                  if (onQuickScanReceipt) {
+                                    onQuickScanReceipt(tx);
+                                  } else {
+                                    onOpenEditTx(tx);
+                                  }
                                 }}
-                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded text-2xs transition-colors border border-dashed border-slate-200 hover:border-emerald-300${lockClass(canEdit)}`}
-                                title={lockTitle(canEdit, 'Beleg mit Kamera scannen & verknüpfen')}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded text-2xs transition-colors border border-dashed border-slate-200 hover:border-emerald-300"
+                                title="Beleg mit Kamera scannen & verknüpfen"
                               >
                                 <Camera className="w-2.5 h-2.5 text-emerald-600" />
                                 <span className="text-[10px]">Scannen</span>
@@ -1432,10 +1406,10 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                           type="button"
                           onClick={e => {
                             e.stopPropagation();
-                            guard(() => onOpenEditTx(tx))();
+                            onOpenEditTx(tx);
                           }}
-                          className={`p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors${lockClass(canEdit)}`}
-                          title={lockTitle(canEdit, 'Buchung bearbeiten')}
+                          className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          title="Buchung bearbeiten"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
@@ -1443,14 +1417,12 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                           type="button"
                           onClick={e => {
                             e.stopPropagation();
-                            guard(() => {
-                              if (window.confirm(`Buchung ${tx.documentNumber} (${tx.bookingText}) wirklich löschen?`)) {
-                                onDeleteTx(tx.id);
-                              }
-                            })();
+                            if (window.confirm(`Buchung ${tx.documentNumber} (${tx.bookingText}) wirklich löschen?`)) {
+                              onDeleteTx(tx.id);
+                            }
                           }}
-                          className={`p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors${lockClass(canEdit)}`}
-                          title={lockTitle(canEdit, 'Löschen')}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                          title="Löschen"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1504,11 +1476,11 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           onClose={() => setSelectedDetailTx(null)}
           onEdit={tx => {
             setSelectedDetailTx(null);
-            guard(() => onOpenEditTx(tx))();
+            onOpenEditTx(tx);
           }}
           onDelete={id => {
             setSelectedDetailTx(null);
-            guard(() => onDeleteTx(id))();
+            onDeleteTx(id);
           }}
           onOpenReceiptViewer={onOpenReceiptViewer}
           onQuickScanReceipt={
