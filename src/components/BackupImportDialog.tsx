@@ -22,6 +22,12 @@ interface BackupImportDialogProps {
   kopf: SicherungsKopf;
   vergleich: BereichsVergleich[];
   laeuft: boolean;
+  /**
+   * Fehlermeldung vom letzten Versuch. Wird im Dialog selbst angezeigt, nicht
+   * dahinter: Wer auf "Einspielen" geklickt hat und im Dialog bleibt, ohne
+   * etwas zu sehen, hält den Klick für wirkungslos und versucht es erneut.
+   */
+  fehler?: string | null;
   onAbbrechen: () => void;
   onBestaetigen: (art: ImportArt) => void;
 }
@@ -45,6 +51,7 @@ export const BackupImportDialog: React.FC<BackupImportDialogProps> = ({
   kopf,
   vergleich,
   laeuft,
+  fehler,
   onAbbrechen,
   onBestaetigen
 }) => {
@@ -272,6 +279,16 @@ export const BackupImportDialog: React.FC<BackupImportDialogProps> = ({
             </label>
           )}
         </div>
+
+        {fehler && (
+          <div
+            role="alert"
+            className="mx-6 mt-4 mb-1 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-300 dark:border-rose-800 text-xs text-rose-900 dark:text-rose-200 flex items-start gap-2 max-h-40 overflow-y-auto"
+          >
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-px" />
+            <span className="break-words min-w-0">{fehler}</span>
+          </div>
+        )}
 
         {/* Fuß */}
         <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-850 flex flex-col sm:flex-row sm:items-center justify-end gap-2">

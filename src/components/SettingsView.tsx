@@ -273,6 +273,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [exportDialogOffen, setExportDialogOffen] = useState(false);
   const [exportLaeuft, setExportLaeuft] = useState(false);
   const [passwortAbfrage, setPasswortAbfrage] = useState<{ dateiName: string; text: string } | null>(null);
+  const [importFehler, setImportFehler] = useState<string | null>(null);
   const [importVorschau, setImportVorschau] = useState<{
     dateiName: string;
     text: string;
@@ -927,10 +928,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const fuehreImportAus = async (art: ImportArt) => {
     if (!importVorschau) return;
     setImportLaeuft(true);
+    setImportFehler(null);
 
     try {
       const result = await StorageService.importFullBackup(importVorschau.text, 'live', art);
       setImportVorschau(null);
+      setImportFehler(null);
       onDataReload?.();
       const hinweisKopie = result.sicherheitskopie
         ? ''
@@ -943,12 +946,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     } catch (err: any) {
       console.error('Fehler beim Import:', err);
       const isQuota = err?.name === 'QuotaExceededError' || (err?.message && err.message.toLowerCase().includes('quota'));
-      setStatusMsg({
-        type: 'error',
-        text: isQuota
+      // Im Dialog anzeigen (er bleibt offen), nicht in der Statusleiste dahinter.
+      setImportFehler(
+        isQuota
           ? 'Speicherplatz-Limit des Browsers überschritten. Bitte leeren Sie den Browser-Cache oder nutzen Sie die Desktop-App.'
           : `Fehler beim Import: ${err.message || 'Ungültige Datei'}`
-      });
+      );
     } finally {
       setImportLaeuft(false);
     }
@@ -3190,7 +3193,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         kopf={importVorschau?.kopf || {}}
         vergleich={importVorschau?.vergleich || []}
         laeuft={importLaeuft}
-        onAbbrechen={() => setImportVorschau(null)}
+        fehler={importFehler}
+        onAbbrechen={() => {
+          setImportVorschau(null);
+          setImportFehler(null);
+        }}
         onBestaetigen={fuehreImportAus}
       />
 

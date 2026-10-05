@@ -379,7 +379,11 @@ export const EinrichtungsModal: React.FC<EinrichtungsModalProps> = ({ onFertig }
         kopf={importVorschau?.kopf || {}}
         vergleich={importVorschau?.vergleich || []}
         laeuft={importing}
-        onAbbrechen={() => setImportVorschau(null)}
+        fehler={importFehler}
+        onAbbrechen={() => {
+          setImportVorschau(null);
+          setImportFehler(null);
+        }}
         onBestaetigen={fuehreImportAus}
       />
 

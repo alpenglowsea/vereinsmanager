@@ -24,8 +24,15 @@ Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
 - Das Einspielen schreibt jetzt ohne diesen Ausweg, zählt jeden Bereich nach
   dem Schreiben nach und nennt am Ende alle Bereiche, die nicht gespeichert
   werden konnten, samt der Fehlerursache.
-- **Die eigentliche Ursache des Fehlers auf dem Linux-Gerät ist damit noch
-  nicht behoben**, sondern wird erst durch die neue Meldung sichtbar.
+- Die Fehlermeldung erscheint im Einspiel-Dialog selbst (rot, über den
+  Knöpfen), nicht in der Statusleiste dahinter — vorher sah es aus, als sei der
+  Klick wirkungslos.
+- **Ursache auf dem Linux-Gerät:** Ein früher installiertes `.deb` hatte im
+  Datenordner (`~/.local/share/de.vereinsmanager.app`) eine Datenbank mit einer
+  neueren Webansicht angelegt, die das AppImage nicht lesen konnte
+  („Unable to establish IDB database file"). Abhilfe: Den Ordner umbenennen oder
+  löschen und die App neu starten. Betrifft nur, wer zwischen verschiedenen
+  Paketarten wechselt.
 
 ### Release 1.1.0 — Version, Pakete, Update-Prüfung
 
