@@ -7,11 +7,11 @@ Mit der integrierten **Tauri + GitHub Actions** Pipeline können Sie vollautomat
 ## 🚀 So erstellen Sie einen neuen Desktop-Release auf GitHub:
 
 ### Methode 1: Über ein Versions-Tag (Empfohlen)
-Sobald Sie einen neuen Versionsstand freigeben möchten, erstellen Sie einfach einen Git-Tag (z. B. `v1.0.0`):
+Sobald Sie einen neuen Versionsstand freigeben möchten, erstellen Sie einfach einen Git-Tag (z. B. `v1.1.0`):
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
 ---
@@ -21,7 +21,7 @@ git push origin v1.0.0
 2. Klicken Sie oben auf den Tab **Actions**.
 3. Wählen Sie in der linken Seitenleiste den Workflow **„VereinsManager Desktop Release“** aus.
 4. Klicken Sie rechts auf **„Run workflow“**. Dort stehen zwei Felder:
-   - *Release Version* — die Versionsnummer, z. B. `v0.9.0`
+   - *Release Version* — die Versionsnummer, z. B. `v1.1.0`
    - *Als Release veröffentlichen?* — `ja` oder `nein`
 5. Bestätigen Sie mit **„Run workflow“**.
 
@@ -57,10 +57,12 @@ bei warmem Zwischenspeicher weniger):
 1. Öffnen Sie Ihr Repository auf GitHub und klicken Sie rechts auf **Releases**.
 2. Dort finden Sie die fertigen Pakete zum Direkt-Download:
    - 🪟 **Windows:**
-     - `VereinsManager_0.9.0_x64-setup.exe` (NSIS-Installer: Installiert wahlweise für alle Benutzer in `C:\Programme\VereinsManager` oder lokal)
-     - `VereinsManager_0.9.0_x64_de-DE.msi` (Offizielles Windows MSI-Paket – besonders empfohlen für Firmen-/Schul-PCs)
-   - 🍏 **macOS:** `VereinsManager_0.9.0_aarch64.dmg` (Apple Silicon: M1 und neuer)
-   - 🐧 **Linux:** `VereinsManager_0.9.0_amd64.deb` (empfohlen) oder `.AppImage`
+     - `VereinsManager_1.1.0_x64-setup.exe` (NSIS-Installer: Installiert wahlweise für alle Benutzer in `C:\Programme\VereinsManager` oder lokal)
+   - 🍏 **macOS:** `VereinsManager_1.1.0_aarch64.dmg` (Apple Silicon: M1 und neuer)
+   - 🐧 **Linux:** `VereinsManager_1.1.0_amd64.AppImage`
+
+Je Betriebssystem gibt es genau ein Paket. (Die Dateinamen sind aus dem Muster
+von Tauri abgeleitet; der genaue Name steht nach dem ersten Lauf im Release.)
 
 > **Nur noch Apple Silicon.** Die frühere Universal-Fassung enthielt zusätzlich
 > die Bauform für ältere Intel-Macs — und damit auch eine zweite
@@ -69,13 +71,14 @@ bei warmem Zwischenspeicher weniger):
 
 ---
 
-## 🐧 Installation unter Linux: bitte die `.deb`
+## 🐧 Installation unter Linux: die `.AppImage`
 
-**Empfohlen: `VereinsManager_0.9.0_amd64.deb`.** Doppelklick, installieren,
-fertig — danach steht VereinsManager im Startmenü wie jedes andere Programm.
+Die `.AppImage` läuft auf den meisten Linux-Fassungen, ohne dass etwas
+installiert wird — sie ist eine einzelne Datei, die alles Nötige mitbringt.
+Sie wurde auf Ubuntu 22.04 gebaut und läuft deshalb auf dieser und auf neueren
+Fassungen; auf deutlich älteren kann sie scheitern.
 
-**Die `.AppImage` braucht einen zusätzlichen Handgriff.** Sie installiert sich
-nicht, sondern läuft, wie sie ist — dafür muss sie aber als „ausführbar"
+**Sie braucht einen zusätzlichen Handgriff:** Sie muss als „ausführbar"
 gekennzeichnet werden. Ein Browser tut das beim Herunterladen nicht, und kein
 Paket der Welt kann es mitbringen: Diese Kennzeichnung steckt nicht *in* der
 Datei, sondern ist eine Eigenschaft, die das Dateisystem daneben führt. Genau
@@ -87,28 +90,24 @@ Ohne Terminal: **Rechtsklick → Eigenschaften → Zugriffsrechte → Haken bei
 Mit Terminal:
 
 ```bash
-chmod +x VereinsManager_0.9.0_amd64.AppImage
-./VereinsManager_0.9.0_amd64.AppImage
+chmod +x VereinsManager_1.1.0_amd64.AppImage
+./VereinsManager_1.1.0_amd64.AppImage
 ```
 
 Dieser Handgriff ist bei **jedem neuen Download** erneut nötig.
 
 Meldet die `.AppImage` etwas über `libfuse.so.2`, fehlt eine Systembibliothek,
-die manche Linux-Fassungen nicht mehr vorinstallieren:
-`sudo apt install libfuse2`. Die `.deb` braucht sie nicht.
+die manche Linux-Fassungen (z. B. Ubuntu 24.04) nicht mehr vorinstallieren:
+`sudo apt install libfuse2`.
 
 ---
 
-## 🧩 Was seit Fassung 1.3 mitgeliefert wird
+## 🧩 Was die Desktop-App mitbringt
 
-Bis Fassung 1.2 enthielt das Desktop-Programm **nur die gebaute Oberfläche**.
-Alles, was einen Server braucht, lief dort ins Leere: E-Mail-Versand,
-Belegerkennung, Buchungsvorschläge, Protokollauswertung. Ein Aufruf an
-`/api/...` fand schlicht niemanden, der antwortet.
-
-Jetzt bringt das Programm denselben Server mit, der auch beim Start aus dem
-Projektordner (die Start-Skripte) läuft. Im fertigen Paket stecken deshalb
-zusätzlich:
+Die Desktop-App besteht nicht nur aus der gebauten Oberfläche, sondern bringt
+einen kleinen Server mit — denselben, der auch beim Start aus dem Projektordner
+(die Start-Skripte) läuft. Er lauscht ausschließlich auf diesem Rechner. Im
+fertigen Paket stecken deshalb zusätzlich:
 
 | Was | Wofür |
 |---|---|
@@ -180,8 +179,6 @@ Windows 11 zeigt daher beim ersten Start oft den blauen Hinweis **„Der Compute
 1. Im blauen SmartScreen-Fenster auf **„Weitere Informationen“** klicken.
 2. Auf **„Trotzdem ausführen“** klicken.
 3. Der Installer startet sofort, richtet das Startmenü- und Desktop-Icon ein und die App ist dauerhaft startklar.
-
-> 💡 **Tipp:** Wenn Sie das **`.msi`**-Paket anstelle der `.exe` verwenden, stuft Windows das Installationspaket oft noch vertrauenswürdiger ein.
 
 ---
 

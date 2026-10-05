@@ -315,7 +315,7 @@ export const AppVersionBadge: React.FC = () => {
                 </button>
 
                 <a
-                  href={updateInfo.githubUrl || 'https://github.com/strelitzerfc/vereinsmanager/releases'}
+                  href={updateInfo.githubUrl || 'https://github.com/alpenglowsea/vereinsmanager/releases'}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5 font-bold"

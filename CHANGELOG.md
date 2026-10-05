@@ -4,7 +4,7 @@ Alle relevanten Änderungen und Versionsstände des VereinsManagers werden in di
 
 ---
 
-## [Unreleased] — Vereinfachung auf eine einzige Betriebsart
+## [1.1.0] — 2026-10-05 — Vereinfachung auf eine einzige Betriebsart
 
 Grundlegende Umstellung: Statt drei Betriebsarten (lokal allein / lokal mit
 Supabase-Cloud / gehosteter eigener Server) gibt es jetzt nur noch eine
@@ -12,6 +12,16 @@ einzige — rein lokal, ein Gerät. Zusammen mit KI-Funktionen und
 E-Mail-Versand sind auch alle Funktionen entfernt, die nur für eine der
 beiden anderen Betriebsarten existierten. Vollständige Begründung und
 Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
+
+### Release 1.1.0 — Version, Pakete, Update-Prüfung
+
+- Versionsnummer auf 1.1.0 (`package.json`, `package-lock.json`, `tauri.conf.json`, `Cargo.toml`).
+- **Ein Paket je Betriebssystem:** Windows `.exe` (NSIS-Installer), macOS `.dmg`
+  (Apple Silicon), Linux `.AppImage`. Die `.msi` und die `.deb` entfallen
+  (`--bundles` im Workflow). Anleitung und README angepasst.
+- **Update-Prüfung korrigiert:** Sie fragte beim Konto `strelitzerfc` nach neuen
+  Fassungen statt bei `alpenglowsea`. Die Ersatz-Download-Links zeigen jetzt auf
+  die Release-Seite statt auf erfundene Dateinamen.
 
 ### Schritt 7g — Tote Reste aufgeräumt
 

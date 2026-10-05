@@ -1,6 +1,6 @@
 import { AppUpdateInfo } from '../types';
 
-export const CURRENT_APP_VERSION = (import.meta as any).env?.VITE_APP_VERSION || '1.2.3';
+export const CURRENT_APP_VERSION = (import.meta as any).env?.VITE_APP_VERSION || '1.1.0';
 
 // Default release notes when a new version is detected or simulated
 const MOCK_LATEST_RELEASE = {
@@ -11,11 +11,11 @@ const MOCK_LATEST_RELEASE = {
     '📦 Verknüpfung von Inventar und Mitgliedern: Direkte Ausleihe und Rückgabe von Vereinsgegenständen an Mitglieder mit Statusprotokollierung',
     '🏦 Selbständiges Hinzufügen von Konten: Flexible Anlage eigener Buchungs- und Sachkonten mit dynamischer Sphären- und Kategoriezuordnung'
   ],
-  githubUrl: 'https://github.com/strelitzerfc/vereinsmanager/releases',
+  githubUrl: 'https://github.com/alpenglowsea/vereinsmanager/releases',
   downloadUrls: {
-    windows: 'https://github.com/strelitzerfc/vereinsmanager/releases/latest/download/VereinsManager_Setup_x64.exe',
-    mac: 'https://github.com/strelitzerfc/vereinsmanager/releases/latest/download/VereinsManager_macOS.dmg',
-    linux: 'https://github.com/strelitzerfc/vereinsmanager/releases/latest/download/VereinsManager_Linux.AppImage'
+    windows: 'https://github.com/alpenglowsea/vereinsmanager/releases/latest',
+    mac: 'https://github.com/alpenglowsea/vereinsmanager/releases/latest',
+    linux: 'https://github.com/alpenglowsea/vereinsmanager/releases/latest'
   }
 };
 
@@ -46,9 +46,9 @@ export class UpdateService {
 
   static getGitHubRepo(): string {
     try {
-      return localStorage.getItem(STORAGE_KEY_GITHUB_REPO)?.trim() || 'strelitzerfc/vereinsmanager';
+      return localStorage.getItem(STORAGE_KEY_GITHUB_REPO)?.trim() || 'alpenglowsea/vereinsmanager';
     } catch {
-      return 'strelitzerfc/vereinsmanager';
+      return 'alpenglowsea/vereinsmanager';
     }
   }
 
@@ -252,11 +252,11 @@ export class UpdateService {
         if (Array.isArray(data.assets)) {
           for (const asset of data.assets) {
             const name = (asset.name || '').toLowerCase();
-            if (name.endsWith('.exe') || name.endsWith('.msi')) {
+            if (name.endsWith('.exe')) {
               windowsUrl = asset.browser_download_url;
             } else if (name.endsWith('.dmg')) {
               macUrl = asset.browser_download_url;
-            } else if (name.endsWith('.appimage') || name.endsWith('.deb')) {
+            } else if (name.endsWith('.appimage')) {
               linuxUrl = asset.browser_download_url;
             }
           }

@@ -62,7 +62,7 @@ Alle Vereinsdaten (Mitglieder, Buchungen, Dokumente, Einstellungen …) liegen a
 
 **Zwei gleichwertige Wege, dieselbe Anwendung zu öffnen:**
 
-1. **Als native Desktop-App (Tauri v2)** — der empfohlene Weg für den laufenden Betrieb. Fertige Installationspakete für Windows (`.exe`/`.msi`), macOS (`.dmg`) und Linux (`.deb`/`.AppImage`) über GitHub Releases. Die App bringt einen kleinen, mitgelieferten Server mit, der ausschließlich auf diesem einen Rechner lauscht (`127.0.0.1`) — aus dem Netzwerk ist er nicht erreichbar.
+1. **Als native Desktop-App (Tauri v2)** — der empfohlene Weg für den laufenden Betrieb. Fertige Installationspakete für Windows (`.exe`), macOS (`.dmg`) und Linux (`.AppImage`) über GitHub Releases. Die App bringt einen kleinen, mitgelieferten Server mit, der ausschließlich auf diesem einen Rechner lauscht (`127.0.0.1`) — aus dem Netzwerk ist er nicht erreichbar.
 2. **Direkt aus dem Quellcode im Systembrowser** — über die beiliegenden Startskripte (`start-windows.bat` / `start-mac-linux.sh`). Praktisch zum Ausprobieren oder für die Entwicklung; nutzt denselben, nur lokal lauschenden Server.
 
 In beiden Fällen dieselbe Anwendung, dieselben Daten, derselbe Funktionsumfang.
@@ -318,9 +318,9 @@ Nur für den Start aus dem Quellcode:
 ### Die Desktop-App nutzen (empfohlener Weg)
 
 1. Unter den [GitHub Releases](https://github.com/alpenglowsea/vereinsmanager/releases) das passende Paket herunterladen:
-   * **Windows:** `.exe`-Installer oder `.msi`
+   * **Windows:** `.exe`-Installer
    * **macOS:** `.dmg` (Apple Silicon: M1 und neuer)
-   * **Linux:** `.deb` (empfohlen) oder `.AppImage`
+   * **Linux:** `.AppImage` (vor dem ersten Start als ausführbar kennzeichnen — Anleitung in [`DESKTOP_RELEASE.md`](DESKTOP_RELEASE.md))
 2. Installieren bzw. starten — die App öffnet ihr eigenes Fenster und bringt den dafür nötigen Server gleich mit. Er lauscht ausschließlich auf diesem Rechner (`127.0.0.1`) und ist aus dem Netzwerk nicht erreichbar.
 
 Details zum Bau eigener Releases: [`DESKTOP_RELEASE.md`](DESKTOP_RELEASE.md).

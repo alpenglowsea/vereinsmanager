@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release Version (z. B. v0.9.0)'
+        description: 'Release Version (z. B. v1.1.0)'
         required: true
-        default: 'v0.9.0'
+        default: 'v1.1.0'
       veroeffentlichen:
         description: 'Als Release veröffentlichen? "nein" = nur bauen, Pakete hängen am Lauf'
         required: true
@@ -42,12 +42,17 @@ jobs:
           # zusätzlich die Intel-Bauform — und damit künftig auch eine zweite
           # Node-Laufzeitumgebung. Doppelter Platzbedarf für Geräte, die nicht
           # mehr unterstützt werden sollen.
+          #
+          # Je Betriebssystem genau ein Paket (--bundles):
+          #   macOS   -> .dmg
+          #   Linux   -> .AppImage (läuft auf allen Distributionen, ohne Installation)
+          #   Windows -> .exe (NSIS-Installer)
           - platform: 'macos-latest'
-            args: '--target aarch64-apple-darwin'
+            args: '--target aarch64-apple-darwin --bundles dmg'
           - platform: 'ubuntu-22.04'
-            args: ''
+            args: '--bundles appimage'
           - platform: 'windows-latest'
-            args: ''
+            args: '--bundles nsis'
 
     runs-on: ${{ matrix.platform }}
     defaults:
@@ -174,9 +179,9 @@ jobs:
             Ein Standalone-Paket für alle Betriebssysteme, vollständig lokal.
 
             ### Downloads:
-            - **Windows**: `.exe` (Installer / Standalone) oder `.msi`
+            - **Windows**: `.exe` (Installer)
             - **macOS**: `.dmg` (Apple Silicon: M1 und neuer)
-            - **Linux**: `.AppImage` oder `.deb`
+            - **Linux**: `.AppImage` (vor dem ersten Start als ausführbar kennzeichnen, siehe `DESKTOP_RELEASE.md`)
 
             *Keine Installation von Node.js oder Webservern erforderlich. Einfach herunterladen und per Doppelklick starten.*
 
@@ -212,12 +217,8 @@ jobs:
           retention-days: 7
           path: |
             src-tauri/target/release/bundle/**/*.AppImage
-            src-tauri/target/release/bundle/**/*.deb
             src-tauri/target/release/bundle/**/*.dmg
             src-tauri/target/release/bundle/**/*.exe
-            src-tauri/target/release/bundle/**/*.msi
             src-tauri/target/*/release/bundle/**/*.AppImage
-            src-tauri/target/*/release/bundle/**/*.deb
             src-tauri/target/*/release/bundle/**/*.dmg
             src-tauri/target/*/release/bundle/**/*.exe
-            src-tauri/target/*/release/bundle/**/*.msi
