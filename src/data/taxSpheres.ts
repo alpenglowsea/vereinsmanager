@@ -510,52 +510,6 @@ export const getAllSkr42SubCategories = (
   return mains.flatMap(m => m.subCategories);
 };
 
-// Legacy 4-digit to 5-digit SKR 42 code mapping table for seamless backwards-compatibility
-const LEGACY_CODE_MAP: Record<string, string> = {
-  // Income
-  '3100': '40000',
-  '3110': '40000',
-  '3120': '40010',
-  '3130': '40020',
-  '3140': '40030',
-  '3200': '40400',
-  '3210': '40450',
-  '3220': '40460',
-  '3230': '40550',
-  '3240': '40560',
-  '3250': '40600',
-  '3300': '40700',
-  '3310': '40710',
-  '3320': '40720',
-  '3400': '40800',
-  '3500': '47000',
-  '3520': '47200',
-  '3600': '46100',
-  '3620': '46200',
-  '4110': '41100',
-  '4120': '41300',
-  '4200': '41200',
-  '4300': '41400',
-  '4500': '44100',
-  '4610': '43200',
-  '4620': '43100',
-  '4700': '45100',
-  // Expense
-  '5000': '50010',
-  '5100': '66100',
-  '5200': '68100',
-  '5500': '62150',
-  '6000': '65100',
-  '6100': '62100',
-  '6200': '63100',
-  '6500': '60040',
-  '6600': '65100',
-  '6700': '66150',
-  '7100': '51000',
-  '7200': '60200',
-  '7300': '67100'
-};
-
 /**
  * Finds matching SKR42 main category from an ID, code, or name
  */
@@ -574,13 +528,6 @@ export const findSkr42Main = (identifier: string): Skr42MainCategory | undefined
   );
   if (direct) return direct;
 
-  // Check legacy map
-  const legacyMapped = LEGACY_CODE_MAP[clean];
-  if (legacyMapped) {
-    const fromLegacy = SKR42_STRUCTURE.find(m => m.code === legacyMapped || m.subCategories.some(s => s.code === legacyMapped));
-    if (fromLegacy) return fromLegacy;
-  }
-
   return findSkr42MainForSub(clean);
 };
 
@@ -590,15 +537,6 @@ export const findSkr42Main = (identifier: string): Skr42MainCategory | undefined
 export const findSkr42MainForSub = (subNameOrCode: string): Skr42MainCategory | undefined => {
   if (!subNameOrCode) return undefined;
   const clean = subNameOrCode.trim().toLowerCase();
-
-  // Check if it's a legacy 4-digit code
-  const legacyTarget = LEGACY_CODE_MAP[subNameOrCode.trim()];
-  if (legacyTarget) {
-    const foundByLegacy = SKR42_STRUCTURE.find(main =>
-      main.subCategories.some(sub => sub.code === legacyTarget)
-    );
-    if (foundByLegacy) return foundByLegacy;
-  }
 
   return SKR42_STRUCTURE.find(main =>
     main.subCategories.some(

@@ -41,6 +41,10 @@ Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
   `src/assets/`, der QR-Code wird längst im Programm erzeugt), `Caddyfile.example`
   (verwies auf nicht mehr vorhandene Docker-Dateien) sowie die Reste aus Google
   AI Studio (`metadata.json`, `assets/.aistudio/`).
+- **Nachtrag:** Die Wurzel-`logo_transparent.png` (nicht verwendet; die App
+  nutzt die Datei in `public/`) und die Tabelle der alten 4-stelligen
+  Kontonummern (`LEGACY_CODE_MAP`) sind entfernt. Buchungen mit alten
+  Kontonummern werden nicht mehr automatisch umgesetzt.
 
 ### Schritt 7f — „Alle lokalen Daten löschen“ löscht wirklich alles; Muster-Knopf entfernt
 
