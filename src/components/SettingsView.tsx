@@ -262,6 +262,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [userMsg, setUserMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Automatische Sperre: gilt für dieses Gerät (nicht für den Verein) und wird
+  // deshalb sofort beim Auswählen gespeichert, nicht erst mit dem
+  // „Speichern"-Knopf der Vereinsdaten.
+  const [autoLockMinutes, setAutoLockMinutes] = useState<number>(() => AuthService.getAutoLockMinutes());
+  const AUTO_LOCK_CHOICES = [5, 10, 15, 30, 60, 120, 240];
+  const handleAutoLockChange = (minutes: number) => {
+    setAutoLockMinutes(minutes);
+    AuthService.setAutoLockMinutes(minutes);
+  };
+
   /**
    * Gelesene, aber noch nicht eingespielte Datensicherung samt Abgleich.
    * Solange hier etwas steht, ist der Bestätigungsdialog offen und am
@@ -1367,6 +1377,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <option value="10-01">01. Oktober (Herbststart)</option>
                 </select>
               </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Automatische Sperre bei Inaktivität
+              </label>
+              <select
+                value={autoLockMinutes}
+                onChange={e => handleAutoLockChange(Number(e.target.value))}
+                className="w-full sm:w-72 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+              >
+                <option value={0}>Nie automatisch sperren</option>
+                {(AUTO_LOCK_CHOICES.includes(autoLockMinutes) || autoLockMinutes <= 0
+                  ? AUTO_LOCK_CHOICES
+                  : [...AUTO_LOCK_CHOICES, autoLockMinutes].sort((a, b) => a - b)
+                ).map(min => (
+                  <option key={min} value={min}>
+                    Nach {min >= 60 ? `${min / 60} ${min === 60 ? 'Stunde' : 'Stunden'}` : `${min} Minuten`}
+                    {min === 15 ? ' (Standard)' : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-2xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                Gilt nur für dieses Gerät und wird sofort übernommen. Ohne automatische Sperre
+                bleibt die App an einem unbeaufsichtigten Rechner offen, bis jemand sie von Hand sperrt.
+              </p>
             </div>
 
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">

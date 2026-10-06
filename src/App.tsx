@@ -479,6 +479,9 @@ export default function App() {
     window.addEventListener('mousemove', handleUserActivity);
     window.addEventListener('keydown', handleUserActivity);
     window.addEventListener('click', handleUserActivity);
+    // Beim Lesen langer Listen wird nur gescrollt — das zählt auch als Aktivität.
+    window.addEventListener('wheel', handleUserActivity, { passive: true });
+    window.addEventListener('touchstart', handleUserActivity, { passive: true });
 
     return () => {
       isMounted = false;
@@ -486,6 +489,8 @@ export default function App() {
       window.removeEventListener('mousemove', handleUserActivity);
       window.removeEventListener('keydown', handleUserActivity);
       window.removeEventListener('click', handleUserActivity);
+      window.removeEventListener('wheel', handleUserActivity);
+      window.removeEventListener('touchstart', handleUserActivity);
     };
   }, []);
 

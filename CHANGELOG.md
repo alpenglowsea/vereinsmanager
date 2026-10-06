@@ -13,6 +13,16 @@ E-Mail-Versand sind auch alle Funktionen entfernt, die nur für eine der
 beiden anderen Betriebsarten existierten. Vollständige Begründung und
 Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
 
+### Nachtrag 5 — Automatische Sperre einstellbar
+
+- Einstellungen → Allgemein → „Regionale Anzeige & Standardeinstellungen":
+  neue Auswahl „Automatische Sperre bei Inaktivität" (5 Minuten bis 4 Stunden,
+  Standard 15 Minuten) und „Nie automatisch sperren". Die Einstellung gilt für
+  das Gerät und wird sofort übernommen. Die Sperrfunktion selbst gab es schon,
+  nur die Einstellmöglichkeit fehlte.
+- Mausrad und Berührung zählen jetzt ebenfalls als Aktivität — wer lange
+  Listen nur durchscrollt, wurde sonst mittendrin gesperrt.
+
 ### Nachtrag 4 — Fehlerbericht: der Server-Weg entfällt, Hinweis bei gesperrter Verbindung
 
 - **Ursache, warum nie ein Bericht ankam (am Linux-Laptop geprüft):**
