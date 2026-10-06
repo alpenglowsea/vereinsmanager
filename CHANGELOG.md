@@ -13,6 +13,23 @@ E-Mail-Versand sind auch alle Funktionen entfernt, die nur für eine der
 beiden anderen Betriebsarten existierten. Vollständige Begründung und
 Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
 
+### Nachtrag 4 — Fehlerbericht: der Server-Weg entfällt, Hinweis bei gesperrter Verbindung
+
+- **Ursache, warum nie ein Bericht ankam (am Linux-Laptop geprüft):**
+  1. Der Weg über den lokalen Server konnte nie funktionieren: Der Mail-Dienst
+     FormSubmit nimmt nur Anfragen aus einer Webseite an und weist Anfragen
+     vom Server mit „Make sure you open this page through a web server" ab.
+  2. Die Empfängeradresse musste bei FormSubmit einmalig bestätigt werden
+     („This form needs Activation") — das ist inzwischen geschehen.
+  3. Im Heimnetz des Testers lieferte der DNS des Routers für `formsubmit.co`
+     keine Adresse; mit 1.1.1.1 und 8.8.8.8 klappte die Auflösung sofort.
+- Der Versand läuft deshalb nur noch direkt aus dem App-Fenster. Der
+  Server-Endpunkt `/api/submit-bugreport` und der dadurch ungenutzte
+  `src/services/apiClient.ts` sind entfernt.
+- Scheitert die Verbindung, nennt die Meldung die Ursache und gibt den Hinweis,
+  dass ein Filter im Netzwerk (Fritzbox, Pi-hole, VPN) die Adresse
+  `formsubmit.co` blockieren kann und dort als Ausnahme einzutragen ist.
+
 ### Nachtrag 3 — Seiten und Seiten-Auswahl auch in Kontakten, Rechnungen, Dokumenten und Spenden
 
 - Diese vier Tabellen zeigten bisher alles auf einer Seite. Sie haben jetzt

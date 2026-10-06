@@ -56,10 +56,8 @@ app.use((_req, res, next) => {
 //
 //   allgemein — schützt den Server davor, unter Last zusammenzubrechen
 const MINUTE = 60_000;
-const STUNDE = 60 * MINUTE;
 
 const bremseAllgemein = new RateLimiter({ limit: 120, windowMs: 5 * MINUTE });
-const bremseMeldung   = new RateLimiter({ limit: 5,   windowMs: STUNDE });
 
 // Die Kennung des Absenders. Da der Server nur auf 127.0.0.1 lauscht, ist das
 // in der Praxis immer dieselbe Adresse — die Zählung dient trotzdem als
@@ -96,124 +94,11 @@ app.use("/api", (req, res, next) => {
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-/**
- * POST /api/submit-bugreport
- * Directly submits a bug report / support ticket to vereinsmanager@ik.me without needing an external mail program.
- */
-app.post("/api/submit-bugreport", bremse(bremseMeldung, "Fehlermeldung"), async (req, res) => {
-  try {
-    const {
-      subject,
-      area,
-      description,
-      severity,
-      contactName,
-      contactEmail,
-      appVersion,
-      clientDetails,
-    } = req.body;
-
-    if (!subject || !description) {
-      return res.status(400).json({
-        success: false,
-        error: "Betreff und Problembeschreibung sind Pflichtfelder.",
-      });
-    }
-
-    const ticketId = `VM-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const timestamp = new Date().toLocaleString("de-DE", { timeZone: "Europe/Berlin" });
-
-    const severityLabels: Record<string, string> = {
-      low: "Niedrig (Kosmetisch / Tippfehler)",
-      normal: "Normal (Funktion fehlerhaft)",
-      high: "Hoch (Wichtige Funktion blockiert)",
-      critical: "Kritisch (Datenverlust / Absturz)",
-    };
-
-    const payload = {
-      _subject: `[VereinsManager #${ticketId} - ${area || "Allgemein"}] ${subject.trim()}`,
-      _template: "table",
-      _captcha: "false",
-      Ticket_ID: ticketId,
-      Bereich: area || "Nicht angegeben",
-      Betreff: subject.trim(),
-      Schweregrad: severityLabels[severity] || severity || "Normal",
-      Beschreibung: description.trim(),
-      Absender_Name: contactName?.trim() || "Anonym / Nicht angegeben",
-      Absender_Email: contactEmail?.trim() || "Keine Rückmelde-E-Mail angegeben",
-      App_Version: appVersion || "v1.2.4",
-      Betriebsmodus: "Lokal",
-      System_Info: clientDetails || "Keine",
-      Eingangszeit: timestamp,
-    };
-
-    console.log(`[Bugreport #${ticketId}] Neuer Fehlerbericht eingegangen:`, {
-      subject,
-      area,
-      severity,
-      contactEmail,
-    });
-
-    let sentSuccessfully = false;
-    let grund = "";
-
-    // Versand über FormSubmit an vereinsmanager@ik.me. Wichtig: Eine HTTP-200-
-    // Antwort allein heißt NICHT, dass die Mail abgeschickt wurde — FormSubmit
-    // meldet im Antworttext, ob es den Bericht wirklich angenommen hat
-    // (success: "true"), oder ob z. B. die Empfängeradresse noch bestätigt
-    // werden muss. Nur dieser Text zählt.
-    try {
-      const response = await fetch("https://formsubmit.co/ajax/vereinsmanager@ik.me", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const text = await response.text();
-      let antwort: any = null;
-      try {
-        antwort = JSON.parse(text);
-      } catch {
-        antwort = null;
-      }
-
-      if (response.ok && (antwort?.success === true || antwort?.success === "true")) {
-        sentSuccessfully = true;
-        console.log(`[Bugreport #${ticketId}] Von FormSubmit angenommen:`, text);
-      } else {
-        grund = antwort?.message || `Antwort des Mail-Dienstes: Status ${response.status}`;
-        console.warn(`[Bugreport #${ticketId}] FormSubmit hat NICHT angenommen (Status ${response.status}):`, text);
-      }
-    } catch (deliveryError: any) {
-      grund = deliveryError?.message || "Der Mail-Dienst ist nicht erreichbar.";
-      console.warn(`[Bugreport #${ticketId}] Versand fehlgeschlagen:`, grund);
-    }
-
-    // success sagt jetzt die Wahrheit über den Versand. Der Bericht selbst ist
-    // in jedem Fall mit Ticketnummer erfasst und kann per E-Mail-App oder
-    // Kopieren weitergegeben werden.
-    return res.json({
-      success: sentSuccessfully,
-      ticketId,
-      sentTo: "vereinsmanager@ik.me",
-      timestamp,
-      deliveredDirectly: sentSuccessfully,
-      reason: sentSuccessfully ? undefined : grund,
-      message: sentSuccessfully
-        ? `Ihr Fehlerbericht wurde an den Mail-Dienst übergeben (Ticket #${ticketId}).`
-        : `Der Versand ist nicht gelungen${grund ? ` (${grund})` : ""}.`,
-    });
-  } catch (error: any) {
-    console.error("Fehler beim Übermitteln des Bugreports:", error);
-    return res.status(500).json({
-      success: false,
-      error: error?.message || "Fehler beim Versenden des Fehlerberichts.",
-    });
-  }
-});
+// Hinweis zum Fehlerbericht: Der Versand läuft bewusst NICHT über diesen
+// Server, sondern direkt aus dem App-Fenster (SettingsView). Der Mail-Dienst
+// FormSubmit nimmt nur Anfragen an, die aus einer Webseite kommen — vom
+// Server aus wird er mit "Make sure you open this page through a web server"
+// abgewiesen.
 
 // Vite middleware & SPA serving
 async function startServer() {

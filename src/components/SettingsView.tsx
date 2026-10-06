@@ -4,7 +4,6 @@ import { StorageService } from '../services/storage';
 import { AuthService } from '../services/authService';
 import { SnapshotService, AutoSnapshot } from '../services/snapshotService';
 import { CURRENT_APP_VERSION } from '../services/updateService';
-import { apiFetch } from '../services/apiClient';
 import { BackupImportDialog } from './BackupImportDialog';
 import { BackupExportDialog } from './BackupExportDialog';
 import { BackupPasswordDialog } from './BackupPasswordDialog';
@@ -367,100 +366,64 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       ? `App v${CURRENT_APP_VERSION} | UA: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'n/a'} | Screen: ${typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'n/a'}`
       : 'Keine Diagnosedaten';
 
-    const reportPayload = {
-      subject: bugSubject.trim(),
-      area: bugArea,
-      description: bugDescription.trim(),
-      severity: bugSeverity,
-      contactName: bugContactName.trim() || undefined,
-      contactEmail: bugContactEmail.trim() || undefined,
-      appVersion: `v${CURRENT_APP_VERSION}`,
-      clientDetails: clientInfo,
-    };
-
     let sent = false;
-    let serverMessage = '';
     // Warum der Versand nicht geklappt hat — wird dem Anwender angezeigt, damit
     // er nicht raten muss.
     let failReason = '';
+    // Was der Anwender dagegen tun kann.
+    let failHint = '';
 
     try {
-      // 1. First attempt: In-App Backend API route /api/submit-bugreport
+      // Versand direkt aus dem App-Fenster an den Mail-Dienst FormSubmit. Das
+      // ist bewusst kein Weg über den lokalen Server: FormSubmit nimmt nur
+      // Anfragen an, die aus einer Webseite kommen (Origin-Kopfzeile), und
+      // weist Server-Anfragen ab.
       try {
-        const response = await apiFetch('/api/submit-bugreport', {
+        const formSubmitPayload = {
+          _subject: `[VereinsManager #${ticketId} - ${bugArea}] ${bugSubject.trim()}`,
+          _template: 'table',
+          _captcha: 'false',
+          Ticket_ID: ticketId,
+          Bereich: bugArea,
+          Betreff: bugSubject.trim(),
+          Schweregrad: bugSeverity,
+          Beschreibung: bugDescription.trim(),
+          Absender_Name: bugContactName.trim() || 'Anonym / Nicht angegeben',
+          Absender_Email: bugContactEmail.trim() || 'Keine Angabe',
+          App_Version: `v${CURRENT_APP_VERSION}`,
+          Betriebsmodus: 'Lokal',
+          System_Info: clientInfo,
+          Eingangszeit: timestamp,
+        };
+
+        const directRes = await fetch('https://formsubmit.co/ajax/vereinsmanager@ik.me', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify(reportPayload),
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify(formSubmitPayload),
         });
 
-        const contentType = response.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          try {
-            const result = JSON.parse(await response.text());
-            // Der Server meldet success nur noch, wenn der Mail-Dienst den
-            // Bericht wirklich angenommen hat.
-            if (response.ok && result && result.success === true) {
-              sent = true;
-              serverMessage = result.message || 'Ihr Fehlerbericht wurde an den Mail-Dienst übergeben.';
-            } else {
-              failReason = result?.reason || result?.error || '';
-            }
-          } catch {
-            // Keine lesbare Antwort — weiter mit dem Rückfallweg
-          }
-        } else {
-          failReason = 'Der lokale Server hat nicht wie erwartet geantwortet.';
-        }
-      } catch {
-        failReason = 'Der lokale Server ist nicht erreichbar.';
-      }
-
-      // 2. Second attempt: Direct relay if online and backend API was unavailable
-      if (!sent && typeof navigator !== 'undefined' && navigator.onLine) {
+        const rawDirect = await directRes.text();
+        let directJson: any = null;
         try {
-          const formSubmitPayload = {
-            _subject: `[VereinsManager #${ticketId} - ${bugArea}] ${bugSubject.trim()}`,
-            _template: 'table',
-            _captcha: 'false',
-            Ticket_ID: ticketId,
-            Bereich: bugArea,
-            Betreff: bugSubject.trim(),
-            Schweregrad: bugSeverity,
-            Beschreibung: bugDescription.trim(),
-            Absender_Name: bugContactName.trim() || 'Anonym / Nicht angegeben',
-            Absender_Email: bugContactEmail.trim() || 'Keine Angabe',
-            App_Version: `v${CURRENT_APP_VERSION}`,
-            Betriebsmodus: 'Lokal',
-            System_Info: clientInfo,
-            Eingangszeit: timestamp,
-          };
-
-          const directRes = await fetch('https://formsubmit.co/ajax/vereinsmanager@ik.me', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'application/json',
-            },
-            body: JSON.stringify(formSubmitPayload),
-          });
-
-          const rawDirect = await directRes.text();
-          let directJson: any = null;
-          try {
-            directJson = JSON.parse(rawDirect);
-          } catch {
-            directJson = null;
-          }
-
-          if (directRes.ok && (directJson?.success === true || directJson?.success === 'true')) {
-            sent = true;
-            serverMessage = 'Ihr Fehlerbericht wurde an den Mail-Dienst übergeben.';
-          } else {
-            failReason = directJson?.message || `Antwort des Mail-Dienstes: Status ${directRes.status}`;
-          }
+          directJson = JSON.parse(rawDirect);
         } catch {
-          failReason = failReason || 'Der Mail-Dienst ist nicht erreichbar (keine Internetverbindung?).';
+          directJson = null;
         }
+
+        if (directRes.ok && (directJson?.success === true || directJson?.success === 'true')) {
+          sent = true;
+        } else {
+          failReason = directJson?.message || `Antwort des Mail-Dienstes: Status ${directRes.status}`;
+        }
+      } catch (directErr: any) {
+        // Die Verbindung kam gar nicht zustande: kein Internet, oder ein Filter
+        // im Netz (Router, Pi-hole, VPN) sperrt formsubmit.co.
+        failReason = `Keine Verbindung zum Mail-Dienst (${directErr?.message || 'nicht erreichbar'})`;
+        failHint =
+          'Häufige Ursache: Ein Filter in Ihrem Netzwerk (z. B. Router wie die Fritzbox, Pi-hole oder ein VPN) blockiert die Adresse „formsubmit.co". Tragen Sie sie dort als Ausnahme ein oder prüfen Sie Ihre Internetverbindung.';
       }
 
       if (sent) {
@@ -468,7 +431,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           ticketId,
           timestamp,
           delivered: true,
-          message: serverMessage || 'Ihr Fehlerbericht wurde an den Mail-Dienst übergeben.',
+          message: 'Ihr Fehlerbericht wurde an den Mail-Dienst übergeben.',
         });
         setBugSuccessMessage(`Fehlerbericht an den Mail-Dienst übergeben. Ticket-Nr: #${ticketId}`);
         setStatusMsg({
@@ -482,7 +445,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           ticketId,
           timestamp,
           delivered: false,
-          message: `Der Bericht konnte NICHT direkt versendet werden${failReason ? `: ${failReason}` : '.'} Bitte nutzen Sie den Button "E-Mail-App" oder "Kopieren".`,
+          message: `Der Bericht konnte NICHT direkt versendet werden${failReason ? `: ${failReason}` : '.'}${failHint ? ` ${failHint}` : ''} Bitte nutzen Sie bis dahin den Button "E-Mail-App" oder "Kopieren".`,
         });
         setStatusMsg({
           type: 'error',
