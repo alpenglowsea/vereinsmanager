@@ -28,6 +28,10 @@ import {
   X,
   Sparkles
 } from 'lucide-react';
+import { TablePagination } from './TablePagination';
+import { AuswahlLeiste } from './AuswahlLeiste';
+import { usePagination } from '../hooks/usePagination';
+import { ermittleSeitenStatus, wechsleSeite, waehleAlleGefilterten } from '../utils/tableSelection';
 
 type InvoiceSortField =
   | 'status'
@@ -545,13 +549,24 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   }, [invoices, searchQuery, statusFilter, taxSphereFilter, sortBy, sortDirection, now]);
 
   // Bulk Selection Handlers
+  const {
+    pageItems: paginatedInvoices,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+  } = usePagination(filteredInvoices, [searchQuery, statusFilter, taxSphereFilter, sortBy, sortDirection].join('|'));
+
+  const { seiteKomplett, seiteTeilweise, allesKomplett } = ermittleSeitenStatus(selectedIds, paginatedInvoices, filteredInvoices);
+
   const handleSelectAll = () => {
-    if (selectedIds.size === filteredInvoices.length && filteredInvoices.length > 0) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredInvoices.map(i => i.id)));
-    }
+    setSelectedIds(prev => wechsleSeite(prev, paginatedInvoices));
   };
+
+  const handleSelectAllFiltered = () => {
+    setSelectedIds(prev => waehleAlleGefilterten(prev, filteredInvoices));
+  };
+
 
   const handleToggleSelect = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -980,6 +995,17 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
             Zeilen, auch bei langen Seiten (siehe ausführlicher Kommentar in
             MembersView.tsx bzw. in App.tsx, warum der vorherige Versuch
             nicht funktioniert hat). */}
+        <AuswahlLeiste
+          anzahlAusgewaehlt={selectedIds.size}
+          anzahlAufSeite={paginatedInvoices.length}
+          anzahlGefiltert={filteredInvoices.length}
+          seiteKomplett={seiteKomplett}
+          allesKomplett={allesKomplett}
+          einzahl="Rechnung"
+          mehrzahl="Rechnungen"
+          onAlleAuswaehlen={handleSelectAllFiltered}
+          onAuswahlAufheben={handleClearSelection}
+        />
         <div className="overflow-auto max-h-[65vh]">
           <table
             ref={tableRef}
@@ -1012,9 +1038,12 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                 >
                   <input
                     type="checkbox"
-                    checked={filteredInvoices.length > 0 && selectedIds.size === filteredInvoices.length}
+                    checked={seiteKomplett}
+                    ref={input => {
+                      if (input) input.indeterminate = seiteTeilweise;
+                    }}
                     onChange={handleSelectAll}
-                    title="Alle auswählen"
+                    aria-label="Alle Einträge dieser Seite auswählen"
                     className="w-3.5 h-3.5 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 cursor-pointer"
                   />
                 </th>
@@ -1056,7 +1085,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredInvoices.map(inv => {
+                paginatedInvoices.map(inv => {
                   const isSelected = selectedIds.has(inv.id);
                   const isOverdue = inv.status === 'open' && new Date(inv.dueDate) < now;
 
@@ -1313,6 +1342,15 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
             onClose={() => setColumnMenuPos(null)}
           />
         )}
+
+        {<TablePagination
+          totalItems={filteredInvoices.length}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemName="Rechnungen"
+        />}
 
         {/* Table Pagination / Footer */}
         <div className="p-4 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 rounded-b-xl overflow-hidden">

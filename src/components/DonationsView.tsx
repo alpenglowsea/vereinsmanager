@@ -5,6 +5,10 @@ import {
   ClubDocument
 } from '../types';
 import { downloadDonationReceiptPdf } from '../services/donationService';
+import { TablePagination } from './TablePagination';
+import { AuswahlLeiste } from './AuswahlLeiste';
+import { usePagination } from '../hooks/usePagination';
+import { ermittleSeitenStatus, wechsleSeite, waehleAlleGefilterten } from '../utils/tableSelection';
 import { SortableResizableTh } from './SortableResizableTh';
 import { useResizableColumns, ColumnWidths } from '../hooks/useResizableColumns';
 import { useSortableColumns } from '../hooks/useSortableColumns';
@@ -54,6 +58,7 @@ const DONATION_TYPE_SORT_ORDER: Record<DonationReceipt['type'], number> = { mone
 // Ziehen bzw. Doppelklick merkt sich der Browser die eigene Wahl (siehe
 // useResizableColumns).
 const ACTION_COL_WIDTH = 130;
+const CHECKBOX_COL_WIDTH = 40;
 const DEFAULT_DONATION_COLUMN_WIDTHS: ColumnWidths = {
   date: 130,
   donor: 240,
@@ -456,6 +461,29 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
     });
   }, [donations, selectedYear, selectedType, searchTerm, sortBy, sortDirection]);
 
+  // Seitenweise Darstellung und Auswahl (Kästchen = aktuelle Seite).
+  const {
+    pageItems: paginatedDonations,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+  } = usePagination(filteredDonations, [selectedYear, selectedType, searchTerm, sortBy, sortDirection].join('|'));
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const { seiteKomplett, seiteTeilweise, allesKomplett } = ermittleSeitenStatus(selectedIds, paginatedDonations, filteredDonations);
+  const handleSelectPage = () => setSelectedIds(prev => wechsleSeite(prev, paginatedDonations));
+  const handleSelectAllFiltered = () => setSelectedIds(prev => waehleAlleGefilterten(prev, filteredDonations));
+  const handleClearSelection = () => setSelectedIds(new Set());
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   // Calculate statistics
   const totalAmount = filteredDonations.reduce((sum, d) => sum + (d.amount || 0), 0);
   const moneyDonations = filteredDonations.filter(d => d.type === 'money');
@@ -649,6 +677,18 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
           </div>
         </div>
 
+        <AuswahlLeiste
+          anzahlAusgewaehlt={selectedIds.size}
+          anzahlAufSeite={paginatedDonations.length}
+          anzahlGefiltert={filteredDonations.length}
+          seiteKomplett={seiteKomplett}
+          allesKomplett={allesKomplett}
+          einzahl="Bescheinigung"
+          mehrzahl="Bescheinigungen"
+          onAlleAuswaehlen={handleSelectAllFiltered}
+          onAuswahlAufheben={handleClearSelection}
+        />
+
         {/* Table */}
         {filteredDonations.length === 0 ? (
           <div className="p-12 text-center">
@@ -680,16 +720,17 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
               className="text-left border-collapse text-xs"
               style={{
                 tableLayout: 'fixed',
-                width: ACTION_COL_WIDTH + visibleColumnOrder.reduce((sum, key) => sum + (colWidths[key] || 0), 0)
+                width: CHECKBOX_COL_WIDTH + ACTION_COL_WIDTH + visibleColumnOrder.reduce((sum, key) => sum + (colWidths[key] || 0), 0)
               }}
             >
               {/* <colgroup> statt Breiten nur an den <th>-Elementen — macht
                   die Spaltenbreite unabhängig vom Tabellenkopf, damit sie
                   sich beim Ziehen auch in den Zeilen darunter ändert (siehe
                   ausführlicher Kommentar in MembersView.tsx, wo dasselbe
-                  Problem in Firefox auftrat). Keine Auswahl-Spalte hier —
-                  Spenden haben kein Kontrollkästchen. */}
+                  Problem in Firefox auftrat). Die erste Spalte
+                  enthält die Auswahlkästchen. */}
               <colgroup>
+                <col style={{ width: CHECKBOX_COL_WIDTH }} />
                 {visibleColumnOrder.map(key => (
                   <col key={key} style={{ width: colWidths[key] || 0 }} />
                 ))}
@@ -697,6 +738,21 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
               </colgroup>
               <thead>
                 <tr className="text-slate-600 font-semibold text-2xs uppercase tracking-wider">
+                  <th
+                    style={{ width: CHECKBOX_COL_WIDTH, minWidth: CHECKBOX_COL_WIDTH }}
+                    className="py-3 px-3 text-center sticky top-0 z-10 bg-slate-50/80 border-b border-slate-200"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={seiteKomplett}
+                      ref={input => {
+                        if (input) input.indeterminate = seiteTeilweise;
+                      }}
+                      onChange={handleSelectPage}
+                      aria-label="Alle Einträge dieser Seite auswählen"
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                    />
+                  </th>
                   {visibleColumnOrder.map(key => donationHeaderDefs[key])}
                   <th
                     style={{ width: ACTION_COL_WIDTH, minWidth: ACTION_COL_WIDTH }}
@@ -707,14 +763,25 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredDonations.map(receipt => {
+                {paginatedDonations.map(receipt => {
                   const isGoods = receipt.type === 'goods';
 
                   return (
                     <tr
                       key={receipt.id}
-                      className="hover:bg-slate-50/80 transition-colors group"
+                      className={`transition-colors group ${
+                        selectedIds.has(receipt.id) ? 'bg-blue-50/70' : 'hover:bg-slate-50/80'
+                      }`}
                     >
+                      <td className="py-3 px-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(receipt.id)}
+                          onChange={() => handleToggleSelect(receipt.id)}
+                          aria-label={`Zuwendungsbestätigung ${receipt.receiptNumber} auswählen`}
+                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                        />
+                      </td>
                       {(() => {
                         const donationCellDefs: Record<string, React.ReactNode> = {
                           date: (
@@ -928,6 +995,16 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
               </tbody>
             </table>
           </div>
+        )}
+        {filteredDonations.length > 0 && (
+          <TablePagination
+            totalItems={filteredDonations.length}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemName="Bescheinigungen"
+          />
         )}
         {columnMenuPos && (
           <ColumnVisibilityMenu

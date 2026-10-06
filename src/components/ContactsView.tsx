@@ -27,6 +27,10 @@ import {
   FileText,
   X
 } from 'lucide-react';
+import { TablePagination } from './TablePagination';
+import { AuswahlLeiste } from './AuswahlLeiste';
+import { usePagination } from '../hooks/usePagination';
+import { ermittleSeitenStatus, wechsleSeite, waehleAlleGefilterten } from '../utils/tableSelection';
 
 type ContactSortField =
   | 'number'
@@ -543,13 +547,24 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
   }, [contacts, searchQuery, personTypeFilter, contactTypeFilter, sortBy, sortDirection]);
 
   // Bulk actions handlers
+  const {
+    pageItems: paginatedContacts,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+  } = usePagination(filteredContacts, [searchQuery, personTypeFilter, contactTypeFilter, sortBy, sortDirection].join('|'));
+
+  const { seiteKomplett, seiteTeilweise, allesKomplett } = ermittleSeitenStatus(selectedIds, paginatedContacts, filteredContacts);
+
   const handleSelectAll = () => {
-    if (selectedIds.size === filteredContacts.length && filteredContacts.length > 0) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredContacts.map(c => c.id)));
-    }
+    setSelectedIds(prev => wechsleSeite(prev, paginatedContacts));
   };
+
+  const handleSelectAllFiltered = () => {
+    setSelectedIds(prev => waehleAlleGefilterten(prev, filteredContacts));
+  };
+
 
   const handleToggleSelect = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -948,6 +963,17 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
             Zeilen, auch bei langen Seiten (siehe ausführlicher Kommentar in
             MembersView.tsx bzw. in App.tsx, warum der vorherige Versuch
             nicht funktioniert hat). */}
+        <AuswahlLeiste
+          anzahlAusgewaehlt={selectedIds.size}
+          anzahlAufSeite={paginatedContacts.length}
+          anzahlGefiltert={filteredContacts.length}
+          seiteKomplett={seiteKomplett}
+          allesKomplett={allesKomplett}
+          einzahl="Kontakt"
+          mehrzahl="Kontakte"
+          onAlleAuswaehlen={handleSelectAllFiltered}
+          onAuswahlAufheben={handleClearSelection}
+        />
         <div className="overflow-auto max-h-[65vh]">
           <table
             ref={tableRef}
@@ -978,18 +1004,16 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                   style={{ width: CHECKBOX_COL_WIDTH, minWidth: CHECKBOX_COL_WIDTH }}
                   className="px-3 py-3 text-center sticky top-0 z-10 bg-slate-50 border-b border-slate-200"
                 >
-                  <button
-                    type="button"
-                    onClick={handleSelectAll}
-                    className="text-slate-400 hover:text-slate-700 cursor-pointer"
-                  >
-                    {selectedIds.size === filteredContacts.length &&
-                    filteredContacts.length > 0 ? (
-                      <CheckSquare className="w-4 h-4 text-blue-600" />
-                    ) : (
-                      <Square className="w-4 h-4" />
-                    )}
-                  </button>
+                  <input
+                    type="checkbox"
+                    checked={seiteKomplett}
+                    ref={input => {
+                      if (input) input.indeterminate = seiteTeilweise;
+                    }}
+                    onChange={handleSelectAll}
+                    aria-label="Alle Einträge dieser Seite auswählen"
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                  />
                 </th>
                 {visibleColumnOrder.map(key => contactHeaderDefs[key])}
                 <th
@@ -1002,7 +1026,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
               {filteredContacts.length > 0 ? (
-                filteredContacts.map(contact => {
+                paginatedContacts.map(contact => {
                   const isSelected = selectedIds.has(contact.id);
                   const isCompany = contact.personType === 'legal';
 
@@ -1407,6 +1431,15 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
             onClose={() => setColumnMenuPos(null)}
           />
         )}
+
+        {<TablePagination
+          totalItems={filteredContacts.length}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemName="Kontakten"
+        />}
 
         {/* Footer pagination / stats */}
         <div className="px-4 py-3 bg-slate-50/80 border-t border-slate-200 flex items-center justify-between text-2xs text-slate-500 rounded-b-xl overflow-hidden">

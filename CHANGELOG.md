@@ -13,6 +13,16 @@ E-Mail-Versand sind auch alle Funktionen entfernt, die nur für eine der
 beiden anderen Betriebsarten existierten. Vollständige Begründung und
 Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
 
+### Nachtrag 3 — Seiten und Seiten-Auswahl auch in Kontakten, Rechnungen, Dokumenten und Spenden
+
+- Diese vier Tabellen zeigten bisher alles auf einer Seite. Sie haben jetzt
+  wie Mitglieder, Buchungen und Inventar die Seitenwahl (25 / 50 / 100 / alle)
+  und dieselbe Seiten-Auswahl (Kopfkästchen = aktuelle Seite, Auswahl bleibt
+  beim Blättern, „Alle n … der Tabelle auswählen" in der Leiste).
+- Spenden hat erstmals Auswahlkästchen. Es gibt dort noch keine Sammelaktion
+  für die Auswahl.
+- Gemeinsamer Baustein für die Seitenwahl: `src/hooks/usePagination.ts`.
+
 ### Nachtrag 2 — Fehlerbericht meldet die Wahrheit; Auswahl über mehrere Seiten
 
 - **Fehlerbericht:** Der lokale Server meldete „erfolgreich", auch wenn der

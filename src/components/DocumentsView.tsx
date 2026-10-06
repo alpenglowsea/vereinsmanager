@@ -32,6 +32,10 @@ import { CATEGORY_CONFIG } from './DocumentViewerModal';
 import { FolderModal } from './FolderModal';
 import { MoveToFolderModal } from './MoveToFolderModal';
 import { DeleteFolderModal } from './DeleteFolderModal';
+import { TablePagination } from './TablePagination';
+import { AuswahlLeiste } from './AuswahlLeiste';
+import { usePagination } from '../hooks/usePagination';
+import { ermittleSeitenStatus, wechsleSeite, waehleAlleGefilterten } from '../utils/tableSelection';
 
 interface DocumentsViewProps {
   documents: ClubDocument[];
@@ -260,13 +264,27 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
     });
   };
 
+  const {
+    pageItems: paginatedDocuments,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+  } = usePagination(
+    filteredDocuments,
+    [selectedFolderId, selectedCategory, formatFilter, yearFilter, searchQuery, sortBy].join('|')
+  );
+
+  const { seiteKomplett, seiteTeilweise, allesKomplett } = ermittleSeitenStatus(selectedIds, paginatedDocuments, filteredDocuments);
+
   const selectAllFiltered = () => {
-    if (selectedIds.size === filteredDocuments.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredDocuments.map(d => d.id)));
-    }
+    setSelectedIds(prev => wechsleSeite(prev, paginatedDocuments));
   };
+
+  const handleSelectAllFiltered = () => {
+    setSelectedIds(prev => waehleAlleGefilterten(prev, filteredDocuments));
+  };
+
 
   const clearSelection = () => {
     setSelectedIds(new Set());
@@ -812,6 +830,22 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
           </div>
         )}
 
+        {filteredDocuments.length > 0 && (
+          <div className="rounded-2xl overflow-hidden">
+            <AuswahlLeiste
+              anzahlAusgewaehlt={selectedIds.size}
+              anzahlAufSeite={paginatedDocuments.length}
+              anzahlGefiltert={filteredDocuments.length}
+              seiteKomplett={seiteKomplett}
+              allesKomplett={allesKomplett}
+              einzahl="Dokument"
+              mehrzahl="Dokumente"
+              onAlleAuswaehlen={handleSelectAllFiltered}
+              onAuswahlAufheben={clearSelection}
+            />
+          </div>
+        )}
+
         {/* DOCUMENT LIST / GRID */}
         {filteredDocuments.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-xs space-y-4">
@@ -843,7 +877,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
         ) : viewMode === 'grid' ? (
           /* GRID VIEW */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredDocuments.map(doc => {
+            {paginatedDocuments.map(doc => {
               const isSelected = selectedIds.has(doc.id);
               const categoryInfo = CATEGORY_CONFIG[doc.category] || CATEGORY_CONFIG.sonstiges;
               const assignedFolder = doc.folderId ? folders.find(f => f.id === doc.folderId) : null;
@@ -990,17 +1024,16 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
                 <tr>
                   <th className="py-3 px-3 w-10 text-center">
-                    <button
-                      type="button"
-                      onClick={selectAllFiltered}
-                      className="text-slate-400 hover:text-blue-600"
-                    >
-                      {selectedIds.size > 0 && selectedIds.size === filteredDocuments.length ? (
-                        <CheckSquare className="w-4 h-4 text-blue-600" />
-                      ) : (
-                        <Square className="w-4 h-4" />
-                      )}
-                    </button>
+                    <input
+                      type="checkbox"
+                      checked={seiteKomplett}
+                      ref={input => {
+                        if (input) input.indeterminate = seiteTeilweise;
+                      }}
+                      onChange={selectAllFiltered}
+                      aria-label="Alle Einträge dieser Seite auswählen"
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                    />
                   </th>
                   <th className="py-3 px-3">Dokument & Dateiname</th>
                   <th className="py-3 px-3">Ordner / Kategorie</th>
@@ -1011,7 +1044,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
-                {filteredDocuments.map(doc => {
+                {paginatedDocuments.map(doc => {
                   const isSelected = selectedIds.has(doc.id);
                   const categoryInfo = CATEGORY_CONFIG[doc.category] || CATEGORY_CONFIG.sonstiges;
                   const assignedFolder = doc.folderId ? folders.find(f => f.id === doc.folderId) : null;
@@ -1129,6 +1162,19 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {filteredDocuments.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+            <TablePagination
+              totalItems={filteredDocuments.length}
+              currentPage={currentPage}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              itemName="Dokumenten"
+            />
           </div>
         )}
       </div>
