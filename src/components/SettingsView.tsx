@@ -304,7 +304,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [bugCopied, setBugCopied] = useState(false);
   const [isSubmittingBug, setIsSubmittingBug] = useState(false);
   const [bugSuccessMessage, setBugSuccessMessage] = useState<string | null>(null);
-  const [submittedTicket, setSubmittedTicket] = useState<{ ticketId: string; timestamp: string; message: string } | null>(null);
+  const [submittedTicket, setSubmittedTicket] = useState<{ ticketId: string; timestamp: string; message: string; delivered: boolean } | null>(null);
 
   const generateBugReportText = () => {
     const severityLabels = {
@@ -380,6 +380,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
     let sent = false;
     let serverMessage = '';
+    // Warum der Versand nicht geklappt hat — wird dem Anwender angezeigt, damit
+    // er nicht raten muss.
+    let failReason = '';
 
     try {
       // 1. First attempt: In-App Backend API route /api/submit-bugreport
@@ -391,21 +394,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         });
 
         const contentType = response.headers.get('content-type') || '';
-        // Only parse as JSON if the server actually returned JSON (avoids Safari/WebKit HTML parse DOMExceptions)
-        if (response.ok && contentType.includes('application/json')) {
-          const rawText = await response.text();
+        if (contentType.includes('application/json')) {
           try {
-            const result = JSON.parse(rawText);
-            if (result && result.success) {
+            const result = JSON.parse(await response.text());
+            // Der Server meldet success nur noch, wenn der Mail-Dienst den
+            // Bericht wirklich angenommen hat.
+            if (response.ok && result && result.success === true) {
               sent = true;
-              serverMessage = result.message || 'Ihr Fehlerbericht wurde direkt an vereinsmanager@ik.me übermittelt.';
+              serverMessage = result.message || 'Ihr Fehlerbericht wurde an den Mail-Dienst übergeben.';
+            } else {
+              failReason = result?.reason || result?.error || '';
             }
           } catch {
-            // Non-JSON response, continue to fallback
+            // Keine lesbare Antwort — weiter mit dem Rückfallweg
           }
+        } else {
+          failReason = 'Der lokale Server hat nicht wie erwartet geantwortet.';
         }
       } catch {
-        // Backend API not reachable (e.g. running standalone local desktop app / static file)
+        failReason = 'Der lokale Server ist nicht erreichbar.';
       }
 
       // 2. Second attempt: Direct relay if online and backend API was unavailable
@@ -447,10 +454,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           if (directRes.ok && (directJson?.success === true || directJson?.success === 'true')) {
             sent = true;
-            serverMessage = 'Ihr Fehlerbericht wurde direkt an vereinsmanager@ik.me übermittelt!';
+            serverMessage = 'Ihr Fehlerbericht wurde an den Mail-Dienst übergeben.';
+          } else {
+            failReason = directJson?.message || `Antwort des Mail-Dienstes: Status ${directRes.status}`;
           }
         } catch {
-          // Direct relay failed (e.g. CORS or offline)
+          failReason = failReason || 'Der Mail-Dienst ist nicht erreichbar (keine Internetverbindung?).';
         }
       }
 
@@ -458,12 +467,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setSubmittedTicket({
           ticketId,
           timestamp,
-          message: serverMessage || 'Ihr Fehlerbericht wurde direkt an vereinsmanager@ik.me übermittelt.',
+          delivered: true,
+          message: serverMessage || 'Ihr Fehlerbericht wurde an den Mail-Dienst übergeben.',
         });
-        setBugSuccessMessage(`Fehlerbericht erfolgreich direkt versendet! Ticket-Nr: #${ticketId}`);
+        setBugSuccessMessage(`Fehlerbericht an den Mail-Dienst übergeben. Ticket-Nr: #${ticketId}`);
         setStatusMsg({
           type: 'success',
-          text: `Fehlerbericht wurde direkt an vereinsmanager@ik.me übermittelt (Ticket #${ticketId})`,
+          text: `Fehlerbericht an den Mail-Dienst übergeben (Ticket #${ticketId}). Ob die Mail ankommt, lässt sich von hier aus nicht prüfen.`,
         });
       } else {
         // If neither method succeeded (e.g. completely offline in local mode or no internet access):
@@ -471,11 +481,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setSubmittedTicket({
           ticketId,
           timestamp,
-          message: 'Bericht wurde lokal vorbereitet. Im reinen Offline-Modus steht kein direkter Serverversand zur Verfügung. Nutzen Sie bitte den Button "E-Mail-App" oder "Kopieren".',
+          delivered: false,
+          message: `Der Bericht konnte NICHT direkt versendet werden${failReason ? `: ${failReason}` : '.'} Bitte nutzen Sie den Button "E-Mail-App" oder "Kopieren".`,
         });
         setStatusMsg({
-          type: 'info',
-          text: `Ticket #${ticketId} erfasst. Im lokalen Offline-Modus bitte den Bericht per E-Mail-App versenden oder kopieren.`
+          type: 'error',
+          text: `Ticket #${ticketId} wurde nicht versendet${failReason ? ` (${failReason})` : ''}. Bitte den Bericht per E-Mail-App senden oder kopieren.`
         });
       }
     } catch (err: any) {
@@ -2657,7 +2668,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           {/* Success Banner / Ticket Confirmation */}
-          {submittedTicket && (
+          {submittedTicket && !submittedTicket.delivered && (
+            <div className="p-5 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700/80 rounded-3xl text-xs text-amber-900 dark:text-amber-200 shadow-xs space-y-2" role="alert">
+              <div className="flex items-start justify-between gap-3">
+                <div className="font-bold text-sm">
+                  Fehlerbericht NICHT versendet <span className="font-mono">#{submittedTicket.ticketId}</span>
+                </div>
+                <button type="button" onClick={() => setSubmittedTicket(null)} className="p-1 cursor-pointer hover:opacity-80">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="leading-relaxed">{submittedTicket.message}</p>
+            </div>
+          )}
+
+          {submittedTicket?.delivered && (
             <div className="p-5 bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700/80 rounded-3xl text-xs text-emerald-900 dark:text-emerald-200 shadow-xs space-y-3 animate-in fade-in duration-200">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -2666,13 +2691,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </div>
                   <div>
                     <div className="font-bold text-sm text-emerald-950 dark:text-emerald-100 flex items-center gap-2">
-                      <span>Fehlerbericht direkt aus der App versendet!</span>
+                      <span>Fehlerbericht an den Mail-Dienst übergeben</span>
                       <span className="px-2 py-0.5 rounded-md bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 text-2xs font-mono font-bold">
                         #{submittedTicket.ticketId}
                       </span>
                     </div>
                     <p className="text-2xs text-emerald-700 dark:text-emerald-300 mt-0.5">
-                      Erfolgreich übermittelt am {submittedTicket.timestamp}. Kein externes E-Mail-Programm erforderlich.
+                      Übergeben am {submittedTicket.timestamp}. Wenn innerhalb eines Tages keine Antwort kommt, bitte zusätzlich per E-Mail-App senden.
                     </p>
                   </div>
                 </div>

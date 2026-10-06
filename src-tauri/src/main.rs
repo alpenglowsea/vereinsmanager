@@ -168,13 +168,39 @@ async fn starte_server(app: &tauri::AppHandle) -> Option<String> {
         None
     };
 
-    match tokio::time::timeout(
+    let ergebnis = tokio::time::timeout(
         tokio::time::Duration::from_secs(WARTEZEIT_SEKUNDEN),
         warten,
     )
-    .await
-    {
-        Ok(adresse) => adresse,
+    .await;
+
+    match ergebnis {
+        Ok(adresse) => {
+            // Der Server läuft weiter und schreibt weiter Meldungen (etwa zu
+            // Fehlerberichten oder Mailversand). Ohne diese Schleife würden
+            // sie ab jetzt nirgends mehr erscheinen — und der Empfangskanal
+            // bliebe ungelesen.
+            if adresse.is_some() {
+                tauri::async_runtime::spawn(async move {
+                    while let Some(ereignis) = ausgabe.recv().await {
+                        match ereignis {
+                            CommandEvent::Stdout(zeile) => {
+                                print!("[Server] {}", String::from_utf8_lossy(&zeile));
+                            }
+                            CommandEvent::Stderr(zeile) => {
+                                eprint!("[Server] {}", String::from_utf8_lossy(&zeile));
+                            }
+                            CommandEvent::Terminated(ende) => {
+                                eprintln!("Der Server hat sich beendet: {ende:?}");
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+                });
+            }
+            adresse
+        }
         Err(_) => {
             eprintln!(
                 "Der Server hat sich nicht innerhalb von {WARTEZEIT_SEKUNDEN} Sekunden gemeldet."

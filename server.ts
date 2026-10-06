@@ -155,8 +155,13 @@ app.post("/api/submit-bugreport", bremse(bremseMeldung, "Fehlermeldung"), async 
     });
 
     let sentSuccessfully = false;
+    let grund = "";
 
-    // Attempt direct email delivery via FormSubmit HTTP API to vereinsmanager@ik.me
+    // Versand über FormSubmit an vereinsmanager@ik.me. Wichtig: Eine HTTP-200-
+    // Antwort allein heißt NICHT, dass die Mail abgeschickt wurde — FormSubmit
+    // meldet im Antworttext, ob es den Bericht wirklich angenommen hat
+    // (success: "true"), oder ob z. B. die Empfängeradresse noch bestätigt
+    // werden muss. Nur dieser Text zählt.
     try {
       const response = await fetch("https://formsubmit.co/ajax/vereinsmanager@ik.me", {
         method: "POST",
@@ -167,25 +172,39 @@ app.post("/api/submit-bugreport", bremse(bremseMeldung, "Fehlermeldung"), async 
         body: JSON.stringify(payload),
       });
 
-      if (response.ok) {
+      const text = await response.text();
+      let antwort: any = null;
+      try {
+        antwort = JSON.parse(text);
+      } catch {
+        antwort = null;
+      }
+
+      if (response.ok && (antwort?.success === true || antwort?.success === "true")) {
         sentSuccessfully = true;
+        console.log(`[Bugreport #${ticketId}] Von FormSubmit angenommen:`, text);
       } else {
-        const text = await response.text();
-        console.warn(`[Bugreport #${ticketId}] FormSubmit returned status ${response.status}:`, text);
+        grund = antwort?.message || `Antwort des Mail-Dienstes: Status ${response.status}`;
+        console.warn(`[Bugreport #${ticketId}] FormSubmit hat NICHT angenommen (Status ${response.status}):`, text);
       }
     } catch (deliveryError: any) {
-      console.warn(`[Bugreport #${ticketId}] Direct email relay failed:`, deliveryError?.message || deliveryError);
+      grund = deliveryError?.message || "Der Mail-Dienst ist nicht erreichbar.";
+      console.warn(`[Bugreport #${ticketId}] Versand fehlgeschlagen:`, grund);
     }
 
+    // success sagt jetzt die Wahrheit über den Versand. Der Bericht selbst ist
+    // in jedem Fall mit Ticketnummer erfasst und kann per E-Mail-App oder
+    // Kopieren weitergegeben werden.
     return res.json({
-      success: true,
+      success: sentSuccessfully,
       ticketId,
       sentTo: "vereinsmanager@ik.me",
       timestamp,
       deliveredDirectly: sentSuccessfully,
+      reason: sentSuccessfully ? undefined : grund,
       message: sentSuccessfully
-        ? `Ihr Fehlerbericht wurde erfolgreich direkt an vereinsmanager@ik.me übermittelt!`
-        : `Ihr Fehlerbericht wurde im System mit Ticket #${ticketId} erfasst und vorbereitet.`,
+        ? `Ihr Fehlerbericht wurde an den Mail-Dienst übergeben (Ticket #${ticketId}).`
+        : `Der Versand ist nicht gelungen${grund ? ` (${grund})` : ""}.`,
     });
   } catch (error: any) {
     console.error("Fehler beim Übermitteln des Bugreports:", error);

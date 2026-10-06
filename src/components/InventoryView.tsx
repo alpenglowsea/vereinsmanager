@@ -4,6 +4,8 @@ import { INVENTORY_CATEGORIES, CONDITION_OPTIONS } from '../data/inventoryCatego
 import { StorageService } from '../services/storage';
 import { ExportService } from '../services/exportService';
 import { TablePagination, PageSizeOption } from './TablePagination';
+import { AuswahlLeiste } from './AuswahlLeiste';
+import { ermittleSeitenStatus, wechsleSeite, waehleAlleGefilterten } from '../utils/tableSelection';
 import { InventoryBulkEditModal } from './InventoryBulkEditModal';
 import { IssuedInventoryModal } from './IssuedInventoryModal';
 import { SortableResizableTh } from './SortableResizableTh';
@@ -594,12 +596,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     return inventory.filter(item => selectedItemIds.has(item.id));
   }, [inventory, selectedItemIds]);
 
-  const allFilteredSelected =
-    filteredInventory.length > 0 &&
-    filteredInventory.every(item => selectedItemIds.has(item.id));
-
-  const someFilteredSelected =
-    filteredInventory.some(item => selectedItemIds.has(item.id)) && !allFilteredSelected;
+  // Kopfkästchen und Auswahlleiste beziehen sich auf die aktuelle SEITE;
+  // „alle der Tabelle" gibt es als eigenen Knopf (siehe AuswahlLeiste).
+  const { seiteKomplett, seiteTeilweise, allesKomplett } = ermittleSeitenStatus(selectedItemIds, paginatedInventory, filteredInventory);
 
   const handleToggleSelectItem = (id: string, e?: React.SyntheticEvent) => {
     if (e) e.stopPropagation();
@@ -615,19 +614,11 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   };
 
   const handleToggleSelectAll = () => {
-    if (allFilteredSelected) {
-      setSelectedItemIds(prev => {
-        const next = new Set(prev);
-        filteredInventory.forEach(item => next.delete(item.id));
-        return next;
-      });
-    } else {
-      setSelectedItemIds(prev => {
-        const next = new Set(prev);
-        filteredInventory.forEach(item => next.add(item.id));
-        return next;
-      });
-    }
+    setSelectedItemIds(prev => wechsleSeite(prev, paginatedInventory));
+  };
+
+  const handleSelectAllFiltered = () => {
+    setSelectedItemIds(prev => waehleAlleGefilterten(prev, filteredInventory));
   };
 
   const handleClearSelection = () => {
@@ -1069,7 +1060,18 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               den Zeilen, auch bei langen Seiten (siehe ausführlicher
               Kommentar in MembersView.tsx bzw. in App.tsx, warum der
               vorherige Versuch nicht funktioniert hat). */}
-          <div className="overflow-auto max-h-[65vh]">
+          <AuswahlLeiste
+          anzahlAusgewaehlt={selectedItemIds.size}
+          anzahlAufSeite={paginatedInventory.length}
+          anzahlGefiltert={filteredInventory.length}
+          seiteKomplett={seiteKomplett}
+          allesKomplett={allesKomplett}
+          einzahl="Gegenstand"
+          mehrzahl="Gegenstände"
+          onAlleAuswaehlen={handleSelectAllFiltered}
+          onAuswahlAufheben={handleClearSelection}
+        />
+        <div className="overflow-auto max-h-[65vh]">
             <table
               ref={tableRef}
               className="text-left border-collapse text-xs"
@@ -1101,12 +1103,12 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   >
                     <input
                       type="checkbox"
-                      checked={allFilteredSelected}
+                      checked={seiteKomplett}
                       ref={input => {
-                        if (input) input.indeterminate = someFilteredSelected;
+                        if (input) input.indeterminate = seiteTeilweise;
                       }}
                       onChange={handleToggleSelectAll}
-                      aria-label="Alle sichtbaren Inventargegenstände auswählen"
+                      aria-label="Alle Einträge dieser Seite auswählen"
                       className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
                     />
                   </th>
@@ -1380,6 +1382,19 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       ) : (
         /* CARDS GRID VIEW */
         <div className="space-y-4">
+          <div className="rounded-2xl overflow-hidden">
+            <AuswahlLeiste
+              anzahlAusgewaehlt={selectedItemIds.size}
+              anzahlAufSeite={paginatedInventory.length}
+              anzahlGefiltert={filteredInventory.length}
+              seiteKomplett={seiteKomplett}
+              allesKomplett={allesKomplett}
+              einzahl="Gegenstand"
+              mehrzahl="Gegenstände"
+              onAlleAuswaehlen={handleSelectAllFiltered}
+              onAuswahlAufheben={handleClearSelection}
+            />
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {paginatedInventory.map((item) => {
             const catMeta = getCategoryMeta(item.category);

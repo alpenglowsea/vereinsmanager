@@ -15,6 +15,8 @@ import { StorageService } from '../services/storage';
 import { TransactionDetailsModal } from './TransactionDetailsModal';
 import { TransactionBulkEditModal } from './TransactionBulkEditModal';
 import { TablePagination, PageSizeOption } from './TablePagination';
+import { AuswahlLeiste } from './AuswahlLeiste';
+import { ermittleSeitenStatus, wechsleSeite, waehleAlleGefilterten } from '../utils/tableSelection';
 import { SortableResizableTh } from './SortableResizableTh';
 import { ColumnVisibilityMenu } from './ColumnVisibilityMenu';
 import { useResizableColumns, ColumnWidths } from '../hooks/useResizableColumns';
@@ -628,12 +630,9 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
     return transactions.filter(t => selectedTxIds.has(t.id));
   }, [transactions, selectedTxIds]);
 
-  const allFilteredSelected =
-    filteredTransactions.length > 0 &&
-    filteredTransactions.every(t => selectedTxIds.has(t.id));
-
-  const someFilteredSelected =
-    filteredTransactions.some(t => selectedTxIds.has(t.id)) && !allFilteredSelected;
+  // Kopfkästchen und Auswahlleiste beziehen sich auf die aktuelle SEITE;
+  // „alle der Tabelle" gibt es als eigenen Knopf (siehe AuswahlLeiste).
+  const { seiteKomplett, seiteTeilweise, allesKomplett } = ermittleSeitenStatus(selectedTxIds, paginatedTransactions, sortedTransactions);
 
   const handleToggleSelectTx = (id: string, e?: React.SyntheticEvent) => {
     if (e) e.stopPropagation();
@@ -649,19 +648,11 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   };
 
   const handleToggleSelectAll = () => {
-    if (allFilteredSelected) {
-      setSelectedTxIds(prev => {
-        const next = new Set(prev);
-        filteredTransactions.forEach(t => next.delete(t.id));
-        return next;
-      });
-    } else {
-      setSelectedTxIds(prev => {
-        const next = new Set(prev);
-        filteredTransactions.forEach(t => next.add(t.id));
-        return next;
-      });
-    }
+    setSelectedTxIds(prev => wechsleSeite(prev, paginatedTransactions));
+  };
+
+  const handleSelectAllFiltered = () => {
+    setSelectedTxIds(prev => waehleAlleGefilterten(prev, sortedTransactions));
   };
 
   const handleClearSelection = () => {
@@ -1097,6 +1088,17 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             Zeilen, auch bei langen Seiten (siehe ausführlicher Kommentar in
             MembersView.tsx bzw. in App.tsx, warum der vorherige Versuch
             nicht funktioniert hat). */}
+        <AuswahlLeiste
+          anzahlAusgewaehlt={selectedTxIds.size}
+          anzahlAufSeite={paginatedTransactions.length}
+          anzahlGefiltert={sortedTransactions.length}
+          seiteKomplett={seiteKomplett}
+          allesKomplett={allesKomplett}
+          einzahl="Buchung"
+          mehrzahl="Buchungen"
+          onAlleAuswaehlen={handleSelectAllFiltered}
+          onAuswahlAufheben={handleClearSelection}
+        />
         <div className="overflow-auto max-h-[65vh]">
           <table
             ref={tableRef}
@@ -1129,12 +1131,12 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                 >
                   <input
                     type="checkbox"
-                    checked={allFilteredSelected}
+                    checked={seiteKomplett}
                     ref={input => {
-                      if (input) input.indeterminate = someFilteredSelected;
+                      if (input) input.indeterminate = seiteTeilweise;
                     }}
                     onChange={handleToggleSelectAll}
-                    aria-label="Alle sichtbaren Buchungen auswählen"
+                    aria-label="Alle Einträge dieser Seite auswählen"
                     className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
                   />
                 </th>

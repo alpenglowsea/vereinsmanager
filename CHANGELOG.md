@@ -13,6 +13,27 @@ E-Mail-Versand sind auch alle Funktionen entfernt, die nur für eine der
 beiden anderen Betriebsarten existierten. Vollständige Begründung und
 Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
 
+### Nachtrag 2 — Fehlerbericht meldet die Wahrheit; Auswahl über mehrere Seiten
+
+- **Fehlerbericht:** Der lokale Server meldete „erfolgreich", auch wenn der
+  Mail-Dienst (FormSubmit) den Bericht gar nicht angenommen hatte — er prüfte
+  nur, ob überhaupt eine Antwort kam, nicht deren Inhalt. Die Oberfläche
+  zeigte dann grün „versendet". Jetzt zählt allein die Antwort des
+  Mail-Dienstes; bei einem Fehlschlag erscheint ein gelber Hinweis mit dem
+  Grund und dem Weg über „E-Mail-App" bzw. „Kopieren". Auch bei Erfolg heißt
+  es nur noch „an den Mail-Dienst übergeben", denn ob die Mail im Postfach
+  landet, lässt sich von der App aus nicht prüfen.
+- **Desktop-Fassung:** Die Meldungen des mitgelieferten Servers wurden nur bis
+  zum Start im Terminal angezeigt, danach nicht mehr. Sie laufen jetzt
+  dauerhaft weiter (nützlich bei der Fehlersuche).
+- **Auswahl in Tabellen mit Seiten (Mitglieder, Buchungen, Inventar):** Das
+  Kästchen in der Kopfzeile wählt nur noch die Einträge der aktuellen Seite.
+  Die Auswahl bleibt beim Blättern erhalten. Reicht eine Seite nicht für alle
+  Treffer, bietet die Leiste über der Tabelle „Alle n … der Tabelle
+  auswählen" an (n = alle Treffer der aktuellen Suche/Filterung);
+  „Auswahl aufheben" leert alles. Rechenlogik: `src/utils/tableSelection.ts`
+  (7 Tests).
+
 ### Nachtrag nach dem ersten Test der Linux-Fassung — Einspielen meldet Fehler jetzt laut
 
 - Beim Einspielen einer Datensicherung (z. B. Linux-AppImage, frisches Gerät)

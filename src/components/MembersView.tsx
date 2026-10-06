@@ -3,6 +3,8 @@ import { Member, ClubSettings, MemberBulkUpdates } from '../types';
 import { ExportService } from '../services/exportService';
 import { MemberBulkEditModal } from './MemberBulkEditModal';
 import { TablePagination, PageSizeOption } from './TablePagination';
+import { AuswahlLeiste } from './AuswahlLeiste';
+import { ermittleSeitenStatus, wechsleSeite, waehleAlleGefilterten } from '../utils/tableSelection';
 import { SortableResizableTh } from './SortableResizableTh';
 import { useResizableColumns, ColumnWidths } from '../hooks/useResizableColumns';
 import { useColumnOrder } from '../hooks/useColumnOrder';
@@ -745,25 +747,16 @@ export const MembersView: React.FC<MembersViewProps> = ({
     return members.filter(m => selectedMemberIds.has(m.id));
   }, [members, selectedMemberIds]);
 
-  const allFilteredSelected = filteredMembers.length > 0 && filteredMembers.every(m => selectedMemberIds.has(m.id));
-  const someFilteredSelected = filteredMembers.some(m => selectedMemberIds.has(m.id)) && !allFilteredSelected;
+  // Kopfkästchen und Auswahlleiste beziehen sich auf die aktuelle SEITE;
+  // „alle der Tabelle" gibt es als eigenen Knopf (siehe AuswahlLeiste).
+  const { seiteKomplett, seiteTeilweise, allesKomplett } = ermittleSeitenStatus(selectedMemberIds, paginatedMembers, filteredMembers);
 
   const handleToggleSelectAll = () => {
-    if (allFilteredSelected) {
-      // Deselect all filtered
-      setSelectedMemberIds(prev => {
-        const next = new Set(prev);
-        filteredMembers.forEach(m => next.delete(m.id));
-        return next;
-      });
-    } else {
-      // Select all filtered
-      setSelectedMemberIds(prev => {
-        const next = new Set(prev);
-        filteredMembers.forEach(m => next.add(m.id));
-        return next;
-      });
-    }
+    setSelectedMemberIds(prev => wechsleSeite(prev, paginatedMembers));
+  };
+
+  const handleSelectAllFiltered = () => {
+    setSelectedMemberIds(prev => waehleAlleGefilterten(prev, filteredMembers));
   };
 
   const handleToggleMember = (id: string, e?: React.SyntheticEvent) => {
@@ -1377,6 +1370,17 @@ export const MembersView: React.FC<MembersViewProps> = ({
             genauso sichtbar. Der Vorteil: Der seitliche Scrollbalken sitzt
             dadurch IMMER direkt unter den Tabellenzeilen, unabhängig davon,
             wie lang der Rest der Seite ist. */}
+        <AuswahlLeiste
+          anzahlAusgewaehlt={selectedMemberIds.size}
+          anzahlAufSeite={paginatedMembers.length}
+          anzahlGefiltert={filteredMembers.length}
+          seiteKomplett={seiteKomplett}
+          allesKomplett={allesKomplett}
+          einzahl="Mitglied"
+          mehrzahl="Mitglieder"
+          onAlleAuswaehlen={handleSelectAllFiltered}
+          onAuswahlAufheben={handleClearSelection}
+        />
         <div className="overflow-auto max-h-[65vh]">
           <table
             ref={tableRef}
@@ -1419,12 +1423,12 @@ export const MembersView: React.FC<MembersViewProps> = ({
                 >
                   <input
                     type="checkbox"
-                    checked={allFilteredSelected}
+                    checked={seiteKomplett}
                     ref={input => {
-                      if (input) input.indeterminate = someFilteredSelected;
+                      if (input) input.indeterminate = seiteTeilweise;
                     }}
                     onChange={handleToggleSelectAll}
-                    aria-label="Alle sichtbaren Mitglieder auswählen"
+                    aria-label="Alle Einträge dieser Seite auswählen"
                     className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
                   />
                 </th>
@@ -1701,18 +1705,6 @@ export const MembersView: React.FC<MembersViewProps> = ({
 
         {/* Table Bottom Footer & Pagination */}
         <div className="overflow-hidden rounded-b-xl">
-          {selectedMemberIds.size > 0 && (
-            <div className="px-6 py-2 bg-blue-50/60 border-t border-blue-100 text-xs text-blue-700 flex items-center justify-between">
-              <span className="font-semibold">{selectedMemberIds.size} {selectedMemberIds.size === 1 ? 'Mitglied' : 'Mitglieder'} ausgewählt</span>
-              <button
-                type="button"
-                onClick={handleClearSelection}
-                className="text-blue-600 hover:text-blue-800 hover:underline font-semibold cursor-pointer text-xs"
-              >
-                Auswahl aufheben
-              </button>
-            </div>
-          )}
           <TablePagination
             totalItems={filteredMembers.length}
             currentPage={currentPage}
