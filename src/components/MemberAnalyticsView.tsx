@@ -436,24 +436,24 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Top Stat KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+          <div className="flex items-center justify-between text-slate-500 mb-1 dark:text-slate-400">
             <span className="text-xs font-semibold uppercase tracking-wider">Mitglieder Gesamt</span>
-            <Users className="w-4 h-4 text-blue-600" />
+            <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           </div>
-          <div className="text-3xl font-bold font-mono text-slate-900">{total}</div>
-          <div className="text-[11px] text-slate-500 mt-2 flex items-center gap-1.5 font-medium">
-            <span className="font-semibold text-emerald-600">{activeCount} aktiv</span> •{' '}
+          <div className="text-3xl font-bold font-mono text-slate-900 dark:text-white">{total}</div>
+          <div className="text-[11px] text-slate-500 mt-2 flex items-center gap-1.5 font-medium dark:text-slate-400">
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400">{activeCount} aktiv</span> •{' '}
             <span>{passiveCount} passiv</span>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+          <div className="flex items-center justify-between text-slate-500 mb-1 dark:text-slate-400">
             <span className="text-xs font-semibold uppercase tracking-wider">Jahresbeiträge (Soll)</span>
-            <TrendingUp className="w-4 h-4 text-emerald-600" />
+            <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <div className="text-3xl font-bold font-mono text-slate-900">
+          <div className="text-3xl font-bold font-mono text-slate-900 dark:text-white">
             {totalYearlyFee.toLocaleString('de-DE', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2
@@ -465,12 +465,12 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+          <div className="flex items-center justify-between text-slate-500 mb-1 dark:text-slate-400">
             <span className="text-xs font-semibold uppercase tracking-wider">SEPA-Quote</span>
-            <CreditCard className="w-4 h-4 text-indigo-600" />
+            <CreditCard className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
           </div>
-          <div className="text-3xl font-bold font-mono text-slate-900">
+          <div className="text-3xl font-bold font-mono text-slate-900 dark:text-white">
             {total > 0 ? Math.round((paymentMap.sepa.count / total) * 100) : 0}%
           </div>
           <div className="text-[11px] text-slate-400 mt-2">
@@ -478,12 +478,12 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+          <div className="flex items-center justify-between text-slate-500 mb-1 dark:text-slate-400">
             <span className="text-xs font-semibold uppercase tracking-wider">Sparten & Abteilungen</span>
-            <Building2 className="w-4 h-4 text-amber-600" />
+            <Building2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
           </div>
-          <div className="text-3xl font-bold font-mono text-slate-900">{deptList.length}</div>
+          <div className="text-3xl font-bold font-mono text-slate-900 dark:text-white">{deptList.length}</div>
           <div className="text-[11px] text-slate-400 mt-2">
             Größte: {deptList[0]?.[0] || '–'} ({deptList[0]?.[1] || 0})
           </div>
@@ -491,21 +491,21 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
       </div>
 
       {/* FEATURED: Fluktuation & Zu-/Abgänge (Hauptkachel mit Filtern) */}
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden dark:bg-slate-900 dark:border-slate-800">
         {/* Header with Filters */}
-        <div className="p-5 sm:p-6 bg-white border-b border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="p-5 sm:p-6 bg-white border-b border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4 dark:bg-slate-900 dark:border-slate-800">
           <div>
-            <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight dark:text-white">
               Zu- und Abgänge (Mitglieder-Fluktuation)
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
               Mitgliederentwicklung, Ein- und Austritte im zeitlichen Verlauf filtern und analysieren
             </p>
           </div>
 
           {/* Interactive Filters: Jahr & Sparte */}
-          <div className="flex flex-wrap items-center gap-2.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 pl-1.5">
+          <div className="flex flex-wrap items-center gap-2.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200 dark:bg-slate-800 dark:border-slate-800">
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 pl-1.5 dark:text-slate-400">
               <Filter className="w-3.5 h-3.5 text-slate-400" />
               <span className="font-semibold hidden sm:inline">Filter:</span>
             </div>
@@ -515,7 +515,7 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
-                className="bg-white text-slate-800 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500 outline-hidden pr-7 cursor-pointer appearance-none shadow-2xs"
+                className="bg-white text-slate-800 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500 outline-hidden pr-7 cursor-pointer appearance-none shadow-2xs dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
               >
                 <option value="all">Alle Jahre</option>
                 {availableYears.map((yr) => (
@@ -532,7 +532,7 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
               <select
                 value={selectedDepartment}
                 onChange={(e) => setSelectedDepartment(e.target.value)}
-                className="bg-white text-slate-800 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500 outline-hidden pr-7 cursor-pointer appearance-none max-w-[180px] truncate shadow-2xs"
+                className="bg-white text-slate-800 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500 outline-hidden pr-7 cursor-pointer appearance-none max-w-[180px] truncate shadow-2xs dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
               >
                 <option value="all">Alle Sparten ({availableDepartments.length})</option>
                 {availableDepartments.map((dept) => (
@@ -552,7 +552,7 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                   setSelectedYear(currentYear.toString());
                   setSelectedDepartment('all');
                 }}
-                className="p-1.5 hover:bg-slate-200 text-slate-500 hover:text-slate-700 rounded-lg transition-colors"
+                className="p-1.5 hover:bg-slate-200 text-slate-500 hover:text-slate-700 rounded-lg transition-colors dark:hover:bg-slate-600 dark:text-slate-400 dark:hover:text-slate-200"
                 title="Filter zurücksetzen"
               >
                 <X className="w-4 h-4" />
@@ -566,40 +566,40 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
           {/* 1. Metric Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Zugänge */}
-            <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4 flex items-center justify-between">
+            <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4 flex items-center justify-between dark:bg-emerald-950/70 dark:border-emerald-800/60">
               <div>
-                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">
-                  <UserPlus className="w-4 h-4 text-emerald-600" />
+                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1 dark:text-emerald-200">
+                  <UserPlus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>Zugänge (Eintritte)</span>
                 </div>
                 <div className="text-3xl font-black font-mono text-emerald-950">
                   +{filteredEntries.length}
                 </div>
-                <div className="text-[11px] text-emerald-700 mt-1 font-medium">
+                <div className="text-[11px] text-emerald-700 mt-1 font-medium dark:text-emerald-300">
                   {selectedYear === 'all' ? 'Gesamter Zeitraum' : `Im Jahr ${selectedYear}`}
                   {selectedDepartment !== 'all' ? ` • ${selectedDepartment}` : ''}
                 </div>
               </div>
-              <div className="w-12 h-12 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold">
+              <div className="w-12 h-12 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold dark:bg-emerald-900/40 dark:border-emerald-800/60 dark:text-emerald-300">
                 <ArrowUpRight className="w-6 h-6" />
               </div>
             </div>
 
             {/* Abgänge */}
-            <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-4 flex items-center justify-between">
+            <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-4 flex items-center justify-between dark:bg-rose-950/70 dark:border-rose-800/60">
               <div>
-                <div className="flex items-center gap-1.5 text-xs font-bold text-rose-800 uppercase tracking-wider mb-1">
-                  <UserMinus className="w-4 h-4 text-rose-600" />
+                <div className="flex items-center gap-1.5 text-xs font-bold text-rose-800 uppercase tracking-wider mb-1 dark:text-rose-200">
+                  <UserMinus className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                   <span>Abgänge (Austritte)</span>
                 </div>
                 <div className="text-3xl font-black font-mono text-rose-950">
                   -{filteredExits.length}
                 </div>
-                <div className="text-[11px] text-rose-700 mt-1 font-medium">
+                <div className="text-[11px] text-rose-700 mt-1 font-medium dark:text-rose-300">
                   Kündigungen / Austritte
                 </div>
               </div>
-              <div className="w-12 h-12 rounded-full bg-rose-100 border border-rose-200 text-rose-700 flex items-center justify-center font-bold">
+              <div className="w-12 h-12 rounded-full bg-rose-100 border border-rose-200 text-rose-700 flex items-center justify-center font-bold dark:bg-rose-900/40 dark:border-rose-800/60 dark:text-rose-300">
                 <ArrowDownRight className="w-6 h-6" />
               </div>
             </div>
@@ -608,18 +608,18 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
             <div
               className={`border rounded-xl p-4 flex items-center justify-between ${
                 netChange > 0
-                  ? 'bg-blue-50/70 border-blue-200 text-blue-900'
+                  ? 'bg-blue-50/70 border-blue-200 text-blue-900 dark:bg-blue-950/70 dark:border-blue-800/60 dark:text-blue-100'
                   : netChange < 0
-                  ? 'bg-amber-50/70 border-amber-200 text-amber-900'
-                  : 'bg-slate-50 border-slate-200 text-slate-800'
+                  ? 'bg-amber-50/70 border-amber-200 text-amber-900 dark:bg-amber-950/70 dark:border-amber-800/60 dark:text-amber-100'
+                  : 'bg-slate-50 border-slate-200 text-slate-800 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100'
               }`}
             >
               <div>
                 <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider mb-1">
                   {netChange >= 0 ? (
-                    <TrendingUp className="w-4 h-4 text-blue-600" />
+                    <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   ) : (
-                    <TrendingDown className="w-4 h-4 text-amber-600" />
+                    <TrendingDown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   )}
                   <span>Netto-Veränderung</span>
                 </div>
@@ -637,10 +637,10 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
               <div
                 className={`w-12 h-12 rounded-full border flex items-center justify-center font-bold text-sm font-mono ${
                   netChange > 0
-                    ? 'bg-blue-100 border-blue-200 text-blue-700'
+                    ? 'bg-blue-100 border-blue-200 text-blue-700 dark:bg-blue-900/40 dark:border-blue-800/60 dark:text-blue-300'
                     : netChange < 0
-                    ? 'bg-amber-100 border-amber-200 text-amber-700'
-                    : 'bg-slate-200 border-slate-300 text-slate-700'
+                    ? 'bg-amber-100 border-amber-200 text-amber-700 dark:bg-amber-900/40 dark:border-amber-800/60 dark:text-amber-300'
+                    : 'bg-slate-200 border-slate-300 text-slate-700 dark:bg-slate-600 dark:border-slate-700 dark:text-slate-200'
                 }`}
               >
                 {netChange > 0 ? `+${netChange}` : `${netChange}`}
@@ -651,27 +651,27 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
           {/* 2. Visual Charts Row: Monthly Breakdown & Multi-Year History */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Main Trend Bar Chart */}
-            <div className="lg:col-span-8 bg-slate-50 p-4 sm:p-5 rounded-xl border border-slate-200 flex flex-col justify-between">
+            <div className="lg:col-span-8 bg-slate-50 p-4 sm:p-5 rounded-xl border border-slate-200 flex flex-col justify-between dark:bg-slate-800 dark:border-slate-800">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-blue-600" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5 dark:text-slate-200">
+                    <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     {selectedYear === 'all'
                       ? 'Monatlicher Verlauf (Alle Jahre kumuliert)'
                       : `Monatlicher Verlauf (Jahr ${selectedYear})`}
                   </h4>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     {selectedYear === 'all'
                       ? 'Gegenüberstellung von Eintritten (Grün) und Austritten (Rot) pro Monat (über alle erfassten Jahre summiert)'
                       : 'Gegenüberstellung von Eintritten (Grün) und Austritten (Rot) pro Monat'}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 text-xs font-semibold">
-                  <div className="flex items-center gap-1.5 text-emerald-700">
+                  <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300">
                     <span className="w-3 h-3 rounded-xs bg-emerald-500 inline-block" />
                     <span>Zugänge</span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-rose-700">
+                  <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-300">
                     <span className="w-3 h-3 rounded-xs bg-rose-500 inline-block" />
                     <span>Abgänge</span>
                   </div>
@@ -679,7 +679,7 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
               </div>
 
               {/* 12 Months Columns */}
-              <div className="grid grid-cols-6 sm:grid-cols-12 gap-2 pt-4 border-t border-slate-200">
+              <div className="grid grid-cols-6 sm:grid-cols-12 gap-2 pt-4 border-t border-slate-200 dark:border-slate-800">
                 {monthlyBreakdown.map((m) => {
                   const entryHeightPct = maxMonthlyVal > 0 ? (m.entries / maxMonthlyVal) * 100 : 0;
                   const exitHeightPct = maxMonthlyVal > 0 ? (m.exits / maxMonthlyVal) * 100 : 0;
@@ -691,7 +691,7 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                       title={`${m.fullName}${selectedYear === 'all' ? ' (alle Jahre)' : ` ${selectedYear}`}: +${m.entries} Zugänge, -${m.exits} Abgänge (Netto: ${m.net > 0 ? `+${m.net}` : m.net})`}
                     >
                       {/* Bar Container */}
-                      <div className="w-full h-32 bg-white rounded-lg border border-slate-200 flex items-end justify-center gap-1 p-1 shadow-2xs group-hover:border-blue-400 transition-colors relative">
+                      <div className="w-full h-32 bg-white rounded-lg border border-slate-200 flex items-end justify-center gap-1 p-1 shadow-2xs group-hover:border-blue-400 transition-colors relative dark:bg-slate-900 dark:border-slate-800">
                         {/* Entry Bar (Green) */}
                         <div
                           style={{ height: `${Math.max(entryHeightPct, m.entries > 0 ? 12 : 0)}%` }}
@@ -722,7 +722,7 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                       </div>
 
                       {/* Month Label */}
-                      <span className="text-[11px] font-bold text-slate-700 mt-1.5">
+                      <span className="text-[11px] font-bold text-slate-700 mt-1.5 dark:text-slate-200">
                         {m.monthName}
                       </span>
 
@@ -730,9 +730,9 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                       <span
                         className={`text-[9px] font-mono px-1 rounded font-bold ${
                           m.net > 0
-                            ? 'text-emerald-700 bg-emerald-100'
+                            ? 'text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-900/40'
                             : m.net < 0
-                            ? 'text-rose-700 bg-rose-100'
+                            ? 'text-rose-700 bg-rose-100 dark:text-rose-300 dark:bg-rose-900/40'
                             : 'text-slate-400'
                         }`}
                       >
@@ -745,13 +745,13 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
             </div>
 
             {/* Multi-Year Comparison Trend Table */}
-            <div className="lg:col-span-4 bg-slate-50 p-4 sm:p-5 rounded-xl border border-slate-200 flex flex-col justify-between">
+            <div className="lg:col-span-4 bg-slate-50 p-4 sm:p-5 rounded-xl border border-slate-200 flex flex-col justify-between dark:bg-slate-800 dark:border-slate-800">
               <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5 mb-1">
-                  <TrendingUp className="w-4 h-4 text-emerald-600" />
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5 mb-1 dark:text-slate-200">
+                  <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   Mehrjahres-Entwicklung
                 </h4>
-                <p className="text-[11px] text-slate-500 mb-3">
+                <p className="text-[11px] text-slate-500 mb-3 dark:text-slate-400">
                   Vergleich der erfassten Jahre {selectedDepartment !== 'all' ? `(${selectedDepartment})` : ''}
                 </p>
               </div>
@@ -769,7 +769,7 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                       className={`p-2.5 rounded-lg border transition-all cursor-pointer flex items-center justify-between ${
                         selectedYear === row.year.toString()
                           ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                          : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-800'
+                          : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-800 dark:bg-slate-900 dark:hover:bg-slate-700 dark:border-slate-800 dark:text-slate-100'
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -782,10 +782,10 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                       </div>
 
                       <div className="flex items-center gap-3 text-xs font-mono font-bold">
-                        <span className={selectedYear === row.year.toString() ? 'text-emerald-200' : 'text-emerald-600'}>
+                        <span className={selectedYear === row.year.toString() ? 'text-emerald-200' : 'text-emerald-600 dark:text-emerald-400'}>
                           +{row.entries}
                         </span>
-                        <span className={selectedYear === row.year.toString() ? 'text-rose-200' : 'text-rose-600'}>
+                        <span className={selectedYear === row.year.toString() ? 'text-rose-200' : 'text-rose-600 dark:text-rose-400'}>
                           -{row.exits}
                         </span>
                         <span
@@ -793,10 +793,10 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                             selectedYear === row.year.toString()
                               ? 'bg-white/20 text-white'
                               : row.net > 0
-                              ? 'bg-emerald-100 text-emerald-800'
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
                               : row.net < 0
-                              ? 'bg-rose-100 text-rose-800'
-                              : 'bg-slate-100 text-slate-600'
+                              ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200'
+                              : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
                           }`}
                         >
                           {row.net > 0 ? `+${row.net}` : `${row.net}`}
@@ -814,7 +814,7 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
           </div>
 
           {/* 3. Detailed Event Timeline & Table */}
-          <div className="pt-2 border-t border-slate-100">
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
               <div className="flex items-center gap-1.5">
                 <button
@@ -823,7 +823,7 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                     activeListTab === 'all'
                       ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-300'
                   }`}
                 >
                   Alle Ereignisse ({allTimelineEvents.length})
@@ -834,7 +834,7 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${
                     activeListTab === 'entries'
                       ? 'bg-emerald-600 text-white'
-                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800'
+                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 dark:text-emerald-200'
                   }`}
                 >
                   <UserPlus className="w-3.5 h-3.5" />
@@ -846,7 +846,7 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${
                     activeListTab === 'exits'
                       ? 'bg-rose-600 text-white'
-                      : 'bg-rose-50 hover:bg-rose-100 text-rose-800'
+                      : 'bg-rose-50 hover:bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 dark:text-rose-200'
                   }`}
                 >
                   <UserMinus className="w-3.5 h-3.5" />
@@ -862,13 +862,13 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                   value={listSearchQuery}
                   onChange={(e) => setListSearchQuery(e.target.value)}
                   placeholder="In Liste suchen..."
-                  className="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 outline-hidden"
+                  className="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 outline-hidden dark:bg-slate-800 dark:border-slate-800 dark:focus:bg-slate-800"
                 />
                 {listSearchQuery && (
                   <button
                     type="button"
                     onClick={() => setListSearchQuery('')}
-                    className="absolute right-2 top-2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -878,14 +878,14 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
 
             {/* Events Table */}
             {displayedEvents.length === 0 ? (
-              <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500">
+              <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-400">
                 Keine Ein- oder Austritte für den gewählten Filterzeitraum ({selectedYear === 'all' ? 'Alle Jahre' : selectedYear},{' '}
                 {selectedDepartment === 'all' ? 'Alle Sparten' : selectedDepartment}) gefunden.
               </div>
             ) : (
-              <div className="overflow-x-auto border border-slate-200 rounded-xl max-h-72 overflow-y-auto">
+              <div className="overflow-x-auto border border-slate-200 rounded-xl max-h-72 overflow-y-auto dark:border-slate-800">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-100 text-slate-600 font-semibold sticky top-0 z-10 border-b border-slate-200">
+                  <thead className="bg-slate-100 text-slate-600 font-semibold sticky top-0 z-10 border-b border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-800">
                     <tr>
                       <th className="p-2.5 pl-3">Ereignis</th>
                       <th className="p-2.5">Datum</th>
@@ -895,33 +895,33 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                       <th className="p-2.5">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
+                  <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
                     {displayedEvents.map((ev) => {
                       const isEntry = ev.type === 'entry';
                       return (
-                        <tr key={ev.id} className="hover:bg-slate-50/80 transition-colors">
+                        <tr key={ev.id} className="hover:bg-slate-50/80 transition-colors dark:hover:bg-slate-800/80">
                           <td className="p-2.5 pl-3">
                             <span
                               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold text-[10px] ${
                                 isEntry
-                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                  : 'bg-rose-100 text-rose-800 border border-rose-200'
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-200 dark:border-emerald-800/60'
+                                  : 'bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-900/40 dark:text-rose-200 dark:border-rose-800/60'
                               }`}
                             >
                               {isEntry ? (
                                 <>
-                                  <UserPlus className="w-3 h-3 text-emerald-600" />
+                                  <UserPlus className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                                   <span>Eintritt</span>
                                 </>
                               ) : (
                                 <>
-                                  <UserMinus className="w-3 h-3 text-rose-600" />
+                                  <UserMinus className="w-3 h-3 text-rose-600 dark:text-rose-400" />
                                   <span>Austritt</span>
                                 </>
                               )}
                             </span>
                           </td>
-                          <td className="p-2.5 font-mono text-slate-600">
+                          <td className="p-2.5 font-mono text-slate-600 dark:text-slate-300">
                             {ev.date
                               ? new Date(ev.date).toLocaleDateString('de-DE', {
                                   day: '2-digit',
@@ -930,14 +930,14 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                                 })
                               : '–'}
                           </td>
-                          <td className="p-2.5 font-bold text-slate-900">
+                          <td className="p-2.5 font-bold text-slate-900 dark:text-white">
                             {ev.member.firstName} {ev.member.lastName}
                           </td>
-                          <td className="p-2.5 font-mono text-slate-500">
+                          <td className="p-2.5 font-mono text-slate-500 dark:text-slate-400">
                             #{ev.member.memberNumber || '–'}
                           </td>
                           <td className="p-2.5">
-                            <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[11px] font-medium">
+                            <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[11px] font-medium dark:bg-slate-700 dark:text-slate-200">
                               {ev.member.department || 'Ohne Sparte'}
                             </span>
                           </td>
@@ -945,12 +945,12 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                             <span
                               className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                                 ev.member.status === 'active'
-                                  ? 'bg-emerald-50 text-emerald-700'
+                                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
                                   : ev.member.status === 'passive'
-                                  ? 'bg-slate-100 text-slate-700'
+                                  ? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
                                   : ev.member.status === 'terminated'
-                                  ? 'bg-rose-50 text-rose-700'
-                                  : 'bg-blue-50 text-blue-700'
+                                  ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
+                                  : 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
                               }`}
                             >
                               {ev.member.status === 'active'
@@ -976,10 +976,10 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
       {/* Grid: Other Charts & Distributions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 1. Department Breakdown */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-blue-600" />
+            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 dark:text-white">
+              <Building2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               Mitglieder & Beitragsaufkommen nach Abteilung
             </h3>
           </div>
@@ -991,15 +991,15 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
               return (
                 <div key={dept} className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-700">{dept}</span>
-                    <span className="text-slate-500 text-[11px]">
-                      <strong className="text-slate-900">{count}</strong> ({pct}%) •{' '}
+                    <span className="font-medium text-slate-700 dark:text-slate-200">{dept}</span>
+                    <span className="text-slate-500 text-[11px] dark:text-slate-400">
+                      <strong className="text-slate-900 dark:text-white">{count}</strong> ({pct}%) •{' '}
                       <span className="font-mono">
                         {fee.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €/J.
                       </span>
                     </span>
                   </div>
-                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden flex">
+                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden flex dark:bg-slate-700">
                     <div
                       className="bg-blue-600 rounded-full transition-all duration-500"
                       style={{ width: `${pct}%` }}
@@ -1012,18 +1012,18 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
         </div>
 
         {/* 2. Age Pyramid Breakdown with Gender Filter */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between dark:bg-slate-900 dark:border-slate-800">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-emerald-600" />
+              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 dark:text-white">
+                <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 Altersstruktur der Mitglieder
               </h3>
               {selectedGenderFilter !== 'all' && (
                 <button
                   type="button"
                   onClick={() => setSelectedGenderFilter('all')}
-                  className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold cursor-pointer underline"
+                  className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold cursor-pointer underline dark:text-blue-400 dark:hover:text-blue-200"
                 >
                   Filter aufheben
                 </button>
@@ -1032,10 +1032,10 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
 
             {/* Interactive Gender Filter Tiles */}
             <div className="mb-4">
-              <div className="text-[11px] font-semibold text-slate-500 mb-1.5 flex items-center justify-between">
+              <div className="text-[11px] font-semibold text-slate-500 mb-1.5 flex items-center justify-between dark:text-slate-400">
                 <span>Filter nach Geschlecht:</span>
                 {selectedGenderFilter !== 'all' && (
-                  <span className="text-blue-600 font-bold">
+                  <span className="text-blue-600 font-bold dark:text-blue-400">
                     {genderMap[selectedGenderFilter].label} ({ageFilteredTotal})
                   </span>
                 )}
@@ -1048,14 +1048,14 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                   className={`p-2 rounded-lg border transition-all cursor-pointer text-center ${
                     selectedGenderFilter === 'm'
                       ? 'bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-400/40'
-                      : 'bg-blue-50/70 hover:bg-blue-100 border-blue-200/60 text-blue-950'
+                      : 'bg-blue-50/70 hover:bg-blue-100 border-blue-200/60 text-blue-950 dark:bg-blue-950/70 dark:hover:bg-blue-900/40 dark:border-blue-800/60'
                   }`}
                   title={selectedGenderFilter === 'm' ? 'Filter aufheben' : 'Nach männlichen Mitgliedern filtern'}
                 >
-                  <div className={`font-bold font-mono text-base leading-tight ${selectedGenderFilter === 'm' ? 'text-white' : 'text-blue-900'}`}>
+                  <div className={`font-bold font-mono text-base leading-tight ${selectedGenderFilter === 'm' ? 'text-white' : 'text-blue-900 dark:text-blue-100'}`}>
                     {genderMap.m.count}
                   </div>
-                  <div className={`text-[10px] font-medium truncate mt-0.5 ${selectedGenderFilter === 'm' ? 'text-blue-100 font-bold' : 'text-blue-700'}`}>
+                  <div className={`text-[10px] font-medium truncate mt-0.5 ${selectedGenderFilter === 'm' ? 'text-blue-100 font-bold' : 'text-blue-700 dark:text-blue-300'}`}>
                     Männlich
                   </div>
                 </button>
@@ -1067,14 +1067,14 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                   className={`p-2 rounded-lg border transition-all cursor-pointer text-center ${
                     selectedGenderFilter === 'w'
                       ? 'bg-rose-600 text-white border-rose-600 shadow-xs ring-2 ring-rose-400/40'
-                      : 'bg-rose-50/70 hover:bg-rose-100 border-rose-200/60 text-rose-950'
+                      : 'bg-rose-50/70 hover:bg-rose-100 border-rose-200/60 text-rose-950 dark:bg-rose-950/70 dark:hover:bg-rose-900/40 dark:border-rose-800/60'
                   }`}
                   title={selectedGenderFilter === 'w' ? 'Filter aufheben' : 'Nach weiblichen Mitgliedern filtern'}
                 >
-                  <div className={`font-bold font-mono text-base leading-tight ${selectedGenderFilter === 'w' ? 'text-white' : 'text-rose-900'}`}>
+                  <div className={`font-bold font-mono text-base leading-tight ${selectedGenderFilter === 'w' ? 'text-white' : 'text-rose-900 dark:text-rose-100'}`}>
                     {genderMap.w.count}
                   </div>
-                  <div className={`text-[10px] font-medium truncate mt-0.5 ${selectedGenderFilter === 'w' ? 'text-rose-100 font-bold' : 'text-rose-700'}`}>
+                  <div className={`text-[10px] font-medium truncate mt-0.5 ${selectedGenderFilter === 'w' ? 'text-rose-100 font-bold' : 'text-rose-700 dark:text-rose-300'}`}>
                     Weiblich
                   </div>
                 </button>
@@ -1086,14 +1086,14 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                   className={`p-2 rounded-lg border transition-all cursor-pointer text-center ${
                     selectedGenderFilter === 'd'
                       ? 'bg-purple-600 text-white border-purple-600 shadow-xs ring-2 ring-purple-400/40'
-                      : 'bg-purple-50/70 hover:bg-purple-100 border-purple-200/60 text-purple-950'
+                      : 'bg-purple-50/70 hover:bg-purple-100 border-purple-200/60 text-purple-950 dark:bg-purple-950/70 dark:hover:bg-purple-900/40 dark:border-purple-800/60'
                   }`}
                   title={selectedGenderFilter === 'd' ? 'Filter aufheben' : 'Nach diversen Mitgliedern filtern'}
                 >
-                  <div className={`font-bold font-mono text-base leading-tight ${selectedGenderFilter === 'd' ? 'text-white' : 'text-purple-900'}`}>
+                  <div className={`font-bold font-mono text-base leading-tight ${selectedGenderFilter === 'd' ? 'text-white' : 'text-purple-900 dark:text-purple-100'}`}>
                     {genderMap.d.count}
                   </div>
-                  <div className={`text-[10px] font-medium truncate mt-0.5 ${selectedGenderFilter === 'd' ? 'text-purple-100 font-bold' : 'text-purple-700'}`}>
+                  <div className={`text-[10px] font-medium truncate mt-0.5 ${selectedGenderFilter === 'd' ? 'text-purple-100 font-bold' : 'text-purple-700 dark:text-purple-300'}`}>
                     Divers
                   </div>
                 </button>
@@ -1105,14 +1105,14 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                   className={`p-2 rounded-lg border transition-all cursor-pointer text-center ${
                     selectedGenderFilter === 'none'
                       ? 'bg-slate-700 text-white border-slate-700 shadow-xs ring-2 ring-slate-400/40'
-                      : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800'
+                      : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 dark:border-slate-800 dark:text-slate-100'
                   }`}
                   title={selectedGenderFilter === 'none' ? 'Filter aufheben' : 'Nach Mitgliedern ohne Angabe filtern'}
                 >
-                  <div className={`font-bold font-mono text-base leading-tight ${selectedGenderFilter === 'none' ? 'text-white' : 'text-slate-800'}`}>
+                  <div className={`font-bold font-mono text-base leading-tight ${selectedGenderFilter === 'none' ? 'text-white' : 'text-slate-800 dark:text-slate-100'}`}>
                     {genderMap.none.count}
                   </div>
-                  <div className={`text-[10px] font-medium truncate mt-0.5 ${selectedGenderFilter === 'none' ? 'text-slate-200 font-bold' : 'text-slate-500'}`}>
+                  <div className={`text-[10px] font-medium truncate mt-0.5 ${selectedGenderFilter === 'none' ? 'text-slate-200 font-bold' : 'text-slate-500 dark:text-slate-400'}`}>
                     K. A.
                   </div>
                 </button>
@@ -1120,18 +1120,18 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
             </div>
 
             {/* Age Group Bars */}
-            <div className="space-y-3 pt-2 border-t border-slate-100">
+            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
               {Object.entries(ageGroups).map(([key, group]) => {
                 const pct = ageFilteredTotal > 0 ? Math.round((group.count / ageFilteredTotal) * 100) : 0;
                 return (
                   <div key={key} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-slate-700">{group.label}</span>
-                      <span className="text-slate-500 text-[11px]">
-                        <strong className="text-slate-900">{group.count}</strong> {group.count === 1 ? 'Mitglied' : 'Mitglieder'} ({pct}%)
+                      <span className="font-medium text-slate-700 dark:text-slate-200">{group.label}</span>
+                      <span className="text-slate-500 text-[11px] dark:text-slate-400">
+                        <strong className="text-slate-900 dark:text-white">{group.count}</strong> {group.count === 1 ? 'Mitglied' : 'Mitglieder'} ({pct}%)
                       </span>
                     </div>
-                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden flex">
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden flex dark:bg-slate-700">
                       <div
                         className={`${group.color} rounded-full transition-all duration-500`}
                         style={{ width: `${pct}%` }}
@@ -1145,10 +1145,10 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
         </div>
 
         {/* 3. Membership Type Share */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <PieIcon className="w-4 h-4 text-purple-600" />
+            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 dark:text-white">
+              <PieIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
               Verteilung nach Mitgliedschaftstyp
             </h3>
           </div>
@@ -1157,13 +1157,13 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
             {Object.entries(typeMap).map(([key, item]) => {
               const pct = total > 0 ? Math.round((item.count / total) * 100) : 0;
               return (
-                <div key={key} className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg">
-                  <div className="text-xs text-slate-500 font-medium truncate">{item.label}</div>
+                <div key={key} className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg dark:bg-slate-800 dark:border-slate-800">
+                  <div className="text-xs text-slate-500 font-medium truncate dark:text-slate-400">{item.label}</div>
                   <div className="flex items-baseline justify-between mt-1">
-                    <span className="text-lg font-bold font-mono text-slate-900">{item.count}</span>
-                    <span className="text-xs font-semibold text-slate-600">{pct}%</span>
+                    <span className="text-lg font-bold font-mono text-slate-900 dark:text-white">{item.count}</span>
+                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{pct}%</span>
                   </div>
-                  <div className="w-full h-1.5 bg-slate-200 rounded-full mt-2 overflow-hidden">
+                  <div className="w-full h-1.5 bg-slate-200 rounded-full mt-2 overflow-hidden dark:bg-slate-600">
                     <div className={`${item.color} h-full`} style={{ width: `${pct}%` }} />
                   </div>
                 </div>
@@ -1173,14 +1173,14 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
         </div>
 
         {/* 4. Payment Methods */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between dark:bg-slate-900 dark:border-slate-800">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-indigo-600" />
+              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 dark:text-white">
+                <CreditCard className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 Zahlungswege & Lastschrifteinzug
               </h3>
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/60 font-mono">
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/60 font-mono dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/60">
                 {total > 0 ? Math.round((paymentMap.sepa.count / total) * 100) : 0}% SEPA
               </span>
             </div>
@@ -1194,14 +1194,14 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2">
                         <span className={`w-2.5 h-2.5 rounded-full ${item.color} shrink-0`} />
-                        <span className="font-medium text-slate-700">{item.label}</span>
+                        <span className="font-medium text-slate-700 dark:text-slate-200">{item.label}</span>
                       </div>
-                      <span className="text-slate-500 text-[11px]">
-                        <strong className="text-slate-900 font-mono">{item.count}</strong> {item.count === 1 ? 'Mitglied' : 'Mitglieder'}{' '}
-                        <span className="font-semibold text-slate-700 font-mono">({pct}%)</span>
+                      <span className="text-slate-500 text-[11px] dark:text-slate-400">
+                        <strong className="text-slate-900 font-mono dark:text-white">{item.count}</strong> {item.count === 1 ? 'Mitglied' : 'Mitglieder'}{' '}
+                        <span className="font-semibold text-slate-700 font-mono dark:text-slate-200">({pct}%)</span>
                       </span>
                     </div>
-                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden flex">
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden flex dark:bg-slate-700">
                       <div
                         className={`${item.color} rounded-full transition-all duration-500`}
                         style={{ width: `${pct}%` }}

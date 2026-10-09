@@ -226,7 +226,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                   c.address?.city ? ` (${c.address.city})` : ''
                 }`,
           badge: typeNames || 'Kontakt',
-          badgeColor: 'bg-orange-100 text-orange-800 border-orange-200',
+          badgeColor: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/40 dark:text-orange-200 dark:border-orange-800/60',
           contactRef: c
         });
       }
@@ -245,7 +245,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
           name: fullName,
           subtitle: `Mitglied ${m.memberNumber} • Sparte: ${m.department}`,
           badge: 'Mitglied',
-          badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+          badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-200 dark:border-emerald-800/60',
           memberRef: m
         });
       }
@@ -466,18 +466,18 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden border border-slate-200 my-8">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden border border-slate-200 my-8 dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-xl">
+            <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-xl dark:bg-emerald-900/40 dark:text-emerald-300">
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                 {transaction ? 'Buchung bearbeiten' : 'Neue Buchung erfassen'}
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Zuordnung zu den 4 steuerlichen Sphären (§§ 51 ff. AO) & Belegarchiv
               </p>
             </div>
@@ -485,7 +485,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors dark:hover:text-slate-200 dark:hover:bg-slate-600"
           >
             <X className="w-5 h-5" />
           </button>
@@ -496,7 +496,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
           <div className="p-6 max-h-[65vh] overflow-y-auto space-y-5">
             {/* 1. Transaction Type Toggle (Einnahme vs Ausgabe vs Umbuchung) */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5 dark:text-slate-200">
                 Buchungsart *
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -505,8 +505,8 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                   onClick={() => handleTypeChange('income')}
                   className={`py-2.5 px-3 rounded-xl font-bold text-xs border text-center transition-all ${
                     formData.type === 'income'
-                      ? 'border-emerald-600 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-500/20'
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-500/20 dark:bg-emerald-950/40 dark:text-emerald-300'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
                   }`}
                 >
                   🟢 Einnahme (+)
@@ -516,8 +516,8 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                   onClick={() => handleTypeChange('expense')}
                   className={`py-2.5 px-3 rounded-xl font-bold text-xs border text-center transition-all ${
                     formData.type === 'expense'
-                      ? 'border-rose-600 bg-rose-50 text-rose-700 ring-2 ring-rose-500/20'
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      ? 'border-rose-600 bg-rose-50 text-rose-700 ring-2 ring-rose-500/20 dark:bg-rose-950/40 dark:text-rose-300'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
                   }`}
                 >
                   🔴 Ausgabe (-)
@@ -527,8 +527,8 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                   onClick={() => handleTypeChange('transfer')}
                   className={`py-2.5 px-3 rounded-xl font-bold text-xs border text-center transition-all ${
                     formData.type === 'transfer'
-                      ? 'border-blue-600 bg-blue-50 text-blue-700 ring-2 ring-blue-500/20'
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      ? 'border-blue-600 bg-blue-50 text-blue-700 ring-2 ring-blue-500/20 dark:bg-blue-950/40 dark:text-blue-300'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
                   }`}
                 >
                   🔄 Umbuchung
@@ -539,7 +539,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
             {/* 2. Amount, Date, DocNumber, Account */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                   Betrag (€) *
                 </label>
                 <div className="relative">
@@ -550,12 +550,12 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                     required
                     value={formData.amount || ''}
                     onChange={e => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-base font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono"
+                    className="w-full px-3 py-2 text-base font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono dark:border-slate-700"
                     placeholder="0,00"
                   />
                   <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-semibold">EUR</span>
                 </div>
-                {errors.amount && <p className="text-xs text-rose-600 mt-1">{errors.amount}</p>}
+                {errors.amount && <p className="text-xs text-rose-600 mt-1 dark:text-rose-400">{errors.amount}</p>}
                 {formData.type !== 'transfer' && (
                   <div className="mt-1.5">
                     <button
@@ -570,10 +570,10 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                           ]);
                         }
                       }}
-                      className="inline-flex items-center gap-1.5 text-2xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 text-2xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer dark:text-indigo-400 dark:hover:text-indigo-200"
                       title="Buchungsbetrag auf mehrere Teilbuchungen mit jeweils eigener Sphäre und Konten aufteilen"
                     >
-                      <Split className="w-3.5 h-3.5 text-indigo-600" />
+                      <Split className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                       <span>{isSplitBooking ? 'Splittbuchung aktiv (beenden)' : 'Als Splittbuchung aufteilen'}</span>
                     </button>
                   </div>
@@ -581,7 +581,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                   Buchungsdatum *
                 </label>
                 <input
@@ -589,12 +589,12 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                   required
                   value={formData.date}
                   onChange={e => setFormData({ ...formData, date: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 dark:border-slate-700"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                   Belegnummer *
                 </label>
                 <input
@@ -602,7 +602,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                   required
                   value={formData.documentNumber}
                   onChange={e => setFormData({ ...formData, documentNumber: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-emerald-500 dark:border-slate-700"
                   placeholder="BE-2025-001"
                 />
               </div>
@@ -611,13 +611,13 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
             {/* 3. Account selection */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                   {formData.type === 'transfer' ? 'Quellkonto (Abgang) *' : 'Bankkonto / Barkasse *'}
                 </label>
                 <select
                   value={formData.accountId}
                   onChange={e => setFormData({ ...formData, accountId: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 font-medium"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 font-medium dark:border-slate-700 dark:bg-slate-800"
                 >
                   {accounts.map(acc => (
                     <option key={acc.id} value={acc.id}>
@@ -629,13 +629,13 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
 
               {formData.type === 'transfer' ? (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                     Zielkonto (Zugang) *
                   </label>
                   <select
                     value={formData.targetAccountId}
                     onChange={e => setFormData({ ...formData, targetAccountId: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 font-medium"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 font-medium dark:border-slate-700 dark:bg-slate-800"
                   >
                     <option value="">– Bitte Zielkonto wählen –</option>
                     {accounts.filter(a => a.id !== formData.accountId).map(acc => (
@@ -644,12 +644,12 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                       </option>
                     ))}
                   </select>
-                  {errors.targetAccountId && <p className="text-xs text-rose-600 mt-1">{errors.targetAccountId}</p>}
+                  {errors.targetAccountId && <p className="text-xs text-rose-600 mt-1 dark:text-rose-400">{errors.targetAccountId}</p>}
                 </div>
               ) : (
                 <div className="relative">
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-700">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
                       {formData.type === 'income' ? 'Zahler / Absender *' : 'Zahlungsempfänger *'}
                     </label>
                     {onQuickCreateContact && (
@@ -661,7 +661,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                             formData.type === 'income' ? 'sponsor' : 'supplier'
                           )
                         }
-                        className="text-xs text-orange-600 hover:text-orange-800 font-semibold flex items-center gap-1 cursor-pointer"
+                        className="text-xs text-orange-600 hover:text-orange-800 font-semibold flex items-center gap-1 cursor-pointer dark:text-orange-400 dark:hover:text-orange-200"
                         title="Als neuen Kontakt anlegen"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -684,14 +684,14 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                         // Delay hide slightly so clicks on suggestions register
                         setTimeout(() => setShowPartnerSuggestions(false), 250);
                       }}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 dark:border-slate-700"
                       placeholder="z.B. Stadtwerke AG oder Max Mustermann"
                     />
 
                     {/* Autocomplete Dropdown */}
                     {showPartnerSuggestions && matchedSuggestions.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-56 overflow-y-auto divide-y divide-slate-100 animate-in fade-in duration-100">
-                        <div className="px-3 py-1.5 bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-between">
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-56 overflow-y-auto divide-y divide-slate-100 animate-in fade-in duration-100 dark:bg-slate-900 dark:border-slate-800 dark:divide-slate-800">
+                        <div className="px-3 py-1.5 bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-between dark:bg-slate-800 dark:text-slate-400">
                           <span>Vorschläge aus Kontakten & Mitgliedern</span>
                           <span className="text-slate-400 font-normal">Klicken zum Übernehmen</span>
                         </div>
@@ -702,14 +702,14 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                               e.preventDefault(); // Prevent input onBlur before click
                               handleSelectPartnerSuggestion(s);
                             }}
-                            className="px-3 py-1.5 text-left hover:bg-orange-50/60 transition-colors flex items-center justify-between group cursor-pointer"
+                            className="px-3 py-1.5 text-left hover:bg-orange-50/60 transition-colors flex items-center justify-between group cursor-pointer dark:hover:bg-orange-950/60"
                           >
                             <div className="flex items-center gap-2 min-w-0">
                               <div
                                 className={`p-1 rounded-md shrink-0 ${
                                   s.source === 'contact'
-                                    ? 'bg-orange-50 text-orange-600'
-                                    : 'bg-emerald-50 text-emerald-600'
+                                    ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400'
+                                    : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'
                                 }`}
                               >
                                 {s.source === 'contact' ? (
@@ -719,10 +719,10 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                                 )}
                               </div>
                               <div className="min-w-0">
-                                <div className="text-xs font-semibold text-slate-900 group-hover:text-orange-950 truncate">
+                                <div className="text-xs font-semibold text-slate-900 group-hover:text-orange-950 truncate dark:text-white">
                                   {s.name}
                                 </div>
-                                <div className="text-[11px] text-slate-500 truncate">
+                                <div className="text-[11px] text-slate-500 truncate dark:text-slate-400">
                                   {s.subtitle}
                                 </div>
                               </div>
@@ -737,14 +737,14 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                       </div>
                     )}
                   </div>
-                  {errors.partner && <p className="text-xs text-rose-600 mt-1">{errors.partner}</p>}
+                  {errors.partner && <p className="text-xs text-rose-600 mt-1 dark:text-rose-400">{errors.partner}</p>}
 
                   {/* Suggestion prompt: if non-empty partner typed (>= 3 letters) that is not known */}
                   {formData.partner.trim().length >= 3 && !isKnownPartner && onQuickCreateContact && (
-                    <div className="mt-1.5 px-3 py-2 bg-amber-50/90 border border-amber-200/80 rounded-lg flex items-center justify-between gap-2 text-xs animate-in fade-in duration-150">
+                    <div className="mt-1.5 px-3 py-2 bg-amber-50/90 border border-amber-200/80 rounded-lg flex items-center justify-between gap-2 text-xs animate-in fade-in duration-150 dark:bg-amber-950/90 dark:border-amber-800/80">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="text-xs shrink-0">💡</span>
-                        <div className="text-[11px] text-amber-900 leading-tight truncate">
+                        <div className="text-[11px] text-amber-900 leading-tight truncate dark:text-amber-100">
                           <span className="font-semibold">Noch kein Kontakt:</span> &bdquo;{formData.partner.trim()}&ldquo; ist noch nicht im Kontaktbuch.
                         </div>
                       </div>
@@ -770,7 +770,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
             {/* 4. Booking text */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-slate-700">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
                   Buchungstext / Verwendungszweck *
                 </label>
               </div>
@@ -779,24 +779,24 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                 required
                 value={formData.bookingText}
                 onChange={e => setFormData({ ...formData, bookingText: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 dark:border-slate-700"
                 placeholder="z.B. Neue Trainingsbälle Jugendfußball oder Mitgliedsbeitrag 2025"
               />
-              {errors.bookingText && <p className="text-xs text-rose-600 mt-1">{errors.bookingText}</p>}
+              {errors.bookingText && <p className="text-xs text-rose-600 mt-1 dark:text-rose-400">{errors.bookingText}</p>}
             </div>
 
             {/* 5. STEUERLICHE SPHÄRE & KATEGORIE (German Non-profit Law §§ 51 ff. AO) */}
             {formData.type !== 'transfer' && (
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3 dark:bg-slate-800 dark:border-slate-800">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5 dark:text-white">
                     Steuerliche Sphäre gem. §§ 51 ff. AO *
                   </label>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setShowSphereHelp(!showSphereHelp)}
-                      className="text-2xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium cursor-pointer"
+                      className="text-2xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium cursor-pointer dark:text-blue-400 dark:hover:text-blue-200"
                     >
                       <HelpCircle className="w-3.5 h-3.5" />
                       {showSphereHelp ? 'Hilfe ausblenden' : 'Sphären-Hilfe'}
@@ -805,8 +805,8 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                 </div>
 
                 {showSphereHelp && (
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-2xs space-y-2 text-slate-700">
-                    <p className="font-semibold text-blue-900">Die 4 steuerlichen Bereiche eines gemeinnützigen Vereins:</p>
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-2xs space-y-2 text-slate-700 dark:bg-blue-950/40 dark:border-blue-800/60 dark:text-slate-200">
+                    <p className="font-semibold text-blue-900 dark:text-blue-100">Die 4 steuerlichen Bereiche eines gemeinnützigen Vereins:</p>
                     <ul className="list-disc pl-4 space-y-1">
                       <li><strong>1. Ideeller Bereich:</strong> Mitgliedsbeiträge, Spenden, Zuschüsse, allgemeine Verwaltung. Steuerfrei.</li>
                       <li><strong>2. Vermögensverwaltung:</strong> Zinsen, Mieten, Pachten, langfristige Kapitalanlage. Ertragssteuerfrei.</li>
@@ -839,8 +839,8 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                         onClick={() => handleSphereChange(sph)}
                         className={`p-2 sm:p-2.5 rounded-xl border text-left transition-all min-w-0 flex flex-col justify-between cursor-pointer ${
                           isSelected
-                            ? 'border-blue-600 bg-white ring-2 ring-blue-500/20 shadow-xs'
-                            : 'border-slate-200 bg-white/70 text-slate-600 hover:bg-white'
+                            ? 'border-blue-600 bg-white ring-2 ring-blue-500/20 shadow-xs dark:bg-slate-900'
+                            : 'border-slate-200 bg-white/70 text-slate-600 hover:bg-white dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800'
                         }`}
                         title={info.name}
                       >
@@ -850,7 +850,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                           </div>
                           <div
                             className={`text-[11px] sm:text-xs font-bold leading-tight break-words hyphens-auto ${
-                              isSelected ? 'text-blue-700' : 'text-slate-800'
+                              isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-slate-800 dark:text-slate-100'
                             }`}
                             lang="de"
                           >
@@ -861,7 +861,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                               : info.name.split('.')[1]?.trim()}
                           </div>
                         </div>
-                        <div className="text-[10px] text-slate-500 truncate mt-1">
+                        <div className="text-[10px] text-slate-500 truncate mt-1 dark:text-slate-400">
                           {info.subtitle.split('(')[0]?.trim()}
                         </div>
                       </button>
@@ -871,8 +871,8 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
 
                 <div className="space-y-3 pt-2">
                   {accountCreatedToast && (
-                    <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in duration-150">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in duration-150 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-200">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 dark:text-emerald-400" />
                       <span>{accountCreatedToast}</span>
                     </div>
                   )}
@@ -881,7 +881,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                     <SearchableAccountSelect
                       label={
                         <>
-                          <Layers className="w-3 h-3 text-blue-600 shrink-0" />
+                          <Layers className="w-3 h-3 text-blue-600 shrink-0 dark:text-blue-400" />
                           <span>Nummernkreis (SKR 42) *</span>
                         </>
                       }
@@ -893,7 +893,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                             setCreateAccountInitialQuery('');
                             setCreateAccountModalOpen(true);
                           }}
-                          className="text-3xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer flex items-center gap-0.5"
+                          className="text-3xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer flex items-center gap-0.5 dark:text-blue-400 dark:hover:text-blue-200"
                           title="Neuen Nummernkreis erstellen"
                         >
                           <Plus className="w-2.5 h-2.5" />
@@ -916,7 +916,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                     <SearchableAccountSelect
                       label={
                         <>
-                          <Tag className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <Tag className="w-3 h-3 text-emerald-600 shrink-0 dark:text-emerald-400" />
                           <span>Konto (SKR 42) *</span>
                         </>
                       }
@@ -929,7 +929,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                               setCreateAccountInitialQuery('');
                               setCreateAccountModalOpen(true);
                             }}
-                            className="text-3xs text-emerald-600 hover:text-emerald-800 font-semibold cursor-pointer flex items-center gap-0.5"
+                            className="text-3xs text-emerald-600 hover:text-emerald-800 font-semibold cursor-pointer flex items-center gap-0.5 dark:text-emerald-400 dark:hover:text-emerald-200"
                             title="Neues Konto erstellen"
                           >
                             <Plus className="w-2.5 h-2.5" />
@@ -956,13 +956,13 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                    <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5 dark:text-slate-200">
                       Sparte / Abteilung
                     </label>
                     <select
                       value={formData.department || ''}
                       onChange={e => handleDepartmentChange(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 font-medium text-slate-900"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 font-medium text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                     >
                       <option value="">Gesamtverein (keine Sparte)</option>
                       {departments.map(dept => (
@@ -974,27 +974,27 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                     </span>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200">
-                    <div className="text-2xs text-slate-600 flex items-center gap-2">
-                      <span className="font-mono bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-blue-800 font-bold">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <div className="text-2xs text-slate-600 flex items-center gap-2 dark:text-slate-300">
+                      <span className="font-mono bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-blue-800 font-bold dark:bg-blue-950/40 dark:border-blue-800/60 dark:text-blue-200">
                         SKR 42: {formData.skrAccount || 'Konto'}
                       </span>
-                      <span className="text-slate-500">
-                        Sphäre: <strong className="text-slate-700">{TAX_SPHERES[formData.sphere]?.name || formData.sphere}</strong>
+                      <span className="text-slate-500 dark:text-slate-400">
+                        Sphäre: <strong className="text-slate-700 dark:text-slate-200">{TAX_SPHERES[formData.sphere]?.name || formData.sphere}</strong>
                       </span>
-                      <span className="text-slate-500">
-                        Sparte: <strong className="text-slate-700">{formData.department || 'Gesamtverein'}</strong>
+                      <span className="text-slate-500 dark:text-slate-400">
+                        Sparte: <strong className="text-slate-700 dark:text-slate-200">{formData.department || 'Gesamtverein'}</strong>
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <label className="text-2xs font-semibold text-slate-700">
+                      <label className="text-2xs font-semibold text-slate-700 dark:text-slate-200">
                         Umsatzsteuer:
                       </label>
                       <select
                         value={formData.vatRate}
                         onChange={e => setFormData({ ...formData, vatRate: parseInt(e.target.value) as 0 | 7 | 19 })}
-                        className="px-2.5 py-1 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 font-medium"
+                        className="px-2.5 py-1 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 font-medium dark:border-slate-700 dark:bg-slate-800"
                       >
                         <option value="0">0% (stfrei / ideell)</option>
                         <option value="7">7% (ermäßigt / Zweckbetrieb)</option>
@@ -1004,7 +1004,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                   </div>
 
                   {/* Link to switch to Splittbuchung */}
-                  <div className="pt-2 border-t border-slate-200/80 flex justify-end">
+                  <div className="pt-2 border-t border-slate-200/80 flex justify-end dark:border-slate-800">
                     <button
                       type="button"
                       onClick={() => {
@@ -1016,9 +1016,9 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                           ]);
                         }
                       }}
-                      className="text-2xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 cursor-pointer py-1 px-2 rounded hover:bg-indigo-50/70 transition-colors"
+                      className="text-2xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 cursor-pointer py-1 px-2 rounded hover:bg-indigo-50/70 transition-colors dark:text-indigo-400 dark:hover:text-indigo-200 dark:hover:bg-indigo-950/70"
                     >
-                      <Split className="w-3.5 h-3.5 text-indigo-600" />
+                      <Split className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                       <span>Diesen Betrag auf mehrere Konten/Sphären aufteilen (Splittbuchung)</span>
                     </button>
                   </div>
@@ -1029,22 +1029,22 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
         )}
 
             {/* 6. BELEG-UPLOAD & KAMERASCAN (PDF, JPEG, PNG) */}
-            <div className="border border-slate-200 rounded-xl p-4 space-y-3 bg-slate-50/50">
+            <div className="border border-slate-200 rounded-xl p-4 space-y-3 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/50">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
-                  <Paperclip className="w-3.5 h-3.5 text-slate-500" />
+                <label className="text-xs font-semibold text-slate-800 flex items-center gap-1.5 dark:text-slate-100">
+                  <Paperclip className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                   Beleg (Rechnung / Quittung) digitalisieren & anhängen
                 </label>
                 <span className="text-2xs text-slate-400">GoBD-konform lokal archiviert</span>
               </div>
 
               {receiptFile ? (
-                <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl dark:bg-emerald-950/40 dark:border-emerald-800/60">
                   <div className="flex items-center gap-2.5 overflow-hidden">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 dark:text-emerald-400" />
                     <div className="overflow-hidden">
-                      <p className="text-xs font-semibold text-slate-800 truncate">{receiptFile.name}</p>
-                      <p className="text-2xs text-slate-500">
+                      <p className="text-xs font-semibold text-slate-800 truncate dark:text-slate-100">{receiptFile.name}</p>
+                      <p className="text-2xs text-slate-500 dark:text-slate-400">
                         {Math.round(receiptFile.size / 1024)} KB • {receiptFile.type}
                       </p>
                     </div>
@@ -1053,7 +1053,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setScannerOpen(true)}
-                      className="p-1.5 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
+                      className="p-1.5 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
                       title="Neu mit Kamera scannen"
                     >
                       <Camera className="w-3.5 h-3.5" />
@@ -1065,7 +1065,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                         setReceiptFile(null);
                         setFormData(prev => ({ ...prev, receipt: undefined }));
                       }}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors dark:hover:text-rose-400 dark:hover:bg-rose-950/40"
                       title="Beleg entfernen"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1079,33 +1079,33 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setScannerOpen(true)}
-                      className="p-3.5 bg-white border border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50/50 rounded-xl text-left transition-all group flex flex-col justify-between shadow-2xs"
+                      className="p-3.5 bg-white border border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50/50 rounded-xl text-left transition-all group flex flex-col justify-between shadow-2xs dark:bg-slate-900 dark:border-emerald-700/60 dark:hover:bg-emerald-950/50"
                     >
-                      <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs">
-                        <div className="p-1.5 bg-emerald-100 group-hover:bg-emerald-200 rounded-lg transition-colors">
+                      <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs dark:text-emerald-300">
+                        <div className="p-1.5 bg-emerald-100 group-hover:bg-emerald-200 rounded-lg transition-colors dark:bg-emerald-900/40 dark:group-hover:bg-emerald-900/60">
                           <Camera className="w-4 h-4" />
                         </div>
                         <span>Kamera-Scan</span>
                       </div>
-                      <p className="text-2xs text-slate-500 mt-2">
+                      <p className="text-2xs text-slate-500 mt-2 dark:text-slate-400">
                         Papierrechnung mit Smartphone/Webcam abfotografieren & als PDF/Bild optimieren
                       </p>
                     </button>
 
-                    <div className="relative border border-slate-300 hover:border-slate-400 rounded-xl p-3.5 bg-white flex flex-col justify-between cursor-pointer transition-colors group">
+                    <div className="relative border border-slate-300 hover:border-slate-400 rounded-xl p-3.5 bg-white flex flex-col justify-between cursor-pointer transition-colors group dark:border-slate-700 dark:bg-slate-800">
                       <input
                         type="file"
                         accept="application/pdf,image/jpeg,image/png"
                         onChange={handleFileUpload}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       />
-                      <div className="flex items-center gap-2 text-slate-700 font-bold text-xs">
-                        <div className="p-1.5 bg-slate-100 group-hover:bg-slate-200 rounded-lg transition-colors">
-                          <Upload className="w-4 h-4 text-slate-600" />
+                      <div className="flex items-center gap-2 text-slate-700 font-bold text-xs dark:text-slate-200">
+                        <div className="p-1.5 bg-slate-100 group-hover:bg-slate-200 rounded-lg transition-colors dark:bg-slate-700 dark:group-hover:bg-slate-600">
+                          <Upload className="w-4 h-4 text-slate-600 dark:text-slate-300" />
                         </div>
                         <span>Datei-Upload</span>
                       </div>
-                      <p className="text-2xs text-slate-500 mt-2">
+                      <p className="text-2xs text-slate-500 mt-2 dark:text-slate-400">
                         Vorhandenes PDF oder Bild (JPG/PNG) vom Gerät auswählen (max. 8 MB)
                       </p>
                     </div>
@@ -1116,24 +1116,24 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
 
             {/* 7. Notes */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                 Interne Notizen / Bemerkungen
               </label>
               <textarea
                 rows={2}
                 value={formData.notes}
                 onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 dark:border-slate-700"
                 placeholder="z.B. Prüfvermerk Kassenprüfer, Rechnungsreferenz etc."
               />
             </div>
           </div>
 
           {/* Footer Actions */}
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs text-slate-500">
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between dark:bg-slate-800 dark:border-slate-800">
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
               {Object.keys(errors).length > 0 && (
-                <span className="text-rose-600 font-medium flex items-center gap-1">
+                <span className="text-rose-600 font-medium flex items-center gap-1 dark:text-rose-400">
                   <AlertCircle className="w-3.5 h-3.5" />
                   Bitte Eingaben prüfen
                 </span>
@@ -1144,7 +1144,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 text-sm font-medium hover:bg-slate-100 transition-colors"
+                className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 text-sm font-medium hover:bg-slate-100 transition-colors dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-700"
               >
                 Abbrechen
               </button>

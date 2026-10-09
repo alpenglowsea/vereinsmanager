@@ -357,7 +357,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
           className={`group flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs cursor-pointer transition-all ${
             isSelected
               ? 'bg-blue-600 text-white font-semibold shadow-xs'
-              : 'text-slate-700 hover:bg-slate-100/90'
+              : 'text-slate-700 hover:bg-slate-100/90 dark:text-slate-200 dark:hover:bg-slate-700/90'
           }`}
           style={{ paddingLeft: `${Math.max(10, depth * 14 + 10)}px` }}
         >
@@ -395,7 +395,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
               className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
                 isSelected
                   ? 'bg-blue-700 text-blue-100'
-                  : 'bg-slate-200/70 text-slate-600'
+                  : 'bg-slate-200/70 text-slate-600 dark:bg-slate-600/70 dark:text-slate-300'
               }`}
             >
               {docCount}
@@ -461,7 +461,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
       {/* 1. LEFT SIDEBAR: Hierarchical Explorer & Categories */}
       <div className="w-full lg:w-72 shrink-0 space-y-4">
         {/* Main Action Card */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-2.5">
+        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-2.5 dark:bg-slate-900 dark:border-slate-800">
           <button
             id="btn-upload-new-doc"
             type="button"
@@ -482,9 +482,9 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 setEditingFolder(null);
                 setFolderModalOpen(true);
               }}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-medium transition-colors border border-slate-200"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-medium transition-colors border border-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-100 dark:border-slate-800"
             >
-              <FolderPlus className="w-3.5 h-3.5 text-blue-600" />
+              <FolderPlus className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               <span>{selectedFolderId ? '+ Unterordner' : '+ Neuer Ordner'}</span>
             </button>
 
@@ -492,21 +492,21 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
               id="btn-scan-doc-camera"
               type="button"
               onClick={onOpenScanner}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-medium transition-colors border border-slate-200"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-medium transition-colors border border-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-100 dark:border-slate-800"
               title="Beleg mit Kamera scannen"
             >
-              <Camera className="w-3.5 h-3.5 text-indigo-600" />
+              <Camera className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               <span>Beleg scannen</span>
             </button>
           </div>
         </div>
 
         {/* Eigene Ordner & Hierarchische Struktur */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-3 dark:bg-slate-900 dark:border-slate-800">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-2">
-              <FolderTree className="w-4 h-4 text-blue-600" />
-              <span className="text-xs font-bold text-slate-900 tracking-tight">
+              <FolderTree className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <span className="text-xs font-bold text-slate-900 tracking-tight dark:text-white">
                 Ordnerstruktur
               </span>
             </div>
@@ -518,7 +518,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 setFolderModalOpen(true);
               }}
               title="Hauptordner anlegen"
-              className="p-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 text-[11px] font-medium"
+              className="p-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 text-[11px] font-medium dark:text-slate-400 dark:hover:text-blue-400 dark:hover:bg-blue-950/40"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Neu</span>
@@ -535,7 +535,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all ${
               selectedFolderId === null && selectedCategory === 'all'
                 ? 'bg-blue-600 text-white font-semibold shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100'
+                : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700'
             }`}
           >
             <div className="flex items-center gap-2.5">
@@ -546,7 +546,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
               className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
                 selectedFolderId === null && selectedCategory === 'all'
                   ? 'bg-blue-700 text-blue-100'
-                  : 'bg-slate-100 text-slate-600'
+                  : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
               }`}
             >
               {documents.length}
@@ -565,7 +565,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
         </div>
 
         {/* Standard-Kategorien (Schnellfilter) */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-2">
+        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-2 dark:bg-slate-900 dark:border-slate-800">
           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1">
             Standard-Kategorien
           </div>
@@ -594,7 +594,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                   className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-all ${
                     isSelected
                       ? 'bg-slate-800 text-white font-semibold shadow-xs'
-                      : 'text-slate-600 hover:bg-slate-100'
+                      : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -602,7 +602,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                     <span className="truncate">{cat.label}</span>
                   </div>
                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                    isSelected ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-500'
+                    isSelected ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
                   }`}>
                     {count}
                   </span>
@@ -619,7 +619,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
         {currentSubfolders.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider dark:text-slate-200">
                 {selectedFolderId ? 'Unterordner' : 'Enthaltene Ordner'} ({currentSubfolders.length})
               </span>
             </div>
@@ -633,7 +633,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                   <div
                     key={sub.id}
                     onClick={() => setSelectedFolderId(sub.id)}
-                    className="group bg-white rounded-2xl p-4 border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer flex items-center justify-between"
+                    className="group bg-white rounded-2xl p-4 border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer flex items-center justify-between dark:bg-slate-900 dark:border-slate-800"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div
@@ -643,10 +643,10 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                         <Folder className="w-5 h-5 text-white" />
                       </div>
                       <div className="min-w-0">
-                        <h4 className="font-semibold text-slate-900 text-xs truncate group-hover:text-blue-600 transition-colors">
+                        <h4 className="font-semibold text-slate-900 text-xs truncate group-hover:text-blue-600 transition-colors dark:text-white dark:group-hover:text-blue-400">
                           {sub.name}
                         </h4>
-                        <p className="text-[11px] text-slate-500 truncate">
+                        <p className="text-[11px] text-slate-500 truncate dark:text-slate-400">
                           {subDocCount} {subDocCount === 1 ? 'Dokument' : 'Dokumente'}
                           {subChildCount > 0 && ` • ${subChildCount} Unterordner`}
                         </p>
@@ -662,7 +662,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                           setFolderModalOpen(true);
                         }}
                         title="Unterordner anlegen"
-                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors dark:hover:text-blue-400 dark:hover:bg-blue-950/40"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
@@ -673,7 +673,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                           setFolderModalOpen(true);
                         }}
                         title="Bearbeiten"
-                        className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors dark:hover:text-slate-200 dark:hover:bg-slate-700"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
@@ -686,7 +686,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
         )}
 
         {/* SEARCH, FILTERS & CONTROLS TOOLBAR */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-3">
+        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-3 dark:bg-slate-900 dark:border-slate-800">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Search Input */}
             <div className="relative">
@@ -696,7 +696,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Dokumente durchsuchen..."
-                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-slate-700"
               />
             </div>
 
@@ -704,7 +704,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             <select
               value={formatFilter}
               onChange={e => setFormatFilter(e.target.value as FormatFilter)}
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:border-slate-700 dark:bg-slate-800"
             >
               <option value="all">Alle Dateiformate</option>
               <option value="pdf">📄 Nur PDFs</option>
@@ -717,7 +717,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             <select
               value={yearFilter}
               onChange={e => setYearFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:border-slate-700 dark:bg-slate-800"
             >
               <option value="all">Alle Jahre</option>
               {availableYears.map(y => (
@@ -731,7 +731,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value as SortOption)}
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:border-slate-700 dark:bg-slate-800"
             >
               <option value="date_desc">Neueste zuerst</option>
               <option value="date_asc">Älteste zuerst</option>
@@ -741,12 +741,12 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
           </div>
 
           {/* View Mode & Selection Indicator Bar */}
-          <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-            <div className="flex items-center gap-2 text-slate-500">
-              <span className="font-semibold text-slate-800">{filteredDocuments.length}</span>{' '}
+          <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs dark:border-slate-800">
+            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+              <span className="font-semibold text-slate-800 dark:text-slate-100">{filteredDocuments.length}</span>{' '}
               {filteredDocuments.length === 1 ? 'Dokument gefunden' : 'Dokumente gefunden'}
               {selectedFolderId && (
-                <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md text-[11px] font-medium border border-blue-200">
+                <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md text-[11px] font-medium border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/60">
                   in {activeFolder?.name}
                 </span>
               )}
@@ -759,7 +759,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 className={`p-1.5 rounded-lg border transition-colors ${
                   viewMode === 'grid'
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
                 }`}
                 title="Kachelansicht"
               >
@@ -771,7 +771,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 className={`p-1.5 rounded-lg border transition-colors ${
                   viewMode === 'list'
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
                 }`}
                 title="Listenansicht"
               >
@@ -848,15 +848,15 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
 
         {/* DOCUMENT LIST / GRID */}
         {filteredDocuments.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-xs space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+          <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-xs space-y-4 dark:bg-slate-900 dark:border-slate-800">
+            <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto dark:bg-blue-950/40 dark:text-blue-400">
               <FolderArchive className="w-8 h-8" />
             </div>
             <div className="space-y-1 max-w-sm mx-auto">
-              <h3 className="text-sm font-bold text-slate-800">
+              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
                 Keine Dokumente in dieser Ansicht
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {selectedFolderId
                   ? `In „${activeFolder?.name}“ befinden sich derzeit keine Dokumente.`
                   : 'Laden Sie neue Vereinsdokumente hoch oder scannen Sie Belege.'}
@@ -886,10 +886,10 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 <div
                   key={doc.id}
                   onClick={() => onOpenViewer(doc)}
-                  className={`group bg-white rounded-2xl border transition-all duration-200 p-4.5 cursor-pointer flex flex-col justify-between relative shadow-xs hover:shadow-md ${
+                  className={`group bg-white rounded-2xl border transition-all duration-200 p-4.5 cursor-pointer flex flex-col justify-between relative shadow-xs hover:shadow-md dark:bg-slate-900 ${
                     isSelected
-                      ? 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/20'
-                      : 'border-slate-200 hover:border-slate-300'
+                      ? 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/20 dark:bg-blue-950/20'
+                      : 'border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700'
                   }`}
                 >
                   <div>
@@ -899,15 +899,15 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                         <button
                           type="button"
                           onClick={(e) => toggleSelect(doc.id, e)}
-                          className="p-0.5 text-slate-400 hover:text-blue-600 rounded-md transition-colors"
+                          className="p-0.5 text-slate-400 hover:text-blue-600 rounded-md transition-colors dark:hover:text-blue-400"
                         >
                           {isSelected ? (
-                            <CheckSquare className="w-4 h-4 text-blue-600" />
+                            <CheckSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                           ) : (
                             <Square className="w-4 h-4 text-slate-300 group-hover:text-slate-400" />
                           )}
                         </button>
-                        <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 shrink-0">
+                        <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 shrink-0 dark:bg-slate-800 dark:border-slate-800">
                           {getDocIcon(doc)}
                         </div>
                       </div>
@@ -917,7 +917,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                         <button
                           type="button"
                           onClick={(e) => handleSingleDownload(doc, e)}
-                          className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700"
                           title="Herunterladen"
                         >
                           <Download className="w-3.5 h-3.5" />
@@ -925,7 +925,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                         <button
                           type="button"
                           onClick={() => handleOpenMoveModal([doc])}
-                          className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors dark:text-slate-400 dark:hover:text-blue-400 dark:hover:bg-blue-950/40"
                           title="In Ordner verschieben"
                         >
                           <FolderInput className="w-3.5 h-3.5" />
@@ -933,7 +933,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                         <button
                           type="button"
                           onClick={() => onOpenEdit(doc)}
-                          className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700"
                           title="Bearbeiten"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
@@ -941,7 +941,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                         <button
                           type="button"
                           onClick={() => setDeleteConfirmDoc(doc)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors dark:hover:text-rose-400 dark:hover:bg-rose-950/40"
                           title="Löschen"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -950,7 +950,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                     </div>
 
                     {/* Title & File Name */}
-                    <h4 className="font-bold text-slate-900 text-xs mb-1 line-clamp-2 leading-snug" title={doc.title}>
+                    <h4 className="font-bold text-slate-900 text-xs mb-1 line-clamp-2 leading-snug dark:text-white" title={doc.title}>
                       {doc.title}
                     </h4>
                     <p className="text-[11px] font-mono text-slate-400 truncate mb-2.5" title={doc.fileName}>
@@ -965,7 +965,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
 
                       {assignedFolder && (
                         <span
-                          className="text-[10px] px-2 py-0.5 rounded-md font-medium flex items-center gap-1 text-slate-700 bg-slate-100 border border-slate-200"
+                          className="text-[10px] px-2 py-0.5 rounded-md font-medium flex items-center gap-1 text-slate-700 bg-slate-100 border border-slate-200 dark:text-slate-200 dark:bg-slate-700 dark:border-slate-800"
                         >
                           <div
                             className="w-2 h-2 rounded-full"
@@ -976,14 +976,14 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                       )}
 
                       {doc.transactionDocNumber && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800/60">
                           <Receipt className="w-2.5 h-2.5" />
                           {doc.transactionDocNumber}
                         </span>
                       )}
 
                       {doc.memberName && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-indigo-50 text-indigo-800 border border-indigo-200 flex items-center gap-1">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-indigo-50 text-indigo-800 border border-indigo-200 flex items-center gap-1 dark:bg-indigo-950/40 dark:text-indigo-200 dark:border-indigo-800/60">
                           <User className="w-2.5 h-2.5" />
                           {doc.memberName}
                         </span>
@@ -994,7 +994,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                     {doc.tags && doc.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-3">
                         {doc.tags.slice(0, 3).map((t, idx) => (
-                          <span key={idx} className="text-[9px] px-1.5 py-0.2 bg-slate-100 text-slate-500 rounded">
+                          <span key={idx} className="text-[9px] px-1.5 py-0.2 bg-slate-100 text-slate-500 rounded dark:bg-slate-700 dark:text-slate-400">
                             #{t}
                           </span>
                         ))}
@@ -1006,12 +1006,12 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                   </div>
 
                   {/* Bottom Metadata: Date & Size */}
-                  <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+                  <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 dark:border-slate-800">
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3 h-3 text-slate-400" />
                       {doc.date ? new Date(doc.date).toLocaleDateString('de-DE') : '-'}
                     </span>
-                    <span className="font-mono text-slate-500">{formatFileSize(doc.fileSize)}</span>
+                    <span className="font-mono text-slate-500 dark:text-slate-400">{formatFileSize(doc.fileSize)}</span>
                   </div>
                 </div>
               );
@@ -1019,9 +1019,9 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
           </div>
         ) : (
           /* LIST VIEW */
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs dark:bg-slate-900 dark:border-slate-800">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold dark:bg-slate-800 dark:border-slate-800 dark:text-slate-300">
                 <tr>
                   <th className="py-3 px-3 w-10 text-center">
                     <input
@@ -1032,7 +1032,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                       }}
                       onChange={selectAllFiltered}
                       aria-label="Alle Einträge dieser Seite auswählen"
-                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer dark:text-blue-400 dark:border-slate-700"
                     />
                   </th>
                   <th className="py-3 px-3">Dokument & Dateiname</th>
@@ -1043,7 +1043,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                   <th className="py-3 px-3 text-right">Aktionen</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
+              <tbody className="divide-y divide-slate-100 text-slate-700 dark:divide-slate-800 dark:text-slate-200">
                 {paginatedDocuments.map(doc => {
                   const isSelected = selectedIds.has(doc.id);
                   const categoryInfo = CATEGORY_CONFIG[doc.category] || CATEGORY_CONFIG.sonstiges;
@@ -1053,18 +1053,18 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                     <tr
                       key={doc.id}
                       onClick={() => onOpenViewer(doc)}
-                      className={`hover:bg-slate-50/80 cursor-pointer transition-colors ${
-                        isSelected ? 'bg-blue-50/40' : ''
+                      className={`hover:bg-slate-50/80 cursor-pointer transition-colors dark:hover:bg-slate-800/80 ${
+                        isSelected ? 'bg-blue-50/40 dark:bg-blue-950/40' : ''
                       }`}
                     >
                       <td className="py-3 px-3 text-center" onClick={e => e.stopPropagation()}>
                         <button
                           type="button"
                           onClick={() => toggleSelect(doc.id)}
-                          className="text-slate-400 hover:text-blue-600"
+                          className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
                         >
                           {isSelected ? (
-                            <CheckSquare className="w-4 h-4 text-blue-600" />
+                            <CheckSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                           ) : (
                             <Square className="w-4 h-4 text-slate-300" />
                           )}
@@ -1072,11 +1072,11 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                       </td>
                       <td className="py-3 px-3">
                         <div className="flex items-center gap-2.5">
-                          <div className="p-1.5 rounded-lg bg-slate-100 shrink-0">
+                          <div className="p-1.5 rounded-lg bg-slate-100 shrink-0 dark:bg-slate-700">
                             {getDocIcon(doc)}
                           </div>
                           <div className="min-w-0">
-                            <p className="font-semibold text-slate-900 truncate max-w-xs md:max-w-sm">
+                            <p className="font-semibold text-slate-900 truncate max-w-xs md:max-w-sm dark:text-white">
                               {doc.title}
                             </p>
                             <p className="text-[10px] font-mono text-slate-400 truncate">
@@ -1088,7 +1088,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                       <td className="py-3 px-3">
                         <div className="flex flex-col gap-1">
                           {assignedFolder ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-md font-medium inline-flex items-center gap-1.5 text-slate-700 bg-slate-100 border border-slate-200 w-fit">
+                            <span className="text-[10px] px-2 py-0.5 rounded-md font-medium inline-flex items-center gap-1.5 text-slate-700 bg-slate-100 border border-slate-200 w-fit dark:text-slate-200 dark:bg-slate-700 dark:border-slate-800">
                               <div
                                 className="w-2 h-2 rounded-full"
                                 style={{ backgroundColor: assignedFolder.color || '#3b82f6' }}
@@ -1104,21 +1104,21 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                       </td>
                       <td className="py-3 px-3">
                         {doc.transactionDocNumber ? (
-                          <span className="text-[10px] px-2 py-0.5 rounded-md font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                          <span className="text-[10px] px-2 py-0.5 rounded-md font-medium bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800/60">
                             {doc.transactionDocNumber}
                           </span>
                         ) : doc.memberName ? (
-                          <span className="text-[10px] px-2 py-0.5 rounded-md font-medium bg-indigo-50 text-indigo-800 border border-indigo-200">
+                          <span className="text-[10px] px-2 py-0.5 rounded-md font-medium bg-indigo-50 text-indigo-800 border border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-200 dark:border-indigo-800/60">
                             {doc.memberName}
                           </span>
                         ) : (
                           <span className="text-slate-300">-</span>
                         )}
                       </td>
-                      <td className="py-3 px-3 text-slate-500 whitespace-nowrap">
+                      <td className="py-3 px-3 text-slate-500 whitespace-nowrap dark:text-slate-400">
                         {doc.date ? new Date(doc.date).toLocaleDateString('de-DE') : '-'}
                       </td>
-                      <td className="py-3 px-3 text-right font-mono text-slate-500 whitespace-nowrap">
+                      <td className="py-3 px-3 text-right font-mono text-slate-500 whitespace-nowrap dark:text-slate-400">
                         {formatFileSize(doc.fileSize)}
                       </td>
                       <td className="py-3 px-3 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
@@ -1126,7 +1126,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleSingleDownload(doc, e)}
-                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-lg transition-colors dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-600"
                             title="Herunterladen"
                           >
                             <Download className="w-3.5 h-3.5" />
@@ -1134,7 +1134,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                           <button
                             type="button"
                             onClick={() => handleOpenMoveModal([doc])}
-                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors dark:text-slate-400 dark:hover:text-blue-400 dark:hover:bg-blue-950/40"
                             title="In Ordner verschieben"
                           >
                             <FolderInput className="w-3.5 h-3.5" />
@@ -1142,7 +1142,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                           <button
                             type="button"
                             onClick={() => onOpenEdit(doc)}
-                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-lg transition-colors dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-600"
                             title="Bearbeiten"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -1150,7 +1150,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                           <button
                             type="button"
                             onClick={() => setDeleteConfirmDoc(doc)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors dark:hover:text-rose-400 dark:hover:bg-rose-950/40"
                             title="Löschen"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -1166,7 +1166,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
         )}
 
         {filteredDocuments.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs dark:bg-slate-900 dark:border-slate-800">
             <TablePagination
               totalItems={filteredDocuments.length}
               currentPage={currentPage}
@@ -1248,21 +1248,21 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
       {/* Batch Delete Confirmation Dialog */}
       {batchDeleteConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-200">
-            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mb-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mb-4 dark:bg-rose-900/40 dark:text-rose-400">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-slate-900 mb-1">
+            <h3 className="text-base font-bold text-slate-900 mb-1 dark:text-white">
               {selectedIds.size} Dokumente endgültig löschen?
             </h3>
-            <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+            <p className="text-xs text-slate-500 mb-6 leading-relaxed dark:text-slate-400">
               Möchten Sie die ausgewählten {selectedIds.size} Dokumente wirklich unwiderruflich aus dem Archiv entfernen?
             </p>
             <div className="flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setBatchDeleteConfirmOpen(false)}
-                className="px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+                className="px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-xl transition-colors dark:text-slate-200 dark:hover:bg-slate-700"
               >
                 Abbrechen
               </button>
@@ -1285,24 +1285,24 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
       {/* Single Delete Confirmation Dialog */}
       {deleteConfirmDoc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-200">
-            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mb-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mb-4 dark:bg-rose-900/40 dark:text-rose-400">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-slate-900 mb-1">
+            <h3 className="text-base font-bold text-slate-900 mb-1 dark:text-white">
               Dokument löschen?
             </h3>
-            <p className="text-xs text-slate-500 mb-1 leading-relaxed">
+            <p className="text-xs text-slate-500 mb-1 leading-relaxed dark:text-slate-400">
               Möchten Sie das folgende Dokument unwiderruflich löschen?
             </p>
-            <p className="text-xs font-semibold text-slate-800 bg-slate-50 p-2.5 rounded-lg border border-slate-200 mb-6 truncate">
+            <p className="text-xs font-semibold text-slate-800 bg-slate-50 p-2.5 rounded-lg border border-slate-200 mb-6 truncate dark:text-slate-100 dark:bg-slate-800 dark:border-slate-800">
               {deleteConfirmDoc.title} ({deleteConfirmDoc.fileName})
             </p>
             <div className="flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setDeleteConfirmDoc(null)}
-                className="px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+                className="px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-xl transition-colors dark:text-slate-200 dark:hover:bg-slate-700"
               >
                 Abbrechen
               </button>

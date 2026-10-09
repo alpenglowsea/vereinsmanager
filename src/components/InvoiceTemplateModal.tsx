@@ -95,18 +95,18 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden my-6 flex flex-col max-h-[92vh]">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden my-6 flex flex-col max-h-[92vh] dark:bg-slate-900 dark:border-slate-800">
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 text-blue-700 rounded-xl">
+            <div className="p-2 bg-blue-100 text-blue-700 rounded-xl dark:bg-blue-900/40 dark:text-blue-300">
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 Rechnungsvorlage & Blanko-Briefpapier konfigurieren
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Laden Sie Ihr eigenes Vereins-Briefpapier hoch oder nutzen Sie den integrierten DIN 5008 Standard.
               </p>
             </div>
@@ -114,21 +114,21 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer dark:hover:text-slate-300 dark:hover:bg-slate-600"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="px-6 border-b border-slate-200 bg-white flex items-center gap-6">
+        <div className="px-6 border-b border-slate-200 bg-white flex items-center gap-6 dark:border-slate-800 dark:bg-slate-900">
           <button
             type="button"
             onClick={() => setActiveTab('upload')}
             className={`py-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'upload'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
             }`}
           >
             <Upload className="w-3.5 h-3.5" />
@@ -143,8 +143,8 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
             onClick={() => setActiveTab('layout')}
             className={`py-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'layout'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
             }`}
           >
             <Sliders className="w-3.5 h-3.5" />
@@ -156,8 +156,8 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
             onClick={() => setActiveTab('texts')}
             className={`py-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'texts'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -170,11 +170,11 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
           {/* TAB 1: UPLOAD BLANKO VORLAGE */}
           {activeTab === 'upload' && (
             <div className="space-y-6">
-              <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
-                <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-                <div className="text-xs text-blue-900 space-y-1">
+              <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-4 flex items-start gap-3 dark:bg-blue-950/70 dark:border-blue-800/60">
+                <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5 dark:text-blue-400" />
+                <div className="text-xs text-blue-900 space-y-1 dark:text-blue-100">
                   <p className="font-semibold">Wie funktioniert die eigene Blanko-Vorlage?</p>
-                  <p className="text-blue-800 leading-relaxed">
+                  <p className="text-blue-800 leading-relaxed dark:text-blue-200">
                     Laden Sie Ihr offizielles Vereins-Briefpapier (z.B. als hochauflösendes PNG, JPG oder PDF) hoch.
                     Die Vereinsverwaltung hinterlegt diese Vorlage als ganzseitigen Hintergrund und druckt automatisch
                     die Empfängeranschrift, Rechnungsdaten, Positionsliste, Summen und den GiroCode passgenau darauf.
@@ -194,8 +194,8 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                   onClick={() => fileInputRef.current?.click()}
                   className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 ${
                     dragOver
-                      ? 'border-blue-500 bg-blue-50/50 scale-[0.99]'
-                      : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50/50'
+                      ? 'border-blue-500 bg-blue-50/50 scale-[0.99] dark:bg-blue-950/50'
+                      : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50/50 dark:border-slate-700 dark:hover:bg-slate-800/50'
                   }`}
                 >
                   <input
@@ -209,28 +209,28 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                       }
                     }}
                   />
-                  <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-xs">
+                  <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-xs dark:bg-blue-950/40 dark:text-blue-400">
                     <Upload className="w-7 h-7" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-800">
+                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">
                       Blanko-Briefpapier hier ablegen oder klicken
                     </h4>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-slate-500 mt-1 dark:text-slate-400">
                       Unterstützte Formate: PNG, JPG, WEBP (Empfohlen: DIN A4, 210 x 297 mm, mind. 1200 x 1700 px)
                     </p>
                   </div>
                   <button
                     type="button"
-                    className="mt-2 text-xs bg-white border border-slate-200 text-slate-700 px-3.5 py-1.5 rounded-lg shadow-2xs font-semibold hover:bg-slate-50"
+                    className="mt-2 text-xs bg-white border border-slate-200 text-slate-700 px-3.5 py-1.5 rounded-lg shadow-2xs font-semibold hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     Datei vom Computer auswählen
                   </button>
                 </div>
               ) : (
-                <div className="border border-emerald-200 bg-emerald-50/50 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="border border-emerald-200 bg-emerald-50/50 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-4 dark:border-emerald-800/60 dark:bg-emerald-950/50">
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-20 bg-white border border-emerald-200 rounded-lg shadow-xs overflow-hidden flex items-center justify-center relative group">
+                    <div className="w-16 h-20 bg-white border border-emerald-200 rounded-lg shadow-xs overflow-hidden flex items-center justify-center relative group dark:bg-slate-900 dark:border-emerald-800/60">
                       {formData.customBlankoDataUrl?.startsWith('data:image') ? (
                         <img
                           src={formData.customBlankoDataUrl}
@@ -238,19 +238,19 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <FileText className="w-8 h-8 text-emerald-600" />
+                        <FileText className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
                       )}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
                           <Check className="w-3 h-3" /> Eigene Vorlage aktiv
                         </span>
                       </div>
-                      <h4 className="text-sm font-bold text-slate-900 mt-1">
+                      <h4 className="text-sm font-bold text-slate-900 mt-1 dark:text-white">
                         {formData.customBlankoFileName || 'Hochgeladener Vereinsbriefbogen'}
                       </h4>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
                         Wird beim Schreiben und Exportieren von Rechnungen automatisch als Hintergrund verwendet.
                       </p>
                     </div>
@@ -260,7 +260,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="text-xs bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer"
+                      className="text-xs bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-slate-800 dark:text-slate-200"
                     >
                       Vorlage austauschen
                     </button>
@@ -278,7 +278,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                     <button
                       type="button"
                       onClick={handleRemoveCustomBlanko}
-                      className="text-xs bg-red-50 border border-red-200 hover:bg-red-100 text-red-700 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                      className="text-xs bg-red-50 border border-red-200 hover:bg-red-100 text-red-700 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1 cursor-pointer dark:bg-red-950/40 dark:border-red-800/60 dark:hover:bg-red-900/40 dark:text-red-300"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span>Entfernen</span>
@@ -288,30 +288,30 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
               )}
 
               {/* Standard Template Card */}
-              <div className="border border-slate-200 rounded-2xl p-5 bg-white space-y-3">
+              <div className="border border-slate-200 rounded-2xl p-5 bg-white space-y-3 dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="p-1.5 bg-slate-100 text-slate-700 rounded-lg">
+                    <div className="p-1.5 bg-slate-100 text-slate-700 rounded-lg dark:bg-slate-700 dark:text-slate-200">
                       <ImageIcon className="w-4 h-4" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider dark:text-slate-100">
                         Integrierte Standard-Vorlage (DIN 5008)
                       </h4>
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
                         Wird automatisch genutzt, falls kein eigenes Briefpapier hochgeladen ist.
                       </p>
                     </div>
                   </div>
                   <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
                     !hasCustomBlanko
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-slate-100 text-slate-600'
+                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200'
+                      : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
                   }`}>
                     {!hasCustomBlanko ? 'Standard aktiv' : 'Als Fallback bereit'}
                   </span>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
+                <p className="text-xs text-slate-600 leading-relaxed dark:text-slate-300">
                   Enthält automatisch den Vereinsnamen ({clubSettings.clubName}), Falt- und Lochmarken nach DIN 5008,
                   ein Adressfenster, eine strukturierte Fußzeile mit Steuernummer, Vereinsregister und Bankverbindung
                   sowie den GiroCode (EPC-QR-Code).
@@ -324,17 +324,17 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
           {activeTab === 'layout' && (
             <div className="space-y-6">
               <div>
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1 dark:text-slate-100">
                   Seitenränder für den Rechnungsdruck (in Millimeter)
                 </h4>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Passen Sie den oberen Abstand an, falls Ihr Briefpapier einen hohen Header oder ein großes Logo hat.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                     Oberer Rand (mm)
                   </label>
                   <input
@@ -343,13 +343,13 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                     max="100"
                     value={formData.marginTop}
                     onChange={(e) => setFormData(prev => ({ ...prev, marginTop: Number(e.target.value) || 45 }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                   />
                   <p className="text-[10px] text-slate-400 mt-1">Standard: 45 mm</p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                     Unterer Rand (mm)
                   </label>
                   <input
@@ -358,13 +358,13 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                     max="70"
                     value={formData.marginBottom}
                     onChange={(e) => setFormData(prev => ({ ...prev, marginBottom: Number(e.target.value) || 25 }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                   />
                   <p className="text-[10px] text-slate-400 mt-1">Standard: 25 mm</p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                     Linker Rand (mm)
                   </label>
                   <input
@@ -373,13 +373,13 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                     max="50"
                     value={formData.marginLeft}
                     onChange={(e) => setFormData(prev => ({ ...prev, marginLeft: Number(e.target.value) || 20 }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                   />
                   <p className="text-[10px] text-slate-400 mt-1">Standard: 20 mm</p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                     Rechter Rand (mm)
                   </label>
                   <input
@@ -388,46 +388,46 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                     max="50"
                     value={formData.marginRight}
                     onChange={(e) => setFormData(prev => ({ ...prev, marginRight: Number(e.target.value) || 20 }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                   />
                   <p className="text-[10px] text-slate-400 mt-1">Standard: 20 mm</p>
                 </div>
               </div>
 
               {/* Toggles */}
-              <div className="border-t border-slate-200 pt-5 space-y-3">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+              <div className="border-t border-slate-200 pt-5 space-y-3 dark:border-slate-800">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 dark:text-slate-100">
                   Druckelemente
                 </h4>
 
-                <label className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                <label className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors dark:bg-slate-800 dark:border-slate-800 dark:hover:bg-slate-700">
                   <input
                     type="checkbox"
                     checked={formData.showGiroCode}
                     onChange={(e) => setFormData(prev => ({ ...prev, showGiroCode: e.target.checked }))}
-                    className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                    className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                   />
                   <div className="flex items-center gap-2">
-                    <QrCode className="w-4 h-4 text-blue-600" />
+                    <QrCode className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     <div>
-                      <p className="text-xs font-bold text-slate-800">GiroCode (Bezahl-QR-Code) drucken</p>
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-100">GiroCode (Bezahl-QR-Code) drucken</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
                         Ermöglicht dem Empfänger das sofortige Überweisen per Fotoüberweisung in Banking-Apps.
                       </p>
                     </div>
                   </div>
                 </label>
 
-                <label className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                <label className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors dark:bg-slate-800 dark:border-slate-800 dark:hover:bg-slate-700">
                   <input
                     type="checkbox"
                     checked={formData.showFoldingMarks}
                     onChange={(e) => setFormData(prev => ({ ...prev, showFoldingMarks: e.target.checked }))}
-                    className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                    className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                   />
                   <div>
-                    <p className="text-xs font-bold text-slate-800">Falt- und Lochmarken nach DIN 5008</p>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-100">Falt- und Lochmarken nach DIN 5008</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
                       Diskrete Markierungen am linken Rand für einfaches Falzen in DIN-Lang-Umschläge.
                     </p>
                   </div>
@@ -440,7 +440,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
           {activeTab === 'texts' && (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                   Standard-Zahlungsziel (Tage)
                 </label>
                 <input
@@ -449,19 +449,19 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                   max="90"
                   value={formData.defaultPaymentTermsDays}
                   onChange={(e) => setFormData(prev => ({ ...prev, defaultPaymentTermsDays: Number(e.target.value) || 14 }))}
-                  className="w-32 px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                  className="w-32 px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                   Standard-Einleitungstext für neue Rechnungen
                 </label>
                 <textarea
                   rows={3}
                   value={formData.defaultIntroText}
                   onChange={(e) => setFormData(prev => ({ ...prev, defaultIntroText: e.target.value }))}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                 />
                 <p className="text-[11px] text-slate-400 mt-0.5">
                   Wird beim Erstellen einer neuen Rechnung automatisch vorausgefüllt und kann individuell angepasst werden.
@@ -469,14 +469,14 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                   Standard-Schlusstext & Zahlungsanweisung
                 </label>
                 <textarea
                   rows={3}
                   value={formData.defaultOutroText}
                   onChange={(e) => setFormData(prev => ({ ...prev, defaultOutroText: e.target.value }))}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                 />
               </div>
             </div>
@@ -484,15 +484,15 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
         </form>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-2">
             {onTestExport && (
               <button
                 type="button"
                 onClick={() => onTestExport(formData)}
-                className="text-xs border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 px-3 py-2 rounded-xl font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                className="text-xs border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 px-3 py-2 rounded-xl font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-700 dark:text-slate-200"
               >
-                <Eye className="w-3.5 h-3.5 text-slate-500" />
+                <Eye className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                 <span>Test-PDF mit Vorlage erzeugen</span>
               </button>
             )}
@@ -502,7 +502,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="text-xs text-slate-600 hover:text-slate-900 px-4 py-2 font-medium transition-colors cursor-pointer"
+              className="text-xs text-slate-600 hover:text-slate-900 px-4 py-2 font-medium transition-colors cursor-pointer dark:text-slate-300 dark:hover:text-white"
             >
               Abbrechen
             </button>

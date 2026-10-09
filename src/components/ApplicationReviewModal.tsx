@@ -194,7 +194,7 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-6 flex flex-col max-h-[90vh]">
+      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-6 flex flex-col max-h-[90vh] dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
         <div className="bg-slate-900 text-white p-5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -258,8 +258,8 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
 
         {/* Error message */}
         {errorMsg && (
-          <div className="mx-6 mt-4 p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-rose-800 text-xs shrink-0">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <div className="mx-6 mt-4 p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-rose-800 text-xs shrink-0 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-200">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 dark:text-rose-400" />
             <span>{errorMsg}</span>
           </div>
         )}
@@ -268,8 +268,8 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
         <div className="p-6 space-y-6 overflow-y-auto flex-1">
           {/* Plausibility / Warnings Bar */}
           {duplicates.length > 0 && (
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 text-amber-900 text-xs">
-              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 text-amber-900 text-xs dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-100">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 dark:text-amber-400" />
               <div>
                 <strong className="font-bold block">Möglicher Doppelantrag oder Bestandsmitglied:</strong>
                 <span>
@@ -286,50 +286,50 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
           {/* 1. Persönliche Daten & Anschrift */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Person Box */}
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
-              <h4 className="font-bold text-slate-900 uppercase tracking-wider text-2xs flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-blue-600" />
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs dark:bg-slate-800 dark:border-slate-800">
+              <h4 className="font-bold text-slate-900 uppercase tracking-wider text-2xs flex items-center gap-1.5 dark:text-white">
+                <User className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 <span>Antragsteller / Person</span>
               </h4>
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <div>
-                  <span className="text-slate-500 block text-2xs">Name, Vorname</span>
-                  <strong className="text-slate-900 text-sm">
+                  <span className="text-slate-500 block text-2xs dark:text-slate-400">Name, Vorname</span>
+                  <strong className="text-slate-900 text-sm dark:text-white">
                     {application.lastName}, {application.firstName}
                   </strong>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-2xs">Geburtsdatum & Alter</span>
-                  <span className="text-slate-900 font-medium">
+                  <span className="text-slate-500 block text-2xs dark:text-slate-400">Geburtsdatum & Alter</span>
+                  <span className="text-slate-900 font-medium dark:text-white">
                     {application.birthDate} ({age !== null ? `${age} Jahre` : '–'})
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-2xs">Geschlecht & Nationalität</span>
-                  <span className="text-slate-800">
+                  <span className="text-slate-500 block text-2xs dark:text-slate-400">Geschlecht & Nationalität</span>
+                  <span className="text-slate-800 dark:text-slate-100">
                     {getGenderLabel(application.gender)} • {application.nationality || 'Deutsch'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-2xs">Eingang / Eingereicht</span>
-                  <span className="text-slate-800">
+                  <span className="text-slate-500 block text-2xs dark:text-slate-400">Eingang / Eingereicht</span>
+                  <span className="text-slate-800 dark:text-slate-100">
                     {new Date(application.submittedAt).toLocaleDateString('de-DE')}
                   </span>
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-slate-200 space-y-1">
-                <div className="flex items-center gap-2 text-slate-700">
+              <div className="pt-2 border-t border-slate-200 space-y-1 dark:border-slate-800">
+                <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
                   <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <a href={`mailto:${application.email}`} className="text-blue-600 hover:underline">
+                  <a href={`mailto:${application.email}`} className="text-blue-600 hover:underline dark:text-blue-400">
                     {application.email}
                   </a>
                 </div>
-                <div className="flex items-center gap-2 text-slate-700">
+                <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
                   <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <span>{application.phone || 'Keine Telefonnummer angegeben'}</span>
                 </div>
-                <div className="flex items-center gap-2 text-slate-700">
+                <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
                   <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <span>
                     {addr.street} {addr.houseNumber}
@@ -340,31 +340,31 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
             </div>
 
             {/* Legal Guardian or Special Details */}
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
-              <h4 className="font-bold text-slate-900 uppercase tracking-wider text-2xs flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs dark:bg-slate-800 dark:border-slate-800">
+              <h4 className="font-bold text-slate-900 uppercase tracking-wider text-2xs flex items-center gap-1.5 dark:text-white">
+                <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 <span>Rechtliche Vertretung & Zustimmungen</span>
               </h4>
 
               {application.isMinor ? (
-                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg space-y-1 text-2xs text-amber-900">
+                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg space-y-1 text-2xs text-amber-900 dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-100">
                   <strong className="block text-amber-950">Minderjähriger Antragsteller:</strong>
                   <div>Gesetzl. Vertreter: <strong>{application.guardianName}</strong> ({application.guardianRelation || 'Erziehungsberechtigte/r'})</div>
                   <div>Kontakt: {application.guardianPhone || application.guardianEmail || '–'}</div>
                 </div>
               ) : (
-                <div className="text-slate-600 text-2xs">
+                <div className="text-slate-600 text-2xs dark:text-slate-300">
                   Volljähriges Mitglied (Eigenverantwortliche Erklärung)
                 </div>
               )}
 
-              <div className="pt-2 border-t border-slate-200 space-y-1.5 text-2xs text-slate-600">
-                <div className="flex items-center gap-1.5 text-emerald-700">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <div className="pt-2 border-t border-slate-200 space-y-1.5 text-2xs text-slate-600 dark:border-slate-800 dark:text-slate-300">
+                <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 dark:text-emerald-400" />
                   <span>DSGVO-Datenschutzhinweis bestätigt</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-emerald-700">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 dark:text-emerald-400" />
                   <span>Satzung & Beitragsordnung anerkannt</span>
                 </div>
               </div>
@@ -372,44 +372,44 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
           </div>
 
           {/* 2. Zahlungsweise & SEPA */}
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
-            <h4 className="font-bold text-slate-900 uppercase tracking-wider text-2xs flex items-center gap-1.5">
-              <CreditCard className="w-3.5 h-3.5 text-blue-600" />
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs dark:bg-slate-800 dark:border-slate-800">
+            <h4 className="font-bold text-slate-900 uppercase tracking-wider text-2xs flex items-center gap-1.5 dark:text-white">
+              <CreditCard className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               <span>Zahlungsweise & Bankverbindung</span>
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <span className="text-slate-500 block text-2xs">Zahlungsart</span>
-                <strong className="text-slate-900">
+                <span className="text-slate-500 block text-2xs dark:text-slate-400">Zahlungsart</span>
+                <strong className="text-slate-900 dark:text-white">
                   {getPaymentMethodLabel(application.paymentMethod)}
                 </strong>
               </div>
               <div>
-                <span className="text-slate-500 block text-2xs">Zahlungsintervall</span>
-                <span className="text-slate-900 font-medium">
+                <span className="text-slate-500 block text-2xs dark:text-slate-400">Zahlungsintervall</span>
+                <span className="text-slate-900 font-medium dark:text-white">
                   {getFeePeriodLabel(application.feePeriod)}
                 </span>
               </div>
               <div>
-                <span className="text-slate-500 block text-2xs">Kontoinhaber</span>
-                <span className="text-slate-900 font-medium">
+                <span className="text-slate-500 block text-2xs dark:text-slate-400">Kontoinhaber</span>
+                <span className="text-slate-900 font-medium dark:text-white">
                   {application.bankDetails?.accountHolder || '–'}
                 </span>
               </div>
             </div>
 
             {application.paymentMethod === 'sepa' && (
-              <div className="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3 dark:border-slate-800">
                 <div className="sm:col-span-2">
-                  <span className="text-slate-500 block text-2xs">IBAN</span>
-                  <span className="font-mono text-xs font-bold text-slate-900 bg-white px-2 py-1 rounded border border-slate-200 inline-block">
+                  <span className="text-slate-500 block text-2xs dark:text-slate-400">IBAN</span>
+                  <span className="font-mono text-xs font-bold text-slate-900 bg-white px-2 py-1 rounded border border-slate-200 inline-block dark:text-white dark:bg-slate-900 dark:border-slate-800">
                     {application.bankDetails?.iban || '–'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-2xs">BIC & Institut</span>
-                  <span className="font-mono text-xs text-slate-800">
+                  <span className="text-slate-500 block text-2xs dark:text-slate-400">BIC & Institut</span>
+                  <span className="font-mono text-xs text-slate-800 dark:text-slate-100">
                     {application.bankDetails?.bic || '–'} {application.bankDetails?.bankName ? `(${application.bankDetails.bankName})` : ''}
                   </span>
                 </div>
@@ -418,20 +418,20 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
           </div>
 
           {/* 3. Digitale Signaturen Vorschau */}
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-            <h4 className="font-bold text-slate-900 uppercase tracking-wider text-2xs flex items-center gap-1.5">
-              <PenTool className="w-3.5 h-3.5 text-blue-600" />
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3 dark:bg-slate-800 dark:border-slate-800">
+            <h4 className="font-bold text-slate-900 uppercase tracking-wider text-2xs flex items-center gap-1.5 dark:text-white">
+              <PenTool className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               <span>Digitale Unterschriften</span>
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Unterschrift Antragsteller */}
-              <div className="bg-white p-3 rounded-xl border border-slate-200">
-                <div className="flex items-center justify-between text-2xs text-slate-500 mb-1">
+              <div className="bg-white p-3 rounded-xl border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+                <div className="flex items-center justify-between text-2xs text-slate-500 mb-1 dark:text-slate-400">
                   <span>Unterschrift Antragsteller</span>
-                  <span className="text-emerald-600 font-semibold">Digital erfasst</span>
+                  <span className="text-emerald-600 font-semibold dark:text-emerald-400">Digital erfasst</span>
                 </div>
-                <div className="h-20 bg-slate-50/70 border border-slate-100 rounded-lg flex items-center justify-center overflow-hidden">
+                <div className="h-20 bg-slate-50/70 border border-slate-100 rounded-lg flex items-center justify-center overflow-hidden dark:bg-slate-800/70 dark:border-slate-800">
                   {application.applicantSignature ? (
                     <img
                       src={application.applicantSignature}
@@ -449,16 +449,16 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
               </div>
 
               {/* Unterschrift Gesetzlicher Vertreter oder SEPA */}
-              <div className="bg-white p-3 rounded-xl border border-slate-200">
-                <div className="flex items-center justify-between text-2xs text-slate-500 mb-1">
+              <div className="bg-white p-3 rounded-xl border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+                <div className="flex items-center justify-between text-2xs text-slate-500 mb-1 dark:text-slate-400">
                   <span>
                     {application.isMinor
                       ? 'Unterschrift gesetzl. Vertreter'
                       : 'Unterschrift Kontoinhaber (SEPA)'}
                   </span>
-                  <span className="text-emerald-600 font-semibold">Digital erfasst</span>
+                  <span className="text-emerald-600 font-semibold dark:text-emerald-400">Digital erfasst</span>
                 </div>
-                <div className="h-20 bg-slate-50/70 border border-slate-100 rounded-lg flex items-center justify-center overflow-hidden">
+                <div className="h-20 bg-slate-50/70 border border-slate-100 rounded-lg flex items-center justify-center overflow-hidden dark:bg-slate-800/70 dark:border-slate-800">
                   {application.isMinor ? (
                     application.guardianSignature ? (
                       <img
@@ -467,7 +467,7 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
                         className="max-h-full max-w-full object-contain"
                       />
                     ) : (
-                      <span className="text-2xs text-amber-600 italic">Unterschrift Vertreter fehlt!</span>
+                      <span className="text-2xs text-amber-600 italic dark:text-amber-400">Unterschrift Vertreter fehlt!</span>
                     )
                   ) : application.sepaSignature || application.applicantSignature ? (
                     <img
@@ -489,17 +489,17 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
 
           {/* 4. Anpassungsfelder vor Aufnahme (Mitgliedsnummer, Sparte, Beitrag) */}
           {application.status === 'pending' && !rejectMode && (
-            <div className="p-5 bg-blue-50/60 border-2 border-blue-200 rounded-2xl space-y-4">
+            <div className="p-5 bg-blue-50/60 border-2 border-blue-200 rounded-2xl space-y-4 dark:bg-blue-950/60 dark:border-blue-800/60">
               <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-blue-700 shrink-0" />
-                <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider">
+                <Users className="w-4 h-4 text-blue-700 shrink-0 dark:text-blue-300" />
+                <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider dark:text-blue-100">
                   Mitgliedsdaten bei Aufnahme festlegen
                 </h4>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-2xs font-bold text-slate-700 mb-1">
+                  <label className="block text-2xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                     Mitgliedsnummer <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -507,18 +507,18 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
                     required
                     value={memberNumber}
                     onChange={e => setMemberNumber(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    className="w-full px-3 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-800"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-2xs font-bold text-slate-700 mb-1">
+                  <label className="block text-2xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                     Abteilung / Sparte <span className="text-rose-500">*</span>
                   </label>
                   <select
                     value={department}
                     onChange={e => setDepartment(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-800"
                   >
                     {safeDepartments.map(d => (
                       <option key={d} value={d}>
@@ -529,13 +529,13 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-2xs font-bold text-slate-700 mb-1">
+                  <label className="block text-2xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                     Mitgliedsart
                   </label>
                   <select
                     value={membershipType}
                     onChange={e => setMembershipType(e.target.value as MembershipType)}
-                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-800"
                   >
                     <option value="full">Vollmitglied</option>
                     <option value="reduced">Ermäßigt</option>
@@ -549,7 +549,7 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-2xs font-bold text-slate-700 mb-1">
+                  <label className="block text-2xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                     Beitragshöhe (EUR) <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -558,18 +558,18 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
                     min="0"
                     value={feeAmount}
                     onChange={e => setFeeAmount(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-1.5 text-xs font-bold border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    className="w-full px-3 py-1.5 text-xs font-bold border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-800"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-2xs font-bold text-slate-700 mb-1">
+                  <label className="block text-2xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                     Zahlungsweise
                   </label>
                   <select
                     value={feePeriod}
                     onChange={e => setFeePeriod(e.target.value as FeePeriod)}
-                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-800"
                   >
                     <option value="monthly">Monatlich</option>
                     <option value="quarterly">Vierteljährlich</option>
@@ -579,20 +579,20 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-2xs font-bold text-slate-700 mb-1">
+                  <label className="block text-2xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                     Eintrittsdatum
                   </label>
                   <input
                     type="date"
                     value={entryDate}
                     onChange={e => setEntryDate(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-800"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-2xs font-bold text-slate-700 mb-1">
+                <label className="block text-2xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                   Interne Notiz für Mitgliedsakte
                 </label>
                 <input
@@ -600,7 +600,7 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
                   placeholder="z.B. Spielerpass beantragt, Online-Aufnahmeantrag geprüft..."
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-800"
                 />
               </div>
             </div>
@@ -608,12 +608,12 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
 
           {/* Ablehnungs-Formular falls aktiv */}
           {rejectMode && (
-            <div className="p-4 bg-rose-50 border-2 border-rose-200 rounded-xl space-y-3">
-              <h4 className="text-xs font-bold text-rose-900 flex items-center gap-1.5">
-                <XCircle className="w-4 h-4 text-rose-600" />
+            <div className="p-4 bg-rose-50 border-2 border-rose-200 rounded-xl space-y-3 dark:bg-rose-950/40 dark:border-rose-800/60">
+              <h4 className="text-xs font-bold text-rose-900 flex items-center gap-1.5 dark:text-rose-100">
+                <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                 <span>Aufnahmeantrag ablehnen</span>
               </h4>
-              <p className="text-2xs text-rose-800">
+              <p className="text-2xs text-rose-800 dark:text-rose-200">
                 Geben Sie einen Grund für die Ablehnung an. Der Antrag wird als &quot;Abgelehnt&quot; archiviert.
               </p>
               <textarea
@@ -622,13 +622,13 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
                 placeholder="Begründung (z.B. Aufnahmestopp in Sparte Fußball Jugend, unvollständige Unterlagen...)"
                 value={rejectReason}
                 onChange={e => setRejectReason(e.target.value)}
-                className="w-full p-2.5 text-xs border border-rose-300 rounded-lg bg-white focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
+                className="w-full p-2.5 text-xs border border-rose-300 rounded-lg bg-white focus:ring-2 focus:ring-rose-500 focus:outline-hidden dark:border-rose-700/60 dark:bg-slate-800"
               />
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setRejectMode(false)}
-                  className="px-3 py-1.5 bg-white text-slate-700 text-xs font-semibold rounded-lg border border-slate-200"
+                  className="px-3 py-1.5 bg-white text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-800"
                 >
                   Abbrechen
                 </button>
@@ -646,13 +646,13 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="bg-slate-50 p-4 border-t border-slate-200 flex items-center justify-between shrink-0">
+        <div className="bg-slate-50 p-4 border-t border-slate-200 flex items-center justify-between shrink-0 dark:bg-slate-800 dark:border-slate-800">
           <div className="flex items-center gap-2">
             {application.status === 'pending' && !rejectMode && (
               <button
                 type="button"
                 onClick={() => setRejectMode(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-rose-50 text-rose-700 text-xs font-semibold rounded-xl border border-rose-200 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-rose-50 text-rose-700 text-xs font-semibold rounded-xl border border-rose-200 transition-colors cursor-pointer dark:bg-slate-900 dark:hover:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60"
               >
                 <XCircle className="w-3.5 h-3.5" />
                 <span>Antrag ablehnen</span>
@@ -664,7 +664,7 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-300 transition-colors cursor-pointer"
+              className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-300 transition-colors cursor-pointer dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700"
             >
               Schließen
             </button>

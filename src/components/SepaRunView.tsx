@@ -380,35 +380,35 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
       )}
 
       {/* Top Header Card */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 dark:bg-slate-900 dark:border-slate-800">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md">
             <CreditCard className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              <h1 className="text-2xl font-bold text-slate-900 tracking-tight dark:text-white">
                 SEPA-Lastschrift & Beitragslauf
               </h1>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
                 pain.008.001.02 Standard
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
               Erstellen Sie standardkonforme SEPA-XML-Dateien für das Online-Banking Ihrer Bank (Sparkasse, Volksbank, etc.)
             </p>
           </div>
         </div>
 
         {/* View Tab Buttons */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl">
+        <div className="flex items-center bg-slate-100 p-1 rounded-xl dark:bg-slate-700">
           <button
             type="button"
             onClick={() => setActiveTab('create')}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
               activeTab === 'create'
-                ? 'bg-white text-blue-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-blue-700 shadow-xs dark:bg-slate-900 dark:text-blue-300'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
             }`}
           >
             <CreditCard className="w-4 h-4" />
@@ -420,8 +420,8 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
             onClick={() => setActiveTab('history')}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
               activeTab === 'history'
-                ? 'bg-white text-blue-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-blue-700 shadow-xs dark:bg-slate-900 dark:text-blue-300'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
             }`}
           >
             <History className="w-4 h-4" />
@@ -432,14 +432,14 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
 
       {/* Warning banner if creditor settings are incomplete */}
       {!isCreditorConfigured && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start justify-between gap-4">
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start justify-between gap-4 dark:bg-amber-950/40 dark:border-amber-800/60">
           <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 dark:text-amber-400" />
             <div>
-              <h4 className="text-xs font-bold text-amber-900">
+              <h4 className="text-xs font-bold text-amber-900 dark:text-amber-100">
                 Gläubigerdaten noch nicht vollständig hinterlegt
               </h4>
-              <p className="text-xs text-amber-800 mt-0.5">
+              <p className="text-xs text-amber-800 mt-0.5 dark:text-amber-200">
                 Für die Generierung von bankfähigen SEPA-XML-Dateien benötigen Sie eine gültige <strong>Gläubiger-ID (CI)</strong> und die <strong>Vereins-IBAN</strong>.
               </p>
             </div>
@@ -459,9 +459,9 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
       {activeTab === 'create' && (
         <div className="space-y-6">
           {/* Step 1: Interval & Configuration Matrix */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-900 uppercase tracking-wider">
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-5 dark:bg-slate-900 dark:border-slate-800">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-900 uppercase tracking-wider dark:text-white">
                 <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">1</span>
                 <span>Zahlungsrhythmus & Fälligkeit wählen</span>
               </div>
@@ -478,15 +478,15 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                 onClick={() => setPeriodFilter('monthly_1')}
                 className={`p-4 rounded-xl border text-left transition-all relative ${
                   periodFilter === 'monthly_1'
-                    ? 'border-blue-600 bg-blue-50/80 ring-2 ring-blue-500/20 shadow-xs'
-                    : 'border-slate-200 bg-white hover:bg-slate-50'
+                    ? 'border-blue-600 bg-blue-50/80 ring-2 ring-blue-500/20 shadow-xs dark:bg-blue-950/80'
+                    : 'border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-bold text-xs text-slate-900">Monatlich (1. d. M.)</span>
-                  <Clock className="w-4 h-4 text-blue-600" />
+                  <span className="font-bold text-xs text-slate-900 dark:text-white">Monatlich (1. d. M.)</span>
+                  <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 </div>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   Einzug zum Monatsanfang (1. Kalendertag)
                 </p>
                 {periodFilter === 'monthly_1' && (
@@ -500,15 +500,15 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                 onClick={() => setPeriodFilter('monthly_15')}
                 className={`p-4 rounded-xl border text-left transition-all relative ${
                   periodFilter === 'monthly_15'
-                    ? 'border-blue-600 bg-blue-50/80 ring-2 ring-blue-500/20 shadow-xs'
-                    : 'border-slate-200 bg-white hover:bg-slate-50'
+                    ? 'border-blue-600 bg-blue-50/80 ring-2 ring-blue-500/20 shadow-xs dark:bg-blue-950/80'
+                    : 'border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-bold text-xs text-slate-900">Monatlich (15. d. M.)</span>
-                  <Clock className="w-4 h-4 text-blue-600" />
+                  <span className="font-bold text-xs text-slate-900 dark:text-white">Monatlich (15. d. M.)</span>
+                  <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 </div>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   Einzug zur Monatsmitte (15. Kalendertag)
                 </p>
                 {periodFilter === 'monthly_15' && (
@@ -522,15 +522,15 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                 onClick={() => setPeriodFilter('quarterly')}
                 className={`p-4 rounded-xl border text-left transition-all relative ${
                   periodFilter === 'quarterly'
-                    ? 'border-blue-600 bg-blue-50/80 ring-2 ring-blue-500/20 shadow-xs'
-                    : 'border-slate-200 bg-white hover:bg-slate-50'
+                    ? 'border-blue-600 bg-blue-50/80 ring-2 ring-blue-500/20 shadow-xs dark:bg-blue-950/80'
+                    : 'border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-bold text-xs text-slate-900">Vierteljährlich (Quartal)</span>
-                  <Calendar className="w-4 h-4 text-indigo-600" />
+                  <span className="font-bold text-xs text-slate-900 dark:text-white">Vierteljährlich (Quartal)</span>
+                  <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 </div>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   Einzug für Q1, Q2, Q3 oder Q4
                 </p>
                 {periodFilter === 'quarterly' && (
@@ -544,15 +544,15 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                 onClick={() => setPeriodFilter('yearly')}
                 className={`p-4 rounded-xl border text-left transition-all relative ${
                   periodFilter === 'yearly'
-                    ? 'border-blue-600 bg-blue-50/80 ring-2 ring-blue-500/20 shadow-xs'
-                    : 'border-slate-200 bg-white hover:bg-slate-50'
+                    ? 'border-blue-600 bg-blue-50/80 ring-2 ring-blue-500/20 shadow-xs dark:bg-blue-950/80'
+                    : 'border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-bold text-xs text-slate-900">Jährlich (Hauptlauf)</span>
-                  <Calendar className="w-4 h-4 text-emerald-600" />
+                  <span className="font-bold text-xs text-slate-900 dark:text-white">Jährlich (Hauptlauf)</span>
+                  <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   Jahresbeitrag für alle Vollzahler
                 </p>
                 {periodFilter === 'yearly' && (
@@ -570,7 +570,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                 className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
                   periodFilter === 'half_yearly'
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-800 dark:hover:bg-slate-800'
                 }`}
               >
                 Halbjährlich
@@ -582,7 +582,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                 className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
                   periodFilter === 'monthly_all'
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-800 dark:hover:bg-slate-800'
                 }`}
               >
                 Alle monatlichen Zahler (1. & 15. kombiniert)
@@ -594,7 +594,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                 className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
                   periodFilter === 'all'
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-800 dark:hover:bg-slate-800'
                 }`}
               >
                 Alle SEPA-Mitglieder
@@ -602,16 +602,16 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
             </div>
 
             {/* Detailed Parameters Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-3 border-t border-slate-100">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
               {/* Year */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                   Beitragsjahr *
                 </label>
                 <select
                   value={targetYear}
                   onChange={e => setTargetYear(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                 >
                   {[currentYear - 1, currentYear, currentYear + 1].map(y => (
                     <option key={y} value={y}>{y}</option>
@@ -622,13 +622,13 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
               {/* Month or Quarter depending on filter */}
               {periodFilter.startsWith('monthly') ? (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                     Beitragsmonat *
                   </label>
                   <select
                     value={targetMonth}
                     onChange={e => setTargetMonth(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                   >
                     {[
                       'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
@@ -640,13 +640,13 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                 </div>
               ) : periodFilter === 'quarterly' ? (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                     Quartal *
                   </label>
                   <select
                     value={targetQuarter}
                     onChange={e => setTargetQuarter(Number(e.target.value) as 1 | 2 | 3 | 4)}
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                   >
                     <option value={1}>1. Quartal (Jan - Mär)</option>
                     <option value={2}>2. Quartal (Apr - Jun)</option>
@@ -656,41 +656,41 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                 </div>
               ) : (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                     Zeitraum
                   </label>
                   <input
                     type="text"
                     disabled
                     value={periodFilter === 'yearly' ? `Gesamtjahr ${targetYear}` : `Halbjahr ${targetMonth <= 6 ? '1' : '2'} / ${targetYear}`}
-                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-xs text-slate-500 font-medium"
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-xs text-slate-500 font-medium dark:bg-slate-700 dark:border-slate-800 dark:text-slate-400"
                   />
                 </div>
               )}
 
               {/* Target Execution Date */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                   SEPA-Fälligkeitsdatum *
                 </label>
                 <input
                   type="date"
                   value={executionDate}
                   onChange={e => setExecutionDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                 />
               </div>
 
               {/* Remittance Info Template */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                   Verwendungszweck-Vorlage
                 </label>
                 <input
                   type="text"
                   value={remittanceTemplate}
                   onChange={e => setRemittanceTemplate(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700"
                   placeholder="z.B. Beitrag {month}/{year}"
                 />
               </div>
@@ -705,7 +705,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                 mehr, welcher davon was war.
               */}
               <div className="sm:col-span-2">
-                <label htmlFor="sepa-eigener-titel" className="block text-xs font-bold text-slate-700 mb-1">
+                <label htmlFor="sepa-eigener-titel" className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                   Eigener Name für diesen Lauf (optional)
                 </label>
                 <input
@@ -713,10 +713,10 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                   type="text"
                   value={customTitle}
                   onChange={e => setCustomTitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700"
                   placeholder={computedTitle}
                 />
-                <p className="text-2xs text-slate-500 mt-1">
+                <p className="text-2xs text-slate-500 mt-1 dark:text-slate-400">
                   Leer lassen für den automatischen Namen. Er erscheint in der
                   Historie und im Dateinamen der XML-Datei.
                 </p>
@@ -726,42 +726,42 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
 
           {/* Step 2: Live Summary & Action Bar */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 dark:text-slate-400">
                 Einzugssumme (Gültig)
               </p>
-              <h3 className="text-3xl font-bold font-mono text-emerald-700">
+              <h3 className="text-3xl font-bold font-mono text-emerald-700 dark:text-emerald-300">
                 €{stats.validSelectedAmount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h3>
-              <p className="text-slate-500 text-[11px] mt-2 font-medium">
+              <p className="text-slate-500 text-[11px] mt-2 font-medium dark:text-slate-400">
                 Aus {stats.validSelectedCount} ausgewählten Lastschriften
               </p>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 dark:text-slate-400">
                 Fällige Mitglieder
               </p>
-              <h3 className="text-3xl font-bold font-mono text-slate-900">
+              <h3 className="text-3xl font-bold font-mono text-slate-900 dark:text-white">
                 {items.length}
               </h3>
-              <p className="text-blue-600 text-[11px] mt-2 font-medium">
+              <p className="text-blue-600 text-[11px] mt-2 font-medium dark:text-blue-400">
                 {stats.selectedCount} von {items.length} markiert
               </p>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 dark:text-slate-400">
                 Mandats- & IBAN-Status
               </p>
               <div className="flex items-center gap-2 mt-2">
                 {stats.invalidCount === 0 ? (
-                  <div className="flex items-center gap-1.5 text-emerald-600 font-bold text-sm">
+                  <div className="flex items-center gap-1.5 text-emerald-600 font-bold text-sm dark:text-emerald-400">
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Alle {items.length} Posten fehlerfrei</span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5 text-amber-600 font-bold text-sm">
+                  <div className="flex items-center gap-1.5 text-amber-600 font-bold text-sm dark:text-amber-400">
                     <AlertCircle className="w-4 h-4" />
                     <span>{stats.invalidCount} fehlerhaft / unvollständig</span>
                   </div>
@@ -788,10 +788,10 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                   type="button"
                   onClick={handleGenerateAndDownloadXml}
                   disabled={stats.validSelectedCount === 0 || !isCreditorConfigured}
-                  className="flex-1 bg-white hover:bg-blue-50 text-blue-900 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-white hover:bg-blue-50 text-blue-900 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-slate-900 dark:hover:bg-blue-950/40 dark:text-blue-100"
                   title="SEPA-Lastschriftdatei erzeugen und herunterladen"
                 >
-                  <Download className="w-4 h-4 text-blue-600" />
+                  <Download className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   <span>XML herunterladen</span>
                 </button>
 
@@ -819,9 +819,9 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
           </div>
 
           {/* Step 3: Member List Table with Search & Filtering */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden dark:bg-slate-900 dark:border-slate-800">
             {/* Table Control Header */}
-            <div className="p-4 border-b border-slate-200 bg-slate-50/70 flex flex-col md:flex-row items-center justify-between gap-3">
+            <div className="p-4 border-b border-slate-200 bg-slate-50/70 flex flex-col md:flex-row items-center justify-between gap-3 dark:border-slate-800 dark:bg-slate-800/70">
               <div className="flex items-center gap-3 w-full md:w-auto">
                 <div className="relative w-full sm:w-72">
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -830,14 +830,14 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder="Mitglied, Nr., IBAN suchen..."
-                    className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700"
                   />
                 </div>
 
                 <select
                   value={selectedDepartment}
                   onChange={e => setSelectedDepartment(e.target.value)}
-                  className="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
                 >
                   <option value="all">Alle Sparten</option>
                   {settings.departments.map(d => (
@@ -848,7 +848,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                 <select
                   value={validityFilter}
                   onChange={e => setValidityFilter(e.target.value as any)}
-                  className="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
                 >
                   <option value="all">Alle Posten ({items.length})</option>
                   <option value="valid">Nur Gültige</option>
@@ -856,11 +856,11 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                 </select>
               </div>
 
-              <div className="flex items-center gap-2 self-end md:self-auto text-xs font-semibold text-slate-600">
+              <div className="flex items-center gap-2 self-end md:self-auto text-xs font-semibold text-slate-600 dark:text-slate-300">
                 <button
                   type="button"
                   onClick={() => handleToggleSelectAll(true)}
-                  className="hover:text-blue-600 px-2 py-1 hover:bg-slate-200/60 rounded"
+                  className="hover:text-blue-600 px-2 py-1 hover:bg-slate-200/60 rounded dark:hover:text-blue-400 dark:hover:bg-slate-600/60"
                 >
                   Alle markieren
                 </button>
@@ -868,7 +868,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                 <button
                   type="button"
                   onClick={() => handleToggleSelectAll(false)}
-                  className="hover:text-blue-600 px-2 py-1 hover:bg-slate-200/60 rounded"
+                  className="hover:text-blue-600 px-2 py-1 hover:bg-slate-200/60 rounded dark:hover:text-blue-400 dark:hover:bg-slate-600/60"
                 >
                   Alle abwählen
                 </button>
@@ -879,13 +879,13 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                  <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px] dark:bg-slate-700/70 dark:border-slate-800 dark:text-slate-300">
                     <th className="py-3 px-4 w-10 text-center">
                       <input
                         type="checkbox"
                         checked={items.length > 0 && items.every(i => i.selected)}
                         onChange={e => handleToggleSelectAll(e.target.checked)}
-                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-slate-700 dark:text-blue-400"
                       />
                     </th>
                     <th className="py-3 px-3">Mitglied</th>
@@ -896,12 +896,12 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                     <th className="py-3 px-4 text-center">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {filteredItems.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="py-12 text-center text-slate-400">
                         <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                        <p className="font-semibold text-slate-600">Keine Mitglieder für diesen Filter gefunden</p>
+                        <p className="font-semibold text-slate-600 dark:text-slate-300">Keine Mitglieder für diesen Filter gefunden</p>
                         <p className="text-[11px] text-slate-400 mt-1">
                           Passen Sie den Zahlungsrhythmus oder die Suchfilter oben an.
                         </p>
@@ -911,8 +911,8 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                     filteredItems.map(item => (
                       <tr
                         key={item.memberId}
-                        className={`transition-colors hover:bg-slate-50/80 ${
-                          !item.selected ? 'opacity-50 bg-slate-50/40' : ''
+                        className={`transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/80 ${
+                          !item.selected ? 'opacity-50 bg-slate-50/40 dark:bg-slate-800/40' : ''
                         }`}
                       >
                         {/* Checkbox */}
@@ -921,17 +921,17 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                             type="checkbox"
                             checked={item.selected}
                             onChange={() => handleToggleItem(item.memberId)}
-                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer dark:border-slate-700 dark:text-blue-400"
                           />
                         </td>
 
                         {/* Member Name & Number */}
                         <td className="py-3 px-3">
-                          <div className="font-bold text-slate-900">{item.memberName}</div>
+                          <div className="font-bold text-slate-900 dark:text-white">{item.memberName}</div>
                           <div className="text-[11px] text-slate-400 font-mono">
                             {item.memberNumber}
                             {item.accountHolder !== item.memberName && (
-                              <span className="text-slate-500 block">
+                              <span className="text-slate-500 block dark:text-slate-400">
                                 Inhaber: {item.accountHolder}
                               </span>
                             )}
@@ -940,18 +940,18 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
 
                         {/* Department */}
                         <td className="py-3 px-3">
-                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium text-[11px]">
+                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium text-[11px] dark:bg-slate-700 dark:text-slate-200">
                             {item.department}
                           </span>
                         </td>
 
                         {/* Interval & Due Day */}
                         <td className="py-3 px-3">
-                          <div className="font-semibold text-slate-800">
+                          <div className="font-semibold text-slate-800 dark:text-slate-100">
                             {item.feePeriod === 'monthly' ? 'Monatlich' : item.feePeriod === 'quarterly' ? 'Quartal' : item.feePeriod === 'half_yearly' ? 'Halbjährlich' : 'Jährlich'}
                           </div>
                           {item.feePeriod === 'monthly' && (
-                            <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded inline-block mt-0.5">
+                            <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded inline-block mt-0.5 dark:text-blue-300 dark:bg-blue-950/40">
                               Fällig am {item.monthlyDueDay}. des Monats
                             </span>
                           )}
@@ -959,8 +959,8 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
 
                         {/* IBAN & Mandate */}
                         <td className="py-3 px-3 font-mono">
-                          <div className="font-bold text-slate-800 text-[11px]">
-                            {item.iban ? item.iban : <span className="text-rose-600 italic">Fehlt</span>}
+                          <div className="font-bold text-slate-800 text-[11px] dark:text-slate-100">
+                            {item.iban ? item.iban : <span className="text-rose-600 italic dark:text-rose-400">Fehlt</span>}
                           </div>
                           <div className="text-[10px] text-slate-400 mt-0.5">
                             Ref: {item.mandateReference} ({item.mandateDate ? new Date(item.mandateDate).toLocaleDateString('de-DE') : 'Kein Datum'})
@@ -975,23 +975,23 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                             min="0"
                             value={item.amount}
                             onChange={e => handleUpdateItemAmount(item.memberId, parseFloat(e.target.value) || 0)}
-                            className="w-24 px-2 py-1 text-right font-mono font-bold text-slate-900 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 bg-white"
+                            className="w-24 px-2 py-1 text-right font-mono font-bold text-slate-900 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 bg-white dark:text-white dark:border-slate-800 dark:bg-slate-800"
                           />
                         </td>
 
                         {/* Validation Status */}
                         <td className="py-3 px-4 text-center">
                           {item.isValid ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                               Gültig
                             </span>
                           ) : (
                             <span
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200"
                               title={item.validationErrors.join(', ')}
                             >
-                              <AlertCircle className="w-3 h-3 text-rose-600" />
+                              <AlertCircle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
                               {item.validationErrors[0] || 'Ungültig'}
                             </span>
                           )}
@@ -1004,13 +1004,13 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
             </div>
 
             {/* Table Footer */}
-            <div className="p-4 border-t border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="text-slate-600 font-medium">
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3 text-xs dark:border-slate-800 dark:bg-slate-800">
+              <div className="text-slate-600 font-medium dark:text-slate-300">
                 Zeigt <strong>{filteredItems.length}</strong> von <strong>{items.length}</strong> Posten ({stats.validSelectedCount} zur Abbuchung markiert)
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="font-mono text-sm font-bold text-slate-900">
+                <span className="font-mono text-sm font-bold text-slate-900 dark:text-white">
                   Gesamtsumme ausgewählt: €{stats.validSelectedAmount.toFixed(2)}
                 </span>
               </div>
@@ -1022,18 +1022,18 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
       {/* TAB 2: HISTORY & ARCHIVE */}
       {activeTab === 'history' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4 dark:border-slate-800">
               <div>
-                <h3 className="font-bold text-slate-900 text-sm">Archivierte SEPA-Beitragsläufe</h3>
-                <p className="text-xs text-slate-500">
+                <h3 className="font-bold text-slate-900 text-sm dark:text-white">Archivierte SEPA-Beitragsläufe</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Historie aller exportierten Lastschriftdateien mit Wieder-Download und Buchhaltungs-Übernahme
                 </p>
               </div>
               <button
                 type="button"
                 onClick={loadHistory}
-                className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700"
                 title="Aktualisieren"
               >
                 <RefreshCw className="w-4 h-4" />
@@ -1044,9 +1044,9 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
               <LoadingState label="Archivierte Beitragsläufe werden geladen …" />
             ) : historyRuns.length === 0 ? (
               <div className="py-16 text-center text-slate-400">
-                <History className="w-12 h-12 mx-auto mb-3 opacity-30 text-blue-600" />
-                <h4 className="font-bold text-slate-700 text-sm">Noch keine Beitragsläufe exportiert</h4>
-                <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                <History className="w-12 h-12 mx-auto mb-3 opacity-30 text-blue-600 dark:text-blue-400" />
+                <h4 className="font-bold text-slate-700 text-sm dark:text-slate-200">Noch keine Beitragsläufe exportiert</h4>
+                <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto dark:text-slate-400">
                   Sobald Sie Ihren ersten SEPA-Beitragslauf generieren, wird dieser hier mit Prüfprotokoll und XML-Archiv hinterlegt.
                 </p>
                 <button
@@ -1058,25 +1058,25 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                 </button>
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
                 {historyRuns.map(run => (
                   <div key={run.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2.5">
-                        <h4 className="font-bold text-slate-900 text-sm">{run.title}</h4>
+                        <h4 className="font-bold text-slate-900 text-sm dark:text-white">{run.title}</h4>
                         {run.isBooked ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                             In Buchhaltung verbucht
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
                             XML exportiert
                           </span>
                         )}
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-1.5">
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-1.5 dark:text-slate-400">
                         <span>Erstellt: <strong>{new Date(run.createdAt).toLocaleString('de-DE')}</strong></span>
                         <span>•</span>
                         <span>Fälligkeit: <strong>{new Date(run.executionDate).toLocaleDateString('de-DE')}</strong></span>
@@ -1088,7 +1088,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                     {/* Right sum and actions */}
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <div className="text-lg font-bold font-mono text-slate-900">
+                        <div className="text-lg font-bold font-mono text-slate-900 dark:text-white">
                           €{run.totalAmount.toFixed(2)}
                         </div>
                       </div>
@@ -1099,7 +1099,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                           <button
                             type="button"
                             onClick={() => SepaService.downloadSepaXmlFile(run.xmlContent!, `SEPA_${run.title.replace(/\s+/g, '_')}.xml`)}
-                            className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-slate-200"
+                            className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-slate-200 dark:text-slate-300 dark:hover:text-blue-400 dark:hover:bg-blue-950/40 dark:border-slate-800"
                             title="SEPA-XML erneut herunterladen"
                           >
                             <Download className="w-4 h-4" />
@@ -1127,10 +1127,10 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                             };
                             SepaService.exportSepaPdfReport(histConfig, validItems, settings);
                           }}
-                          className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-slate-200"
+                          className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-slate-200 dark:text-slate-300 dark:hover:text-blue-400 dark:hover:bg-blue-950/40 dark:border-slate-800"
                           title="Protokoll (PDF) erneut herunterladen"
                         >
-                          <FileDown className="w-4 h-4 text-blue-600" />
+                          <FileDown className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                         </button>
 
                         {/* Book into accounting if not booked yet */}
@@ -1139,7 +1139,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                             <select
                               value={selectedTargetAccountId}
                               onChange={e => setSelectedTargetAccountId(e.target.value)}
-                              className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800"
+                              className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                             >
                               {accounts.map(acc => (
                                 <option key={acc.id} value={acc.id}>{acc.name}</option>
@@ -1162,7 +1162,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDeleteHistoryRun(run.id)}
-                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors dark:hover:text-rose-400 dark:hover:bg-rose-950/40"
                           title="Aus Historie löschen"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1180,18 +1180,18 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
       {/* XML PREVIEW MODAL */}
       {xmlModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-blue-100 text-blue-700 rounded-lg">
+                <div className="p-2 bg-blue-100 text-blue-700 rounded-lg dark:bg-blue-900/40 dark:text-blue-300">
                   <FileCode className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm">
+                  <h3 className="font-bold text-slate-900 text-sm dark:text-white">
                     SEPA-XML Vorschau (pain.008.001.02)
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     ISO 20022 XML-Dokument für {stats.validSelectedCount} Lastschriftposten
                   </p>
                 </div>
@@ -1205,16 +1205,16 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                     setCopiedXml(true);
                     setTimeout(() => setCopiedXml(false), 2000);
                   }}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
                 >
-                  {copiedXml ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copiedXml ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedXml ? 'Kopiert!' : 'XML kopieren'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setXmlModalOpen(false)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200"
+                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 dark:hover:text-slate-200 dark:hover:bg-slate-600"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1227,8 +1227,8 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-              <span className="text-xs text-slate-500">
+            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between dark:border-slate-800 dark:bg-slate-800">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
                 Größe: <strong>{(new Blob([generatedXmlContent]).size / 1024).toFixed(1)} KB</strong>
               </span>
               <button

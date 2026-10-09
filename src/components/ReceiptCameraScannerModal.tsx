@@ -543,7 +543,7 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
               <div className="relative flex-1 min-h-[380px] sm:min-h-[440px] bg-black rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner">
                 {/* Shutter White Flash Animation */}
                 {shutterAnimation && (
-                  <div className="absolute inset-0 bg-white z-40 animate-out fade-out duration-200 pointer-events-none" />
+                  <div className="absolute inset-0 bg-white z-40 animate-out fade-out duration-200 pointer-events-none dark:bg-slate-900" />
                 )}
 
                 {/* Video Element */}
@@ -694,7 +694,7 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
                     className="group relative p-1 rounded-full bg-white/20 hover:bg-white/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95"
                     title="Beleg fotografieren"
                   >
-                    <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-white group-hover:bg-emerald-400 flex items-center justify-center shadow-lg transition-colors border-4 border-slate-950">
+                    <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-white group-hover:bg-emerald-400 flex items-center justify-center shadow-lg transition-colors border-4 border-slate-950 dark:bg-slate-900">
                       <Camera className="w-7 h-7 text-slate-950" />
                     </div>
                   </button>
@@ -713,7 +713,7 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   ) : (
-                    <div className="w-24 text-right text-2xs text-slate-500">
+                    <div className="w-24 text-right text-2xs text-slate-500 dark:text-slate-400">
                       Noch kein Beleg erfasst
                     </div>
                   )}
@@ -770,7 +770,7 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
                       <iframe
                         src={uploadedPdf.dataUrl}
                         title="PDF Beleg-Vorschau"
-                        className="w-full h-full min-h-[400px] rounded-lg border border-slate-800 bg-white"
+                        className="w-full h-full min-h-[400px] rounded-lg border border-slate-800 bg-white dark:bg-slate-900"
                       />
                     </div>
                   </>
@@ -823,7 +823,7 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
                       <img
                         src={activePage.processedDataUrl}
                         alt={`Scann Seite ${selectedPageIndex + 1}`}
-                        className="max-h-[420px] max-w-full object-contain rounded-lg shadow-xl border border-slate-800 bg-white transition-all"
+                        className="max-h-[420px] max-w-full object-contain rounded-lg shadow-xl border border-slate-800 bg-white transition-all dark:bg-slate-900"
                       />
                     </div>
 
@@ -1097,7 +1097,7 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
                       type="checkbox"
                       checked={linkFilterMissingOnly}
                       onChange={e => setLinkFilterMissingOnly(e.target.checked)}
-                      className="rounded text-emerald-600 focus:ring-emerald-500"
+                      className="rounded text-emerald-600 focus:ring-emerald-500 dark:text-emerald-400"
                     />
                     <span>Nur Buchungen ohne Beleg anzeigen</span>
                   </label>

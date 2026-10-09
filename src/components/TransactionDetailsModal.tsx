@@ -115,19 +115,19 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden my-6 flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150"
+        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden my-6 flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150 dark:bg-slate-900 dark:border-slate-800"
         onClick={e => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
             <div
               className={`p-2.5 rounded-xl shadow-2xs ${
                 isTransfer
-                  ? 'bg-blue-100 text-blue-700'
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
                   : isIncome
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-rose-100 text-rose-700'
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                  : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
               }`}
             >
               {isTransfer ? (
@@ -140,22 +140,22 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-slate-900 text-base sm:text-lg">
+                <h3 className="font-bold text-slate-900 text-base sm:text-lg dark:text-white">
                   {transaction.documentNumber}
                 </h3>
                 <span
                   className={`inline-flex items-center px-2 py-0.5 rounded text-3xs font-bold uppercase tracking-wider ${
                     isTransfer
-                      ? 'bg-blue-100 text-blue-800'
+                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200'
                       : isIncome
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-rose-100 text-rose-800'
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
+                      : 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200'
                   }`}
                 >
                   {isTransfer ? 'Umbuchung' : isIncome ? 'Einnahme' : 'Ausgabe'}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+              <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5 dark:text-slate-400">
                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
                 <span>{formattedDate}</span>
               </p>
@@ -165,7 +165,7 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/70 rounded-xl transition-colors cursor-pointer"
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/70 rounded-xl transition-colors cursor-pointer dark:hover:text-slate-300 dark:hover:bg-slate-600/70"
             title="Schließen"
           >
             <X className="w-5 h-5" />
@@ -178,24 +178,24 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
           <div
             className={`p-5 rounded-2xl border ${
               isTransfer
-                ? 'bg-blue-50/60 border-blue-200'
+                ? 'bg-blue-50/60 border-blue-200 dark:bg-blue-950/60 dark:border-blue-800/60'
                 : isIncome
-                ? 'bg-emerald-50/60 border-emerald-200'
-                : 'bg-rose-50/60 border-rose-200'
+                ? 'bg-emerald-50/60 border-emerald-200 dark:bg-emerald-950/60 dark:border-emerald-800/60'
+                : 'bg-rose-50/60 border-rose-200 dark:bg-rose-950/60 dark:border-rose-800/60'
             }`}
           >
             <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
               <div>
-                <span className="text-2xs font-bold uppercase tracking-wider text-slate-500">
+                <span className="text-2xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Buchungsbetrag
                 </span>
                 <div
                   className={`text-3xl sm:text-4xl font-black font-mono tracking-tight ${
                     isTransfer
-                      ? 'text-blue-700'
+                      ? 'text-blue-700 dark:text-blue-300'
                       : isIncome
-                      ? 'text-emerald-700'
-                      : 'text-rose-700'
+                      ? 'text-emerald-700 dark:text-emerald-300'
+                      : 'text-rose-700 dark:text-rose-300'
                   }`}
                 >
                   {isIncome ? '+' : ''}
@@ -208,23 +208,23 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
               </div>
 
               {vatRate > 0 && (
-                <div className="text-right text-2xs text-slate-600 bg-white/80 px-3 py-1.5 rounded-lg border border-slate-200/80 font-mono">
+                <div className="text-right text-2xs text-slate-600 bg-white/80 px-3 py-1.5 rounded-lg border border-slate-200/80 font-mono dark:text-slate-300 dark:border-slate-800">
                   <div>Netto: {netAmount.toFixed(2)} €</div>
-                  <div className="text-slate-500">
+                  <div className="text-slate-500 dark:text-slate-400">
                     +{vatRate}% USt: {vatAmount.toFixed(2)} €
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-200/60">
+            <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-800">
               <span className="text-2xs font-semibold text-slate-400 uppercase tracking-wider block">
                 Zahlungspartner / Empfänger / Einzahler
               </span>
-              <div className="text-base font-bold text-slate-900 mt-0.5 flex items-center gap-2 flex-wrap">
+              <div className="text-base font-bold text-slate-900 mt-0.5 flex items-center gap-2 flex-wrap dark:text-white">
                 <span>{transaction.partner || '–'}</span>
                 {matchedContact && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-2xs font-semibold bg-orange-100 text-orange-800 rounded-md border border-orange-200">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-2xs font-semibold bg-orange-100 text-orange-800 rounded-md border border-orange-200 dark:bg-orange-900/40 dark:text-orange-200 dark:border-orange-800/60">
                     <Building2 className="w-3 h-3" />
                     <span>Kontaktkartei ({matchedContact.displayName})</span>
                   </span>
@@ -236,10 +236,10 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
                       onOpenCreateContactFromTx(transaction.partner, isIncome);
                       onClose();
                     }}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 text-2xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-md transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 text-2xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-md transition-colors cursor-pointer dark:text-amber-300 dark:bg-amber-950/40 dark:hover:bg-amber-900/40 dark:border-amber-700/60"
                     title="Als neuen Kontakt anlegen"
                   >
-                    <UserPlus className="w-3 h-3 text-amber-600" />
+                    <UserPlus className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                     <span>+ Als Kontakt speichern</span>
                   </button>
                 )}
@@ -248,7 +248,7 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
               <span className="text-2xs font-semibold text-slate-400 uppercase tracking-wider block mt-2">
                 Buchungstext / Verwendungszweck
               </span>
-              <p className="text-sm text-slate-800 font-medium mt-0.5 bg-white/70 p-2.5 rounded-lg border border-slate-200/70">
+              <p className="text-sm text-slate-800 font-medium mt-0.5 bg-white/70 p-2.5 rounded-lg border border-slate-200/70 dark:text-slate-100 dark:border-slate-800">
                 {transaction.bookingText || 'Kein Buchungstext vorhanden'}
               </p>
             </div>
@@ -257,41 +257,41 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
           {/* Grid of details */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Konto & Zahlweg */}
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                <CreditCard className="w-4 h-4 text-blue-600" />
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5 dark:bg-slate-800 dark:border-slate-800">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider dark:text-slate-200">
+                <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 <span>Finanzkonto & Buchungsweg</span>
               </div>
               <div className="space-y-1.5 text-xs">
-                <div className="flex justify-between items-center py-1 border-b border-slate-200/80">
-                  <span className="text-slate-500">
+                <div className="flex justify-between items-center py-1 border-b border-slate-200/80 dark:border-slate-800">
+                  <span className="text-slate-500 dark:text-slate-400">
                     {isTransfer ? 'Quellkonto' : 'Konto / Kasse'}:
                   </span>
-                  <span className="font-bold text-slate-900 flex items-center gap-1">
+                  <span className="font-bold text-slate-900 flex items-center gap-1 dark:text-white">
                     {sourceAccount?.accountType === 'cash' ? (
-                      <Coins className="w-3.5 h-3.5 text-amber-600" />
+                      <Coins className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                     ) : (
-                      <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                      <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     )}
                     {sourceAccount?.name || transaction.accountId}
                   </span>
                 </div>
 
                 {sourceAccount?.iban && (
-                  <div className="flex justify-between items-center py-1 border-b border-slate-200/80">
-                    <span className="text-slate-500">IBAN:</span>
-                    <span className="font-mono text-slate-700">{sourceAccount.iban}</span>
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/80 dark:border-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">IBAN:</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-200">{sourceAccount.iban}</span>
                   </div>
                 )}
 
                 {isTransfer && targetAccount && (
-                  <div className="flex justify-between items-center py-1 border-b border-slate-200/80">
-                    <span className="text-slate-500">Zielkonto:</span>
-                    <span className="font-bold text-blue-700 flex items-center gap-1">
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/80 dark:border-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Zielkonto:</span>
+                    <span className="font-bold text-blue-700 flex items-center gap-1 dark:text-blue-300">
                       {targetAccount.accountType === 'cash' ? (
-                        <Coins className="w-3.5 h-3.5 text-amber-600" />
+                        <Coins className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                       ) : (
-                        <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                        <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                       )}
                       {targetAccount.name}
                     </span>
@@ -299,8 +299,8 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
                 )}
 
                 <div className="flex justify-between items-center py-1">
-                  <span className="text-slate-500">Buchungsart:</span>
-                  <span className="font-semibold text-slate-800">
+                  <span className="text-slate-500 dark:text-slate-400">Buchungsart:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">
                     {isTransfer
                       ? 'Interne Umbuchung'
                       : isIncome
@@ -313,24 +313,24 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
 
             {/* Steuerliche Zuordnung (4-Sphären-System) oder Splittbuchung */}
             {transaction.isSplit && transaction.splits && transaction.splits.length > 0 ? (
-              <div className="p-4 bg-indigo-50/70 rounded-xl border border-indigo-200 space-y-3">
+              <div className="p-4 bg-indigo-50/70 rounded-xl border border-indigo-200 space-y-3 dark:bg-indigo-950/70 dark:border-indigo-800/60">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-bold text-indigo-900 uppercase tracking-wider">
-                    <Split className="w-4 h-4 text-indigo-600" />
+                  <div className="flex items-center gap-2 text-xs font-bold text-indigo-900 uppercase tracking-wider dark:text-indigo-100">
+                    <Split className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                     <span>Aufteilung in {transaction.splits.length} Teilbuchungen</span>
                   </div>
-                  <span className="inline-flex items-center gap-1 text-3xs font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-md border border-indigo-200">
+                  <span className="inline-flex items-center gap-1 text-3xs font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-md border border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-200 dark:border-indigo-800/60">
                     Splittbuchung
                   </span>
                 </div>
 
                 <div className="space-y-2">
                   {transaction.splits.map((s, idx) => (
-                    <div key={idx} className="p-2.5 bg-white rounded-lg border border-indigo-100 shadow-2xs space-y-1">
+                    <div key={idx} className="p-2.5 bg-white rounded-lg border border-indigo-100 shadow-2xs space-y-1 dark:bg-slate-900 dark:border-indigo-900/50">
                       <div className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-800">Teil #{idx + 1}</span>
-                          <span className="text-2xs px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-medium">
+                          <span className="font-bold text-slate-800 dark:text-slate-100">Teil #{idx + 1}</span>
+                          <span className="text-2xs px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-medium dark:bg-slate-700 dark:text-slate-200">
                             {TAX_SPHERES[s.sphere]?.name || s.sphere}
                           </span>
                         </div>
@@ -338,69 +338,69 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
                           {s.amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                         </span>
                       </div>
-                      <div className="text-2xs text-slate-600 space-y-0.5 pt-1 border-t border-slate-100">
+                      <div className="text-2xs text-slate-600 space-y-0.5 pt-1 border-t border-slate-100 dark:text-slate-300 dark:border-slate-800">
                         <div>
                           <span className="text-slate-400">Nummernkreis: </span>
-                          <span className="font-medium text-slate-800">{s.mainCategory}</span>
+                          <span className="font-medium text-slate-800 dark:text-slate-100">{s.mainCategory}</span>
                         </div>
                         <div>
                           <span className="text-slate-400">Konto: </span>
-                          <span className="font-medium text-slate-800">
+                          <span className="font-medium text-slate-800 dark:text-slate-100">
                             {s.skrAccount ? `${s.skrAccount} - ` : ''}{s.subCategory || s.category}
                           </span>
                         </div>
                         <div>
                           <span className="text-slate-400">Sparte: </span>
-                          <span className="font-medium text-slate-800">{s.department || 'Gesamtverein'}</span>
+                          <span className="font-medium text-slate-800 dark:text-slate-100">{s.department || 'Gesamtverein'}</span>
                         </div>
                         {(s.bookingText || (s as any).note) && (
-                          <p className="text-3xs text-slate-500 italic">Buchungstext: {s.bookingText || (s as any).note}</p>
+                          <p className="text-3xs text-slate-500 italic dark:text-slate-400">Buchungstext: {s.bookingText || (s as any).note}</p>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-indigo-200/80 text-xs font-semibold text-indigo-950">
+                <div className="flex items-center justify-between pt-2 border-t border-indigo-200/80 text-xs font-semibold text-indigo-950 dark:border-indigo-800/80">
                   <span>Kontrollsumme der Teile:</span>
-                  <span className="font-mono font-bold text-xs text-indigo-900 bg-white px-2 py-0.5 rounded border border-indigo-200">
+                  <span className="font-mono font-bold text-xs text-indigo-900 bg-white px-2 py-0.5 rounded border border-indigo-200 dark:text-indigo-100 dark:bg-slate-900 dark:border-indigo-800/60">
                     {transaction.splits.reduce((acc, s) => acc + s.amount, 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                   </span>
                 </div>
               </div>
             ) : (
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  <Tag className="w-4 h-4 text-emerald-600" />
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5 dark:bg-slate-800 dark:border-slate-800">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider dark:text-slate-200">
+                  <Tag className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>Steuer-Sphäre & Kategorie</span>
                 </div>
                 <div className="space-y-1.5 text-xs">
-                  <div className="flex justify-between items-center py-1 border-b border-slate-200/80">
-                    <span className="text-slate-500">Sphäre:</span>
-                    <span className="font-bold text-slate-900">
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/80 dark:border-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Sphäre:</span>
+                    <span className="font-bold text-slate-900 dark:text-white">
                       {sphereInfo ? sphereInfo.name : transaction.sphere}
                     </span>
                   </div>
 
-                  <div className="flex justify-between items-center py-1 border-b border-slate-200/80">
-                    <span className="text-slate-500">Kategorie:</span>
-                    <span className="font-bold text-slate-900">{transaction.category}</span>
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/80 dark:border-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Kategorie:</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{transaction.category}</span>
                   </div>
 
-                  <div className="flex justify-between items-center py-1 border-b border-slate-200/80">
-                    <span className="text-slate-500">Sparte:</span>
-                    <span className="font-bold text-slate-900">{transaction.department || 'Gesamtverein'}</span>
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/80 dark:border-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Sparte:</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{transaction.department || 'Gesamtverein'}</span>
                   </div>
 
-                  <div className="flex justify-between items-center py-1 border-b border-slate-200/80">
-                    <span className="text-slate-500">Umsatzsteuersatz:</span>
-                    <span className="font-mono font-semibold text-slate-800">
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/80 dark:border-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Umsatzsteuersatz:</span>
+                    <span className="font-mono font-semibold text-slate-800 dark:text-slate-100">
                       {transaction.vatRate || 0}%
                     </span>
                   </div>
 
                   {sphereInfo?.subtitle && (
-                    <p className="text-3xs text-slate-500 italic pt-1 leading-relaxed">
+                    <p className="text-3xs text-slate-500 italic pt-1 leading-relaxed dark:text-slate-400">
                       {sphereInfo.subtitle}
                     </p>
                   )}
@@ -410,14 +410,14 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
           </div>
 
           {/* Beleg & digitaler Anhang */}
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 dark:bg-slate-800 dark:border-slate-800">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                <Paperclip className="w-4 h-4 text-indigo-600" />
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider dark:text-slate-200">
+                <Paperclip className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 <span>Digitaler Beleg & Quittung</span>
               </div>
               {transaction.receipt && (
-                <span className="inline-flex items-center gap-1 text-3xs font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md">
+                <span className="inline-flex items-center gap-1 text-3xs font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md dark:bg-emerald-900/40 dark:text-emerald-200">
                   <CheckCircle2 className="w-3 h-3" />
                   <span>Beleg archiviert</span>
                 </span>
@@ -425,16 +425,16 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
             </div>
 
             {transaction.receipt ? (
-              <div className="p-3.5 bg-white rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+              <div className="p-3.5 bg-white rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs dark:bg-slate-900 dark:border-slate-800">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="p-2.5 bg-indigo-50 text-indigo-700 rounded-lg shrink-0">
+                  <div className="p-2.5 bg-indigo-50 text-indigo-700 rounded-lg shrink-0 dark:bg-indigo-950/40 dark:text-indigo-300">
                     <FileText className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
-                    <div className="font-bold text-slate-900 text-xs truncate">
+                    <div className="font-bold text-slate-900 text-xs truncate dark:text-white">
                       {transaction.receipt.name || `Beleg_${transaction.documentNumber}`}
                     </div>
-                    <div className="text-2xs text-slate-500 flex items-center gap-2">
+                    <div className="text-2xs text-slate-500 flex items-center gap-2 dark:text-slate-400">
                       <span>{Math.round((transaction.receipt.size || 0) / 1024)} KB</span>
                       <span>•</span>
                       <span className="font-mono text-slate-400">
@@ -462,7 +462,7 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
                   <button
                     type="button"
                     onClick={handleDownloadReceipt}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
                     title="Beleg herunterladen"
                   >
                     <Download className="w-3.5 h-3.5" />
@@ -471,10 +471,10 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
                 </div>
               </div>
             ) : (
-              <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 dark:bg-amber-950/70 dark:border-amber-800/80">
                 <div className="flex items-start sm:items-center gap-2.5">
-                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
-                  <p className="text-xs text-amber-900 font-medium">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 sm:mt-0 dark:text-amber-400" />
+                  <p className="text-xs text-amber-900 font-medium dark:text-amber-100">
                     Kein digitaler Beleg hinterlegt. Für eine lückenlose Kassenprüfung empfiehlt sich das Anhängen einer Rechnung oder Quittung.
                   </p>
                 </div>
@@ -499,7 +499,7 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
                       onClose();
                       onEdit(transaction);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-300 text-amber-800 hover:bg-amber-100/70 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-300 text-amber-800 hover:bg-amber-100/70 rounded-lg text-xs font-semibold transition-colors cursor-pointer dark:bg-slate-900 dark:border-amber-700/60 dark:text-amber-200 dark:hover:bg-amber-900/70"
                   >
                     <Paperclip className="w-3.5 h-3.5" />
                     <span>Datei anhängen</span>
@@ -511,28 +511,28 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
 
           {/* Notizen & Metadaten */}
           {transaction.notes && (
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
-              <span className="text-2xs font-bold uppercase tracking-wider text-slate-500 block">
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5 dark:bg-slate-800 dark:border-slate-800">
+              <span className="text-2xs font-bold uppercase tracking-wider text-slate-500 block dark:text-slate-400">
                 Interne Notizen & Vermerke
               </span>
-              <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">
+              <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed dark:text-slate-200">
                 {transaction.notes}
               </p>
             </div>
           )}
 
-          <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-3xs text-slate-400 font-mono">
+          <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-3xs text-slate-400 font-mono dark:border-slate-800">
             <span>Buchungs-ID: {transaction.id}</span>
             <span>Verein: {settings.clubName}</span>
           </div>
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3 dark:border-slate-800 dark:bg-slate-800">
           <button
             type="button"
             onClick={handleDelete}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors cursor-pointer dark:text-rose-400 dark:hover:text-rose-300 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 dark:border-rose-800/60"
             title="Diese Buchung löschen"
           >
             <Trash2 className="w-4 h-4" />
@@ -543,7 +543,7 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200/60 rounded-xl border border-slate-200 transition-colors cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200/60 rounded-xl border border-slate-200 transition-colors cursor-pointer dark:text-slate-300 dark:hover:text-slate-100 dark:hover:bg-slate-600/60 dark:border-slate-800"
             >
               Schließen
             </button>

@@ -403,3 +403,44 @@ button, input, select, textarea {
 }
 :root:not(.dark)[data-farbschema="anthrazit"] .vm-page { background-color: #f4f4f5; }
 :root:not(.dark)[data-farbschema="anthrazit"] .vm-header { background-color: #fafafa; }
+
+/* ------------------------------------------------------------------
+   Feste Farben: Piktogramme der Seitenleiste und Schnellzugriff-Knöpfe
+   behalten in JEDEM Farbschema ihre ursprüngliche Farbe (Standard-Blau/
+   Indigo). Die Farbschemata überschreiben die Skalen blue/indigo; hier
+   werden sie für genau diese Elemente auf die Standardwerte zurückgesetzt.
+   Eigenschaften vererben sich, daher gilt das auch für alles darin.
+   ------------------------------------------------------------------ */
+.vm-sidebar svg,
+.vm-quick button {
+  --color-blue-50: oklch(.97 .014 254.604);
+  --color-blue-100: oklch(.932 .032 255.585);
+  --color-blue-200: oklch(.882 .059 254.128);
+  --color-blue-300: oklch(.809 .105 251.813);
+  --color-blue-400: oklch(.707 .165 254.624);
+  --color-blue-500: oklch(.623 .214 259.815);
+  --color-blue-600: oklch(.546 .245 262.881);
+  --color-blue-700: oklch(.488 .243 264.376);
+  --color-blue-800: oklch(.424 .199 265.638);
+  --color-blue-900: oklch(.379 .146 265.522);
+  --color-blue-950: oklch(.282 .091 267.935);
+  --color-indigo-50: oklch(.962 .018 272.314);
+  --color-indigo-100: oklch(.93 .034 272.788);
+  --color-indigo-200: oklch(.87 .065 274.039);
+  --color-indigo-300: oklch(.785 .115 274.713);
+  --color-indigo-400: oklch(.673 .182 276.935);
+  --color-indigo-500: oklch(.585 .233 277.117);
+  --color-indigo-600: oklch(.511 .262 276.966);
+  --color-indigo-700: oklch(.457 .24 277.023);
+  --color-indigo-800: oklch(.398 .195 277.366);
+  --color-indigo-900: oklch(.359 .144 278.697);
+  --color-indigo-950: oklch(.257 .09 281.288);
+}
+/* Die Schemata Orange und Gelb setzen dunkle Schrift auf farbige Flächen;
+   die Schnellzugriff-Knöpfe sind wieder kräftig blau und brauchen weiße. */
+:root[data-farbschema="orange"] .vm-quick button,
+:root[data-farbschema="orange"] .vm-quick button *,
+:root[data-farbschema="gelb"] .vm-quick button,
+:root[data-farbschema="gelb"] .vm-quick button * {
+  color: #ffffff;
+}

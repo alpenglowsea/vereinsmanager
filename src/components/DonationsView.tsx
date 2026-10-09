@@ -194,7 +194,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
         width={colWidths.date}
         onResizeStart={startResize('date')}
         onAutoFit={() => autoFit('date')}
-        headerBg="bg-slate-50/80"
+        headerBg="bg-slate-50/80 dark:bg-slate-800/80"
         {...dragProps('date')}
       />
     ),
@@ -210,7 +210,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
         width={colWidths.donor}
         onResizeStart={startResize('donor')}
         onAutoFit={() => autoFit('donor')}
-        headerBg="bg-slate-50/80"
+        headerBg="bg-slate-50/80 dark:bg-slate-800/80"
         {...dragProps('donor')}
       />
     ),
@@ -226,7 +226,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
         width={colWidths.type}
         onResizeStart={startResize('type')}
         onAutoFit={() => autoFit('type')}
-        headerBg="bg-slate-50/80"
+        headerBg="bg-slate-50/80 dark:bg-slate-800/80"
         {...dragProps('type')}
       />
     ),
@@ -242,7 +242,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
         width={colWidths.purpose}
         onResizeStart={startResize('purpose')}
         onAutoFit={() => autoFit('purpose')}
-        headerBg="bg-slate-50/80"
+        headerBg="bg-slate-50/80 dark:bg-slate-800/80"
         {...dragProps('purpose')}
       />
     ),
@@ -259,7 +259,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
         width={colWidths.amount}
         onResizeStart={startResize('amount')}
         onAutoFit={() => autoFit('amount')}
-        headerBg="bg-slate-50/80"
+        headerBg="bg-slate-50/80 dark:bg-slate-800/80"
         {...dragProps('amount')}
       />
     ),
@@ -277,7 +277,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
         width={colWidths.status}
         onResizeStart={startResize('status')}
         onAutoFit={() => autoFit('status')}
-        headerBg="bg-slate-50/80"
+        headerBg="bg-slate-50/80 dark:bg-slate-800/80"
         {...dragProps('status')}
       />
     ),
@@ -293,7 +293,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
         width={colWidths.taxOffice}
         onResizeStart={startResize('taxOffice')}
         onAutoFit={() => autoFit('taxOffice')}
-        headerBg="bg-slate-50/80"
+        headerBg="bg-slate-50/80 dark:bg-slate-800/80"
         {...dragProps('taxOffice')}
       />
     ),
@@ -309,7 +309,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
         width={colWidths.taxNumber}
         onResizeStart={startResize('taxNumber')}
         onAutoFit={() => autoFit('taxNumber')}
-        headerBg="bg-slate-50/80"
+        headerBg="bg-slate-50/80 dark:bg-slate-800/80"
         {...dragProps('taxNumber')}
       />
     ),
@@ -325,7 +325,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
         width={colWidths.exemptionDate}
         onResizeStart={startResize('exemptionDate')}
         onAutoFit={() => autoFit('exemptionDate')}
-        headerBg="bg-slate-50/80"
+        headerBg="bg-slate-50/80 dark:bg-slate-800/80"
         {...dragProps('exemptionDate')}
       />
     ),
@@ -341,7 +341,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
         width={colWidths.assessmentPeriod}
         onResizeStart={startResize('assessmentPeriod')}
         onAutoFit={() => autoFit('assessmentPeriod')}
-        headerBg="bg-slate-50/80"
+        headerBg="bg-slate-50/80 dark:bg-slate-800/80"
         {...dragProps('assessmentPeriod')}
       />
     ),
@@ -358,7 +358,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
         width={colWidths.isDirectlyPromoted}
         onResizeStart={startResize('isDirectlyPromoted')}
         onAutoFit={() => autoFit('isDirectlyPromoted')}
-        headerBg="bg-slate-50/80"
+        headerBg="bg-slate-50/80 dark:bg-slate-800/80"
         {...dragProps('isDirectlyPromoted')}
       />
     ),
@@ -374,7 +374,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
         width={colWidths.issuedBy}
         onResizeStart={startResize('issuedBy')}
         onAutoFit={() => autoFit('issuedBy')}
-        headerBg="bg-slate-50/80"
+        headerBg="bg-slate-50/80 dark:bg-slate-800/80"
         {...dragProps('issuedBy')}
       />
     ),
@@ -390,7 +390,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
         width={colWidths.goodsInfo}
         onResizeStart={startResize('goodsInfo')}
         onAutoFit={() => autoFit('goodsInfo')}
-        headerBg="bg-slate-50/80"
+        headerBg="bg-slate-50/80 dark:bg-slate-800/80"
         {...dragProps('goodsInfo')}
       />
     )
@@ -512,17 +512,17 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
     <div className="space-y-6">
 
       {/* Top Banner / Header */}
-      <div className="bg-white rounded-2xl p-6 text-slate-900 border border-slate-200 shadow-2xs relative overflow-hidden">
+      <div className="bg-white rounded-2xl p-6 text-slate-900 border border-slate-200 shadow-2xs relative overflow-hidden dark:bg-slate-900 dark:text-white dark:border-slate-800">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-emerald-700 text-xs font-semibold uppercase tracking-wider mb-1">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <div className="flex items-center gap-2 text-emerald-700 text-xs font-semibold uppercase tracking-wider mb-1 dark:text-emerald-300">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>Amtliche Spendenverwaltung (BMF-Muster)</span>
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight dark:text-white">
               Geld- & Sachzuwendungen
             </h1>
-            <p className="text-slate-500 text-xs mt-1 max-w-2xl">
+            <p className="text-slate-500 text-xs mt-1 max-w-2xl dark:text-slate-400">
               Erstellung, Verwaltung und revisionssichere Archivierung rechtskonformer Zuwendungsbestätigungen nach den amtlichen Mustern des Bundesministeriums der Finanzen (§ 50 Abs. 1 EStDV).
             </p>
           </div>
@@ -542,71 +542,71 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs dark:bg-slate-900 dark:border-slate-800">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Gesamtes Spendenvolumen</span>
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Gesamtes Spendenvolumen</span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg dark:bg-emerald-950/40 dark:text-emerald-400">
               <HeartHandshake className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 text-2xl font-bold font-mono text-slate-900">
+          <div className="mt-2 text-2xl font-bold font-mono text-slate-900 dark:text-white">
             {totalAmount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
           </div>
-          <div className="mt-1 text-2xs text-slate-500">
+          <div className="mt-1 text-2xs text-slate-500 dark:text-slate-400">
             {filteredDonations.length} Bestätigung{filteredDonations.length === 1 ? '' : 'en'} gesamt
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs dark:bg-slate-900 dark:border-slate-800">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Geldzuwendungen (Muster 1)</span>
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Geldzuwendungen (Muster 1)</span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg dark:bg-emerald-950/40 dark:text-emerald-400">
               <Coins className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 text-2xl font-bold font-mono text-emerald-700">
+          <div className="mt-2 text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-300">
             {moneyTotal.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
           </div>
-          <div className="mt-1 text-2xs text-slate-500">
+          <div className="mt-1 text-2xs text-slate-500 dark:text-slate-400">
             {moneyDonations.length} Geldspende{moneyDonations.length === 1 ? '' : 'n'}
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs dark:bg-slate-900 dark:border-slate-800">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Sachzuwendungen (Muster 2)</span>
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Sachzuwendungen (Muster 2)</span>
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg dark:bg-blue-950/40 dark:text-blue-400">
               <Package className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 text-2xl font-bold font-mono text-blue-700">
+          <div className="mt-2 text-2xl font-bold font-mono text-blue-700 dark:text-blue-300">
             {goodsTotal.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
           </div>
-          <div className="mt-1 text-2xs text-slate-500">
+          <div className="mt-1 text-2xs text-slate-500 dark:text-slate-400">
             {goodsDonations.length} Sachspende{goodsDonations.length === 1 ? '' : 'n'}
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs dark:bg-slate-900 dark:border-slate-800">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Aufwandsspenden</span>
-            <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Aufwandsspenden</span>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-lg dark:bg-amber-950/40 dark:text-amber-400">
               <FileCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 text-2xl font-bold font-mono text-slate-900">
+          <div className="mt-2 text-2xl font-bold font-mono text-slate-900 dark:text-white">
             {waiverCount}
           </div>
-          <div className="mt-1 text-2xs text-slate-500">
+          <div className="mt-1 text-2xs text-slate-500 dark:text-slate-400">
             Verzicht auf Erstattung
           </div>
         </div>
       </div>
 
       {/* Main List Section */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs dark:bg-slate-900 dark:border-slate-800">
         {/* Filter Toolbar */}
-        <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-col md:flex-row items-center justify-between gap-3">
+        <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-col md:flex-row items-center justify-between gap-3 dark:border-slate-800 dark:bg-slate-800/50">
           <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
             {/* Search */}
             <div className="relative flex-1 sm:w-64">
@@ -616,18 +616,18 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                 placeholder="Spender, Beleg-Nr., Zweck suchen..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500"
+                className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800"
               />
             </div>
 
             {/* Type selector */}
-            <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5">
+            <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 dark:bg-slate-900 dark:border-slate-800">
               <button
                 onClick={() => setSelectedType('all')}
                 className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors ${
                   selectedType === 'all'
                     ? 'bg-slate-900 text-white'
-                    : 'text-slate-600 hover:text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
                 }`}
               >
                 Alle ({donations.length})
@@ -637,7 +637,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                 className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 ${
                   selectedType === 'money'
                     ? 'bg-emerald-700 text-white'
-                    : 'text-slate-600 hover:text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
                 }`}
               >
                 <Coins className="w-3 h-3" />
@@ -648,7 +648,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                 className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 ${
                   selectedType === 'goods'
                     ? 'bg-blue-700 text-white'
-                    : 'text-slate-600 hover:text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
                 }`}
               >
                 <Package className="w-3 h-3" />
@@ -657,12 +657,12 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
             </div>
 
             {/* Year filter */}
-            <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2 py-1 text-xs">
+            <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2 py-1 text-xs dark:bg-slate-900 dark:border-slate-800">
               <Calendar className="w-3.5 h-3.5 text-slate-400" />
               <select
                 value={selectedYear}
                 onChange={e => setSelectedYear(e.target.value)}
-                className="bg-transparent border-0 text-xs font-semibold text-slate-700 focus:ring-0 p-0 pr-2"
+                className="bg-transparent border-0 text-xs font-semibold text-slate-700 focus:ring-0 p-0 pr-2 dark:text-slate-200"
               >
                 <option value="all">Alle Jahre</option>
                 {years.map(y => (
@@ -672,8 +672,8 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
             </div>
           </div>
 
-          <div className="text-2xs text-slate-500">
-            Zeige <span className="font-bold text-slate-800">{filteredDonations.length}</span> von {donations.length} Bescheinigungen
+          <div className="text-2xs text-slate-500 dark:text-slate-400">
+            Zeige <span className="font-bold text-slate-800 dark:text-slate-100">{filteredDonations.length}</span> von {donations.length} Bescheinigungen
           </div>
         </div>
 
@@ -692,11 +692,11 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
         {/* Table */}
         {filteredDonations.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto text-slate-400 mb-3">
+            <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto text-slate-400 mb-3 dark:bg-slate-700">
               <HeartHandshake className="w-6 h-6" />
             </div>
-            <h3 className="text-sm font-bold text-slate-700">Keine Zuwendungsbestätigungen gefunden</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">Keine Zuwendungsbestätigungen gefunden</h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto dark:text-slate-400">
               Für die gewählten Filter liegen noch keine Spendenbescheinigungen vor. Erstellen Sie eine neue Bestätigung mit dem BMF-Muster.
             </p>
             <button
@@ -738,10 +738,10 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                 <col style={{ width: ACTION_COL_WIDTH }} />
               </colgroup>
               <thead>
-                <tr className="text-slate-600 font-semibold text-2xs uppercase tracking-wider">
+                <tr className="text-slate-600 font-semibold text-2xs uppercase tracking-wider dark:text-slate-300">
                   <th
                     style={{ width: CHECKBOX_COL_WIDTH, minWidth: CHECKBOX_COL_WIDTH }}
-                    className="py-3 px-3 text-center sticky top-0 z-10 bg-slate-50/80 border-b border-slate-200"
+                    className="py-3 px-3 text-center sticky top-0 z-10 bg-slate-50/80 border-b border-slate-200 dark:bg-slate-800/80 dark:border-slate-800"
                   >
                     <input
                       type="checkbox"
@@ -751,19 +751,19 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                       }}
                       onChange={handleSelectPage}
                       aria-label="Alle Einträge dieser Seite auswählen"
-                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer dark:text-blue-400 dark:border-slate-700"
                     />
                   </th>
                   {visibleColumnOrder.map(key => donationHeaderDefs[key])}
                   <th
                     style={{ width: ACTION_COL_WIDTH, minWidth: ACTION_COL_WIDTH }}
-                    className="py-3 px-4 text-right sticky top-0 z-10 bg-slate-50/80 border-b border-slate-200"
+                    className="py-3 px-4 text-right sticky top-0 z-10 bg-slate-50/80 border-b border-slate-200 dark:bg-slate-800/80 dark:border-slate-800"
                   >
                     Aktionen
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {paginatedDonations.map(receipt => {
                   const isGoods = receipt.type === 'goods';
 
@@ -771,7 +771,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                     <tr
                       key={receipt.id}
                       className={`transition-colors group ${
-                        selectedIds.has(receipt.id) ? 'bg-blue-50/70' : 'hover:bg-slate-50/80'
+                        selectedIds.has(receipt.id) ? 'bg-blue-50/70 dark:bg-blue-950/70' : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/80'
                       }`}
                     >
                       <td className="py-3 px-3 text-center">
@@ -780,17 +780,17 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                           checked={selectedIds.has(receipt.id)}
                           onChange={() => handleToggleSelect(receipt.id)}
                           aria-label={`Zuwendungsbestätigung ${receipt.receiptNumber} auswählen`}
-                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer dark:text-blue-400 dark:border-slate-700"
                         />
                       </td>
                       {(() => {
                         const donationCellDefs: Record<string, React.ReactNode> = {
                           date: (
                             <td key="date" data-col-content="date" className="py-3 px-4 overflow-hidden">
-                              <div className="font-mono font-bold text-slate-900">
+                              <div className="font-mono font-bold text-slate-900 dark:text-white">
                                 {receipt.receiptNumber}
                               </div>
-                              <div className="text-2xs text-slate-500 flex items-center gap-1 mt-0.5">
+                              <div className="text-2xs text-slate-500 flex items-center gap-1 mt-0.5 dark:text-slate-400">
                                 <Calendar className="w-3 h-3 text-slate-400" />
                                 <span>{new Date(receipt.date).toLocaleDateString('de-DE')}</span>
                               </div>
@@ -798,15 +798,15 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                           ),
                           donor: (
                             <td key="donor" data-col-content="donor" className="py-3 px-4 overflow-hidden">
-                              <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                              <div className="font-bold text-slate-900 flex items-center gap-1.5 dark:text-white">
                                 {receipt.donorType === 'member' ? (
-                                  <span className="p-0.5 bg-emerald-100 text-emerald-800 rounded text-3xs font-semibold px-1">Mitglied</span>
+                                  <span className="p-0.5 bg-emerald-100 text-emerald-800 rounded text-3xs font-semibold px-1 dark:bg-emerald-900/40 dark:text-emerald-200">Mitglied</span>
                                 ) : (
-                                  <span className="p-0.5 bg-slate-100 text-slate-700 rounded text-3xs font-semibold px-1">Extern</span>
+                                  <span className="p-0.5 bg-slate-100 text-slate-700 rounded text-3xs font-semibold px-1 dark:bg-slate-700 dark:text-slate-200">Extern</span>
                                 )}
                                 <span>{receipt.donorName}</span>
                               </div>
-                              <div className="text-2xs text-slate-500 mt-0.5">
+                              <div className="text-2xs text-slate-500 mt-0.5 dark:text-slate-400">
                                 {receipt.donorAddress.street} {receipt.donorAddress.houseNumber}, {receipt.donorAddress.zip} {receipt.donorAddress.city}
                               </div>
                             </td>
@@ -814,18 +814,18 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                           type: (
                             <td key="type" data-col-content="type" className="py-3 px-4 overflow-hidden">
                               {isGoods ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-2xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-2xs font-bold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/60">
                                   <Package className="w-3 h-3" />
                                   Sachspende (Muster 2)
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60">
                                   <Coins className="w-3 h-3" />
                                   Geldspende (Muster 1)
                                 </span>
                               )}
                               {receipt.isWaiverOfRefund && (
-                                <div className="mt-1 text-3xs font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-block">
+                                <div className="mt-1 text-3xs font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-block dark:text-amber-300 dark:bg-amber-950/40 dark:border-amber-800/60">
                                   Aufwandsspende
                                 </div>
                               )}
@@ -834,11 +834,11 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                           purpose: (
                             <td key="purpose" data-col-content="purpose" className="py-3 px-4 overflow-hidden">
                               {isGoods ? (
-                                <div className="text-slate-800 font-medium truncate" title={receipt.goodsDescription}>
+                                <div className="text-slate-800 font-medium truncate dark:text-slate-100" title={receipt.goodsDescription}>
                                   {receipt.goodsDescription || 'Sachzuwendung'}
                                 </div>
                               ) : (
-                                <div className="text-slate-800 font-medium truncate" title={receipt.notes || receipt.promotedPurpose}>
+                                <div className="text-slate-800 font-medium truncate dark:text-slate-100" title={receipt.notes || receipt.promotedPurpose}>
                                   {receipt.notes || receipt.promotedPurpose || 'Förderung des Sports'}
                                 </div>
                               )}
@@ -849,11 +849,11 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                           ),
                           amount: (
                             <td key="amount" data-col-content="amount" className="py-3 px-4 text-right overflow-hidden">
-                              <div className="font-mono font-bold text-sm text-slate-900">
+                              <div className="font-mono font-bold text-sm text-slate-900 dark:text-white">
                                 {receipt.amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                               </div>
                               {receipt.transactionId && (
-                                <div className="text-3xs text-emerald-600 font-semibold flex items-center justify-end gap-0.5">
+                                <div className="text-3xs text-emerald-600 font-semibold flex items-center justify-end gap-0.5 dark:text-emerald-400">
                                   <CheckCircle2 className="w-2.5 h-2.5" />
                                   Verbucht
                                 </div>
@@ -872,8 +872,8 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                             return (
                               <td key="status" data-col-content="status" className="py-3 px-4 text-center overflow-hidden">
                                 {hasArchivedPdf ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-3xs font-semibold rounded-full border border-emerald-200">
-                                    <FileCheck className="w-3 h-3 text-emerald-600" />
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-3xs font-semibold rounded-full border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60">
+                                    <FileCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                                     Archiviert
                                   </span>
                                 ) : (
@@ -883,41 +883,41 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                             );
                           })(),
                           taxOffice: (
-                            <td key="taxOffice" data-col-content="taxOffice" className="py-3 px-4 text-slate-600 truncate overflow-hidden">
+                            <td key="taxOffice" data-col-content="taxOffice" className="py-3 px-4 text-slate-600 truncate overflow-hidden dark:text-slate-300">
                               {receipt.taxOffice || '–'}
                             </td>
                           ),
                           taxNumber: (
-                            <td key="taxNumber" data-col-content="taxNumber" className="py-3 px-4 text-slate-600 font-mono text-2xs truncate overflow-hidden">
+                            <td key="taxNumber" data-col-content="taxNumber" className="py-3 px-4 text-slate-600 font-mono text-2xs truncate overflow-hidden dark:text-slate-300">
                               {receipt.taxNumber || '–'}
                             </td>
                           ),
                           exemptionDate: (
-                            <td key="exemptionDate" data-col-content="exemptionDate" className="py-3 px-4 text-slate-600 overflow-hidden">
+                            <td key="exemptionDate" data-col-content="exemptionDate" className="py-3 px-4 text-slate-600 overflow-hidden dark:text-slate-300">
                               {receipt.exemptionDate ? new Date(receipt.exemptionDate).toLocaleDateString('de-DE') : '–'}
                             </td>
                           ),
                           assessmentPeriod: (
-                            <td key="assessmentPeriod" data-col-content="assessmentPeriod" className="py-3 px-4 text-slate-600 truncate overflow-hidden">
+                            <td key="assessmentPeriod" data-col-content="assessmentPeriod" className="py-3 px-4 text-slate-600 truncate overflow-hidden dark:text-slate-300">
                               {receipt.assessmentPeriod || '–'}
                             </td>
                           ),
                           isDirectlyPromoted: (
                             <td key="isDirectlyPromoted" data-col-content="isDirectlyPromoted" className="py-3 px-4 text-center overflow-hidden">
                               {receipt.isDirectlyPromoted ? (
-                                <span className="text-emerald-700 text-2xs font-semibold">Ja</span>
+                                <span className="text-emerald-700 text-2xs font-semibold dark:text-emerald-300">Ja</span>
                               ) : (
                                 <span className="text-slate-400 text-2xs">Nein</span>
                               )}
                             </td>
                           ),
                           issuedBy: (
-                            <td key="issuedBy" data-col-content="issuedBy" className="py-3 px-4 text-slate-600 truncate overflow-hidden">
+                            <td key="issuedBy" data-col-content="issuedBy" className="py-3 px-4 text-slate-600 truncate overflow-hidden dark:text-slate-300">
                               {receipt.issuedBy || '–'}
                             </td>
                           ),
                           goodsInfo: (
-                            <td key="goodsInfo" data-col-content="goodsInfo" className="py-3 px-4 text-slate-600 overflow-hidden">
+                            <td key="goodsInfo" data-col-content="goodsInfo" className="py-3 px-4 text-slate-600 overflow-hidden dark:text-slate-300">
                               {isGoods && (receipt.goodsOrigin || receipt.goodsValuationBasis) ? (
                                 <>
                                   {receipt.goodsOrigin && (
@@ -947,7 +947,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                           <button
                             type="button"
                             onClick={() => handleDownload(receipt)}
-                            className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors"
+                            className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 dark:text-emerald-300"
                             title="BMF Zuwendungsbestätigung als PDF herunterladen"
                           >
                             <Download className="w-3.5 h-3.5" />
@@ -958,7 +958,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                             <button
                               type="button"
                               onClick={() => handleViewDoc(receipt)}
-                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
+                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
                               title="In Dokumentenablage ansehen"
                             >
                               <Eye className="w-3.5 h-3.5" />
@@ -969,7 +969,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                           <button
                             type="button"
                             onClick={() => onEditReceipt(receipt)}
-                            className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                            className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-300"
                             title="Bearbeiten"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -983,7 +983,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                                 onDeleteReceipt(receipt.id);
                               }
                             }}
-                            className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-colors"
+                            className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-colors dark:bg-rose-950/40 dark:hover:bg-rose-900/40 dark:text-rose-400"
                             title="Löschen"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -1019,22 +1019,22 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
       </div>
 
       {/* Legal Information Box */}
-      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-xs text-slate-600 space-y-3">
-        <div className="flex items-center gap-2 font-bold text-slate-800">
-          <Info className="w-4 h-4 text-emerald-600" />
+      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-xs text-slate-600 space-y-3 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-300">
+        <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-100">
+          <Info className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           <span>Wichtige steuerliche Hinweise zu Zuwendungsbestätigungen</span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-2xs leading-relaxed text-slate-600">
-          <div className="p-3 bg-white rounded-xl border border-slate-200">
-            <span className="font-bold text-slate-800 block mb-1">§ 10b EStG Vereinfachter Spendennachweis</span>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-2xs leading-relaxed text-slate-600 dark:text-slate-300">
+          <div className="p-3 bg-white rounded-xl border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+            <span className="font-bold text-slate-800 block mb-1 dark:text-slate-100">§ 10b EStG Vereinfachter Spendennachweis</span>
             Für Spenden bis einschließlich <span className="font-bold">300,00 €</span> genügt dem Finanzamt in der Regel ein vereinfachter Nachweis (Kontoauszug oder Buchungsbestätigung) zusammen mit dem Freistellungsbescheid des Vereins. Dennoch kann auf Wunsch eine Bestätigung ausgestellt werden.
           </div>
-          <div className="p-3 bg-white rounded-xl border border-slate-200">
-            <span className="font-bold text-slate-800 block mb-1">Aufwandsspenden (§ 10b Abs. 3 EStG)</span>
+          <div className="p-3 bg-white rounded-xl border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+            <span className="font-bold text-slate-800 block mb-1 dark:text-slate-100">Aufwandsspenden (§ 10b Abs. 3 EStG)</span>
             Wird auf den Ersatz von Aufwendungen (z.B. Fahrtkosten, Schiedsrichterauslagen) verzichtet, muss ein zuvor schriftlich vereinbarter Rechtsanspruch bestanden haben. Dies wird auf der Bestätigung separat angekreuzt.
           </div>
-          <div className="p-3 bg-white rounded-xl border border-slate-200">
-            <span className="font-bold text-slate-800 block mb-1">Revisionssichere Archivierung</span>
+          <div className="p-3 bg-white rounded-xl border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+            <span className="font-bold text-slate-800 block mb-1 dark:text-slate-100">Revisionssichere Archivierung</span>
             Alle erstellten Bestätigungen werden automatisch im PDF-Format im Ordner <span className="font-bold">Dokumente & Belege</span> hinterlegt und können für die Betriebsprüfung oder EÜR jederzeit nachgewiesen werden.
           </div>
         </div>

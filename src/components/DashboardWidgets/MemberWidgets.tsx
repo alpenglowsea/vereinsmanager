@@ -457,7 +457,7 @@ export const DemographicsWidget: React.FC<DemographicsWidgetProps> = ({ members,
           <div className="space-y-1">
             <div className="flex justify-between text-xs">
               <span className="font-semibold text-slate-700 dark:text-slate-300">Kinder & Jugend (&lt;18 J.)</span>
-              <span className="font-mono text-slate-500">{youth} ({((youth / total) * 100).toFixed(0)}%)</span>
+              <span className="font-mono text-slate-500 dark:text-slate-400">{youth} ({((youth / total) * 100).toFixed(0)}%)</span>
             </div>
             <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
               <div className="h-full bg-emerald-500" style={{ width: `${(youth / total) * 100}%` }} />
@@ -467,7 +467,7 @@ export const DemographicsWidget: React.FC<DemographicsWidgetProps> = ({ members,
           <div className="space-y-1">
             <div className="flex justify-between text-xs">
               <span className="font-semibold text-slate-700 dark:text-slate-300">Erwachsene (18–60 J.)</span>
-              <span className="font-mono text-slate-500">{adults} ({((adults / total) * 100).toFixed(0)}%)</span>
+              <span className="font-mono text-slate-500 dark:text-slate-400">{adults} ({((adults / total) * 100).toFixed(0)}%)</span>
             </div>
             <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
               <div className="h-full bg-blue-500" style={{ width: `${(adults / total) * 100}%` }} />
@@ -477,7 +477,7 @@ export const DemographicsWidget: React.FC<DemographicsWidgetProps> = ({ members,
           <div className="space-y-1">
             <div className="flex justify-between text-xs">
               <span className="font-semibold text-slate-700 dark:text-slate-300">Senioren (&gt;60 J.)</span>
-              <span className="font-mono text-slate-500">{seniors} ({((seniors / total) * 100).toFixed(0)}%)</span>
+              <span className="font-mono text-slate-500 dark:text-slate-400">{seniors} ({((seniors / total) * 100).toFixed(0)}%)</span>
             </div>
             <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
               <div className="h-full bg-purple-500" style={{ width: `${(seniors / total) * 100}%` }} />

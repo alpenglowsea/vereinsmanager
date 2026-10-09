@@ -194,56 +194,56 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-8">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-8 dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
+        <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/80 dark:border-slate-800 dark:bg-slate-800/80">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold dark:bg-blue-900/40 dark:text-blue-300">
               <SlidersHorizontal className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800">
+              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
                 Sammelbearbeitung: {selectedTransactions.length} Buchung(en)
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Aktivieren Sie die gewünschten Kontrollkästchen, um diese Werte für alle ausgewählten Buchungen zeitgleich anzupassen.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-200/50 rounded-lg transition-colors"
+            className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-200/50 rounded-lg transition-colors dark:hover:text-slate-300 dark:hover:bg-slate-600/50"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Selected Transactions Drawer / Dropdown */}
-        <div className="px-6 py-2.5 bg-blue-50/60 border-b border-blue-100 flex items-center justify-between text-xs">
-          <span className="text-blue-900 font-medium">
+        <div className="px-6 py-2.5 bg-blue-50/60 border-b border-blue-100 flex items-center justify-between text-xs dark:bg-blue-950/60 dark:border-blue-900/50">
+          <span className="text-blue-900 font-medium dark:text-blue-100">
             Ausgewählt: <span className="font-bold">{selectedTransactions.length} Buchungen</span>
           </span>
           <button
             type="button"
             onClick={() => setShowTxList(!showTxList)}
-            className="text-blue-600 hover:text-blue-800 underline font-semibold"
+            className="text-blue-600 hover:text-blue-800 underline font-semibold dark:text-blue-400 dark:hover:text-blue-200"
           >
             {showTxList ? 'Details ausblenden' : 'Details einblenden'}
           </button>
         </div>
 
         {showTxList && (
-          <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 max-h-44 overflow-y-auto">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
+          <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 max-h-44 overflow-y-auto dark:bg-slate-800 dark:border-slate-800">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-300">
               {selectedTransactions.map(t => (
-                <div key={t.id} className="p-2 bg-white rounded-lg border border-slate-200 flex items-center justify-between">
+                <div key={t.id} className="p-2 bg-white rounded-lg border border-slate-200 flex items-center justify-between dark:bg-slate-900 dark:border-slate-800">
                   <div className="truncate mr-2">
-                    <span className="font-bold text-slate-700">{t.documentNumber || t.date}</span>
-                    <span className="text-slate-500 ml-1.5 truncate">
+                    <span className="font-bold text-slate-700 dark:text-slate-200">{t.documentNumber || t.date}</span>
+                    <span className="text-slate-500 ml-1.5 truncate dark:text-slate-400">
                       {t.bookingText || t.partner}
                     </span>
                   </div>
-                  <span className={`font-mono font-bold whitespace-nowrap ${t.amount >= 0 ? 'text-emerald-700' : 'text-slate-800'}`}>
+                  <span className={`font-mono font-bold whitespace-nowrap ${t.amount >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-800 dark:text-slate-100'}`}>
                     {t.amount.toFixed(2)} €
                   </span>
                 </div>
@@ -255,29 +255,29 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
           {/* Info Banner */}
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-100">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 dark:text-amber-400" />
             <div>
               <span className="font-bold">Hinweis zur GoBD-Konformität:</span> Nur die angekreuzten Felder werden überschrieben. Nicht markierte Buchungsattribute (z.B. Betrag, Belegnummer) bleiben unberührt.
             </div>
           </div>
 
           {/* 1. Finanzkonto */}
-          <div className={`p-4 rounded-xl border transition-all ${applyAccount ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+          <div className={`p-4 rounded-xl border transition-all ${applyAccount ? 'bg-blue-50/40 border-blue-300 shadow-xs dark:bg-blue-950/40 dark:border-blue-700/60' : 'bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}>
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={applyAccount}
                   onChange={e => setApplyAccount(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                 />
-                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <Wallet className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                  <Wallet className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   Finanzkonto zuordnen
                 </span>
               </label>
-              {applyAccount && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
+              {applyAccount && <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Wird geändert</span>}
             </div>
 
             {applyAccount && (
@@ -285,7 +285,7 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
                 <select
                   value={accountId}
                   onChange={e => setAccountId(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                 >
                   {accounts.map(acc => (
                     <option key={acc.id} value={acc.id}>
@@ -298,21 +298,21 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
           </div>
 
           {/* 2. Steuerliche Sphäre */}
-          <div className={`p-4 rounded-xl border transition-all ${applySphere ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+          <div className={`p-4 rounded-xl border transition-all ${applySphere ? 'bg-blue-50/40 border-blue-300 shadow-xs dark:bg-blue-950/40 dark:border-blue-700/60' : 'bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}>
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={applySphere}
                   onChange={e => setApplySphere(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                 />
-                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-emerald-600" />
+                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                  <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   Steuerliche Sphäre festlegen
                 </span>
               </label>
-              {applySphere && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
+              {applySphere && <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Wird geändert</span>}
             </div>
 
             {applySphere && (
@@ -324,12 +324,12 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
                     onClick={() => setSphere(sp)}
                     className={`p-2.5 rounded-lg border text-left text-xs transition-all ${
                       sphere === sp
-                        ? 'border-blue-600 bg-blue-100/70 text-blue-900 font-bold ring-1 ring-blue-500'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        ? 'border-blue-600 bg-blue-100/70 text-blue-900 font-bold ring-1 ring-blue-500 dark:bg-blue-900/70 dark:text-blue-100'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'
                     }`}
                   >
                     <div className="font-semibold">{TAX_SPHERES[sp].name}</div>
-                    <div className="text-[11px] text-slate-500 mt-0.5 truncate">{TAX_SPHERES[sp].subtitle}</div>
+                    <div className="text-[11px] text-slate-500 mt-0.5 truncate dark:text-slate-400">{TAX_SPHERES[sp].subtitle}</div>
                   </button>
                 ))}
               </div>
@@ -337,21 +337,21 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
           </div>
 
           {/* 3. SKR 42 Kontierung / Kategorie */}
-          <div className={`p-4 rounded-xl border transition-all ${applySkr ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+          <div className={`p-4 rounded-xl border transition-all ${applySkr ? 'bg-blue-50/40 border-blue-300 shadow-xs dark:bg-blue-950/40 dark:border-blue-700/60' : 'bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}>
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={applySkr}
                   onChange={e => setApplySkr(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                 />
-                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-purple-600" />
+                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                  <Tag className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                   DATEV SKR 42 Kontierung (Nummernkreis & Konto)
                 </span>
               </label>
-              {applySkr && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
+              {applySkr && <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Wird geändert</span>}
             </div>
 
             {applySkr && (
@@ -390,21 +390,21 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
           </div>
 
           {/* 4. Umsatzsteuersatz */}
-          <div className={`p-4 rounded-xl border transition-all ${applyVatRate ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+          <div className={`p-4 rounded-xl border transition-all ${applyVatRate ? 'bg-blue-50/40 border-blue-300 shadow-xs dark:bg-blue-950/40 dark:border-blue-700/60' : 'bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}>
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={applyVatRate}
                   onChange={e => setApplyVatRate(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                 />
-                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <Percent className="w-4 h-4 text-amber-600" />
+                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                  <Percent className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   Umsatzsteuersatz (USt.)
                 </span>
               </label>
-              {applyVatRate && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
+              {applyVatRate && <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Wird geändert</span>}
             </div>
 
             {applyVatRate && (
@@ -415,7 +415,7 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
                     className={`flex-1 py-2 px-3 rounded-lg border text-center text-xs font-bold cursor-pointer transition-all ${
                       vatRate === rate
                         ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-800 dark:hover:bg-slate-800'
                     }`}
                   >
                     <input
@@ -433,21 +433,21 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
           </div>
 
           {/* 5. Zahlungspartner / Empfänger */}
-          <div className={`p-4 rounded-xl border transition-all ${applyPartner ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+          <div className={`p-4 rounded-xl border transition-all ${applyPartner ? 'bg-blue-50/40 border-blue-300 shadow-xs dark:bg-blue-950/40 dark:border-blue-700/60' : 'bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}>
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={applyPartner}
                   onChange={e => setApplyPartner(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                 />
-                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <User className="w-4 h-4 text-indigo-600" />
+                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                  <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                   Zahlungsempfänger / Einzahler vereinheitlichen
                 </span>
               </label>
-              {applyPartner && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
+              {applyPartner && <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Wird geändert</span>}
             </div>
 
             {applyPartner && (
@@ -457,28 +457,28 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
                   value={partner}
                   onChange={e => setPartner(e.target.value)}
                   placeholder="z.B. Stadtwerke Musterstadt, Landessportbund..."
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                 />
               </div>
             )}
           </div>
 
           {/* 6. Buchungsdatum */}
-          <div className={`p-4 rounded-xl border transition-all ${applyDate ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+          <div className={`p-4 rounded-xl border transition-all ${applyDate ? 'bg-blue-50/40 border-blue-300 shadow-xs dark:bg-blue-950/40 dark:border-blue-700/60' : 'bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}>
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={applyDate}
                   onChange={e => setApplyDate(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                 />
-                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-rose-600" />
+                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                  <Calendar className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                   Buchungsdatum ändern
                 </span>
               </label>
-              {applyDate && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
+              {applyDate && <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Wird geändert</span>}
             </div>
 
             {applyDate && (
@@ -487,33 +487,33 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
                   type="date"
                   value={date}
                   onChange={e => setDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                 />
               </div>
             )}
           </div>
 
           {/* 7. Notizen */}
-          <div className={`p-4 rounded-xl border transition-all ${applyNotes ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+          <div className={`p-4 rounded-xl border transition-all ${applyNotes ? 'bg-blue-50/40 border-blue-300 shadow-xs dark:bg-blue-950/40 dark:border-blue-700/60' : 'bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}>
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={applyNotes}
                   onChange={e => setApplyNotes(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                 />
-                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-slate-600" />
+                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                  <FileText className="w-4 h-4 text-slate-600 dark:text-slate-300" />
                   Notiz / Buchungsvermerk
                 </span>
               </label>
-              {applyNotes && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
+              {applyNotes && <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Wird geändert</span>}
             </div>
 
             {applyNotes && (
               <div className="mt-3 pl-6 space-y-2">
-                <div className="flex items-center gap-4 text-xs font-medium text-slate-600">
+                <div className="flex items-center gap-4 text-xs font-medium text-slate-600 dark:text-slate-300">
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input
                       type="radio"
@@ -521,7 +521,7 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
                       value="append"
                       checked={notesAction === 'append'}
                       onChange={() => setNotesAction('append')}
-                      className="text-blue-600"
+                      className="text-blue-600 dark:text-blue-400"
                     />
                     An bestehende Notiz anfügen
                   </label>
@@ -532,7 +532,7 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
                       value="replace"
                       checked={notesAction === 'replace'}
                       onChange={() => setNotesAction('replace')}
-                      className="text-blue-600"
+                      className="text-blue-600 dark:text-blue-400"
                     />
                     Notiz vollständig ersetzen
                   </label>
@@ -542,28 +542,28 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
                   value={notesValue}
                   onChange={e => setNotesValue(e.target.value)}
                   placeholder="z.B. Geprüft durch Kassenprüfer am 15.03.2026..."
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-normal text-slate-800 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-normal text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                 />
               </div>
             )}
           </div>
 
           {/* 8. Sparte */}
-          <div className={`p-4 rounded-xl border transition-all ${applyDepartment ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+          <div className={`p-4 rounded-xl border transition-all ${applyDepartment ? 'bg-blue-50/40 border-blue-300 shadow-xs dark:bg-blue-950/40 dark:border-blue-700/60' : 'bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}>
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={applyDepartment}
                   onChange={e => setApplyDepartment(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                 />
-                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-teal-600" />
+                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                  <Layers className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                   Sparte zuordnen
                 </span>
               </label>
-              {applyDepartment && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
+              {applyDepartment && <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Wird geändert</span>}
             </div>
 
             {applyDepartment && (
@@ -571,7 +571,7 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
                 <select
                   value={department}
                   onChange={e => setDepartment(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                 >
                   <option value="">Gesamtverein (keine Sparte)</option>
                   {departments.map(dept => (
@@ -584,14 +584,14 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
         </form>
 
         {/* Footer */}
-        <div className="p-5 border-t border-slate-200 bg-slate-50/80 rounded-b-2xl flex items-center justify-between">
-          <div className="text-xs text-slate-500">
+        <div className="p-5 border-t border-slate-200 bg-slate-50/80 rounded-b-2xl flex items-center justify-between dark:border-slate-800 dark:bg-slate-800/80">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
             {activeChangeCount === 0 ? (
-              <span className="text-amber-700 font-medium">
+              <span className="text-amber-700 font-medium dark:text-amber-300">
                 Bitte aktivieren Sie mindestens ein Feld zur Sammelbearbeitung.
               </span>
             ) : (
-              <span className="text-blue-800 font-semibold">
+              <span className="text-blue-800 font-semibold dark:text-blue-200">
                 {activeChangeCount} Feld(er) werden für {selectedTransactions.length} Buchungen angepasst.
               </span>
             )}
@@ -601,7 +601,7 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors"
+              className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200"
             >
               Abbrechen
             </button>
@@ -611,7 +611,7 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
               disabled={activeChangeCount === 0 || isSubmitting}
               className={`px-4 py-2 rounded-xl text-white font-bold text-xs shadow-xs transition-all flex items-center gap-2 ${
                 activeChangeCount === 0 || isSubmitting
-                  ? 'bg-slate-300 cursor-not-allowed text-slate-500'
+                  ? 'bg-slate-300 cursor-not-allowed text-slate-500 dark:bg-slate-500 dark:text-slate-400'
                   : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20'
               }`}
             >

@@ -263,7 +263,7 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
               className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
                 selectedPreset === 'default'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
               }`}
             >
               Standard (Empfohlen)
@@ -274,7 +274,7 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
               className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
                 selectedPreset === 'finance'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
               }`}
             >
               Finanz- & Kassenfokus
@@ -285,7 +285,7 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
               className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
                 selectedPreset === 'members'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
               }`}
             >
               Mitglieder & Sportbetrieb
@@ -296,7 +296,7 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
               className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
                 selectedPreset === 'compact'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
               }`}
             >
               Kompakt
@@ -307,7 +307,7 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
               className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
                 selectedPreset === 'all'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
               }`}
             >
               Alle Kacheln
@@ -344,7 +344,7 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
                 >
                   <Icon className="w-3.5 h-3.5" />
                   <span>{tab.label}</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
                     {count}
                   </span>
                 </button>
@@ -365,7 +365,7 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
               <button
                 type="button"
                 onClick={() => setSearchTerm('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -387,7 +387,7 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
                   className={`p-4.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
                     isEnabled
                       ? 'bg-white dark:bg-slate-800/90 border-blue-500/60 dark:border-blue-500 shadow-xs ring-2 ring-blue-500/10'
-                      : 'bg-slate-50/70 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-800 opacity-80 hover:opacity-100 hover:border-slate-300'
+                      : 'bg-slate-50/70 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-800 opacity-80 hover:opacity-100 hover:border-slate-300 dark:hover:border-slate-700'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -432,7 +432,7 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
                               className={`px-2 py-0.5 text-2xs font-bold rounded-md transition-colors cursor-pointer ${
                                 currentColSpan === span
                                   ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-2xs'
-                                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
                               }`}
                             >
                               {span === 1 ? '1 Spalte' : span === 2 ? '2 Spalten' : 'Vollbreite'}
@@ -484,7 +484,7 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
                   setSearchTerm('');
                   setActiveCategory('all');
                 }}
-                className="mt-2 text-xs text-blue-600 hover:underline font-bold"
+                className="mt-2 text-xs text-blue-600 hover:underline font-bold dark:text-blue-400"
               >
                 Filter zurücksetzen
               </button>

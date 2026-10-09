@@ -90,18 +90,18 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden my-6 flex flex-col max-h-[92vh]">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden my-6 flex flex-col max-h-[92vh] dark:bg-slate-900 dark:border-slate-800">
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-rose-100 text-rose-700 rounded-xl">
+            <div className="p-2 bg-rose-100 text-rose-700 rounded-xl dark:bg-rose-900/40 dark:text-rose-300">
               <ScrollText className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 Protokoll-Vorlage & Vereins-Briefpapier konfigurieren
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Hinterlegen Sie Ihr offizielles Vereins-Briefpapier für rechtssichere Protokolle oder nutzen Sie den BGB-Standard.
               </p>
             </div>
@@ -109,21 +109,21 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer dark:hover:text-slate-300 dark:hover:bg-slate-600"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="px-6 border-b border-slate-200 bg-white flex items-center gap-6">
+        <div className="px-6 border-b border-slate-200 bg-white flex items-center gap-6 dark:border-slate-800 dark:bg-slate-900">
           <button
             type="button"
             onClick={() => setActiveTab('upload')}
             className={`py-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'upload'
-                ? 'border-rose-600 text-rose-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-rose-600 text-rose-600 dark:text-rose-400'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
             }`}
           >
             <Upload className="w-3.5 h-3.5" />
@@ -138,8 +138,8 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
             onClick={() => setActiveTab('layout')}
             className={`py-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'layout'
-                ? 'border-rose-600 text-rose-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-rose-600 text-rose-600 dark:text-rose-400'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
             }`}
           >
             <Sliders className="w-3.5 h-3.5" />
@@ -152,11 +152,11 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
           {/* TAB 1: UPLOAD BLANKO VORLAGE */}
           {activeTab === 'upload' && (
             <div className="space-y-6">
-              <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-4 flex items-start gap-3">
-                <Info className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-                <div className="text-xs text-rose-900 space-y-1">
+              <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-4 flex items-start gap-3 dark:bg-rose-950/70 dark:border-rose-800/60">
+                <Info className="w-5 h-5 text-rose-600 shrink-0 mt-0.5 dark:text-rose-400" />
+                <div className="text-xs text-rose-900 space-y-1 dark:text-rose-100">
                   <p className="font-semibold">Wie funktioniert die eigene Blanko-Vorlage für Protokolle?</p>
-                  <p className="text-rose-800 leading-relaxed">
+                  <p className="text-rose-800 leading-relaxed dark:text-rose-200">
                     Laden Sie Ihr offizielles Vereins-Briefpapier (als PNG, JPG oder PDF) hoch.
                     Die Vereinsverwaltung hinterlegt diese Vorlage als ganzseitigen Hintergrund für alle
                     Vorstands- und Mitgliederversammlungsprotokolle und druckt Tagesordnung, Beschlüsse,
@@ -177,8 +177,8 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
                   onClick={() => fileInputRef.current?.click()}
                   className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 ${
                     dragOver
-                      ? 'border-rose-500 bg-rose-50/50 scale-[0.99]'
-                      : 'border-slate-300 hover:border-rose-400 hover:bg-slate-50/50'
+                      ? 'border-rose-500 bg-rose-50/50 scale-[0.99] dark:bg-rose-950/50'
+                      : 'border-slate-300 hover:border-rose-400 hover:bg-slate-50/50 dark:border-slate-700 dark:hover:bg-slate-800/50'
                   }`}
                 >
                   <input
@@ -192,28 +192,28 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
                       }
                     }}
                   />
-                  <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center shadow-xs">
+                  <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center shadow-xs dark:bg-rose-950/40 dark:text-rose-400">
                     <Upload className="w-7 h-7" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-800">
+                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">
                       Vereins-Briefpapier hier ablegen oder klicken
                     </h4>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-slate-500 mt-1 dark:text-slate-400">
                       Unterstützte Formate: PNG, JPG, WEBP (Empfohlen: DIN A4, 210 x 297 mm, mind. 1200 x 1700 px)
                     </p>
                   </div>
                   <button
                     type="button"
-                    className="mt-2 text-xs bg-white border border-slate-200 text-slate-700 px-3.5 py-1.5 rounded-lg shadow-2xs font-semibold hover:bg-slate-50"
+                    className="mt-2 text-xs bg-white border border-slate-200 text-slate-700 px-3.5 py-1.5 rounded-lg shadow-2xs font-semibold hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     Datei vom Computer auswählen
                   </button>
                 </div>
               ) : (
-                <div className="border border-emerald-200 bg-emerald-50/50 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="border border-emerald-200 bg-emerald-50/50 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-4 dark:border-emerald-800/60 dark:bg-emerald-950/50">
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-20 bg-white border border-emerald-200 rounded-lg shadow-xs overflow-hidden flex items-center justify-center relative group">
+                    <div className="w-16 h-20 bg-white border border-emerald-200 rounded-lg shadow-xs overflow-hidden flex items-center justify-center relative group dark:bg-slate-900 dark:border-emerald-800/60">
                       {formData.customBlankoDataUrl?.startsWith('data:image') ? (
                         <img
                           src={formData.customBlankoDataUrl}
@@ -221,19 +221,19 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <FileText className="w-8 h-8 text-emerald-600" />
+                        <FileText className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
                       )}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
                           <Check className="w-3 h-3" /> Eigene Briefpapier-Vorlage aktiv
                         </span>
                       </div>
-                      <h4 className="text-sm font-bold text-slate-900 mt-1">
+                      <h4 className="text-sm font-bold text-slate-900 mt-1 dark:text-white">
                         {formData.customBlankoFileName || 'Hochgeladenes Vereins-Briefpapier'}
                       </h4>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
                         Wird beim Erstellen und Exportieren aller Sitzungsprotokolle automatisch als Hintergrund verwendet.
                       </p>
                     </div>
@@ -243,14 +243,14 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="text-xs px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                      className="text-xs px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
                     >
                       Ersetzen
                     </button>
                     <button
                       type="button"
                       onClick={handleRemoveBlanko}
-                      className="text-xs px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-lg font-semibold text-rose-700 hover:bg-rose-100 flex items-center gap-1 cursor-pointer"
+                      className="text-xs px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-lg font-semibold text-rose-700 hover:bg-rose-100 flex items-center gap-1 cursor-pointer dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-300 dark:hover:bg-rose-900/40"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       Entfernen
@@ -271,21 +271,21 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
               )}
 
               {/* Standard Briefkopf Vorschau falls kein eigenes */}
-              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <Building className="w-4 h-4 text-slate-600" />
-                    <span className="text-xs font-bold text-slate-800">
+                    <Building className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
                       Standard-Briefkopf des Vereins (Fallback)
                     </span>
                   </div>
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
                     {hasCustomBlanko ? 'Wird durch Briefpapier ersetzt' : 'Aktiv, da kein Briefpapier hinterlegt'}
                   </span>
                 </div>
-                <div className="mt-3 p-3 bg-white border border-slate-200 rounded-lg text-xs space-y-1">
-                  <div className="font-bold text-slate-800">{clubSettings.clubName}</div>
-                  <div className="text-slate-500 text-[11px]">
+                <div className="mt-3 p-3 bg-white border border-slate-200 rounded-lg text-xs space-y-1 dark:bg-slate-900 dark:border-slate-800">
+                  <div className="font-bold text-slate-800 dark:text-slate-100">{clubSettings.clubName}</div>
+                  <div className="text-slate-500 text-[11px] dark:text-slate-400">
                     {clubSettings.associationNumber} • {clubSettings.taxOffice} • St.-Nr.: {clubSettings.taxNumber}
                   </div>
                 </div>
@@ -296,17 +296,17 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
           {/* TAB 2: LAYOUT & RÄNDER */}
           {activeTab === 'layout' && (
             <div className="space-y-6">
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 dark:bg-slate-800 dark:border-slate-800">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 dark:text-slate-100">
                   Druckränder & Abstände (in mm)
                 </h4>
-                <p className="text-xs text-slate-500 mb-4">
+                <p className="text-xs text-slate-500 mb-4 dark:text-slate-400">
                   Passen Sie den oberen Abstand an, falls Ihr Vereins-Briefpapier bereits ein großes Logo oder einen Briefkopf enthält, damit der Protokolltext nicht darübergedruckt wird.
                 </p>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                       Rand Oben (Header)
                     </label>
                     <div className="flex items-center gap-1.5">
@@ -316,14 +316,14 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
                         max={100}
                         value={formData.marginTop}
                         onChange={(e) => setFormData({ ...formData, marginTop: Number(e.target.value) })}
-                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-rose-500"
+                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
                       />
-                      <span className="text-xs text-slate-500 font-mono">mm</span>
+                      <span className="text-xs text-slate-500 font-mono dark:text-slate-400">mm</span>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                       Rand Unten (Footer)
                     </label>
                     <div className="flex items-center gap-1.5">
@@ -333,14 +333,14 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
                         max={80}
                         value={formData.marginBottom}
                         onChange={(e) => setFormData({ ...formData, marginBottom: Number(e.target.value) })}
-                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-rose-500"
+                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
                       />
-                      <span className="text-xs text-slate-500 font-mono">mm</span>
+                      <span className="text-xs text-slate-500 font-mono dark:text-slate-400">mm</span>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                       Rand Links
                     </label>
                     <div className="flex items-center gap-1.5">
@@ -350,14 +350,14 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
                         max={50}
                         value={formData.marginLeft}
                         onChange={(e) => setFormData({ ...formData, marginLeft: Number(e.target.value) })}
-                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-rose-500"
+                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
                       />
-                      <span className="text-xs text-slate-500 font-mono">mm</span>
+                      <span className="text-xs text-slate-500 font-mono dark:text-slate-400">mm</span>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                       Rand Rechts
                     </label>
                     <div className="flex items-center gap-1.5">
@@ -367,17 +367,17 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
                         max={50}
                         value={formData.marginRight}
                         onChange={(e) => setFormData({ ...formData, marginRight: Number(e.target.value) })}
-                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-rose-500"
+                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
                       />
-                      <span className="text-xs text-slate-500 font-mono">mm</span>
+                      <span className="text-xs text-slate-500 font-mono dark:text-slate-400">mm</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Rechtliche Optionen */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 dark:bg-slate-800 dark:border-slate-800">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 dark:text-slate-100">
                   Rechtliche Bestandteile & Ausgabeeinstellungen
                 </h4>
 
@@ -386,13 +386,13 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
                     type="checkbox"
                     checked={formData.showSignaturesBlock}
                     onChange={(e) => setFormData({ ...formData, showSignaturesBlock: e.target.checked })}
-                    className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300"
+                    className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 dark:text-rose-400 dark:border-slate-700"
                   />
                   <div>
-                    <span className="text-xs font-semibold text-slate-800">
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">
                       Offizielle Unterschriftenzeilen am Protokollende drucken
                     </span>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
                       Erzeugt zwei Unterzeichnerzeilen (Versammlungsleiter & Schriftführer) gem. § 58 BGB und Satzungsvorgaben.
                     </p>
                   </div>
@@ -403,13 +403,13 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
                     type="checkbox"
                     checked={formData.showRegisterExtractNotice}
                     onChange={(e) => setFormData({ ...formData, showRegisterExtractNotice: e.target.checked })}
-                    className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300"
+                    className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 dark:text-rose-400 dark:border-slate-700"
                   />
                   <div>
-                    <span className="text-xs font-semibold text-slate-800">
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">
                       Beglaubigungs- und Registervermerk bei Auszügen aktivieren
                     </span>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
                       Wichtig für Notariate und das Amtsgericht (Vereinsregister) bei Vorstandswahlen und Satzungsänderungen.
                     </p>
                   </div>
@@ -420,13 +420,13 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
                     type="checkbox"
                     checked={formData.showClubHeader}
                     onChange={(e) => setFormData({ ...formData, showClubHeader: e.target.checked })}
-                    className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300"
+                    className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 dark:text-rose-400 dark:border-slate-700"
                   />
                   <div>
-                    <span className="text-xs font-semibold text-slate-800">
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">
                       Standard-Vereinskopfzeile drucken (falls kein Briefpapier hinterlegt)
                     </span>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
                       Druckt Vereinsname, Vereinsregisternummer und Steuernummer oben ab.
                     </p>
                   </div>
@@ -436,11 +436,11 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
           )}
 
           {/* Footer Actions */}
-          <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
+          <div className="pt-4 border-t border-slate-200 flex items-center justify-between dark:border-slate-800">
             <button
               type="button"
               onClick={() => setFormData(DEFAULT_MEETING_TEMPLATE)}
-              className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+              className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors dark:text-slate-400 dark:hover:text-slate-100"
             >
               Auf Standardwerte zurücksetzen
             </button>
@@ -449,7 +449,7 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 Abbrechen
               </button>

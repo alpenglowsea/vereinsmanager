@@ -174,15 +174,15 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between dark:bg-slate-800 dark:border-slate-800">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shadow-xs dark:bg-blue-900/40 dark:text-blue-300">
               <Users className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 dark:text-white">
                 <span>Teilnehmer & Einladungs-Zentrale</span>
                 {currentCategory && (
                   <span
@@ -193,28 +193,28 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
                   </span>
                 )}
               </h3>
-              <p className="text-xs text-slate-500 line-clamp-1">{event.title}</p>
+              <p className="text-xs text-slate-500 line-clamp-1 dark:text-slate-400">{event.title}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors dark:hover:text-slate-300 dark:hover:bg-slate-600/60"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Quick Action Bar (Email, Share, iCal) */}
-        <div className="px-6 py-3 bg-blue-50/70 border-b border-blue-100 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-3 text-xs font-semibold text-blue-900">
+        <div className="px-6 py-3 bg-blue-50/70 border-b border-blue-100 flex flex-wrap items-center justify-between gap-2 dark:bg-blue-950/70 dark:border-blue-900/50">
+          <div className="flex items-center gap-3 text-xs font-semibold text-blue-900 dark:text-blue-100">
             <span className="flex items-center gap-1">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> {confirmedCount} Zugesagt
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> {confirmedCount} Zugesagt
             </span>
             <span className="flex items-center gap-1">
-              <Clock className="w-4 h-4 text-amber-600" /> {invitedCount} Ausstehend
+              <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" /> {invitedCount} Ausstehend
             </span>
             <span className="flex items-center gap-1">
-              <XCircle className="w-4 h-4 text-rose-600" /> {declinedCount} Abgesagt
+              <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" /> {declinedCount} Abgesagt
             </span>
           </div>
 
@@ -229,15 +229,15 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
             </button>
             <button
               onClick={handleCopyShareText}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-blue-200 text-blue-800 text-xs font-semibold hover:bg-blue-100/50 shadow-xs transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-blue-200 text-blue-800 text-xs font-semibold hover:bg-blue-100/50 shadow-xs transition-colors dark:bg-slate-900 dark:border-blue-800/60 dark:text-blue-200 dark:hover:bg-blue-900/50"
               title="Einladungstext für WhatsApp, Vereinsgruppe oder Notizen kopieren"
             >
-              {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{isCopied ? 'Kopiert!' : 'Text kopieren'}</span>
             </button>
             <button
               onClick={handleDownloadIcs}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-blue-200 text-blue-800 text-xs font-semibold hover:bg-blue-100/50 shadow-xs transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-blue-200 text-blue-800 text-xs font-semibold hover:bg-blue-100/50 shadow-xs transition-colors dark:bg-slate-900 dark:border-blue-800/60 dark:text-blue-200 dark:hover:bg-blue-900/50"
               title=".ics-Kalenderdatei herunterladen"
             >
               <Download className="w-3.5 h-3.5" />
@@ -249,10 +249,10 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
           {/* Add member section */}
-          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 dark:bg-slate-800 dark:border-slate-800">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <UserPlus className="w-4 h-4 text-blue-600" />
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 dark:text-slate-100">
+                <UserPlus className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 <span>Mitglied aus der Datenbank hinzufügen</span>
               </h4>
 
@@ -260,7 +260,7 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
                 <button
                   type="button"
                   onClick={() => handleAddAllDepartment(event.department!)}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold underline"
+                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold underline dark:text-blue-400 dark:hover:text-blue-200"
                 >
                   + Alle aus Abteilung "{event.department}" einladen
                 </button>
@@ -289,10 +289,10 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
                             } (Ausgewählt)`
                           : `Mitglied suchen... (Name, Sparte, Nr., E-Mail)`
                       }
-                      className={`w-full pl-9 pr-8 py-2 bg-white border rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-hidden transition-all ${
+                      className={`w-full pl-9 pr-8 py-2 bg-white border rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-hidden transition-all dark:bg-slate-800 dark:text-slate-100 ${
                         selectedMemberId
-                          ? 'border-blue-500 bg-blue-50/50 text-blue-900 font-semibold'
-                          : 'border-slate-300'
+                          ? 'border-blue-500 bg-blue-50/50 text-blue-900 font-semibold dark:bg-blue-950/50 dark:text-blue-100'
+                          : 'border-slate-300 dark:border-slate-700'
                       }`}
                     />
                     {(searchTerm || selectedMemberId) && (
@@ -303,7 +303,7 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
                           setSelectedMemberId('');
                           setIsSearchOpen(false);
                         }}
-                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 p-0.5"
+                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 p-0.5 dark:hover:text-slate-300"
                         title="Eingabe löschen"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -314,10 +314,10 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
                   {/* Suggestions dropdown */}
                   {isSearchOpen && (
                     <div
-                      className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto divide-y divide-slate-100"
+                      className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto divide-y divide-slate-100 dark:bg-slate-900 dark:border-slate-800 dark:divide-slate-800"
                       onMouseDown={(e) => e.preventDefault()}
                     >
-                      <div className="px-3 py-2 bg-slate-50 text-[11px] font-semibold text-slate-500 flex justify-between items-center">
+                      <div className="px-3 py-2 bg-slate-50 text-[11px] font-semibold text-slate-500 flex justify-between items-center dark:bg-slate-800 dark:text-slate-400">
                         <span>
                           {searchTerm.trim()
                             ? `${filteredAvailableMembers.length} Treffer gefunden`
@@ -328,16 +328,16 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsSearchOpen(false)}
-                          className="text-slate-400 hover:text-slate-600"
+                          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
 
                       {filteredAvailableMembers.length === 0 ? (
-                        <div className="p-4 text-center text-xs text-slate-500">
+                        <div className="p-4 text-center text-xs text-slate-500 dark:text-slate-400">
                           Kein passendes Mitglied gefunden für &bdquo;
-                          <span className="font-semibold text-slate-700">{searchTerm}</span>&ldquo;
+                          <span className="font-semibold text-slate-700 dark:text-slate-200">{searchTerm}</span>&ldquo;
                         </div>
                       ) : (
                         filteredAvailableMembers.slice(0, 15).map((m) => (
@@ -348,21 +348,21 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
                               setSearchTerm(`${m.firstName} ${m.lastName}`);
                               setIsSearchOpen(false);
                             }}
-                            className={`p-2.5 flex items-center justify-between hover:bg-blue-50 cursor-pointer transition-colors ${
-                              selectedMemberId === m.id ? 'bg-blue-50/80 font-medium' : ''
+                            className={`p-2.5 flex items-center justify-between hover:bg-blue-50 cursor-pointer transition-colors dark:hover:bg-blue-950/40 ${
+                              selectedMemberId === m.id ? 'bg-blue-50/80 font-medium dark:bg-blue-950/80' : ''
                             }`}
                           >
                             <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                              <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0">
+                              <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0 dark:bg-blue-900/40 dark:text-blue-300">
                                 {m.firstName.charAt(0)}
                                 {m.lastName.charAt(0)}
                               </div>
                               <div className="min-w-0">
-                                <div className="text-xs font-bold text-slate-900 truncate">
+                                <div className="text-xs font-bold text-slate-900 truncate dark:text-white">
                                   {m.firstName} {m.lastName}
                                 </div>
-                                <div className="text-[10px] text-slate-500 flex items-center gap-1.5 truncate">
-                                  <span className="px-1.5 py-0.2 bg-slate-100 rounded text-slate-600 font-medium">
+                                <div className="text-[10px] text-slate-500 flex items-center gap-1.5 truncate dark:text-slate-400">
+                                  <span className="px-1.5 py-0.2 bg-slate-100 rounded text-slate-600 font-medium dark:bg-slate-700 dark:text-slate-300">
                                     {m.department || 'Keine Sparte'}
                                   </span>
                                   {m.memberNumber && <span>#{m.memberNumber}</span>}
@@ -377,7 +377,7 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
                                 e.stopPropagation();
                                 handleAddParticipant(m.id);
                               }}
-                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1 shrink-0"
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1 shrink-0 dark:bg-blue-950/40 dark:text-blue-300"
                               title="Direkt mit gewählter Rolle hinzufügen"
                             >
                               <UserPlus className="w-3 h-3" />
@@ -394,7 +394,7 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
                   <select
                     value={selectedRole}
                     onChange={(e) => setSelectedRole(e.target.value as ParticipantRole)}
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-hidden"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-hidden dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                   >
                     <option value="participant">Teilnehmer</option>
                     <option value="organizer">Organisator / Leitung</option>
@@ -422,7 +422,7 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
           {/* Participant Table */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">
                 Teilnehmerliste ({participants.length})
               </h4>
               {participants.length > 0 && (
@@ -433,28 +433,28 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
             </div>
 
             {participants.length === 0 ? (
-              <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500">
+              <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400">
                 <Users className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-                <p className="text-sm font-semibold text-slate-700">Noch keine Teilnehmer hinzugefügt</p>
-                <p className="text-xs text-slate-500 mt-1">Wählen Sie oben Mitglieder aus, um sie diesem Termin zuzuordnen.</p>
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Noch keine Teilnehmer hinzugefügt</p>
+                <p className="text-xs text-slate-500 mt-1 dark:text-slate-400">Wählen Sie oben Mitglieder aus, um sie diesem Termin zuzuordnen.</p>
               </div>
             ) : (
-              <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs divide-y divide-slate-100">
+              <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs divide-y divide-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:divide-slate-800">
                 {participants.map((p) => {
                   return (
                     <div
                       key={p.memberId}
-                      className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition-colors"
+                      className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition-colors dark:hover:bg-slate-800"
                     >
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-700 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-700 shrink-0 dark:bg-slate-700 dark:border-slate-800 dark:text-slate-200">
                           {p.memberName.split(' ').map((n) => n[0]).join('').substring(0, 2)}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-slate-900">{p.memberName}</span>
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">{p.memberName}</span>
                             {p.memberDepartment && (
-                              <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                              <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md dark:text-slate-300 dark:bg-slate-700">
                                 {p.memberDepartment}
                               </span>
                             )}
@@ -470,7 +470,7 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
                         <select
                           value={p.role}
                           onChange={(e) => handleChangeRole(p.memberId, e.target.value as ParticipantRole)}
-                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-hidden"
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-hidden dark:bg-slate-700 dark:hover:bg-slate-600 dark:border-slate-800 dark:text-slate-200"
                         >
                           <option value="participant">Teilnehmer</option>
                           <option value="organizer">Organisator</option>
@@ -485,12 +485,12 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
                           onChange={(e) => handleChangeStatus(p.memberId, e.target.value as ParticipantStatus)}
                           className={`px-2.5 py-1 border rounded-lg text-xs font-bold outline-hidden ${
                             p.status === 'confirmed'
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-700/60'
                               : p.status === 'declined'
-                              ? 'bg-rose-50 text-rose-800 border-rose-300'
+                              ? 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-700/60'
                               : p.status === 'attended'
-                              ? 'bg-purple-50 text-purple-800 border-purple-300'
-                              : 'bg-amber-50 text-amber-800 border-amber-300'
+                              ? 'bg-purple-50 text-purple-800 border-purple-300 dark:bg-purple-950/40 dark:text-purple-200 dark:border-purple-700/60'
+                              : 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-700/60'
                           }`}
                         >
                           <option value="invited">Eingeladen / Offen</option>
@@ -503,7 +503,7 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleRemoveParticipant(p.memberId)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors dark:hover:text-red-400 dark:hover:bg-red-950/40"
                           title="Entfernen"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -518,14 +518,14 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-          <div className="text-xs text-slate-500">
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between dark:bg-slate-800 dark:border-slate-800">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
             {participants.length} Personen erfasst
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-300 transition-colors"
+              className="px-4 py-2 rounded-xl bg-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-300 transition-colors dark:bg-slate-600 dark:text-slate-200 dark:hover:bg-slate-500"
             >
               Abbrechen
             </button>

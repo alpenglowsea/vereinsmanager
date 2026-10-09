@@ -93,7 +93,7 @@ export const SortableResizableTh: React.FC<SortableResizableThProps> = ({
   onResizeStart,
   onAutoFit,
   className = '',
-  headerBg = 'bg-slate-50',
+  headerBg = 'bg-slate-50 dark:bg-slate-800',
   draggable = true,
   isDragging = false,
   isDragOver = false,
@@ -116,7 +116,7 @@ export const SortableResizableTh: React.FC<SortableResizableThProps> = ({
       onDragEnd={draggable ? onColDragEnd : undefined}
       onContextMenu={onContextMenu}
       title={draggable ? 'Ziehen: Spalte verschieben · Rechtsklick: Spalten ein-/ausblenden' : 'Rechtsklick: Spalten ein-/ausblenden'}
-      className={`relative px-4 py-3 select-none sticky top-0 z-10 ${headerBg} border-b border-slate-200 ${textAlign} ${
+      className={`relative px-4 py-3 select-none sticky top-0 z-10 ${headerBg} border-b border-slate-200 dark:border-slate-800 ${textAlign} ${
         draggable ? 'cursor-grab active:cursor-grabbing' : ''
       } ${isDragging ? 'opacity-40' : ''} ${
         isDragOver ? 'outline outline-2 -outline-offset-2 outline-blue-500' : ''
@@ -125,7 +125,7 @@ export const SortableResizableTh: React.FC<SortableResizableThProps> = ({
       <div
         onClick={sortable ? onSort : undefined}
         title={sortable ? sortTitle : undefined}
-        className={`inline-flex items-center gap-1 ${sortable ? 'cursor-pointer group/th hover:text-slate-900' : ''} transition-colors w-[calc(100%-10px)] ${justify}`}
+        className={`inline-flex items-center gap-1 ${sortable ? 'cursor-pointer group/th hover:text-slate-900 dark:hover:text-white' : ''} transition-colors w-[calc(100%-10px)] ${justify}`}
       >
         {/* min-w-0 ist hier bewusst und nicht nur Kosmetik: Ohne diese Angabe
             verlässt sich das Abschneiden (truncate) auf eine Regel, nach der
@@ -142,7 +142,7 @@ export const SortableResizableTh: React.FC<SortableResizableThProps> = ({
         {sortable && (
           <span
             className={`inline-flex items-center shrink-0 transition-colors ${
-              active ? 'text-blue-600 font-bold' : 'text-slate-300 opacity-60 group-hover/th:opacity-100'
+              active ? 'text-blue-600 font-bold dark:text-blue-400' : 'text-slate-300 opacity-60 group-hover/th:opacity-100'
             }`}
           >
             {active ? (

@@ -252,37 +252,37 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
     switch (status) {
       case 'approved':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-200 dark:border-emerald-800/60">
             <Check className="w-3 h-3" /> Genehmigt & Gültig
           </span>
         );
       case 'review':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800/60">
             <Clock className="w-3 h-3" /> In Vorprüfung
           </span>
         );
       case 'draft':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-800">
             <FileText className="w-3 h-3" /> Protokoll-Entwurf
           </span>
         );
       case 'in_progress':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/40 dark:text-blue-200 dark:border-blue-800/60">
             <Clock className="w-3 h-3" /> In Durchführung
           </span>
         );
       case 'scheduled':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-200 dark:border-indigo-800/60">
             <Calendar className="w-3 h-3" /> Einberufen / Geplant
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
             {status}
           </span>
         );
@@ -293,31 +293,31 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
     switch (type) {
       case 'board':
         return (
-          <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-100 text-purple-800">
+          <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200">
             Vorstandssitzung
           </span>
         );
       case 'general_assembly':
         return (
-          <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-rose-100 text-rose-800">
+          <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200">
             Mitgliederversammlung
           </span>
         );
       case 'extraordinary_assembly':
         return (
-          <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-orange-100 text-orange-800">
+          <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200">
             Außerordentliche MV
           </span>
         );
       case 'committee':
         return (
-          <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-100 text-blue-800">
+          <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
             Ausschuss / Fachbereich
           </span>
         );
       default:
         return (
-          <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700">
+          <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
             Sitzung
           </span>
         );
@@ -328,16 +328,16 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
     <div className="space-y-6">
 
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs dark:bg-slate-900 dark:border-slate-800">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shadow-xs">
+          <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shadow-xs dark:bg-rose-950/40 dark:text-rose-400">
             <ScrollText className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white">
               Sitzungs- & Protokolldienst
             </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
               Vorstandssitzungen & Mitgliederversammlungen rechtssicher protokollieren.
             </p>
           </div>
@@ -358,60 +358,60 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs dark:bg-slate-900 dark:border-slate-800">
+          <div className="flex items-center justify-between text-slate-500 mb-1 dark:text-slate-400">
             <span className="text-xs font-semibold">Sitzungen gesamt</span>
             <Calendar className="w-4 h-4 text-slate-400" />
           </div>
-          <div className="text-2xl font-black text-slate-900">{stats.total}</div>
-          <div className="text-[11px] text-slate-500 mt-1">
+          <div className="text-2xl font-black text-slate-900 dark:text-white">{stats.total}</div>
+          <div className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">
             {stats.boardMeetings} Vorstandssitzungen • {stats.generalAssemblies} Versammlungen
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs dark:bg-slate-900 dark:border-slate-800">
+          <div className="flex items-center justify-between text-slate-500 mb-1 dark:text-slate-400">
             <span className="text-xs font-semibold">Beschlüsse gefasst</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
           </div>
-          <div className="text-2xl font-black text-emerald-600">{stats.totalResolutions}</div>
-          <div className="text-[11px] text-slate-500 mt-1">
+          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{stats.totalResolutions}</div>
+          <div className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">
             Rechtskräftig in Protokollen protokolliert
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs dark:bg-slate-900 dark:border-slate-800">
+          <div className="flex items-center justify-between text-slate-500 mb-1 dark:text-slate-400">
             <span className="text-xs font-semibold">Finanzamt-relevant</span>
             <Building className="w-4 h-4 text-blue-500" />
           </div>
-          <div className="text-2xl font-black text-blue-600">{stats.taxResolutions}</div>
-          <div className="text-[11px] text-slate-500 mt-1">
+          <div className="text-2xl font-black text-blue-600 dark:text-blue-400">{stats.taxResolutions}</div>
+          <div className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">
             z.B. Ehrenamtspauschalen, Mittel & Rücklagen
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs dark:bg-slate-900 dark:border-slate-800">
+          <div className="flex items-center justify-between text-slate-500 mb-1 dark:text-slate-400">
             <span className="text-xs font-semibold">Vereinsregister / Notar</span>
             <Scale className="w-4 h-4 text-rose-500" />
           </div>
-          <div className="text-2xl font-black text-rose-600">{stats.registerResolutions}</div>
-          <div className="text-[11px] text-slate-500 mt-1">
+          <div className="text-2xl font-black text-rose-600 dark:text-rose-400">{stats.registerResolutions}</div>
+          <div className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">
             Wahlen gem. § 26 BGB & Satzungsbeschlüsse
           </div>
         </div>
       </div>
 
       {/* Navigation Tabs */}
-      <div className="border-b border-slate-200 flex items-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar">
+      <div className="border-b border-slate-200 flex items-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar dark:border-slate-800">
         <button
           type="button"
           onClick={() => setActiveTab('meetings')}
           className={`py-3 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2 whitespace-nowrap shrink-0 ${
             activeTab === 'meetings'
-              ? 'border-rose-600 text-rose-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-rose-600 text-rose-600 dark:text-rose-400'
+              : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
           }`}
         >
           <ScrollText className="w-4 h-4 shrink-0" />
@@ -423,8 +423,8 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
           onClick={() => setActiveTab('resolutions')}
           className={`py-3 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2 whitespace-nowrap shrink-0 ${
             activeTab === 'resolutions'
-              ? 'border-rose-600 text-rose-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-rose-600 text-rose-600 dark:text-rose-400'
+              : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
           }`}
         >
           <BookOpen className="w-4 h-4 shrink-0" />
@@ -436,8 +436,8 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
           onClick={() => setActiveTab('template')}
           className={`py-3 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2 whitespace-nowrap shrink-0 ${
             activeTab === 'template'
-              ? 'border-rose-600 text-rose-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-rose-600 text-rose-600 dark:text-rose-400'
+              : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
           }`}
         >
           <Sliders className="w-4 h-4 shrink-0" />
@@ -449,7 +449,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
       {activeTab === 'meetings' && (
         <div className="space-y-4">
           {/* Filter Bar */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <div className="relative flex-1 sm:w-64">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
@@ -458,14 +458,14 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                   placeholder="Sitzung, TOP, Beschluss suchen..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-rose-500"
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100 dark:focus:bg-slate-800"
                 />
               </div>
 
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
-                className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700"
+                className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
               >
                 <option value="all">Alle Sitzungsarten</option>
                 <option value="board">Vorstandssitzungen</option>
@@ -477,7 +477,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700"
+                className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
               >
                 <option value="all">Alle Status</option>
                 <option value="scheduled">Geplant / Einberufen</option>
@@ -487,17 +487,17 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
               </select>
             </div>
 
-            <div className="text-xs text-slate-500">
+            <div className="text-xs text-slate-500 dark:text-slate-400">
               {filteredMeetings.length} von {meetings.length} Sitzungen
             </div>
           </div>
 
           {/* Meeting Cards List */}
           {filteredMeetings.length === 0 ? (
-            <div className="bg-white p-12 text-center rounded-2xl border border-slate-200 space-y-3">
+            <div className="bg-white p-12 text-center rounded-2xl border border-slate-200 space-y-3 dark:bg-slate-900 dark:border-slate-800">
               <ScrollText className="w-10 h-10 text-slate-300 mx-auto" />
-              <h4 className="text-sm font-bold text-slate-700">Keine Sitzungen gefunden</h4>
-              <p className="text-xs text-slate-500 max-w-md mx-auto">
+              <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">Keine Sitzungen gefunden</h4>
+              <p className="text-xs text-slate-500 max-w-md mx-auto dark:text-slate-400">
                 Legen Sie eine neue Vorstandssitzung oder Mitgliederversammlung an, um die Tagesordnung und Beschlüsse rechtssicher zu dokumentieren.
               </p>
               <button
@@ -524,7 +524,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                 return (
                   <div
                     key={m.id}
-                    className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs hover:border-slate-300 transition-all space-y-4"
+                    className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs hover:border-slate-300 transition-all space-y-4 dark:bg-slate-800 dark:border-slate-800 dark:hover:border-slate-700"
                   >
                     {/* Obere Leiste: Status-Badges & Aktions-Buttons */}
                     <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -532,13 +532,13 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                         {getTypeBadge(m.type)}
                         {getStatusBadge(m.status)}
                         {m.quorumConfirmed && (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-                            <ShieldCheck className="w-3 h-3 text-emerald-600" /> Beschlussfähig
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded dark:text-slate-300 dark:bg-slate-700">
+                            <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> Beschlussfähig
                           </span>
                         )}
                         {m.invitationCompliant && (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-                            <Check className="w-3 h-3 text-emerald-600" /> Fristgerecht geladen
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded dark:text-slate-300 dark:bg-slate-700">
+                            <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> Fristgerecht geladen
                           </span>
                         )}
 
@@ -547,17 +547,17 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                           <button
                             type="button"
                             onClick={() => setSignatureModalMeeting(m)}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full transition-colors cursor-pointer dark:text-emerald-200 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 dark:border-emerald-800/60"
                             title="Digitale Signaturen einsehen oder aktualisieren"
                           >
-                            <PenTool className="w-3 h-3 text-emerald-600" />
+                            <PenTool className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                             <span>{m.signatures.length}/2 digital signiert</span>
                           </button>
                         ) : (
                           <button
                             type="button"
                             onClick={() => setSignatureModalMeeting(m)}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full transition-colors cursor-pointer shadow-2xs"
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full transition-colors cursor-pointer shadow-2xs dark:text-slate-300 dark:hover:text-white dark:bg-slate-900 dark:hover:bg-slate-800 dark:border-slate-800"
                             title="Protokoll am PC mit Maus oder am Smartphone mit Finger digital unterzeichnen"
                           >
                             <PenTool className="w-3 h-3 text-rose-500" />
@@ -577,10 +577,10 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                               mode: m.status === 'approved' ? 'protocol' : 'invitation'
                             })
                           }
-                          className="h-7 px-2.5 text-xs font-semibold text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs whitespace-nowrap shrink-0"
+                          className="h-7 px-2.5 text-xs font-semibold text-slate-600 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs whitespace-nowrap shrink-0 dark:text-slate-300 dark:hover:text-rose-300 dark:hover:bg-rose-950/40 dark:border-slate-800 dark:hover:border-rose-800/60"
                           title="Einladung oder Protokoll per E-Mail an Mitglieder/Teilnehmer versenden (DSGVO-konform mit BCC)"
                         >
-                          <Mail className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                          <Mail className="w-3.5 h-3.5 text-rose-600 shrink-0 dark:text-rose-400" />
                           <span>E-Mail versenden</span>
                         </button>
 
@@ -591,7 +591,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                               onDeleteMeeting(m.id);
                             }
                           }}
-                          className="h-7 w-7 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors flex items-center justify-center cursor-pointer shrink-0"
+                          className="h-7 w-7 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors flex items-center justify-center cursor-pointer shrink-0 dark:hover:text-rose-400 dark:hover:bg-rose-950/40"
                           title="Sitzung löschen"
                         >
                           <Trash2 className="w-4 h-4 shrink-0" />
@@ -601,11 +601,11 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
 
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 min-w-0">
                       <div className="space-y-1 min-w-0 flex-1">
-                        <h3 className="text-base font-bold text-slate-900 mt-0.5 break-words">
+                        <h3 className="text-base font-bold text-slate-900 mt-0.5 break-words dark:text-white">
                           {m.title}
                         </h3>
 
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 pt-0.5">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 pt-0.5 dark:text-slate-400">
                           <span className="flex items-center gap-1 shrink-0">
                             <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             {new Date(m.date).toLocaleDateString('de-DE', {
@@ -637,10 +637,10 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                             type="button"
                             onClick={() => handleDownloadInvitationPdf(m)}
                             disabled={generatingInvitationId === m.id}
-                            className="h-8.5 px-3 text-xs font-semibold bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs min-w-0"
+                            className="h-8.5 px-3 text-xs font-semibold bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs min-w-0 dark:bg-slate-900 dark:border-rose-800/60 dark:text-rose-300 dark:hover:bg-rose-950/40"
                             title="Form- und fristgerechtes Einladungsschreiben mit Tagesordnung gem. § 32 BGB als PDF herunterladen"
                           >
-                            <Mail className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                            <Mail className="w-3.5 h-3.5 text-rose-600 shrink-0 dark:text-rose-400" />
                             <span className="truncate">{generatingInvitationId === m.id ? 'Erzeuge...' : 'Einladung'}</span>
                           </button>
 
@@ -648,10 +648,10 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                             type="button"
                             onClick={() => handleInitiateDownloadPdf(m, false)}
                             disabled={generatingPdfId === m.id}
-                            className="h-8.5 px-3 text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs min-w-0"
+                            className="h-8.5 px-3 text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs min-w-0 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60 dark:hover:bg-rose-900/40"
                             title="Vollständiges Sitzungsprotokoll als PDF herunterladen"
                           >
-                            <Download className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+                            <Download className="w-3.5 h-3.5 shrink-0 text-rose-600 dark:text-rose-400" />
                             <span className="truncate">{generatingPdfId === m.id ? 'Erzeuge...' : 'Protokoll'}</span>
                           </button>
                         </div>
@@ -664,20 +664,20 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                                 type="button"
                                 onClick={() => handleInitiateDownloadPdf(m, true)}
                                 disabled={generatingPdfId === m.id}
-                                className="h-8.5 px-2.5 text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer min-w-0"
+                                className="h-8.5 px-2.5 text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer min-w-0 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
                                 title="Auszug für Notar / Amtsgericht (Vereinsregister)"
                               >
-                                <Scale className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                                <Scale className="w-3.5 h-3.5 text-rose-600 shrink-0 dark:text-rose-400" />
                                 <span className="truncate">{generatingPdfId === m.id ? 'Erzeuge...' : 'Register-Auszug'}</span>
                               </button>
 
                               <button
                                 type="button"
                                 onClick={() => handleEditMeeting(m)}
-                                className="h-8.5 px-3 text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs min-w-0"
+                                className="h-8.5 px-3 text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs min-w-0 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
                                 title="Sitzung und Protokolldaten bearbeiten"
                               >
-                                <Edit className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+                                <Edit className="w-3.5 h-3.5 shrink-0 text-slate-500 dark:text-slate-400" />
                                 <span className="truncate">Bearbeiten</span>
                               </button>
                             </>
@@ -685,10 +685,10 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                             <button
                               type="button"
                               onClick={() => handleEditMeeting(m)}
-                              className="col-span-2 h-8.5 px-3 text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs min-w-0"
+                              className="col-span-2 h-8.5 px-3 text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs min-w-0 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
                               title="Sitzung und Protokolldaten bearbeiten"
                             >
-                              <Edit className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+                              <Edit className="w-3.5 h-3.5 shrink-0 text-slate-500 dark:text-slate-400" />
                               <span className="truncate">Bearbeiten</span>
                             </button>
                           )}
@@ -697,10 +697,10 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                     </div>
 
                     {/* TOPs & Resolutions Preview */}
-                    <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3.5 space-y-2">
-                      <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3.5 space-y-2 dark:bg-slate-800/70 dark:border-slate-800">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-200">
                         <span>Tagesordnung ({m.agenda.length} Punkte)</span>
-                        <span className="text-slate-500 font-normal">
+                        <span className="text-slate-500 font-normal dark:text-slate-400">
                           {totalResolutionsInMeeting} {totalResolutionsInMeeting === 1 ? 'Beschluss' : 'Beschlüsse'} gefasst
                         </span>
                       </div>
@@ -711,12 +711,12 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                           return (
                             <div
                               key={top.id}
-                              className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs flex items-center gap-1.5 text-slate-700"
+                              className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs flex items-center gap-1.5 text-slate-700 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200"
                             >
-                              <span className="font-bold text-slate-900">{top.number}</span>
+                              <span className="font-bold text-slate-900 dark:text-white">{top.number}</span>
                               <span className="truncate max-w-[220px]">{top.title}</span>
                               {resCount > 0 && (
-                                <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                                <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px] dark:bg-emerald-900/40 dark:text-emerald-200">
                                   {resCount} Beschl.
                                 </span>
                               )}
@@ -736,7 +736,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
       {/* TAB 2: BESCHLUSSBUCH / REGISTER */}
       {activeTab === 'resolutions' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <div className="relative flex-1 sm:w-72">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
@@ -745,16 +745,16 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                   placeholder="Beschlüsse & Anträge filtern..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-rose-500"
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100 dark:focus:bg-slate-800"
                 />
               </div>
 
-              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-xs font-semibold">
+              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-xs font-semibold dark:bg-slate-700">
                 <button
                   type="button"
                   onClick={() => setResolutionFilter('all')}
                   className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
-                    resolutionFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                    resolutionFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-900 dark:text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
                   }`}
                 >
                   Alle ({allResolutions.length})
@@ -763,7 +763,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                   type="button"
                   onClick={() => setResolutionFilter('tax')}
                   className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
-                    resolutionFilter === 'tax' ? 'bg-white text-blue-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
+                    resolutionFilter === 'tax' ? 'bg-white text-blue-700 shadow-2xs font-bold dark:bg-slate-900 dark:text-blue-300' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
                   }`}
                 >
                   Finanzamt ({stats.taxResolutions})
@@ -772,7 +772,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                   type="button"
                   onClick={() => setResolutionFilter('register')}
                   className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
-                    resolutionFilter === 'register' ? 'bg-white text-rose-700 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
+                    resolutionFilter === 'register' ? 'bg-white text-rose-700 shadow-2xs font-bold dark:bg-slate-900 dark:text-rose-300' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
                   }`}
                 >
                   Vereinsregister ({stats.registerResolutions})
@@ -780,16 +780,16 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
               </div>
             </div>
 
-            <div className="text-xs text-slate-500">
+            <div className="text-xs text-slate-500 dark:text-slate-400">
               {filteredResolutions.length} gefasste Beschlüsse im Archiv
             </div>
           </div>
 
           {/* Resolutions Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs dark:bg-slate-900 dark:border-slate-800">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[750px] text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold dark:bg-slate-800 dark:border-slate-800 dark:text-slate-400">
                   <tr>
                     <th className="px-4 py-3">Datum & Sitzung</th>
                     <th className="px-4 py-3">TOP</th>
@@ -800,41 +800,41 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                     <th className="px-4 py-3">Verantwortlich</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                   {filteredResolutions.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/60">
+                    <tr key={idx} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
                       <td className="px-4 py-3">
-                        <div className="font-bold text-slate-900">
+                        <div className="font-bold text-slate-900 dark:text-white">
                           {new Date(item.meeting.date).toLocaleDateString('de-DE')}
                         </div>
-                        <div className="text-[11px] text-slate-500">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
                           {item.meeting.title}
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-bold text-slate-700">
+                      <td className="px-4 py-3 font-bold text-slate-700 dark:text-slate-200">
                         {item.agendaNumber}
                       </td>
                       <td className="px-4 py-3 max-w-md">
-                        <div className="font-bold text-slate-900">{item.resolution.title}</div>
-                        <div className="text-slate-600 italic text-[11px] line-clamp-2 mt-0.5">
+                        <div className="font-bold text-slate-900 dark:text-white">{item.resolution.title}</div>
+                        <div className="text-slate-600 italic text-[11px] line-clamp-2 mt-0.5 dark:text-slate-300">
                           "{item.resolution.motionText}"
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center font-mono">
-                        <span className="text-emerald-700 font-bold">{item.resolution.votesFor}</span>
+                        <span className="text-emerald-700 font-bold dark:text-emerald-300">{item.resolution.votesFor}</span>
                         <span className="text-slate-400 mx-1">/</span>
-                        <span className="text-rose-700 font-bold">{item.resolution.votesAgainst}</span>
+                        <span className="text-rose-700 font-bold dark:text-rose-300">{item.resolution.votesAgainst}</span>
                         <span className="text-slate-400 mx-1">/</span>
-                        <span className="text-slate-500">{item.resolution.votesAbstain}</span>
+                        <span className="text-slate-500 dark:text-slate-400">{item.resolution.votesAbstain}</span>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
                             item.resolution.result === 'accepted'
-                              ? 'bg-emerald-100 text-emerald-800'
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
                               : item.resolution.result === 'rejected'
-                              ? 'bg-rose-100 text-rose-800'
-                              : 'bg-amber-100 text-amber-800'
+                              ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200'
+                              : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
                           }`}
                         >
                           {item.resolution.result === 'accepted'
@@ -847,12 +847,12 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                       <td className="px-4 py-3">
                         <div className="flex flex-col gap-1">
                           {item.resolution.isTaxRelevant && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 dark:text-blue-200 dark:bg-blue-950/40 dark:border-blue-800/60">
                               Finanzamt / EÜR
                             </span>
                           )}
                           {item.resolution.isRegisterRelevant && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-800 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-800 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 dark:text-rose-200 dark:bg-rose-950/40 dark:border-rose-800/60">
                               Vereinsregister § 26
                             </span>
                           )}
@@ -861,7 +861,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-[11px] text-slate-600">
+                      <td className="px-4 py-3 text-[11px] text-slate-600 dark:text-slate-300">
                         {item.resolution.responsiblePerson || '–'}
                         {item.resolution.dueDate && (
                           <div className="text-slate-400 text-[10px]">
@@ -880,13 +880,13 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
 
       {/* TAB 3: VORLAGEN & BRIEFPAPIER */}
       {activeTab === 'template' && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-5">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6 dark:bg-slate-900 dark:border-slate-800">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-5 dark:border-slate-800">
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 Briefpapier- & Layoutkonfiguration für Vereinsprotokolle
               </h3>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-slate-500 mt-1 dark:text-slate-400">
                 Laden Sie Ihr offizielles Vereins-Briefpapier hoch oder passen Sie Ränder und Kopfzeilen an.
               </p>
             </div>
@@ -902,51 +902,51 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4">
-              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-2">
-                <span className="text-xs font-bold text-slate-800">Aktueller Status der Vorlage:</span>
+              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-2 dark:border-slate-800 dark:bg-slate-800">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-100">Aktueller Status der Vorlage:</span>
                 <div className="flex items-center gap-3">
                   {templateSettings.customBlankoDataUrl ? (
-                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1.5 rounded-lg">
+                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1.5 rounded-lg dark:text-emerald-300 dark:bg-emerald-900/40">
                       <Check className="w-4 h-4" />
                       Eigenes Briefpapier aktiv ({templateSettings.customBlankoFileName || 'Briefpapier.png'})
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700 bg-slate-200 px-3 py-1.5 rounded-lg">
-                      <Building className="w-4 h-4 text-slate-600" />
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700 bg-slate-200 px-3 py-1.5 rounded-lg dark:text-slate-200 dark:bg-slate-600">
+                      <Building className="w-4 h-4 text-slate-600 dark:text-slate-300" />
                       Standard-Vereinsbriefkopf aktiv (Kein Briefpapier hochgeladen)
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="border border-slate-200 rounded-xl p-4 space-y-3">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              <div className="border border-slate-200 rounded-xl p-4 space-y-3 dark:border-slate-800">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider dark:text-slate-100">
                   Druckränder & Layout-Parameter
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                  <div className="p-2.5 bg-slate-50 rounded-lg">
-                    <span className="text-slate-500 block text-[10px]">Oberer Rand (Header)</span>
-                    <span className="font-bold text-slate-900">{templateSettings.marginTop} mm</span>
+                  <div className="p-2.5 bg-slate-50 rounded-lg dark:bg-slate-800">
+                    <span className="text-slate-500 block text-[10px] dark:text-slate-400">Oberer Rand (Header)</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{templateSettings.marginTop} mm</span>
                   </div>
-                  <div className="p-2.5 bg-slate-50 rounded-lg">
-                    <span className="text-slate-500 block text-[10px]">Unterer Rand (Footer)</span>
-                    <span className="font-bold text-slate-900">{templateSettings.marginBottom} mm</span>
+                  <div className="p-2.5 bg-slate-50 rounded-lg dark:bg-slate-800">
+                    <span className="text-slate-500 block text-[10px] dark:text-slate-400">Unterer Rand (Footer)</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{templateSettings.marginBottom} mm</span>
                   </div>
-                  <div className="p-2.5 bg-slate-50 rounded-lg">
-                    <span className="text-slate-500 block text-[10px]">Linker Rand</span>
-                    <span className="font-bold text-slate-900">{templateSettings.marginLeft} mm</span>
+                  <div className="p-2.5 bg-slate-50 rounded-lg dark:bg-slate-800">
+                    <span className="text-slate-500 block text-[10px] dark:text-slate-400">Linker Rand</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{templateSettings.marginLeft} mm</span>
                   </div>
-                  <div className="p-2.5 bg-slate-50 rounded-lg">
-                    <span className="text-slate-500 block text-[10px]">Rechter Rand</span>
-                    <span className="font-bold text-slate-900">{templateSettings.marginRight} mm</span>
+                  <div className="p-2.5 bg-slate-50 rounded-lg dark:bg-slate-800">
+                    <span className="text-slate-500 block text-[10px] dark:text-slate-400">Rechter Rand</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{templateSettings.marginRight} mm</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Visual Mini Preview */}
-            <div className="border border-slate-200 rounded-xl p-4 bg-slate-100 flex flex-col items-center justify-center text-center">
-              <div className="w-44 h-60 bg-white border border-slate-300 rounded-lg shadow-md p-3 relative overflow-hidden flex flex-col justify-between">
+            <div className="border border-slate-200 rounded-xl p-4 bg-slate-100 flex flex-col items-center justify-center text-center dark:border-slate-800 dark:bg-slate-700">
+              <div className="w-44 h-60 bg-white border border-slate-300 rounded-lg shadow-md p-3 relative overflow-hidden flex flex-col justify-between dark:bg-slate-800 dark:border-slate-700">
                 {templateSettings.customBlankoDataUrl ? (
                   <img
                     src={templateSettings.customBlankoDataUrl}
@@ -954,23 +954,23 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                     className="absolute inset-0 w-full h-full object-cover opacity-90"
                   />
                 ) : (
-                  <div className="border-b border-slate-200 pb-1 text-left">
-                    <div className="w-12 h-1.5 bg-slate-300 rounded mb-1"></div>
-                    <div className="w-24 h-1 bg-slate-200 rounded"></div>
+                  <div className="border-b border-slate-200 pb-1 text-left dark:border-slate-800">
+                    <div className="w-12 h-1.5 bg-slate-300 rounded mb-1 dark:bg-slate-500"></div>
+                    <div className="w-24 h-1 bg-slate-200 rounded dark:bg-slate-600"></div>
                   </div>
                 )}
                 <div className="relative z-10 text-left space-y-1.5">
-                  <div className="w-20 h-2 bg-rose-200 rounded"></div>
-                  <div className="w-32 h-1 bg-slate-300 rounded"></div>
-                  <div className="w-28 h-1 bg-slate-300 rounded"></div>
-                  <div className="w-36 h-1 bg-slate-200 rounded"></div>
+                  <div className="w-20 h-2 bg-rose-200 rounded dark:bg-rose-900/60"></div>
+                  <div className="w-32 h-1 bg-slate-300 rounded dark:bg-slate-500"></div>
+                  <div className="w-28 h-1 bg-slate-300 rounded dark:bg-slate-500"></div>
+                  <div className="w-36 h-1 bg-slate-200 rounded dark:bg-slate-600"></div>
                 </div>
-                <div className="relative z-10 border-t border-slate-200 pt-1 flex justify-between">
-                  <div className="w-8 h-1 bg-slate-300 rounded"></div>
-                  <div className="w-8 h-1 bg-slate-300 rounded"></div>
+                <div className="relative z-10 border-t border-slate-200 pt-1 flex justify-between dark:border-slate-800">
+                  <div className="w-8 h-1 bg-slate-300 rounded dark:bg-slate-500"></div>
+                  <div className="w-8 h-1 bg-slate-300 rounded dark:bg-slate-500"></div>
                 </div>
               </div>
-              <span className="text-[11px] font-semibold text-slate-500 mt-3">
+              <span className="text-[11px] font-semibold text-slate-500 mt-3 dark:text-slate-400">
                 DIN A4 Vorschau ({templateSettings.customBlankoDataUrl ? 'Mit eigenem Briefpapier' : 'Standard-Layout'})
               </span>
             </div>
@@ -1000,17 +1000,17 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
       {/* PDF Download Choice Modal (if meeting has digital signatures) */}
       {downloadChoice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 p-6 space-y-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 p-6 space-y-4 dark:bg-slate-900 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center dark:bg-rose-900/40 dark:text-rose-300">
                   <FileText className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                     PDF-Download Optionen
                   </h3>
-                  <p className="text-xs text-slate-500 truncate max-w-[240px]">
+                  <p className="text-xs text-slate-500 truncate max-w-[240px] dark:text-slate-400">
                     {downloadChoice.isExtract ? 'Registerauszug' : 'Protokoll'}: {downloadChoice.meeting.title}
                   </p>
                 </div>
@@ -1018,13 +1018,13 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
               <button
                 type="button"
                 onClick={() => setDownloadChoice(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer dark:hover:text-slate-300"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-600">
+            <p className="text-xs text-slate-600 dark:text-slate-300">
               Für diese Sitzung liegen <strong>{downloadChoice.meeting.signatures?.length || 0} digitale Unterschriften</strong> vor. Wie möchten Sie das Dokument exportieren?
             </p>
 
@@ -1032,31 +1032,31 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
               <button
                 type="button"
                 onClick={() => handleExecuteDownloadPdf(downloadChoice.meeting, downloadChoice.isExtract, true)}
-                className="w-full p-3 bg-rose-50 hover:bg-rose-100/80 border border-rose-200 rounded-xl text-left transition-colors flex items-center justify-between gap-3 cursor-pointer shadow-2xs group"
+                className="w-full p-3 bg-rose-50 hover:bg-rose-100/80 border border-rose-200 rounded-xl text-left transition-colors flex items-center justify-between gap-3 cursor-pointer shadow-2xs group dark:bg-rose-950/40 dark:hover:bg-rose-900/80 dark:border-rose-800/60"
               >
                 <div>
-                  <span className="text-xs font-bold text-rose-900 flex items-center gap-1.5 group-hover:text-rose-950">
-                    <PenTool className="w-3.5 h-3.5 text-rose-600" />
+                  <span className="text-xs font-bold text-rose-900 flex items-center gap-1.5 group-hover:text-rose-950 dark:text-rose-100">
+                    <PenTool className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                     Mit digitaler Unterschrift (PDF)
                   </span>
-                  <p className="text-[11px] text-slate-600 mt-0.5">
+                  <p className="text-[11px] text-slate-600 mt-0.5 dark:text-slate-300">
                     Fügt die Unterschrift(en) und den amtlichen Zeitstempel direkt in das Dokument ein.
                   </p>
                 </div>
-                <Download className="w-4 h-4 text-rose-600 shrink-0" />
+                <Download className="w-4 h-4 text-rose-600 shrink-0 dark:text-rose-400" />
               </button>
 
               <button
                 type="button"
                 onClick={() => handleExecuteDownloadPdf(downloadChoice.meeting, downloadChoice.isExtract, false)}
-                className="w-full p-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-left transition-colors flex items-center justify-between gap-3 cursor-pointer shadow-2xs group"
+                className="w-full p-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-left transition-colors flex items-center justify-between gap-3 cursor-pointer shadow-2xs group dark:bg-slate-900 dark:hover:bg-slate-800 dark:border-slate-800"
               >
                 <div>
-                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5 group-hover:text-slate-900">
-                    <Download className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5 group-hover:text-slate-900 dark:text-slate-100 dark:group-hover:text-white">
+                    <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                     Ohne Unterschrift (Blanko-Signaturzeile)
                   </span>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
+                  <p className="text-[11px] text-slate-500 mt-0.5 dark:text-slate-400">
                     Erzeugt freie Linien zum klassischen Ausdrucken und handschriftlichen Unterzeichnen.
                   </p>
                 </div>
@@ -1068,7 +1068,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
               <button
                 type="button"
                 onClick={() => setDownloadChoice(null)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 Abbrechen
               </button>

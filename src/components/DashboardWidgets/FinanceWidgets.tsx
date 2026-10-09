@@ -163,7 +163,7 @@ export const WgbLimitWidget: React.FC<WgbLimitWidgetProps> = ({ transactions, on
           </div>
         </div>
         <div className="text-2xl font-black font-mono text-slate-900 dark:text-white">
-          {wgbPercent.toFixed(1)} % <span className="text-xs font-normal text-slate-500 font-sans">erreicht</span>
+          {wgbPercent.toFixed(1)} % <span className="text-xs font-normal text-slate-500 font-sans dark:text-slate-400">erreicht</span>
         </div>
         <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden my-2">
           <div
@@ -236,7 +236,7 @@ export const TaxSpheresWidget: React.FC<TaxSpheresWidgetProps> = ({ transactions
           <button
             type="button"
             onClick={() => onNavigate('guv')}
-            className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 flex items-center gap-1"
+            className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 flex items-center gap-1 dark:hover:text-blue-200"
           >
             EÜR-Bericht <ArrowRight className="w-3.5 h-3.5" />
           </button>
@@ -372,7 +372,7 @@ export const SepaMonitorWidget: React.FC<SepaMonitorWidgetProps> = ({
 
           {missingSepaMandates.length > 0 && (
             <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold text-2xs">
-              <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 dark:text-amber-400" />
               <span>{missingSepaMandates.length} Mandat(e) unvollständig</span>
             </div>
           )}
@@ -425,7 +425,7 @@ export const RecentTransactionsWidget: React.FC<RecentTransactionsWidgetProps> =
           <button
             type="button"
             onClick={() => onNavigate('finance')}
-            className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 flex items-center gap-1"
+            className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 flex items-center gap-1 dark:hover:text-blue-200"
           >
             Alle ({transactions.length}) <ArrowRight className="w-3.5 h-3.5" />
           </button>

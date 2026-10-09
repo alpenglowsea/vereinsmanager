@@ -720,10 +720,10 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
     const info = TAX_SPHERES[sphere];
     if (!info) return null;
 
-    let badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    if (sphere === 'vermoegen') badgeClass = 'bg-blue-50 text-blue-700 border-blue-200';
-    if (sphere === 'zweckbetrieb') badgeClass = 'bg-amber-50 text-amber-800 border-amber-200';
-    if (sphere === 'wirtschaftlich') badgeClass = 'bg-rose-50 text-rose-700 border-rose-200';
+    let badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60';
+    if (sphere === 'vermoegen') badgeClass = 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/60';
+    if (sphere === 'zweckbetrieb') badgeClass = 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800/60';
+    if (sphere === 'wirtschaftlich') badgeClass = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60';
 
     return (
       <span className={`inline-flex items-center px-2 py-0.5 rounded text-3xs font-semibold border ${badgeClass}`}>
@@ -790,34 +790,34 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
               }}
               className={`p-5 rounded-xl border transition-all cursor-pointer shadow-xs flex flex-col justify-between relative group select-none ${
                 isDragging
-                  ? 'opacity-40 border-dashed border-blue-500 bg-blue-50/50 scale-[0.98]'
+                  ? 'opacity-40 border-dashed border-blue-500 bg-blue-50/50 scale-[0.98] dark:bg-blue-950/50'
                   : isDragOver
-                  ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/80 scale-[1.02]'
+                  ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/80 scale-[1.02] dark:bg-blue-950/80'
                   : isSelected
-                  ? 'bg-blue-50/70 border-blue-500 ring-2 ring-blue-500/20'
-                  : 'bg-white border-slate-200 hover:border-slate-300'
+                  ? 'bg-blue-50/70 border-blue-500 ring-2 ring-blue-500/20 dark:bg-blue-950/70'
+                  : 'bg-white border-slate-200 hover:border-slate-300 dark:bg-slate-800 dark:border-slate-800 dark:hover:border-slate-700'
               }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
                   <div
-                    className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-slate-300 group-hover:text-slate-500 hover:text-slate-700 transition-colors shrink-0"
+                    className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-slate-300 group-hover:text-slate-500 hover:text-slate-700 transition-colors shrink-0 dark:hover:text-slate-200"
                     title="Konto per Drag & Drop verschieben"
                   >
                     <GripVertical className="w-4 h-4 pointer-events-none" />
                   </div>
-                  <div className="p-1.5 bg-slate-100 rounded-lg text-slate-700 shrink-0">
-                    {acc.accountType === 'cash' ? <Coins className="w-4 h-4 text-amber-600" /> : <Building2 className="w-4 h-4 text-blue-600" />}
+                  <div className="p-1.5 bg-slate-100 rounded-lg text-slate-700 shrink-0 dark:bg-slate-700 dark:text-slate-200">
+                    {acc.accountType === 'cash' ? <Coins className="w-4 h-4 text-amber-600 dark:text-amber-400" /> : <Building2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
                   </div>
-                  <span className="text-xs font-bold text-slate-900 truncate max-w-[120px]" title={acc.name}>{acc.name}</span>
+                  <span className="text-xs font-bold text-slate-900 truncate max-w-[120px] dark:text-white" title={acc.name}>{acc.name}</span>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded uppercase shrink-0">
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded uppercase shrink-0 dark:bg-slate-700 dark:text-slate-300">
                   {acc.accountType === 'cash' ? 'Kasse' : 'Bank'}
                 </span>
               </div>
 
               <div className="my-2">
-                <div className={`text-2xl font-bold font-mono ${balance >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>
+                <div className={`text-2xl font-bold font-mono ${balance >= 0 ? 'text-slate-900 dark:text-white' : 'text-rose-600 dark:text-rose-400'}`}>
                   {balance.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                 </div>
                 {acc.iban && (
@@ -825,9 +825,9 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                 )}
               </div>
 
-              <div className="text-[11px] text-slate-400 flex items-center justify-between pt-2 border-t border-slate-100">
+              <div className="text-[11px] text-slate-400 flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
                 <span>Start: {acc.initialBalance.toFixed(0)} €</span>
-                <span className="font-semibold text-blue-600">{isSelected ? 'Aktiv gefiltert' : 'Klick: Filtern'}</span>
+                <span className="font-semibold text-blue-600 dark:text-blue-400">{isSelected ? 'Aktiv gefiltert' : 'Klick: Filtern'}</span>
               </div>
             </div>
           );
@@ -907,18 +907,18 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
       )}
 
       {/* Main Journal Container */}
-      <section className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col">
+      <section className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col dark:bg-slate-900 dark:border-slate-800">
         {/* Header toolbar */}
-        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-2">
-            <h4 className="font-bold text-slate-800 uppercase text-xs tracking-widest">
+            <h4 className="font-bold text-slate-800 uppercase text-xs tracking-widest dark:text-slate-100">
               Buchungsjournal & Belege
             </h4>
-            <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-semibold">
+            <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-semibold dark:bg-slate-700 dark:text-slate-300">
               {filteredTransactions.length}
             </span>
             {selectedTxIds.size > 0 && (
-              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full font-bold">
+              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full font-bold dark:bg-blue-900/40 dark:text-blue-200">
                 {selectedTxIds.size} markiert
               </span>
             )}
@@ -928,10 +928,10 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             <button
               type="button"
               onClick={handleExportCSV}
-              className="text-xs border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5"
+              className="text-xs border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 dark:border-slate-800 dark:hover:bg-slate-800 dark:text-slate-200"
               title="Buchungsjournal als CSV exportieren"
             >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               <span>CSV Journal</span>
             </button>
 
@@ -939,10 +939,10 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
               <button
                 type="button"
                 onClick={onOpenTransactionImport}
-                className="text-xs bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs"
+                className="text-xs bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:hover:bg-emerald-900/40 dark:text-emerald-200"
                 title="Buchungen direkt aus Excel oder Google Sheets importieren"
               >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>Excel / Sheets Import</span>
               </button>
             )}
@@ -951,10 +951,10 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
               <button
                 type="button"
                 onClick={onOpenReceiptScanner}
-                className="text-xs bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 text-emerald-800 px-3.5 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs"
+                className="text-xs bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 text-emerald-800 px-3.5 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs dark:bg-emerald-950/40 dark:border-emerald-700/60 dark:hover:bg-emerald-900/40 dark:text-emerald-200"
                 title="Physische Belege & Rechnungen mit Kamera scannen & als PDF digitalisieren"
               >
-                <Camera className="w-3.5 h-3.5 text-emerald-600" />
+                <Camera className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>Beleg scannen</span>
               </button>
             )}
@@ -982,7 +982,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
         </div>
 
         {/* Filter Toolbar */}
-        <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-3 text-xs">
+        <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-3 text-xs dark:bg-slate-800 dark:border-slate-800">
           {/* Search */}
           <div className="relative flex-1 min-w-[220px] max-w-md">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -991,13 +991,13 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Buchungstext, Beleg-Nr., Partner, Kategorie suchen..."
-              className="w-full pl-9 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full pl-9 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800 dark:text-white"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600"
+                className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
               >
                 ✕
               </button>
@@ -1008,7 +1008,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           <select
             value={selectedAccountId}
             onChange={e => setSelectedAccountId(e.target.value)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500"
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
           >
             <option value="all">Alle Konten & Kassen</option>
             {accounts.map(a => (
@@ -1020,7 +1020,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           <select
             value={selectedSphere}
             onChange={e => setSelectedSphere(e.target.value)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500"
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
           >
             <option value="all">Alle Steuer-Sphären</option>
             <option value="ideell">1. Ideeller Bereich</option>
@@ -1033,7 +1033,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           <select
             value={selectedType}
             onChange={e => setSelectedType(e.target.value)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500"
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
           >
             <option value="all">Alle Buchungsarten</option>
             <option value="income">🟢 Nur Einnahmen</option>
@@ -1045,7 +1045,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           <select
             value={selectedYear}
             onChange={e => setSelectedYear(e.target.value)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500"
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
           >
             <option value="all">Alle Jahre</option>
             {years.map(yr => (
@@ -1057,7 +1057,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           <select
             value={receiptFilter}
             onChange={e => setReceiptFilter(e.target.value)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500"
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
           >
             <option value="all">Alle Beleg-Status</option>
             <option value="has_receipt">📎 Nur mit Beleg</option>
@@ -1075,7 +1075,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                 setSelectedYear('all');
                 setSearchQuery('');
               }}
-              className="text-xs text-rose-600 hover:text-rose-700 font-semibold"
+              className="text-xs text-rose-600 hover:text-rose-700 font-semibold dark:text-rose-400 dark:hover:text-rose-300"
             >
               Filter zurücksetzen
             </button>
@@ -1124,11 +1124,11 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
               ))}
               <col style={{ width: ACTION_COL_WIDTH }} />
             </colgroup>
-            <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[11px] tracking-wider">
+            <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[11px] tracking-wider dark:bg-slate-800 dark:text-slate-400">
               <tr>
                 <th
                   style={{ width: CHECKBOX_COL_WIDTH, minWidth: CHECKBOX_COL_WIDTH }}
-                  className="px-3 py-3 text-center sticky top-0 z-10 bg-slate-50 border-b border-slate-200"
+                  className="px-3 py-3 text-center sticky top-0 z-10 bg-slate-50 border-b border-slate-200 dark:bg-slate-800 dark:border-slate-800"
                 >
                   <input
                     type="checkbox"
@@ -1138,19 +1138,19 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                     }}
                     onChange={handleToggleSelectAll}
                     aria-label="Alle Einträge dieser Seite auswählen"
-                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer dark:text-blue-400 dark:border-slate-700"
                   />
                 </th>
                 {visibleColumnOrder.map(key => financeHeaderDefs[key])}
                 <th
                   style={{ width: ACTION_COL_WIDTH, minWidth: ACTION_COL_WIDTH }}
-                  className="px-4 py-3 text-right sticky top-0 z-10 bg-slate-50 border-b border-slate-200"
+                  className="px-4 py-3 text-right sticky top-0 z-10 bg-slate-50 border-b border-slate-200 dark:bg-slate-800 dark:border-slate-800"
                 >
                   Aktionen
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {paginatedTransactions.map((tx) => {
                 const acc = accMap.get(tx.accountId);
                 const isIncome = tx.amount >= 0;
@@ -1160,7 +1160,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                     key={tx.id}
                     onClick={() => handleRowClick(tx)}
                     className={`transition-colors cursor-pointer group ${
-                      selectedTxIds.has(tx.id) ? 'bg-blue-50/70 hover:bg-blue-50' : 'hover:bg-blue-50/50'
+                      selectedTxIds.has(tx.id) ? 'bg-blue-50/70 hover:bg-blue-50 dark:bg-blue-950/70 dark:hover:bg-blue-950/40' : 'hover:bg-blue-50/50 dark:hover:bg-blue-950/50'
                     }`}
                     title="Klicken für vollständige Beleg- & Buchungsdetails"
                   >
@@ -1173,33 +1173,33 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                         checked={selectedTxIds.has(tx.id)}
                         onChange={(e) => handleToggleSelectTx(tx.id, e)}
                         aria-label={`Buchung ${tx.documentNumber || tx.id} auswählen`}
-                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer dark:text-blue-400 dark:border-slate-700"
                       />
                     </td>
                     {(() => {
                       const financeCellDefs: Record<string, React.ReactNode> = {
                         date: (
-                          <td key="date" data-col-content="date" className="px-4 py-3 font-mono text-slate-500 whitespace-nowrap text-xs overflow-hidden">
+                          <td key="date" data-col-content="date" className="px-4 py-3 font-mono text-slate-500 whitespace-nowrap text-xs overflow-hidden dark:text-slate-400">
                             {new Date(tx.date).toLocaleDateString('de-DE')}
                           </td>
                         ),
                         documentNumber: (
-                          <td key="documentNumber" data-col-content="documentNumber" className="px-4 py-3 font-mono font-bold text-slate-800 whitespace-nowrap text-xs overflow-hidden">
+                          <td key="documentNumber" data-col-content="documentNumber" className="px-4 py-3 font-mono font-bold text-slate-800 whitespace-nowrap text-xs overflow-hidden dark:text-slate-100">
                             {tx.documentNumber}
                           </td>
                         ),
                         partner: (
                           <td key="partner" data-col-content="partner" className="px-4 py-3 overflow-hidden">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-bold text-slate-900 text-xs truncate">
+                              <span className="font-bold text-slate-900 text-xs truncate dark:text-white">
                                 {tx.partner}
                               </span>
                               {tx.isSplit && (
                                 <span
-                                  className="inline-flex items-center gap-1 px-1.5 py-0.2 text-3xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 rounded"
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.2 text-3xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 rounded dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800/60"
                                   title={`Splittbuchung: ${tx.splits?.length || 0} Teilbuchungen`}
                                 >
-                                  <Split className="w-2.5 h-2.5 text-indigo-600" />
+                                  <Split className="w-2.5 h-2.5 text-indigo-600 dark:text-indigo-400" />
                                   <span>Splitt ({tx.splits?.length || 0})</span>
                                 </span>
                               )}
@@ -1215,7 +1215,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                                 if (existingContact) {
                                   return (
                                     <span
-                                      className="inline-flex items-center gap-0.5 px-1.5 py-0.2 text-3xs font-medium bg-orange-50 text-orange-700 border border-orange-200/80 rounded"
+                                      className="inline-flex items-center gap-0.5 px-1.5 py-0.2 text-3xs font-medium bg-orange-50 text-orange-700 border border-orange-200/80 rounded dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800/80"
                                       title={`Gespeicherter Kontakt: ${existingContact.displayName}`}
                                     >
                                       <Building2 className="w-2.5 h-2.5" />
@@ -1232,10 +1232,10 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                                         e.stopPropagation();
                                         onOpenCreateContactFromTx(tx.partner, tx.type === 'income');
                                       }}
-                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 text-3xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded transition-colors cursor-pointer"
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 text-3xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded transition-colors cursor-pointer dark:text-amber-300 dark:bg-amber-950/40 dark:hover:bg-amber-900/40 dark:border-amber-800/60"
                                       title={`»${tx.partner}« ist noch nicht als Kontakt erfasst. Klicken zum Anlegen.`}
                                     >
-                                      <UserPlus className="w-2.5 h-2.5 text-amber-600" />
+                                      <UserPlus className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400" />
                                       <span>+ Kontakt</span>
                                     </button>
                                   );
@@ -1243,7 +1243,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                                 return null;
                               })()}
                             </div>
-                            <div className="text-2xs text-slate-500 truncate">
+                            <div className="text-2xs text-slate-500 truncate dark:text-slate-400">
                               {tx.bookingText}
                             </div>
                           </td>
@@ -1266,10 +1266,10 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                             {tx.isSplit && tx.splits && tx.splits.length > 0 ? (
                               <div className="space-y-0.5">
                                 <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-950">
-                                  <Split className="w-3 h-3 text-indigo-600 shrink-0" />
+                                  <Split className="w-3 h-3 text-indigo-600 shrink-0 dark:text-indigo-400" />
                                   <span>{tx.splits.length} Teilbuchungen</span>
                                 </div>
-                                <div className="text-3xs text-slate-500 font-mono truncate" title={tx.splits.map(s => `${s.amount.toFixed(2)} €: ${s.subCategory || s.category}`).join(' | ')}>
+                                <div className="text-3xs text-slate-500 font-mono truncate dark:text-slate-400" title={tx.splits.map(s => `${s.amount.toFixed(2)} €: ${s.subCategory || s.category}`).join(' | ')}>
                                   {tx.splits.map(s => `${s.amount.toFixed(2)} €`).join(' + ')}
                                 </div>
                                 <div className="text-[11px] text-slate-400">
@@ -1278,12 +1278,12 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                               </div>
                             ) : (
                               <>
-                                <div className="text-xs font-semibold text-slate-800 truncate">
+                                <div className="text-xs font-semibold text-slate-800 truncate dark:text-slate-100">
                                   {tx.category}
                                 </div>
                                 <div className="text-[11px] text-slate-400 flex items-center gap-1">
                                   <span>{acc?.name || tx.accountId}</span>
-                                  {tx.vatRate > 0 && <span className="text-slate-500 font-mono">({tx.vatRate}% USt)</span>}
+                                  {tx.vatRate > 0 && <span className="text-slate-500 font-mono dark:text-slate-400">({tx.vatRate}% USt)</span>}
                                 </div>
                               </>
                             )}
@@ -1298,7 +1298,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                                   e.stopPropagation();
                                   onOpenReceiptViewer(tx.receipt!, tx.documentNumber, tx.bookingText);
                                 }}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded font-semibold text-2xs transition-colors"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded font-semibold text-2xs transition-colors dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/40"
                                 title="Beleg anzeigen (PDF/Bild)"
                               >
                                 <Paperclip className="w-3 h-3" />
@@ -1315,22 +1315,22 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                                     onOpenEditTx(tx);
                                   }
                                 }}
-                                className="inline-flex items-center gap-1 px-1.5 py-0.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded text-2xs transition-colors border border-dashed border-slate-200 hover:border-emerald-300"
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded text-2xs transition-colors border border-dashed border-slate-200 hover:border-emerald-300 dark:hover:text-emerald-300 dark:hover:bg-emerald-950/40 dark:border-slate-800 dark:hover:border-emerald-700/60"
                                 title="Beleg mit Kamera scannen & verknüpfen"
                               >
-                                <Camera className="w-2.5 h-2.5 text-emerald-600" />
+                                <Camera className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
                                 <span className="text-[10px]">Scannen</span>
                               </button>
                             )}
                           </td>
                         ),
                         amount: (
-                          <td key="amount" data-col-content="amount" className={`px-4 py-3 text-right font-mono font-bold text-xs whitespace-nowrap overflow-hidden ${isIncome ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          <td key="amount" data-col-content="amount" className={`px-4 py-3 text-right font-mono font-bold text-xs whitespace-nowrap overflow-hidden ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                             {isIncome ? '+' : ''}{tx.amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                           </td>
                         ),
                         department: (
-                          <td key="department" data-col-content="department" className="px-4 py-3 text-slate-600 text-xs truncate overflow-hidden">
+                          <td key="department" data-col-content="department" className="px-4 py-3 text-slate-600 text-xs truncate overflow-hidden dark:text-slate-300">
                             {(() => {
                               const { value, mixed } = splitAwareValue(tx, s => s.department || '');
                               if (mixed) {
@@ -1345,7 +1345,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                           <td
                             key="notes"
                             data-col-content="notes"
-                            className="px-4 py-3 text-slate-500 text-xs truncate overflow-hidden"
+                            className="px-4 py-3 text-slate-500 text-xs truncate overflow-hidden dark:text-slate-400"
                             title={tx.notes || undefined}
                           >
                             {tx.notes || '–'}
@@ -1356,10 +1356,10 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                             <span
                               className={`inline-flex items-center px-2 py-0.5 rounded text-3xs font-semibold border ${
                                 tx.type === 'income'
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60'
                                   : tx.type === 'expense'
-                                  ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                  : 'bg-slate-100 text-slate-600 border-slate-200'
+                                  ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60'
+                                  : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-800'
                               }`}
                             >
                               {tx.type === 'income' ? 'Einnahme' : tx.type === 'expense' ? 'Ausgabe' : 'Umbuchung'}
@@ -1374,7 +1374,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                               </span>
                             ) : tx.mainCategory || tx.subCategory || tx.skrAccount ? (
                               <>
-                                <div className="text-xs text-slate-700 truncate">
+                                <div className="text-xs text-slate-700 truncate dark:text-slate-200">
                                   {tx.mainCategory || '–'}
                                 </div>
                                 {(tx.subCategory || tx.skrAccount) && (
@@ -1389,7 +1389,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                           </td>
                         ),
                         vatRate: (
-                          <td key="vatRate" data-col-content="vatRate" className="px-4 py-3 text-right font-mono text-xs text-slate-600 overflow-hidden">
+                          <td key="vatRate" data-col-content="vatRate" className="px-4 py-3 text-right font-mono text-xs text-slate-600 overflow-hidden dark:text-slate-300">
                             {(() => {
                               const { value, mixed } = splitAwareValue(tx, s => s.vatRate);
                               if (mixed) {
@@ -1411,7 +1411,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                             e.stopPropagation();
                             onOpenEditTx(tx);
                           }}
-                          className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors dark:hover:text-blue-400 dark:hover:bg-blue-950/40"
                           title="Buchung bearbeiten"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -1424,7 +1424,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                               onDeleteTx(tx.id);
                             }
                           }}
-                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors dark:hover:text-rose-400 dark:hover:bg-rose-950/40"
                           title="Löschen"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1512,29 +1512,29 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
       {/* Transaction Bulk Delete Confirmation Modal */}
       {isBulkDeleteConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 dark:bg-slate-900 dark:border-slate-800">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 dark:bg-rose-900/40 dark:text-rose-400">
                 <Trash2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
                   {selectedTxIds.size} Buchung{selectedTxIds.size > 1 ? 'en' : ''} wirklich löschen?
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
                   Diese Aktion kann nicht rückgängig gemacht werden. Die Löschungen werden im Revisionsprotokoll archiviert.
                 </p>
               </div>
             </div>
 
-            <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 max-h-48 overflow-y-auto text-xs divide-y divide-rose-100">
+            <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 max-h-48 overflow-y-auto text-xs divide-y divide-rose-100 dark:bg-rose-950/40 dark:border-rose-800/60 dark:divide-rose-900/50">
               {selectedTransactions.map(tx => (
                 <div key={tx.id} className="py-1.5 flex items-center justify-between text-rose-950 font-medium">
                   <div className="truncate max-w-[280px]">
-                    <span className="font-mono text-rose-700 font-bold mr-2">{tx.documentNumber}</span>
+                    <span className="font-mono text-rose-700 font-bold mr-2 dark:text-rose-300">{tx.documentNumber}</span>
                     <span>{tx.partner || tx.bookingText}</span>
                   </div>
-                  <span className={`font-mono font-bold text-[11px] ${tx.amount >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                  <span className={`font-mono font-bold text-[11px] ${tx.amount >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>
                     {tx.amount.toFixed(2)} €
                   </span>
                 </div>
@@ -1546,7 +1546,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                 type="button"
                 onClick={() => setIsBulkDeleteConfirmOpen(false)}
                 disabled={isBulkProcessing}
-                className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50"
+                className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200"
               >
                 Abbrechen
               </button>

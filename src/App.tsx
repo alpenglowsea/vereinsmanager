@@ -1056,7 +1056,7 @@ export default function App() {
   const currentUser = authSession.benutzername;
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
+    <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden dark:bg-slate-800 dark:text-white">
       {/* Mobile Drawer Overlay */}
       {mobileMenuOpen && (
         <div
@@ -1075,7 +1075,7 @@ export default function App() {
         <div className="p-6 border-b border-slate-800">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center overflow-hidden shadow-md border border-slate-700/50 shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center overflow-hidden shadow-md border border-slate-700/50 shrink-0 dark:bg-slate-900">
                 <img
                   src={settings.clubLogoUrl || '/logo_transparent.png'}
                   alt={settings.clubName || 'VereinsManager Logo'}
@@ -1577,7 +1577,7 @@ export default function App() {
             </button>
 
             {/* Mobile Header Logo */}
-            <div className="w-8 h-8 rounded-lg bg-white p-0.5 flex items-center justify-center overflow-hidden shadow-xs border border-slate-200 dark:border-slate-700 shrink-0 lg:hidden">
+            <div className="w-8 h-8 rounded-lg bg-white p-0.5 flex items-center justify-center overflow-hidden shadow-xs border border-slate-200 dark:border-slate-700 shrink-0 lg:hidden dark:bg-slate-900">
               <img
                 src={settings.clubLogoUrl || '/logo_transparent.png'}
                 alt={settings.clubName || 'VereinsManager Logo'}
@@ -1679,9 +1679,9 @@ export default function App() {
                         setUserDropdownOpen(false);
                         AuthService.lockSession();
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg text-left transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg text-left transition-colors dark:text-slate-200 dark:hover:bg-slate-700"
                     >
-                      <Lock className="w-4 h-4 text-amber-600" />
+                      <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                       <span>Sitzung jetzt sperren</span>
                     </button>
 
@@ -1691,9 +1691,9 @@ export default function App() {
                         setUserDropdownOpen(false);
                         AuthService.logout();
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-lg text-left transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-lg text-left transition-colors dark:text-rose-400 dark:hover:bg-rose-950/40"
                     >
-                      <LogOut className="w-4 h-4 text-rose-600" />
+                      <LogOut className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                       <span>Abmelden</span>
                     </button>
                   </div>
@@ -1705,10 +1705,10 @@ export default function App() {
             <button
               type="button"
               onClick={() => AuthService.lockSession()}
-              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors border border-transparent hover:border-slate-200"
+              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors border border-transparent hover:border-slate-200 dark:hover:text-slate-200 dark:hover:bg-slate-700 dark:hover:border-slate-800"
               title="Sitzung sofort sperren"
             >
-              <Lock className="w-4 h-4 text-slate-600" />
+              <Lock className="w-4 h-4 text-slate-600 dark:text-slate-300" />
             </button>
           </div>
         </header>

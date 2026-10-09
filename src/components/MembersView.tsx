@@ -922,15 +922,15 @@ export const MembersView: React.FC<MembersViewProps> = ({
   const getStatusBadge = (status: Member['status']) => {
     switch (status) {
       case 'active':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">AKTIV</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">AKTIV</span>;
       case 'passive':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">PASSIV</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">PASSIV</span>;
       case 'honorary':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">EHREN</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">EHREN</span>;
       case 'suspended':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-800">RUHEND</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200">RUHEND</span>;
       case 'terminated':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">GEKÜNDIGT</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200">GEKÜNDIGT</span>;
     }
   };
 
@@ -939,18 +939,18 @@ export const MembersView: React.FC<MembersViewProps> = ({
       {/* Metric Cards: Mitglieder Gesamt & Mitglieder je Sparte */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Kachel 1: Mitglieder Gesamt */}
-        <div className="lg:col-span-4 bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-4 bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between dark:bg-slate-900 dark:border-slate-800">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider dark:text-slate-400">
                 Mitglieder Gesamt
               </p>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
                 {activePct}% Aktiv
               </span>
             </div>
             <div className="flex items-baseline justify-between mt-1">
-              <h3 className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-slate-900 leading-none">
+              <h3 className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-slate-900 leading-none dark:text-white">
                 {currentTotalCount}
               </h3>
               {(statusFilter !== 'all' || typeFilter !== 'all') && (
@@ -960,7 +960,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
                     setStatusFilter('all');
                     setTypeFilter('all');
                   }}
-                  className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1"
+                  className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 dark:text-blue-400 dark:hover:text-blue-200 dark:bg-blue-950/40 dark:hover:bg-blue-900/40"
                   title="Filter für Status/Typ aufheben"
                 >
                   <span>Filter aufheben</span>
@@ -970,7 +970,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
             </div>
           </div>
 
-          <div className="mt-5 pt-3.5 border-t border-slate-100 grid grid-cols-2 gap-3 text-center">
+          <div className="mt-5 pt-3.5 border-t border-slate-100 grid grid-cols-2 gap-3 text-center dark:border-slate-800">
             {/* Aktiv Filter Button */}
             <button
               type="button"
@@ -978,14 +978,14 @@ export const MembersView: React.FC<MembersViewProps> = ({
               className={`py-2.5 px-3 rounded-xl text-center border transition-all cursor-pointer flex flex-col items-center justify-center group ${
                 statusFilter === 'active'
                   ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-400/40'
-                  : 'bg-emerald-50/70 hover:bg-emerald-100 border-emerald-200 text-slate-800'
+                  : 'bg-emerald-50/70 hover:bg-emerald-100 border-emerald-200 text-slate-800 dark:bg-emerald-950/70 dark:hover:bg-emerald-900/40 dark:border-emerald-800/60 dark:text-slate-100'
               }`}
               title={statusFilter === 'active' ? 'Klicken, um Filter aufzuheben' : 'Klicken, um nach aktiven Mitgliedern zu filtern'}
             >
-              <p className={`text-[10px] uppercase font-bold tracking-wider ${statusFilter === 'active' ? 'text-emerald-100' : 'text-emerald-700'}`}>
+              <p className={`text-[10px] uppercase font-bold tracking-wider ${statusFilter === 'active' ? 'text-emerald-100' : 'text-emerald-700 dark:text-emerald-300'}`}>
                 Aktiv
               </p>
-              <p className={`text-base font-bold font-mono ${statusFilter === 'active' ? 'text-white' : 'text-emerald-900'}`}>
+              <p className={`text-base font-bold font-mono ${statusFilter === 'active' ? 'text-white' : 'text-emerald-900 dark:text-emerald-100'}`}>
                 {activeCount}
               </p>
             </button>
@@ -997,14 +997,14 @@ export const MembersView: React.FC<MembersViewProps> = ({
               className={`py-2.5 px-3 rounded-xl text-center border transition-all cursor-pointer flex flex-col items-center justify-center group ${
                 statusFilter === 'passive'
                   ? 'bg-slate-700 text-white border-slate-700 shadow-xs ring-2 ring-slate-400/40'
-                  : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800'
+                  : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-800 dark:text-slate-100'
               }`}
               title={statusFilter === 'passive' ? 'Klicken, um Filter aufzuheben' : 'Klicken, um nach passiven Mitgliedern zu filtern'}
             >
-              <p className={`text-[10px] uppercase font-bold tracking-wider ${statusFilter === 'passive' ? 'text-slate-200' : 'text-slate-600'}`}>
+              <p className={`text-[10px] uppercase font-bold tracking-wider ${statusFilter === 'passive' ? 'text-slate-200' : 'text-slate-600 dark:text-slate-300'}`}>
                 Passiv
               </p>
-              <p className={`text-base font-bold font-mono ${statusFilter === 'passive' ? 'text-white' : 'text-slate-800'}`}>
+              <p className={`text-base font-bold font-mono ${statusFilter === 'passive' ? 'text-white' : 'text-slate-800 dark:text-slate-100'}`}>
                 {passiveCount}
               </p>
             </button>
@@ -1012,14 +1012,14 @@ export const MembersView: React.FC<MembersViewProps> = ({
         </div>
 
         {/* Kachel 2: Mitglieder je Sparte */}
-        <div className="lg:col-span-8 bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-8 bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between dark:bg-slate-900 dark:border-slate-800">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+              <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg dark:bg-indigo-950/40 dark:text-indigo-400">
                 <Building2 className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider dark:text-slate-400">
                   Mitglieder je Sparte
                 </p>
                 <p className="text-[11px] text-slate-400">
@@ -1031,7 +1031,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
               <button
                 type="button"
                 onClick={() => setDeptFilter('all')}
-                className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1"
+                className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 dark:text-indigo-400 dark:hover:text-indigo-200 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/40"
               >
                 <span>Filter &bdquo;{deptFilter}&ldquo; aufheben</span>
                 <X className="w-3 h-3" />
@@ -1053,24 +1053,24 @@ export const MembersView: React.FC<MembersViewProps> = ({
                     className={`p-2.5 rounded-xl text-left border transition-all flex flex-col justify-between group cursor-pointer ${
                       isFiltered
                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                        : 'bg-slate-50 hover:bg-indigo-50/50 hover:border-indigo-200 border-slate-200 text-slate-800'
+                        : 'bg-slate-50 hover:bg-indigo-50/50 hover:border-indigo-200 border-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-indigo-950/50 dark:hover:border-indigo-800/60 dark:border-slate-800 dark:text-slate-100'
                     }`}
                     title={`Klicken, um Tabelle nach Sparte „${item.department}“ zu filtern`}
                   >
                     <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className={`text-xs font-bold truncate ${isFiltered ? 'text-white' : 'text-slate-800 group-hover:text-indigo-900'}`}>
+                      <span className={`text-xs font-bold truncate ${isFiltered ? 'text-white' : 'text-slate-800 group-hover:text-indigo-900 dark:text-slate-100 dark:group-hover:text-indigo-100'}`}>
                         {item.department}
                       </span>
                       <span
                         className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-semibold shrink-0 ${
-                          isFiltered ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600'
+                          isFiltered ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600 dark:bg-slate-600/80 dark:text-slate-300'
                         }`}
                       >
                         {item.percentage}%
                       </span>
                     </div>
                     <div className="flex items-baseline gap-1">
-                      <span className={`text-lg font-bold font-mono ${isFiltered ? 'text-white' : 'text-slate-900'}`}>
+                      <span className={`text-lg font-bold font-mono ${isFiltered ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
                         {item.count}
                       </span>
                       <span className={`text-[10px] ${isFiltered ? 'text-indigo-200' : 'text-slate-400'}`}>
@@ -1158,18 +1158,18 @@ export const MembersView: React.FC<MembersViewProps> = ({
       )}
 
       {/* Main Table Card Container */}
-      <section className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col">
+      <section className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col dark:bg-slate-900 dark:border-slate-800">
         {/* Table Top Header with Title and Action buttons */}
-        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-2">
-            <h4 className="font-bold text-slate-800 uppercase text-xs tracking-widest">
+            <h4 className="font-bold text-slate-800 uppercase text-xs tracking-widest dark:text-slate-100">
               Aktuelle Mitgliederliste
             </h4>
-            <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-semibold">
+            <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-semibold dark:bg-slate-700 dark:text-slate-300">
               {filteredMembers.length}
             </span>
             {selectedMemberIds.size > 0 && (
-              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full font-bold">
+              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full font-bold dark:bg-blue-900/40 dark:text-blue-200">
                 {selectedMemberIds.size} markiert
               </span>
             )}
@@ -1180,10 +1180,10 @@ export const MembersView: React.FC<MembersViewProps> = ({
               <button
                 type="button"
                 onClick={onNavigateToSepa}
-                className="text-xs bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs"
+                className="text-xs bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:hover:bg-emerald-900/40 dark:text-emerald-200"
                 title="Direkt zum SEPA-Lastschrifteinzug wechseln"
               >
-                <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+                <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>SEPA-Beitragslauf</span>
               </button>
             )}
@@ -1191,10 +1191,10 @@ export const MembersView: React.FC<MembersViewProps> = ({
             <button
               type="button"
               onClick={onOpenImport}
-              className="text-xs bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs"
+              className="text-xs bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs dark:bg-blue-950/40 dark:border-blue-800/60 dark:hover:bg-blue-900/40 dark:text-blue-300"
               title="Mitglieder aus Google Sheets oder CSV-Datei importieren"
             >
-              <Upload className="w-3.5 h-3.5 text-blue-600" />
+              <Upload className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               <span>CSV / Sheets Import</span>
             </button>
 
@@ -1202,10 +1202,10 @@ export const MembersView: React.FC<MembersViewProps> = ({
               type="button"
               onClick={handleExportCSV}
               disabled={isExporting}
-              className="text-xs border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 disabled:opacity-50"
+              className="text-xs border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 disabled:opacity-50 dark:border-slate-800 dark:hover:bg-slate-800 dark:text-slate-200"
               title="Gefilterte Liste als Excel-CSV exportieren (Speicherort wählbar)"
             >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               <span>CSV Export</span>
             </button>
 
@@ -1213,10 +1213,10 @@ export const MembersView: React.FC<MembersViewProps> = ({
               type="button"
               onClick={handleExportPDF}
               disabled={isExporting}
-              className="text-xs border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 disabled:opacity-50"
+              className="text-xs border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 disabled:opacity-50 dark:border-slate-800 dark:hover:bg-slate-800 dark:text-slate-200"
               title="Druckreife Mitgliederliste als PDF herunterladen (Speicherort wählbar)"
             >
-              <FileDown className="w-3.5 h-3.5 text-blue-600" />
+              <FileDown className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               <span>PDF Liste</span>
             </button>
 
@@ -1237,22 +1237,22 @@ export const MembersView: React.FC<MembersViewProps> = ({
           <div
             className={`px-4 py-2.5 text-xs font-medium border-b flex items-center justify-between transition-all ${
               exportStatus.type === 'success'
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-100'
                 : exportStatus.type === 'info'
-                ? 'bg-blue-50 border-blue-200 text-blue-900'
-                : 'bg-rose-50 border-rose-200 text-rose-900'
+                ? 'bg-blue-50 border-blue-200 text-blue-900 dark:bg-blue-950/40 dark:border-blue-800/60 dark:text-blue-100'
+                : 'bg-rose-50 border-rose-200 text-rose-900 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-100'
             }`}
           >
             <div className="flex items-center gap-2">
               <CheckCircle2 className={`w-4 h-4 shrink-0 ${
-                exportStatus.type === 'success' ? 'text-emerald-600' : exportStatus.type === 'info' ? 'text-blue-600' : 'text-rose-600'
+                exportStatus.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : exportStatus.type === 'info' ? 'text-blue-600 dark:text-blue-400' : 'text-rose-600 dark:text-rose-400'
               }`} />
               <span>{exportStatus.message}</span>
             </div>
             <button
               type="button"
               onClick={() => setExportStatus(null)}
-              className="text-slate-400 hover:text-slate-700 ml-4 font-bold text-sm"
+              className="text-slate-400 hover:text-slate-700 ml-4 font-bold text-sm dark:hover:text-slate-200"
               title="Schließen"
             >
               ✕
@@ -1261,7 +1261,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
         )}
 
         {/* Search & Filter Bar */}
-        <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-3 text-xs">
+        <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-3 text-xs dark:bg-slate-800 dark:border-slate-800">
           {/* Search Input */}
           <div className="relative flex-1 min-w-[220px] max-w-md">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -1270,13 +1270,13 @@ export const MembersView: React.FC<MembersViewProps> = ({
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Suche nach Name, Nr., Ort, E-Mail..."
-              className="w-full pl-9 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-9 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-white"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600"
+                className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
               >
                 ✕
               </button>
@@ -1287,7 +1287,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
           >
             <option value="all">Alle Status</option>
             <option value="active">🟢 Aktiv</option>
@@ -1301,7 +1301,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
           <select
             value={deptFilter}
             onChange={e => setDeptFilter(e.target.value)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
           >
             <option value="all">Alle Abteilungen</option>
             {settings.departments.map(dept => (
@@ -1313,7 +1313,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
           <select
             value={typeFilter}
             onChange={e => setTypeFilter(e.target.value)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
           >
             <option value="all">Alle Typen</option>
             <option value="full">Vollmitglied</option>
@@ -1327,7 +1327,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
           <select
             value={paymentFilter}
             onChange={e => setPaymentFilter(e.target.value)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
           >
             <option value="all">Alle Zahlungsarten</option>
             <option value="sepa">SEPA-Lastschrift</option>
@@ -1347,7 +1347,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
                 setPaymentFilter('all');
                 setSearchQuery('');
               }}
-              className="text-xs text-rose-600 hover:text-rose-700 font-semibold"
+              className="text-xs text-rose-600 hover:text-rose-700 font-semibold dark:text-rose-400 dark:hover:text-rose-300"
             >
               Filter zurücksetzen
             </button>
@@ -1415,12 +1415,12 @@ export const MembersView: React.FC<MembersViewProps> = ({
               ))}
               <col style={{ width: ACTION_COL_WIDTH }} />
             </colgroup>
-            <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[11px] tracking-wider">
+            <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[11px] tracking-wider dark:bg-slate-800 dark:text-slate-400">
               <tr>
                 {/* Select All Checkbox Header */}
                 <th
                   style={{ width: CHECKBOX_COL_WIDTH, minWidth: CHECKBOX_COL_WIDTH }}
-                  className="px-3 py-3 text-center sticky top-0 z-10 bg-slate-50 border-b border-slate-200"
+                  className="px-3 py-3 text-center sticky top-0 z-10 bg-slate-50 border-b border-slate-200 dark:bg-slate-800 dark:border-slate-800"
                 >
                   <input
                     type="checkbox"
@@ -1430,7 +1430,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
                     }}
                     onChange={handleToggleSelectAll}
                     aria-label="Alle Einträge dieser Seite auswählen"
-                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer dark:text-blue-400 dark:border-slate-700"
                   />
                 </th>
                 {/* Datenspalten in der per Drag & Drop gewählten Reihenfolge,
@@ -1439,13 +1439,13 @@ export const MembersView: React.FC<MembersViewProps> = ({
                 {visibleColumnOrder.map(key => memberHeaderDefs[key])}
                 <th
                   style={{ width: ACTION_COL_WIDTH, minWidth: ACTION_COL_WIDTH }}
-                  className="px-4 py-3 text-right sticky top-0 z-10 bg-slate-50 border-b border-slate-200"
+                  className="px-4 py-3 text-right sticky top-0 z-10 bg-slate-50 border-b border-slate-200 dark:bg-slate-800 dark:border-slate-800"
                 >
                   Aktion
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {paginatedMembers.map((member) => {
                 const isSelected = selectedMemberIds.has(member.id);
 
@@ -1458,9 +1458,9 @@ export const MembersView: React.FC<MembersViewProps> = ({
                     </td>
                   ),
                   name: (
-                    <td key="name" data-col-content="name" className="px-4 py-3 font-semibold text-slate-900 overflow-hidden">
+                    <td key="name" data-col-content="name" className="px-4 py-3 font-semibold text-slate-900 overflow-hidden dark:text-white">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                        <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:bg-slate-700 dark:border-slate-800 dark:text-slate-300">
                           {member.avatarUrl ? (
                             <img
                               src={member.avatarUrl}
@@ -1472,7 +1472,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
                           )}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-xs font-semibold text-slate-900 group-hover:text-blue-600 transition-colors truncate">
+                          <div className="text-xs font-semibold text-slate-900 group-hover:text-blue-600 transition-colors truncate dark:text-white dark:group-hover:text-blue-400">
                             {member.lastName}, {member.firstName}
                           </div>
                           <div className="text-[11px] text-slate-400 font-normal truncate">
@@ -1488,24 +1488,24 @@ export const MembersView: React.FC<MembersViewProps> = ({
                     </td>
                   ),
                   department: (
-                    <td key="department" data-col-content="department" className="px-4 py-3 text-slate-600 font-medium text-xs truncate">
+                    <td key="department" data-col-content="department" className="px-4 py-3 text-slate-600 font-medium text-xs truncate dark:text-slate-300">
                       {member.department}
                     </td>
                   ),
                   entryDate: (
-                    <td key="entryDate" data-col-content="entryDate" className="px-4 py-3 text-slate-500 text-xs truncate">
+                    <td key="entryDate" data-col-content="entryDate" className="px-4 py-3 text-slate-500 text-xs truncate dark:text-slate-400">
                       {member.entryDate ? new Date(member.entryDate).toLocaleDateString('de-DE') : '–'}
                     </td>
                   ),
                   city: (
-                    <td key="city" data-col-content="city" className="px-4 py-3 text-slate-500 text-xs truncate">
+                    <td key="city" data-col-content="city" className="px-4 py-3 text-slate-500 text-xs truncate dark:text-slate-400">
                       {member.address.zip} {member.address.city}
                     </td>
                   ),
                   fee: (
-                    <td key="fee" data-col-content="fee" className="px-4 py-3 text-right font-mono font-bold text-slate-800 text-xs overflow-hidden">
+                    <td key="fee" data-col-content="fee" className="px-4 py-3 text-right font-mono font-bold text-slate-800 text-xs overflow-hidden dark:text-slate-100">
                       {member.paymentMethod === 'exempt' || member.feePeriod === 'none' || member.feeAmount === 0 ? (
-                        <span className="text-emerald-700 font-bold">0,00 €</span>
+                        <span className="text-emerald-700 font-bold dark:text-emerald-300">0,00 €</span>
                       ) : (
                         `${member.feeAmount.toFixed(2)} €`
                       )}
@@ -1523,99 +1523,99 @@ export const MembersView: React.FC<MembersViewProps> = ({
                   paymentMethod: (
                     <td key="paymentMethod" data-col-content="paymentMethod" className="px-4 py-3 text-center overflow-hidden">
                       {member.paymentMethod === 'exempt' ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
                           BEITRAGSFREI
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
                           {member.paymentMethod.toUpperCase()}
                         </span>
                       )}
                     </td>
                   ),
                   phone: (
-                    <td key="phone" data-col-content="phone" className="px-4 py-3 text-slate-600 text-xs truncate">
+                    <td key="phone" data-col-content="phone" className="px-4 py-3 text-slate-600 text-xs truncate dark:text-slate-300">
                       {member.phone || '–'}
                     </td>
                   ),
                   membershipType: (
-                    <td key="membershipType" data-col-content="membershipType" className="px-4 py-3 text-slate-600 text-xs truncate">
+                    <td key="membershipType" data-col-content="membershipType" className="px-4 py-3 text-slate-600 text-xs truncate dark:text-slate-300">
                       {MEMBERSHIP_TYPE_LABELS[member.membershipType] || member.membershipType}
                     </td>
                   ),
                   gender: (
-                    <td key="gender" data-col-content="gender" className="px-4 py-3 text-slate-600 text-xs truncate">
+                    <td key="gender" data-col-content="gender" className="px-4 py-3 text-slate-600 text-xs truncate dark:text-slate-300">
                       {GENDER_LABELS[member.gender] || '–'}
                     </td>
                   ),
                   birthDate: (
-                    <td key="birthDate" data-col-content="birthDate" className="px-4 py-3 text-slate-500 text-xs truncate">
+                    <td key="birthDate" data-col-content="birthDate" className="px-4 py-3 text-slate-500 text-xs truncate dark:text-slate-400">
                       {member.birthDate ? new Date(member.birthDate).toLocaleDateString('de-DE') : '–'}
                     </td>
                   ),
                   exitDate: (
-                    <td key="exitDate" data-col-content="exitDate" className="px-4 py-3 text-slate-500 text-xs truncate">
+                    <td key="exitDate" data-col-content="exitDate" className="px-4 py-3 text-slate-500 text-xs truncate dark:text-slate-400">
                       {member.exitDate ? new Date(member.exitDate).toLocaleDateString('de-DE') : '–'}
                     </td>
                   ),
                   notes: (
-                    <td key="notes" data-col-content="notes" className="px-4 py-3 text-slate-500 text-xs truncate" title={member.notes || undefined}>
+                    <td key="notes" data-col-content="notes" className="px-4 py-3 text-slate-500 text-xs truncate dark:text-slate-400" title={member.notes || undefined}>
                       {member.notes || '–'}
                     </td>
                   ),
                   dataPrivacyConsent: (
                     <td key="dataPrivacyConsent" data-col-content="dataPrivacyConsent" className="px-4 py-3 text-center overflow-hidden">
                       {member.dataPrivacyConsent ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">JA</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">JA</span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700">NEIN</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">NEIN</span>
                       )}
                     </td>
                   ),
                   street: (
-                    <td key="street" data-col-content="street" className="px-4 py-3 text-slate-500 text-xs truncate">
+                    <td key="street" data-col-content="street" className="px-4 py-3 text-slate-500 text-xs truncate dark:text-slate-400">
                       {member.address?.street || member.address?.houseNumber
                         ? `${member.address?.street || ''} ${member.address?.houseNumber || ''}`.trim()
                         : '–'}
                     </td>
                   ),
                   country: (
-                    <td key="country" data-col-content="country" className="px-4 py-3 text-slate-500 text-xs truncate">
+                    <td key="country" data-col-content="country" className="px-4 py-3 text-slate-500 text-xs truncate dark:text-slate-400">
                       {member.address?.country || '–'}
                     </td>
                   ),
                   iban: (
-                    <td key="iban" data-col-content="iban" className="px-4 py-3 font-mono text-slate-600 text-2xs truncate">
+                    <td key="iban" data-col-content="iban" className="px-4 py-3 font-mono text-slate-600 text-2xs truncate dark:text-slate-300">
                       {member.bankDetails?.iban || '–'}
                     </td>
                   ),
                   bic: (
-                    <td key="bic" data-col-content="bic" className="px-4 py-3 font-mono text-slate-600 text-2xs truncate">
+                    <td key="bic" data-col-content="bic" className="px-4 py-3 font-mono text-slate-600 text-2xs truncate dark:text-slate-300">
                       {member.bankDetails?.bic || '–'}
                     </td>
                   ),
                   bankName: (
-                    <td key="bankName" data-col-content="bankName" className="px-4 py-3 text-slate-500 text-xs truncate">
+                    <td key="bankName" data-col-content="bankName" className="px-4 py-3 text-slate-500 text-xs truncate dark:text-slate-400">
                       {member.bankDetails?.bankName || '–'}
                     </td>
                   ),
                   accountHolder: (
-                    <td key="accountHolder" data-col-content="accountHolder" className="px-4 py-3 text-slate-500 text-xs truncate">
+                    <td key="accountHolder" data-col-content="accountHolder" className="px-4 py-3 text-slate-500 text-xs truncate dark:text-slate-400">
                       {member.bankDetails?.accountHolder || '–'}
                     </td>
                   ),
                   mandateDate: (
-                    <td key="mandateDate" data-col-content="mandateDate" className="px-4 py-3 text-slate-500 text-xs truncate">
+                    <td key="mandateDate" data-col-content="mandateDate" className="px-4 py-3 text-slate-500 text-xs truncate dark:text-slate-400">
                       {member.bankDetails?.mandateDate ? new Date(member.bankDetails.mandateDate).toLocaleDateString('de-DE') : '–'}
                     </td>
                   ),
                   mandateReference: (
-                    <td key="mandateReference" data-col-content="mandateReference" className="px-4 py-3 font-mono text-slate-500 text-2xs truncate">
+                    <td key="mandateReference" data-col-content="mandateReference" className="px-4 py-3 font-mono text-slate-500 text-2xs truncate dark:text-slate-400">
                       {member.bankDetails?.mandateReference || '–'}
                     </td>
                   ),
                   monthlyDueDay: (
-                    <td key="monthlyDueDay" data-col-content="monthlyDueDay" className="px-4 py-3 text-center text-slate-500 text-xs truncate">
+                    <td key="monthlyDueDay" data-col-content="monthlyDueDay" className="px-4 py-3 text-center text-slate-500 text-xs truncate dark:text-slate-400">
                       {member.bankDetails?.monthlyDueDay ? `${member.bankDetails.monthlyDueDay}.` : '–'}
                     </td>
                   )
@@ -1627,8 +1627,8 @@ export const MembersView: React.FC<MembersViewProps> = ({
                     onClick={() => onOpenDetails(member)}
                     className={`transition-colors cursor-pointer group ${
                       isSelected
-                        ? 'bg-blue-50/70 hover:bg-blue-100/60'
-                        : 'hover:bg-blue-50/40'
+                        ? 'bg-blue-50/70 hover:bg-blue-100/60 dark:bg-blue-950/70 dark:hover:bg-blue-900/60'
+                        : 'hover:bg-blue-50/40 dark:hover:bg-blue-950/40'
                     }`}
                   >
                     {/* Row Selection Checkbox */}
@@ -1641,7 +1641,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
                         checked={isSelected}
                         onChange={e => handleToggleMember(member.id, e)}
                         aria-label={`Mitglied ${member.firstName} ${member.lastName} auswählen`}
-                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer dark:text-blue-400 dark:border-slate-700"
                       />
                     </td>
 
@@ -1654,14 +1654,14 @@ export const MembersView: React.FC<MembersViewProps> = ({
                         <button
                           type="button"
                           onClick={() => onOpenDetails(member)}
-                          className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded font-medium transition-colors"
+                          className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded font-medium transition-colors dark:text-blue-400 dark:hover:text-blue-200 dark:hover:bg-blue-950/40"
                         >
                           Details
                         </button>
                         <button
                           type="button"
                           onClick={() => onOpenEdit(member)}
-                          className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors dark:hover:text-blue-400 dark:hover:bg-blue-950/40"
                           title="Bearbeiten"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -1673,7 +1673,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
                               onDeleteMember(member.id);
                             }
                           }}
-                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors dark:hover:text-rose-400 dark:hover:bg-rose-950/40"
                           title="Löschen"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1730,26 +1730,26 @@ export const MembersView: React.FC<MembersViewProps> = ({
       {/* Bulk Delete Confirmation Modal */}
       {isBulkDeleteConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 dark:bg-slate-900 dark:border-slate-800">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 dark:bg-rose-900/40 dark:text-rose-400">
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
                   {selectedMemberIds.size} Mitglied{selectedMemberIds.size > 1 ? 'er' : ''} wirklich löschen?
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
                   Diese Aktion kann nicht rückgängig gemacht werden. Die Löschung wird revisionssicher im Audit-Log archiviert.
                 </p>
               </div>
             </div>
 
-            <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 max-h-40 overflow-y-auto text-xs divide-y divide-rose-100">
+            <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 max-h-40 overflow-y-auto text-xs divide-y divide-rose-100 dark:bg-rose-950/40 dark:border-rose-800/60 dark:divide-rose-900/50">
               {selectedMembers.map(m => (
                 <div key={m.id} className="py-1.5 flex items-center justify-between text-rose-950 font-medium">
                   <span>{m.lastName}, {m.firstName}</span>
-                  <span className="font-mono text-rose-700 text-[11px]">{m.memberNumber} • {m.department}</span>
+                  <span className="font-mono text-rose-700 text-[11px] dark:text-rose-300">{m.memberNumber} • {m.department}</span>
                 </div>
               ))}
             </div>
@@ -1758,7 +1758,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsBulkDeleteConfirmOpen(false)}
-                className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors"
+                className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200"
               >
                 Abbrechen
               </button>

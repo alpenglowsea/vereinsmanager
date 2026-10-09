@@ -143,7 +143,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
     <div ref={containerRef} className="relative w-full">
       {/* Header bar with fixed height (h-5) to guarantee pixel-perfect vertical alignment */}
       <div className="h-5 flex items-center justify-between mb-1.5 leading-none">
-        <div className="text-2xs font-bold text-slate-700 flex items-center gap-1 truncate">
+        <div className="text-2xs font-bold text-slate-700 flex items-center gap-1 truncate dark:text-slate-200">
           {label}
         </div>
         {headerRight && (
@@ -161,19 +161,19 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
         onMouseEnter={(e) => selectedOption && handleMouseEnterOption(selectedOption, e)}
         onMouseMove={(e) => selectedOption && handleMouseMoveOption(e)}
         onMouseLeave={handleMouseLeaveOption}
-        className={`w-full h-10 px-3 py-2 border rounded-lg text-xs bg-white transition-all flex items-center justify-between gap-2 shadow-2xs text-left cursor-pointer ${
-          disabled ? 'opacity-50 cursor-not-allowed bg-slate-50 border-slate-200' : 'hover:border-slate-400'
-        } ${isOpen ? 'ring-2 ring-blue-500 border-blue-500' : 'border-slate-300'}`}
+        className={`w-full h-10 px-3 py-2 border rounded-lg text-xs bg-white transition-all flex items-center justify-between gap-2 shadow-2xs text-left cursor-pointer dark:bg-slate-900 ${
+          disabled ? 'opacity-50 cursor-not-allowed bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-800' : 'hover:border-slate-400'
+        } ${isOpen ? 'ring-2 ring-blue-500 border-blue-500' : 'border-slate-300 dark:border-slate-700'}`}
       >
         <div className="flex items-center gap-2 min-w-0 truncate">
           {selectedOption ? (
             <>
               {selectedOption.code && (
-                <span className="font-mono text-2xs font-bold bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
+                <span className="font-mono text-2xs font-bold bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded border border-slate-200 shrink-0 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-800">
                   {selectedOption.code}
                 </span>
               )}
-              <span className="font-semibold text-slate-800 truncate">
+              <span className="font-semibold text-slate-800 truncate dark:text-slate-100">
                 {selectedOption.name}
               </span>
               {selectedOption.vatRateDefault !== undefined && selectedOption.vatRateDefault > 0 && (
@@ -186,14 +186,14 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
             <span className="text-slate-400 truncate">{placeholder}</span>
           )}
         </div>
-        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform shrink-0 ${isOpen ? 'rotate-180 text-blue-600' : ''}`} />
+        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform shrink-0 ${isOpen ? 'rotate-180 text-blue-600 dark:text-blue-400' : ''}`} />
       </button>
 
       {/* Searchable Dropdown Popover */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden animate-in fade-in-50 zoom-in-95 duration-100">
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden animate-in fade-in-50 zoom-in-95 duration-100 dark:bg-slate-900 dark:border-slate-800">
           {/* Live Search Input Bar */}
-          <div className="p-2 border-b border-slate-100 bg-slate-50/80">
+          <div className="p-2 border-b border-slate-100 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-800/80">
             <div className="relative flex items-center">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
               <input
@@ -202,7 +202,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-800 placeholder-slate-400"
+                className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-800 placeholder-slate-400 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
               />
               {searchQuery && (
                 <button
@@ -211,7 +211,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                     setSearchQuery('');
                     searchInputRef.current?.focus();
                   }}
-                  className="absolute right-2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                  className="absolute right-2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer dark:hover:text-slate-300"
                   title="Suche löschen"
                 >
                   <X className="w-3 h-3" />
@@ -224,22 +224,22 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
           <div className="max-h-60 overflow-y-auto divide-y divide-slate-50 text-xs">
             {/* Direct Add Action from Dropdown */}
             {onAddNew && (
-              <div className="p-1.5 bg-slate-50/90 border-b border-slate-200/80 sticky top-0 z-10">
+              <div className="p-1.5 bg-slate-50/90 border-b border-slate-200/80 sticky top-0 z-10 dark:bg-slate-800/90 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => {
                     setIsOpen(false);
                     onAddNew(searchQuery);
                   }}
-                  className="w-full px-3 py-2 text-left flex items-center justify-between gap-2 bg-white hover:bg-blue-50 text-blue-700 font-semibold border border-blue-200 hover:border-blue-300 rounded-lg shadow-2xs transition-all cursor-pointer group"
+                  className="w-full px-3 py-2 text-left flex items-center justify-between gap-2 bg-white hover:bg-blue-50 text-blue-700 font-semibold border border-blue-200 hover:border-blue-300 rounded-lg shadow-2xs transition-all cursor-pointer group dark:bg-slate-900 dark:hover:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/60 dark:hover:border-blue-700/60"
                 >
                   <div className="flex items-center gap-2 truncate">
-                    <div className="w-5 h-5 rounded-md bg-blue-100 group-hover:bg-blue-200 text-blue-700 flex items-center justify-center shrink-0">
+                    <div className="w-5 h-5 rounded-md bg-blue-100 group-hover:bg-blue-200 text-blue-700 flex items-center justify-center shrink-0 dark:bg-blue-900/40 dark:group-hover:bg-blue-900/60 dark:text-blue-300">
                       <Plus className="w-3.5 h-3.5" />
                     </div>
                     <span className="text-xs truncate">{addNewLabel}</span>
                   </div>
-                  <span className="text-3xs font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 shrink-0">
+                  <span className="text-3xs font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 shrink-0 dark:text-blue-400 dark:bg-blue-950/40 dark:border-blue-900/50">
                     + Neu
                   </span>
                 </button>
@@ -268,7 +268,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
             ) : groupedOptions ? (
               groupedOptions.map(([groupName, groupItems]) => (
                 <div key={groupName} className="py-1">
-                  <div className="px-3 py-1 text-3xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/90 sticky top-0 border-y border-slate-100/80">
+                  <div className="px-3 py-1 text-3xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/90 sticky top-0 border-y border-slate-100/80 dark:bg-slate-800/90 dark:border-slate-800">
                     {groupName}
                   </div>
                   {groupItems.map(opt => {
@@ -285,8 +285,8 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                         onMouseLeave={handleMouseLeaveOption}
                         className={`w-full px-3 py-2 text-left flex items-center justify-between gap-2 transition-colors cursor-pointer ${
                           isSelected
-                            ? 'bg-blue-50 text-blue-900 font-semibold'
-                            : 'hover:bg-slate-50 text-slate-700'
+                            ? 'bg-blue-50 text-blue-900 font-semibold dark:bg-blue-950/40 dark:text-blue-100'
+                            : 'hover:bg-slate-50 text-slate-700 dark:hover:bg-slate-800 dark:text-slate-200'
                         }`}
                       >
                         <div className="flex items-center gap-2 truncate">
@@ -294,8 +294,8 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                             <span
                               className={`font-mono text-2xs font-bold px-1.5 py-0.5 rounded border shrink-0 ${
                                 isSelected
-                                  ? 'bg-blue-100 border-blue-200 text-blue-800'
-                                  : 'bg-slate-100 border-slate-200 text-slate-800'
+                                  ? 'bg-blue-100 border-blue-200 text-blue-800 dark:bg-blue-900/40 dark:border-blue-800/60 dark:text-blue-200'
+                                  : 'bg-slate-100 border-slate-200 text-slate-800 dark:bg-slate-700 dark:border-slate-800 dark:text-slate-100'
                               }`}
                             >
                               {opt.code}
@@ -303,7 +303,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                           )}
                           <span className="truncate">{opt.name}</span>
                           {opt.isCustom && (
-                            <span className="text-3xs bg-amber-50 text-amber-700 border border-amber-200/80 px-1.5 py-0.2 rounded font-medium shrink-0">
+                            <span className="text-3xs bg-amber-50 text-amber-700 border border-amber-200/80 px-1.5 py-0.2 rounded font-medium shrink-0 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/80">
                               Eigenes
                             </span>
                           )}
@@ -313,7 +313,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                             </span>
                           )}
                         </div>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0 dark:text-blue-400" />}
                       </button>
                     );
                   })}
@@ -334,8 +334,8 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                     onMouseLeave={handleMouseLeaveOption}
                     className={`w-full px-3 py-2 text-left flex items-center justify-between gap-2 transition-colors cursor-pointer ${
                       isSelected
-                        ? 'bg-blue-50 text-blue-900 font-semibold'
-                        : 'hover:bg-slate-50 text-slate-700'
+                        ? 'bg-blue-50 text-blue-900 font-semibold dark:bg-blue-950/40 dark:text-blue-100'
+                        : 'hover:bg-slate-50 text-slate-700 dark:hover:bg-slate-800 dark:text-slate-200'
                     }`}
                   >
                     <div className="flex items-center gap-2 truncate">
@@ -343,8 +343,8 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                         <span
                           className={`font-mono text-2xs font-bold px-1.5 py-0.5 rounded border shrink-0 ${
                             isSelected
-                              ? 'bg-blue-100 border-blue-200 text-blue-800'
-                              : 'bg-slate-100 border-slate-200 text-slate-800'
+                              ? 'bg-blue-100 border-blue-200 text-blue-800 dark:bg-blue-900/40 dark:border-blue-800/60 dark:text-blue-200'
+                              : 'bg-slate-100 border-slate-200 text-slate-800 dark:bg-slate-700 dark:border-slate-800 dark:text-slate-100'
                           }`}
                         >
                           {opt.code}
@@ -352,7 +352,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                       )}
                       <span className="truncate">{opt.name}</span>
                       {opt.isCustom && (
-                        <span className="text-3xs bg-amber-50 text-amber-700 border border-amber-200/80 px-1.5 py-0.2 rounded font-medium shrink-0">
+                        <span className="text-3xs bg-amber-50 text-amber-700 border border-amber-200/80 px-1.5 py-0.2 rounded font-medium shrink-0 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/80">
                           Eigenes
                         </span>
                       )}
@@ -362,7 +362,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                         </span>
                       )}
                     </div>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                    {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0 dark:text-blue-400" />}
                   </button>
                 );
               })
@@ -370,7 +370,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
           </div>
 
           {/* Footer count and optional Add link */}
-          <div className="px-3 py-2 bg-slate-50 border-t border-slate-100 text-3xs text-slate-500 flex items-center justify-between">
+          <div className="px-3 py-2 bg-slate-50 border-t border-slate-100 text-3xs text-slate-500 flex items-center justify-between dark:bg-slate-800 dark:border-slate-800 dark:text-slate-400">
             <span>{filteredOptions.length} Konten verfügbar</span>
             {onAddNew && (
               <button
@@ -379,7 +379,7 @@ export const SearchableAccountSelect: React.FC<SearchableAccountSelectProps> = (
                   setIsOpen(false);
                   onAddNew(searchQuery);
                 }}
-                className="text-2xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+                className="text-2xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer dark:text-blue-400 dark:hover:text-blue-200"
               >
                 <Plus className="w-3 h-3" />
                 <span>Neu anlegen</span>

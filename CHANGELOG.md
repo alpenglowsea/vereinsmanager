@@ -13,6 +13,21 @@ E-Mail-Versand sind auch alle Funktionen entfernt, die nur für eine der
 beiden anderen Betriebsarten existierten. Vollständige Begründung und
 Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
 
+### Nachtrag 8 — Dunkelmodus für die ganze App; feste Farben bei Piktogrammen und Schnellzugriff
+
+- Bisher fehlte bei rund 700 weißen und vielen hellgrauen Flächen die
+  dunkle Entsprechung, deshalb blieben Kacheln, Tabellen und Dialoge im
+  Dunkelmodus weiß. Jetzt haben alle Flächen, Schriften, Rahmen, Trennlinien
+  und farbigen Hinweisflächen (grün, rot, gelb, blau …) ihr dunkles Gegenstück.
+  Die Ergänzung ist in 73 Dateien als normale `dark:`-Klassen im Quelltext
+  sichtbar (keine versteckte Sonderregel). Stellen, die schon eine dunkle
+  Klasse hatten, blieben unverändert.
+- Unverändert hell bleibt das öffentliche Aufnahmeformular
+  (`PublicApplicationForm.tsx`).
+- Die Piktogramme in der Seitenleiste und die Schnellzugriff-Knöpfe auf dem
+  Dashboard behalten in jedem Farbschema ihre ursprünglichen Farben (Standard-
+  Blau/Indigo): `.vm-sidebar svg` und `.vm-quick button` in `index.css`.
+
 ### Nachtrag 7 — Farbschema in der ganzen Oberfläche; volle Breite
 
 - Die Seitenleiste bekommt je Farbschema einen eigenen dunklen Ton (Grün:

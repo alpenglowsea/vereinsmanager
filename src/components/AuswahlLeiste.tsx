@@ -56,7 +56,7 @@ export const AuswahlLeiste: React.FC<AuswahlLeisteProps> = ({
       <button
         type="button"
         onClick={onAlleAuswaehlen}
-        className="text-blue-700 hover:text-blue-900 underline font-semibold cursor-pointer text-xs"
+        className="text-blue-700 hover:text-blue-900 underline font-semibold cursor-pointer text-xs dark:text-blue-300 dark:hover:text-blue-100"
       >
         Alle {anzahlGefiltert} {mehrzahl} der Tabelle auswählen
       </button>
@@ -65,7 +65,7 @@ export const AuswahlLeiste: React.FC<AuswahlLeisteProps> = ({
 
   return (
     <div
-      className="px-6 py-2 bg-blue-50/70 border-b border-blue-100 text-xs text-blue-800 flex flex-wrap items-center justify-between gap-x-4 gap-y-1"
+      className="px-6 py-2 bg-blue-50/70 border-b border-blue-100 text-xs text-blue-800 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 dark:bg-blue-950/70 dark:border-blue-900/50 dark:text-blue-200"
       role="status"
     >
       <span className="font-semibold">
@@ -74,7 +74,7 @@ export const AuswahlLeiste: React.FC<AuswahlLeisteProps> = ({
       <button
         type="button"
         onClick={onAuswahlAufheben}
-        className="text-blue-600 hover:text-blue-800 hover:underline font-semibold cursor-pointer text-xs"
+        className="text-blue-600 hover:text-blue-800 hover:underline font-semibold cursor-pointer text-xs dark:text-blue-400 dark:hover:text-blue-200"
       >
         Auswahl aufheben
       </button>

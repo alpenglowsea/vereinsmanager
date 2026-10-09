@@ -79,18 +79,18 @@ export const MoveToFolderModal: React.FC<MoveToFolderModalProps> = ({
 
   return (
     <div id="move-to-folder-modal-backdrop" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-xs p-3 md:p-6 animate-in fade-in duration-150">
-      <div id="move-to-folder-modal-container" className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+      <div id="move-to-folder-modal-container" className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 flex flex-col max-h-[90vh] dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-blue-600 text-white rounded-xl shadow-xs">
               <FolderInput className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-slate-900 text-base">
+              <h3 className="font-semibold text-slate-900 text-base dark:text-white">
                 In Ordner verschieben
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {documentsToMove.length === 1
                   ? `„${documentsToMove[0].title}“ verschieben`
                   : `${documentsToMove.length} Dokumente verschieben`}
@@ -100,7 +100,7 @@ export const MoveToFolderModal: React.FC<MoveToFolderModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors dark:hover:text-slate-300 dark:hover:bg-slate-700"
           >
             <X className="w-5 h-5" />
           </button>
@@ -109,7 +109,7 @@ export const MoveToFolderModal: React.FC<MoveToFolderModalProps> = ({
         {/* Content */}
         <div className="p-6 space-y-4 overflow-y-auto flex-1">
           {errorMsg && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-300">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
               <span>{errorMsg}</span>
             </div>
@@ -123,12 +123,12 @@ export const MoveToFolderModal: React.FC<MoveToFolderModalProps> = ({
               value={searchFilter}
               onChange={e => setSearchFilter(e.target.value)}
               placeholder="Zielordner suchen..."
-              className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-slate-700"
             />
           </div>
 
           {/* Folder Options List */}
-          <div className="space-y-1.5 border border-slate-200 rounded-xl p-2 bg-slate-50/50 max-h-64 overflow-y-auto">
+          <div className="space-y-1.5 border border-slate-200 rounded-xl p-2 bg-slate-50/50 max-h-64 overflow-y-auto dark:border-slate-800 dark:bg-slate-800/50">
             {/* Root Option */}
             <button
               type="button"
@@ -136,7 +136,7 @@ export const MoveToFolderModal: React.FC<MoveToFolderModalProps> = ({
               className={`w-full flex items-center justify-between p-2.5 rounded-lg text-xs transition-all ${
                 selectedFolderId === null
                   ? 'bg-blue-600 text-white font-semibold shadow-xs'
-                  : 'text-slate-700 hover:bg-white hover:shadow-xs'
+                  : 'text-slate-700 hover:bg-white hover:shadow-xs dark:text-slate-200 dark:hover:bg-slate-800'
               }`}
             >
               <div className="flex items-center gap-2.5">
@@ -160,7 +160,7 @@ export const MoveToFolderModal: React.FC<MoveToFolderModalProps> = ({
                   className={`w-full flex items-center justify-between p-2 rounded-lg text-xs transition-all text-left ${
                     isSelected
                       ? 'bg-blue-600 text-white font-semibold shadow-xs'
-                      : 'text-slate-700 hover:bg-white hover:shadow-xs'
+                      : 'text-slate-700 hover:bg-white hover:shadow-xs dark:text-slate-200 dark:hover:bg-slate-800'
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
@@ -170,7 +170,7 @@ export const MoveToFolderModal: React.FC<MoveToFolderModalProps> = ({
                     />
                     <span className="truncate">{folder.name}</span>
                     {folder.parentId && (
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-sm ${isSelected ? 'bg-blue-700 text-blue-200' : 'bg-slate-200 text-slate-600'}`}>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-sm ${isSelected ? 'bg-blue-700 text-blue-200' : 'bg-slate-200 text-slate-600 dark:bg-slate-600 dark:text-slate-300'}`}>
                         Unterordner
                       </span>
                     )}
@@ -181,17 +181,17 @@ export const MoveToFolderModal: React.FC<MoveToFolderModalProps> = ({
             })}
           </div>
 
-          <p className="text-[11px] text-slate-500">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
             Tipp: Beim Verschieben in einen Ordner mit zugewiesener Standardkategorie wird die Dokumentenkategorie bei Bedarf automatisch harmonisiert.
           </p>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3">
+        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3 dark:border-slate-800 dark:bg-slate-800">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors"
+            className="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors dark:text-slate-200 dark:hover:bg-slate-600/60"
           >
             Abbrechen
           </button>

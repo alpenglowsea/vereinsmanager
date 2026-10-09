@@ -92,22 +92,22 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
 
   return (
     <div id="document-edit-modal-backdrop" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-xs p-3 md:p-6 animate-in fade-in duration-150">
-      <div id="document-edit-modal-container" className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
+      <div id="document-edit-modal-container" className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-slate-800 text-white rounded-lg">
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-slate-900 text-base">Metadaten bearbeiten</h3>
-              <p className="text-xs text-slate-500 truncate max-w-xs">{doc.fileName}</p>
+              <h3 className="font-semibold text-slate-900 text-base dark:text-white">Metadaten bearbeiten</h3>
+              <p className="text-xs text-slate-500 truncate max-w-xs dark:text-slate-400">{doc.fileName}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors dark:hover:text-slate-200 dark:hover:bg-slate-600"
           >
             <X className="w-5 h-5" />
           </button>
@@ -116,7 +116,7 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
         {/* Form */}
         <form onSubmit={handleSave} className="p-6 space-y-4 text-xs">
           {errorMsg && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 flex items-center gap-2">
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 flex items-center gap-2 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-300">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMsg}</span>
             </div>
@@ -124,7 +124,7 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
 
           {/* Title */}
           <div>
-            <label className="block font-medium text-slate-700 mb-1">
+            <label className="block font-medium text-slate-700 mb-1 dark:text-slate-200">
               Dokumententitel *
             </label>
             <input
@@ -132,20 +132,20 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
               required
               value={title}
               onChange={e => setTitle(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs dark:border-slate-700"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             {/* Category */}
             <div>
-              <label className="block font-medium text-slate-700 mb-1">
+              <label className="block font-medium text-slate-700 mb-1 dark:text-slate-200">
                 Kategorie *
               </label>
               <select
                 value={category}
                 onChange={e => setCategory(e.target.value as DocumentCategory)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs dark:border-slate-700"
               >
                 <option value="belege">🧾 Buchhaltungsbelege</option>
                 <option value="vertraege">📜 Verträge & Vereinbarungen</option>
@@ -159,8 +159,8 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
 
             {/* Folder / Subfolder */}
             <div>
-              <label className="block font-medium text-slate-700 mb-1 flex items-center gap-1">
-                <Folder className="w-3 h-3 text-slate-500" />
+              <label className="block font-medium text-slate-700 mb-1 flex items-center gap-1 dark:text-slate-200">
+                <Folder className="w-3 h-3 text-slate-500 dark:text-slate-400" />
                 <span>Ordner</span>
               </label>
               <select
@@ -173,7 +173,7 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
                     setCategory(chosenFolder.category);
                   }
                 }}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs bg-white"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs bg-white dark:border-slate-700 dark:bg-slate-800"
               >
                 <option value="">📁 Hauptverzeichnis (Kein Unterordner)</option>
                 {folders.map(f => (
@@ -188,14 +188,14 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             {/* Date */}
             <div>
-              <label className="block font-medium text-slate-700 mb-1">
+              <label className="block font-medium text-slate-700 mb-1 dark:text-slate-200">
                 Dokumentendatum
               </label>
               <input
                 type="date"
                 value={date}
                 onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs dark:border-slate-700"
               />
             </div>
           </div>
@@ -203,13 +203,13 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
           {/* Links */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-medium text-slate-700 mb-1">
+              <label className="block font-medium text-slate-700 mb-1 dark:text-slate-200">
                 Mitglied (optional)
               </label>
               <select
                 value={memberId}
                 onChange={e => setMemberId(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs dark:border-slate-700"
               >
                 <option value="">-- Keine Verknüpfung --</option>
                 {members.map(m => (
@@ -221,13 +221,13 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
             </div>
 
             <div>
-              <label className="block font-medium text-slate-700 mb-1">
+              <label className="block font-medium text-slate-700 mb-1 dark:text-slate-200">
                 Buchung (optional)
               </label>
               <select
                 value={transactionId}
                 onChange={e => setTransactionId(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs dark:border-slate-700"
               >
                 <option value="">-- Keine Verknüpfung --</option>
                 {transactions.map(t => (
@@ -241,7 +241,7 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
 
           {/* Tags */}
           <div>
-            <label className="block font-medium text-slate-700 mb-1">
+            <label className="block font-medium text-slate-700 mb-1 dark:text-slate-200">
               Schlagworte
             </label>
             <div className="flex gap-2 mb-1.5">
@@ -255,13 +255,13 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
                     addTag(tagInput);
                   }
                 }}
-                className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg text-xs"
+                className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg text-xs dark:border-slate-700"
                 placeholder="Schlagwort eingeben..."
               />
               <button
                 type="button"
                 onClick={() => addTag(tagInput)}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium"
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
               >
                 +
               </button>
@@ -271,13 +271,13 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
                 {tags.map((t, idx) => (
                   <span
                     key={idx}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[11px]"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[11px] dark:bg-slate-700 dark:text-slate-200"
                   >
                     #{t}
                     <button
                       type="button"
                       onClick={() => removeTag(t)}
-                      className="text-slate-400 hover:text-rose-600"
+                      className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -289,24 +289,24 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
 
           {/* Notes */}
           <div>
-            <label className="block font-medium text-slate-700 mb-1">
+            <label className="block font-medium text-slate-700 mb-1 dark:text-slate-200">
               Notizen / Bemerkungen
             </label>
             <textarea
               rows={2}
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg resize-none text-xs"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg resize-none text-xs dark:border-slate-700"
               placeholder="Zusatzangaben zum Dokument..."
             />
           </div>
 
           {/* Footer actions */}
-          <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
+          <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+              className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-xl transition-colors dark:text-slate-200 dark:hover:bg-slate-700"
             >
               Abbrechen
             </button>

@@ -274,19 +274,19 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] dark:bg-slate-900 dark:border-slate-800">
         
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shadow-2xs">
+            <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shadow-2xs dark:bg-rose-900/40 dark:text-rose-300">
               <PenTool className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 Digitales Signaturfeld & Protokollunterzeichnung
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {meeting.title} • Gem. § 32 BGB & Satzung
               </p>
             </div>
@@ -294,17 +294,17 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer dark:hover:text-slate-300 dark:hover:bg-slate-600"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Informational Guidance */}
-        <div className="px-6 py-2.5 bg-blue-50/80 border-b border-blue-100 flex items-center justify-between gap-3">
+        <div className="px-6 py-2.5 bg-blue-50/80 border-b border-blue-100 flex items-center justify-between gap-3 dark:bg-blue-950/80 dark:border-blue-900/50">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
-            <span className="text-xs text-blue-800">
+            <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 dark:text-blue-400" />
+            <span className="text-xs text-blue-800 dark:text-blue-200">
               Unterstützt <strong>Touch-Eingabe (Finger / Stylus auf Smartphone & Tablet)</strong> sowie <strong>Mauszeiger (PC / Laptop)</strong>.
             </span>
           </div>
@@ -316,7 +316,7 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
         </div>
 
         {/* Signatory Selector Tabs */}
-        <div className="px-6 border-b border-slate-200 bg-white flex items-center gap-4">
+        <div className="px-6 border-b border-slate-200 bg-white flex items-center gap-4 dark:border-slate-800 dark:bg-slate-900">
           <button
             type="button"
             onClick={() => {
@@ -325,19 +325,19 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
             }}
             className={`py-3 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${
               activeRole === 'chairperson'
-                ? 'border-rose-600 text-rose-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-rose-600 text-rose-600 dark:text-rose-400'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
             }`}
           >
             <User className="w-3.5 h-3.5" />
             <span>1. Versammlungsleitung ({chairpersonName})</span>
             {existingChairpersonSig ? (
-              <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold flex items-center gap-0.5">
+              <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold flex items-center gap-0.5 dark:bg-emerald-900/40 dark:text-emerald-200">
                 <Check className="w-3 h-3" />
                 Signiert
               </span>
             ) : (
-              <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-medium">
+              <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-medium dark:bg-amber-900/40 dark:text-amber-200">
                 Offen
               </span>
             )}
@@ -351,19 +351,19 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
             }}
             className={`py-3 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${
               activeRole === 'minuteKeeper'
-                ? 'border-rose-600 text-rose-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-rose-600 text-rose-600 dark:text-rose-400'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
             <span>2. Protokollführung ({minuteKeeperName})</span>
             {existingMinuteKeeperSig ? (
-              <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold flex items-center gap-0.5">
+              <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold flex items-center gap-0.5 dark:bg-emerald-900/40 dark:text-emerald-200">
                 <Check className="w-3 h-3" />
                 Signiert
               </span>
             ) : (
-              <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-medium">
+              <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-medium dark:bg-amber-900/40 dark:text-amber-200">
                 Offen
               </span>
             )}
@@ -374,30 +374,30 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
         <div className="p-6 overflow-y-auto space-y-5 flex-1">
           
           {/* Active Signatory Info Card */}
-          <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 flex flex-wrap items-center justify-between gap-3 dark:bg-slate-800 dark:border-slate-800">
             <div>
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block dark:text-slate-400">
                 Zu unterzeichnende Person
               </span>
-              <span className="text-sm font-bold text-slate-800">
+              <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
                 {currentSignatoryName}
               </span>
-              <span className="text-xs text-slate-500 ml-1.5">
+              <span className="text-xs text-slate-500 ml-1.5 dark:text-slate-400">
                 ({currentSignatoryRoleLabel})
               </span>
             </div>
 
             {currentSignature && (
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg flex items-center gap-1 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800/60">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   Signiert am {new Date(currentSignature.signedAt).toLocaleDateString('de-DE')} um {new Date(currentSignature.signedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr
                 </span>
                 <button
                   type="button"
                   onClick={() => handleRemoveSignature(activeRole)}
                   disabled={isSaving}
-                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer dark:hover:text-rose-400 dark:hover:bg-rose-950/40"
                   title="Unterschrift löschen"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -408,16 +408,16 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
 
           {/* Current Saved Signature Preview (if already exists) */}
           {currentSignature && (
-            <div className="border border-emerald-200 bg-emerald-50/40 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="border border-emerald-200 bg-emerald-50/40 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 dark:border-emerald-800/60 dark:bg-emerald-950/40">
               <div>
-                <span className="text-xs font-bold text-emerald-900 block mb-1">
+                <span className="text-xs font-bold text-emerald-900 block mb-1 dark:text-emerald-100">
                   Gültige digitale Unterschrift hinterlegt
                 </span>
-                <p className="text-[11px] text-emerald-700">
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
                   Wird beim PDF-Export automatisch über der Unterschriftslinie und mit offiziellem Zeitstempel eingefügt.
                 </p>
               </div>
-              <div className="bg-white border border-slate-200 rounded-lg p-2 shadow-2xs shrink-0">
+              <div className="bg-white border border-slate-200 rounded-lg p-2 shadow-2xs shrink-0 dark:bg-slate-900 dark:border-slate-800">
                 <img
                   src={currentSignature.signatureDataUrl}
                   alt={`Unterschrift von ${currentSignatoryName}`}
@@ -430,8 +430,8 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
           {/* Canvas Signature Pad Area */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <PenTool className="w-3.5 h-3.5 text-rose-600" />
+              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5 dark:text-slate-200">
+                <PenTool className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                 <span>
                   {currentSignature ? 'Neue Unterschrift zeichnen (überschreibt bestehende)' : 'Unterschrift zeichnen'}
                 </span>
@@ -439,7 +439,7 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
               <button
                 type="button"
                 onClick={handleClearCanvas}
-                className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
+                className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer dark:text-slate-400 dark:hover:text-slate-100"
                 title="Zeichenfläche leeren"
               >
                 <RotateCcw className="w-3 h-3" />
@@ -448,7 +448,7 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
             </div>
 
             {/* Canvas Box with baseline */}
-            <div className="relative border-2 border-dashed border-slate-300 rounded-xl bg-slate-50/80 overflow-hidden shadow-inner group focus-within:border-rose-500">
+            <div className="relative border-2 border-dashed border-slate-300 rounded-xl bg-slate-50/80 overflow-hidden shadow-inner group focus-within:border-rose-500 dark:border-slate-700 dark:bg-slate-800/80">
               <canvas
                 ref={canvasRef}
                 onPointerDown={handlePointerDown}
@@ -461,7 +461,7 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
               />
 
               {/* Baseline guideline */}
-              <div className="absolute left-6 right-6 bottom-8 border-b border-slate-300/80 pointer-events-none flex items-center justify-between">
+              <div className="absolute left-6 right-6 bottom-8 border-b border-slate-300/80 pointer-events-none flex items-center justify-between dark:border-slate-700">
                 <span className="text-[10px] text-slate-400 select-none">
                   Unterschriftslinie
                 </span>
@@ -480,7 +480,7 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
 
             {/* Signature Save Button */}
             <div className="flex items-center justify-between pt-1">
-              <span className="text-[11px] text-slate-500">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
                 Die Unterschrift wird hochauflösend als Vektorgrafik im Sitzungsdatensatz gesichert.
               </span>
               <button
@@ -490,7 +490,7 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
                 className={`px-4 py-2 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer ${
                   hasDrawnStroke && !isSaving
                     ? 'bg-rose-600 text-white hover:bg-rose-700'
-                    : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                    : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed dark:bg-slate-700 dark:border-slate-800'
                 }`}
               >
                 <Check className="w-4 h-4" />
@@ -500,9 +500,9 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
           </div>
 
           {/* PDF Download Options Section */}
-          <div className="border-t border-slate-200 pt-4 space-y-3">
-            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-              <FileText className="w-3.5 h-3.5 text-slate-600" />
+          <div className="border-t border-slate-200 pt-4 space-y-3 dark:border-slate-800">
+            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 dark:text-slate-100">
+              <FileText className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
               <span>Protokoll-Download Optionen</span>
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -512,21 +512,21 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
                 disabled={Boolean(isExporting) || signatures.length === 0}
                 className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between shadow-2xs ${
                   signatures.length > 0
-                    ? 'border-rose-200 bg-rose-50/50 hover:bg-rose-100/60 cursor-pointer'
-                    : 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed'
+                    ? 'border-rose-200 bg-rose-50/50 hover:bg-rose-100/60 cursor-pointer dark:border-rose-800/60 dark:bg-rose-950/50 dark:hover:bg-rose-900/60'
+                    : 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed dark:border-slate-800 dark:bg-slate-800'
                 }`}
                 title={signatures.length > 0 ? 'Erzeugt PDF mit den hinterlegten digitalen Unterschriften' : 'Erst mindestens eine Unterschrift erfassen'}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-rose-900 flex items-center gap-1.5">
-                    <Download className="w-3.5 h-3.5 text-rose-600" />
+                  <span className="text-xs font-bold text-rose-900 flex items-center gap-1.5 dark:text-rose-100">
+                    <Download className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                     <span>Mit digitaler Unterschrift</span>
                   </span>
-                  <span className="px-1.5 py-0.5 text-[10px] bg-rose-200/80 text-rose-800 font-bold rounded">
+                  <span className="px-1.5 py-0.5 text-[10px] bg-rose-200/80 text-rose-800 font-bold rounded dark:bg-rose-900/80 dark:text-rose-200">
                     {signatures.length}/2 signiert
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-600">
+                <p className="text-[11px] text-slate-600 dark:text-slate-300">
                   Fügt die digitalen Signaturen und Zeitstempel direkt in das Protokoll-PDF ein.
                 </p>
               </button>
@@ -535,19 +535,19 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
                 type="button"
                 onClick={() => handleDownloadPdf(false)}
                 disabled={Boolean(isExporting)}
-                className="p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-left transition-all flex flex-col justify-between shadow-2xs cursor-pointer"
+                className="p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-left transition-all flex flex-col justify-between shadow-2xs cursor-pointer dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
                 title="Erzeugt das Protokoll mit freier Blanko-Signaturzeile zum handschriftlichen Unterzeichnen"
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <Download className="w-3.5 h-3.5 text-slate-600" />
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5 dark:text-slate-100">
+                    <Download className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
                     <span>Ohne Unterschrift (Blanko)</span>
                   </span>
-                  <span className="px-1.5 py-0.5 text-[10px] bg-slate-100 text-slate-700 font-bold rounded">
+                  <span className="px-1.5 py-0.5 text-[10px] bg-slate-100 text-slate-700 font-bold rounded dark:bg-slate-700 dark:text-slate-200">
                     Zum Ausdrucken
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   Erzeugt das Protokoll mit klassischer Signaturzeile zum manuellen Ausdruck und handschriftlichen Zeichnen.
                 </p>
               </button>
@@ -556,14 +556,14 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-          <span className="text-xs text-slate-500">
+        <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between dark:border-slate-800 dark:bg-slate-800">
+          <span className="text-xs text-slate-500 dark:text-slate-400">
             Status: {signatures.length === 2 ? 'Beide Unterschriften vollständig erfasst.' : `${signatures.length} von 2 Unterschriften vorhanden.`}
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer shadow-2xs"
+            className="px-4 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer shadow-2xs dark:text-slate-200 dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-slate-700"
           >
             Schließen
           </button>

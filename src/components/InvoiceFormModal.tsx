@@ -584,18 +584,18 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl overflow-hidden my-4 flex flex-col max-h-[94vh]">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl overflow-hidden my-4 flex flex-col max-h-[94vh] dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 text-blue-700 rounded-xl">
+            <div className="p-2 bg-blue-100 text-blue-700 rounded-xl dark:bg-blue-900/40 dark:text-blue-300">
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 {invoice ? `Rechnung bearbeiten: ${invoice.invoiceNumber}` : 'Neue Rechnung erstellen'}
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Erfassen Sie Empfänger, Rechnungspositionen und Zahlungskonditionen nach DIN 5008.
               </p>
             </div>
@@ -603,7 +603,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer dark:hover:text-slate-300 dark:hover:bg-slate-600"
           >
             <X className="w-5 h-5" />
           </button>
@@ -612,9 +612,9 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
         {/* Form Body */}
         <form noValidate onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* SECTION 1: KOPFDATEN & RECHNUNGSNUMMER */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 bg-slate-50 p-4 rounded-xl border border-slate-200 dark:bg-slate-800 dark:border-slate-800">
             <div className="sm:col-span-1 lg:col-span-2 min-w-0">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                 Rechnungsnummer *
               </label>
               <input
@@ -622,19 +622,19 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                 required
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
-                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900 focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-white"
                 placeholder="z.B. RE-2026-001"
               />
             </div>
 
             <div className="sm:col-span-1 lg:col-span-2 min-w-0">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                 Status
               </label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as any)}
-                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
               >
                 <option value="open">Offen (Zahlung ausstehend)</option>
                 <option value="paid">Bezahlt</option>
@@ -644,7 +644,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
             </div>
 
             <div className="sm:col-span-1 lg:col-span-2 min-w-0">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                 Rechnungsdatum *
               </label>
               <input
@@ -659,31 +659,31 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                     setDueDate(d.toISOString().split('T')[0]);
                   }
                 }}
-                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-white"
               />
             </div>
 
             <div className="sm:col-span-1 lg:col-span-3 min-w-0">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                 Leistungs- / Lieferdatum
               </label>
               <input
                 type="date"
                 value={deliveryDate}
                 onChange={(e) => setDeliveryDate(e.target.value)}
-                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-white"
               />
             </div>
 
             <div className="sm:col-span-2 lg:col-span-3 min-w-0">
               <div className="flex items-center justify-between mb-1 gap-1.5">
-                <label className="block text-xs font-semibold text-slate-700 whitespace-nowrap">
+                <label className="block text-xs font-semibold text-slate-700 whitespace-nowrap dark:text-slate-200">
                   Fälligkeitsdatum *
                 </label>
                 <select
                   value={paymentTermsDays}
                   onChange={(e) => handlePaymentTermsChange(Number(e.target.value))}
-                  className="text-[10px] font-medium text-blue-700 bg-blue-50/80 hover:bg-blue-100 border border-blue-200 rounded px-1.5 py-0.5 cursor-pointer focus:ring-1 focus:ring-blue-500 shrink-0"
+                  className="text-[10px] font-medium text-blue-700 bg-blue-50/80 hover:bg-blue-100 border border-blue-200 rounded px-1.5 py-0.5 cursor-pointer focus:ring-1 focus:ring-blue-500 shrink-0 dark:text-blue-300 dark:bg-blue-950/80 dark:hover:bg-blue-900/40 dark:border-blue-800/60"
                   title="Schnellauswahl Zahlungsziel"
                 >
                   <option value="0">Sofort</option>
@@ -697,29 +697,29 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                 required
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-blue-700 focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-blue-700 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-blue-300"
               />
             </div>
           </div>
 
           {/* SECTION 2: EMPFÄNGER-AUSWAHL MIT AUTOCOMPLETE (REQUIREMENT 4) */}
-          <div className="border border-slate-200 rounded-xl p-5 bg-white space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="border border-slate-200 rounded-xl p-5 bg-white space-y-4 dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
               <div>
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 dark:text-slate-100">
                   <span>Rechnungsempfänger</span>
                   {recipientType === 'member' && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
                       <User className="w-3 h-3" /> Verknüpft mit Mitglied
                     </span>
                   )}
                   {recipientType === 'contact' && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200">
                       <Building2 className="w-3 h-3" /> Verknüpft mit Kontakt / Firma
                     </span>
                   )}
                 </h4>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Tippen Sie zur automatischen Übernahme von Mitglieds- oder Kontaktdaten.
                 </p>
               </div>
@@ -728,7 +728,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                 <button
                   type="button"
                   onClick={handleUnlinkRecipient}
-                  className="text-xs text-slate-500 hover:text-slate-800 underline flex items-center gap-1 cursor-pointer"
+                  className="text-xs text-slate-500 hover:text-slate-800 underline flex items-center gap-1 cursor-pointer dark:text-slate-400 dark:hover:text-slate-100"
                 >
                   <span>Verknüpfung aufheben (manuell anpassen)</span>
                 </button>
@@ -753,7 +753,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                     }
                   }}
                   placeholder="Empfänger suchen: Name, Firma, Mitgliedsnummer oder Kontakt eingeben..."
-                  className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-white dark:focus:bg-slate-800"
                 />
                 {recipientSearch && (
                   <button
@@ -762,7 +762,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                       setRecipientSearch('');
                       setIsSearchingRecipient(false);
                     }}
-                    className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600"
+                    className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                   >
                     ✕
                   </button>
@@ -773,10 +773,10 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
               {isSearchingRecipient && recipientSearch.trim().length > 0 && (
                 <div
                   ref={searchDropdownRef}
-                  className="absolute z-20 top-full mt-1.5 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden max-h-72 overflow-y-auto text-xs divide-y divide-slate-100"
+                  className="absolute z-20 top-full mt-1.5 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden max-h-72 overflow-y-auto text-xs divide-y divide-slate-100 dark:bg-slate-900 dark:border-slate-800 dark:divide-slate-800"
                 >
                   {totalSuggestionsCount === 0 ? (
-                    <div className="p-3 text-slate-500 text-center">
+                    <div className="p-3 text-slate-500 text-center dark:text-slate-400">
                       Keine Treffer unter Mitgliedern oder Kontakten für "{recipientSearch}". Sie können die Felder unten manuell ausfüllen.
                     </div>
                   ) : (
@@ -784,8 +784,8 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                       {/* Contacts Matches */}
                       {recipientSuggestions.contacts.length > 0 && (
                         <div>
-                          <div className="px-3 py-1.5 bg-slate-50 text-[10px] uppercase font-bold text-slate-500 tracking-wider flex items-center gap-1.5">
-                            <Building2 className="w-3 h-3 text-indigo-600" />
+                          <div className="px-3 py-1.5 bg-slate-50 text-[10px] uppercase font-bold text-slate-500 tracking-wider flex items-center gap-1.5 dark:bg-slate-800 dark:text-slate-400">
+                            <Building2 className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
                             <span>Gefundene Kontakte / Firmen ({recipientSuggestions.contacts.length})</span>
                           </div>
                           {recipientSuggestions.contacts.map(c => (
@@ -793,23 +793,23 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                               key={c.id}
                               type="button"
                               onClick={() => handleSelectContact(c)}
-                              className="w-full px-3 py-2 text-left hover:bg-indigo-50/70 flex items-center justify-between group transition-colors cursor-pointer"
+                              className="w-full px-3 py-2 text-left hover:bg-indigo-50/70 flex items-center justify-between group transition-colors cursor-pointer dark:hover:bg-indigo-950/70"
                             >
                               <div className="flex items-center gap-2.5">
-                                <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">
+                                <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs dark:bg-indigo-900/40 dark:text-indigo-300">
                                   {c.personType === 'legal' ? '🏢' : '👤'}
                                 </div>
                                 <div>
-                                  <div className="font-bold text-slate-900 group-hover:text-indigo-900">
+                                  <div className="font-bold text-slate-900 group-hover:text-indigo-900 dark:text-white dark:group-hover:text-indigo-100">
                                     {c.displayName || c.companyName}
                                   </div>
-                                  <div className="text-[11px] text-slate-500">
+                                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
                                     {c.contactPerson ? `Anspr.: ${c.contactPerson.firstName || ''} ${c.contactPerson.lastName || ''} • ` : ''}
                                     {c.address?.street ? `${c.address.street} ${c.address.houseNumber || ''}, ${c.address.zip || ''} ${c.address.city || ''}` : 'Keine Anschrift'}
                                   </div>
                                 </div>
                               </div>
-                              <span className="text-[10px] font-mono font-semibold bg-slate-100 px-2 py-0.5 rounded-sm text-slate-600">
+                              <span className="text-[10px] font-mono font-semibold bg-slate-100 px-2 py-0.5 rounded-sm text-slate-600 dark:bg-slate-700 dark:text-slate-300">
                                 {c.contactNumber || 'Kontakt'}
                               </span>
                             </button>
@@ -820,8 +820,8 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                       {/* Members Matches */}
                       {recipientSuggestions.members.length > 0 && (
                         <div>
-                          <div className="px-3 py-1.5 bg-slate-50 text-[10px] uppercase font-bold text-slate-500 tracking-wider flex items-center gap-1.5">
-                            <User className="w-3 h-3 text-blue-600" />
+                          <div className="px-3 py-1.5 bg-slate-50 text-[10px] uppercase font-bold text-slate-500 tracking-wider flex items-center gap-1.5 dark:bg-slate-800 dark:text-slate-400">
+                            <User className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                             <span>Gefundene Vereinsmitglieder ({recipientSuggestions.members.length})</span>
                           </div>
                           {recipientSuggestions.members.map(m => (
@@ -829,23 +829,23 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                               key={m.id}
                               type="button"
                               onClick={() => handleSelectMember(m)}
-                              className="w-full px-3 py-2 text-left hover:bg-blue-50/70 flex items-center justify-between group transition-colors cursor-pointer"
+                              className="w-full px-3 py-2 text-left hover:bg-blue-50/70 flex items-center justify-between group transition-colors cursor-pointer dark:hover:bg-blue-950/70"
                             >
                               <div className="flex items-center gap-2.5">
-                                <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+                                <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs dark:bg-blue-900/40 dark:text-blue-300">
                                   👤
                                 </div>
                                 <div>
-                                  <div className="font-bold text-slate-900 group-hover:text-blue-900">
+                                  <div className="font-bold text-slate-900 group-hover:text-blue-900 dark:text-white dark:group-hover:text-blue-100">
                                     {m.firstName} {m.lastName}
                                   </div>
-                                  <div className="text-[11px] text-slate-500">
+                                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
                                     {m.address?.street ? `${m.address.street} ${m.address.houseNumber || ''}, ${m.address.zip || ''} ${m.address.city || ''}` : 'Keine Anschrift'}
                                     {m.email ? ` • ${m.email}` : ''}
                                   </div>
                                 </div>
                               </div>
-                              <span className="text-[10px] font-mono font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-sm">
+                              <span className="text-[10px] font-mono font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-sm dark:bg-blue-950/40 dark:text-blue-300">
                                 {m.memberNumber}
                               </span>
                             </button>
@@ -861,7 +861,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
             {/* Address Form Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                   Empfänger / Name *
                 </label>
                 <input
@@ -870,12 +870,12 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                   value={recipientName}
                   onChange={(e) => setRecipientName(e.target.value)}
                   placeholder="Vor- und Nachname oder Firmenname"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                   Firma / Organisation (optional)
                 </label>
                 <input
@@ -883,12 +883,12 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                   value={recipientCompany}
                   onChange={(e) => setRecipientCompany(e.target.value)}
                   placeholder="z.B. Stadtwerke AG oder Fa. Meier"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                   Ansprechpartner / Zusatzzeile (optional)
                 </label>
                 <input
@@ -896,133 +896,133 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                   value={recipientContactPerson}
                   onChange={(e) => setRecipientContactPerson(e.target.value)}
                   placeholder="z.B. z. Hd. Herrn Dr. Klaus Becker"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                 />
               </div>
 
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Straße</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">Straße</label>
                   <input
                     type="text"
                     value={street}
                     onChange={(e) => setStreet(e.target.value)}
                     placeholder="Straße"
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Hausnr.</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">Hausnr.</label>
                   <input
                     type="text"
                     value={houseNumber}
                     onChange={(e) => setHouseNumber(e.target.value)}
                     placeholder="Nr."
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">PLZ</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">PLZ</label>
                   <input
                     type="text"
                     value={zip}
                     onChange={(e) => setZip(e.target.value)}
                     placeholder="12345"
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Ort</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">Ort</label>
                   <input
                     type="text"
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                     placeholder="Musterstadt"
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">E-Mail (für Rechnungsversand)</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">E-Mail (für Rechnungsversand)</label>
                 <input
                   type="email"
                   value={recipientEmail}
                   onChange={(e) => setRecipientEmail(e.target.value)}
                   placeholder="rechnung@beispiel.de"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Telefon (optional)</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">Telefon (optional)</label>
                 <input
                   type="text"
                   value={recipientPhone}
                   onChange={(e) => setRecipientPhone(e.target.value)}
                   placeholder="0123 456789"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                 />
               </div>
             </div>
           </div>
 
           {/* SECTION 3: RECHNUNGSINHALT & BETREFF */}
-          <div className="border border-slate-200 rounded-xl p-5 bg-white space-y-3">
-            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+          <div className="border border-slate-200 rounded-xl p-5 bg-white space-y-3 dark:border-slate-800 dark:bg-slate-900">
+            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider dark:text-slate-100">
               Betreff & Anschreiben
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Titel</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">Titel</label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Betreffzeile *</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">Betreffzeile *</label>
                 <input
                   type="text"
                   required
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="z.B. Sponsoring Werbebande Sportplatz Hauptfeld Saison 2025/2026"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 font-medium focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Einleitungstext</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">Einleitungstext</label>
               <textarea
                 rows={2}
                 value={introText}
                 onChange={(e) => setIntroText(e.target.value)}
                 placeholder="Sehr geehrte Damen und Herren..."
-                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
               />
             </div>
           </div>
 
           {/* SECTION 4: RECHNUNGSPOSITIONEN MIT DRAG & DROP & MULTI-DELETE (REQUIREMENTS 5, 6, 7) */}
-          <div className="border border-slate-200 rounded-xl bg-white overflow-hidden shadow-2xs">
+          <div className="border border-slate-200 rounded-xl bg-white overflow-hidden shadow-2xs dark:border-slate-800 dark:bg-slate-900">
             {/* Header with Title and Action Buttons */}
-            <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 dark:bg-slate-800 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider dark:text-slate-100">
                   Rechnungspositionen
                 </h4>
-                <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full dark:bg-blue-900/40 dark:text-blue-200">
                   {items.length} Position{items.length !== 1 ? 'en' : ''}
                 </span>
                 {selectedPositionIds.size > 0 && (
-                  <span className="text-xs font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full">
+                  <span className="text-xs font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full dark:bg-amber-900/40 dark:text-amber-100">
                     {selectedPositionIds.size} markiert
                   </span>
                 )}
@@ -1055,7 +1055,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
             {/* Position Table */}
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left border-collapse">
-                <thead className="bg-slate-100 text-slate-600 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200 select-none">
+                <thead className="bg-slate-100 text-slate-600 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200 select-none dark:bg-slate-700 dark:text-slate-300 dark:border-slate-800">
                   <tr>
                     <th className="w-8 px-2 py-2 text-center">
                       <input
@@ -1063,7 +1063,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                         checked={items.length > 0 && selectedPositionIds.size === items.length}
                         onChange={handleSelectAllPositions}
                         title="Alle auswählen"
-                        className="w-3.5 h-3.5 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 cursor-pointer"
+                        className="w-3.5 h-3.5 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 cursor-pointer dark:text-blue-400 dark:border-slate-700"
                       />
                     </th>
                     <th className="w-8 px-1 py-2 text-center" title="Per Drag & Drop verschiebbar">
@@ -1079,7 +1079,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                     <th className="w-16 px-2 py-2 text-center">Aktionen</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 bg-white">
+                <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-900">
                   {items.map((item, index) => {
                     const isSelected = selectedPositionIds.has(item.id);
                     const isDragging = draggedIndex === index;
@@ -1093,10 +1093,10 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                         onDrop={(e) => handleDrop(e, index)}
                         className={`transition-colors ${
                           isDragging
-                            ? 'opacity-40 bg-blue-50 border-2 border-dashed border-blue-400'
+                            ? 'opacity-40 bg-blue-50 border-2 border-dashed border-blue-400 dark:bg-blue-950/40'
                             : isSelected
-                            ? 'bg-amber-50/70'
-                            : 'hover:bg-slate-50/80'
+                            ? 'bg-amber-50/70 dark:bg-amber-950/70'
+                            : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/80'
                         }`}
                       >
                         {/* Checkbox for selection */}
@@ -1105,17 +1105,17 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => handleToggleSelectPosition(item.id)}
-                            className="w-3.5 h-3.5 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 cursor-pointer"
+                            className="w-3.5 h-3.5 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 cursor-pointer dark:text-blue-400 dark:border-slate-700"
                           />
                         </td>
 
                         {/* Drag Handle */}
-                        <td className="px-1 py-2 text-center cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-700">
+                        <td className="px-1 py-2 text-center cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
                           <GripVertical className="w-4 h-4 mx-auto" />
                         </td>
 
                         {/* Position Number (Auto-computed 1, 2, 3...) */}
-                        <td className="px-2 py-2 text-center font-mono font-bold text-slate-700">
+                        <td className="px-2 py-2 text-center font-mono font-bold text-slate-700 dark:text-slate-200">
                           {item.position || index + 1}
                         </td>
 
@@ -1127,7 +1127,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                             value={item.description}
                             onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
                             placeholder="Leistungsbezeichnung..."
-                            className="w-full px-2 py-1 border border-slate-200 rounded-md text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 resize-y"
+                            className="w-full px-2 py-1 border border-slate-200 rounded-md text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 resize-y dark:border-slate-800 dark:text-white"
                           />
                         </td>
 
@@ -1143,7 +1143,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                             onKeyDown={(e) => handleQuantityKeyDown(e, item.id, item.quantity)}
                             onFocus={(e) => e.target.select()}
                             placeholder="1"
-                            className="w-full px-2 py-1 border border-slate-200 rounded-md text-xs text-right font-mono text-slate-900 focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-2 py-1 border border-slate-200 rounded-md text-xs text-right font-mono text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                           />
                         </td>
 
@@ -1155,7 +1155,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                             onChange={(e) => handleItemChange(item.id, 'unit', e.target.value)}
                             placeholder="Stk."
                             list="units-list"
-                            className="w-full px-2 py-1 border border-slate-200 rounded-md text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-2 py-1 border border-slate-200 rounded-md text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                           />
                           <datalist id="units-list">
                             <option value="Stk." />
@@ -1185,7 +1185,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                               }
                             }}
                             placeholder="0,00"
-                            className="w-full px-2 py-1 border border-slate-200 rounded-md text-xs text-right font-mono text-slate-900 focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-2 py-1 border border-slate-200 rounded-md text-xs text-right font-mono text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                           />
                         </td>
 
@@ -1194,7 +1194,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                           <select
                             value={item.vatRate}
                             onChange={(e) => handleItemChange(item.id, 'vatRate', Number(e.target.value))}
-                            className="w-full px-1.5 py-1 border border-slate-200 rounded-md text-xs text-center text-slate-800 focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-1.5 py-1 border border-slate-200 rounded-md text-xs text-center text-slate-800 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-slate-100"
                           >
                             <option value="0">0 %</option>
                             <option value="7">7 %</option>
@@ -1203,7 +1203,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                         </td>
 
                         {/* Total Price (Auto-computed) */}
-                        <td className="px-3 py-2 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+                        <td className="px-3 py-2 text-right font-mono font-bold text-slate-900 whitespace-nowrap dark:text-white">
                           {formatCurrency(item.totalPrice)}
                         </td>
 
@@ -1214,7 +1214,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                               type="button"
                               disabled={index === 0}
                               onClick={() => handleMovePosition(index, 'up')}
-                              className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
+                              className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer dark:hover:text-slate-200"
                               title="Nach oben"
                             >
                               <ChevronUp className="w-3.5 h-3.5" />
@@ -1223,7 +1223,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                               type="button"
                               disabled={index === items.length - 1}
                               onClick={() => handleMovePosition(index, 'down')}
-                              className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
+                              className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer dark:hover:text-slate-200"
                               title="Nach unten"
                             >
                               <ChevronDown className="w-3.5 h-3.5" />
@@ -1231,7 +1231,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                             <button
                               type="button"
                               onClick={() => handleDeleteItem(item.id)}
-                              className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+                              className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors cursor-pointer dark:hover:text-red-300 dark:hover:bg-red-950/40"
                               title="Position löschen"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1246,8 +1246,8 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
             </div>
 
             {/* Totals Summary Footer */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="text-xs text-slate-500 space-y-1">
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 dark:bg-slate-800 dark:border-slate-800">
+              <div className="text-xs text-slate-500 space-y-1 dark:text-slate-400">
                 <p className="flex items-center gap-1.5">
                   <GripVertical className="w-3.5 h-3.5 text-slate-400" />
                   <span>Zeilen am Symbol anfassen, um sie per <strong>Drag & Drop</strong> beliebig zu sortieren.</span>
@@ -1255,22 +1255,22 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                 <p>Positionsnummern passen sich dabei automatisch fortlaufend an.</p>
               </div>
 
-              <div className="w-full sm:w-72 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-2 text-xs">
-                <div className="flex items-center justify-between text-slate-600">
+              <div className="w-full sm:w-72 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-2 text-xs dark:bg-slate-900 dark:border-slate-800">
+                <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
                   <span>Summe Netto:</span>
-                  <span className="font-mono font-semibold text-slate-900">{formatCurrency(subtotalNet)}</span>
+                  <span className="font-mono font-semibold text-slate-900 dark:text-white">{formatCurrency(subtotalNet)}</span>
                 </div>
 
                 {Object.entries(vatAmounts).map(([rate, amount]) => (
-                  <div key={rate} className="flex items-center justify-between text-slate-500 text-[11px]">
+                  <div key={rate} className="flex items-center justify-between text-slate-500 text-[11px] dark:text-slate-400">
                     <span>zzgl. {rate}% USt:</span>
-                    <span className="font-mono font-medium text-slate-700">{formatCurrency(Number(amount))}</span>
+                    <span className="font-mono font-medium text-slate-700 dark:text-slate-200">{formatCurrency(Number(amount))}</span>
                   </div>
                 ))}
 
-                <div className="pt-2 border-t border-slate-200 flex items-center justify-between font-bold text-sm">
-                  <span className="text-slate-900">Gesamtbetrag:</span>
-                  <span className="font-mono text-blue-700">{formatCurrency(totalAmount)}</span>
+                <div className="pt-2 border-t border-slate-200 flex items-center justify-between font-bold text-sm dark:border-slate-800">
+                  <span className="text-slate-900 dark:text-white">Gesamtbetrag:</span>
+                  <span className="font-mono text-blue-700 dark:text-blue-300">{formatCurrency(totalAmount)}</span>
                 </div>
               </div>
             </div>
@@ -1278,22 +1278,22 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
 
           {/* SECTION 5: SCHLUSSTEXT & DOKUMENTENABLAGE */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="border border-slate-200 rounded-xl p-4 bg-white space-y-2">
-              <label className="block text-xs font-semibold text-slate-700">
+            <div className="border border-slate-200 rounded-xl p-4 bg-white space-y-2 dark:border-slate-800 dark:bg-slate-900">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
                 Schlusstext & Zahlungsanweisung
               </label>
               <textarea
                 rows={3}
                 value={outroText}
                 onChange={(e) => setOutroText(e.target.value)}
-                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
               />
             </div>
 
-            <div className="border border-slate-200 rounded-xl p-4 bg-white space-y-3 flex flex-col justify-between">
+            <div className="border border-slate-200 rounded-xl p-4 bg-white space-y-3 flex flex-col justify-between dark:border-slate-800 dark:bg-slate-900">
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                     Interne Notizen (nicht auf Rechnung sichtbar)
                   </label>
                   <textarea
@@ -1301,18 +1301,18 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="z.B. Genehmigt durch Vorstandssitzung..."
-                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                     Steuerliche Sphäre (für Buchhaltung & Auswertungen)
                   </label>
                   <select
                     value={taxSphere}
                     onChange={(e) => setTaxSphere(e.target.value as TaxSphere)}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
                   >
                     <option value="wirtschaftlich">Wirtschaftlicher Geschäftsbetrieb (z.B. Sponsoring, Bewirtung)</option>
                     <option value="zweckbetrieb">Zweckbetrieb (z.B. Startgelder, Sportkurse, Hallenvermietung an Vereine)</option>
@@ -1326,15 +1326,15 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
               </div>
 
               {/* Requirement 8: Automatische Dokumentenablage */}
-              <label className="flex items-center gap-2.5 p-2.5 bg-blue-50/70 border border-blue-200 rounded-lg cursor-pointer">
+              <label className="flex items-center gap-2.5 p-2.5 bg-blue-50/70 border border-blue-200 rounded-lg cursor-pointer dark:bg-blue-950/70 dark:border-blue-800/60">
                 <input
                   type="checkbox"
                   checked={saveToDocuments}
                   onChange={(e) => setSaveToDocuments(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                 />
-                <div className="flex items-center gap-1.5 text-xs text-blue-900">
-                  <FolderArchive className="w-4 h-4 text-blue-700 shrink-0" />
+                <div className="flex items-center gap-1.5 text-xs text-blue-900 dark:text-blue-100">
+                  <FolderArchive className="w-4 h-4 text-blue-700 shrink-0 dark:text-blue-300" />
                   <span className="font-semibold">
                     Rechnung als PDF automatisch in der Dokumentenverwaltung archivieren
                   </span>
@@ -1345,15 +1345,15 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
         </form>
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50">
+        <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-2">
             {onPreviewPdf && (
               <button
                 type="button"
                 onClick={() => onPreviewPdf(constructInvoiceData())}
-                className="text-xs border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 px-3.5 py-2 rounded-xl font-medium transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                className="text-xs border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 px-3.5 py-2 rounded-xl font-medium transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-700 dark:text-slate-200"
               >
-                <Eye className="w-3.5 h-3.5 text-blue-600" />
+                <Eye className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 <span>Druckvorschau / PDF erzeugen</span>
               </button>
             )}
@@ -1363,7 +1363,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="text-xs text-slate-600 hover:text-slate-900 px-4 py-2 font-medium transition-colors cursor-pointer"
+              className="text-xs text-slate-600 hover:text-slate-900 px-4 py-2 font-medium transition-colors cursor-pointer dark:text-slate-300 dark:hover:text-white"
             >
               Abbrechen
             </button>

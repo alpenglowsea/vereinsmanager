@@ -119,9 +119,9 @@ export const ColumnVisibilityMenu: React.FC<ColumnVisibilityMenuProps> = ({
     <div
       ref={ref}
       style={style}
-      className="z-50 w-64 max-h-[70vh] overflow-y-auto bg-white rounded-xl border border-slate-200 shadow-2xl py-1.5"
+      className="z-50 w-64 max-h-[70vh] overflow-y-auto bg-white rounded-xl border border-slate-200 shadow-2xl py-1.5 dark:bg-slate-900 dark:border-slate-800"
     >
-      <div className="px-3 py-1.5 text-3xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
+      <div className="px-3 py-1.5 text-3xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1 dark:border-slate-800">
         Spalten ein-/ausblenden
       </div>
       {columns.map(col => {
@@ -135,12 +135,12 @@ export const ColumnVisibilityMenu: React.FC<ColumnVisibilityMenuProps> = ({
             onClick={() => onToggle(col.key)}
             title={isLastVisible ? 'Mindestens eine Spalte muss sichtbar bleiben' : undefined}
             className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition-colors ${
-              isLastVisible ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-50 cursor-pointer'
+              isLastVisible ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-50 cursor-pointer dark:text-slate-200 dark:hover:bg-slate-800'
             }`}
           >
             <span
               className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center ${
-                isHidden ? 'border-slate-300 bg-white' : 'border-blue-600 bg-blue-600'
+                isHidden ? 'border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-800' : 'border-blue-600 bg-blue-600'
               }`}
             >
               {!isHidden && <Check className="w-3 h-3 text-white" />}

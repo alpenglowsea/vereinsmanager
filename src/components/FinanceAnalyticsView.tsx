@@ -269,9 +269,9 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-          <Filter className="w-4 h-4 text-blue-600" />
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4 dark:bg-slate-900 dark:border-slate-800">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-100">
+          <Filter className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           <span>Auswertungs-Filter:</span>
         </div>
 
@@ -279,7 +279,7 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
           <select
             value={selectedYear}
             onChange={e => setSelectedYear(e.target.value)}
-            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
           >
             {availableYears.map(y => (
               <option key={y} value={y}>Jahr {y}</option>
@@ -290,7 +290,7 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
           <select
             value={selectedSphere}
             onChange={e => setSelectedSphere(e.target.value)}
-            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
           >
             <option value="all">Alle Steuer-Sphären</option>
             <option value="ideell">1. Ideeller Bereich</option>
@@ -302,7 +302,7 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
           <select
             value={selectedAccountId}
             onChange={e => setSelectedAccountId(e.target.value)}
-            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
           >
             <option value="all">Alle Konten & Kassen</option>
             {accounts.map(a => (
@@ -313,8 +313,8 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
       </div>
 
       {!hasData ? (
-        <div className="bg-white p-12 rounded-xl border border-slate-200 shadow-xs text-center">
-          <p className="text-sm text-slate-500">
+        <div className="bg-white p-12 rounded-xl border border-slate-200 shadow-xs text-center dark:bg-slate-900 dark:border-slate-800">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Für die gewählten Filter liegen keine Buchungen vor.
           </p>
         </div>
@@ -322,48 +322,48 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
         <>
           {/* KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-              <div className="flex items-center justify-between text-slate-500 mb-1">
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+              <div className="flex items-center justify-between text-slate-500 mb-1 dark:text-slate-400">
                 <span className="text-xs font-semibold uppercase tracking-wider">Einnahmen</span>
-                <ArrowUpRight className="w-4 h-4 text-emerald-600" />
+                <ArrowUpRight className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <div className="text-2xl font-bold font-mono text-emerald-600">
+              <div className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
                 +{formatEUR(yearTotals.einnahmen)}
               </div>
               <div className="text-[11px] text-slate-400 mt-2">Ohne Spenden</div>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-              <div className="flex items-center justify-between text-slate-500 mb-1">
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+              <div className="flex items-center justify-between text-slate-500 mb-1 dark:text-slate-400">
                 <span className="text-xs font-semibold uppercase tracking-wider">Spenden</span>
-                <Gift className="w-4 h-4 text-blue-600" />
+                <Gift className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               </div>
-              <div className="text-2xl font-bold font-mono text-blue-600">
+              <div className="text-2xl font-bold font-mono text-blue-600 dark:text-blue-400">
                 +{formatEUR(yearTotals.spenden)}
               </div>
               <div className="text-[11px] text-slate-400 mt-2">Nummernkreis 40400</div>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-              <div className="flex items-center justify-between text-slate-500 mb-1">
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+              <div className="flex items-center justify-between text-slate-500 mb-1 dark:text-slate-400">
                 <span className="text-xs font-semibold uppercase tracking-wider">Ausgaben</span>
-                <ArrowDownRight className="w-4 h-4 text-rose-600" />
+                <ArrowDownRight className="w-4 h-4 text-rose-600 dark:text-rose-400" />
               </div>
-              <div className="text-2xl font-bold font-mono text-rose-600">
+              <div className="text-2xl font-bold font-mono text-rose-600 dark:text-rose-400">
                 -{formatEUR(yearTotals.ausgaben)}
               </div>
               <div className="text-[11px] text-slate-400 mt-2">Im gewählten Zeitraum</div>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-              <div className="flex items-center justify-between text-slate-500 mb-1">
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+              <div className="flex items-center justify-between text-slate-500 mb-1 dark:text-slate-400">
                 <span className="text-xs font-semibold uppercase tracking-wider">Cashflow-Saldo</span>
-                <TrendingUp className="w-4 h-4 text-slate-600" />
+                <TrendingUp className="w-4 h-4 text-slate-600 dark:text-slate-300" />
               </div>
               {(() => {
                 const net = yearTotals.einnahmen + yearTotals.spenden - yearTotals.ausgaben;
                 return (
-                  <div className={`text-2xl font-bold font-mono ${net >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  <div className={`text-2xl font-bold font-mono ${net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                     {net >= 0 ? '+' : ''}{formatEUR(net)}
                   </div>
                 );
@@ -373,9 +373,9 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
           </div>
 
           {/* 1. Monatliche Übersicht */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 mb-1">
-              <BarChart3 className="w-4 h-4 text-blue-600" />
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 mb-1 dark:text-white">
+              <BarChart3 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               Einnahmen, Ausgaben & Spenden nach Monat
             </h3>
             <p className="text-xs text-slate-400 mb-4">Monatliche Gegenüberstellung der Zahlungsströme</p>
@@ -396,9 +396,9 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* 2. Jahresübersicht */}
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 mb-1">
-                <PieChartIcon className="w-4 h-4 text-emerald-600" />
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 mb-1 dark:text-white">
+                <PieChartIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 Jahresübersicht: Einnahmen, Ausgaben & Spenden
               </h3>
               <p className="text-xs text-slate-400 mb-4">Anteile im gewählten Zeitraum</p>
@@ -427,9 +427,9 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
             </div>
 
             {/* 5. Cashflow-Trend */}
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 mb-1">
-                <Activity className="w-4 h-4 text-blue-600" />
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 mb-1 dark:text-white">
+                <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 Cashflow-Trend Gesamtverein
               </h3>
               <p className="text-xs text-slate-400 mb-4">Kumulierter Kontostand-Verlauf über das Jahr (Fieberkurve)</p>
@@ -448,16 +448,16 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* 3. Einnahmen-Mix */}
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
               <div className="flex items-start justify-between gap-3 mb-1">
-                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-emerald-600" />
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 dark:text-white">
+                  <Layers className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   Einnahmen-Mix nach Konto
                 </h3>
                 <select
                   value={incomeMixDepartment}
                   onChange={e => setIncomeMixDepartment(e.target.value)}
-                  className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-2xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 shrink-0"
+                  className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-2xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 shrink-0 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
                 >
                   <option value="Gesamtverein">Gesamtverein (alle Sparten)</option>
                   {departmentList.map(dept => (
@@ -482,16 +482,16 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
             </div>
 
             {/* 4. Ausgaben-Mix */}
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
               <div className="flex items-start justify-between gap-3 mb-1">
-                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-rose-600" />
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 dark:text-white">
+                  <Layers className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                   Ausgaben-Mix nach Konto
                 </h3>
                 <select
                   value={expenseMixDepartment}
                   onChange={e => setExpenseMixDepartment(e.target.value)}
-                  className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-2xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 shrink-0"
+                  className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-2xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 shrink-0 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
                 >
                   <option value="Gesamtverein">Gesamtverein (alle Sparten)</option>
                   {departmentList.map(dept => (
@@ -517,9 +517,9 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
           </div>
 
           {/* 6. Einnahmen, Ausgaben und Summe nach Sparte */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 mb-1">
-              <BarChart3 className="w-4 h-4 text-slate-600" />
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 mb-1 dark:text-white">
+              <BarChart3 className="w-4 h-4 text-slate-600 dark:text-slate-300" />
               Einnahmen, Ausgaben und Summe nach Sparte
             </h3>
             <p className="text-xs text-slate-400 mb-4">"Gesamtverein" = Summe über alle Buchungen; Einnahmen inkl. Spenden; Summe = Einnahmen − Ausgaben</p>

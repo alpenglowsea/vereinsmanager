@@ -125,35 +125,35 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between dark:bg-slate-800 dark:border-slate-800">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shadow-xs dark:bg-emerald-900/40 dark:text-emerald-300">
               <Upload className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Kalender importieren</h3>
-              <p className="text-xs text-slate-500">Unterstützt iCal (.ics, .ical), Google Kalender, Outlook und CSV</p>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Kalender importieren</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Unterstützt iCal (.ics, .ical), Google Kalender, Outlook und CSV</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors dark:hover:text-slate-300 dark:hover:bg-slate-600/60"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab switch */}
-        <div className="px-6 pt-4 flex gap-2 border-b border-slate-200 bg-white">
+        <div className="px-6 pt-4 flex gap-2 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
           <button
             type="button"
             onClick={() => setActiveTab('file')}
             className={`pb-3 px-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 ${
               activeTab === 'file'
-                ? 'border-emerald-600 text-emerald-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+                ? 'border-emerald-600 text-emerald-700 dark:text-emerald-300'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
             }`}
           >
             <FileCode className="w-4 h-4" />
@@ -164,8 +164,8 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
             onClick={() => setActiveTab('text')}
             className={`pb-3 px-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 ${
               activeTab === 'text'
-                ? 'border-emerald-600 text-emerald-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+                ? 'border-emerald-600 text-emerald-700 dark:text-emerald-300'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
             }`}
           >
             <FileText className="w-4 h-4" />
@@ -183,10 +183,10 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
               onClick={() => fileInputRef.current?.click()}
               className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
                 isDragging
-                  ? 'border-emerald-500 bg-emerald-50 scale-99'
+                  ? 'border-emerald-500 bg-emerald-50 scale-99 dark:bg-emerald-950/40'
                   : selectedFileName
-                  ? 'border-emerald-300 bg-emerald-50/30'
-                  : 'border-slate-300 hover:border-emerald-400 bg-slate-50/50 hover:bg-slate-50'
+                  ? 'border-emerald-300 bg-emerald-50/30 dark:border-emerald-700/60 dark:bg-emerald-950/30'
+                  : 'border-slate-300 hover:border-emerald-400 bg-slate-50/50 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:bg-slate-800'
               }`}
             >
               <input
@@ -196,17 +196,17 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
                 onChange={handleFileChange}
                 className="hidden"
               />
-              <Upload className="w-10 h-10 text-emerald-600 mx-auto mb-3" />
-              <p className="text-sm font-bold text-slate-800">
+              <Upload className="w-10 h-10 text-emerald-600 mx-auto mb-3 dark:text-emerald-400" />
+              <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
                 {selectedFileName ? selectedFileName : 'Klicken oder Datei hierher ziehen'}
               </p>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-slate-500 mt-1 dark:text-slate-400">
                 Format: <strong>.ics</strong>, <strong>.ical</strong> oder <strong>.csv</strong>
               </p>
             </div>
           ) : (
             <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-700">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
                 iCalendar-Daten oder CSV-Inhalt hier einfügen:
               </label>
               <textarea
@@ -214,7 +214,7 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
                 onChange={(e) => setRawText(e.target.value)}
                 rows={6}
                 placeholder="BEGIN:VCALENDAR&#10;VERSION:2.0&#10;BEGIN:VEVENT&#10;SUMMARY:Punktspiel 1. Herren&#10;DTSTART:20260912T150000&#10;LOCATION:Sportplatz&#10;END:VEVENT&#10;END:VCALENDAR"
-                className="w-full p-3 font-mono text-xs bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-hidden"
+                className="w-full p-3 font-mono text-xs bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-hidden dark:bg-slate-800 dark:border-slate-700"
               />
               <button
                 type="button"
@@ -229,12 +229,12 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
 
           {/* Parse Errors */}
           {parseErrors.length > 0 && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1 text-xs text-amber-800">
-              <div className="font-bold flex items-center gap-1 text-amber-900">
-                <AlertCircle className="w-4 h-4 text-amber-600" />
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1 text-xs text-amber-800 dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-200">
+              <div className="font-bold flex items-center gap-1 text-amber-900 dark:text-amber-100">
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                 <span>Hinweise beim Einlesen:</span>
               </div>
-              <ul className="list-disc list-inside space-y-0.5 text-amber-700 pl-1">
+              <ul className="list-disc list-inside space-y-0.5 text-amber-700 pl-1 dark:text-amber-300">
                 {parseErrors.map((err, i) => (
                   <li key={i}>{err}</li>
                 ))}
@@ -246,26 +246,26 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
           {parsedEvents.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 dark:text-slate-200">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>Gefundene Termine ({parsedEvents.length})</span>
                 </h4>
-                <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800/60">
                   Bereit zum Importieren
                 </span>
               </div>
 
-              <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+              <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
                 {parsedEvents.map((evt, idx) => (
-                  <div key={idx} className="p-2.5 flex items-center justify-between text-xs hover:bg-slate-50">
+                  <div key={idx} className="p-2.5 flex items-center justify-between text-xs hover:bg-slate-50 dark:hover:bg-slate-800">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <div>
-                        <span className="font-bold text-slate-900">{evt.title}</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{evt.title}</span>
                         {evt.location && <span className="text-slate-400 ml-1.5 font-normal">📍 {evt.location}</span>}
                       </div>
                     </div>
-                    <div className="text-slate-500 font-medium">
+                    <div className="text-slate-500 font-medium dark:text-slate-400">
                       {evt.startDate} {evt.startTime && `• ${evt.startTime} Uhr`}
                     </div>
                   </div>
@@ -276,8 +276,8 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-          <div className="text-xs text-slate-500">
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between dark:bg-slate-800 dark:border-slate-800">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
             {parsedEvents.length > 0
               ? `${parsedEvents.length} Termine werden zur Vereinsdatenbank hinzugefügt.`
               : 'Wählen Sie eine Kalenderdatei aus.'}
@@ -285,7 +285,7 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-300 transition-colors"
+              className="px-4 py-2 rounded-xl bg-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-300 transition-colors dark:bg-slate-600 dark:text-slate-200 dark:hover:bg-slate-500"
             >
               Abbrechen
             </button>

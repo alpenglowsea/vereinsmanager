@@ -211,32 +211,32 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Top Header Card */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 dark:bg-slate-900 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded">
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded dark:bg-emerald-900/40 dark:text-emerald-200">
               SKR 42 / § 4 Abs. 3 EStG / §§ 51 ff. AO
             </span>
-            <span className="text-xs text-slate-500 font-medium">
+            <span className="text-xs text-slate-500 font-medium dark:text-slate-400">
               Steuerliche Sphärenrechnung & DATEV Standardkontenrahmen für Vereine
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight dark:text-white">
             Einnahmen-Überschuss-Rechnung (EÜR / GuV)
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
             Automatische Gliederung nach SKR 42 Haupt- und Nebenkategorien für Vorstand, Finanzamt & Mitgliederversammlung
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           {/* Year selector */}
-          <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
-            <Calendar className="w-4 h-4 text-slate-500" />
+          <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 dark:bg-slate-800 dark:border-slate-800">
+            <Calendar className="w-4 h-4 text-slate-500 dark:text-slate-400" />
             <select
               value={selectedYear}
               onChange={e => setSelectedYear(e.target.value)}
-              className="bg-transparent border-0 text-xs font-bold text-slate-800 focus:ring-0 cursor-pointer pr-4"
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 focus:ring-0 cursor-pointer pr-4 dark:text-slate-100"
             >
               {years.map(yr => (
                 <option key={yr} value={yr}>Geschäftsjahr {yr}</option>
@@ -261,10 +261,10 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
           ========================================================================= */}
       <div className={`p-5 rounded-xl border shadow-xs transition-all ${
         isOverLimit
-          ? 'bg-rose-50/80 border-rose-300'
+          ? 'bg-rose-50/80 border-rose-300 dark:bg-rose-950/80 dark:border-rose-700/60'
           : isWarningLimit
-          ? 'bg-amber-50/80 border-amber-300'
-          : 'bg-white text-slate-900 border-slate-200'
+          ? 'bg-amber-50/80 border-amber-300 dark:bg-amber-950/80 dark:border-amber-700/60'
+          : 'bg-white text-slate-900 border-slate-200 dark:bg-slate-900 dark:text-white dark:border-slate-800'
       }`}>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div className="space-y-2 max-w-xl">
@@ -274,27 +274,27 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
                   ? 'bg-rose-600 text-white'
                   : isWarningLimit
                   ? 'bg-amber-500 text-white'
-                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-800/60'
               }`}>
                 § 64 Abs. 3 AO Besteuerungsgrenze / Kleinunternehmerregelung
               </span>
-              <span className={`text-xs font-semibold ${isOverLimit ? 'text-rose-900' : isWarningLimit ? 'text-amber-900' : 'text-slate-500'}`}>
+              <span className={`text-xs font-semibold ${isOverLimit ? 'text-rose-900 dark:text-rose-100' : isWarningLimit ? 'text-amber-900 dark:text-amber-100' : 'text-slate-500 dark:text-slate-400'}`}>
                 Wirtschaftlicher Geschäftsbetrieb ({selectedYear})
               </span>
             </div>
 
             <div className="flex items-baseline gap-3">
               <h3 className={`text-2xl font-black font-mono tracking-tight ${
-                isOverLimit ? 'text-rose-900' : isWarningLimit ? 'text-amber-950' : 'text-slate-900'
+                isOverLimit ? 'text-rose-900 dark:text-rose-100' : isWarningLimit ? 'text-amber-950' : 'text-slate-900 dark:text-white'
               }`}>
                 {wgbIncome.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
               </h3>
-              <span className={`text-sm font-semibold ${isOverLimit ? 'text-rose-700' : isWarningLimit ? 'text-amber-800' : 'text-slate-500'}`}>
+              <span className={`text-sm font-semibold ${isOverLimit ? 'text-rose-700 dark:text-rose-300' : isWarningLimit ? 'text-amber-800 dark:text-amber-200' : 'text-slate-500 dark:text-slate-400'}`}>
                 von 45.000,00 € Freigrenze
               </span>
             </div>
 
-            <p className={`text-xs leading-relaxed ${isOverLimit ? 'text-rose-800' : isWarningLimit ? 'text-amber-900' : 'text-slate-600'}`}>
+            <p className={`text-xs leading-relaxed ${isOverLimit ? 'text-rose-800 dark:text-rose-200' : isWarningLimit ? 'text-amber-900 dark:text-amber-100' : 'text-slate-600 dark:text-slate-300'}`}>
               Einnahmen (inkl. USt) aus wirtschaftlichen Geschäftsbetrieben (Kiosk, Sponsoring, Feste) bleiben bis zu <strong>45.000 € im Kalenderjahr</strong> körperschaft- und gewerbesteuerfrei.
             </p>
           </div>
@@ -302,29 +302,29 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
           {/* Progress & Ratio Display */}
           <div className={`p-4 rounded-xl flex-1 max-w-md ${
             isOverLimit
-              ? 'bg-white/80 border border-rose-200'
+              ? 'bg-white/80 border border-rose-200 dark:border-rose-800/60'
               : isWarningLimit
-              ? 'bg-white/80 border border-amber-200'
-              : 'bg-slate-50 border border-slate-200'
+              ? 'bg-white/80 border border-amber-200 dark:border-amber-800/60'
+              : 'bg-slate-50 border border-slate-200 dark:bg-slate-800 dark:border-slate-800'
           }`}>
             <div className="flex items-center justify-between mb-2 text-xs">
-              <span className={`font-semibold flex items-center gap-1.5 ${isOverLimit ? 'text-rose-900' : isWarningLimit ? 'text-amber-900' : 'text-slate-700'}`}>
-                <Percent className="w-3.5 h-3.5 text-blue-600" />
+              <span className={`font-semibold flex items-center gap-1.5 ${isOverLimit ? 'text-rose-900 dark:text-rose-100' : isWarningLimit ? 'text-amber-900 dark:text-amber-100' : 'text-slate-700 dark:text-slate-200'}`}>
+                <Percent className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 Erreicht: <strong>{wgbExactPercent.toFixed(1)} %</strong>
               </span>
               <span className={`font-mono font-bold ${
                 isOverLimit
-                  ? 'text-rose-700'
+                  ? 'text-rose-700 dark:text-rose-300'
                   : isWarningLimit
-                  ? 'text-amber-800'
-                  : 'text-emerald-700'
+                  ? 'text-amber-800 dark:text-amber-200'
+                  : 'text-emerald-700 dark:text-emerald-300'
               }`}>
                 {isOverLimit ? 'Grenze überschritten!' : `Puffer: ${wgbBuffer.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`}
               </span>
             </div>
 
             {/* Visual Progress Bar */}
-            <div className="w-full h-3.5 rounded-full bg-slate-200 overflow-hidden p-0.5 border border-slate-300">
+            <div className="w-full h-3.5 rounded-full bg-slate-200 overflow-hidden p-0.5 border border-slate-300 dark:bg-slate-600 dark:border-slate-700">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
                   isOverLimit
@@ -338,19 +338,19 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
             </div>
 
             <div className="flex items-center justify-between mt-2 text-[11px]">
-              <span className={isOverLimit ? 'text-rose-700' : isWarningLimit ? 'text-amber-800' : 'text-slate-500'}>
+              <span className={isOverLimit ? 'text-rose-700 dark:text-rose-300' : isWarningLimit ? 'text-amber-800 dark:text-amber-200' : 'text-slate-500 dark:text-slate-400'}>
                 0 € (Start)
               </span>
               <span className={`font-semibold text-center px-2 py-0.5 rounded text-[10px] ${
                 isOverLimit
-                  ? 'bg-rose-100 text-rose-800'
+                  ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200'
                   : isWarningLimit
-                  ? 'bg-amber-100 text-amber-800'
-                  : 'bg-emerald-100 text-emerald-800'
+                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
+                  : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
               }`}>
                 {isOverLimit ? 'Steuerpflicht greift' : isWarningLimit ? 'Vorstandswarnung beachten' : 'Gemeinnützigkeit sicher'}
               </span>
-              <span className={isOverLimit ? 'text-rose-700' : isWarningLimit ? 'text-amber-800' : 'text-slate-500'}>
+              <span className={isOverLimit ? 'text-rose-700 dark:text-rose-300' : isWarningLimit ? 'text-amber-800 dark:text-amber-200' : 'text-slate-500 dark:text-slate-400'}>
                 45.000 € (Grenze)
               </span>
             </div>
@@ -360,37 +360,37 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
 
       {/* Summary KPI Result Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between dark:text-slate-400">
             <span>Gesamteinnahmen (alle Sphären)</span>
-            <TrendingUp className="w-4 h-4 text-emerald-600" />
+            <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <div className="text-3xl font-bold font-mono text-emerald-600">
+          <div className="text-3xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
             +{totalIncome.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
           </div>
           <p className="text-[11px] text-slate-400 mt-2">Summe aller Erträge nach SKR 42</p>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between dark:text-slate-400">
             <span>Gesamtausgaben (alle Sphären)</span>
-            <TrendingDown className="w-4 h-4 text-rose-600" />
+            <TrendingDown className="w-4 h-4 text-rose-600 dark:text-rose-400" />
           </div>
-          <div className="text-3xl font-bold font-mono text-rose-600">
+          <div className="text-3xl font-bold font-mono text-rose-600 dark:text-rose-400">
             -{totalExpense.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
           </div>
           <p className="text-[11px] text-slate-400 mt-2">Summe aller Aufwendungen nach SKR 42</p>
         </div>
 
-        <div className={`p-5 rounded-xl border shadow-xs ${totalNet >= 0 ? 'bg-emerald-50/40 border-emerald-200' : 'bg-rose-50/40 border-rose-200'}`}>
-          <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
+        <div className={`p-5 rounded-xl border shadow-xs ${totalNet >= 0 ? 'bg-emerald-50/40 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800/60' : 'bg-rose-50/40 border-rose-200 dark:bg-rose-950/40 dark:border-rose-800/60'}`}>
+          <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between dark:text-slate-200">
             <span>Jahresergebnis (Gesamtsaldo)</span>
-            <ShieldCheck className={`w-4 h-4 ${totalNet >= 0 ? 'text-emerald-600' : 'text-rose-600'}`} />
+            <ShieldCheck className={`w-4 h-4 ${totalNet >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`} />
           </div>
-          <div className={`text-3xl font-bold font-mono ${totalNet >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+          <div className={`text-3xl font-bold font-mono ${totalNet >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>
             {totalNet >= 0 ? '+' : ''}{totalNet.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
           </div>
-          <p className="text-[11px] text-slate-600 mt-2">
+          <p className="text-[11px] text-slate-600 mt-2 dark:text-slate-300">
             {totalNet >= 0 ? 'Jahresüberschuss (Rücklagenbildung gem. § 62 AO möglich)' : 'Jahresfehlbetrag (Ausgleich aus freier Rücklage prüfen)'}
           </p>
         </div>
@@ -407,21 +407,21 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
           return (
             <div
               key={sph}
-              className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden transition-all"
+              className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden transition-all dark:bg-slate-900 dark:border-slate-800"
             >
               {/* Sphere Header Bar */}
               <div
                 onClick={() => toggleSphere(sph)}
-                className="px-5 py-4 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors"
+                className="px-5 py-4 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors dark:hover:bg-slate-800"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-2.5 h-8 rounded-full bg-blue-600" />
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-slate-900 text-sm">
+                      <h3 className="font-bold text-slate-900 text-sm dark:text-white">
                         {info.name}
                       </h3>
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold uppercase">
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold uppercase dark:bg-slate-700 dark:text-slate-300">
                         {info.subtitle}
                       </span>
                     </div>
@@ -433,22 +433,22 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
 
                 <div className="flex items-center gap-6">
                   <div className="text-right text-xs hidden sm:block">
-                    <div className="text-emerald-600 font-semibold font-mono">
+                    <div className="text-emerald-600 font-semibold font-mono dark:text-emerald-400">
                       + {data.income.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                     </div>
-                    <div className="text-rose-600 font-semibold font-mono">
+                    <div className="text-rose-600 font-semibold font-mono dark:text-rose-400">
                       - {data.expense.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                     </div>
                   </div>
 
                   <div className="text-right">
                     <span className="text-[10px] text-slate-400 font-semibold uppercase block">Sphären-Saldo</span>
-                    <span className={`text-base font-bold font-mono ${data.net >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    <span className={`text-base font-bold font-mono ${data.net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                       {data.net >= 0 ? '+' : ''}{data.net.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                     </span>
                   </div>
 
-                  <div className="p-1 text-slate-400 hover:text-slate-700">
+                  <div className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
                     {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                   </div>
                 </div>
@@ -456,7 +456,7 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
 
               {/* Sphere Content with SKR 42 Main & Subcategories */}
               {isExpanded && (
-                <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 space-y-3">
+                <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 space-y-3 dark:bg-slate-800 dark:border-slate-800">
                   {mainEntries.length === 0 ? (
                     <div className="py-4 text-center text-xs text-slate-400 italic">
                       Keine Buchungen in dieser steuerlichen Sphäre im ausgewählten Zeitraum ({selectedYear}).
@@ -471,35 +471,35 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
                         return (
                           <div
                             key={mainKey}
-                            className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-2xs"
+                            className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-2xs dark:bg-slate-900 dark:border-slate-800"
                           >
                             {/* Hauptkategorie Row */}
                             <div
                               onClick={() => toggleMainCat(mainKey)}
-                              className="px-4 py-3 bg-slate-100/70 hover:bg-slate-100 flex items-center justify-between cursor-pointer transition-colors border-b border-slate-200"
+                              className="px-4 py-3 bg-slate-100/70 hover:bg-slate-100 flex items-center justify-between cursor-pointer transition-colors border-b border-slate-200 dark:bg-slate-700/70 dark:hover:bg-slate-700 dark:border-slate-800"
                             >
                               <div className="flex items-center gap-2">
-                                <Layers className="w-4 h-4 text-blue-600" />
-                                <span className="font-bold text-xs text-slate-900">
+                                <Layers className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                <span className="font-bold text-xs text-slate-900 dark:text-white">
                                   {mainKey}
                                 </span>
-                                <span className="text-[11px] text-slate-500 font-medium">
+                                <span className="text-[11px] text-slate-500 font-medium dark:text-slate-400">
                                   ({mainData.txCount} Buchung{mainData.txCount > 1 ? 'en' : ''})
                                 </span>
                               </div>
 
                               <div className="flex items-center gap-5 text-xs font-mono">
                                 {mainData.income > 0 && (
-                                  <span className="text-emerald-600 font-semibold">
+                                  <span className="text-emerald-600 font-semibold dark:text-emerald-400">
                                     +{mainData.income.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                                   </span>
                                 )}
                                 {mainData.expense > 0 && (
-                                  <span className="text-rose-600 font-semibold">
+                                  <span className="text-rose-600 font-semibold dark:text-rose-400">
                                     -{mainData.expense.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                                   </span>
                                 )}
-                                <span className={`font-bold pl-2 border-l border-slate-300 ${mainNet >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                <span className={`font-bold pl-2 border-l border-slate-300 dark:border-slate-700 ${mainNet >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>
                                   {mainNet >= 0 ? '+' : ''}{mainNet.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                                 </span>
                                 <div className="text-slate-400">
@@ -510,26 +510,26 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
 
                             {/* Nebenkategorien / Konten List */}
                             {isMainExpanded && (
-                              <div className="divide-y divide-slate-100 bg-white">
+                              <div className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
                                 {subEntries.map(([subName, subData]) => (
                                   <div
                                     key={subName}
-                                    className="px-4 py-2.5 flex items-center justify-between text-xs hover:bg-slate-50/70 transition-colors"
+                                    className="px-4 py-2.5 flex items-center justify-between text-xs hover:bg-slate-50/70 transition-colors dark:hover:bg-slate-800/70"
                                   >
                                     <div className="flex items-center gap-2 pl-4">
                                       <Tag className="w-3 h-3 text-slate-400" />
-                                      <span className="font-medium text-slate-800">{subName}</span>
+                                      <span className="font-medium text-slate-800 dark:text-slate-100">{subName}</span>
                                       <span className="text-[10px] text-slate-400">({subData.txCount} Buchung{subData.txCount > 1 ? 'en' : ''})</span>
                                     </div>
 
                                     <div className="flex items-center gap-6 font-mono text-xs">
                                       {subData.income > 0 && (
-                                        <span className="text-emerald-600 font-semibold">
+                                        <span className="text-emerald-600 font-semibold dark:text-emerald-400">
                                           +{subData.income.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                                         </span>
                                       )}
                                       {subData.expense > 0 && (
-                                        <span className="text-rose-600 font-semibold">
+                                        <span className="text-rose-600 font-semibold dark:text-rose-400">
                                           -{subData.expense.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                                         </span>
                                       )}
@@ -545,7 +545,7 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
                   )}
 
                   {/* Legal info footer per sphere */}
-                  <div className="mt-3 pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-slate-500">
+                  <div className="mt-3 pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-slate-500 dark:border-slate-800 dark:text-slate-400">
                     <span>
                       {sph === 'wirtschaftlich'
                         ? 'Hinweis: Einnahmen unter 45.000 €/Jahr bleiben ertragsteuerfrei gem. § 64 Abs. 3 AO.'
@@ -553,7 +553,7 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
                         ? 'Hinweis: Mittel des ideellen Bereichs unterliegen der zeitnahen Mittelverwendung gem. § 55 Abs. 1 Nr. 5 AO.'
                         : 'Ordnungsgemäße Buchführung nach DATEV SKR 42 Standard.'}
                     </span>
-                    <span className="font-bold text-slate-700 font-mono">
+                    <span className="font-bold text-slate-700 font-mono dark:text-slate-200">
                       Sphären-Saldo: {data.net.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                     </span>
                   </div>

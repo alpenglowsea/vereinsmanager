@@ -262,9 +262,9 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
   return (
     <>
       <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh]">
+        <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] dark:bg-slate-900 dark:border-slate-800">
           {/* Header */}
-          <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+          <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between dark:bg-slate-800 dark:border-slate-800">
             <div className="flex items-center space-x-3">
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center shadow-xs text-white"
@@ -273,17 +273,17 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                 <Calendar className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-900">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                   {isEditing ? 'Termin bearbeiten' : 'Neuen Termin erstellen'}
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   {isEditing ? 'Termindetails, Teilnehmer und Wiederholungen anpassen' : 'Neuen Vereins-, Spiel- oder Trainingstermin anlegen'}
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors"
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors dark:hover:text-slate-300 dark:hover:bg-slate-600/60"
             >
               <X className="w-5 h-5" />
             </button>
@@ -292,7 +292,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
           {/* Form Content */}
           <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-6">
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-xs text-red-700">
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-xs text-red-700 dark:bg-red-950/40 dark:border-red-800/60 dark:text-red-300">
                 <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
                 <span>{error}</span>
               </div>
@@ -301,7 +301,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
             {/* Basic Info */}
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 dark:text-slate-200">
                   Titel des Termins *
                 </label>
                 <input
@@ -309,7 +309,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="z.B. Jahreshauptversammlung, Heimspiel 1. Herren, Jugendtraining..."
-                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden shadow-xs"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden shadow-xs dark:bg-slate-800 dark:border-slate-700 dark:text-white"
                   required
                 />
               </div>
@@ -318,14 +318,14 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                 {/* Category Selection */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider dark:text-slate-200">
                       Terminart / Kategorie *
                     </label>
                     {onOpenCategoriesManager && (
                       <button
                         type="button"
                         onClick={onOpenCategoriesManager}
-                        className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 underline"
+                        className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 underline dark:text-blue-400 dark:hover:text-blue-200"
                       >
                         + Arten anpassen
                       </button>
@@ -335,7 +335,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                     <select
                       value={categoryId}
                       onChange={(e) => setCategoryId(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-hidden"
+                      className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-hidden dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                     >
                       {categories.map((cat) => (
                         <option key={cat.id} value={cat.id}>
@@ -348,13 +348,13 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
 
                 {/* Department */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 dark:text-slate-200">
                     Sparte / Abteilung
                   </label>
                   <select
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-hidden"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-hidden dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                   >
                     <option value="all">Gesamter Verein (Alle Abteilungen)</option>
                     {departments.map((d) => (
@@ -368,18 +368,18 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
             </div>
 
             {/* Date & Time Section */}
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 dark:bg-slate-800 dark:border-slate-800">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <Clock className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 dark:text-slate-100">
+                  <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   <span>Datum & Uhrzeit</span>
                 </span>
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700 select-none">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700 select-none dark:text-slate-200">
                   <input
                     type="checkbox"
                     checked={isAllDay}
                     onChange={(e) => setIsAllDay(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                    className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                   />
                   <span>Ganztägiger Termin</span>
                 </label>
@@ -388,7 +388,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Start */}
                 <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-slate-600">Beginn *</label>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Beginn *</label>
                   <div className="grid grid-cols-2 gap-2">
                     <input
                       type="date"
@@ -397,7 +397,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                         setStartDate(e.target.value);
                         if (endDate < e.target.value) setEndDate(e.target.value);
                       }}
-                      className="px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-hidden"
+                      className="px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-hidden dark:bg-slate-800 dark:border-slate-700"
                       required
                     />
                     {!isAllDay && (
@@ -405,7 +405,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                         type="time"
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
-                        className="px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-hidden"
+                        className="px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-hidden dark:bg-slate-800 dark:border-slate-700"
                       />
                     )}
                   </div>
@@ -413,21 +413,21 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
 
                 {/* End */}
                 <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-slate-600">Ende</label>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Ende</label>
                   <div className="grid grid-cols-2 gap-2">
                     <input
                       type="date"
                       value={endDate}
                       min={startDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-hidden"
+                      className="px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-hidden dark:bg-slate-800 dark:border-slate-700"
                     />
                     {!isAllDay && (
                       <input
                         type="time"
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
-                        className="px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-hidden"
+                        className="px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-hidden dark:bg-slate-800 dark:border-slate-700"
                       />
                     )}
                   </div>
@@ -436,32 +436,32 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
             </div>
 
             {/* Recurrence (Serientermin) */}
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 dark:bg-slate-800 dark:border-slate-800">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <Repeat className="w-4 h-4 text-purple-600" />
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 dark:text-slate-100">
+                  <Repeat className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                   <span>Serientermin / Wiederholung</span>
                 </span>
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700 select-none">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700 select-none dark:text-slate-200">
                   <input
                     type="checkbox"
                     checked={isRecurring}
                     onChange={(e) => setIsRecurring(e.target.checked)}
-                    className="w-4 h-4 text-purple-600 rounded-sm border-slate-300 focus:ring-purple-500"
+                    className="w-4 h-4 text-purple-600 rounded-sm border-slate-300 focus:ring-purple-500 dark:text-purple-400 dark:border-slate-700"
                   />
                   <span>Regelmäßig wiederholen</span>
                 </label>
               </div>
 
               {isRecurring && (
-                <div className="space-y-3 pt-2 border-t border-slate-200 animate-in fade-in duration-150">
+                <div className="space-y-3 pt-2 border-t border-slate-200 animate-in fade-in duration-150 dark:border-slate-800">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[11px] font-semibold text-slate-600 mb-1 block">Intervall</label>
+                      <label className="text-[11px] font-semibold text-slate-600 mb-1 block dark:text-slate-300">Intervall</label>
                       <select
                         value={recFrequency}
                         onChange={(e) => setRecFrequency(e.target.value as RecurrenceFrequency)}
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-hidden"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-hidden dark:bg-slate-800 dark:border-slate-700"
                       >
                         <option value="daily">Täglich</option>
                         <option value="weekly">Wöchentlich</option>
@@ -472,11 +472,11 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                     </div>
 
                     <div>
-                      <label className="text-[11px] font-semibold text-slate-600 mb-1 block">Ende der Serie</label>
+                      <label className="text-[11px] font-semibold text-slate-600 mb-1 block dark:text-slate-300">Ende der Serie</label>
                       <select
                         value={recEndType}
                         onChange={(e) => setRecEndType(e.target.value as any)}
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-hidden"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-hidden dark:bg-slate-800 dark:border-slate-700"
                       >
                         <option value="never">Nie (Fortlaufend)</option>
                         <option value="until_date">Bis zu einem festen Datum</option>
@@ -488,7 +488,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                   {/* Weekdays selector for weekly */}
                   {(recFrequency === 'weekly' || recFrequency === 'biweekly') && (
                     <div>
-                      <label className="text-[11px] font-semibold text-slate-600 mb-1.5 block">Wochentage:</label>
+                      <label className="text-[11px] font-semibold text-slate-600 mb-1.5 block dark:text-slate-300">Wochentage:</label>
                       <div className="flex flex-wrap gap-1.5">
                         {dayLabels.map((d) => {
                           const isSel = recDaysOfWeek.includes(d.num);
@@ -500,7 +500,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                               className={`w-9 h-8 rounded-lg text-xs font-bold transition-colors ${
                                 isSel
                                   ? 'bg-purple-600 text-white shadow-xs'
-                                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-700'
                               }`}
                             >
                               {d.label}
@@ -513,26 +513,26 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
 
                   {recEndType === 'until_date' && (
                     <div>
-                      <label className="text-[11px] font-semibold text-slate-600 mb-1 block">Enddatum der Serie</label>
+                      <label className="text-[11px] font-semibold text-slate-600 mb-1 block dark:text-slate-300">Enddatum der Serie</label>
                       <input
                         type="date"
                         value={recUntilDate}
                         onChange={(e) => setRecUntilDate(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-hidden"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-hidden dark:bg-slate-800 dark:border-slate-700"
                       />
                     </div>
                   )}
 
                   {recEndType === 'count' && (
                     <div>
-                      <label className="text-[11px] font-semibold text-slate-600 mb-1 block">Anzahl Wiederholungen</label>
+                      <label className="text-[11px] font-semibold text-slate-600 mb-1 block dark:text-slate-300">Anzahl Wiederholungen</label>
                       <input
                         type="number"
                         min={1}
                         max={100}
                         value={recCount}
                         onChange={(e) => setRecCount(parseInt(e.target.value, 10) || 1)}
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-hidden"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-hidden dark:bg-slate-800 dark:border-slate-700"
                       />
                     </div>
                   )}
@@ -541,17 +541,17 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
             </div>
 
             {/* Location & OpenStreetMap Section */}
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 dark:bg-slate-800 dark:border-slate-800">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-emerald-600" />
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 dark:text-slate-100">
+                  <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>Veranstaltungsort & OpenStreetMap</span>
                 </span>
                 {clubSettingsAddress && (
                   <button
                     type="button"
                     onClick={() => setLocation(`Vereinsgelände, ${clubSettingsAddress}`)}
-                    className="text-[11px] font-semibold text-emerald-700 hover:underline flex items-center gap-1"
+                    className="text-[11px] font-semibold text-emerald-700 hover:underline flex items-center gap-1 dark:text-emerald-300"
                   >
                     <Building className="w-3 h-3" />
                     <span>Vereinsadresse einfügen</span>
@@ -565,7 +565,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="z.B. Sportplatzweg 12, 12345 Musterstadt oder Sporthalle Nord"
-                  className="flex-1 px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-hidden"
+                  className="flex-1 px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-hidden dark:bg-slate-800 dark:border-slate-700 dark:text-white"
                 />
                 <button
                   type="button"
@@ -580,8 +580,8 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
               </div>
 
               {/* Quick Facility presets */}
-              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
-                <span className="font-semibold text-slate-600">Schnellwahl:</span>
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                <span className="font-semibold text-slate-600 dark:text-slate-300">Schnellwahl:</span>
                 {['Vereinsheim', 'Hauptplatz', 'Kunstrasen', 'Sporthalle', 'Tennisplätze'].map((preset) => (
                   <button
                     key={preset}
@@ -590,7 +590,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                       const prefix = clubSettingsAddress ? `${preset}, ${clubSettingsAddress}` : preset;
                       setLocation(prefix);
                     }}
-                    className="px-2 py-0.5 rounded-md bg-white border border-slate-200 hover:bg-emerald-50 hover:border-emerald-300 text-slate-700 transition-colors"
+                    className="px-2 py-0.5 rounded-md bg-white border border-slate-200 hover:bg-emerald-50 hover:border-emerald-300 text-slate-700 transition-colors dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-emerald-950/40 dark:hover:border-emerald-700/60 dark:text-slate-200"
                   >
                     {preset}
                   </button>
@@ -599,10 +599,10 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
             </div>
 
             {/* Participants / Members */}
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 dark:bg-slate-800 dark:border-slate-800">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 dark:text-slate-100">
+                  <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   <span>Teilnehmer & Mitglieder ({participants.length})</span>
                 </span>
                 {department !== 'all' && (
@@ -623,7 +623,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                       }));
                       setParticipants([...participants, ...newParts]);
                     }}
-                    className="text-[11px] font-semibold text-blue-600 hover:underline"
+                    className="text-[11px] font-semibold text-blue-600 hover:underline dark:text-blue-400"
                   >
                     + Alle aus Sparte "{department}" hinzufügen
                   </button>
@@ -652,10 +652,10 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                               } (Ausgewählt)`
                             : `Mitglied suchen... (Name, Sparte, Nr., E-Mail)`
                         }
-                        className={`w-full pl-9 pr-8 py-2 bg-white border rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-hidden transition-all ${
+                        className={`w-full pl-9 pr-8 py-2 bg-white border rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-hidden transition-all dark:bg-slate-800 dark:text-slate-100 ${
                           selectedMemberId
-                            ? 'border-blue-500 bg-blue-50/50 text-blue-900 font-semibold'
-                            : 'border-slate-300'
+                            ? 'border-blue-500 bg-blue-50/50 text-blue-900 font-semibold dark:bg-blue-950/50 dark:text-blue-100'
+                            : 'border-slate-300 dark:border-slate-700'
                         }`}
                       />
                       {(memberSearchQuery || selectedMemberId) && (
@@ -666,7 +666,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                             setSelectedMemberId('');
                             setIsSearchOpen(false);
                           }}
-                          className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 p-0.5"
+                          className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 p-0.5 dark:hover:text-slate-300"
                           title="Eingabe löschen"
                         >
                           <X className="w-3.5 h-3.5" />
@@ -677,10 +677,10 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                     {/* Live search suggestions */}
                     {isSearchOpen && (
                       <div
-                        className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto divide-y divide-slate-100"
+                        className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto divide-y divide-slate-100 dark:bg-slate-900 dark:border-slate-800 dark:divide-slate-800"
                         onMouseDown={(e) => e.preventDefault()}
                       >
-                        <div className="px-3 py-2 bg-slate-50 text-[11px] font-semibold text-slate-500 flex justify-between items-center">
+                        <div className="px-3 py-2 bg-slate-50 text-[11px] font-semibold text-slate-500 flex justify-between items-center dark:bg-slate-800 dark:text-slate-400">
                           <span>
                             {memberSearchQuery.trim()
                               ? `${searchedMembers.length} Treffer gefunden`
@@ -691,16 +691,16 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                           <button
                             type="button"
                             onClick={() => setIsSearchOpen(false)}
-                            className="text-slate-400 hover:text-slate-600"
+                            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
 
                         {searchedMembers.length === 0 ? (
-                          <div className="p-4 text-center text-xs text-slate-500">
+                          <div className="p-4 text-center text-xs text-slate-500 dark:text-slate-400">
                             Kein passendes Mitglied gefunden für &bdquo;
-                            <span className="font-semibold text-slate-700">{memberSearchQuery}</span>&ldquo;
+                            <span className="font-semibold text-slate-700 dark:text-slate-200">{memberSearchQuery}</span>&ldquo;
                           </div>
                         ) : (
                           searchedMembers.slice(0, 15).map((m) => (
@@ -711,21 +711,21 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                                 setMemberSearchQuery(`${m.firstName} ${m.lastName}`);
                                 setIsSearchOpen(false);
                               }}
-                              className={`p-2.5 flex items-center justify-between hover:bg-blue-50 cursor-pointer transition-colors ${
-                                selectedMemberId === m.id ? 'bg-blue-50/80 font-medium' : ''
+                              className={`p-2.5 flex items-center justify-between hover:bg-blue-50 cursor-pointer transition-colors dark:hover:bg-blue-950/40 ${
+                                selectedMemberId === m.id ? 'bg-blue-50/80 font-medium dark:bg-blue-950/80' : ''
                               }`}
                             >
                               <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                                <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0">
+                                <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0 dark:bg-blue-900/40 dark:text-blue-300">
                                   {m.firstName.charAt(0)}
                                   {m.lastName.charAt(0)}
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="text-xs font-bold text-slate-900 truncate">
+                                  <div className="text-xs font-bold text-slate-900 truncate dark:text-white">
                                     {m.firstName} {m.lastName}
                                   </div>
-                                  <div className="text-[10px] text-slate-500 flex items-center gap-1.5 truncate">
-                                    <span className="px-1.5 py-0.2 bg-slate-100 rounded text-slate-600 font-medium">
+                                  <div className="text-[10px] text-slate-500 flex items-center gap-1.5 truncate dark:text-slate-400">
+                                    <span className="px-1.5 py-0.2 bg-slate-100 rounded text-slate-600 font-medium dark:bg-slate-700 dark:text-slate-300">
                                       {m.department || 'Keine Sparte'}
                                     </span>
                                     {m.memberNumber && <span>#{m.memberNumber}</span>}
@@ -740,7 +740,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                                   e.stopPropagation();
                                   handleAddParticipant(m.id);
                                 }}
-                                className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1 shrink-0"
+                                className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1 shrink-0 dark:bg-blue-950/40 dark:text-blue-300"
                                 title="Direkt mit gewählter Rolle hinzufügen"
                               >
                                 <UserPlus className="w-3 h-3" />
@@ -757,7 +757,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                     <select
                       value={selectedRole}
                       onChange={(e) => setSelectedRole(e.target.value as ParticipantRole)}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-hidden"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-hidden dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                     >
                       <option value="participant">Teilnehmer</option>
                       <option value="organizer">Organisator</option>
@@ -787,14 +787,14 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                   {participants.map((p) => (
                     <span
                       key={p.memberId}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-800 shadow-2xs"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-800 shadow-2xs dark:bg-slate-900 dark:border-slate-800 dark:text-slate-100"
                     >
                       <span className="font-bold">{p.memberName}</span>
                       <span className="text-[10px] text-slate-400">({p.role})</span>
                       <button
                         type="button"
                         onClick={() => handleRemoveParticipant(p.memberId)}
-                        className="text-slate-400 hover:text-red-600 ml-1"
+                        className="text-slate-400 hover:text-red-600 ml-1 dark:hover:text-red-400"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -806,7 +806,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
 
             {/* Description */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 dark:text-slate-200">
                 Beschreibung & Notizen
               </label>
               <textarea
@@ -814,19 +814,19 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
                 placeholder="Tagesordnung, Treffpunkt, mitzubringende Ausrüstung, Verpflegungshinweise..."
-                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-normal focus:ring-2 focus:ring-blue-500 outline-hidden"
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-normal focus:ring-2 focus:ring-blue-500 outline-hidden dark:bg-slate-800 dark:border-slate-700"
               />
             </div>
           </form>
 
           {/* Footer */}
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between dark:bg-slate-800 dark:border-slate-800">
             <div>
               {isEditing && onDelete && (
                 <button
                   type="button"
                   onClick={handleDelete}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-red-700 bg-red-50 hover:bg-red-100 text-xs font-bold transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-red-700 bg-red-50 hover:bg-red-100 text-xs font-bold transition-colors dark:text-red-300 dark:bg-red-950/40 dark:hover:bg-red-900/40"
                 >
                   <Trash2 className="w-4 h-4" />
                   <span>Termin löschen</span>
@@ -838,7 +838,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl bg-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-300 transition-colors"
+                className="px-4 py-2 rounded-xl bg-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-300 transition-colors dark:bg-slate-600 dark:text-slate-200 dark:hover:bg-slate-500"
               >
                 Abbrechen
               </button>

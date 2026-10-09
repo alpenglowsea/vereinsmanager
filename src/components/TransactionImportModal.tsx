@@ -310,24 +310,24 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl flex flex-col overflow-hidden border border-slate-200 my-6 max-h-[92vh]">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl flex flex-col overflow-hidden border border-slate-200 my-6 max-h-[92vh] dark:bg-slate-900 dark:border-slate-800">
         
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-100 text-emerald-800 rounded-xl">
+            <div className="p-2.5 bg-emerald-100 text-emerald-800 rounded-xl dark:bg-emerald-900/40 dark:text-emerald-200">
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-slate-900">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                   Buchungen aus Excel & Google Sheets importieren
                 </h2>
-                <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded uppercase font-mono">
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded uppercase font-mono dark:bg-emerald-900/40 dark:text-emerald-200">
                   SKR 42 Ready
                 </span>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Stapelimport von Bankauszügen, Kassenbüchern, Rechnungslisten und historischen EÜR-Journalen
               </p>
             </div>
@@ -336,57 +336,57 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-200 transition-colors"
+            className="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-200 transition-colors dark:hover:text-slate-300 dark:hover:bg-slate-600"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Step Indicator Progress Bar */}
-        <div className="bg-slate-100 border-b border-slate-200 px-6 py-3">
+        <div className="bg-slate-100 border-b border-slate-200 px-6 py-3 dark:bg-slate-700 dark:border-slate-800">
           <div className="flex items-center justify-between max-w-3xl mx-auto">
             {/* Step 1 */}
             <div className="flex items-center gap-2">
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                  step >= 1 ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-300 text-slate-600'
+                  step >= 1 ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-300 text-slate-600 dark:bg-slate-500 dark:text-slate-300'
                 }`}
               >
                 1
               </div>
-              <span className={`text-xs font-semibold ${step >= 1 ? 'text-slate-900' : 'text-slate-400'}`}>
+              <span className={`text-xs font-semibold ${step >= 1 ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
                 1. Quelle & Tabelle
               </span>
             </div>
 
-            <div className={`flex-1 h-0.5 mx-3 transition-colors ${step >= 2 ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+            <div className={`flex-1 h-0.5 mx-3 transition-colors ${step >= 2 ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-600'}`} />
 
             {/* Step 2 */}
             <div className="flex items-center gap-2">
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                  step >= 2 ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-300 text-slate-600'
+                  step >= 2 ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-300 text-slate-600 dark:bg-slate-500 dark:text-slate-300'
                 }`}
               >
                 2
               </div>
-              <span className={`text-xs font-semibold ${step >= 2 ? 'text-slate-900' : 'text-slate-400'}`}>
+              <span className={`text-xs font-semibold ${step >= 2 ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
                 2. Spalten & SKR 42
               </span>
             </div>
 
-            <div className={`flex-1 h-0.5 mx-3 transition-colors ${step >= 3 ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+            <div className={`flex-1 h-0.5 mx-3 transition-colors ${step >= 3 ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-600'}`} />
 
             {/* Step 3 */}
             <div className="flex items-center gap-2">
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                  step >= 3 ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-300 text-slate-600'
+                  step >= 3 ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-300 text-slate-600 dark:bg-slate-500 dark:text-slate-300'
                 }`}
               >
                 3
               </div>
-              <span className={`text-xs font-semibold ${step >= 3 ? 'text-slate-900' : 'text-slate-400'}`}>
+              <span className={`text-xs font-semibold ${step >= 3 ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
                 3. Prüfung & Import
               </span>
             </div>
@@ -394,10 +394,10 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
         </div>
 
         {/* Modal Body Container */}
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 dark:bg-slate-800/50">
           {errorMsg && (
-            <div className="mb-5 p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-3 text-xs text-rose-800 animate-in fade-in">
-              <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
+            <div className="mb-5 p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-3 text-xs text-rose-800 animate-in fade-in dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-200">
+              <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 dark:text-rose-400" />
               <div className="flex-1">{errorMsg}</div>
             </div>
           )}
@@ -408,12 +408,12 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
           {step === 1 && (
             <div className="space-y-6 max-w-4xl mx-auto">
               {/* Header Box with sample download */}
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 dark:bg-slate-900 dark:border-slate-800">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                     Unterstützt Google Sheets, Microsoft Excel & Bank-CSV
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
                     Laden Sie eine CSV-Datei hoch oder kopieren Sie Zeilen direkt aus Ihrer Tabellenkalkulation per Strg+C / Strg+V.
                   </p>
                 </div>
@@ -421,22 +421,22 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                 <button
                   type="button"
                   onClick={handleDownloadSample}
-                  className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-2 shrink-0 shadow-2xs"
+                  className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-2 shrink-0 shadow-2xs dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 dark:text-emerald-200 dark:border-emerald-800/60"
                 >
-                  <Download className="w-4 h-4 text-emerald-600" />
+                  <Download className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>SKR 42 Vorlage (.csv)</span>
                 </button>
               </div>
 
               {/* Input Mode Selector (File Upload vs. Direct Paste) */}
-              <div className="flex border-b border-slate-200 bg-white rounded-t-xl px-4 pt-2">
+              <div className="flex border-b border-slate-200 bg-white rounded-t-xl px-4 pt-2 dark:border-slate-800 dark:bg-slate-900">
                 <button
                   type="button"
                   onClick={() => setActiveInputMode('file')}
                   className={`px-4 py-2.5 text-xs font-bold border-b-2 flex items-center gap-2 transition-all ${
                     activeInputMode === 'file'
-                      ? 'border-emerald-600 text-emerald-700'
-                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                      ? 'border-emerald-600 text-emerald-700 dark:text-emerald-300'
+                      : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
                   }`}
                 >
                   <Upload className="w-4 h-4" />
@@ -448,8 +448,8 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   onClick={() => setActiveInputMode('paste')}
                   className={`px-4 py-2.5 text-xs font-bold border-b-2 flex items-center gap-2 transition-all ${
                     activeInputMode === 'paste'
-                      ? 'border-emerald-600 text-emerald-700'
-                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                      ? 'border-emerald-600 text-emerald-700 dark:text-emerald-300'
+                      : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
                   }`}
                 >
                   <ClipboardPaste className="w-4 h-4" />
@@ -466,17 +466,17 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   }}
                   onDragLeave={() => setIsDragging(false)}
                   onDrop={handleDrop}
-                  className={`p-10 border-2 border-dashed rounded-b-2xl bg-white text-center transition-all ${
-                    isDragging ? 'border-emerald-500 bg-emerald-50/50' : 'border-slate-300 hover:border-slate-400'
+                  className={`p-10 border-2 border-dashed rounded-b-2xl bg-white text-center transition-all dark:bg-slate-900 ${
+                    isDragging ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/50' : 'border-slate-300 hover:border-slate-400 dark:border-slate-700'
                   }`}
                 >
-                  <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-2xs">
+                  <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-2xs dark:bg-emerald-950/40 dark:text-emerald-400">
                     <Upload className="w-7 h-7" />
                   </div>
-                  <h4 className="text-sm font-bold text-slate-800 mb-1">
+                  <h4 className="text-sm font-bold text-slate-800 mb-1 dark:text-slate-100">
                     Buchungsdatei hier ablegen oder durchsuchen
                   </h4>
-                  <p className="text-xs text-slate-500 max-w-md mx-auto mb-5">
+                  <p className="text-xs text-slate-500 max-w-md mx-auto mb-5 dark:text-slate-400">
                     Akzeptiert .csv-Dateien (mit Semikolon, Tabulator oder Komma getrennt) aus Excel, Google Sheets, Sparkasse, Volksbank, Lexware, etc.
                   </p>
 
@@ -495,8 +495,8 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
 
               {/* Mode 2: Paste from Clipboard */}
               {activeInputMode === 'paste' && (
-                <div className="p-6 bg-white rounded-b-2xl border border-t-0 border-slate-200 space-y-4">
-                  <div className="flex items-center justify-between text-xs text-slate-500">
+                <div className="p-6 bg-white rounded-b-2xl border border-t-0 border-slate-200 space-y-4 dark:bg-slate-900 dark:border-slate-800">
+                  <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                     <span>
                       Tipp: Markieren Sie in Google Sheets oder Excel Ihre Zeilen samt Kopfzeile, drücken Sie <b>Strg+C</b> und fügen Sie den Inhalt hier ein.
                     </span>
@@ -510,7 +510,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                     value={pastedText}
                     onChange={(e) => setPastedText(e.target.value)}
                     placeholder="Datum&#9;Belegnummer&#9;Zahlungspartner&#9;Buchungstext&#9;Betrag&#9;Sphäre&#10;15.01.2025&#9;BE-001&#9;Mitglieder&#9;Mitgliedsbeitrag Q1&#9;3450,00&#9;Ideeller Bereich..."
-                    className="w-full p-3 font-mono text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full p-3 font-mono text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100 dark:focus:bg-slate-800"
                   />
 
                   <div className="flex justify-end">
@@ -528,11 +528,11 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
               )}
 
               {/* Quick Instructions & Help Box */}
-              <div className="bg-slate-100/80 p-4 rounded-xl border border-slate-200/80 flex items-start gap-3">
-                <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
-                <div className="text-xs text-slate-600 space-y-1">
-                  <span className="font-bold text-slate-800">So funktioniert der Import aus Google Sheets & Excel:</span>
-                  <ul className="list-disc pl-4 space-y-0.5 text-slate-600">
+              <div className="bg-slate-100/80 p-4 rounded-xl border border-slate-200/80 flex items-start gap-3 dark:bg-slate-700/80 dark:border-slate-800">
+                <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5 dark:text-slate-400" />
+                <div className="text-xs text-slate-600 space-y-1 dark:text-slate-300">
+                  <span className="font-bold text-slate-800 dark:text-slate-100">So funktioniert der Import aus Google Sheets & Excel:</span>
+                  <ul className="list-disc pl-4 space-y-0.5 text-slate-600 dark:text-slate-300">
                     <li><b>Google Sheets:</b> Datei $\rightarrow$ Herunterladen $\rightarrow$ Kommagetrennte Werte (.csv) oder einfach Zeilen markieren und kopieren.</li>
                     <li><b>Microsoft Excel:</b> Speichern unter $\rightarrow$ CSV (Trennzeichen-getrennt) (*.csv).</li>
                     <li><b>SKR 42 Erkennung:</b> Die Spalten für Sphäre, Haupt- und Nebenkategorie werden automatisch analysiert und mit dem Standardkontenrahmen verknüpft.</li>
@@ -547,18 +547,18 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
           {/* ======================================================== */}
           {step === 2 && (
             <div className="space-y-6 max-w-5xl mx-auto">
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 dark:bg-slate-900 dark:border-slate-800">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-slate-900">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                       Spaltenzuordnung & Standard-Vorgaben
                     </h3>
-                    <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-semibold">
+                    <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-semibold dark:bg-blue-900/40 dark:text-blue-200">
                       {rawRows.length} Datenzeilen erkannt
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Datei: <span className="font-mono text-slate-700 font-semibold">{fileName}</span> ({csvHeaders.length} Spalten)
+                  <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
+                    Datei: <span className="font-mono text-slate-700 font-semibold dark:text-slate-200">{fileName}</span> ({csvHeaders.length} Spalten)
                   </p>
                 </div>
 
@@ -566,7 +566,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setStep(1)}
-                    className="px-3.5 py-2 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-semibold text-slate-700 transition-colors"
+                    className="px-3.5 py-2 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-semibold text-slate-700 transition-colors dark:border-slate-800 dark:hover:bg-slate-700 dark:text-slate-200"
                   >
                     ← Andere Datei wählen
                   </button>
@@ -582,22 +582,22 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
               </div>
 
               {/* Standard Fallbacks & Import Options */}
-              <div className="bg-emerald-50/50 border border-emerald-200/80 rounded-2xl p-5 shadow-2xs space-y-4">
+              <div className="bg-emerald-50/50 border border-emerald-200/80 rounded-2xl p-5 shadow-2xs space-y-4 dark:bg-emerald-950/50 dark:border-emerald-800/80">
                 <div className="flex items-center gap-2 text-xs font-bold text-emerald-950 uppercase tracking-wider">
-                  <Settings2 className="w-4 h-4 text-emerald-700" />
+                  <Settings2 className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
                   <span>Standard-Vorgaben für fehlende Spaltenwerte</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                   {/* Default Target Account */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                       Standard-Finanzkonto / Kasse
                     </label>
                     <select
                       value={defaultAccountId}
                       onChange={(e) => setDefaultAccountId(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
                     >
                       {accounts.map(acc => (
                         <option key={acc.id} value={acc.id}>
@@ -605,102 +605,102 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                         </option>
                       ))}
                     </select>
-                    <span className="text-[11px] text-slate-500 mt-1 block">Wird genutzt, falls Spalte fehlt</span>
+                    <span className="text-[11px] text-slate-500 mt-1 block dark:text-slate-400">Wird genutzt, falls Spalte fehlt</span>
                   </div>
 
                   {/* Default Transaction Type */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                       Standard-Buchungsart
                     </label>
                     <select
                       value={defaultType}
                       onChange={(e) => setDefaultType(e.target.value as 'auto' | 'income' | 'expense')}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
                     >
                       <option value="auto">Automatisch (Vorzeichen +/-)</option>
                       <option value="income">Immer Einnahme (+)</option>
                       <option value="expense">Immer Ausgabe (-)</option>
                     </select>
-                    <span className="text-[11px] text-slate-500 mt-1 block">Fallback bei fehlender Spalte</span>
+                    <span className="text-[11px] text-slate-500 mt-1 block dark:text-slate-400">Fallback bei fehlender Spalte</span>
                   </div>
 
                   {/* Default Sphere */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                       Standard-Sphäre (SKR 42)
                     </label>
                     <select
                       value={defaultSphere}
                       onChange={(e) => setDefaultSphere(e.target.value as TaxSphere)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
                     >
                       <option value="ideell">1. Ideeller Bereich</option>
                       <option value="vermoegen">2. Vermögensverwaltung</option>
                       <option value="zweckbetrieb">3. Zweckbetrieb</option>
                       <option value="wirtschaftlich">4. Wirtschaftl. Geschäftsbetrieb</option>
                     </select>
-                    <span className="text-[11px] text-slate-500 mt-1 block">Fallback bei unklarer Zuordnung</span>
+                    <span className="text-[11px] text-slate-500 mt-1 block dark:text-slate-400">Fallback bei unklarer Zuordnung</span>
                   </div>
 
                   {/* Default VAT Rate */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                       Standard-USt / MwSt
                     </label>
                     <select
                       value={defaultVatRate}
                       onChange={(e) => setDefaultVatRate(parseInt(e.target.value, 10) as 0 | 7 | 19)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
                     >
                       <option value="0">0% (Steuerfrei gem. § 4 UStG)</option>
                       <option value="7">7% (Ermäßigter Steuersatz)</option>
                       <option value="19">19% (Regelsteuersatz)</option>
                     </select>
-                    <span className="text-[11px] text-slate-500 mt-1 block">Umsatzsteuersatz</span>
+                    <span className="text-[11px] text-slate-500 mt-1 block dark:text-slate-400">Umsatzsteuersatz</span>
                   </div>
 
                   {/* Duplicate Strategy */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                       Duplikat-Prüfung
                     </label>
                     <select
                       value={duplicateStrategy}
                       onChange={(e) => setDuplicateStrategy(e.target.value as any)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
                     >
                       <option value="skip">Duplikate abwählen (empfohlen)</option>
                       <option value="create_always">Alle als neu importieren</option>
                       <option value="update">Bestehende Buchungen aktualisieren</option>
                     </select>
-                    <span className="text-[11px] text-slate-500 mt-1 block">Gleiches Datum + Betrag + Text</span>
+                    <span className="text-[11px] text-slate-500 mt-1 block dark:text-slate-400">Gleiches Datum + Betrag + Text</span>
                   </div>
                 </div>
               </div>
 
               {/* Column Mapping Grid */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-                <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden dark:bg-slate-900 dark:border-slate-800">
+                <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between dark:border-slate-800 dark:bg-slate-800">
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider dark:text-slate-100">
                     Zuordnung der Tabellenspalten
                   </span>
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
                     Die KI / Regelautomatik hat Spalten automatisch vorgeschlagen
                   </span>
                 </div>
 
                 <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                   {/* Field 1: Date */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 dark:bg-slate-800 dark:border-slate-800">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-800">Buchungsdatum *</label>
-                      <span className="text-[10px] font-bold text-rose-600">Pflichtfeld</span>
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100">Buchungsdatum *</label>
+                      <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400">Pflichtfeld</span>
                     </div>
                     <select
                       value={mapping.date || ''}
                       onChange={(e) => setMapping({ ...mapping, date: e.target.value || undefined })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800"
                     >
                       <option value="">-- Nicht zugeordnet --</option>
                       {csvHeaders.map(h => (
@@ -711,15 +711,15 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   </div>
 
                   {/* Field 2: Amount */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 dark:bg-slate-800 dark:border-slate-800">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-800">Betrag / Umsatz *</label>
-                      <span className="text-[10px] font-bold text-rose-600">Pflichtfeld</span>
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100">Betrag / Umsatz *</label>
+                      <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400">Pflichtfeld</span>
                     </div>
                     <select
                       value={mapping.amount || ''}
                       onChange={(e) => setMapping({ ...mapping, amount: e.target.value || undefined })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800"
                     >
                       <option value="">-- Nicht zugeordnet --</option>
                       {csvHeaders.map(h => (
@@ -730,15 +730,15 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   </div>
 
                   {/* Field 3: Transaction Type (Buchungsart) */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 dark:bg-slate-800 dark:border-slate-800">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-800">Buchungsart / Typ</label>
-                      <span className="text-[10px] font-bold text-emerald-700">E/A / Soll/Haben</span>
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100">Buchungsart / Typ</label>
+                      <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">E/A / Soll/Haben</span>
                     </div>
                     <select
                       value={mapping.type || ''}
                       onChange={(e) => setMapping({ ...mapping, type: e.target.value || undefined })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800"
                     >
                       <option value="">-- Automatisch anhand Vorzeichen --</option>
                       {csvHeaders.map(h => (
@@ -749,15 +749,15 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   </div>
 
                   {/* Field 3: Booking Text */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 dark:bg-slate-800 dark:border-slate-800">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-800">Buchungstext / Zweck *</label>
-                      <span className="text-[10px] font-bold text-slate-500">Wichtig</span>
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100">Buchungstext / Zweck *</label>
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Wichtig</span>
                     </div>
                     <select
                       value={mapping.bookingText || ''}
                       onChange={(e) => setMapping({ ...mapping, bookingText: e.target.value || undefined })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800"
                     >
                       <option value="">-- Nicht zugeordnet --</option>
                       {csvHeaders.map(h => (
@@ -768,15 +768,15 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   </div>
 
                   {/* Field 4: Partner */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 dark:bg-slate-800 dark:border-slate-800">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-800">Zahlungspartner</label>
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100">Zahlungspartner</label>
                       <span className="text-[10px] text-slate-400">Optional</span>
                     </div>
                     <select
                       value={mapping.partner || ''}
                       onChange={(e) => setMapping({ ...mapping, partner: e.target.value || undefined })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800"
                     >
                       <option value="">-- Nicht zugeordnet --</option>
                       {csvHeaders.map(h => (
@@ -787,15 +787,15 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   </div>
 
                   {/* Field 5: Document Number */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 dark:bg-slate-800 dark:border-slate-800">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-800">Belegnummer</label>
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100">Belegnummer</label>
                       <span className="text-[10px] text-slate-400">Auto-Generiert</span>
                     </div>
                     <select
                       value={mapping.documentNumber || ''}
                       onChange={(e) => setMapping({ ...mapping, documentNumber: e.target.value || undefined })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800"
                     >
                       <option value="">-- Automatisch vergeben (BE-2025-...) --</option>
                       {csvHeaders.map(h => (
@@ -806,15 +806,15 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   </div>
 
                   {/* Field 6: Sphere */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 dark:bg-slate-800 dark:border-slate-800">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-800">Steuerliche Sphäre</label>
-                      <span className="text-[10px] font-bold text-emerald-700">SKR 42</span>
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100">Steuerliche Sphäre</label>
+                      <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">SKR 42</span>
                     </div>
                     <select
                       value={mapping.sphere || ''}
                       onChange={(e) => setMapping({ ...mapping, sphere: e.target.value || undefined })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800"
                     >
                       <option value="">-- Automatisch erkennen / Standard --</option>
                       {csvHeaders.map(h => (
@@ -825,15 +825,15 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   </div>
 
                   {/* Field 7: Main Category */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 dark:bg-slate-800 dark:border-slate-800">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-800">Hauptkategorie</label>
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100">Hauptkategorie</label>
                       <span className="text-[10px] text-slate-400">Optional</span>
                     </div>
                     <select
                       value={mapping.category || ''}
                       onChange={(e) => setMapping({ ...mapping, category: e.target.value || undefined })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800"
                     >
                       <option value="">-- Automatisch erkennen --</option>
                       {csvHeaders.map(h => (
@@ -844,15 +844,15 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   </div>
 
                   {/* Field 8: Sub Category (SKR 42 Konto) */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 dark:bg-slate-800 dark:border-slate-800">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-800">Nebenkategorie / SKR42 Konto</label>
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100">Nebenkategorie / SKR42 Konto</label>
                       <span className="text-[10px] text-slate-400">Optional</span>
                     </div>
                     <select
                       value={mapping.subCategory || ''}
                       onChange={(e) => setMapping({ ...mapping, subCategory: e.target.value || undefined })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800"
                     >
                       <option value="">-- Automatisch zuordnen --</option>
                       {csvHeaders.map(h => (
@@ -863,15 +863,15 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   </div>
 
                   {/* Field 9: Account */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 dark:bg-slate-800 dark:border-slate-800">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-800">Konto / Kasse</label>
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100">Konto / Kasse</label>
                       <span className="text-[10px] text-slate-400">Optional</span>
                     </div>
                     <select
                       value={mapping.account || ''}
                       onChange={(e) => setMapping({ ...mapping, account: e.target.value || undefined })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800"
                     >
                       <option value="">-- Standard-Konto verwenden --</option>
                       {csvHeaders.map(h => (
@@ -882,15 +882,15 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   </div>
 
                   {/* Field 10: Tax Rate */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 dark:bg-slate-800 dark:border-slate-800">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-800">MwSt-Satz (%)</label>
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100">MwSt-Satz (%)</label>
                       <span className="text-[10px] text-slate-400">Optional</span>
                     </div>
                     <select
                       value={mapping.vatRate || ''}
                       onChange={(e) => setMapping({ ...mapping, vatRate: e.target.value || undefined })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800"
                     >
                       <option value="">-- Standard verwenden (0%) --</option>
                       {csvHeaders.map(h => (
@@ -901,15 +901,15 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   </div>
 
                   {/* Field 11: Notes */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 dark:bg-slate-800 dark:border-slate-800">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-800">Notizen / Kommentar</label>
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100">Notizen / Kommentar</label>
                       <span className="text-[10px] text-slate-400">Optional</span>
                     </div>
                     <select
                       value={mapping.notes || ''}
                       onChange={(e) => setMapping({ ...mapping, notes: e.target.value || undefined })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800"
                     >
                       <option value="">-- Nicht zugeordnet --</option>
                       {csvHeaders.map(h => (
@@ -931,40 +931,40 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
               {/* Top Summary Dashboard KPI Strip */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Count */}
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between dark:bg-slate-900 dark:border-slate-800">
                   <div>
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Ausgewählt</span>
-                    <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
-                      {previewStats.count} <span className="text-xs font-normal text-slate-500">von {parsedList.length}</span>
+                    <div className="text-2xl font-bold font-mono text-slate-900 mt-1 dark:text-white">
+                      {previewStats.count} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">von {parsedList.length}</span>
                     </div>
                   </div>
-                  <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+                  <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl dark:bg-blue-950/40 dark:text-blue-400">
                     <Table className="w-5 h-5" />
                   </div>
                 </div>
 
                 {/* Incomes */}
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between dark:bg-slate-900 dark:border-slate-800">
                   <div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600">Gesamteinnahmen</span>
-                    <div className="text-2xl font-bold font-mono text-emerald-600 mt-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Gesamteinnahmen</span>
+                    <div className="text-2xl font-bold font-mono text-emerald-600 mt-1 dark:text-emerald-400">
                       +{previewStats.incomeSum.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                     </div>
                   </div>
-                  <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
+                  <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl dark:bg-emerald-950/40 dark:text-emerald-400">
                     <TrendingUp className="w-5 h-5" />
                   </div>
                 </div>
 
                 {/* Expenses */}
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between dark:bg-slate-900 dark:border-slate-800">
                   <div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-rose-600">Gesamtausgaben</span>
-                    <div className="text-2xl font-bold font-mono text-rose-600 mt-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">Gesamtausgaben</span>
+                    <div className="text-2xl font-bold font-mono text-rose-600 mt-1 dark:text-rose-400">
                       -{previewStats.expenseSum.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                     </div>
                   </div>
-                  <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl">
+                  <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl dark:bg-rose-950/40 dark:text-rose-400">
                     <TrendingDown className="w-5 h-5" />
                   </div>
                 </div>
@@ -984,7 +984,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
               </div>
 
               {/* Table Toolbar & Search */}
-              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
+              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3 dark:bg-slate-900 dark:border-slate-800">
                 {/* Search */}
                 <div className="relative flex-1 min-w-[220px] max-w-md">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -993,7 +993,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                     value={searchPreview}
                     onChange={(e) => setSearchPreview(e.target.value)}
                     placeholder="Buchungstext, Beleg-Nr., Partner suchen..."
-                    className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800 dark:text-white dark:focus:bg-slate-800"
                   />
                 </div>
 
@@ -1005,7 +1005,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                       filterPreviewStatus === 'all'
                         ? 'bg-slate-900 text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'
                     }`}
                   >
                     Alle ({parsedList.length})
@@ -1017,7 +1017,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                       filterPreviewStatus === 'valid'
                         ? 'bg-emerald-600 text-white'
-                        : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                        : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40'
                     }`}
                   >
                     Gültig ({parsedList.filter(p => !p.isDuplicate && !p.hasWarnings).length})
@@ -1029,7 +1029,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                       filterPreviewStatus === 'duplicates'
                         ? 'bg-amber-600 text-white'
-                        : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
+                        : 'bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/40'
                     }`}
                   >
                     Duplikate ({parsedList.filter(p => p.isDuplicate).length})
@@ -1041,7 +1041,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                       filterPreviewStatus === 'warnings'
                         ? 'bg-rose-600 text-white'
-                        : 'bg-rose-50 text-rose-800 hover:bg-rose-100'
+                        : 'bg-rose-50 text-rose-800 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-200 dark:hover:bg-rose-900/40'
                     }`}
                   >
                     Hinweise ({parsedList.filter(p => p.hasWarnings).length})
@@ -1049,11 +1049,11 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                 </div>
 
                 {/* Bulk selection toggle */}
-                <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
+                <div className="flex items-center gap-2 border-l border-slate-200 pl-3 dark:border-slate-800">
                   <button
                     type="button"
                     onClick={() => toggleSelectAll(true)}
-                    className="text-xs text-emerald-700 hover:underline font-semibold"
+                    className="text-xs text-emerald-700 hover:underline font-semibold dark:text-emerald-300"
                   >
                     Alle markieren
                   </button>
@@ -1061,7 +1061,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   <button
                     type="button"
                     onClick={() => toggleSelectAll(false)}
-                    className="text-xs text-slate-500 hover:underline font-semibold"
+                    className="text-xs text-slate-500 hover:underline font-semibold dark:text-slate-400"
                   >
                     Alle abwählen
                   </button>
@@ -1069,17 +1069,17 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
               </div>
 
               {/* Interactive Preview Table */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+              <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden dark:bg-slate-900 dark:border-slate-800">
                 <div className="overflow-x-auto max-h-[480px]">
                   <table className="w-full text-left border-collapse text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                    <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 text-[11px] font-bold text-slate-600 uppercase tracking-wider dark:bg-slate-800 dark:border-slate-800 dark:text-slate-300">
                       <tr>
                         <th className="p-3 w-10 text-center">
                           <input
                             type="checkbox"
                             checked={selectedRows.length > 0 && selectedRows.length === parsedList.length}
                             onChange={(e) => toggleSelectAll(e.target.checked)}
-                            className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                            className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer dark:border-slate-700 dark:text-emerald-400"
                           />
                         </th>
                         <th className="p-3">Status</th>
@@ -1093,7 +1093,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                         <th className="p-3">Finanzkonto</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 font-sans">
+                    <tbody className="divide-y divide-slate-100 font-sans dark:divide-slate-800">
                       {filteredPreview.length === 0 ? (
                         <tr>
                           <td colSpan={10} className="p-8 text-center text-slate-400">
@@ -1113,9 +1113,9 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                               className={`transition-colors ${
                                 item.selected
                                   ? item.isDuplicate
-                                    ? 'bg-amber-50/40 hover:bg-amber-50/70'
-                                    : 'bg-white hover:bg-slate-50/80'
-                                  : 'bg-slate-50/60 opacity-60 hover:opacity-100'
+                                    ? 'bg-amber-50/40 hover:bg-amber-50/70 dark:bg-amber-950/40 dark:hover:bg-amber-950/70'
+                                    : 'bg-white hover:bg-slate-50/80 dark:bg-slate-900 dark:hover:bg-slate-800/80'
+                                  : 'bg-slate-50/60 opacity-60 hover:opacity-100 dark:bg-slate-800/60'
                               }`}
                             >
                               {/* Selection checkbox */}
@@ -1124,7 +1124,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                                   type="checkbox"
                                   checked={item.selected}
                                   onChange={() => toggleRow(item.id)}
-                                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer dark:border-slate-700 dark:text-emerald-400"
                                 />
                               </td>
 
@@ -1132,7 +1132,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                               <td className="p-3 whitespace-nowrap">
                                 {item.isDuplicate ? (
                                   <span
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-bold bg-amber-100 text-amber-800 border border-amber-200"
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-bold bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800/60"
                                     title={item.warnings.join('; ')}
                                   >
                                     <AlertCircle className="w-3 h-3" />
@@ -1140,14 +1140,14 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                                   </span>
                                 ) : item.hasWarnings ? (
                                   <span
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-bold bg-yellow-100 text-yellow-800 border border-yellow-200"
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-bold bg-yellow-100 text-yellow-800 border border-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-200 dark:border-yellow-800/60"
                                     title={item.warnings.join('; ')}
                                   >
                                     <Info className="w-3 h-3" />
                                     Hinweis
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-200 dark:border-emerald-800/60">
                                     <CheckCircle2 className="w-3 h-3" />
                                     Gültig
                                   </span>
@@ -1155,21 +1155,21 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                               </td>
 
                               {/* Date */}
-                              <td className="p-3 whitespace-nowrap font-mono text-slate-800">
+                              <td className="p-3 whitespace-nowrap font-mono text-slate-800 dark:text-slate-100">
                                 {tx.date.split('-').reverse().join('.')}
                               </td>
 
                               {/* Document Number */}
-                              <td className="p-3 whitespace-nowrap font-mono font-bold text-slate-700">
+                              <td className="p-3 whitespace-nowrap font-mono font-bold text-slate-700 dark:text-slate-200">
                                 {tx.documentNumber}
                               </td>
 
                               {/* Partner & Booking text */}
                               <td className="p-3 max-w-xs">
-                                <div className="font-bold text-slate-900 truncate" title={tx.partner}>
+                                <div className="font-bold text-slate-900 truncate dark:text-white" title={tx.partner}>
                                   {tx.partner}
                                 </div>
-                                <div className="text-[11px] text-slate-500 truncate" title={tx.bookingText}>
+                                <div className="text-[11px] text-slate-500 truncate dark:text-slate-400" title={tx.bookingText}>
                                   {tx.bookingText}
                                 </div>
                               </td>
@@ -1181,10 +1181,10 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                                   onChange={(e) => updateRowType(item.id, e.target.value as 'income' | 'expense' | 'transfer')}
                                   className={`text-2xs font-bold px-2 py-1 rounded-md border focus:outline-none cursor-pointer ${
                                     tx.type === 'income'
-                                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-200'
                                       : tx.type === 'expense'
-                                      ? 'bg-rose-50 border-rose-200 text-rose-800'
-                                      : 'bg-blue-50 border-blue-200 text-blue-800'
+                                      ? 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-200'
+                                      : 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950/40 dark:border-blue-800/60 dark:text-blue-200'
                                   }`}
                                 >
                                   <option value="income">Einnahme</option>
@@ -1197,7 +1197,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                               <td className="p-3 text-right whitespace-nowrap">
                                 <span
                                   className={`font-bold font-mono text-sm ${
-                                    isIncome ? 'text-emerald-600' : 'text-rose-600'
+                                    isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                                   }`}
                                 >
                                   {isIncome ? '+' : ''}
@@ -1210,7 +1210,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                                 <select
                                   value={tx.sphere}
                                   onChange={(e) => updateRowSphere(item.id, e.target.value as TaxSphere)}
-                                  className="text-xs px-2 py-1 bg-white border border-slate-200 rounded-md font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                  className="text-xs px-2 py-1 bg-white border border-slate-200 rounded-md font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
                                 >
                                   <option value="ideell">1. Ideell</option>
                                   <option value="vermoegen">2. Vermögen</option>
@@ -1225,7 +1225,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                                   <select
                                     value={tx.category}
                                     onChange={(e) => updateRowCategory(item.id, e.target.value)}
-                                    className="w-full text-[11px] px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-800 truncate focus:outline-none"
+                                    className="w-full text-[11px] px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-800 truncate focus:outline-none dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
                                   >
                                     {availableMain.map(m => (
                                       <option key={m.id} value={m.name}>{m.name}</option>
@@ -1236,7 +1236,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                                     <select
                                       value={tx.subCategory || ''}
                                       onChange={(e) => updateRowSubCategory(item.id, e.target.value)}
-                                      className="w-full text-[10px] font-mono px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-slate-600 truncate focus:outline-none"
+                                      className="w-full text-[10px] font-mono px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-slate-600 truncate focus:outline-none dark:bg-slate-800 dark:border-slate-800 dark:text-slate-300"
                                     >
                                       {selectedMain.subCategories.map(s => (
                                         <option key={s.code} value={s.label}>{s.label}</option>
@@ -1251,7 +1251,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                                 <select
                                   value={tx.accountId}
                                   onChange={(e) => updateRowAccount(item.id, e.target.value)}
-                                  className="text-xs px-2 py-1 bg-white border border-slate-200 rounded-md font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                  className="text-xs px-2 py-1 bg-white border border-slate-200 rounded-md font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
                                 >
                                   {accounts.map(a => (
                                     <option key={a.id} value={a.id}>{a.name}</option>
@@ -1271,13 +1271,13 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
         </div>
 
         {/* Modal Footer Controls */}
-        <div className="px-6 py-4 border-t border-slate-200 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="px-6 py-4 border-t border-slate-200 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-2">
             {step > 1 && (
               <button
                 type="button"
                 onClick={() => setStep((prev) => (prev - 1) as 1 | 2)}
-                className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-colors dark:border-slate-800 dark:hover:bg-slate-800 dark:text-slate-200"
               >
                 ← Zurück zu Schritt {step - 1}
               </button>
@@ -1288,7 +1288,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-600 rounded-xl text-xs font-semibold transition-colors"
+              className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-600 rounded-xl text-xs font-semibold transition-colors dark:border-slate-800 dark:hover:bg-slate-700 dark:text-slate-300"
             >
               Abbrechen
             </button>

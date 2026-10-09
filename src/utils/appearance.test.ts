@@ -57,4 +57,15 @@ describe('Farbschemata und Schriften', () => {
       expect(new Set(namen)).toEqual(new Set(['slate']));
     }
   });
+
+  it('Piktogramme der Seitenleiste und Schnellzugriff behalten die Standardfarben', () => {
+    const start = css.indexOf('.vm-sidebar svg,');
+    const block = css.slice(start, css.indexOf('}', start));
+    expect(block).toContain('.vm-quick button');
+    for (const fam of ['blue', 'indigo']) {
+      for (const stufe of [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]) {
+        expect(block).toContain(`--color-${fam}-${stufe}: oklch(`);
+      }
+    }
+  });
 });

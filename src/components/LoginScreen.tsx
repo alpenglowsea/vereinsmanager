@@ -117,16 +117,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ settings, onLoginSucce
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 text-slate-800 antialiased selection:bg-blue-600 selection:text-white dark:bg-slate-700 dark:text-slate-100">
       <div className="w-full max-w-md">
         {/* Main Card */}
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200/80 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-200/80 overflow-hidden dark:bg-slate-900 dark:border-slate-800">
           {/* Header Banner */}
           <div className="bg-slate-900 text-white p-6 sm:p-7 text-center relative overflow-hidden">
             <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
             <div className="absolute -left-8 -top-8 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
 
-            <div className="inline-flex items-center justify-center w-14 h-14 bg-white rounded-2xl shadow-lg mb-3 ring-4 ring-white/10 p-1.5 overflow-hidden">
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-white rounded-2xl shadow-lg mb-3 ring-4 ring-white/10 p-1.5 overflow-hidden dark:bg-slate-900">
               <img
                 src={settings?.clubLogoUrl || '/logo_transparent.png'}
                 alt={clubName}
@@ -185,8 +185,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ settings, onLoginSucce
           {/* Form Area */}
           <div className="p-6 sm:p-7 space-y-5">
             {errorMsg && (
-              <div className="flex items-start gap-2.5 p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2.5 p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-200">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5 dark:text-rose-400" />
                 <div className="leading-relaxed font-medium">{errorMsg}</div>
               </div>
             )}
@@ -196,7 +196,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ settings, onLoginSucce
               <>
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-700">Benutzername</label>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Benutzername</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                         <User className="w-4 h-4" />
@@ -208,13 +208,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ settings, onLoginSucce
                         autoComplete="username"
                         autoFocus
                         required
-                        className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all outline-none"
+                        className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all outline-none dark:bg-slate-800 dark:border-slate-800 dark:text-white dark:focus:bg-slate-800"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-700">Passwort</label>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Passwort</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                         <Lock className="w-4 h-4" />
@@ -226,12 +226,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ settings, onLoginSucce
                         placeholder="••••••••"
                         autoComplete="current-password"
                         required
-                        className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all outline-none"
+                        className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all outline-none dark:bg-slate-800 dark:border-slate-800 dark:text-white dark:focus:bg-slate-800"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors dark:hover:text-slate-300"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -255,18 +255,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ settings, onLoginSucce
                 </form>
 
                 <div className="relative flex items-center justify-center">
-                  <div className="border-t border-slate-200 w-full" />
-                  <span className="bg-white px-3 text-2xs font-bold uppercase tracking-wider text-slate-400 shrink-0">
+                  <div className="border-t border-slate-200 w-full dark:border-slate-800" />
+                  <span className="bg-white px-3 text-2xs font-bold uppercase tracking-wider text-slate-400 shrink-0 dark:bg-slate-900">
                     Oder Demo testen
                   </span>
                 </div>
 
-                <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3.5 space-y-2 text-center">
-                  <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-amber-900">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3.5 space-y-2 text-center dark:bg-amber-950/70 dark:border-amber-800/80">
+                  <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-100">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                     <span>Getrennter Demo-Modus</span>
                   </div>
-                  <p className="text-2xs text-amber-800/90 leading-relaxed">
+                  <p className="text-2xs text-amber-800/90 leading-relaxed dark:text-amber-200">
                     Testen Sie alle Funktionen mit fiktiven Beispieldaten. Echte Vereinsdaten bleiben strikt getrennt.
                   </p>
                   <div className="pt-1">
@@ -289,7 +289,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ settings, onLoginSucce
                       setActiveTab('register');
                       setErrorMsg(null);
                     }}
-                    className="text-xs text-blue-600 hover:text-blue-800 font-semibold hover:underline cursor-pointer"
+                    className="text-xs text-blue-600 hover:text-blue-800 font-semibold hover:underline cursor-pointer dark:text-blue-400 dark:hover:text-blue-200"
                   >
                     Noch kein Konto auf diesem Gerät? Jetzt anlegen →
                   </button>
@@ -302,7 +302,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ settings, onLoginSucce
               <>
                 <form onSubmit={handleRegister} className="space-y-3.5">
                   <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">Benutzername *</label>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Benutzername *</label>
                     <input
                       type="text"
                       value={regUsername}
@@ -310,12 +310,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ settings, onLoginSucce
                       placeholder="z. B. vorstand"
                       autoFocus
                       required
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none dark:bg-slate-800 dark:border-slate-800 dark:text-white dark:focus:bg-slate-800"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">Passwort *</label>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Passwort *</label>
                     <div className="relative">
                       <input
                         type={showRegPassword ? 'text' : 'password'}
@@ -323,12 +323,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ settings, onLoginSucce
                         onChange={(e) => setRegPassword(e.target.value)}
                         placeholder="••••••••"
                         required
-                        className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none"
+                        className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none dark:bg-slate-800 dark:border-slate-800 dark:text-white dark:focus:bg-slate-800"
                       />
                       <button
                         type="button"
                         onClick={() => setShowRegPassword(!showRegPassword)}
-                        className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600"
+                        className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                       >
                         {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
@@ -336,14 +336,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ settings, onLoginSucce
                   </div>
 
                   <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-700">Passwort wiederholen *</label>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Passwort wiederholen *</label>
                     <input
                       type={showRegPassword ? 'text' : 'password'}
                       value={regPasswordConfirm}
                       onChange={(e) => setRegPasswordConfirm(e.target.value)}
                       placeholder="••••••••"
                       required
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none dark:bg-slate-800 dark:border-slate-800 dark:text-white dark:focus:bg-slate-800"
                     />
                   </div>
 
@@ -370,7 +370,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ settings, onLoginSucce
                       setActiveTab('login');
                       setErrorMsg(null);
                     }}
-                    className="text-xs text-slate-500 hover:text-slate-800 font-semibold hover:underline cursor-pointer"
+                    className="text-xs text-slate-500 hover:text-slate-800 font-semibold hover:underline cursor-pointer dark:text-slate-400 dark:hover:text-slate-100"
                   >
                     ← Bereits eingerichtet? Zum Login
                   </button>
@@ -380,9 +380,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ settings, onLoginSucce
           </div>
 
           {/* Footer Info */}
-          <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center gap-1.5 text-2xs text-slate-500">
-            <HardDrive className="w-3.5 h-3.5 text-amber-600" />
-            <span className="font-semibold text-slate-700">Nur dieses Gerät</span>
+          <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center gap-1.5 text-2xs text-slate-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-400">
+            <HardDrive className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+            <span className="font-semibold text-slate-700 dark:text-slate-200">Nur dieses Gerät</span>
           </div>
         </div>
       </div>

@@ -173,30 +173,30 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
   return (
     <div className={`space-y-1.5 ${className}`}>
       <div className="flex items-center justify-between">
-        <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
-          <PenTool className="w-3.5 h-3.5 text-blue-600" />
+        <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5 dark:text-slate-100">
+          <PenTool className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
           <span>{label}</span>
           {required && <span className="text-rose-500 font-bold">*</span>}
         </label>
         {hasDrawn && (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800/60">
+            <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
             Unterschrieben
           </span>
         )}
       </div>
 
-      <p className="text-[11px] text-slate-500">{sublabel}</p>
+      <p className="text-[11px] text-slate-500 dark:text-slate-400">{sublabel}</p>
 
       {/* Signature Canvas Box */}
       <div
         ref={containerRef}
-        className={`relative w-full rounded-xl border-2 transition-all overflow-hidden bg-white shadow-2xs ${
+        className={`relative w-full rounded-xl border-2 transition-all overflow-hidden bg-white shadow-2xs dark:bg-slate-900 ${
           hasDrawn
-            ? 'border-blue-300 bg-slate-50/40'
+            ? 'border-blue-300 bg-slate-50/40 dark:border-blue-700/60 dark:bg-slate-800/40'
             : isDrawing
             ? 'border-blue-500 ring-2 ring-blue-100'
-            : 'border-dashed border-slate-300 hover:border-slate-400'
+            : 'border-dashed border-slate-300 hover:border-slate-400 dark:border-slate-700'
         }`}
         style={{ touchAction: 'none' }}
       >
@@ -215,7 +215,7 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
         />
 
         {/* Baseline / Guide line */}
-        <div className="absolute bottom-6 left-6 right-6 border-b border-slate-200 pointer-events-none flex items-center justify-between text-[10px] text-slate-400">
+        <div className="absolute bottom-6 left-6 right-6 border-b border-slate-200 pointer-events-none flex items-center justify-between text-[10px] text-slate-400 dark:border-slate-800">
           <span>✕ Unterschrift hier platzieren</span>
           {signerName && <span>{signerName}</span>}
         </div>
@@ -225,7 +225,7 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
           <button
             type="button"
             onClick={handleClear}
-            className="absolute top-2 right-2 inline-flex items-center gap-1 px-2.5 py-1 bg-white/90 hover:bg-white text-slate-700 hover:text-rose-600 text-2xs font-semibold rounded-lg border border-slate-200 shadow-xs backdrop-blur-xs transition-colors cursor-pointer"
+            className="absolute top-2 right-2 inline-flex items-center gap-1 px-2.5 py-1 bg-white/90 hover:bg-white text-slate-700 hover:text-rose-600 text-2xs font-semibold rounded-lg border border-slate-200 shadow-xs backdrop-blur-xs transition-colors cursor-pointer dark:hover:bg-slate-800 dark:text-slate-200 dark:hover:text-rose-400 dark:border-slate-800"
             title="Unterschrift löschen und neu zeichnen"
           >
             <RotateCcw className="w-3 h-3" />

@@ -91,9 +91,9 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
         id: editingId || `cat-custom-${Date.now()}`,
         name: name.trim(),
         color: color,
-        badgeBg: 'bg-slate-100',
-        badgeText: 'text-slate-800',
-        badgeBorder: 'border-slate-300',
+        badgeBg: 'bg-slate-100 dark:bg-slate-700',
+        badgeText: 'text-slate-800 dark:text-slate-100',
+        badgeBorder: 'border-slate-300 dark:border-slate-700',
         description: description.trim() || undefined,
         isSystem: false
       };
@@ -120,21 +120,21 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between dark:bg-slate-800 dark:border-slate-800">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shadow-xs dark:bg-purple-900/40 dark:text-purple-300">
               <Palette className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Terminarten & Farbkennzeichnung</h3>
-              <p className="text-xs text-slate-500">Kategorien für Veranstaltungen, Spiele und Termine verwalten</p>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Terminarten & Farbkennzeichnung</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Kategorien für Veranstaltungen, Spiele und Termine verwalten</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors dark:hover:text-slate-300 dark:hover:bg-slate-600/60"
           >
             <X className="w-5 h-5" />
           </button>
@@ -143,7 +143,7 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
         {/* Content */}
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-xs text-red-700">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-xs text-red-700 dark:bg-red-950/40 dark:border-red-800/60 dark:text-red-300">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
               <span>{error}</span>
             </div>
@@ -151,23 +151,23 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
 
           {/* Add / Edit Form */}
           {isAddingNew ? (
-            <form onSubmit={handleSave} className="p-5 bg-slate-50 rounded-2xl border border-purple-200 space-y-4">
+            <form onSubmit={handleSave} className="p-5 bg-slate-50 rounded-2xl border border-purple-200 space-y-4 dark:bg-slate-800 dark:border-purple-800/60">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-purple-600" />
+                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 dark:text-white">
+                  <Tag className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                   <span>{editingId ? 'Terminart bearbeiten' : 'Neue Terminart erstellen'}</span>
                 </h4>
                 <button
                   type="button"
                   onClick={handleCancelForm}
-                  className="text-xs text-slate-500 hover:text-slate-700"
+                  className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
                 >
                   Abbrechen
                 </button>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                   Bezeichnung der Terminart *
                 </label>
                 <input
@@ -175,13 +175,13 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="z.B. Turniere & Pokalspiele, Schnuppertraining..."
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-hidden"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-hidden dark:bg-slate-800 dark:border-slate-700"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                   Farbe auswählen
                 </label>
                 <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -201,16 +201,16 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
                       type="color"
                       value={color}
                       onChange={(e) => setColor(e.target.value)}
-                      className="w-8 h-8 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white"
+                      className="w-8 h-8 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white dark:border-slate-700 dark:bg-slate-800"
                       title="Eigene Farbe wählen"
                     />
-                    <span className="text-xs font-mono text-slate-500">{color}</span>
+                    <span className="text-xs font-mono text-slate-500 dark:text-slate-400">{color}</span>
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                   Beschreibung (Optional)
                 </label>
                 <input
@@ -218,13 +218,13 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Kurze Erklärung wofür diese Kategorie verwendet wird..."
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-hidden"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-hidden dark:bg-slate-800 dark:border-slate-700"
                 />
               </div>
 
               {/* Preview Chip */}
-              <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
-                <span className="text-xs text-slate-500 font-medium">Vorschau im Kalender:</span>
+              <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between dark:bg-slate-900 dark:border-slate-800">
+                <span className="text-xs text-slate-500 font-medium dark:text-slate-400">Vorschau im Kalender:</span>
                 <span
                   className="px-3 py-1 rounded-lg text-xs font-bold text-white shadow-xs"
                   style={{ backgroundColor: color }}
@@ -237,7 +237,7 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
                 <button
                   type="button"
                   onClick={handleCancelForm}
-                  className="px-3.5 py-2 rounded-xl bg-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-300 transition-colors"
+                  className="px-3.5 py-2 rounded-xl bg-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-300 transition-colors dark:bg-slate-600 dark:text-slate-200 dark:hover:bg-slate-500"
                 >
                   Abbrechen
                 </button>
@@ -254,7 +254,7 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
           ) : (
             <button
               onClick={handleStartAdd}
-              className="w-full py-3 border-2 border-dashed border-purple-300 hover:border-purple-500 bg-purple-50/50 hover:bg-purple-50 rounded-2xl flex items-center justify-center gap-2 text-sm font-bold text-purple-700 transition-all cursor-pointer shadow-xs"
+              className="w-full py-3 border-2 border-dashed border-purple-300 hover:border-purple-500 bg-purple-50/50 hover:bg-purple-50 rounded-2xl flex items-center justify-center gap-2 text-sm font-bold text-purple-700 transition-all cursor-pointer shadow-xs dark:border-purple-700/60 dark:bg-purple-950/50 dark:hover:bg-purple-950/40 dark:text-purple-300"
             >
               <Plus className="w-4 h-4" />
               <span>Neue Terminart hinzufügen</span>
@@ -263,14 +263,14 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
 
           {/* List of existing categories */}
           <div className="space-y-2">
-            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">
               Vorhandene Terminarten ({categories.length})
             </h4>
-            <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+            <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
               {categories.map((cat) => (
                 <div
                   key={cat.id}
-                  className="p-3.5 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                  className="p-3.5 flex items-center justify-between hover:bg-slate-50 transition-colors dark:hover:bg-slate-800"
                 >
                   <div className="flex items-center space-x-3">
                     <span
@@ -279,16 +279,16 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
                     />
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-900">{cat.name}</span>
+                        <span className="text-sm font-bold text-slate-900 dark:text-white">{cat.name}</span>
                         {cat.isSystem && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full dark:text-slate-400 dark:bg-slate-700">
                             <ShieldCheck className="w-3 h-3 text-slate-400" />
                             Standard
                           </span>
                         )}
                       </div>
                       {cat.description && (
-                        <p className="text-xs text-slate-500 line-clamp-1">{cat.description}</p>
+                        <p className="text-xs text-slate-500 line-clamp-1 dark:text-slate-400">{cat.description}</p>
                       )}
                     </div>
                   </div>
@@ -296,7 +296,7 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => handleStartEdit(cat)}
-                      className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                      className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors dark:hover:text-purple-400 dark:hover:bg-purple-950/40"
                       title="Bearbeiten"
                     >
                       <Edit2 className="w-4 h-4" />
@@ -304,7 +304,7 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
                     {!cat.isSystem && (
                       <button
                         onClick={() => handleDelete(cat)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors dark:hover:text-red-400 dark:hover:bg-red-950/40"
                         title="Löschen"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -318,7 +318,7 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end dark:bg-slate-800 dark:border-slate-800">
           <button
             onClick={onClose}
             className="px-5 py-2.5 rounded-xl bg-slate-800 text-white text-xs font-bold hover:bg-slate-900 transition-colors shadow-xs"

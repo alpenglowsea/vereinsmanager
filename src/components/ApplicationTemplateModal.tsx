@@ -128,7 +128,7 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-6 flex flex-col max-h-[90vh]">
+      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-6 flex flex-col max-h-[90vh] dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
         <div className="bg-slate-900 text-white p-5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -155,8 +155,8 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
         </div>
 
         {successMsg && (
-          <div className="mx-6 mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-emerald-800 text-xs shrink-0">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className="mx-6 mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-emerald-800 text-xs shrink-0 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-200">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 dark:text-emerald-400" />
             <span>{successMsg}</span>
           </div>
         )}
@@ -165,30 +165,30 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
           {/* 1. PDF-Vorlage Upload */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <FileUp className="w-4 h-4 text-blue-600" />
+              <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 dark:text-white">
+                <FileUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 <span>Eigene PDF-Formularvorlage des Vereins</span>
               </h4>
               {customPdfFileName && (
-                <span className="text-2xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="text-2xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60">
                   Aktiv hinterlegt
                 </span>
               )}
             </div>
 
-            <p className="text-2xs text-slate-500">
+            <p className="text-2xs text-slate-500 dark:text-slate-400">
               Sie können das aktuell im Verein gültige Aufnahmeantrags-PDF hochladen. Das System befüllt dieses automatisch mit den Antragsdaten und archiviert das unterschriebene Dokument bei Mitgliedsaufnahme im Dokumentenarchiv.
             </p>
 
             {customPdfFileName ? (
-              <div className="p-4 bg-blue-50/50 border border-blue-200 rounded-xl flex items-center justify-between">
+              <div className="p-4 bg-blue-50/50 border border-blue-200 rounded-xl flex items-center justify-between dark:bg-blue-950/50 dark:border-blue-800/60">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center">
                     <FileText className="w-5 h-5" />
                   </div>
                   <div>
-                    <strong className="block text-xs text-slate-900 font-bold">{customPdfFileName}</strong>
-                    <span className="text-2xs text-slate-500">
+                    <strong className="block text-xs text-slate-900 font-bold dark:text-white">{customPdfFileName}</strong>
+                    <span className="text-2xs text-slate-500 dark:text-slate-400">
                       Hochgeladen am:{' '}
                       {customPdfUploadedAt
                         ? new Date(customPdfUploadedAt).toLocaleDateString('de-DE')
@@ -201,7 +201,7 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
                   <a
                     href={customPdfDataUrl}
                     download={customPdfFileName}
-                    className="p-2 text-slate-600 hover:text-blue-600 bg-white rounded-lg border border-slate-200 hover:border-blue-300 transition-colors"
+                    className="p-2 text-slate-600 hover:text-blue-600 bg-white rounded-lg border border-slate-200 hover:border-blue-300 transition-colors dark:text-slate-300 dark:hover:text-blue-400 dark:bg-slate-900 dark:border-slate-800 dark:hover:border-blue-700/60"
                     title="Herunterladen"
                   >
                     <Download className="w-4 h-4" />
@@ -209,7 +209,7 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
                   <button
                     type="button"
                     onClick={handleDeleteTemplate}
-                    className="p-2 text-slate-600 hover:text-rose-600 bg-white rounded-lg border border-slate-200 hover:border-rose-300 transition-colors"
+                    className="p-2 text-slate-600 hover:text-rose-600 bg-white rounded-lg border border-slate-200 hover:border-rose-300 transition-colors dark:text-slate-300 dark:hover:text-rose-400 dark:bg-slate-900 dark:border-slate-800 dark:hover:border-rose-700/60"
                     title="Vorlage entfernen (nutzt Standard-Generator)"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -226,8 +226,8 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
                 onDrop={handleDrop}
                 className={`p-6 border-2 border-dashed rounded-2xl text-center transition-all cursor-pointer ${
                   isDragging
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-slate-300 hover:border-blue-400 bg-slate-50/50'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40'
+                    : 'border-slate-300 hover:border-blue-400 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/50'
                 }`}
                 onClick={() => {
                   const input = document.getElementById('pdf-template-upload') as HTMLInputElement;
@@ -245,11 +245,11 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
                     }
                   }}
                 />
-                <Upload className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <strong className="block text-xs text-slate-800 font-bold">
+                <Upload className="w-8 h-8 text-blue-600 mx-auto mb-2 dark:text-blue-400" />
+                <strong className="block text-xs text-slate-800 font-bold dark:text-slate-100">
                   PDF-Vorlage hier hineinziehen oder klicken zum Auswählen
                 </strong>
-                <span className="text-2xs text-slate-500 mt-1 block">
+                <span className="text-2xs text-slate-500 mt-1 block dark:text-slate-400">
                   Unterstützt: Offizielle Aufnahmeantrag-PDFs Ihres Sportvereins
                 </span>
               </div>
@@ -257,18 +257,18 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
           </div>
 
           {/* 2. Standard-Beitragssätze */}
-          <div className="space-y-3 pt-3 border-t border-slate-200">
-            <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-blue-600" />
+          <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+            <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 dark:text-white">
+              <Building2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               <span>Standard-Beitragssätze (€ / Monat)</span>
             </h4>
-            <p className="text-2xs text-slate-500">
+            <p className="text-2xs text-slate-500 dark:text-slate-400">
               Diese Beträge werden im Online-Formular vorausgefüllt und können vor Aufnahme angepasst werden.
             </p>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-2xs font-bold text-slate-700 mb-1">
+                <label className="block text-2xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                   Vollmitglied (Erwachsener)
                 </label>
                 <div className="relative">
@@ -277,14 +277,14 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
                     step="0.50"
                     value={fullFee}
                     onChange={e => setFullFee(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-1.5 pr-8 border border-slate-300 rounded-lg text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    className="w-full px-3 py-1.5 pr-8 border border-slate-300 rounded-lg text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-hidden dark:border-slate-700"
                   />
                   <span className="absolute right-3 top-1.5 text-slate-400 font-bold text-2xs">€</span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-2xs font-bold text-slate-700 mb-1">
+                <label className="block text-2xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                   Ermäßigt (Schüler/Student)
                 </label>
                 <div className="relative">
@@ -293,14 +293,14 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
                     step="0.50"
                     value={reducedFee}
                     onChange={e => setReducedFee(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-1.5 pr-8 border border-slate-300 rounded-lg text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    className="w-full px-3 py-1.5 pr-8 border border-slate-300 rounded-lg text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-hidden dark:border-slate-700"
                   />
                   <span className="absolute right-3 top-1.5 text-slate-400 font-bold text-2xs">€</span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-2xs font-bold text-slate-700 mb-1">
+                <label className="block text-2xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                   Kinder & Jugend (U18)
                 </label>
                 <div className="relative">
@@ -309,14 +309,14 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
                     step="0.50"
                     value={youthFee}
                     onChange={e => setYouthFee(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-1.5 pr-8 border border-slate-300 rounded-lg text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    className="w-full px-3 py-1.5 pr-8 border border-slate-300 rounded-lg text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-hidden dark:border-slate-700"
                   />
                   <span className="absolute right-3 top-1.5 text-slate-400 font-bold text-2xs">€</span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-2xs font-bold text-slate-700 mb-1">
+                <label className="block text-2xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                   Familienbeitrag
                 </label>
                 <div className="relative">
@@ -325,14 +325,14 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
                     step="0.50"
                     value={familyFee}
                     onChange={e => setFamilyFee(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-1.5 pr-8 border border-slate-300 rounded-lg text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    className="w-full px-3 py-1.5 pr-8 border border-slate-300 rounded-lg text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-hidden dark:border-slate-700"
                   />
                   <span className="absolute right-3 top-1.5 text-slate-400 font-bold text-2xs">€</span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-2xs font-bold text-slate-700 mb-1">
+                <label className="block text-2xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                   Fördermitglied (Passiv)
                 </label>
                 <div className="relative">
@@ -341,7 +341,7 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
                     step="0.50"
                     value={supportingFee}
                     onChange={e => setSupportingFee(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-1.5 pr-8 border border-slate-300 rounded-lg text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    className="w-full px-3 py-1.5 pr-8 border border-slate-300 rounded-lg text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-hidden dark:border-slate-700"
                   />
                   <span className="absolute right-3 top-1.5 text-slate-400 font-bold text-2xs">€</span>
                 </div>
@@ -350,14 +350,14 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
           </div>
 
           {/* 3. Benachrichtigungs-E-Mail */}
-          <div className="space-y-3 pt-3 border-t border-slate-200">
-            <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <Mail className="w-4 h-4 text-blue-600" />
+          <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+            <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 dark:text-white">
+              <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               <span>E-Mail-Benachrichtigung bei neuen Anträgen</span>
             </h4>
 
             <div>
-              <label className="block text-2xs font-bold text-slate-700 mb-1">
+              <label className="block text-2xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                 E-Mail-Adresse d. Vereinsverantwortlichen
               </label>
               <input
@@ -365,7 +365,7 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
                 value={notificationEmail}
                 onChange={e => setNotificationEmail(e.target.value)}
                 placeholder="mitglied@tsv-musterstadt.de"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden dark:border-slate-700"
               />
               <span className="text-2xs text-slate-400 mt-1 block">
                 An diese Adresse werden Benachrichtigungen über neu eingegangene Anträge versendet.
@@ -375,11 +375,11 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
         </div>
 
         {/* Footer */}
-        <div className="bg-slate-50 p-4 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
+        <div className="bg-slate-50 p-4 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0 dark:bg-slate-800 dark:border-slate-800">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-300 transition-colors"
+            className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-300 transition-colors dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700"
           >
             Abbrechen
           </button>

@@ -172,7 +172,7 @@ export const AppVersionBadge: React.FC = () => {
           {updateInfo.isUpdateAvailable ? (
             <span className="w-2 h-2 rounded-full bg-rose-500 ring-2 ring-slate-900" />
           ) : (
-            <span className="text-[9px] text-slate-500 font-mono">v{updateInfo.currentVersion}</span>
+            <span className="text-[9px] text-slate-500 font-mono dark:text-slate-400">v{updateInfo.currentVersion}</span>
           )}
         </div>
       </button>
@@ -274,7 +274,7 @@ export const AppVersionBadge: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleAcknowledgeVersion(updateInfo.latestVersion)}
-                          className="text-[11px] text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer py-0.5"
+                          className="text-[11px] text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer py-0.5 dark:text-slate-400"
                           title="Falls Sie die neue Version manuell installiert haben"
                         >
                           Bereits manuell aktualisiert? Als v{updateInfo.latestVersion} übernehmen
@@ -297,7 +297,7 @@ export const AppVersionBadge: React.FC = () => {
                 type="button"
                 onClick={fetchUpdateInfo}
                 disabled={loading}
-                className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-medium flex items-center gap-1 cursor-pointer"
+                className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-medium flex items-center gap-1 cursor-pointer dark:text-slate-400"
               >
                 <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
                 <span>Prüfen</span>

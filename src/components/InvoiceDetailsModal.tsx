@@ -43,28 +43,28 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
     switch (status) {
       case 'paid':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
             <CheckCircle className="w-3.5 h-3.5" />
             <span>Bezahlt</span>
           </span>
         );
       case 'open':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
             <Clock className="w-3.5 h-3.5" />
             <span>Offen</span>
           </span>
         );
       case 'overdue':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200">
             <Clock className="w-3.5 h-3.5" />
             <span>Überfällig</span>
           </span>
         );
       case 'cancelled':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-200 text-slate-700">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-200 text-slate-700 dark:bg-slate-600 dark:text-slate-200">
             <Ban className="w-3.5 h-3.5" />
             <span>Storniert</span>
           </span>
@@ -72,7 +72,7 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
       case 'draft':
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
             <FileText className="w-3.5 h-3.5" />
             <span>Entwurf</span>
           </span>
@@ -84,27 +84,27 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden my-6 flex flex-col max-h-[92vh]">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden my-6 flex flex-col max-h-[92vh] dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-100 text-blue-700 rounded-xl shadow-2xs">
+            <div className="p-2.5 bg-blue-100 text-blue-700 rounded-xl shadow-2xs dark:bg-blue-900/40 dark:text-blue-300">
               <FileText className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2.5">
-                <h3 className="text-lg font-bold text-slate-900 font-mono">
+                <h3 className="text-lg font-bold text-slate-900 font-mono dark:text-white">
                   {invoice.invoiceNumber}
                 </h3>
                 {isOverdue && invoice.status === 'open' ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200">
                     <Clock className="w-3.5 h-3.5" /> Überfällig
                   </span>
                 ) : (
                   getStatusBadge(invoice.status)
                 )}
                 {invoice.taxSphere && (
-                  <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                  <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-600 dark:text-slate-200">
                     {invoice.taxSphere === 'wirtschaftlich'
                       ? 'Wirtschaftl. Geschäftsbetrieb'
                       : invoice.taxSphere === 'zweckbetrieb'
@@ -115,9 +115,9 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
                 Erstellt am {new Date(invoice.date).toLocaleDateString('de-DE')} • Fällig am{' '}
-                <strong className="text-slate-800">{new Date(invoice.dueDate).toLocaleDateString('de-DE')}</strong>
+                <strong className="text-slate-800 dark:text-slate-100">{new Date(invoice.dueDate).toLocaleDateString('de-DE')}</strong>
               </p>
             </div>
           </div>
@@ -134,7 +134,7 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer dark:hover:text-slate-300 dark:hover:bg-slate-600"
             >
               <X className="w-5 h-5" />
             </button>
@@ -144,7 +144,7 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Recipient & Metadata Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/70 p-5 rounded-2xl border border-slate-200">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/70 p-5 rounded-2xl border border-slate-200 dark:bg-slate-800/70 dark:border-slate-800">
             {/* Recipient Details */}
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
@@ -152,31 +152,31 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
               </span>
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-base font-bold text-slate-900">
+                  <h4 className="text-base font-bold text-slate-900 dark:text-white">
                     {invoice.recipientName}
                   </h4>
                   {invoice.recipientType === 'member' && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
                       <User className="w-3 h-3" /> Mitglied
                     </span>
                   )}
                   {invoice.recipientType === 'contact' && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200">
                       <Building2 className="w-3 h-3" /> Kontakt / Firma
                     </span>
                   )}
                 </div>
 
                 {invoice.recipientCompany && (
-                  <p className="text-xs font-medium text-slate-700">{invoice.recipientCompany}</p>
+                  <p className="text-xs font-medium text-slate-700 dark:text-slate-200">{invoice.recipientCompany}</p>
                 )}
 
                 {invoice.recipientContactPerson && (
-                  <p className="text-xs text-slate-600 italic">{invoice.recipientContactPerson}</p>
+                  <p className="text-xs text-slate-600 italic dark:text-slate-300">{invoice.recipientContactPerson}</p>
                 )}
 
                 {invoice.recipientAddress && (invoice.recipientAddress.street || invoice.recipientAddress.city) && (
-                  <div className="flex items-start gap-1.5 text-xs text-slate-600 pt-1">
+                  <div className="flex items-start gap-1.5 text-xs text-slate-600 pt-1 dark:text-slate-300">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                     <span>
                       {invoice.recipientAddress.street} {invoice.recipientAddress.houseNumber}
@@ -187,7 +187,7 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
                   </div>
                 )}
 
-                <div className="pt-2 flex flex-wrap gap-4 text-xs text-slate-600">
+                <div className="pt-2 flex flex-wrap gap-4 text-xs text-slate-600 dark:text-slate-300">
                   {invoice.recipientEmail && (
                     <div className="flex items-center gap-1">
                       <Mail className="w-3.5 h-3.5 text-slate-400" />
@@ -205,36 +205,36 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
             </div>
 
             {/* Invoice Meta & Status Controls */}
-            <div className="border-t md:border-t-0 md:border-l border-slate-200 md:pl-6 space-y-3">
+            <div className="border-t md:border-t-0 md:border-l border-slate-200 md:pl-6 space-y-3 dark:border-slate-800">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
                 Konditionen & Belegstatus
               </span>
 
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
-                  <span className="text-slate-500 block">Rechnungsdatum:</span>
-                  <span className="font-semibold text-slate-800">
+                  <span className="text-slate-500 block dark:text-slate-400">Rechnungsdatum:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">
                     {new Date(invoice.date).toLocaleDateString('de-DE')}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Fälligkeitsdatum:</span>
-                  <span className="font-semibold text-slate-800">
+                  <span className="text-slate-500 block dark:text-slate-400">Fälligkeitsdatum:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">
                     {new Date(invoice.dueDate).toLocaleDateString('de-DE')} ({invoice.paymentTermsDays || 14} Tage)
                   </span>
                 </div>
                 {invoice.deliveryDate && (
                   <div>
-                    <span className="text-slate-500 block">Lieferdatum:</span>
-                    <span className="font-semibold text-slate-800">
+                    <span className="text-slate-500 block dark:text-slate-400">Lieferdatum:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-100">
                       {new Date(invoice.deliveryDate).toLocaleDateString('de-DE')}
                     </span>
                   </div>
                 )}
                 {invoice.documentId && (
                   <div>
-                    <span className="text-slate-500 block">Archiv:</span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700">
+                    <span className="text-slate-500 block dark:text-slate-400">Archiv:</span>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 dark:text-blue-300">
                       <FolderArchive className="w-3.5 h-3.5" /> Archiviert
                     </span>
                   </div>
@@ -243,14 +243,14 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
 
               {/* Status Quick Switch */}
               {onToggleStatus && (
-                <div className="pt-2 border-t border-slate-200">
-                  <span className="text-[11px] text-slate-500 block mb-1.5 font-medium">Status ändern:</span>
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+                  <span className="text-[11px] text-slate-500 block mb-1.5 font-medium dark:text-slate-400">Status ändern:</span>
                   <div className="flex items-center gap-2">
                     {invoice.status !== 'paid' && (
                       <button
                         type="button"
                         onClick={() => onToggleStatus(invoice, 'paid')}
-                        className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                        className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 dark:text-emerald-200 dark:border-emerald-800/60"
                       >
                         <CheckCircle className="w-3.5 h-3.5" />
                         <span>Als bezahlt markieren</span>
@@ -260,7 +260,7 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
                       <button
                         type="button"
                         onClick={() => onToggleStatus(invoice, 'open')}
-                        className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                        className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer dark:bg-blue-950/40 dark:hover:bg-blue-900/40 dark:text-blue-200 dark:border-blue-800/60"
                       >
                         <Clock className="w-3.5 h-3.5" />
                         <span>Auf 'Offen' setzen</span>
@@ -270,7 +270,7 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
                       <button
                         type="button"
                         onClick={() => onToggleStatus(invoice, 'cancelled')}
-                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200 dark:border-slate-700"
                       >
                         <Ban className="w-3.5 h-3.5" />
                         <span>Stornieren</span>
@@ -284,20 +284,20 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
 
           {/* Subject & Anschreiben */}
           <div className="space-y-2">
-            <h4 className="text-sm font-bold text-slate-900">
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white">
               {invoice.subject || 'Rechnung'}
             </h4>
             {invoice.introText && (
-              <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-200 leading-relaxed">
+              <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-200 leading-relaxed dark:text-slate-300 dark:bg-slate-800 dark:border-slate-800">
                 {invoice.introText}
               </p>
             )}
           </div>
 
           {/* Line Items Table */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+          <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs dark:border-slate-800">
             <table className="w-full text-xs text-left border-collapse">
-              <thead className="bg-slate-100 text-slate-600 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
+              <thead className="bg-slate-100 text-slate-600 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-800">
                 <tr>
                   <th className="w-12 px-3 py-2 text-center">Pos.</th>
                   <th className="px-4 py-2">Beschreibung</th>
@@ -307,25 +307,25 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
                   <th className="w-28 px-4 py-2 text-right">Gesamt</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 bg-white">
+              <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-900">
                 {invoice.items.map((it, idx) => (
-                  <tr key={it.id || idx} className="hover:bg-slate-50">
-                    <td className="px-3 py-2.5 text-center font-mono font-bold text-slate-700">
+                  <tr key={it.id || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800">
+                    <td className="px-3 py-2.5 text-center font-mono font-bold text-slate-700 dark:text-slate-200">
                       {it.position || idx + 1}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-900 font-medium">
+                    <td className="px-4 py-2.5 text-slate-900 font-medium dark:text-white">
                       {it.description}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-mono text-slate-700">
+                    <td className="px-3 py-2.5 text-right font-mono text-slate-700 dark:text-slate-200">
                       {it.quantity} {it.unit || 'Stk.'}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-mono text-slate-700">
+                    <td className="px-3 py-2.5 text-right font-mono text-slate-700 dark:text-slate-200">
                       {formatCurrency(it.unitPrice)}
                     </td>
-                    <td className="px-3 py-2.5 text-center font-mono text-slate-600">
+                    <td className="px-3 py-2.5 text-center font-mono text-slate-600 dark:text-slate-300">
                       {it.vatRate}%
                     </td>
-                    <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-900">
+                    <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-900 dark:text-white">
                       {formatCurrency(it.totalPrice)}
                     </td>
                   </tr>
@@ -334,29 +334,29 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
             </table>
 
             {/* Summenblock */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div className="text-xs text-slate-500">
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 dark:bg-slate-800 dark:border-slate-800">
+              <div className="text-xs text-slate-500 dark:text-slate-400">
                 {invoice.outroText && (
-                  <p className="italic text-slate-600">{invoice.outroText}</p>
+                  <p className="italic text-slate-600 dark:text-slate-300">{invoice.outroText}</p>
                 )}
               </div>
 
-              <div className="w-full sm:w-72 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-1.5 text-xs">
-                <div className="flex items-center justify-between text-slate-600">
+              <div className="w-full sm:w-72 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-1.5 text-xs dark:bg-slate-900 dark:border-slate-800">
+                <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
                   <span>Nettobetrag:</span>
-                  <span className="font-mono font-semibold text-slate-900">
+                  <span className="font-mono font-semibold text-slate-900 dark:text-white">
                     {formatCurrency(invoice.subtotalNet)}
                   </span>
                 </div>
                 {invoice.vatAmounts && Object.entries(invoice.vatAmounts).map(([rate, amt]) => (
-                  <div key={rate} className="flex items-center justify-between text-[11px] text-slate-500">
+                  <div key={rate} className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                     <span>zzgl. {rate}% USt:</span>
                     <span className="font-mono">{formatCurrency(Number(amt))}</span>
                   </div>
                 ))}
-                <div className="pt-2 border-t border-slate-200 flex items-center justify-between font-bold text-sm">
-                  <span className="text-slate-900">Gesamtbetrag:</span>
-                  <span className="font-mono text-blue-700">
+                <div className="pt-2 border-t border-slate-200 flex items-center justify-between font-bold text-sm dark:border-slate-800">
+                  <span className="text-slate-900 dark:text-white">Gesamtbetrag:</span>
+                  <span className="font-mono text-blue-700 dark:text-blue-300">
                     {formatCurrency(invoice.totalAmount)}
                   </span>
                 </div>
@@ -366,7 +366,7 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
 
           {/* Notes if present */}
           {invoice.notes && (
-            <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900">
+            <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 dark:bg-amber-950/60 dark:border-amber-800/60 dark:text-amber-100">
               <span className="font-bold block mb-1">Interne Notiz:</span>
               <p>{invoice.notes}</p>
             </div>
@@ -374,11 +374,11 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <button
             type="button"
             onClick={() => onDelete(invoice.id)}
-            className="text-xs text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-2 rounded-xl font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="text-xs text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-2 rounded-xl font-medium transition-colors flex items-center gap-1.5 cursor-pointer dark:text-red-400 dark:hover:text-red-200 dark:hover:bg-red-950/40"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>Rechnung löschen</span>
@@ -388,7 +388,7 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
             <button
               type="button"
               onClick={() => onEdit(invoice)}
-              className="text-xs border border-slate-200 bg-white hover:bg-slate-100 text-slate-800 px-3.5 py-2 rounded-xl font-semibold transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              className="text-xs border border-slate-200 bg-white hover:bg-slate-100 text-slate-800 px-3.5 py-2 rounded-xl font-semibold transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-700 dark:text-slate-100"
             >
               <Edit2 className="w-3.5 h-3.5" />
               <span>Bearbeiten</span>

@@ -58,7 +58,7 @@ export const QuickActionsWidget: React.FC<QuickActionsWidgetProps> = ({
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="vm-quick flex flex-wrap items-center gap-2">
         {onOpenCreateMember && (
           <button
             type="button"

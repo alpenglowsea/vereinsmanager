@@ -33,18 +33,18 @@ export const ReceiptViewerModal: React.FC<ReceiptViewerModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/75 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg">
+            <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg dark:bg-indigo-900/40 dark:text-indigo-300">
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-slate-900 text-lg">
+              <h3 className="font-semibold text-slate-900 text-lg dark:text-white">
                 Belegarchiv: {documentNumber}
               </h3>
-              <p className="text-xs text-slate-500 truncate max-w-md">
+              <p className="text-xs text-slate-500 truncate max-w-md dark:text-slate-400">
                 {receipt.name} ({Math.round(receipt.size / 1024)} KB) • {bookingText}
               </p>
             </div>
@@ -56,18 +56,18 @@ export const ReceiptViewerModal: React.FC<ReceiptViewerModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}
-                  className="p-2 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+                  className="p-2 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors dark:text-slate-300 dark:hover:bg-slate-600"
                   title="Verkleinern"
                 >
                   <ZoomOut className="w-4 h-4" />
                 </button>
-                <span className="text-xs font-mono text-slate-500 w-12 text-center">
+                <span className="text-xs font-mono text-slate-500 w-12 text-center dark:text-slate-400">
                   {Math.round(zoom * 100)}%
                 </span>
                 <button
                   type="button"
                   onClick={() => setZoom(z => Math.min(3, z + 0.25))}
-                  className="p-2 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+                  className="p-2 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors dark:text-slate-300 dark:hover:bg-slate-600"
                   title="Vergrößern"
                 >
                   <ZoomIn className="w-4 h-4" />
@@ -75,19 +75,19 @@ export const ReceiptViewerModal: React.FC<ReceiptViewerModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setRotation(r => (r + 90) % 360)}
-                  className="p-2 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+                  className="p-2 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors dark:text-slate-300 dark:hover:bg-slate-600"
                   title="Drehen"
                 >
                   <RotateCw className="w-4 h-4" />
                 </button>
-                <div className="h-5 w-px bg-slate-200 mx-1" />
+                <div className="h-5 w-px bg-slate-200 mx-1 dark:bg-slate-600" />
               </>
             )}
 
             <button
               type="button"
               onClick={handleDownload}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg transition-colors dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
             >
               <Download className="w-4 h-4" />
               Herunterladen
@@ -96,7 +96,7 @@ export const ReceiptViewerModal: React.FC<ReceiptViewerModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors ml-1"
+              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors ml-1 dark:hover:text-slate-200 dark:hover:bg-slate-600"
             >
               <X className="w-5 h-5" />
             </button>
@@ -104,12 +104,12 @@ export const ReceiptViewerModal: React.FC<ReceiptViewerModalProps> = ({
         </div>
 
         {/* Content Preview */}
-        <div className="flex-1 bg-slate-100 p-4 overflow-auto flex items-center justify-center min-h-[420px]">
+        <div className="flex-1 bg-slate-100 p-4 overflow-auto flex items-center justify-center min-h-[420px] dark:bg-slate-700">
           {isPdf ? (
             <iframe
               src={receipt.dataUrl}
               title={`Beleg ${documentNumber}`}
-              className="w-full h-full min-h-[550px] rounded-lg border border-slate-300 shadow-inner bg-white"
+              className="w-full h-full min-h-[550px] rounded-lg border border-slate-300 shadow-inner bg-white dark:border-slate-700 dark:bg-slate-800"
             />
           ) : (
             <div className="flex items-center justify-center p-4">
@@ -120,14 +120,14 @@ export const ReceiptViewerModal: React.FC<ReceiptViewerModalProps> = ({
                   transform: `scale(${zoom}) rotate(${rotation}deg)`,
                   transition: 'transform 0.2s ease-out'
                 }}
-                className="max-h-[540px] max-w-full object-contain rounded-lg shadow-md border border-slate-300 bg-white"
+                className="max-h-[540px] max-w-full object-contain rounded-lg shadow-md border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-800"
               />
             </div>
           )}
         </div>
 
         {/* Footer info */}
-        <div className="px-6 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+        <div className="px-6 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-400">
           <span>DSGVO-konform verschlüsselt in der lokalen Browserdatenbank (IndexedDB) gespeichert.</span>
           <button
             type="button"

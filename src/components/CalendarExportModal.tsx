@@ -118,21 +118,21 @@ export const CalendarExportModal: React.FC<CalendarExportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between dark:bg-slate-800 dark:border-slate-800">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shadow-xs dark:bg-purple-900/40 dark:text-purple-300">
               <Download className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Kalender exportieren</h3>
-              <p className="text-xs text-slate-500">Termine als iCalendar (.ics) oder Excel/CSV-Tabelle herunterladen</p>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Kalender exportieren</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Termine als iCalendar (.ics) oder Excel/CSV-Tabelle herunterladen</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors dark:hover:text-slate-300 dark:hover:bg-slate-600/60"
           >
             <X className="w-5 h-5" />
           </button>
@@ -142,7 +142,7 @@ export const CalendarExportModal: React.FC<CalendarExportModalProps> = ({
         <div className="p-6 overflow-y-auto flex-1 space-y-5">
           {/* Format Selection */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 dark:text-slate-200">
               1. Export-Format wählen
             </label>
             <div className="grid grid-cols-2 gap-3">
@@ -151,16 +151,16 @@ export const CalendarExportModal: React.FC<CalendarExportModalProps> = ({
                 onClick={() => setFormat('ics')}
                 className={`p-3.5 rounded-2xl border-2 text-left transition-all flex items-start gap-3 ${
                   format === 'ics'
-                    ? 'border-purple-600 bg-purple-50/50 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                    ? 'border-purple-600 bg-purple-50/50 shadow-xs dark:bg-purple-950/50'
+                    : 'border-slate-200 hover:border-slate-300 bg-white dark:border-slate-800 dark:hover:border-slate-700 dark:bg-slate-800'
                 }`}
               >
-                <div className={`p-2 rounded-xl ${format === 'ics' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                <div className={`p-2 rounded-xl ${format === 'ics' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}>
                   <FileCode className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="text-sm font-bold text-slate-900">iCalendar (.ics)</div>
-                  <p className="text-xs text-slate-500 mt-0.5">Kompatibel mit Apple, Google Kalender, Outlook & Smartphones</p>
+                  <div className="text-sm font-bold text-slate-900 dark:text-white">iCalendar (.ics)</div>
+                  <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">Kompatibel mit Apple, Google Kalender, Outlook & Smartphones</p>
                 </div>
               </button>
 
@@ -169,16 +169,16 @@ export const CalendarExportModal: React.FC<CalendarExportModalProps> = ({
                 onClick={() => setFormat('csv')}
                 className={`p-3.5 rounded-2xl border-2 text-left transition-all flex items-start gap-3 ${
                   format === 'csv'
-                    ? 'border-purple-600 bg-purple-50/50 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                    ? 'border-purple-600 bg-purple-50/50 shadow-xs dark:bg-purple-950/50'
+                    : 'border-slate-200 hover:border-slate-300 bg-white dark:border-slate-800 dark:hover:border-slate-700 dark:bg-slate-800'
                 }`}
               >
-                <div className={`p-2 rounded-xl ${format === 'csv' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                <div className={`p-2 rounded-xl ${format === 'csv' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}>
                   <FileSpreadsheet className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="text-sm font-bold text-slate-900">CSV-Tabelle (.csv)</div>
-                  <p className="text-xs text-slate-500 mt-0.5">Zur Weiterverarbeitung in Microsoft Excel, Google Tabellen & Druck</p>
+                  <div className="text-sm font-bold text-slate-900 dark:text-white">CSV-Tabelle (.csv)</div>
+                  <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">Zur Weiterverarbeitung in Microsoft Excel, Google Tabellen & Druck</p>
                 </div>
               </button>
             </div>
@@ -186,7 +186,7 @@ export const CalendarExportModal: React.FC<CalendarExportModalProps> = ({
 
           {/* Date Range Selection */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 dark:text-slate-200">
               2. Zeitraum eingrenzen
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -203,7 +203,7 @@ export const CalendarExportModal: React.FC<CalendarExportModalProps> = ({
                   className={`py-2 px-3 rounded-xl text-xs font-bold border transition-colors ${
                     dateRangeFilter === item.id
                       ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
-                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-800 dark:hover:bg-slate-700'
                   }`}
                 >
                   {item.label}
@@ -215,13 +215,13 @@ export const CalendarExportModal: React.FC<CalendarExportModalProps> = ({
           {/* Department Filter */}
           {departments.length > 0 && (
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 dark:text-slate-200">
                 3. Abteilung
               </label>
               <select
                 value={selectedDepartment}
                 onChange={(e) => setSelectedDepartment(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-purple-500 outline-hidden"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-purple-500 outline-hidden dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
               >
                 <option value="all">Alle Abteilungen</option>
                 {departments.map((d) => (
@@ -236,19 +236,19 @@ export const CalendarExportModal: React.FC<CalendarExportModalProps> = ({
           {/* Category Checkboxes */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider dark:text-slate-200">
                 4. Terminarten ({selectedCategoryIds.length}/{categories.length})
               </label>
               <button
                 type="button"
                 onClick={handleSelectAllCategories}
-                className="text-xs text-purple-600 hover:text-purple-800 font-semibold"
+                className="text-xs text-purple-600 hover:text-purple-800 font-semibold dark:text-purple-400 dark:hover:text-purple-200"
               >
                 {selectedCategoryIds.length === categories.length ? 'Keine' : 'Alle auswählen'}
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-200">
+            <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-200 dark:bg-slate-800 dark:border-slate-800">
               {categories.map((cat) => {
                 const isChecked = selectedCategoryIds.includes(cat.id);
                 return (
@@ -256,10 +256,10 @@ export const CalendarExportModal: React.FC<CalendarExportModalProps> = ({
                     key={cat.id}
                     type="button"
                     onClick={() => handleToggleCategory(cat.id)}
-                    className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white text-left transition-colors text-xs"
+                    className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white text-left transition-colors text-xs dark:hover:bg-slate-800"
                   >
                     {isChecked ? (
-                      <CheckSquare className="w-4 h-4 text-purple-600 shrink-0" />
+                      <CheckSquare className="w-4 h-4 text-purple-600 shrink-0 dark:text-purple-400" />
                     ) : (
                       <Square className="w-4 h-4 text-slate-400 shrink-0" />
                     )}
@@ -267,7 +267,7 @@ export const CalendarExportModal: React.FC<CalendarExportModalProps> = ({
                       className="w-2.5 h-2.5 rounded-full shrink-0"
                       style={{ backgroundColor: cat.color }}
                     />
-                    <span className="truncate font-medium text-slate-800">{cat.name}</span>
+                    <span className="truncate font-medium text-slate-800 dark:text-slate-100">{cat.name}</span>
                   </button>
                 );
               })}
@@ -275,25 +275,25 @@ export const CalendarExportModal: React.FC<CalendarExportModalProps> = ({
           </div>
 
           {/* Filter summary card */}
-          <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-100 flex items-center justify-between text-xs">
-            <span className="font-semibold text-purple-900">
+          <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-100 flex items-center justify-between text-xs dark:bg-purple-950/60 dark:border-purple-900/50">
+            <span className="font-semibold text-purple-900 dark:text-purple-100">
               Gefilterte Termine: <strong>{filteredEvents.length}</strong> von {events.length}
             </span>
-            <span className="text-purple-700 font-medium">
+            <span className="text-purple-700 font-medium dark:text-purple-300">
               Format: .{format.toUpperCase()}
             </span>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-          <div className="text-xs text-slate-500">
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between dark:bg-slate-800 dark:border-slate-800">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
             Exportdatei wird direkt im Browser erzeugt.
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-300 transition-colors"
+              className="px-4 py-2 rounded-xl bg-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-300 transition-colors dark:bg-slate-600 dark:text-slate-200 dark:hover:bg-slate-500"
             >
               Abbrechen
             </button>

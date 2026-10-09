@@ -299,18 +299,18 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden dark:bg-slate-900 dark:border-slate-800">
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70 dark:border-slate-800 dark:bg-slate-800/70">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
               <Upload className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-base">
+              <h3 className="font-bold text-slate-900 text-base dark:text-white">
                 Kontakte importieren (CSV & Tabellen)
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Schritt {step} von 3: {step === 1 ? 'Datei auswählen oder einfügen' : step === 2 ? 'Spalten zuordnen' : 'Vorschau & Import bestätigen'}
               </p>
             </div>
@@ -318,7 +318,7 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition-colors"
+            className="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition-colors dark:hover:text-slate-300 dark:hover:bg-slate-700"
           >
             <X className="w-5 h-5" />
           </button>
@@ -327,8 +327,8 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6">
           {errorMsg && (
-            <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+            <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-200">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
               <span>{errorMsg}</span>
             </div>
           )}
@@ -337,14 +337,14 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
           {step === 1 && (
             <div className="space-y-6">
               {/* Tabs: File Upload vs Copy Paste */}
-              <div className="flex gap-2 border-b border-slate-200 pb-2">
+              <div className="flex gap-2 border-b border-slate-200 pb-2 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setActiveInputMode('file')}
                   className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
                     activeInputMode === 'file'
                       ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:bg-slate-100'
+                      : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700'
                   }`}
                 >
                   <FileSpreadsheet className="w-4 h-4" />
@@ -356,7 +356,7 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
                   className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
                     activeInputMode === 'paste'
                       ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:bg-slate-100'
+                      : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700'
                   }`}
                 >
                   <ClipboardPaste className="w-4 h-4" />
@@ -371,17 +371,17 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
                   onDrop={handleDrop}
                   className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all ${
                     isDragging
-                      ? 'border-blue-500 bg-blue-50/50 scale-[0.99]'
-                      : 'border-slate-300 hover:border-slate-400 bg-slate-50/50'
+                      ? 'border-blue-500 bg-blue-50/50 scale-[0.99] dark:bg-blue-950/50'
+                      : 'border-slate-300 hover:border-slate-400 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/50'
                   }`}
                 >
-                  <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-3">
+                  <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-3 dark:bg-blue-900/40 dark:text-blue-400">
                     <Upload className="w-6 h-6" />
                   </div>
-                  <h4 className="text-sm font-bold text-slate-800 mb-1">
+                  <h4 className="text-sm font-bold text-slate-800 mb-1 dark:text-slate-100">
                     CSV-Datei hierher ziehen oder durchsuchen
                   </h4>
-                  <p className="text-xs text-slate-500 mb-4 max-w-md mx-auto">
+                  <p className="text-xs text-slate-500 mb-4 max-w-md mx-auto dark:text-slate-400">
                     Unterstützt kommagetrennte oder semikolongetrennte UTF-8 CSV-Dateien aus Microsoft Excel, Google Sheets, LibreOffice oder anderen Vereinsprogrammen.
                   </p>
                   <label className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition-colors">
@@ -396,7 +396,7 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-xs text-slate-600">
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
                     Kopieren Sie Zeilen aus Ihrer Tabelle (Excel oder Google Sheets) und fügen Sie diese hier ein:
                   </p>
                   <textarea
@@ -404,7 +404,7 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
                     value={pastedText}
                     onChange={e => setPastedText(e.target.value)}
                     placeholder="Name / Firma&#9;Rechtsform&#9;E-Mail&#9;Telefon&#9;Ort&#10;Sport Schmitt GmbH&#9;GmbH&#9;info@sport-schmitt.de&#9;03981 12345&#9;Neustrelitz"
-                    className="w-full p-3 font-mono text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-3 font-mono text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 dark:border-slate-800"
                   />
                   <button
                     type="button"
@@ -418,17 +418,17 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
               )}
 
               {/* Template Download Box */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs dark:bg-slate-800 dark:border-slate-800">
                 <div>
-                  <h5 className="font-bold text-slate-800">Mustervorlage herunterladen</h5>
-                  <p className="text-slate-500">
+                  <h5 className="font-bold text-slate-800 dark:text-slate-100">Mustervorlage herunterladen</h5>
+                  <p className="text-slate-500 dark:text-slate-400">
                     Verwenden Sie unsere vorbereitete Vorlage mit allen Standardspalten für einen reibungslosen Import.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={handleDownloadTemplate}
-                  className="px-3.5 py-1.5 rounded-lg border border-slate-300 hover:bg-white text-slate-700 font-semibold flex items-center gap-1.5 shrink-0 transition-colors"
+                  className="px-3.5 py-1.5 rounded-lg border border-slate-300 hover:bg-white text-slate-700 font-semibold flex items-center gap-1.5 shrink-0 transition-colors dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Muster-CSV</span>
@@ -440,21 +440,21 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
           {/* STEP 2: Column Mapping */}
           {step === 2 && (
             <div className="space-y-5">
-              <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-200">
+              <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-200 dark:border-slate-800">
                 <div>
-                  <h4 className="font-bold text-slate-900 text-sm">
+                  <h4 className="font-bold text-slate-900 text-sm dark:text-white">
                     Spaltenzuordnung ({fileName || 'Datei'})
                   </h4>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Ordnen Sie die Spalten Ihrer Tabelle den entsprechenden Feldern zu.
                   </p>
                 </div>
-                <div className="text-xs text-slate-600 flex items-center gap-2">
+                <div className="text-xs text-slate-600 flex items-center gap-2 dark:text-slate-300">
                   <span>Standard-Kontakttyp falls unbestimmt:</span>
                   <select
                     value={defaultContactType}
                     onChange={e => setDefaultContactType(e.target.value as ContactType)}
-                    className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white font-semibold text-xs"
+                    className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white font-semibold text-xs dark:border-slate-800 dark:bg-slate-900"
                   >
                     {CONTACT_TYPES_LIST.map(t => (
                       <option key={t.id} value={t.id}>{t.label}</option>
@@ -487,15 +487,15 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
                   return (
                     <div
                       key={field.key}
-                      className="p-3 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col justify-between gap-1.5"
+                      className="p-3 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col justify-between gap-1.5 dark:border-slate-800 dark:bg-slate-800/50"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-slate-800">
+                        <span className="font-semibold text-slate-800 dark:text-slate-100">
                           {field.label}
-                          {field.required && <span className="text-rose-600 ml-1">*</span>}
+                          {field.required && <span className="text-rose-600 ml-1 dark:text-rose-400">*</span>}
                         </span>
                         {currentMapped && (
-                          <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-bold">
+                          <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-bold dark:text-emerald-300 dark:bg-emerald-950/40">
                             zugeordnet
                           </span>
                         )}
@@ -505,7 +505,7 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
                         onChange={e =>
                           setMapping(prev => ({ ...prev, [field.key]: e.target.value || undefined }))
                         }
-                        className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800"
                       >
                         <option value="">– Nicht zuordnen –</option>
                         {csvHeaders.map(header => (
@@ -526,10 +526,10 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
-                  <h4 className="font-bold text-slate-900 text-sm">
+                  <h4 className="font-bold text-slate-900 text-sm dark:text-white">
                     Vorschau: {parsedContacts.length} Kontakt{parsedContacts.length === 1 ? '' : 'e'} bereit zum Import
                   </h4>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Überprüfen Sie die erkannten Datensätze vor der endgültigen Übernahme.
                   </p>
                 </div>
@@ -540,15 +540,15 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
                     value={searchPreview}
                     onChange={e => setSearchPreview(e.target.value)}
                     placeholder="Vorschau filtern..."
-                    className="w-full pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-lg"
+                    className="w-full pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-lg dark:border-slate-800"
                   />
                 </div>
               </div>
 
               {/* Table Preview */}
-              <div className="border border-slate-200 rounded-xl overflow-x-auto max-h-96">
+              <div className="border border-slate-200 rounded-xl overflow-x-auto max-h-96 dark:border-slate-800">
                 <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200 sticky top-0">
+                  <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200 sticky top-0 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-800">
                     <tr>
                       <th className="py-2.5 px-3">Name / Firma</th>
                       <th className="py-2.5 px-3">Art</th>
@@ -558,10 +558,10 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
                       <th className="py-2.5 px-3">IBAN</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {filteredPreview.map((c, i) => (
-                      <tr key={i} className="hover:bg-slate-50/70">
-                        <td className="py-2 px-3 font-semibold text-slate-900">
+                      <tr key={i} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/70">
+                        <td className="py-2 px-3 font-semibold text-slate-900 dark:text-white">
                           {c.displayName} {c.legalForm ? `(${c.legalForm})` : ''}
                           {c.contactPerson?.lastName && (
                             <div className="text-[11px] text-slate-400 font-normal">
@@ -571,22 +571,22 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
                         </td>
                         <td className="py-2 px-3">
                           <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                            c.personType === 'legal' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
+                            c.personType === 'legal' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
                           }`}>
                             {c.personType === 'legal' ? 'Firma' : 'Privat'}
                           </span>
                         </td>
-                        <td className="py-2 px-3 text-slate-600">
+                        <td className="py-2 px-3 text-slate-600 dark:text-slate-300">
                           {c.types.join(', ')}
                         </td>
-                        <td className="py-2 px-3 text-slate-600">
+                        <td className="py-2 px-3 text-slate-600 dark:text-slate-300">
                           <div>{c.email || '–'}</div>
                           <div className="text-[11px] text-slate-400">{c.phone || c.mobile || ''}</div>
                         </td>
-                        <td className="py-2 px-3 text-slate-600">
+                        <td className="py-2 px-3 text-slate-600 dark:text-slate-300">
                           {[c.address.zip, c.address.city].filter(Boolean).join(' ') || '–'}
                         </td>
-                        <td className="py-2 px-3 font-mono text-[11px] text-slate-600">
+                        <td className="py-2 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-300">
                           {c.bankDetails?.iban ? `${c.bankDetails.iban.slice(0, 6)}...` : '–'}
                         </td>
                       </tr>
@@ -599,13 +599,13 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
         </div>
 
         {/* Modal Footer Controls */}
-        <div className="px-6 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+        <div className="px-6 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between dark:border-slate-800 dark:bg-slate-800">
           <div>
             {step > 1 && (
               <button
                 type="button"
                 onClick={() => setStep((step - 1) as any)}
-                className="px-3.5 py-1.5 rounded-lg border border-slate-300 hover:bg-white text-slate-700 text-xs font-semibold transition-colors"
+                className="px-3.5 py-1.5 rounded-lg border border-slate-300 hover:bg-white text-slate-700 text-xs font-semibold transition-colors dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-200"
               >
                 Zurück
               </button>
@@ -615,7 +615,7 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white text-xs font-medium transition-colors"
+              className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white text-xs font-medium transition-colors dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Abbrechen
             </button>

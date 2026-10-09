@@ -223,7 +223,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         width={colWidths.status}
         onResizeStart={startResize('status')}
         onAutoFit={() => autoFit('status')}
-        headerBg="bg-slate-100"
+        headerBg="bg-slate-100 dark:bg-slate-700"
         {...dragProps('status')}
       />
     ),
@@ -239,7 +239,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         width={colWidths.date}
         onResizeStart={startResize('date')}
         onAutoFit={() => autoFit('date')}
-        headerBg="bg-slate-100"
+        headerBg="bg-slate-100 dark:bg-slate-700"
         {...dragProps('date')}
       />
     ),
@@ -255,7 +255,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         width={colWidths.recipient}
         onResizeStart={startResize('recipient')}
         onAutoFit={() => autoFit('recipient')}
-        headerBg="bg-slate-100"
+        headerBg="bg-slate-100 dark:bg-slate-700"
         {...dragProps('recipient')}
       />
     ),
@@ -271,7 +271,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         width={colWidths.subject}
         onResizeStart={startResize('subject')}
         onAutoFit={() => autoFit('subject')}
-        headerBg="bg-slate-100"
+        headerBg="bg-slate-100 dark:bg-slate-700"
         {...dragProps('subject')}
       />
     ),
@@ -287,7 +287,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         width={colWidths.sphere}
         onResizeStart={startResize('sphere')}
         onAutoFit={() => autoFit('sphere')}
-        headerBg="bg-slate-100"
+        headerBg="bg-slate-100 dark:bg-slate-700"
         {...dragProps('sphere')}
       />
     ),
@@ -303,7 +303,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         width={colWidths.dueDate}
         onResizeStart={startResize('dueDate')}
         onAutoFit={() => autoFit('dueDate')}
-        headerBg="bg-slate-100"
+        headerBg="bg-slate-100 dark:bg-slate-700"
         {...dragProps('dueDate')}
       />
     ),
@@ -320,7 +320,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         width={colWidths.amount}
         onResizeStart={startResize('amount')}
         onAutoFit={() => autoFit('amount')}
-        headerBg="bg-slate-100"
+        headerBg="bg-slate-100 dark:bg-slate-700"
         {...dragProps('amount')}
       />
     ),
@@ -336,7 +336,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         width={colWidths.deliveryDate}
         onResizeStart={startResize('deliveryDate')}
         onAutoFit={() => autoFit('deliveryDate')}
-        headerBg="bg-slate-100"
+        headerBg="bg-slate-100 dark:bg-slate-700"
         {...dragProps('deliveryDate')}
       />
     ),
@@ -353,7 +353,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         width={colWidths.paymentTermsDays}
         onResizeStart={startResize('paymentTermsDays')}
         onAutoFit={() => autoFit('paymentTermsDays')}
-        headerBg="bg-slate-100"
+        headerBg="bg-slate-100 dark:bg-slate-700"
         {...dragProps('paymentTermsDays')}
       />
     ),
@@ -369,7 +369,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         width={colWidths.paidAt}
         onResizeStart={startResize('paidAt')}
         onAutoFit={() => autoFit('paidAt')}
-        headerBg="bg-slate-100"
+        headerBg="bg-slate-100 dark:bg-slate-700"
         {...dragProps('paidAt')}
       />
     ),
@@ -385,7 +385,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         width={colWidths.paymentMethod}
         onResizeStart={startResize('paymentMethod')}
         onAutoFit={() => autoFit('paymentMethod')}
-        headerBg="bg-slate-100"
+        headerBg="bg-slate-100 dark:bg-slate-700"
         {...dragProps('paymentMethod')}
       />
     ),
@@ -402,7 +402,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         width={colWidths.totalVat}
         onResizeStart={startResize('totalVat')}
         onAutoFit={() => autoFit('totalVat')}
-        headerBg="bg-slate-100"
+        headerBg="bg-slate-100 dark:bg-slate-700"
         {...dragProps('totalVat')}
       />
     ),
@@ -418,7 +418,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         width={colWidths.notes}
         onResizeStart={startResize('notes')}
         onAutoFit={() => autoFit('notes')}
-        headerBg="bg-slate-100"
+        headerBg="bg-slate-100 dark:bg-slate-700"
         {...dragProps('notes')}
       />
     ),
@@ -434,7 +434,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         width={colWidths.recipientContact}
         onResizeStart={startResize('recipientContact')}
         onAutoFit={() => autoFit('recipientContact')}
-        headerBg="bg-slate-100"
+        headerBg="bg-slate-100 dark:bg-slate-700"
         {...dragProps('recipientContact')}
       />
     )
@@ -648,7 +648,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
 
     if (isOverdue) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-800 border border-red-200">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/40 dark:text-red-200 dark:border-red-800/60">
           <Clock className="w-3 h-3" />
           <span>Überfällig</span>
         </span>
@@ -658,21 +658,21 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
     switch (inv.status) {
       case 'paid':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-200 dark:border-emerald-800/60">
             <CheckCircle className="w-3 h-3" />
             <span>Bezahlt</span>
           </span>
         );
       case 'open':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/40 dark:text-blue-200 dark:border-blue-800/60">
             <Clock className="w-3 h-3" />
             <span>Offen</span>
           </span>
         );
       case 'cancelled':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-200 text-slate-700">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-200 text-slate-700 dark:bg-slate-600 dark:text-slate-200">
             <Ban className="w-3 h-3" />
             <span>Storniert</span>
           </span>
@@ -680,7 +680,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
       case 'draft':
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800/60">
             <FileText className="w-3 h-3" />
             <span>Entwurf</span>
           </span>
@@ -694,27 +694,27 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
       {/* Metric Cards: Rechnungen Gesamt, Offen, Bezahlt & Überfällig */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Kachel 1: Gesamt */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between dark:bg-slate-900 dark:border-slate-800">
           <div>
             <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider dark:text-slate-400">
                 Rechnungen Gesamt
               </p>
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
                 {totalCount} Stk.
               </span>
             </div>
-            <h3 className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-slate-900 mt-1">
+            <h3 className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-slate-900 mt-1 dark:text-white">
               {formatCurrency(totalSumGross)}
             </h3>
           </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+          <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
             <span>Volumen brutto</span>
             {statusFilter !== 'all' && (
               <button
                 type="button"
                 onClick={() => setStatusFilter('all')}
-                className="text-[11px] text-blue-600 hover:underline font-semibold cursor-pointer"
+                className="text-[11px] text-blue-600 hover:underline font-semibold cursor-pointer dark:text-blue-400"
               >
                 Filter zurücksetzen
               </button>
@@ -728,28 +728,28 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
           className={`p-5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
             statusFilter === 'open'
               ? 'bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-400/40'
-              : 'bg-white hover:bg-blue-50/50 border-slate-200 text-slate-800'
+              : 'bg-white hover:bg-blue-50/50 border-slate-200 text-slate-800 dark:bg-slate-900 dark:hover:bg-blue-950/50 dark:border-slate-800 dark:text-slate-100'
           }`}
         >
           <div>
             <div className="flex items-center justify-between mb-1">
-              <p className={`text-xs font-semibold uppercase tracking-wider ${statusFilter === 'open' ? 'text-blue-100' : 'text-slate-500'}`}>
+              <p className={`text-xs font-semibold uppercase tracking-wider ${statusFilter === 'open' ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'}`}>
                 Offene Forderungen
               </p>
               <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                statusFilter === 'open' ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-700'
+                statusFilter === 'open' ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
               }`}>
                 {openInvoices.length} offen
               </span>
             </div>
             <h3 className={`text-2xl sm:text-3xl font-black font-mono tracking-tight mt-1 ${
-              statusFilter === 'open' ? 'text-white' : 'text-blue-700'
+              statusFilter === 'open' ? 'text-white' : 'text-blue-700 dark:text-blue-300'
             }`}>
               {formatCurrency(openSumGross)}
             </h3>
           </div>
           <div className={`mt-3 pt-2.5 border-t text-xs flex items-center justify-between ${
-            statusFilter === 'open' ? 'border-blue-500 text-blue-100' : 'border-slate-100 text-slate-500'
+            statusFilter === 'open' ? 'border-blue-500 text-blue-100' : 'border-slate-100 text-slate-500 dark:border-slate-800 dark:text-slate-400'
           }`}>
             <span>Zahlungseingang ausstehend</span>
             <span>{statusFilter === 'open' ? 'Aktiv' : 'Filtern'}</span>
@@ -762,28 +762,28 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
           className={`p-5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
             statusFilter === 'paid'
               ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs ring-2 ring-emerald-400/40'
-              : 'bg-white hover:bg-emerald-50/50 border-slate-200 text-slate-800'
+              : 'bg-white hover:bg-emerald-50/50 border-slate-200 text-slate-800 dark:bg-slate-900 dark:hover:bg-emerald-950/50 dark:border-slate-800 dark:text-slate-100'
           }`}
         >
           <div>
             <div className="flex items-center justify-between mb-1">
-              <p className={`text-xs font-semibold uppercase tracking-wider ${statusFilter === 'paid' ? 'text-emerald-100' : 'text-slate-500'}`}>
+              <p className={`text-xs font-semibold uppercase tracking-wider ${statusFilter === 'paid' ? 'text-emerald-100' : 'text-slate-500 dark:text-slate-400'}`}>
                 Bezahlt
               </p>
               <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                statusFilter === 'paid' ? 'bg-emerald-800 text-white' : 'bg-emerald-50 text-emerald-800'
+                statusFilter === 'paid' ? 'bg-emerald-800 text-white' : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'
               }`}>
                 {paidInvoices.length} bezahlt
               </span>
             </div>
             <h3 className={`text-2xl sm:text-3xl font-black font-mono tracking-tight mt-1 ${
-              statusFilter === 'paid' ? 'text-white' : 'text-emerald-700'
+              statusFilter === 'paid' ? 'text-white' : 'text-emerald-700 dark:text-emerald-300'
             }`}>
               {formatCurrency(paidSumGross)}
             </h3>
           </div>
           <div className={`mt-3 pt-2.5 border-t text-xs flex items-center justify-between ${
-            statusFilter === 'paid' ? 'border-emerald-600 text-emerald-100' : 'border-slate-100 text-slate-500'
+            statusFilter === 'paid' ? 'border-emerald-600 text-emerald-100' : 'border-slate-100 text-slate-500 dark:border-slate-800 dark:text-slate-400'
           }`}>
             <span>Beglichene Rechnungen</span>
             <span>{statusFilter === 'paid' ? 'Aktiv' : 'Filtern'}</span>
@@ -796,28 +796,28 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
           className={`p-5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
             statusFilter === 'overdue'
               ? 'bg-red-600 text-white border-red-600 shadow-xs ring-2 ring-red-400/40'
-              : 'bg-white hover:bg-red-50/50 border-slate-200 text-slate-800'
+              : 'bg-white hover:bg-red-50/50 border-slate-200 text-slate-800 dark:bg-slate-900 dark:hover:bg-red-950/50 dark:border-slate-800 dark:text-slate-100'
           }`}
         >
           <div>
             <div className="flex items-center justify-between mb-1">
-              <p className={`text-xs font-semibold uppercase tracking-wider ${statusFilter === 'overdue' ? 'text-red-100' : 'text-slate-500'}`}>
+              <p className={`text-xs font-semibold uppercase tracking-wider ${statusFilter === 'overdue' ? 'text-red-100' : 'text-slate-500 dark:text-slate-400'}`}>
                 Mahnwesen / Überfällig
               </p>
               <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                statusFilter === 'overdue' ? 'bg-red-700 text-white' : 'bg-red-50 text-red-700'
+                statusFilter === 'overdue' ? 'bg-red-700 text-white' : 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
               }`}>
                 {overdueInvoices.length} fällig
               </span>
             </div>
             <h3 className={`text-2xl sm:text-3xl font-black font-mono tracking-tight mt-1 ${
-              statusFilter === 'overdue' ? 'text-white' : 'text-red-700'
+              statusFilter === 'overdue' ? 'text-white' : 'text-red-700 dark:text-red-300'
             }`}>
               {formatCurrency(overdueSumGross)}
             </h3>
           </div>
           <div className={`mt-3 pt-2.5 border-t text-xs flex items-center justify-between ${
-            statusFilter === 'overdue' ? 'border-red-500 text-red-100' : 'border-slate-100 text-slate-500'
+            statusFilter === 'overdue' ? 'border-red-500 text-red-100' : 'border-slate-100 text-slate-500 dark:border-slate-800 dark:text-slate-400'
           }`}>
             <span>Zahlungsfrist überschritten</span>
             <span>{statusFilter === 'overdue' ? 'Aktiv' : 'Filtern'}</span>
@@ -880,24 +880,24 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
       )}
 
       {/* Main Table Card Container (Exaktes Layout analog zur Mitglieder- und Kontakttabelle) */}
-      <section className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col">
+      <section className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col dark:bg-slate-900 dark:border-slate-800">
         {/* Table Top Header with Title and Action buttons */}
-        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-2">
-            <h4 className="font-bold text-slate-800 uppercase text-xs tracking-widest">
+            <h4 className="font-bold text-slate-800 uppercase text-xs tracking-widest dark:text-slate-100">
               Rechnungsübersicht
             </h4>
-            <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-semibold">
+            <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-semibold dark:bg-slate-700 dark:text-slate-300">
               {filteredInvoices.length}
             </span>
             {selectedIds.size > 0 && (
-              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full font-bold">
+              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full font-bold dark:bg-blue-900/40 dark:text-blue-200">
                 {selectedIds.size} markiert
               </span>
             )}
             {templateSettings.customBlankoDataUrl && (
-              <span className="text-[11px] px-2 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full font-semibold flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-emerald-600" />
+              <span className="text-[11px] px-2 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full font-semibold flex items-center gap-1 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-200">
+                <Sparkles className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                 <span>Eigene Blanko-Vorlage aktiv</span>
               </span>
             )}
@@ -908,20 +908,20 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
             <button
               type="button"
               onClick={onOpenTemplateConfig}
-              className="text-xs bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              className="text-xs bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer dark:bg-slate-800 dark:border-slate-800 dark:hover:bg-slate-700 dark:text-slate-200"
               title="Eigenes Vereins-Briefpapier (Blanko-Vorlage) hochladen oder DIN 5008 Vorlage anpassen"
             >
-              <Sliders className="w-3.5 h-3.5 text-slate-600" />
+              <Sliders className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
               <span>Blanko-Vorlage konfigurieren</span>
             </button>
 
             <button
               type="button"
               onClick={handleExportCSV}
-              className="text-xs border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 cursor-pointer"
+              className="text-xs border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 cursor-pointer dark:border-slate-800 dark:hover:bg-slate-800 dark:text-slate-200"
               title="Rechnungsliste als Excel-CSV exportieren"
             >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               <span>CSV Export</span>
             </button>
 
@@ -939,7 +939,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         </div>
 
         {/* Search & Filter Bar directly inside table container */}
-        <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-3 text-xs">
+        <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-3 text-xs dark:bg-slate-800 dark:border-slate-800">
           {/* Search Input */}
           <div className="relative flex-1 min-w-[220px] max-w-md">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -948,13 +948,13 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Suche nach Rechnungsnr., Empfänger, Firma, Betreff, Posten..."
-              className="w-full pl-9 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-9 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-white"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer dark:hover:text-slate-300"
               >
                 ✕
               </button>
@@ -965,7 +965,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value as any)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
           >
             <option value="all">Alle Status</option>
             <option value="open">Offen</option>
@@ -979,7 +979,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
           <select
             value={taxSphereFilter}
             onChange={e => setTaxSphereFilter(e.target.value as any)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
           >
             <option value="all">Alle Sphären</option>
             <option value="wirtschaftlich">Wirtschaftl. Geschäftsbetrieb</option>
@@ -1031,11 +1031,11 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
               ))}
               <col style={{ width: ACTION_COL_WIDTH }} />
             </colgroup>
-            <thead className="bg-slate-100 text-slate-600 font-semibold uppercase text-[10px] tracking-wider select-none">
+            <thead className="bg-slate-100 text-slate-600 font-semibold uppercase text-[10px] tracking-wider select-none dark:bg-slate-700 dark:text-slate-300">
               <tr>
                 <th
                   style={{ width: CHECKBOX_COL_WIDTH, minWidth: CHECKBOX_COL_WIDTH }}
-                  className="px-3 py-3 text-center sticky top-0 z-10 bg-slate-100 border-b border-slate-200"
+                  className="px-3 py-3 text-center sticky top-0 z-10 bg-slate-100 border-b border-slate-200 dark:bg-slate-700 dark:border-slate-800"
                 >
                   <input
                     type="checkbox"
@@ -1045,25 +1045,25 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                     }}
                     onChange={handleSelectAll}
                     aria-label="Alle Einträge dieser Seite auswählen"
-                    className="w-3.5 h-3.5 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 cursor-pointer"
+                    className="w-3.5 h-3.5 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 cursor-pointer dark:text-blue-400 dark:border-slate-700"
                   />
                 </th>
                 {visibleColumnOrder.map(key => invoiceHeaderDefs[key])}
                 <th
                   style={{ width: ACTION_COL_WIDTH, minWidth: ACTION_COL_WIDTH }}
-                  className="px-3 py-3 text-right sticky top-0 z-10 bg-slate-100 border-b border-slate-200"
+                  className="px-3 py-3 text-right sticky top-0 z-10 bg-slate-100 border-b border-slate-200 dark:bg-slate-700 dark:border-slate-800"
                 >
                   Aktionen
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 bg-white">
+            <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-900">
               {filteredInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={visibleColumnOrder.length + 2} className="py-12 text-center text-slate-500">
+                  <td colSpan={visibleColumnOrder.length + 2} className="py-12 text-center text-slate-500 dark:text-slate-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <FileText className="w-8 h-8 text-slate-300" />
-                      <p className="font-semibold text-slate-700 text-sm">
+                      <p className="font-semibold text-slate-700 text-sm dark:text-slate-200">
                         Keine Rechnungen gefunden
                       </p>
                       <p className="text-xs text-slate-400 max-w-sm">
@@ -1096,10 +1096,10 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                       onClick={() => onOpenDetails(inv)}
                       className={`group transition-colors cursor-pointer ${
                         isSelected
-                          ? 'bg-blue-50/70'
+                          ? 'bg-blue-50/70 dark:bg-blue-950/70'
                           : isOverdue
-                          ? 'bg-red-50/20 hover:bg-red-50/40'
-                          : 'hover:bg-slate-50/80'
+                          ? 'bg-red-50/20 hover:bg-red-50/40 dark:bg-red-950/20 dark:hover:bg-red-950/40'
+                          : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/80'
                       }`}
                     >
                       {/* Selection Checkbox */}
@@ -1111,7 +1111,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           type="checkbox"
                           checked={isSelected}
                           onChange={e => handleToggleSelect(inv.id, e as any)}
-                          className="w-3.5 h-3.5 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 cursor-pointer"
+                          className="w-3.5 h-3.5 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 cursor-pointer dark:text-blue-400 dark:border-slate-700"
                         />
                       </td>
 
@@ -1124,7 +1124,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           ),
                           date: (
                             <td key="date" data-col-content="date" className="px-3 py-3 overflow-hidden">
-                              <div className="font-mono font-bold text-slate-900 group-hover:text-blue-700 transition-colors">
+                              <div className="font-mono font-bold text-slate-900 group-hover:text-blue-700 transition-colors dark:text-white dark:group-hover:text-blue-300">
                                 {inv.invoiceNumber}
                               </div>
                               <div className="text-[11px] text-slate-400">
@@ -1137,18 +1137,18 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                               <div className="flex items-center gap-2">
                                 <div className={`w-6 h-6 rounded-md flex items-center justify-center font-bold text-[11px] shrink-0 ${
                                   inv.recipientType === 'contact'
-                                    ? 'bg-indigo-100 text-indigo-700'
+                                    ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
                                     : inv.recipientType === 'member'
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : 'bg-slate-100 text-slate-700'
+                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                    : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
                                 }`}>
                                   {inv.recipientType === 'contact' ? '🏢' : '👤'}
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="font-bold text-slate-900 truncate">
+                                  <div className="font-bold text-slate-900 truncate dark:text-white">
                                     {inv.recipientName}
                                   </div>
-                                  <div className="text-[11px] text-slate-500 truncate">
+                                  <div className="text-[11px] text-slate-500 truncate dark:text-slate-400">
                                     {inv.recipientCompany ? `${inv.recipientCompany} • ` : ''}
                                     {inv.recipientAddress?.city || ''}
                                   </div>
@@ -1158,7 +1158,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           ),
                           subject: (
                             <td key="subject" data-col-content="subject" className="px-4 py-3 overflow-hidden">
-                              <div className="font-medium text-slate-900 truncate">
+                              <div className="font-medium text-slate-900 truncate dark:text-white">
                                 {inv.subject}
                               </div>
                               <div className="text-[11px] text-slate-400 truncate">
@@ -1168,7 +1168,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           ),
                           sphere: (
                             <td key="sphere" data-col-content="sphere" className="px-3 py-3 whitespace-nowrap overflow-hidden">
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
                                 {inv.taxSphere === 'wirtschaftlich'
                                   ? 'Wirtschaftl.'
                                   : inv.taxSphere === 'zweckbetrieb'
@@ -1182,12 +1182,12 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           dueDate: (
                             <td key="dueDate" data-col-content="dueDate" className="px-3 py-3 whitespace-nowrap overflow-hidden">
                               <span className={`font-semibold ${
-                                isOverdue ? 'text-red-700 font-bold' : 'text-slate-700'
+                                isOverdue ? 'text-red-700 font-bold dark:text-red-300' : 'text-slate-700 dark:text-slate-200'
                               }`}>
                                 {new Date(inv.dueDate).toLocaleDateString('de-DE')}
                               </span>
                               {inv.documentId && (
-                                <span className="block text-[10px] text-blue-600" title="Im Archiv abgelegt">
+                                <span className="block text-[10px] text-blue-600 dark:text-blue-400" title="Im Archiv abgelegt">
                                   📁 archiviert
                                 </span>
                               )}
@@ -1195,7 +1195,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           ),
                           amount: (
                             <td key="amount" data-col-content="amount" className="px-4 py-3 text-right whitespace-nowrap overflow-hidden">
-                              <div className="font-mono font-bold text-sm text-slate-900">
+                              <div className="font-mono font-bold text-sm text-slate-900 dark:text-white">
                                 {formatCurrency(inv.totalAmount)}
                               </div>
                               <div className="text-[10px] text-slate-400 font-mono">
@@ -1204,27 +1204,27 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                             </td>
                           ),
                           deliveryDate: (
-                            <td key="deliveryDate" data-col-content="deliveryDate" className="px-3 py-3 whitespace-nowrap overflow-hidden text-slate-600">
+                            <td key="deliveryDate" data-col-content="deliveryDate" className="px-3 py-3 whitespace-nowrap overflow-hidden text-slate-600 dark:text-slate-300">
                               {inv.deliveryDate ? new Date(inv.deliveryDate).toLocaleDateString('de-DE') : <span className="text-slate-300">-</span>}
                             </td>
                           ),
                           paymentTermsDays: (
-                            <td key="paymentTermsDays" data-col-content="paymentTermsDays" className="px-3 py-3 text-right whitespace-nowrap overflow-hidden text-slate-600 font-mono">
+                            <td key="paymentTermsDays" data-col-content="paymentTermsDays" className="px-3 py-3 text-right whitespace-nowrap overflow-hidden text-slate-600 font-mono dark:text-slate-300">
                               {inv.paymentTermsDays} Tage
                             </td>
                           ),
                           paidAt: (
-                            <td key="paidAt" data-col-content="paidAt" className="px-3 py-3 whitespace-nowrap overflow-hidden text-slate-600">
+                            <td key="paidAt" data-col-content="paidAt" className="px-3 py-3 whitespace-nowrap overflow-hidden text-slate-600 dark:text-slate-300">
                               {inv.paidAt ? new Date(inv.paidAt).toLocaleDateString('de-DE') : <span className="text-slate-300">-</span>}
                             </td>
                           ),
                           paymentMethod: (
-                            <td key="paymentMethod" data-col-content="paymentMethod" className="px-3 py-3 whitespace-nowrap overflow-hidden text-slate-600">
+                            <td key="paymentMethod" data-col-content="paymentMethod" className="px-3 py-3 whitespace-nowrap overflow-hidden text-slate-600 dark:text-slate-300">
                               {inv.paymentMethod ? PAYMENT_METHOD_LABELS[inv.paymentMethod] || inv.paymentMethod : <span className="text-slate-300">-</span>}
                             </td>
                           ),
                           totalVat: (
-                            <td key="totalVat" data-col-content="totalVat" className="px-4 py-3 text-right whitespace-nowrap overflow-hidden font-mono text-slate-600">
+                            <td key="totalVat" data-col-content="totalVat" className="px-4 py-3 text-right whitespace-nowrap overflow-hidden font-mono text-slate-600 dark:text-slate-300">
                               {formatCurrency(inv.totalVat)}
                             </td>
                           ),
@@ -1232,7 +1232,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                             <td
                               key="notes"
                               data-col-content="notes"
-                              className="px-4 py-3 text-slate-500 truncate overflow-hidden"
+                              className="px-4 py-3 text-slate-500 truncate overflow-hidden dark:text-slate-400"
                               title={inv.notes || undefined}
                             >
                               {inv.notes || <span className="text-slate-300">-</span>}
@@ -1245,7 +1245,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                                   <a
                                     href={`mailto:${inv.recipientEmail}`}
                                     onClick={e => e.stopPropagation()}
-                                    className="text-[11px] text-blue-600 hover:underline truncate block"
+                                    className="text-[11px] text-blue-600 hover:underline truncate block dark:text-blue-400"
                                   >
                                     {inv.recipientEmail}
                                   </a>
@@ -1254,7 +1254,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                                   <a
                                     href={`tel:${inv.recipientPhone}`}
                                     onClick={e => e.stopPropagation()}
-                                    className="text-[11px] text-slate-500 hover:text-blue-600 block"
+                                    className="text-[11px] text-slate-500 hover:text-blue-600 block dark:text-slate-400 dark:hover:text-blue-400"
                                   >
                                     {inv.recipientPhone}
                                   </a>
@@ -1279,7 +1279,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           <button
                             type="button"
                             onClick={() => onOpenDetails(inv)}
-                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer dark:hover:text-blue-400 dark:hover:bg-blue-950/40"
                             title="Rechnungsdetails anzeigen"
                           >
                             <Eye className="w-4 h-4" />
@@ -1296,7 +1296,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                                 console.error('Failed to export PDF:', err);
                               }
                             }}
-                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer dark:hover:text-blue-400 dark:hover:bg-blue-950/40"
                             title="Rechnung als PDF herunterladen"
                           >
                             <Download className="w-4 h-4" />
@@ -1306,7 +1306,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           <button
                             type="button"
                             onClick={() => onOpenEdit(inv)}
-                            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer dark:hover:text-slate-200 dark:hover:bg-slate-700"
                             title="Rechnung bearbeiten"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -1320,7 +1320,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                                 onDeleteInvoice(inv.id);
                               }
                             }}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer dark:hover:text-red-400 dark:hover:bg-red-950/40"
                             title="Rechnung löschen"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1354,10 +1354,10 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         />}
 
         {/* Table Pagination / Footer */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 rounded-b-xl overflow-hidden">
+        <div className="p-4 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 rounded-b-xl overflow-hidden dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300">
           <div>
-            Zeige <strong className="text-slate-900">{filteredInvoices.length}</strong> von{' '}
-            <strong className="text-slate-900">{invoices.length}</strong> Rechnungen
+            Zeige <strong className="text-slate-900 dark:text-white">{filteredInvoices.length}</strong> von{' '}
+            <strong className="text-slate-900 dark:text-white">{invoices.length}</strong> Rechnungen
           </div>
 
           <div className="flex items-center gap-4">
@@ -1370,7 +1370,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
               <span>Offen: {openInvoices.length}</span>
             </div>
             {overdueInvoices.length > 0 && (
-              <div className="flex items-center gap-2 text-red-600 font-semibold">
+              <div className="flex items-center gap-2 text-red-600 font-semibold dark:text-red-400">
                 <span className="w-2 h-2 rounded-full bg-red-500"></span>
                 <span>Überfällig: {overdueInvoices.length}</span>
               </div>

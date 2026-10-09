@@ -121,55 +121,55 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-8">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-8 dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
+        <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/80 dark:border-slate-800 dark:bg-slate-800/80">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold dark:bg-blue-900/40 dark:text-blue-300">
               <SlidersHorizontal className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800">
+              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
                 Sammelbearbeitung: {selectedItems.length} Inventargegenstand/-stände
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Aktivieren Sie die gewünschten Kontrollkästchen, um diese Eigenschaften für alle ausgewählten Gegenstände gemeinsam zu ändern.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-200/50 rounded-lg transition-colors"
+            className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-200/50 rounded-lg transition-colors dark:hover:text-slate-300 dark:hover:bg-slate-600/50"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Selected Items Drawer */}
-        <div className="px-6 py-2.5 bg-blue-50/60 border-b border-blue-100 flex items-center justify-between text-xs">
-          <span className="text-blue-900 font-medium">
+        <div className="px-6 py-2.5 bg-blue-50/60 border-b border-blue-100 flex items-center justify-between text-xs dark:bg-blue-950/60 dark:border-blue-900/50">
+          <span className="text-blue-900 font-medium dark:text-blue-100">
             Ausgewählt: <span className="font-bold">{selectedItems.length} Gegenstände</span>
           </span>
           <button
             type="button"
             onClick={() => setShowItemList(!showItemList)}
-            className="text-blue-600 hover:text-blue-800 underline font-semibold"
+            className="text-blue-600 hover:text-blue-800 underline font-semibold dark:text-blue-400 dark:hover:text-blue-200"
           >
             {showItemList ? 'Details ausblenden' : 'Details einblenden'}
           </button>
         </div>
 
         {showItemList && (
-          <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 max-h-44 overflow-y-auto">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
+          <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 max-h-44 overflow-y-auto dark:bg-slate-800 dark:border-slate-800">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-300">
               {selectedItems.map(item => (
-                <div key={item.id} className="p-2 bg-white rounded-lg border border-slate-200 flex items-center justify-between">
+                <div key={item.id} className="p-2 bg-white rounded-lg border border-slate-200 flex items-center justify-between dark:bg-slate-900 dark:border-slate-800">
                   <div className="truncate mr-2">
-                    <span className="font-bold text-slate-700">{item.itemNumber}</span>
-                    <span className="text-slate-600 ml-1.5 truncate font-medium">{item.name}</span>
+                    <span className="font-bold text-slate-700 dark:text-slate-200">{item.itemNumber}</span>
+                    <span className="text-slate-600 ml-1.5 truncate font-medium dark:text-slate-300">{item.name}</span>
                     <span className="text-slate-400 ml-1 text-[11px]">({item.department})</span>
                   </div>
-                  <span className="text-slate-500 font-mono text-[11px] whitespace-nowrap">
+                  <span className="text-slate-500 font-mono text-[11px] whitespace-nowrap dark:text-slate-400">
                     {item.quantity} {item.unit}
                   </span>
                 </div>
@@ -181,29 +181,29 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
           {/* Info Banner */}
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-100">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 dark:text-amber-400" />
             <div>
               <span className="font-bold">Hinweis zur Inventur:</span> Nur aktivierte Felder werden modifiziert. Individuelle Daten wie Inventarnummer, Bezeichnung, Menge und Anschaffungspreis bleiben unverändert.
             </div>
           </div>
 
           {/* 1. Sparte / Abteilung */}
-          <div className={`p-4 rounded-xl border transition-all ${applyDepartment ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+          <div className={`p-4 rounded-xl border transition-all ${applyDepartment ? 'bg-blue-50/40 border-blue-300 shadow-xs dark:bg-blue-950/40 dark:border-blue-700/60' : 'bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}>
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={applyDepartment}
                   onChange={e => setApplyDepartment(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                 />
-                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-indigo-600" />
+                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                  <Building2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                   Sparte / Abteilung neu zuordnen
                 </span>
               </label>
-              {applyDepartment && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
+              {applyDepartment && <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Wird geändert</span>}
             </div>
 
             {applyDepartment && (
@@ -211,7 +211,7 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
                 <select
                   value={department}
                   onChange={e => setDepartment(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                 >
                   {allDepartments.map(dep => (
                     <option key={dep} value={dep}>{dep}</option>
@@ -222,21 +222,21 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
           </div>
 
           {/* 2. Kategorie */}
-          <div className={`p-4 rounded-xl border transition-all ${applyCategory ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+          <div className={`p-4 rounded-xl border transition-all ${applyCategory ? 'bg-blue-50/40 border-blue-300 shadow-xs dark:bg-blue-950/40 dark:border-blue-700/60' : 'bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}>
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={applyCategory}
                   onChange={e => setApplyCategory(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                 />
-                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-emerald-600" />
+                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                  <Tag className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   Inventarkategorie anpassen
                 </span>
               </label>
-              {applyCategory && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
+              {applyCategory && <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Wird geändert</span>}
             </div>
 
             {applyCategory && (
@@ -248,12 +248,12 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
                     onClick={() => setCategory(cat.id)}
                     className={`p-2.5 rounded-lg border text-left text-xs transition-all ${
                       category === cat.id
-                        ? 'border-blue-600 bg-blue-100/70 text-blue-900 font-bold ring-1 ring-blue-500'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        ? 'border-blue-600 bg-blue-100/70 text-blue-900 font-bold ring-1 ring-blue-500 dark:bg-blue-900/70 dark:text-blue-100'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'
                     }`}
                   >
                     <div className="font-semibold">{cat.label}</div>
-                    <div className="text-[11px] text-slate-500 truncate">{cat.description}</div>
+                    <div className="text-[11px] text-slate-500 truncate dark:text-slate-400">{cat.description}</div>
                   </button>
                 ))}
               </div>
@@ -261,21 +261,21 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
           </div>
 
           {/* 3. Zustand */}
-          <div className={`p-4 rounded-xl border transition-all ${applyCondition ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+          <div className={`p-4 rounded-xl border transition-all ${applyCondition ? 'bg-blue-50/40 border-blue-300 shadow-xs dark:bg-blue-950/40 dark:border-blue-700/60' : 'bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}>
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={applyCondition}
                   onChange={e => setApplyCondition(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                 />
-                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   Zustand aktualisieren
                 </span>
               </label>
-              {applyCondition && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
+              {applyCondition && <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Wird geändert</span>}
             </div>
 
             {applyCondition && (
@@ -287,8 +287,8 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
                     onClick={() => setCondition(opt.value)}
                     className={`p-2 rounded-lg border text-xs flex items-center gap-2 transition-all ${
                       condition === opt.value
-                        ? 'border-blue-600 bg-blue-100/70 text-blue-900 font-bold ring-1 ring-blue-500'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        ? 'border-blue-600 bg-blue-100/70 text-blue-900 font-bold ring-1 ring-blue-500 dark:bg-blue-900/70 dark:text-blue-100'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'
                     }`}
                   >
                     <span className={`w-2 h-2 rounded-full ${opt.dotColor}`} />
@@ -300,21 +300,21 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
           </div>
 
           {/* 4. Standort */}
-          <div className={`p-4 rounded-xl border transition-all ${applyLocation ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+          <div className={`p-4 rounded-xl border transition-all ${applyLocation ? 'bg-blue-50/40 border-blue-300 shadow-xs dark:bg-blue-950/40 dark:border-blue-700/60' : 'bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}>
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={applyLocation}
                   onChange={e => setApplyLocation(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                 />
-                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-rose-600" />
+                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                  <MapPin className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                   Lagerort / Standort zuweisen
                 </span>
               </label>
-              {applyLocation && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
+              {applyLocation && <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Wird geändert</span>}
             </div>
 
             {applyLocation && (
@@ -324,28 +324,28 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
                   value={location}
                   onChange={e => setLocation(e.target.value)}
                   placeholder="z.B. Geräteraum Platz 1, Keller Vereinsheim, Ballschrank..."
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                 />
               </div>
             )}
           </div>
 
           {/* 5. Verantwortlicher / Zeugwart */}
-          <div className={`p-4 rounded-xl border transition-all ${applyResponsible ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+          <div className={`p-4 rounded-xl border transition-all ${applyResponsible ? 'bg-blue-50/40 border-blue-300 shadow-xs dark:bg-blue-950/40 dark:border-blue-700/60' : 'bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}>
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={applyResponsible}
                   onChange={e => setApplyResponsible(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                 />
-                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <User className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                  <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   Zuständige Person / Zeugwart
                 </span>
               </label>
-              {applyResponsible && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
+              {applyResponsible && <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Wird geändert</span>}
             </div>
 
             {applyResponsible && (
@@ -355,28 +355,28 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
                   value={responsiblePerson}
                   onChange={e => setResponsiblePerson(e.target.value)}
                   placeholder="z.B. Markus Meier (Zeugwart), Abteilungsleiter Tennis..."
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                 />
               </div>
             )}
           </div>
 
           {/* 6. Zugewiesen an / Verliehen */}
-          <div className={`p-4 rounded-xl border transition-all ${applyAssignedTo ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+          <div className={`p-4 rounded-xl border transition-all ${applyAssignedTo ? 'bg-blue-50/40 border-blue-300 shadow-xs dark:bg-blue-950/40 dark:border-blue-700/60' : 'bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}>
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={applyAssignedTo}
                   onChange={e => setApplyAssignedTo(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                 />
-                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <Package className="w-4 h-4 text-purple-600" />
+                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                  <Package className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                   Im Einsatz bei / Verliehen an
                 </span>
               </label>
-              {applyAssignedTo && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
+              {applyAssignedTo && <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Wird geändert</span>}
             </div>
 
             {applyAssignedTo && (
@@ -386,28 +386,28 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
                   value={assignedTo}
                   onChange={e => setAssignedTo(e.target.value)}
                   placeholder="z.B. 1. Herrenmannschaft, U15 Juniorinnen, Turngruppe..."
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                 />
               </div>
             )}
           </div>
 
           {/* 7. Lieferant / Hersteller */}
-          <div className={`p-4 rounded-xl border transition-all ${applySupplier ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+          <div className={`p-4 rounded-xl border transition-all ${applySupplier ? 'bg-blue-50/40 border-blue-300 shadow-xs dark:bg-blue-950/40 dark:border-blue-700/60' : 'bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}>
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={applySupplier}
                   onChange={e => setApplySupplier(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                 />
-                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-teal-600" />
+                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                  <Truck className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                   Lieferant / Fachhändler
                 </span>
               </label>
-              {applySupplier && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
+              {applySupplier && <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Wird geändert</span>}
             </div>
 
             {applySupplier && (
@@ -417,14 +417,14 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
                   value={supplier}
                   onChange={e => setSupplier(e.target.value)}
                   placeholder="z.B. Sport2000, Erima, Benz Sportgeräte..."
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                 />
               </div>
             )}
           </div>
 
           {/* 8. Prüfdaten & Wartung */}
-          <div className={`p-4 rounded-xl border transition-all ${(applyLastChecked || applyNextInspection) ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+          <div className={`p-4 rounded-xl border transition-all ${(applyLastChecked || applyNextInspection) ? 'bg-blue-50/40 border-blue-300 shadow-xs dark:bg-blue-950/40 dark:border-blue-700/60' : 'bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2.5 cursor-pointer">
@@ -432,10 +432,10 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
                     type="checkbox"
                     checked={applyLastChecked}
                     onChange={e => setApplyLastChecked(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                    className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                   />
-                  <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-emerald-600" />
+                  <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                    <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     Letzte Prüfung
                   </span>
                 </label>
@@ -444,43 +444,43 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
                     type="checkbox"
                     checked={applyNextInspection}
                     onChange={e => setApplyNextInspection(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                    className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                   />
-                  <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-amber-600" />
+                  <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                    <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                     Nächste Wartung
                   </span>
                 </label>
               </div>
               {(applyLastChecked || applyNextInspection) && (
-                <span className="text-xs font-bold text-blue-700">Wird geändert</span>
+                <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Wird geändert</span>
               )}
             </div>
 
             <div className="mt-3 pl-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
               {applyLastChecked && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1 dark:text-slate-300">
                     Letzte Prüfung / Inventur
                   </label>
                   <input
                     type="date"
                     value={lastCheckedDate}
                     onChange={e => setLastCheckedDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                   />
                 </div>
               )}
               {applyNextInspection && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1 dark:text-slate-300">
                     Nächste Prüfung / TÜV
                   </label>
                   <input
                     type="date"
                     value={nextInspectionDate}
                     onChange={e => setNextInspectionDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                   />
                 </div>
               )}
@@ -488,26 +488,26 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
           </div>
 
           {/* 9. Notizen */}
-          <div className={`p-4 rounded-xl border transition-all ${applyNotes ? 'bg-blue-50/40 border-blue-300 shadow-xs' : 'bg-white border-slate-200'}`}>
+          <div className={`p-4 rounded-xl border transition-all ${applyNotes ? 'bg-blue-50/40 border-blue-300 shadow-xs dark:bg-blue-950/40 dark:border-blue-700/60' : 'bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}>
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={applyNotes}
                   onChange={e => setApplyNotes(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 dark:text-blue-400 dark:border-slate-700"
                 />
-                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-slate-600" />
+                <span className="text-sm font-semibold text-slate-800 flex items-center gap-2 dark:text-slate-100">
+                  <FileText className="w-4 h-4 text-slate-600 dark:text-slate-300" />
                   Notiz / Inventurvermerk
                 </span>
               </label>
-              {applyNotes && <span className="text-xs font-bold text-blue-700">Wird geändert</span>}
+              {applyNotes && <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Wird geändert</span>}
             </div>
 
             {applyNotes && (
               <div className="mt-3 pl-6 space-y-2">
-                <div className="flex items-center gap-4 text-xs font-medium text-slate-600">
+                <div className="flex items-center gap-4 text-xs font-medium text-slate-600 dark:text-slate-300">
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input
                       type="radio"
@@ -515,7 +515,7 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
                       value="append"
                       checked={notesAction === 'append'}
                       onChange={() => setNotesAction('append')}
-                      className="text-blue-600"
+                      className="text-blue-600 dark:text-blue-400"
                     />
                     An bestehende Notiz anfügen
                   </label>
@@ -526,7 +526,7 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
                       value="replace"
                       checked={notesAction === 'replace'}
                       onChange={() => setNotesAction('replace')}
-                      className="text-blue-600"
+                      className="text-blue-600 dark:text-blue-400"
                     />
                     Notiz vollständig ersetzen
                   </label>
@@ -536,7 +536,7 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
                   value={notesValue}
                   onChange={e => setNotesValue(e.target.value)}
                   placeholder="z.B. Inventur Frühjahr 2026 durchgeführt..."
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-normal text-slate-800 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-normal text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                 />
               </div>
             )}
@@ -544,14 +544,14 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
         </form>
 
         {/* Footer */}
-        <div className="p-5 border-t border-slate-200 bg-slate-50/80 rounded-b-2xl flex items-center justify-between">
-          <div className="text-xs text-slate-500">
+        <div className="p-5 border-t border-slate-200 bg-slate-50/80 rounded-b-2xl flex items-center justify-between dark:border-slate-800 dark:bg-slate-800/80">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
             {activeChangeCount === 0 ? (
-              <span className="text-amber-700 font-medium">
+              <span className="text-amber-700 font-medium dark:text-amber-300">
                 Bitte aktivieren Sie mindestens ein Feld zur Sammelbearbeitung.
               </span>
             ) : (
-              <span className="text-blue-800 font-semibold">
+              <span className="text-blue-800 font-semibold dark:text-blue-200">
                 {activeChangeCount} Feld(er) werden für {selectedItems.length} Inventargegenstände angepasst.
               </span>
             )}
@@ -561,7 +561,7 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors"
+              className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200"
             >
               Abbrechen
             </button>
@@ -571,7 +571,7 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
               disabled={activeChangeCount === 0 || isSubmitting}
               className={`px-4 py-2 rounded-xl text-white font-bold text-xs shadow-xs transition-all flex items-center gap-2 ${
                 activeChangeCount === 0 || isSubmitting
-                  ? 'bg-slate-300 cursor-not-allowed text-slate-500'
+                  ? 'bg-slate-300 cursor-not-allowed text-slate-500 dark:bg-slate-500 dark:text-slate-400'
                   : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20'
               }`}
             >

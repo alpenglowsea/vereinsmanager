@@ -83,18 +83,18 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden border border-slate-200 my-6 max-h-[90vh]">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden border border-slate-200 my-6 max-h-[90vh] dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-100 text-blue-700 rounded-xl">
+            <div className="p-2.5 bg-blue-100 text-blue-700 rounded-xl dark:bg-blue-900/40 dark:text-blue-300">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                 Bankumsätze & Kontoauszug importieren
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Direkter CSV-Import (Sparkasse, Volksbank, Postbank, etc.) mit KI/Regel-basierter Sphärenzuordnung
               </p>
             </div>
@@ -102,7 +102,7 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors dark:hover:text-slate-200 dark:hover:bg-slate-600"
           >
             <X className="w-5 h-5" />
           </button>
@@ -111,15 +111,15 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
         {/* Body */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
           {/* Step 1: Target Account Selection */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end bg-slate-50 p-4 rounded-xl border border-slate-200 dark:bg-slate-800 dark:border-slate-800">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                 Zielkonto für den Import *
               </label>
               <select
                 value={selectedAccountId}
                 onChange={e => setSelectedAccountId(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white font-semibold text-slate-800"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white font-semibold text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               >
                 {accounts.map(a => (
                   <option key={a.id} value={a.id}>
@@ -130,7 +130,7 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                 Bank-Kontoauszug (CSV / CAMT-Export)
               </label>
               <div className="relative">
@@ -149,7 +149,7 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
           </div>
 
           {error && (
-            <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-300">
               <AlertCircle className="w-4 h-4 shrink-0" />
               {error}
             </div>
@@ -160,10 +160,10 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-800">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
                     Gefundene Buchungen: {parsedRows.length}
                   </span>
-                  <span className="text-2xs bg-blue-100 text-blue-800 font-semibold px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <span className="text-2xs bg-blue-100 text-blue-800 font-semibold px-2 py-0.5 rounded-md flex items-center gap-1 dark:bg-blue-900/40 dark:text-blue-200">
                     <Sparkles className="w-3 h-3" />
                     Automatisch kategorisiert
                   </span>
@@ -172,7 +172,7 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
                   <button
                     type="button"
                     onClick={() => toggleSelectAll(true)}
-                    className="text-blue-600 hover:underline font-medium"
+                    className="text-blue-600 hover:underline font-medium dark:text-blue-400"
                   >
                     Alle auswählen
                   </button>
@@ -180,23 +180,23 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
                   <button
                     type="button"
                     onClick={() => toggleSelectAll(false)}
-                    className="text-slate-500 hover:underline"
+                    className="text-slate-500 hover:underline dark:text-slate-400"
                   >
                     Keine auswählen
                   </button>
                 </div>
               </div>
 
-              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs max-h-[380px] overflow-y-auto">
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs max-h-[380px] overflow-y-auto dark:border-slate-800">
                 <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-100 sticky top-0 border-b border-slate-200 text-slate-700 font-semibold z-10">
+                  <thead className="bg-slate-100 sticky top-0 border-b border-slate-200 text-slate-700 font-semibold z-10 dark:bg-slate-700 dark:border-slate-800 dark:text-slate-200">
                     <tr>
                       <th className="p-3 w-10 text-center">
                         <input
                           type="checkbox"
                           checked={selectedCount === parsedRows.length}
                           onChange={e => toggleSelectAll(e.target.checked)}
-                          className="w-4 h-4 rounded text-blue-600"
+                          className="w-4 h-4 rounded text-blue-600 dark:text-blue-400"
                         />
                       </th>
                       <th className="p-3 w-24">Datum</th>
@@ -206,35 +206,35 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
                       <th className="p-3 w-44">Kategorie</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {parsedRows.map((row) => (
                       <tr
                         key={row.id}
-                        className={`hover:bg-slate-50 transition-colors ${row.selected ? 'bg-white' : 'bg-slate-50/50 opacity-60'}`}
+                        className={`hover:bg-slate-50 transition-colors dark:hover:bg-slate-800 ${row.selected ? 'bg-white dark:bg-slate-900' : 'bg-slate-50/50 opacity-60 dark:bg-slate-800/50'}`}
                       >
                         <td className="p-3 text-center">
                           <input
                             type="checkbox"
                             checked={row.selected}
                             onChange={() => toggleRowSelect(row.id)}
-                            className="w-4 h-4 rounded text-blue-600"
+                            className="w-4 h-4 rounded text-blue-600 dark:text-blue-400"
                           />
                         </td>
-                        <td className="p-3 font-mono text-slate-600 whitespace-nowrap">
+                        <td className="p-3 font-mono text-slate-600 whitespace-nowrap dark:text-slate-300">
                           {row.date}
                         </td>
                         <td className="p-3">
-                          <div className="font-semibold text-slate-900 truncate max-w-xs">{row.partner}</div>
-                          <div className="text-2xs text-slate-500 truncate max-w-sm">{row.bookingText}</div>
+                          <div className="font-semibold text-slate-900 truncate max-w-xs dark:text-white">{row.partner}</div>
+                          <div className="text-2xs text-slate-500 truncate max-w-sm dark:text-slate-400">{row.bookingText}</div>
                         </td>
-                        <td className={`p-3 text-right font-bold font-mono whitespace-nowrap ${row.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        <td className={`p-3 text-right font-bold font-mono whitespace-nowrap ${row.amount >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                           {row.amount >= 0 ? '+' : ''}{row.amount.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €
                         </td>
                         <td className="p-3">
                           <select
                             value={row.suggestedSphere}
                             onChange={e => updateRowSphere(row.id, e.target.value as TaxSphere)}
-                            className="w-full px-2 py-1 border border-slate-300 rounded text-2xs bg-white font-medium"
+                            className="w-full px-2 py-1 border border-slate-300 rounded text-2xs bg-white font-medium dark:border-slate-700 dark:bg-slate-800"
                           >
                             <option value="ideell">1. Ideeller Bereich</option>
                             <option value="vermoegen">2. Vermögensverw.</option>
@@ -246,7 +246,7 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
                           <select
                             value={row.suggestedCategory}
                             onChange={e => updateRowCategory(row.id, e.target.value)}
-                            className="w-full px-2 py-1 border border-slate-300 rounded text-2xs bg-white"
+                            className="w-full px-2 py-1 border border-slate-300 rounded text-2xs bg-white dark:border-slate-700 dark:bg-slate-800"
                           >
                             {(row.amount >= 0 ? ALL_ACCOUNT_CATEGORIES.income : ALL_ACCOUNT_CATEGORIES.expense).map(c => (
                               <option key={c} value={c}>{c}</option>
@@ -262,10 +262,10 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
           )}
 
           {parsedRows.length === 0 && !loading && (
-            <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl p-6">
+            <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl p-6 dark:border-slate-800">
               <FileSpreadsheet className="w-12 h-12 text-slate-300 mx-auto mb-2" />
-              <h3 className="font-bold text-slate-700 text-sm">Noch kein Bankauszug geladen</h3>
-              <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+              <h3 className="font-bold text-slate-700 text-sm dark:text-slate-200">Noch kein Bankauszug geladen</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 dark:text-slate-400">
                 Laden Sie die CSV-Umsatzdatei Ihres Vereinskontos hoch (z.B. aus dem Sparkassen-, VR-NetWorld- oder Online-Banking-Portal).
               </p>
             </div>
@@ -273,8 +273,8 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-          <div className="text-xs text-slate-500">
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between dark:bg-slate-800 dark:border-slate-800">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
             {parsedRows.length > 0 && (
               <span><strong>{selectedCount}</strong> von {parsedRows.length} Buchungen ausgewählt</span>
             )}
@@ -284,7 +284,7 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 text-sm font-medium hover:bg-slate-100 transition-colors"
+              className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 text-sm font-medium hover:bg-slate-100 transition-colors dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-700"
             >
               Abbrechen
             </button>

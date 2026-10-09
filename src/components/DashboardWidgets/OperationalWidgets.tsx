@@ -128,7 +128,7 @@ export const InvoicesOverviewWidget: React.FC<InvoicesOverviewWidgetProps> = ({
               <button
                 type="button"
                 onClick={onOpenCreateInvoice}
-                className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors dark:text-slate-400 dark:hover:text-indigo-400"
                 title="Neue Rechnung erstellen"
               >
                 <Plus className="w-4 h-4" />
@@ -364,7 +364,7 @@ export const ContactsSummaryWidget: React.FC<ContactsSummaryWidgetProps> = ({
               <button
                 type="button"
                 onClick={onOpenCreateContact}
-                className="p-1.5 rounded-lg text-slate-500 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 transition-colors"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 transition-colors dark:text-slate-400 dark:hover:text-cyan-400"
                 title="Neuen Kontakt anlegen"
               >
                 <Plus className="w-4 h-4" />
@@ -590,7 +590,7 @@ export const MeetingsSummaryWidget: React.FC<MeetingsSummaryWidgetProps> = ({
               <button
                 type="button"
                 onClick={onOpenCreateMeeting}
-                className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors dark:text-slate-400 dark:hover:text-rose-400"
                 title="Neue Sitzung planen"
               >
                 <Plus className="w-4 h-4" />

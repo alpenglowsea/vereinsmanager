@@ -621,18 +621,18 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
       {/* Metric Cards: Kontakte Gesamt & Kontakte nach Kategorie/Rolle */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Kachel 1: Kontakte Gesamt */}
-        <div className="lg:col-span-4 bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-4 bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between dark:bg-slate-900 dark:border-slate-800">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider dark:text-slate-400">
                 Kontakte Gesamt
               </p>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
                 {legalPct}% Firmen
               </span>
             </div>
             <div className="flex items-baseline justify-between mt-1">
-              <h3 className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-slate-900 leading-none">
+              <h3 className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-slate-900 leading-none dark:text-white">
                 {totalCount}
               </h3>
               {(personTypeFilter !== 'all' || contactTypeFilter !== 'all') && (
@@ -642,7 +642,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                     setPersonTypeFilter('all');
                     setContactTypeFilter('all');
                   }}
-                  className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                  className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer dark:text-blue-400 dark:hover:text-blue-200 dark:bg-blue-950/40 dark:hover:bg-blue-900/40"
                   title="Filter aufheben"
                 >
                   <span>Filter aufheben</span>
@@ -652,7 +652,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
             </div>
           </div>
 
-          <div className="mt-5 pt-3.5 border-t border-slate-100 grid grid-cols-2 gap-3 text-center">
+          <div className="mt-5 pt-3.5 border-t border-slate-100 grid grid-cols-2 gap-3 text-center dark:border-slate-800">
             {/* Firmen Filter Button */}
             <button
               type="button"
@@ -660,14 +660,14 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
               className={`py-2.5 px-3 rounded-xl text-center border transition-all cursor-pointer flex flex-col items-center justify-center group ${
                 personTypeFilter === 'legal'
                   ? 'bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-400/40'
-                  : 'bg-blue-50/70 hover:bg-blue-100 border-blue-200 text-slate-800'
+                  : 'bg-blue-50/70 hover:bg-blue-100 border-blue-200 text-slate-800 dark:bg-blue-950/70 dark:hover:bg-blue-900/40 dark:border-blue-800/60 dark:text-slate-100'
               }`}
               title="Nach juristischen Personen (Firmen) filtern"
             >
-              <p className={`text-[10px] uppercase font-bold tracking-wider ${personTypeFilter === 'legal' ? 'text-blue-100' : 'text-blue-700'}`}>
+              <p className={`text-[10px] uppercase font-bold tracking-wider ${personTypeFilter === 'legal' ? 'text-blue-100' : 'text-blue-700 dark:text-blue-300'}`}>
                 🏢 Firmen
               </p>
-              <p className={`text-base font-bold font-mono ${personTypeFilter === 'legal' ? 'text-white' : 'text-blue-900'}`}>
+              <p className={`text-base font-bold font-mono ${personTypeFilter === 'legal' ? 'text-white' : 'text-blue-900 dark:text-blue-100'}`}>
                 {legalCount}
               </p>
             </button>
@@ -679,14 +679,14 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
               className={`py-2.5 px-3 rounded-xl text-center border transition-all cursor-pointer flex flex-col items-center justify-center group ${
                 personTypeFilter === 'natural'
                   ? 'bg-slate-700 text-white border-slate-700 shadow-xs ring-2 ring-slate-400/40'
-                  : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800'
+                  : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-800 dark:text-slate-100'
               }`}
               title="Nach natürlichen Personen (Privat) filtern"
             >
-              <p className={`text-[10px] uppercase font-bold tracking-wider ${personTypeFilter === 'natural' ? 'text-slate-200' : 'text-slate-600'}`}>
+              <p className={`text-[10px] uppercase font-bold tracking-wider ${personTypeFilter === 'natural' ? 'text-slate-200' : 'text-slate-600 dark:text-slate-300'}`}>
                 👤 Privat
               </p>
-              <p className={`text-base font-bold font-mono ${personTypeFilter === 'natural' ? 'text-white' : 'text-slate-800'}`}>
+              <p className={`text-base font-bold font-mono ${personTypeFilter === 'natural' ? 'text-white' : 'text-slate-800 dark:text-slate-100'}`}>
                 {naturalCount}
               </p>
             </button>
@@ -694,14 +694,14 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
         </div>
 
         {/* Kachel 2: Kontakte je Rolle / Typ */}
-        <div className="lg:col-span-8 bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-8 bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between dark:bg-slate-900 dark:border-slate-800">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+              <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg dark:bg-indigo-950/40 dark:text-indigo-400">
                 <Building2 className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider dark:text-slate-400">
                   Kontakte je Rolle / Typ
                 </p>
                 <p className="text-[11px] text-slate-400">
@@ -713,7 +713,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
               <button
                 type="button"
                 onClick={() => setContactTypeFilter('all')}
-                className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer dark:text-indigo-400 dark:hover:text-indigo-200 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/40"
               >
                 <span>Filter aufheben</span>
                 <X className="w-3 h-3" />
@@ -741,16 +741,16 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                   className={`p-2.5 rounded-xl text-left border transition-all flex flex-col justify-between group cursor-pointer ${
                     isFiltered
                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                      : 'bg-slate-50 hover:bg-indigo-50/50 hover:border-indigo-200 border-slate-200 text-slate-800'
+                      : 'bg-slate-50 hover:bg-indigo-50/50 hover:border-indigo-200 border-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-indigo-950/50 dark:hover:border-indigo-800/60 dark:border-slate-800 dark:text-slate-100'
                   }`}
                   title={`Nach ${item.label} filtern`}
                 >
                   <div className="flex items-center justify-between gap-1 mb-1">
-                    <span className={`text-xs font-bold truncate ${isFiltered ? 'text-white' : 'text-slate-800 group-hover:text-indigo-900'}`}>
+                    <span className={`text-xs font-bold truncate ${isFiltered ? 'text-white' : 'text-slate-800 group-hover:text-indigo-900 dark:text-slate-100 dark:group-hover:text-indigo-100'}`}>
                       {item.label}
                     </span>
                     <span className={`text-xs font-bold font-mono px-1.5 py-0.2 rounded-full ${
-                      isFiltered ? 'bg-indigo-700 text-white' : 'bg-slate-200/70 text-slate-700'
+                      isFiltered ? 'bg-indigo-700 text-white' : 'bg-slate-200/70 text-slate-700 dark:bg-slate-600/70 dark:text-slate-200'
                     }`}>
                       {item.count}
                     </span>
@@ -830,18 +830,18 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
       )}
 
       {/* Main Table Card Container (genau wie in der Mitgliederverwaltung) */}
-      <section className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col">
+      <section className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col dark:bg-slate-900 dark:border-slate-800">
         {/* Table Top Header with Title and Action buttons in their own row */}
-        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-2">
-            <h4 className="font-bold text-slate-800 uppercase text-xs tracking-widest">
+            <h4 className="font-bold text-slate-800 uppercase text-xs tracking-widest dark:text-slate-100">
               Aktuelle Kontaktliste
             </h4>
-            <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-semibold">
+            <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-semibold dark:bg-slate-700 dark:text-slate-300">
               {filteredContacts.length}
             </span>
             {selectedIds.size > 0 && (
-              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full font-bold">
+              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full font-bold dark:bg-blue-900/40 dark:text-blue-200">
                 {selectedIds.size} markiert
               </span>
             )}
@@ -852,10 +852,10 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
               <button
                 type="button"
                 onClick={onOpenImport}
-                className="text-xs bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                className="text-xs bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer dark:bg-blue-950/40 dark:border-blue-800/60 dark:hover:bg-blue-900/40 dark:text-blue-300"
                 title="Kontakte aus Google Sheets oder CSV-Datei importieren"
               >
-                <Upload className="w-3.5 h-3.5 text-blue-600" />
+                <Upload className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 <span>CSV / Sheets Import</span>
               </button>
             )}
@@ -863,20 +863,20 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
             <button
               type="button"
               onClick={handleExportCSV}
-              className="text-xs border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 cursor-pointer"
+              className="text-xs border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 cursor-pointer dark:border-slate-800 dark:hover:bg-slate-800 dark:text-slate-200"
               title="Gefilterte Kontakte als Excel-CSV exportieren"
             >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               <span>CSV Export</span>
             </button>
 
             <button
               type="button"
               onClick={handleExportPDF}
-              className="text-xs border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 cursor-pointer"
+              className="text-xs border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 cursor-pointer dark:border-slate-800 dark:hover:bg-slate-800 dark:text-slate-200"
               title="Druckreife Kontaktliste als PDF herunterladen"
             >
-              <FileDown className="w-3.5 h-3.5 text-blue-600" />
+              <FileDown className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               <span>PDF Liste</span>
             </button>
 
@@ -893,7 +893,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
         </div>
 
         {/* Search & Filter Bar directly inside table container */}
-        <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-3 text-xs">
+        <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-3 text-xs dark:bg-slate-800 dark:border-slate-800">
           {/* Search Input */}
           <div className="relative flex-1 min-w-[220px] max-w-md">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -902,13 +902,13 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Suche nach Name, Firma, Ansprechpartner, Ort, E-Mail..."
-              className="w-full pl-9 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-9 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-white"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer dark:hover:text-slate-300"
               >
                 ✕
               </button>
@@ -919,7 +919,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
           <select
             value={personTypeFilter}
             onChange={e => setPersonTypeFilter(e.target.value as any)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
           >
             <option value="all">Alle Personenarten</option>
             <option value="legal">🏢 Juristische Personen (Firmen)</option>
@@ -930,7 +930,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
           <select
             value={contactTypeFilter}
             onChange={e => setContactTypeFilter(e.target.value)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
           >
             <option value="all">Alle Kontakttypen</option>
             {CONTACT_TYPES_LIST.map(meta => (
@@ -949,7 +949,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                 setPersonTypeFilter('all');
                 setContactTypeFilter('all');
               }}
-              className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 ml-auto cursor-pointer"
+              className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 ml-auto cursor-pointer dark:text-blue-400 dark:hover:text-blue-200"
             >
               <X className="w-3.5 h-3.5" />
               <span>Filter zurücksetzen</span>
@@ -999,11 +999,11 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
               ))}
               <col style={{ width: ACTION_COL_WIDTH }} />
             </colgroup>
-            <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[11px] tracking-wider">
+            <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[11px] tracking-wider dark:bg-slate-800 dark:text-slate-400">
               <tr>
                 <th
                   style={{ width: CHECKBOX_COL_WIDTH, minWidth: CHECKBOX_COL_WIDTH }}
-                  className="px-3 py-3 text-center sticky top-0 z-10 bg-slate-50 border-b border-slate-200"
+                  className="px-3 py-3 text-center sticky top-0 z-10 bg-slate-50 border-b border-slate-200 dark:bg-slate-800 dark:border-slate-800"
                 >
                   <input
                     type="checkbox"
@@ -1013,19 +1013,19 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                     }}
                     onChange={handleSelectAll}
                     aria-label="Alle Einträge dieser Seite auswählen"
-                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer dark:text-blue-400 dark:border-slate-700"
                   />
                 </th>
                 {visibleColumnOrder.map(key => contactHeaderDefs[key])}
                 <th
                   style={{ width: ACTION_COL_WIDTH, minWidth: ACTION_COL_WIDTH }}
-                  className="px-4 py-3 text-right whitespace-nowrap sticky top-0 z-10 bg-slate-50 border-b border-slate-200"
+                  className="px-4 py-3 text-right whitespace-nowrap sticky top-0 z-10 bg-slate-50 border-b border-slate-200 dark:bg-slate-800 dark:border-slate-800"
                 >
                   Aktionen
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs">
+            <tbody className="divide-y divide-slate-100 text-xs dark:divide-slate-800">
               {filteredContacts.length > 0 ? (
                 paginatedContacts.map(contact => {
                   const isSelected = selectedIds.has(contact.id);
@@ -1037,8 +1037,8 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                       onClick={() => onOpenDetails(contact)}
                       className={`transition-colors cursor-pointer group ${
                         isSelected
-                          ? 'bg-blue-50/70 hover:bg-blue-100/60'
-                          : 'hover:bg-blue-50/40'
+                          ? 'bg-blue-50/70 hover:bg-blue-100/60 dark:bg-blue-950/70 dark:hover:bg-blue-900/60'
+                          : 'hover:bg-blue-50/40 dark:hover:bg-blue-950/40'
                       }`}
                       title="Klicken für Kontaktdetails"
                     >
@@ -1052,7 +1052,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                           className="text-slate-300 group-hover:text-slate-500 cursor-pointer"
                         >
                           {isSelected ? (
-                            <CheckSquare className="w-4 h-4 text-blue-600" />
+                            <CheckSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                           ) : (
                             <Square className="w-4 h-4" />
                           )}
@@ -1062,7 +1062,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                       {(() => {
                         const contactCellDefs: Record<string, React.ReactNode> = {
                           number: (
-                            <td key="number" data-col-content="number" className="py-3.5 px-3 font-mono font-semibold text-slate-700 truncate">
+                            <td key="number" data-col-content="number" className="py-3.5 px-3 font-mono font-semibold text-slate-700 truncate dark:text-slate-200">
                               {contact.contactNumber}
                             </td>
                           ),
@@ -1072,8 +1072,8 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                                 <div
                                   className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${
                                     isCompany
-                                      ? 'bg-blue-50 text-blue-600'
-                                      : 'bg-slate-100 text-slate-600'
+                                      ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400'
+                                      : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
                                   }`}
                                 >
                                   {isCompany ? (
@@ -1083,7 +1083,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                                   )}
                                 </div>
                                 <div>
-                                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                                  <div className="font-bold text-slate-900 flex items-center gap-1.5 dark:text-white">
                                     <span>{contact.displayName}</span>
                                     {contact.legalForm && (
                                       <span className="text-2xs font-normal text-slate-400">
@@ -1094,7 +1094,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
 
                                   {/* Ansprechpartner if company */}
                                   {isCompany && contact.contactPerson && (
-                                    <div className="text-2xs text-slate-500 flex items-center gap-1 mt-0.5">
+                                    <div className="text-2xs text-slate-500 flex items-center gap-1 mt-0.5 dark:text-slate-400">
                                       <span className="text-slate-400">AP:</span>
                                       <span>
                                         {[
@@ -1115,7 +1115,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                                       {contact.tags.slice(0, 2).map(tag => (
                                         <span
                                           key={tag}
-                                          className="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-3xs font-medium"
+                                          className="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-3xs font-medium dark:bg-slate-700 dark:text-slate-300"
                                         >
                                           #{tag}
                                         </span>
@@ -1140,9 +1140,9 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                                     <span
                                       key={t}
                                       className={`px-2 py-0.5 rounded-full text-2xs font-semibold border ${
-                                        meta?.badgeBg || 'bg-slate-100'
-                                      } ${meta?.badgeText || 'text-slate-700'} ${
-                                        meta?.badgeBorder || 'border-slate-200'
+                                        meta?.badgeBg || 'bg-slate-100 dark:bg-slate-700'
+                                      } ${meta?.badgeText || 'text-slate-700 dark:text-slate-200'} ${
+                                        meta?.badgeBorder || 'border-slate-200 dark:border-slate-800'
                                       }`}
                                     >
                                       {meta?.label || t}
@@ -1159,7 +1159,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                                   <a
                                     href={`mailto:${contact.email}`}
                                     onClick={e => e.stopPropagation()}
-                                    className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                                    className="text-xs text-blue-600 hover:underline flex items-center gap-1 dark:text-blue-400"
                                     title={contact.email}
                                   >
                                     <Mail className="w-3.5 h-3.5 shrink-0 text-slate-400" />
@@ -1175,7 +1175,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                                   <a
                                     href={`tel:${contact.phone}`}
                                     onClick={e => e.stopPropagation()}
-                                    className="text-2xs text-slate-600 hover:text-blue-600 flex items-center gap-1"
+                                    className="text-2xs text-slate-600 hover:text-blue-600 flex items-center gap-1 dark:text-slate-300 dark:hover:text-blue-400"
                                   >
                                     <Phone className="w-3 h-3 shrink-0 text-slate-400" />
                                     <span>{contact.phone}</span>
@@ -1185,10 +1185,10 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                             </td>
                           ),
                           city: (
-                            <td key="city" data-col-content="city" className="py-3.5 px-3 text-slate-700 overflow-hidden">
+                            <td key="city" data-col-content="city" className="py-3.5 px-3 text-slate-700 overflow-hidden dark:text-slate-200">
                               {contact.address?.city ? (
                                 <div>
-                                  <div className="font-medium text-slate-900">
+                                  <div className="font-medium text-slate-900 dark:text-white">
                                     {contact.address.zip} {contact.address.city}
                                   </div>
                                   {contact.address.street && (
@@ -1206,7 +1206,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                           iban: (
                             <td key="iban" data-col-content="iban" className="py-3.5 px-3 overflow-hidden">
                               {contact.bankDetails?.iban ? (
-                                <div className="font-mono text-2xs text-slate-700">
+                                <div className="font-mono text-2xs text-slate-700 dark:text-slate-200">
                                   <span>
                                     {contact.bankDetails.iban.slice(0, 4)} ...{' '}
                                     {contact.bankDetails.iban.slice(-4)}
@@ -1223,7 +1223,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                             </td>
                           ),
                           dateOfBirth: (
-                            <td key="dateOfBirth" data-col-content="dateOfBirth" className="py-3.5 px-3 text-slate-600 whitespace-nowrap overflow-hidden">
+                            <td key="dateOfBirth" data-col-content="dateOfBirth" className="py-3.5 px-3 text-slate-600 whitespace-nowrap overflow-hidden dark:text-slate-300">
                               {contact.dateOfBirth
                                 ? new Date(contact.dateOfBirth).toLocaleDateString('de-DE')
                                 : <span className="text-slate-300 text-2xs">-</span>}
@@ -1235,7 +1235,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                                 <a
                                   href={`tel:${contact.mobile}`}
                                   onClick={e => e.stopPropagation()}
-                                  className="text-xs text-slate-700 hover:text-blue-600 truncate"
+                                  className="text-xs text-slate-700 hover:text-blue-600 truncate dark:text-slate-200 dark:hover:text-blue-400"
                                 >
                                   {contact.mobile}
                                 </a>
@@ -1252,7 +1252,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   onClick={e => e.stopPropagation()}
-                                  className="text-xs text-blue-600 hover:underline truncate block"
+                                  className="text-xs text-blue-600 hover:underline truncate block dark:text-blue-400"
                                   title={contact.website}
                                 >
                                   {contact.website}
@@ -1263,17 +1263,17 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                             </td>
                           ),
                           taxId: (
-                            <td key="taxId" data-col-content="taxId" className="py-3.5 px-3 font-mono text-xs text-slate-600 truncate overflow-hidden">
+                            <td key="taxId" data-col-content="taxId" className="py-3.5 px-3 font-mono text-xs text-slate-600 truncate overflow-hidden dark:text-slate-300">
                               {contact.taxId || <span className="text-slate-300 font-sans text-2xs">-</span>}
                             </td>
                           ),
                           commercialRegister: (
-                            <td key="commercialRegister" data-col-content="commercialRegister" className="py-3.5 px-3 text-xs text-slate-600 truncate overflow-hidden">
+                            <td key="commercialRegister" data-col-content="commercialRegister" className="py-3.5 px-3 text-xs text-slate-600 truncate overflow-hidden dark:text-slate-300">
                               {contact.commercialRegister || <span className="text-slate-300 text-2xs">-</span>}
                             </td>
                           ),
                           creditorOrDebtorNumber: (
-                            <td key="creditorOrDebtorNumber" data-col-content="creditorOrDebtorNumber" className="py-3.5 px-3 font-mono text-xs text-slate-600 truncate overflow-hidden">
+                            <td key="creditorOrDebtorNumber" data-col-content="creditorOrDebtorNumber" className="py-3.5 px-3 font-mono text-xs text-slate-600 truncate overflow-hidden dark:text-slate-300">
                               {contact.creditorOrDebtorNumber || <span className="text-slate-300 font-sans text-2xs">-</span>}
                             </td>
                           ),
@@ -1281,19 +1281,19 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                             <td
                               key="notes"
                               data-col-content="notes"
-                              className="py-3.5 px-3 text-slate-500 text-xs truncate overflow-hidden"
+                              className="py-3.5 px-3 text-slate-500 text-xs truncate overflow-hidden dark:text-slate-400"
                               title={contact.notes || undefined}
                             >
                               {contact.notes || <span className="text-slate-300 text-2xs">-</span>}
                             </td>
                           ),
                           bic: (
-                            <td key="bic" data-col-content="bic" className="py-3.5 px-3 font-mono text-xs text-slate-600 truncate overflow-hidden">
+                            <td key="bic" data-col-content="bic" className="py-3.5 px-3 font-mono text-xs text-slate-600 truncate overflow-hidden dark:text-slate-300">
                               {contact.bankDetails?.bic || <span className="text-slate-300 font-sans text-2xs">-</span>}
                             </td>
                           ),
                           accountHolder: (
-                            <td key="accountHolder" data-col-content="accountHolder" className="py-3.5 px-3 text-xs text-slate-600 truncate overflow-hidden">
+                            <td key="accountHolder" data-col-content="accountHolder" className="py-3.5 px-3 text-xs text-slate-600 truncate overflow-hidden dark:text-slate-300">
                               {contact.bankDetails?.accountHolder || <span className="text-slate-300 text-2xs">-</span>}
                             </td>
                           ),
@@ -1304,7 +1304,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                                   {contact.tags.map(tag => (
                                     <span
                                       key={tag}
-                                      className="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-3xs font-medium"
+                                      className="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-3xs font-medium dark:bg-slate-700 dark:text-slate-300"
                                     >
                                       #{tag}
                                     </span>
@@ -1329,7 +1329,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                           <button
                             type="button"
                             onClick={() => onCreateBookingForContact(contact)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold border border-blue-200 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold border border-blue-200 transition-colors whitespace-nowrap shrink-0 cursor-pointer dark:bg-blue-950/40 dark:hover:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800/60"
                             title="Buchung für diesen Kontakt erfassen"
                           >
                             <Receipt className="w-3.5 h-3.5 shrink-0" />
@@ -1341,7 +1341,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                             <button
                               type="button"
                               onClick={() => onCreateInvoiceForContact(contact)}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold border border-indigo-200 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold border border-indigo-200 transition-colors whitespace-nowrap shrink-0 cursor-pointer dark:bg-indigo-950/40 dark:hover:bg-indigo-900/40 dark:text-indigo-300 dark:border-indigo-800/60"
                               title="Rechnung für diesen Kontakt schreiben"
                             >
                               <FileText className="w-3.5 h-3.5 shrink-0" />
@@ -1356,7 +1356,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                               e.stopPropagation();
                               onOpenDetails(contact);
                             }}
-                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer shrink-0 dark:hover:text-blue-400 dark:hover:bg-blue-950/40"
                             title="Details ansehen"
                           >
                             <Eye className="w-4 h-4" />
@@ -1366,7 +1366,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                           <button
                             type="button"
                             onClick={() => onOpenEdit(contact)}
-                            className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0"
+                            className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0 dark:hover:text-slate-100 dark:hover:bg-slate-700"
                             title="Kontakt bearbeiten"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -1384,7 +1384,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                                 onDeleteContact(contact.id);
                               }
                             }}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer dark:hover:text-rose-400 dark:hover:bg-rose-950/40"
                             title="Kontakt löschen"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1398,7 +1398,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                 <tr>
                   <td colSpan={visibleColumnOrder.length + 2} className="py-12 text-center text-slate-400">
                     <Building2 className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-                    <p className="font-semibold text-sm text-slate-700">
+                    <p className="font-semibold text-sm text-slate-700 dark:text-slate-200">
                       Keine Kontakte gefunden
                     </p>
                     <p className="text-xs text-slate-400 mt-1">
@@ -1443,7 +1443,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
         />}
 
         {/* Footer pagination / stats */}
-        <div className="px-4 py-3 bg-slate-50/80 border-t border-slate-200 flex items-center justify-between text-2xs text-slate-500 rounded-b-xl overflow-hidden">
+        <div className="px-4 py-3 bg-slate-50/80 border-t border-slate-200 flex items-center justify-between text-2xs text-slate-500 rounded-b-xl overflow-hidden dark:bg-slate-800/80 dark:border-slate-800 dark:text-slate-400">
           <span>
             Zeige {filteredContacts.length} von {contacts.length} Kontakten
           </span>

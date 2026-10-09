@@ -179,24 +179,24 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
       <div
-        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 dark:bg-slate-900 dark:border-slate-800"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between shrink-0">
+        <div className="px-5 py-4 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between shrink-0 dark:border-slate-800 dark:bg-slate-800/80">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+            <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold dark:bg-blue-900/40 dark:text-blue-300">
               {mode === 'main' ? <Layers className="w-4 h-4" /> : <Tag className="w-4 h-4" />}
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                 {activeTab === 'manage'
                   ? 'Benutzerdefinierte Konten verwalten'
                   : mode === 'main'
                   ? 'Neuen Nummernkreis (SKR 42) anlegen'
                   : 'Neues Konto anlegen'}
               </h3>
-              <p className="text-2xs text-slate-500">
+              <p className="text-2xs text-slate-500 dark:text-slate-400">
                 {activeTab === 'manage'
                   ? 'Übersicht aller selbst erstellten Nummernkreise und Konten'
                   : mode === 'main'
@@ -213,7 +213,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
               className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
                 activeTab === 'manage'
                   ? 'bg-blue-600 text-white shadow-2xs'
-                  : 'text-slate-600 hover:bg-slate-200/80'
+                  : 'text-slate-600 hover:bg-slate-200/80 dark:text-slate-300 dark:hover:bg-slate-600/80'
               }`}
               title={activeTab === 'manage' ? 'Zurück zum Anlegen' : 'Eigene Konten verwalten'}
             >
@@ -225,7 +225,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/80 transition-colors cursor-pointer"
+              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/80 transition-colors cursor-pointer dark:hover:text-slate-300 dark:hover:bg-slate-600/80"
             >
               <X className="w-4 h-4" />
             </button>
@@ -235,8 +235,8 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
         {/* Content Body */}
         <div className="p-5 overflow-y-auto space-y-4">
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-700">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-700 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-300">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5 dark:text-rose-400" />
               <div className="leading-snug">{error}</div>
             </div>
           )}
@@ -244,14 +244,14 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
           {activeTab === 'create' ? (
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Mode Switcher Buttons */}
-              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200/80">
+              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200/80 dark:bg-slate-700 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setMode('main')}
                   className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     mode === 'main'
-                      ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-blue-700 shadow-xs border border-slate-200 dark:bg-slate-900 dark:text-blue-300 dark:border-slate-800'
+                      : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
                   }`}
                 >
                   <Layers className="w-3.5 h-3.5" />
@@ -262,8 +262,8 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                   onClick={() => setMode('sub')}
                   className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     mode === 'sub'
-                      ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-blue-700 shadow-xs border border-slate-200 dark:bg-slate-900 dark:text-blue-300 dark:border-slate-800'
+                      : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
                   }`}
                 >
                   <Tag className="w-3.5 h-3.5" />
@@ -276,7 +276,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                 <div className="space-y-4">
                   {/* Account Type Toggle: Einnahme vs Ausgabe */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 dark:text-slate-200">
                       Kontoart *
                     </label>
                     <div className="grid grid-cols-2 gap-2">
@@ -285,8 +285,8 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                         onClick={() => setMainType('income')}
                         className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                           mainType === 'income'
-                            ? 'border-emerald-600 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-500/20'
-                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                            ? 'border-emerald-600 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-500/20 dark:bg-emerald-950/40 dark:text-emerald-200'
+                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
                         }`}
                       >
                         <span>🟢 Einnahmen-Konto (Erträge / Erlöse)</span>
@@ -296,8 +296,8 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                         onClick={() => setMainType('expense')}
                         className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                           mainType === 'expense'
-                            ? 'border-rose-600 bg-rose-50 text-rose-800 ring-2 ring-rose-500/20'
-                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                            ? 'border-rose-600 bg-rose-50 text-rose-800 ring-2 ring-rose-500/20 dark:bg-rose-950/40 dark:text-rose-200'
+                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
                         }`}
                       >
                         <span>🔴 Ausgaben-Konto (Kosten / Aufwand)</span>
@@ -309,13 +309,13 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-bold text-slate-700">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">
                           Kontonummer *
                         </label>
                         <button
                           type="button"
                           onClick={() => setMainCode(customCategoryService.suggestNextCode(mainType))}
-                          className="text-3xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
+                          className="text-3xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer dark:text-blue-400 dark:hover:text-blue-200"
                         >
                           Vorschlag
                         </button>
@@ -326,7 +326,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                         value={mainCode}
                         onChange={e => setMainCode(e.target.value)}
                         placeholder="z.B. 40950"
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold focus:ring-2 focus:ring-blue-500 bg-white text-slate-900"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                         maxLength={8}
                       />
                       <span className="text-3xs text-slate-400 mt-1 block">
@@ -335,7 +335,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                     </div>
 
                     <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                         Bezeichnung des Nummernkreises *
                       </label>
                       <input
@@ -344,7 +344,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                         value={mainName}
                         onChange={e => setMainName(e.target.value)}
                         placeholder="z.B. Stiftungsförderungen & Projektmittel"
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 font-medium"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 font-medium dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                       />
                       <span className="text-3xs text-slate-400 mt-1 block">
                         Übergeordnete Kategorie im SKR 42
@@ -353,26 +353,26 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                   </div>
 
                   {/* Initial Subaccount checkbox */}
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5 dark:bg-slate-800 dark:border-slate-800">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={createInitialSub}
                         onChange={e => setCreateInitialSub(e.target.checked)}
-                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:text-blue-400 dark:border-slate-700"
                       />
-                      <span className="text-xs font-bold text-slate-800">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
                         Sofort ein passendes 1. Konto mit derselben Nummer erstellen
                       </span>
                     </label>
 
                     {createInitialSub && (
-                      <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between gap-3 text-xs">
-                        <span className="text-slate-600">Standard-Umsatzsteuer:</span>
+                      <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between gap-3 text-xs dark:border-slate-800">
+                        <span className="text-slate-600 dark:text-slate-300">Standard-Umsatzsteuer:</span>
                         <select
                           value={subVatRate}
                           onChange={e => setSubVatRate(parseInt(e.target.value) as 0 | 7 | 19)}
-                          className="px-2.5 py-1 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 font-medium"
+                          className="px-2.5 py-1 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 font-medium dark:border-slate-700 dark:bg-slate-800"
                         >
                           <option value="0">0% (stfrei / ideell)</option>
                           <option value="7">7% (ermäßigt / Zweckbetrieb)</option>
@@ -389,13 +389,13 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                 <div className="space-y-4">
                   {/* Parent Main Category Picker */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                       Übergeordneter Nummernkreis (SKR 42) *
                     </label>
                     <select
                       value={parentMainId}
                       onChange={e => setParentMainId(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 font-medium text-slate-900"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 font-medium text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                     >
                       {SKR42_STRUCTURE.map(main => (
                         <option key={main.id} value={main.code}>
@@ -404,7 +404,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                       ))}
                     </select>
                     {parentMainObj && (
-                      <div className="text-2xs text-slate-500 mt-1 flex items-center gap-2">
+                      <div className="text-2xs text-slate-500 mt-1 flex items-center gap-2 dark:text-slate-400">
                         <span>{parentMainObj.subCategories.length} bestehende Konten</span>
                       </div>
                     )}
@@ -414,7 +414,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-bold text-slate-700">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">
                           Kontonummer *
                         </label>
                         <button
@@ -424,7 +424,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                               setSubCode(customCategoryService.suggestNextCode(parentMainObj.type, parentMainObj.code));
                             }
                           }}
-                          className="text-3xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
+                          className="text-3xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer dark:text-blue-400 dark:hover:text-blue-200"
                         >
                           Vorschlag
                         </button>
@@ -435,7 +435,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                         value={subCode}
                         onChange={e => setSubCode(e.target.value)}
                         placeholder="z.B. 40015"
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold focus:ring-2 focus:ring-blue-500 bg-white text-slate-900"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                         maxLength={8}
                       />
                       <span className="text-3xs text-slate-400 mt-1 block">
@@ -444,7 +444,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                     </div>
 
                     <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                         Bezeichnung des Kontos *
                       </label>
                       <input
@@ -453,7 +453,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                         value={subName}
                         onChange={e => setSubName(e.target.value)}
                         placeholder="z.B. Schnupper-Mitgliedsbeiträge Jugendliche"
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 font-medium"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 font-medium dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                       />
                       <span className="text-3xs text-slate-400 mt-1 block">
                         Eindeutiger Name für Buchungsauswertungen
@@ -463,7 +463,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
 
                   {/* Standard VAT Rate */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
                       Standard-Umsatzsteuersatz
                     </label>
                     <div className="grid grid-cols-3 gap-2">
@@ -474,8 +474,8 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                           onClick={() => setSubVatRate(rate as 0 | 7 | 19)}
                           className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center ${
                             subVatRate === rate
-                              ? 'border-blue-600 bg-blue-50 text-blue-800 ring-2 ring-blue-500/20'
-                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                              ? 'border-blue-600 bg-blue-50 text-blue-800 ring-2 ring-blue-500/20 dark:bg-blue-950/40 dark:text-blue-200'
+                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
                           }`}
                         >
                           {rate}% {rate === 0 ? '(stfrei)' : rate === 7 ? '(ermäßigt)' : '(Regelsatz)'}
@@ -487,11 +487,11 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
               )}
 
               {/* Submit Button */}
-              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200/80 rounded-xl transition-colors cursor-pointer"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200/80 rounded-xl transition-colors cursor-pointer dark:text-slate-300 dark:hover:text-slate-100 dark:bg-slate-700 dark:hover:bg-slate-600/80"
                 >
                   Abbrechen
                 </button>
@@ -510,35 +510,35 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
             /* Manage Tab: List of custom accounts with delete option */
             <div className="space-y-4">
               <div>
-                <h4 className="text-xs font-bold text-slate-800 mb-2 flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-blue-600" />
+                <h4 className="text-xs font-bold text-slate-800 mb-2 flex items-center gap-1.5 dark:text-slate-100">
+                  <Layers className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                   <span>Selbst angelegte Nummernkreise ({customData.customMainCategories.length})</span>
                 </h4>
                 {customData.customMainCategories.length === 0 ? (
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-400 text-2xs text-center">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-400 text-2xs text-center dark:bg-slate-800 dark:border-slate-800">
                     Bisher wurden keine eigenen Nummernkreise angelegt.
                   </div>
                 ) : (
-                  <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
+                  <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
                     {customData.customMainCategories.map(main => (
-                      <div key={main.id} className="p-3 flex items-center justify-between gap-2 hover:bg-slate-50">
+                      <div key={main.id} className="p-3 flex items-center justify-between gap-2 hover:bg-slate-50 dark:hover:bg-slate-800">
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-2xs font-bold px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-800">
+                            <span className="font-mono text-2xs font-bold px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-800 dark:bg-blue-950/40 dark:border-blue-800/60 dark:text-blue-200">
                               {main.code}
                             </span>
-                            <span className="text-xs font-semibold text-slate-800 truncate">
+                            <span className="text-xs font-semibold text-slate-800 truncate dark:text-slate-100">
                               {main.name}
                             </span>
                           </div>
-                          <div className="text-3xs text-slate-500 mt-0.5">
+                          <div className="text-3xs text-slate-500 mt-0.5 dark:text-slate-400">
                             {main.type === 'income' ? 'Einnahmen' : 'Ausgaben'}
                           </div>
                         </div>
                         <button
                           type="button"
                           onClick={() => handleDeleteMain(main.id)}
-                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer dark:hover:text-rose-300 dark:hover:bg-rose-950/40"
                           title="Diesen Nummernkreis löschen"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -550,35 +550,35 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
               </div>
 
               <div>
-                <h4 className="text-xs font-bold text-slate-800 mb-2 flex items-center gap-1.5">
-                  <Tag className="w-3.5 h-3.5 text-emerald-600" />
+                <h4 className="text-xs font-bold text-slate-800 mb-2 flex items-center gap-1.5 dark:text-slate-100">
+                  <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   <span>Selbst angelegte Konten ({customData.customSubCategories.length})</span>
                 </h4>
                 {customData.customSubCategories.length === 0 ? (
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-400 text-2xs text-center">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-400 text-2xs text-center dark:bg-slate-800 dark:border-slate-800">
                     Bisher wurden keine eigenen Konten angelegt.
                   </div>
                 ) : (
-                  <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
+                  <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
                     {customData.customSubCategories.map(item => (
-                      <div key={`${item.mainCatIdOrCode}-${item.subCategory.code}`} className="p-3 flex items-center justify-between gap-2 hover:bg-slate-50">
+                      <div key={`${item.mainCatIdOrCode}-${item.subCategory.code}`} className="p-3 flex items-center justify-between gap-2 hover:bg-slate-50 dark:hover:bg-slate-800">
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-2xs font-bold px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800">
+                            <span className="font-mono text-2xs font-bold px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-200">
                               {item.subCategory.code}
                             </span>
-                            <span className="text-xs font-semibold text-slate-800 truncate">
+                            <span className="text-xs font-semibold text-slate-800 truncate dark:text-slate-100">
                               {item.subCategory.name}
                             </span>
                           </div>
-                          <div className="text-3xs text-slate-500 mt-0.5">
+                          <div className="text-3xs text-slate-500 mt-0.5 dark:text-slate-400">
                             Nummernkreis: {item.mainCatIdOrCode} • USt: {item.subCategory.vatRateDefault}%
                           </div>
                         </div>
                         <button
                           type="button"
                           onClick={() => handleDeleteSub(item.mainCatIdOrCode, item.subCategory.code)}
-                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer dark:hover:text-rose-300 dark:hover:bg-rose-950/40"
                           title="Dieses Konto löschen"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
