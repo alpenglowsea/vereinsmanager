@@ -5,6 +5,7 @@ import {
   ClubDocument
 } from '../types';
 import { downloadDonationReceiptPdf } from '../services/donationService';
+import { exportiereSpendenCsv, exportiereSpendenXlsx, exportiereSpendenZip } from '../services/donationExport';
 import { TablePagination } from './TablePagination';
 import { AuswahlLeiste } from './AuswahlLeiste';
 import { usePagination } from '../hooks/usePagination';
@@ -29,7 +30,11 @@ import {
   Package,
   ShieldCheck,
   Info,
-  CheckCircle2
+  CheckCircle2,
+  FileArchive,
+  FileSpreadsheet,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 
 type DonationSortField =
@@ -484,6 +489,48 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
     });
   };
 
+  // Sammel-Export (Liste als CSV/Excel, alle PDFs als ZIP). Es wird nichts
+  // verändert: Ist etwas angekreuzt, gilt der Export für die Auswahl,
+  // sonst für alle gerade gefilterten Bescheinigungen.
+  const [exportLaeuft, setExportLaeuft] = useState<null | { art: 'csv' | 'xlsx' | 'zip'; fertig: number; gesamt: number }>(null);
+  const [exportMeldung, setExportMeldung] = useState<null | { ok: boolean; text: string }>(null);
+  const exportListe = useMemo(() => {
+    if (selectedIds.size === 0) return filteredDonations;
+    const sichtbar = filteredDonations.filter(d => selectedIds.has(d.id));
+    const sichtbarIds = new Set(sichtbar.map(d => d.id));
+    // Angekreuzte, die ein späterer Filter ausblendet, kommen trotzdem mit.
+    const versteckt = donations.filter(d => selectedIds.has(d.id) && !sichtbarIds.has(d.id));
+    return [...sichtbar, ...versteckt];
+  }, [selectedIds, filteredDonations, donations]);
+  const exportBezug = selectedIds.size > 0 ? `${exportListe.length} ausgewählte` : `alle ${exportListe.length} angezeigten`;
+
+  const handleExport = async (art: 'csv' | 'xlsx' | 'zip') => {
+    if (exportLaeuft || exportListe.length === 0) return;
+    setExportMeldung(null);
+    setExportLaeuft({ art, fertig: 0, gesamt: exportListe.length });
+    try {
+      const ergebnis =
+        art === 'csv'
+          ? await exportiereSpendenCsv(exportListe, settings)
+          : art === 'xlsx'
+          ? await exportiereSpendenXlsx(exportListe, settings)
+          : await exportiereSpendenZip(exportListe, settings, (fertig, gesamt) =>
+              setExportLaeuft({ art, fertig, gesamt })
+            );
+      if (ergebnis.cancelled) {
+        // bewusst abgebrochen: keine Meldung
+      } else if (ergebnis.success) {
+        setExportMeldung({ ok: true, text: `Gespeichert: ${ergebnis.fileName} (${exportListe.length} Bescheinigungen)` });
+      } else {
+        setExportMeldung({ ok: false, text: `Der Export ist fehlgeschlagen: ${ergebnis.error || 'unbekannter Fehler'}` });
+      }
+    } catch (err) {
+      setExportMeldung({ ok: false, text: `Der Export ist fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}` });
+    } finally {
+      setExportLaeuft(null);
+    }
+  };
+
   // Calculate statistics
   const totalAmount = filteredDonations.reduce((sum, d) => sum + (d.amount || 0), 0);
   const moneyDonations = filteredDonations.filter(d => d.type === 'money');
@@ -672,8 +719,40 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
             </div>
           </div>
 
-          <div className="text-2xs text-slate-500 dark:text-slate-400">
-            Zeige <span className="font-bold text-slate-800 dark:text-slate-100">{filteredDonations.length}</span> von {donations.length} Bescheinigungen
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="text-2xs text-slate-500 dark:text-slate-400 mr-1">
+              Zeige <span className="font-bold text-slate-800 dark:text-slate-100">{filteredDonations.length}</span> von {donations.length} Bescheinigungen
+            </div>
+            <button
+              type="button"
+              onClick={() => handleExport('zip')}
+              disabled={!!exportLaeuft || exportListe.length === 0}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700"
+              title={`Alle PDF-Bescheinigungen (${exportBezug}) in einer ZIP-Datei speichern`}
+            >
+              {exportLaeuft?.art === 'zip' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileArchive className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
+              <span>{exportLaeuft?.art === 'zip' ? `PDFs ${exportLaeuft.fertig} von ${exportLaeuft.gesamt} …` : 'PDFs als ZIP'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExport('xlsx')}
+              disabled={!!exportLaeuft || exportListe.length === 0}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700"
+              title={`Liste (${exportBezug}) als Excel-Datei speichern`}
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Excel</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExport('csv')}
+              disabled={!!exportLaeuft || exportListe.length === 0}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700"
+              title={`Liste (${exportBezug}) als CSV-Datei speichern`}
+            >
+              <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+              <span>CSV</span>
+            </button>
           </div>
         </div>
 
@@ -688,6 +767,27 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
           onAlleAuswaehlen={handleSelectAllFiltered}
           onAuswahlAufheben={handleClearSelection}
         />
+
+        {exportMeldung && (
+          <div
+            role="status"
+            className={`mx-4 mt-3 px-3 py-2 rounded-xl border text-xs font-semibold flex items-center gap-2 ${
+              exportMeldung.ok
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-200'
+                : 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-200'
+            }`}
+          >
+            {exportMeldung.ok ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+            <span className="flex-1">{exportMeldung.text}</span>
+            <button
+              type="button"
+              onClick={() => setExportMeldung(null)}
+              className="text-2xs underline cursor-pointer"
+            >
+              Schließen
+            </button>
+          </div>
+        )}
 
         {/* Table */}
         {filteredDonations.length === 0 ? (

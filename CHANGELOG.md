@@ -13,6 +13,20 @@ E-Mail-Versand sind auch alle Funktionen entfernt, die nur für eine der
 beiden anderen Betriebsarten existierten. Vollständige Begründung und
 Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
 
+### Nachtrag 9 — Spenden: ZIP-Download und Listen-Export
+
+- In der Spendenübersicht gibt es drei neue Knöpfe: **PDFs als ZIP** (alle
+  Zuwendungsbestätigungen als einzelne PDFs in einer ZIP-Datei), **Excel**
+  und **CSV** (Liste mit allen Angaben der Bescheinigungen). Ist etwas
+  angekreuzt, gilt der Export für die Auswahl, sonst für alle gerade
+  angezeigten (gefilterten) Bescheinigungen. Es wird nichts verändert oder
+  gelöscht; eine Sammel-Löschung gibt es bewusst nicht.
+- ZIP- und Excel-Dateien werden ohne zusätzliches Paket erzeugt
+  (`src/utils/zipWriter.ts`, `src/utils/xlsxWriter.ts`), die Listenlogik
+  steht in `src/services/donationExport.ts`.
+- Bekannte Eigenheit der CSV-Datei: Excel entfernt beim Öffnen führende
+  Nullen (PLZ 01067 → 1067). Die Excel-Datei hat dieses Problem nicht.
+
 ### Nachtrag 8 — Dunkelmodus für die ganze App; feste Farben bei Piktogrammen und Schnellzugriff
 
 - Bisher fehlte bei rund 700 weißen und vielen hellgrauen Flächen die
