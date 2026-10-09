@@ -13,6 +13,24 @@ E-Mail-Versand sind auch alle Funktionen entfernt, die nur für eine der
 beiden anderen Betriebsarten existierten. Vollständige Begründung und
 Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
 
+### Nachtrag 6 — Farbschemata und Schriftarten
+
+- Einstellungen → Allgemein → „Erscheinungsbild": neue Auswahl **Farbschema**
+  (Blau, Grün, Rot, Orange, Gelb, Türkis, Violett, Anthrazit) und
+  **Schriftart** (Systemschrift, Source Sans 3, Chakra Petch, Lora).
+- Beides gehört zum Verein: Es wird in den Vereinsdaten gespeichert und reist
+  mit der Datensicherung mit. Zusätzlich merkt sich das Gerät die Wahl, damit
+  Anmeldebildschirm und Start nicht erst in den Standardfarben erscheinen.
+- Die Farben werden zentral ausgetauscht (index.css): Die Stufen von „blue" und
+  „indigo" bekommen je Schema andere Werte. Grün und Rot sind dunkel und
+  gedeckt, damit die leuchtenden Knöpfe „Bestätigen" und „Löschen" auffallen.
+  Orange und Gelb tragen dunkle Schrift auf den Flächen.
+- Die Schriften kommen als Dateien mit dem Programm (`@fontsource/…`, SIL Open
+  Font License), nichts wird von fremden Servern geladen. **Neue Pakete:**
+  `@fontsource/source-sans-3`, `@fontsource/chakra-petch`, `@fontsource/lora`.
+- PDF-Dokumente behalten ihre eigene Schrift und Farbe. Vom Benutzer gewählte
+  Datenfarben (Kalenderkategorien, Ordnerfarben) bleiben unverändert.
+
 ### Nachtrag 5 — Automatische Sperre einstellbar
 
 - Einstellungen → Allgemein → „Regionale Anzeige & Standardeinstellungen":

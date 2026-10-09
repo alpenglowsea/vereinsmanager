@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ClubSettings, Address, BoardMember } from '../types';
+import { ClubSettings, Address, BoardMember, ColorSchemeId, FontChoiceId } from '../types';
+import { COLOR_SCHEMES, FONT_CHOICES, DEFAULT_COLOR_SCHEME, DEFAULT_FONT_CHOICE } from '../utils/appearance';
 import { StorageService } from '../services/storage';
 import { AuthService } from '../services/authService';
 import { SnapshotService, AutoSnapshot } from '../services/snapshotService';
@@ -14,6 +15,8 @@ import { saveBlobWithLocationPicker } from '../utils/fileExportHelper';
 import QRCode from 'qrcode';
 import {
   Settings,
+  Palette,
+  Type,
   Building,
   Database,
   Users,
@@ -1062,6 +1065,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setTimeout(() => setStatusMsg(null), 3000);
   };
 
+  // Farbschema und Schrift: gelten für den ganzen Verein, werden mit den
+  // Vereinsdaten gespeichert und sofort angewendet (App.tsx).
+  const handleSelectColorScheme = (colorScheme: ColorSchemeId) => {
+    setFormData(prev => ({ ...prev, colorScheme }));
+    onSaveSettings({ ...formData, colorScheme });
+    const name = COLOR_SCHEMES.find(c => c.id === colorScheme)?.name || colorScheme;
+    setStatusMsg({ type: 'success', text: `Farbschema auf "${name}" gesetzt.` });
+    setTimeout(() => setStatusMsg(null), 3000);
+  };
+
+  const handleSelectFont = (fontChoice: FontChoiceId) => {
+    setFormData(prev => ({ ...prev, fontChoice }));
+    onSaveSettings({ ...formData, fontChoice });
+    const name = FONT_CHOICES.find(f => f.id === fontChoice)?.name || fontChoice;
+    setStatusMsg({ type: 'success', text: `Schriftart auf "${name}" gesetzt.` });
+    setTimeout(() => setStatusMsg(null), 3000);
+  };
+
+  const activeColorScheme = formData.colorScheme || DEFAULT_COLOR_SCHEME;
+  const activeFont = formData.fontChoice || DEFAULT_FONT_CHOICE;
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
 
@@ -1314,6 +1338,86 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <span>Automatisch synchron</span>
                 </div>
               </button>
+            </div>
+
+            {/* Farbschema */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+              <div className="flex items-center gap-2">
+                <Palette className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">Farbschema</h4>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Die Hauptfarbe der Anwendung. Gilt für den ganzen Verein und wird mit den Vereinsdaten gespeichert.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" role="group" aria-label="Farbschema">
+                {COLOR_SCHEMES.map(scheme => {
+                  const active = activeColorScheme === scheme.id;
+                  return (
+                    <button
+                      key={scheme.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => handleSelectColorScheme(scheme.id)}
+                      className={`p-3 rounded-2xl border-2 text-left transition-all flex flex-col gap-2 cursor-pointer ${
+                        active
+                          ? 'border-slate-900 dark:border-white bg-slate-50 dark:bg-slate-800 shadow-xs'
+                          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex h-6 rounded-md overflow-hidden">
+                        {scheme.swatch.map((farbe, i) => (
+                          <span key={i} className="flex-1" style={{ backgroundColor: farbe }} />
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">{scheme.name}</span>
+                        {active && <Check className="w-3.5 h-3.5 text-slate-900 dark:text-white" />}
+                      </div>
+                      <span className="text-2xs text-slate-500 dark:text-slate-400">{scheme.hint}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Schriftart */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+              <div className="flex items-center gap-2">
+                <Type className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">Schriftart</h4>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Gilt für die Bildschirmansicht. PDF-Dokumente (Bescheinigungen, Rechnungen, Berichte) behalten ihre eigene Schrift.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" role="group" aria-label="Schriftart">
+                {FONT_CHOICES.map(font => {
+                  const active = activeFont === font.id;
+                  return (
+                    <button
+                      key={font.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => handleSelectFont(font.id)}
+                      className={`p-3 rounded-2xl border-2 text-left transition-all flex flex-col gap-1.5 cursor-pointer ${
+                        active
+                          ? 'border-slate-900 dark:border-white bg-slate-50 dark:bg-slate-800 shadow-xs'
+                          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-slate-900 dark:text-white" style={{ fontFamily: font.family }}>
+                          {font.name}
+                        </span>
+                        {active && <Check className="w-3.5 h-3.5 text-slate-900 dark:text-white" />}
+                      </div>
+                      <span className="text-xs text-slate-600 dark:text-slate-300" style={{ fontFamily: font.family }}>
+                        Mitglieder 1.234,56 € – Größe, Übung, Ärger
+                      </span>
+                      <span className="text-2xs text-slate-500 dark:text-slate-400">{font.hint}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

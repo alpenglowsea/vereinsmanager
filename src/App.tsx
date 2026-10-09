@@ -33,6 +33,7 @@ import { StorageService } from './services/storage';
 import { AuthService } from './services/authService';
 import { AuthSession } from './types';
 import { formatClubAddress } from './utils/clubAddress';
+import { applyAppearance } from './utils/appearance';
 import { UserDashboardConfig } from './types/dashboard';
 import { DEFAULT_DASHBOARD_CONFIG } from './data/defaultDashboard';
 import { DEFAULT_MEETING_TEMPLATE } from './data/initialMeetings';
@@ -215,6 +216,13 @@ export default function App() {
     departments: ['Fußball', 'Tennis', 'Turnen', 'Leichtathletik', 'Schwimmen', 'Volleyball'],
     currency: 'EUR'
   });
+
+  // Farbschema und Schrift des Vereins. Bis die Vereinsdaten geladen sind,
+  // gilt der Zwischenspeicher des Geräts (siehe main.tsx).
+  useEffect(() => {
+    if (loading) return;
+    applyAppearance(settings.colorScheme, settings.fontChoice);
+  }, [loading, settings.colorScheme, settings.fontChoice]);
 
   // Modal States
   const [memberFormOpen, setMemberFormOpen] = useState(false);

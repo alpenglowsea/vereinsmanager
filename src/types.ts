@@ -232,6 +232,12 @@ export interface BoardMember {
   phone?: string;
 }
 
+/** Farbschema der Oberfläche (siehe utils/appearance.ts und index.css). */
+export type ColorSchemeId = 'blau' | 'gruen' | 'rot' | 'orange' | 'gelb' | 'tuerkis' | 'violett' | 'anthrazit';
+
+/** Schriftart der Oberfläche (siehe utils/appearance.ts und index.css). */
+export type FontChoiceId = 'system' | 'source-sans' | 'chakra-petch' | 'lora';
+
 export interface ClubSettings {
   clubName: string;
   clubLogoUrl?: string; // Optional custom club logo as Base64 Data URL
@@ -251,6 +257,8 @@ export interface ClubSettings {
   website?: string;
   departments: string[];
   theme?: 'light' | 'dark' | 'system';
+  colorScheme?: ColorSchemeId; // Farbschema des Vereins, Standard 'blau'
+  fontChoice?: FontChoiceId; // Schrift des Vereins, Standard 'system'
   currency?: string;
   dateFormat?: string;
   fiscalYearStart?: string;
