@@ -720,6 +720,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
               className="text-left border-collapse text-xs"
               style={{
                 tableLayout: 'fixed',
+                minWidth: '100%',
                 width: CHECKBOX_COL_WIDTH + ACTION_COL_WIDTH + visibleColumnOrder.reduce((sum, key) => sum + (colWidths[key] || 0), 0)
               }}
             >

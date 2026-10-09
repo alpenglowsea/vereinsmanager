@@ -342,3 +342,64 @@ button, input, select, textarea {
 :root[data-schrift="lora"] {
   --font-sans: 'Lora', Georgia, 'Times New Roman', serif;
 }
+
+/* ------------------------------------------------------------------
+   Farbschema durch die ganze Oberfläche (Seitenleiste, Seite, Kopfzeile)
+
+   Seitenleiste: Statt jede einzelne Klasse zu ändern, werden die drei
+   Grautöne, die die Leiste verwendet (slate-700/800/900), NUR innerhalb
+   der Leiste (.vm-sidebar) umgefärbt. Die Farben der Menü-Piktogramme
+   (amber, emerald, ...) sind eigene Klassen und bleiben deshalb in
+   JEDEM Schema unverändert.
+   Seite/Kopfzeile: nur im hellen Modus ein leichter Farbschimmer; im
+   dunklen Modus bleibt es beim neutralen Dunkelgrau.
+   ------------------------------------------------------------------ */
+:root[data-farbschema="gruen"] .vm-sidebar {
+  --color-slate-900: #0d2818;
+  --color-slate-800: #163824;
+  --color-slate-700: #204d33;
+}
+:root:not(.dark)[data-farbschema="gruen"] .vm-page { background-color: #f1f7f3; }
+:root:not(.dark)[data-farbschema="gruen"] .vm-header { background-color: #f9fcfa; }
+:root[data-farbschema="rot"] .vm-sidebar {
+  --color-slate-900: #2b0f14;
+  --color-slate-800: #3d1a20;
+  --color-slate-700: #55262d;
+}
+:root:not(.dark)[data-farbschema="rot"] .vm-page { background-color: #fbf2f2; }
+:root:not(.dark)[data-farbschema="rot"] .vm-header { background-color: #fefafa; }
+:root[data-farbschema="orange"] .vm-sidebar {
+  --color-slate-900: #2a1708;
+  --color-slate-800: #3d2410;
+  --color-slate-700: #57341a;
+}
+:root:not(.dark)[data-farbschema="orange"] .vm-page { background-color: #fdf6ee; }
+:root:not(.dark)[data-farbschema="orange"] .vm-header { background-color: #fffbf6; }
+:root[data-farbschema="gelb"] .vm-sidebar {
+  --color-slate-900: #29220a;
+  --color-slate-800: #3b3210;
+  --color-slate-700: #52461a;
+}
+:root:not(.dark)[data-farbschema="gelb"] .vm-page { background-color: #fcfaeb; }
+:root:not(.dark)[data-farbschema="gelb"] .vm-header { background-color: #fffef6; }
+:root[data-farbschema="tuerkis"] .vm-sidebar {
+  --color-slate-900: #0a2626;
+  --color-slate-800: #123636;
+  --color-slate-700: #1b4b4b;
+}
+:root:not(.dark)[data-farbschema="tuerkis"] .vm-page { background-color: #eff8f8; }
+:root:not(.dark)[data-farbschema="tuerkis"] .vm-header { background-color: #f9fdfd; }
+:root[data-farbschema="violett"] .vm-sidebar {
+  --color-slate-900: #1d1033;
+  --color-slate-800: #2b1b4a;
+  --color-slate-700: #3c2864;
+}
+:root:not(.dark)[data-farbschema="violett"] .vm-page { background-color: #f5f2fb; }
+:root:not(.dark)[data-farbschema="violett"] .vm-header { background-color: #fbfaff; }
+:root[data-farbschema="anthrazit"] .vm-sidebar {
+  --color-slate-900: #1c1c1f;
+  --color-slate-800: #2a2a2e;
+  --color-slate-700: #3a3a3f;
+}
+:root:not(.dark)[data-farbschema="anthrazit"] .vm-page { background-color: #f4f4f5; }
+:root:not(.dark)[data-farbschema="anthrazit"] .vm-header { background-color: #fafafa; }

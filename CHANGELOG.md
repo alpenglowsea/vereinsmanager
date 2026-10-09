@@ -13,6 +13,20 @@ E-Mail-Versand sind auch alle Funktionen entfernt, die nur für eine der
 beiden anderen Betriebsarten existierten. Vollständige Begründung und
 Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
 
+### Nachtrag 7 — Farbschema in der ganzen Oberfläche; volle Breite
+
+- Die Seitenleiste bekommt je Farbschema einen eigenen dunklen Ton (Grün:
+  Tannengrün, Rot: Weinrot, …). Dazu werden nur die drei Grautöne der Leiste
+  umgefärbt; die Farben der Menü-Piktogramme bleiben in jedem Schema wie im
+  Standard.
+- Im hellen Modus bekommen Seitenhintergrund und Kopfzeile einen leichten
+  Farbschimmer des Schemas. Im dunklen Modus bleibt alles neutral.
+- Der Arbeitsbereich ist nicht mehr auf 1280 Pixel begrenzt (jetzt 2400).
+  Die Tabellen (Mitglieder, Buchungen, Inventar, Kontakte, Rechnungen,
+  Spenden) füllen die Breite aus, die Spalten wachsen anteilig mit. Die
+  Einstellungen sind auf 1600 Pixel begrenzt, damit Formularzeilen nicht zu
+  lang werden.
+
 ### Nachtrag 6 — Farbschemata und Schriftarten
 
 - Einstellungen → Allgemein → „Erscheinungsbild": neue Auswahl **Farbschema**

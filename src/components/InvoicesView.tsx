@@ -1012,6 +1012,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
             className="text-xs text-left border-collapse"
             style={{
               tableLayout: 'fixed',
+              minWidth: '100%',
               width:
                 CHECKBOX_COL_WIDTH +
                 ACTION_COL_WIDTH +

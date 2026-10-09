@@ -1,0 +1,245 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 33a0275..c704fe9 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -13,6 +13,20 @@ E-Mail-Versand sind auch alle Funktionen entfernt, die nur für eine der
+ beiden anderen Betriebsarten existierten. Vollständige Begründung und
+ Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
+ 
++### Nachtrag 7 — Farbschema in der ganzen Oberfläche; volle Breite
++
++- Die Seitenleiste bekommt je Farbschema einen eigenen dunklen Ton (Grün:
++  Tannengrün, Rot: Weinrot, …). Dazu werden nur die drei Grautöne der Leiste
++  umgefärbt; die Farben der Menü-Piktogramme bleiben in jedem Schema wie im
++  Standard.
++- Im hellen Modus bekommen Seitenhintergrund und Kopfzeile einen leichten
++  Farbschimmer des Schemas. Im dunklen Modus bleibt alles neutral.
++- Der Arbeitsbereich ist nicht mehr auf 1280 Pixel begrenzt (jetzt 2400).
++  Die Tabellen (Mitglieder, Buchungen, Inventar, Kontakte, Rechnungen,
++  Spenden) füllen die Breite aus, die Spalten wachsen anteilig mit. Die
++  Einstellungen sind auf 1600 Pixel begrenzt, damit Formularzeilen nicht zu
++  lang werden.
++
+ ### Nachtrag 6 — Farbschemata und Schriftarten
+ 
+ - Einstellungen → Allgemein → „Erscheinungsbild": neue Auswahl **Farbschema**
+diff --git a/src/App.tsx b/src/App.tsx
+index e343075..6bb8b15 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1067,7 +1067,7 @@ export default function App() {
+ 
+       {/* Left Sidebar (Professional Polish Dark Navy/Slate-900) */}
+       <aside
+-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white flex flex-col transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 shrink-0 ${
++        className={`vm-sidebar fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white flex flex-col transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 shrink-0 ${
+           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+         }`}
+       >
+@@ -1525,7 +1525,7 @@ export default function App() {
+       </aside>
+ 
+       {/* Main Content Area */}
+-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 dark:bg-slate-950">
++      <main className="vm-page flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 dark:bg-slate-950">
+         {/* Demo Mode Sandbox Notice */}
+         {AuthService.isDemoMode() && (
+           <div className="bg-amber-500/10 border-b border-amber-300/50 dark:border-amber-700/50 px-4 py-2 flex items-center justify-between text-xs text-amber-950 dark:text-amber-200 font-medium shrink-0">
+@@ -1565,7 +1565,7 @@ export default function App() {
+         )}
+ 
+         {/* Top Header Bar */}
+-        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-8 flex items-center justify-between shrink-0 z-20 gap-3">
++        <header className="vm-header h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-8 flex items-center justify-between shrink-0 z-20 gap-3">
+           <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+             <button
+               type="button"
+@@ -1725,7 +1725,7 @@ export default function App() {
+             Kopf trotzdem funktioniert, ohne dass der Scrollbalken verloren
+             geht. */}
+         <div className="p-6 sm:p-8 flex-1 overflow-y-auto">
+-          <div className="max-w-7xl mx-auto space-y-6">
++          <div className="max-w-[2400px] mx-auto space-y-6">
+             {/* Tab 0: Dashboard */}
+             {activeTab === 'dashboard' && (
+               <DashboardView
+diff --git a/src/components/ContactsView.tsx b/src/components/ContactsView.tsx
+index e6f7058..f0c4cd2 100644
+--- a/src/components/ContactsView.tsx
++++ b/src/components/ContactsView.tsx
+@@ -980,6 +980,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
+             className="text-left border-collapse text-sm"
+             style={{
+               tableLayout: 'fixed',
++              minWidth: '100%',
+               width:
+                 CHECKBOX_COL_WIDTH +
+                 ACTION_COL_WIDTH +
+diff --git a/src/components/DonationsView.tsx b/src/components/DonationsView.tsx
+index bd3c326..59644c5 100644
+--- a/src/components/DonationsView.tsx
++++ b/src/components/DonationsView.tsx
+@@ -720,6 +720,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
+               className="text-left border-collapse text-xs"
+               style={{
+                 tableLayout: 'fixed',
++                minWidth: '100%',
+                 width: CHECKBOX_COL_WIDTH + ACTION_COL_WIDTH + visibleColumnOrder.reduce((sum, key) => sum + (colWidths[key] || 0), 0)
+               }}
+             >
+diff --git a/src/components/FinanceView.tsx b/src/components/FinanceView.tsx
+index 2a94ae6..07ce53f 100644
+--- a/src/components/FinanceView.tsx
++++ b/src/components/FinanceView.tsx
+@@ -1105,6 +1105,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
+             className="text-left text-sm"
+             style={{
+               tableLayout: 'fixed',
++              minWidth: '100%',
+               width:
+                 CHECKBOX_COL_WIDTH +
+                 ACTION_COL_WIDTH +
+diff --git a/src/components/InventoryView.tsx b/src/components/InventoryView.tsx
+index 123caf5..854fe4e 100644
+--- a/src/components/InventoryView.tsx
++++ b/src/components/InventoryView.tsx
+@@ -1077,6 +1077,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
+               className="text-left border-collapse text-xs"
+               style={{
+                 tableLayout: 'fixed',
++                minWidth: '100%',
+                 width:
+                   CHECKBOX_COL_WIDTH +
+                   ACTION_COL_WIDTH +
+diff --git a/src/components/InvoicesView.tsx b/src/components/InvoicesView.tsx
+index ca29764..cd33b11 100644
+--- a/src/components/InvoicesView.tsx
++++ b/src/components/InvoicesView.tsx
+@@ -1012,6 +1012,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
+             className="text-xs text-left border-collapse"
+             style={{
+               tableLayout: 'fixed',
++              minWidth: '100%',
+               width:
+                 CHECKBOX_COL_WIDTH +
+                 ACTION_COL_WIDTH +
+diff --git a/src/components/MembersView.tsx b/src/components/MembersView.tsx
+index 0876a07..1033ec8 100644
+--- a/src/components/MembersView.tsx
++++ b/src/components/MembersView.tsx
+@@ -1387,6 +1387,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
+             className="text-left text-sm"
+             style={{
+               tableLayout: 'fixed',
++              minWidth: '100%',
+               width:
+                 CHECKBOX_COL_WIDTH +
+                 ACTION_COL_WIDTH +
+diff --git a/src/components/SettingsView.tsx b/src/components/SettingsView.tsx
+index fc291ea..002aa9f 100644
+--- a/src/components/SettingsView.tsx
++++ b/src/components/SettingsView.tsx
+@@ -1087,7 +1087,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
+   const activeFont = formData.fontChoice || DEFAULT_FONT_CHOICE;
+ 
+   return (
+-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
++    <div className="space-y-6 max-w-[1600px] mx-auto pb-16">
+ 
+       {/* Page Header */}
+       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-7 shadow-xs">
+diff --git a/src/index.css b/src/index.css
+index 6cfdcdc..4b1847c 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -342,3 +342,64 @@ button, input, select, textarea {
+ :root[data-schrift="lora"] {
+   --font-sans: 'Lora', Georgia, 'Times New Roman', serif;
+ }
++
++/* ------------------------------------------------------------------
++   Farbschema durch die ganze Oberfläche (Seitenleiste, Seite, Kopfzeile)
++
++   Seitenleiste: Statt jede einzelne Klasse zu ändern, werden die drei
++   Grautöne, die die Leiste verwendet (slate-700/800/900), NUR innerhalb
++   der Leiste (.vm-sidebar) umgefärbt. Die Farben der Menü-Piktogramme
++   (amber, emerald, ...) sind eigene Klassen und bleiben deshalb in
++   JEDEM Schema unverändert.
++   Seite/Kopfzeile: nur im hellen Modus ein leichter Farbschimmer; im
++   dunklen Modus bleibt es beim neutralen Dunkelgrau.
++   ------------------------------------------------------------------ */
++:root[data-farbschema="gruen"] .vm-sidebar {
++  --color-slate-900: #0d2818;
++  --color-slate-800: #163824;
++  --color-slate-700: #204d33;
++}
++:root:not(.dark)[data-farbschema="gruen"] .vm-page { background-color: #f1f7f3; }
++:root:not(.dark)[data-farbschema="gruen"] .vm-header { background-color: #f9fcfa; }
++:root[data-farbschema="rot"] .vm-sidebar {
++  --color-slate-900: #2b0f14;
++  --color-slate-800: #3d1a20;
++  --color-slate-700: #55262d;
++}
++:root:not(.dark)[data-farbschema="rot"] .vm-page { background-color: #fbf2f2; }
++:root:not(.dark)[data-farbschema="rot"] .vm-header { background-color: #fefafa; }
++:root[data-farbschema="orange"] .vm-sidebar {
++  --color-slate-900: #2a1708;
++  --color-slate-800: #3d2410;
++  --color-slate-700: #57341a;
++}
++:root:not(.dark)[data-farbschema="orange"] .vm-page { background-color: #fdf6ee; }
++:root:not(.dark)[data-farbschema="orange"] .vm-header { background-color: #fffbf6; }
++:root[data-farbschema="gelb"] .vm-sidebar {
++  --color-slate-900: #29220a;
++  --color-slate-800: #3b3210;
++  --color-slate-700: #52461a;
++}
++:root:not(.dark)[data-farbschema="gelb"] .vm-page { background-color: #fcfaeb; }
++:root:not(.dark)[data-farbschema="gelb"] .vm-header { background-color: #fffef6; }
++:root[data-farbschema="tuerkis"] .vm-sidebar {
++  --color-slate-900: #0a2626;
++  --color-slate-800: #123636;
++  --color-slate-700: #1b4b4b;
++}
++:root:not(.dark)[data-farbschema="tuerkis"] .vm-page { background-color: #eff8f8; }
++:root:not(.dark)[data-farbschema="tuerkis"] .vm-header { background-color: #f9fdfd; }
++:root[data-farbschema="violett"] .vm-sidebar {
++  --color-slate-900: #1d1033;
++  --color-slate-800: #2b1b4a;
++  --color-slate-700: #3c2864;
++}
++:root:not(.dark)[data-farbschema="violett"] .vm-page { background-color: #f5f2fb; }
++:root:not(.dark)[data-farbschema="violett"] .vm-header { background-color: #fbfaff; }
++:root[data-farbschema="anthrazit"] .vm-sidebar {
++  --color-slate-900: #1c1c1f;
++  --color-slate-800: #2a2a2e;
++  --color-slate-700: #3a3a3f;
++}
++:root:not(.dark)[data-farbschema="anthrazit"] .vm-page { background-color: #f4f4f5; }
++:root:not(.dark)[data-farbschema="anthrazit"] .vm-header { background-color: #fafafa; }
+diff --git a/src/utils/appearance.test.ts b/src/utils/appearance.test.ts
+index a7e9505..35e9064 100644
+--- a/src/utils/appearance.test.ts
++++ b/src/utils/appearance.test.ts
+@@ -40,4 +40,21 @@ describe('Farbschemata und Schriften', () => {
+       }
+     }
+   });
++  it('jedes Farbschema außer Blau färbt Seitenleiste, Seite und Kopfzeile', () => {
++    for (const s of COLOR_SCHEMES.filter(c => c.id !== 'blau')) {
++      expect(css).toContain(`:root[data-farbschema="${s.id}"] .vm-sidebar {`);
++      expect(css).toContain(`:root:not(.dark)[data-farbschema="${s.id}"] .vm-page {`);
++      expect(css).toContain(`:root:not(.dark)[data-farbschema="${s.id}"] .vm-header {`);
++    }
++  });
++
++  it('die Seitenleiste färbt nur Grautöne um, nie die Piktogramm-Farben', () => {
++    for (const s of COLOR_SCHEMES.filter(c => c.id !== 'blau')) {
++      const start = css.indexOf(`:root[data-farbschema="${s.id}"] .vm-sidebar {`);
++      const block = css.slice(start, css.indexOf('}', start));
++      const namen = [...block.matchAll(/--color-([a-z]+)-\d+:/g)].map(m => m[1]);
++      expect(namen.length).toBe(3);
++      expect(new Set(namen)).toEqual(new Set(['slate']));
++    }
++  });
+ });

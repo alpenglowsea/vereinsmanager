@@ -1077,6 +1077,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               className="text-left border-collapse text-xs"
               style={{
                 tableLayout: 'fixed',
+                minWidth: '100%',
                 width:
                   CHECKBOX_COL_WIDTH +
                   ACTION_COL_WIDTH +

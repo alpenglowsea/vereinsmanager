@@ -980,6 +980,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
             className="text-left border-collapse text-sm"
             style={{
               tableLayout: 'fixed',
+              minWidth: '100%',
               width:
                 CHECKBOX_COL_WIDTH +
                 ACTION_COL_WIDTH +

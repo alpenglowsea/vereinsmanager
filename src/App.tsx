@@ -1067,7 +1067,7 @@ export default function App() {
 
       {/* Left Sidebar (Professional Polish Dark Navy/Slate-900) */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white flex flex-col transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 shrink-0 ${
+        className={`vm-sidebar fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white flex flex-col transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 shrink-0 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -1525,7 +1525,7 @@ export default function App() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 dark:bg-slate-950">
+      <main className="vm-page flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 dark:bg-slate-950">
         {/* Demo Mode Sandbox Notice */}
         {AuthService.isDemoMode() && (
           <div className="bg-amber-500/10 border-b border-amber-300/50 dark:border-amber-700/50 px-4 py-2 flex items-center justify-between text-xs text-amber-950 dark:text-amber-200 font-medium shrink-0">
@@ -1565,7 +1565,7 @@ export default function App() {
         )}
 
         {/* Top Header Bar */}
-        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-8 flex items-center justify-between shrink-0 z-20 gap-3">
+        <header className="vm-header h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-8 flex items-center justify-between shrink-0 z-20 gap-3">
           <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
             <button
               type="button"
@@ -1725,7 +1725,7 @@ export default function App() {
             Kopf trotzdem funktioniert, ohne dass der Scrollbalken verloren
             geht. */}
         <div className="p-6 sm:p-8 flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto space-y-6">
+          <div className="max-w-[2400px] mx-auto space-y-6">
             {/* Tab 0: Dashboard */}
             {activeTab === 'dashboard' && (
               <DashboardView

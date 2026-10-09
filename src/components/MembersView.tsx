@@ -1387,6 +1387,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
             className="text-left text-sm"
             style={{
               tableLayout: 'fixed',
+              minWidth: '100%',
               width:
                 CHECKBOX_COL_WIDTH +
                 ACTION_COL_WIDTH +
