@@ -1908,7 +1908,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         ? 'opacity-40 border-dashed border-blue-500 bg-blue-50/50 dark:bg-blue-950/30'
                         : isDragOver
                         ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50 dark:bg-blue-950/60 scale-[1.01]'
-                        : 'border-slate-200 dark:border-slate-750 hover:border-slate-350 dark:hover:border-slate-650'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-350 dark:hover:border-slate-600'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -2201,7 +2201,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         ? 'opacity-40 border-dashed border-blue-500 bg-blue-50/50 dark:bg-blue-950/30'
                         : isDragOver
                         ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50 dark:bg-blue-950/60 scale-[1.02]'
-                        : 'bg-white dark:bg-slate-850 border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs'
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">

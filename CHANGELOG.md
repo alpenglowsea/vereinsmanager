@@ -27,6 +27,12 @@ Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
 - Die Piktogramme in der Seitenleiste und die Schnellzugriff-Knöpfe auf dem
   Dashboard behalten in jedem Farbschema ihre ursprünglichen Farben (Standard-
   Blau/Indigo): `.vm-sidebar svg` und `.vm-quick button` in `index.css`.
+- Nachbesserung nach dem ersten Test: Mehrere Stellen (u. a. die Sparten-Felder
+  in den Vereinsstammdaten) nutzten Farbstufen, die es gar nicht gibt
+  (`slate-850`, `-750`, `-650`) und blieben deshalb hell; jetzt auf die
+  vorhandenen Stufen gesetzt. Der Knopf „XML herunterladen" im Beitragslauf
+  bleibt im Dunkelmodus hell mit dunkler Schrift, damit er sich vom blauen
+  Feld abhebt und in jedem Farbschema lesbar ist.
 
 ### Nachtrag 7 — Farbschema in der ganzen Oberfläche; volle Breite
 

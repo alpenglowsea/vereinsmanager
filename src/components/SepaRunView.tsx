@@ -788,7 +788,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                   type="button"
                   onClick={handleGenerateAndDownloadXml}
                   disabled={stats.validSelectedCount === 0 || !isCreditorConfigured}
-                  className="flex-1 bg-white hover:bg-blue-50 text-blue-900 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-slate-900 dark:hover:bg-blue-950/40 dark:text-blue-100"
+                  className="flex-1 bg-white hover:bg-blue-50 text-blue-900 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed dark:text-blue-900"
                   title="SEPA-Lastschriftdatei erzeugen und herunterladen"
                 >
                   <Download className="w-4 h-4 text-blue-600 dark:text-blue-400" />
