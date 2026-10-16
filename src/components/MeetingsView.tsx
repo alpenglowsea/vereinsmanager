@@ -34,6 +34,7 @@ import { MeetingFormModal } from './MeetingFormModal';
 import { MeetingTemplateModal } from './MeetingTemplateModal';
 import { MeetingSignatureModal } from './MeetingSignatureModal';
 import { MeetingEmailModal } from './MeetingEmailModal';
+import { savePdfAs } from '../utils/fileExportHelper';
 
 interface MeetingsViewProps {
   meetings: Meeting[];
@@ -204,12 +205,12 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
         doc = await MeetingPdfService.generateRegisterExtractPdf(m, clubSettings, templateSettings, {
           includeDigitalSignatures: withDigitalSignatures
         });
-        doc.save(`Registerauszug_${m.date}_${safeTitle}_${suffix}.pdf`);
+        void savePdfAs(doc, `Registerauszug_${m.date}_${safeTitle}_${suffix}.pdf`);
       } else {
         doc = await MeetingPdfService.generateProtocolPdf(m, clubSettings, templateSettings, {
           includeDigitalSignatures: withDigitalSignatures
         });
-        doc.save(`Protokoll_${m.date}_${safeTitle}_${suffix}.pdf`);
+        void savePdfAs(doc, `Protokoll_${m.date}_${safeTitle}_${suffix}.pdf`);
       }
     } catch (err) {
       console.error('Failed to generate meeting PDF:', err);
@@ -239,7 +240,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
         clubSettings,
         templateSettings
       );
-      doc.save(`Einladung_${m.date}_${m.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
+      void savePdfAs(doc, `Einladung_${m.date}_${m.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
     } catch (err) {
       console.error('Failed to generate invitation PDF:', err);
       alert('Fehler beim Erzeugen des Einladungs-PDFs.');

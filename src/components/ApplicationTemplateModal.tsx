@@ -12,6 +12,7 @@ import {
   FileUp
 } from 'lucide-react';
 import { ApplicationTemplateSettings, ClubSettings } from '../types';
+import { saveDataUrlAs } from '../utils/fileExportHelper';
 
 interface ApplicationTemplateModalProps {
   isOpen: boolean;
@@ -201,6 +202,10 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
                   <a
                     href={customPdfDataUrl}
                     download={customPdfFileName}
+                    onClick={e => {
+                      e.preventDefault();
+                      if (customPdfDataUrl) void saveDataUrlAs(customPdfDataUrl, customPdfFileName || 'Aufnahmeantrag_Vorlage.pdf');
+                    }}
                     className="p-2 text-slate-600 hover:text-blue-600 bg-white rounded-lg border border-slate-200 hover:border-blue-300 transition-colors dark:text-slate-300 dark:hover:text-blue-400 dark:bg-slate-900 dark:border-slate-800 dark:hover:border-blue-700/60"
                     title="Herunterladen"
                   >

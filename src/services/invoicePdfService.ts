@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import { formatClubAddress } from '../utils/clubAddress';
 import { ClubInvoice, ClubSettings, InvoiceTemplateSettings, ClubDocument } from '../types';
 import { DEFAULT_INVOICE_TEMPLATE } from '../data/initialInvoices';
+import { savePdfAs } from '../utils/fileExportHelper';
 
 /**
  * Zeichnet den GiroCode (EPC-QR-Code) direkt mit Vektor-Rechtecken in das PDF.
@@ -499,7 +500,7 @@ export const InvoicePdfService = {
   ): Promise<void> {
     const doc = await this.generateInvoicePdf(invoice, settings, template);
     const fileName = `Rechnung_${invoice.invoiceNumber}_${invoice.recipientName.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
-    doc.save(fileName);
+    await savePdfAs(doc, fileName);
   },
 
   /**

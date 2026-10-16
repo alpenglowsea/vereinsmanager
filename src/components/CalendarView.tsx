@@ -41,6 +41,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { LoadingState } from './LoadingState';
+import { saveBlobAs } from '../utils/fileExportHelper';
 
 interface CalendarViewProps {
   members: Member[];
@@ -1312,12 +1313,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 onClick={() => {
                   const ics = CalendarService.exportSingleEventIcs(selectedDetailEvent, categories);
                   const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `Termin_${selectedDetailEvent.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.ics`;
-                  a.click();
-                  URL.revokeObjectURL(url);
+                  void saveBlobAs(blob, `Termin_${selectedDetailEvent.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.ics`);
                 }}
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >

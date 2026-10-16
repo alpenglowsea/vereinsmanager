@@ -23,6 +23,7 @@ import {
   FileText,
   ClipboardPaste
 } from 'lucide-react';
+import { saveBlobAs } from '../utils/fileExportHelper';
 
 interface MemberImportModalProps {
   existingMembers: Member[];
@@ -105,13 +106,7 @@ export const MemberImportModal: FC<MemberImportModalProps> = ({
   const handleDownloadSample = () => {
     const sampleCSV = generateSampleCSVTemplate(settings);
     const blob = new Blob([sampleCSV], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `mitglieder_vorlage_google_sheets_${settings.clubName.replace(/\s+/g, '_')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    void saveBlobAs(blob, `mitglieder_vorlage_google_sheets_${settings.clubName.replace(/\s+/g, '_')}.csv`);
   };
 
   // Convert to preview rows when moving to step 3

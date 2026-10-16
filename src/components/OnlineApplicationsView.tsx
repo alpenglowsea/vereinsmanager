@@ -21,6 +21,7 @@ import { ApplicationReviewModal } from './ApplicationReviewModal';
 import { ApplicationTemplateModal } from './ApplicationTemplateModal';
 import { PublicApplicationForm } from './PublicApplicationForm';
 import { generateMembershipApplicationPdf } from '../services/membershipPdfService';
+import { savePdfAs } from '../utils/fileExportHelper';
 
 interface OnlineApplicationsViewProps {
   applications: OnlineMembershipApplication[];
@@ -97,7 +98,7 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
   const handleDownloadPdf = (app: OnlineMembershipApplication, e: React.MouseEvent) => {
     e.stopPropagation();
     const doc = generateMembershipApplicationPdf(app, settings);
-    doc.save(`Aufnahmeantrag_${app.lastName}_${app.firstName}_${app.applicationNumber}.pdf`);
+    void savePdfAs(doc, `Aufnahmeantrag_${app.lastName}_${app.firstName}_${app.applicationNumber}.pdf`);
   };
 
   // Delete with confirm

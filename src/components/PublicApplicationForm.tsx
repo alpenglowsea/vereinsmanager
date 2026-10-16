@@ -33,6 +33,7 @@ import {
   getMembershipTypeLabel,
   getFeePeriodLabel
 } from '../services/membershipPdfService';
+import { savePdfAs } from '../utils/fileExportHelper';
 
 /**
  * Übersetzt einen Fehler beim Absenden in einen Satz, den ein Interessent
@@ -367,7 +368,7 @@ export const PublicApplicationForm: React.FC<PublicApplicationFormProps> = ({
   const handleDownloadPdf = () => {
     if (!submittedApp) return;
     const doc = generateMembershipApplicationPdf(submittedApp, settings);
-    doc.save(`Aufnahmeantrag_${submittedApp.lastName}_${submittedApp.firstName}_${submittedApp.applicationNumber}.pdf`);
+    void savePdfAs(doc, `Aufnahmeantrag_${submittedApp.lastName}_${submittedApp.firstName}_${submittedApp.applicationNumber}.pdf`);
   };
 
   return (

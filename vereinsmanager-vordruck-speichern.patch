@@ -1,0 +1,1892 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index d842b64..f42c239 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -13,6 +13,26 @@ E-Mail-Versand sind auch alle Funktionen entfernt, die nur für eine der
+ beiden anderen Betriebsarten existierten. Vollständige Begründung und
+ Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
+ 
++### Nachtrag 10 — Zuwendungsbestätigung nach amtlichem Muster; „Speichern unter“ überall
++
++- **Vordruck:** Die Zuwendungsbestätigung (Geld- und Sachspende) ist nach dem
++  amtlichen Muster 034122 des Bundesfinanzministeriums neu aufgebaut
++  (Maße am Beispiel-PDF gemessen, Schrift Helvetica ≈ Arial).
++- **Steuerangaben immer aktuell:** Finanzamt, Steuernummer, Datum des
++  Freistellungs-/Feststellungsbescheids, Veranlagungszeitraum und
++  begünstigte Zwecke kommen aus den Vereinsstammdaten. Neue Bescheinigungen
++  übernehmen sie automatisch (Felder schreibgeschützt); bereits
++  ausgestellte behalten ihre gespeicherten Angaben (rechtlich maßgeblich) und
++  lassen sich mit einem Knopf bewusst aktualisieren. Es werden keine Werte
++  mehr erfunden; fehlende Angaben werden angezeigt.
++- **Neue Felder in den Vereinsstammdaten:** Veranlagungszeitraum, Datum des
++  Feststellungsbescheids (§ 60a AO), steuerbegünstigte Zwecke.
++- **„Speichern unter“ bei jedem Download:** Alle Herunterladen-Knöpfe der App
++  (PDF, CSV, XML, Excel, Kalender, QR-Codes, Dokumente, Belege …) laufen über
++  eine gemeinsame Funktion. Wo das Fenster es kann, erscheint die Ordner- und
++  Namensauswahl; sonst wird normal heruntergeladen. Mehrere Dokumente werden
++  als eine ZIP-Datei mit einem einzigen Dialog gespeichert.
++
+ ### Nachtrag 9 — Spenden: ZIP-Download und Listen-Export
+ 
+ - In der Spendenübersicht gibt es drei neue Knöpfe: **PDFs als ZIP** (alle
+diff --git a/src/components/ApplicationReviewModal.tsx b/src/components/ApplicationReviewModal.tsx
+index 0c775b2..4da88e7 100644
+--- a/src/components/ApplicationReviewModal.tsx
++++ b/src/components/ApplicationReviewModal.tsx
+@@ -31,6 +31,7 @@ import {
+   getPaymentMethodLabel,
+   getFeePeriodLabel
+ } from '../services/membershipPdfService';
++import { saveDataUrlAs, savePdfAs } from '../utils/fileExportHelper';
+ 
+ interface ApplicationReviewModalProps {
+   isOpen: boolean;
+@@ -170,14 +171,14 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
+ 
+   const handleDownloadPdf = () => {
+     if (application.pdfDataUrl) {
+-      const link = document.createElement('a');
+-      link.href = application.pdfDataUrl;
+-      link.download = `Aufnahmeantrag_${application.lastName || 'Antrag'}_${application.firstName || ''}_${application.applicationNumber || ''}.pdf`;
+-      link.click();
++      void saveDataUrlAs(
++        application.pdfDataUrl,
++        `Aufnahmeantrag_${application.lastName || 'Antrag'}_${application.firstName || ''}_${application.applicationNumber || ''}.pdf`
++      );
+       return;
+     }
+     const doc = generateMembershipApplicationPdf(application, settings);
+-    doc.save(`Aufnahmeantrag_${application.lastName || 'Antrag'}_${application.firstName || ''}_${application.applicationNumber || ''}.pdf`);
++    void savePdfAs(doc, `Aufnahmeantrag_${application.lastName || 'Antrag'}_${application.firstName || ''}_${application.applicationNumber || ''}.pdf`);
+   };
+ 
+   const addr = application.address || {
+diff --git a/src/components/ApplicationTemplateModal.tsx b/src/components/ApplicationTemplateModal.tsx
+index bae4a77..5f6992e 100644
+--- a/src/components/ApplicationTemplateModal.tsx
++++ b/src/components/ApplicationTemplateModal.tsx
+@@ -12,6 +12,7 @@ import {
+   FileUp
+ } from 'lucide-react';
+ import { ApplicationTemplateSettings, ClubSettings } from '../types';
++import { saveDataUrlAs } from '../utils/fileExportHelper';
+ 
+ interface ApplicationTemplateModalProps {
+   isOpen: boolean;
+@@ -201,6 +202,10 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
+                   <a
+                     href={customPdfDataUrl}
+                     download={customPdfFileName}
++                    onClick={e => {
++                      e.preventDefault();
++                      if (customPdfDataUrl) void saveDataUrlAs(customPdfDataUrl, customPdfFileName || 'Aufnahmeantrag_Vorlage.pdf');
++                    }}
+                     className="p-2 text-slate-600 hover:text-blue-600 bg-white rounded-lg border border-slate-200 hover:border-blue-300 transition-colors dark:text-slate-300 dark:hover:text-blue-400 dark:bg-slate-900 dark:border-slate-800 dark:hover:border-blue-700/60"
+                     title="Herunterladen"
+                   >
+diff --git a/src/components/CalendarExportModal.tsx b/src/components/CalendarExportModal.tsx
+index dd7e461..a7dfcda 100644
+--- a/src/components/CalendarExportModal.tsx
++++ b/src/components/CalendarExportModal.tsx
+@@ -13,6 +13,7 @@ import {
+   CheckSquare,
+   Square
+ } from 'lucide-react';
++import { saveBlobAs } from '../utils/fileExportHelper';
+ 
+ interface CalendarExportModalProps {
+   isOpen: boolean;
+@@ -83,7 +84,7 @@ export const CalendarExportModal: React.FC<CalendarExportModalProps> = ({
+     }
+   };
+ 
+-  const handleDownload = () => {
++  const handleDownload = async () => {
+     if (filteredEvents.length === 0) {
+       alert('Keine Termine für die ausgewählten Filterkriterien vorhanden.');
+       return;
+@@ -92,21 +93,13 @@ export const CalendarExportModal: React.FC<CalendarExportModalProps> = ({
+     if (format === 'ics') {
+       const icsContent = CalendarService.exportToIcs(filteredEvents, categories, `${clubName} Terminkalender`);
+       const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+-      const url = URL.createObjectURL(blob);
+-      const a = document.createElement('a');
+-      a.href = url;
+-      a.download = `Vereinskalender_${clubName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${todayStr}.ics`;
+-      a.click();
+-      URL.revokeObjectURL(url);
++      const ergebnis = await saveBlobAs(blob, `Vereinskalender_${clubName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${todayStr}.ics`);
++      if (ergebnis.cancelled) return;
+     } else {
+       const csvContent = CalendarService.exportToCsv(filteredEvents, categories);
+       const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+-      const url = URL.createObjectURL(blob);
+-      const a = document.createElement('a');
+-      a.href = url;
+-      a.download = `Vereinskalender_${clubName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${todayStr}.csv`;
+-      a.click();
+-      URL.revokeObjectURL(url);
++      const ergebnis = await saveBlobAs(blob, `Vereinskalender_${clubName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${todayStr}.csv`);
++      if (ergebnis.cancelled) return;
+     }
+ 
+     setIsExported(true);
+diff --git a/src/components/CalendarInviteModal.tsx b/src/components/CalendarInviteModal.tsx
+index 7a4e0ce..7afea24 100644
+--- a/src/components/CalendarInviteModal.tsx
++++ b/src/components/CalendarInviteModal.tsx
+@@ -22,6 +22,7 @@ import {
+   Clock,
+   Search
+ } from 'lucide-react';
++import { saveBlobAs } from '../utils/fileExportHelper';
+ 
+ interface CalendarInviteModalProps {
+   isOpen: boolean;
+@@ -160,12 +161,7 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
+   const handleDownloadIcs = () => {
+     const ics = CalendarService.exportSingleEventIcs({ ...event, participants }, categories);
+     const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+-    const url = URL.createObjectURL(blob);
+-    const a = document.createElement('a');
+-    a.href = url;
+-    a.download = `Einladung_${event.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.ics`;
+-    a.click();
+-    URL.revokeObjectURL(url);
++    void saveBlobAs(blob, `Einladung_${event.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.ics`);
+   };
+ 
+   const confirmedCount = participants.filter((p) => p.status === 'confirmed' || p.status === 'attended').length;
+diff --git a/src/components/CalendarView.tsx b/src/components/CalendarView.tsx
+index ef035eb..3d52329 100644
+--- a/src/components/CalendarView.tsx
++++ b/src/components/CalendarView.tsx
+@@ -41,6 +41,7 @@ import {
+   Sparkles
+ } from 'lucide-react';
+ import { LoadingState } from './LoadingState';
++import { saveBlobAs } from '../utils/fileExportHelper';
+ 
+ interface CalendarViewProps {
+   members: Member[];
+@@ -1312,12 +1313,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
+                 onClick={() => {
+                   const ics = CalendarService.exportSingleEventIcs(selectedDetailEvent, categories);
+                   const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+-                  const url = URL.createObjectURL(blob);
+-                  const a = document.createElement('a');
+-                  a.href = url;
+-                  a.download = `Termin_${selectedDetailEvent.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.ics`;
+-                  a.click();
+-                  URL.revokeObjectURL(url);
++                  void saveBlobAs(blob, `Termin_${selectedDetailEvent.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.ics`);
+                 }}
+                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+               >
+diff --git a/src/components/ContactImportModal.tsx b/src/components/ContactImportModal.tsx
+index 7e7e0c4..9e4b9af 100644
+--- a/src/components/ContactImportModal.tsx
++++ b/src/components/ContactImportModal.tsx
+@@ -12,6 +12,7 @@ import {
+   ClipboardPaste
+ } from 'lucide-react';
+ import { CONTACT_TYPES_LIST } from '../data/contactConstants';
++import { saveBlobAs } from '../utils/fileExportHelper';
+ 
+ interface ContactImportModalProps {
+   existingContacts: ClubContact[];
+@@ -184,14 +185,7 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
+ 
+   const handleDownloadTemplate = () => {
+     const blob = new Blob(['\uFEFF' + SAMPLE_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
+-    const url = URL.createObjectURL(blob);
+-    const link = document.createElement('a');
+-    link.href = url;
+-    link.download = 'kontakte_vorlage.csv';
+-    document.body.appendChild(link);
+-    link.click();
+-    document.body.removeChild(link);
+-    URL.revokeObjectURL(url);
++    void saveBlobAs(blob, 'kontakte_vorlage.csv');
+   };
+ 
+   // Build mapped contacts for preview
+diff --git a/src/components/DocumentViewerModal.tsx b/src/components/DocumentViewerModal.tsx
+index 10df916..c451e0c 100644
+--- a/src/components/DocumentViewerModal.tsx
++++ b/src/components/DocumentViewerModal.tsx
+@@ -14,6 +14,7 @@ import {
+   Receipt,
+   Info
+ } from 'lucide-react';
++import { saveDataUrlAs } from '../utils/fileExportHelper';
+ 
+ interface DocumentViewerModalProps {
+   document: ClubDocument | null;
+@@ -54,12 +55,7 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
+   };
+ 
+   const handleDownload = () => {
+-    const link = window.document.createElement('a');
+-    link.href = doc.dataUrl;
+-    link.download = doc.fileName || `${doc.title}.pdf`;
+-    window.document.body.appendChild(link);
+-    link.click();
+-    window.document.body.removeChild(link);
++    void saveDataUrlAs(doc.dataUrl, doc.fileName || `${doc.title}.pdf`);
+   };
+ 
+   const categoryInfo = CATEGORY_CONFIG[doc.category] || CATEGORY_CONFIG.sonstiges;
+diff --git a/src/components/DocumentsView.tsx b/src/components/DocumentsView.tsx
+index 1c2ff8d..1659f7b 100644
+--- a/src/components/DocumentsView.tsx
++++ b/src/components/DocumentsView.tsx
+@@ -36,6 +36,7 @@ import { TablePagination } from './TablePagination';
+ import { AuswahlLeiste } from './AuswahlLeiste';
+ import { usePagination } from '../hooks/usePagination';
+ import { ermittleSeitenStatus, wechsleSeite, waehleAlleGefilterten } from '../utils/tableSelection';
++import { saveDataUrlAs, saveDataUrlsAsZip } from '../utils/fileExportHelper';
+ 
+ interface DocumentsViewProps {
+   documents: ClubDocument[];
+@@ -299,25 +300,22 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
+   // Download Single File
+   const handleSingleDownload = (doc: ClubDocument, e?: React.MouseEvent) => {
+     if (e) e.stopPropagation();
+-    const link = document.createElement('a');
+-    link.href = doc.dataUrl;
+-    link.download = doc.fileName || `${doc.title}.pdf`;
+-    document.body.appendChild(link);
+-    link.click();
+-    document.body.removeChild(link);
++    void saveDataUrlAs(doc.dataUrl, doc.fileName || `${doc.title}.pdf`);
+   };
+ 
+   // Download Multiple Files
+   const handleBatchDownload = () => {
+     const docsToDownload = documents.filter(d => selectedIds.has(d.id));
+-    docsToDownload.forEach(doc => {
+-      const link = document.createElement('a');
+-      link.href = doc.dataUrl;
+-      link.download = doc.fileName || `${doc.title}.pdf`;
+-      document.body.appendChild(link);
+-      link.click();
+-      document.body.removeChild(link);
+-    });
++    if (docsToDownload.length === 0) return;
++    if (docsToDownload.length === 1) {
++      void saveDataUrlAs(docsToDownload[0].dataUrl, docsToDownload[0].fileName || `${docsToDownload[0].title}.pdf`);
++      return;
++    }
++    // Mehrere Dateien: eine ZIP-Datei mit einem einzigen Speichern-Dialog.
++    void saveDataUrlsAsZip(
++      docsToDownload.map(d => ({ dataUrl: d.dataUrl, name: d.fileName || `${d.title}.pdf` })),
++      `Dokumente_${docsToDownload.length}_Stueck.zip`
++    );
+   };
+ 
+   // Format File Size
+diff --git a/src/components/DonationFormModal.tsx b/src/components/DonationFormModal.tsx
+index a471731..e4f387e 100644
+--- a/src/components/DonationFormModal.tsx
++++ b/src/components/DonationFormModal.tsx
+@@ -6,7 +6,12 @@ import {
+   FinancialAccount,
+   ClubSettings
+ } from '../types';
+-import { numberToGermanWords, downloadDonationReceiptPdf } from '../services/donationService';
++import {
++  numberToGermanWords,
++  downloadDonationReceiptPdf,
++  fehlendeSteuerangaben,
++  standardOrtUndDatum
++} from '../services/donationService';
+ import {
+   X,
+   HeartHandshake,
+@@ -18,7 +23,9 @@ import {
+   ChevronDown,
+   ChevronUp,
+   Download,
+-  Wallet
++  Wallet,
++  AlertCircle,
++  RefreshCw
+ } from 'lucide-react';
+ 
+ interface DonationFormModalProps {
+@@ -71,13 +78,14 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
+ 
+   // Tax Exemption Details
+   const [showTaxDetails, setShowTaxDetails] = useState(false);
+-  const [taxOffice, setTaxOffice] = useState(settings.taxOffice || 'Finanzamt Musterstadt');
+-  const [taxNumber, setTaxNumber] = useState(settings.taxNumber || '112/5840/1922');
+-  const [exemptionDate, setExemptionDate] = useState(settings.taxExemptionDate || '10.01.2024');
+-  const [assessmentPeriod, setAssessmentPeriod] = useState(settings.taxAssessmentPeriod || '2021 bis 2023');
+-  const [promotedPurpose, setPromotedPurpose] = useState(settings.promotedPurposes || 'Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)');
++  const [taxOffice, setTaxOffice] = useState(settings.taxOffice || '');
++  const [taxNumber, setTaxNumber] = useState(settings.taxNumber || '');
++  const [exemptionDate, setExemptionDate] = useState(settings.taxExemptionDate || '');
++  const [statementDate, setStatementDate] = useState(settings.taxStatementDate || '');
++  const [assessmentPeriod, setAssessmentPeriod] = useState(settings.taxAssessmentPeriod || '');
++  const [promotedPurpose, setPromotedPurpose] = useState(settings.promotedPurposes || '');
+   const [issuedBy, setIssuedBy] = useState(`${settings.treasurer || 'Schatzmeister'} (Vorstand)`);
+-  const [cityAndDate, setCityAndDate] = useState(`Musterstadt, ${new Date().toLocaleDateString('de-DE')}`);
++  const [cityAndDate, setCityAndDate] = useState(standardOrtUndDatum(settings));
+   const [notes, setNotes] = useState('');
+ 
+   // Automated Integration Options
+@@ -106,9 +114,10 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
+       setGoodsDescription(editingReceipt.goodsDescription || '');
+       setGoodsOrigin(editingReceipt.goodsOrigin || 'private');
+       setGoodsValuationBasis(editingReceipt.goodsValuationBasis || '');
+-      setTaxOffice(editingReceipt.taxOffice || settings.taxOffice || 'Finanzamt Musterstadt');
++      setTaxOffice(editingReceipt.taxOffice || settings.taxOffice || '');
+       setTaxNumber(editingReceipt.taxNumber || settings.taxNumber || '');
+       setExemptionDate(editingReceipt.exemptionDate || settings.taxExemptionDate || '');
++      setStatementDate(editingReceipt.statementDate || settings.taxStatementDate || '');
+       setAssessmentPeriod(editingReceipt.assessmentPeriod || settings.taxAssessmentPeriod || '');
+       setPromotedPurpose(editingReceipt.promotedPurpose || settings.promotedPurposes || '');
+       setIssuedBy(editingReceipt.issuedBy || '');
+@@ -145,13 +154,14 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
+       setGoodsDescription('');
+       setGoodsOrigin('private');
+       setGoodsValuationBasis('Kaufbeleg / Rechnung liegt vor');
+-      setTaxOffice(settings.taxOffice || 'Finanzamt Musterstadt');
+-      setTaxNumber(settings.taxNumber || '112/5840/1922');
+-      setExemptionDate(settings.taxExemptionDate || '10.01.2024');
+-      setAssessmentPeriod(settings.taxAssessmentPeriod || '2021 bis 2023');
+-      setPromotedPurpose(settings.promotedPurposes || 'Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)');
++      setTaxOffice(settings.taxOffice || '');
++      setTaxNumber(settings.taxNumber || '');
++      setExemptionDate(settings.taxExemptionDate || '');
++      setStatementDate(settings.taxStatementDate || '');
++      setAssessmentPeriod(settings.taxAssessmentPeriod || '');
++      setPromotedPurpose(settings.promotedPurposes || '');
+       setIssuedBy(`${settings.treasurer || 'Schatzmeister'} (Vorstand)`);
+-      setCityAndDate(`Musterstadt, ${new Date().toLocaleDateString('de-DE')}`);
++      setCityAndDate(standardOrtUndDatum(settings));
+       setNotes('');
+       setAutoArchiveDoc(true);
+       setAutoCreateTx(true);
+@@ -224,6 +234,7 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
+       taxOffice: taxOffice.trim(),
+       taxNumber: taxNumber.trim(),
+       exemptionDate: exemptionDate.trim(),
++      statementDate: statementDate.trim(),
+       assessmentPeriod: assessmentPeriod.trim(),
+       promotedPurpose: promotedPurpose.trim(),
+       isDirectlyPromoted: true,
+@@ -276,6 +287,7 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
+       taxOffice,
+       taxNumber,
+       exemptionDate,
++      statementDate,
+       assessmentPeriod,
+       promotedPurpose,
+       isDirectlyPromoted: true,
+@@ -287,6 +299,20 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
+     downloadDonationReceiptPdf(tempReceipt, settings);
+   };
+ 
++  // Die Steuerangaben kommen immer aus den Vereinsstammdaten. Bei einer schon
++  // gespeicherten Bescheinigung bleiben die damals gespeicherten Werte stehen
++  // (sie belegen, was bei der Ausstellung galt); mit diesem Knopf können sie
++  // bewusst auf den aktuellen Stand der Stammdaten gesetzt werden.
++  const fehlendeAngaben = fehlendeSteuerangaben(settings);
++  const handleTaxFromSettings = () => {
++    setTaxOffice(settings.taxOffice || '');
++    setTaxNumber(settings.taxNumber || '');
++    setExemptionDate(settings.taxExemptionDate || '');
++    setStatementDate(settings.taxStatementDate || '');
++    setAssessmentPeriod(settings.taxAssessmentPeriod || '');
++    setPromotedPurpose(settings.promotedPurposes || '');
++  };
++
+   if (!isOpen) return null;
+ 
+   return (
+@@ -673,6 +699,16 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
+             )}
+           </div>
+ 
++          {fehlendeAngaben.length > 0 && (
++            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-200">
++              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
++              <span>
++                In den Vereinsstammdaten fehlen Angaben für den Vordruck: <strong>{fehlendeAngaben.join(', ')}</strong>.
++                Bitte unter Einstellungen → Vereinsstammdaten → Steuerliche Angaben ergänzen, sonst bleiben die Felder auf der Bescheinigung leer.
++              </span>
++            </div>
++          )}
++
+           {/* 7. Collapsible: Freistellungsbescheid & Finanzamtsdaten */}
+           <div className="border border-slate-200 rounded-xl overflow-hidden dark:border-slate-800">
+             <button
+@@ -689,14 +725,28 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
+ 
+             {showTaxDetails && (
+               <div className="p-4 bg-white space-y-3 border-t border-slate-200 dark:bg-slate-900 dark:border-slate-800">
++                <div className="flex flex-wrap items-center justify-between gap-2 text-2xs text-slate-500 dark:text-slate-400">
++                  <span>Diese Angaben werden aus den Vereinsstammdaten übernommen und hier nicht geändert.</span>
++                  {editingReceipt && (
++                    <button
++                      type="button"
++                      onClick={handleTaxFromSettings}
++                      className="inline-flex items-center gap-1 px-2 py-1 border border-slate-200 rounded-lg font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
++                      title="Die gespeicherten Steuerangaben dieser Bescheinigung durch den aktuellen Stand der Vereinsstammdaten ersetzen"
++                    >
++                      <RefreshCw className="w-3 h-3" />
++                      <span>Auf aktuellen Stand der Stammdaten setzen</span>
++                    </button>
++                  )}
++                </div>
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                   <div>
+                     <label className="block font-medium text-slate-600 mb-1 dark:text-slate-300">Zuständiges Finanzamt</label>
+                     <input
+                       type="text"
+                       value={taxOffice}
+-                      onChange={e => setTaxOffice(e.target.value)}
+-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800"
++                      readOnly
++                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800 text-slate-500 cursor-not-allowed dark:text-slate-400"
+                     />
+                   </div>
+                   <div>
+@@ -704,8 +754,8 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
+                     <input
+                       type="text"
+                       value={taxNumber}
+-                      onChange={e => setTaxNumber(e.target.value)}
+-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800"
++                      readOnly
++                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800 text-slate-500 cursor-not-allowed dark:text-slate-400"
+                     />
+                   </div>
+                 </div>
+@@ -716,8 +766,8 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
+                     <input
+                       type="text"
+                       value={exemptionDate}
+-                      onChange={e => setExemptionDate(e.target.value)}
+-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800"
++                      readOnly
++                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800 text-slate-500 cursor-not-allowed dark:text-slate-400"
+                     />
+                   </div>
+                   <div>
+@@ -725,19 +775,29 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
+                     <input
+                       type="text"
+                       value={assessmentPeriod}
+-                      onChange={e => setAssessmentPeriod(e.target.value)}
+-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800"
++                      readOnly
++                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800 text-slate-500 cursor-not-allowed dark:text-slate-400"
+                     />
+                   </div>
+                 </div>
+ 
++                <div>
++                  <label className="block font-medium text-slate-600 mb-1 dark:text-slate-300">Datum Feststellungsbescheid (§ 60a AO)</label>
++                  <input
++                    type="text"
++                    value={statementDate}
++                    readOnly
++                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800 text-slate-500 cursor-not-allowed dark:text-slate-400"
++                  />
++                </div>
++
+                 <div>
+                   <label className="block font-medium text-slate-600 mb-1 dark:text-slate-300">Geförderter gemeinnütziger Zweck</label>
+                   <input
+                     type="text"
+                     value={promotedPurpose}
+-                    onChange={e => setPromotedPurpose(e.target.value)}
+-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800"
++                    readOnly
++                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800 text-slate-500 cursor-not-allowed dark:text-slate-400"
+                   />
+                 </div>
+ 
+diff --git a/src/components/InventoryView.tsx b/src/components/InventoryView.tsx
+index a5a1c12..e4ac74e 100644
+--- a/src/components/InventoryView.tsx
++++ b/src/components/InventoryView.tsx
+@@ -40,6 +40,7 @@ import {
+   FileDown,
+   X
+ } from 'lucide-react';
++import { saveBlobAs } from '../utils/fileExportHelper';
+ 
+ type InventorySortField =
+   | 'name'
+@@ -582,13 +583,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
+ 
+     const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\r\n');
+     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+-    const url = URL.createObjectURL(blob);
+-    const link = document.createElement('a');
+-    link.setAttribute('href', url);
+-    link.setAttribute('download', `Inventarliste_${settings.clubName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+-    document.body.appendChild(link);
+-    link.click();
+-    document.body.removeChild(link);
++    void saveBlobAs(blob, `Inventarliste_${settings.clubName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+   };
+ 
+   // Selected items objects
+diff --git a/src/components/InvoicesView.tsx b/src/components/InvoicesView.tsx
+index cb6958e..8f8bda1 100644
+--- a/src/components/InvoicesView.tsx
++++ b/src/components/InvoicesView.tsx
+@@ -32,6 +32,7 @@ import { TablePagination } from './TablePagination';
+ import { AuswahlLeiste } from './AuswahlLeiste';
+ import { usePagination } from '../hooks/usePagination';
+ import { ermittleSeitenStatus, wechsleSeite, waehleAlleGefilterten } from '../utils/tableSelection';
++import { saveBlobAs, savePdfAs } from '../utils/fileExportHelper';
+ 
+ type InvoiceSortField =
+   | 'status'
+@@ -633,13 +634,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
+ 
+     const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\r\n');
+     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+-    const url = URL.createObjectURL(blob);
+-    const link = document.createElement('a');
+-    link.href = url;
+-    link.setAttribute('download', `rechnungen_${new Date().toISOString().split('T')[0]}.csv`);
+-    document.body.appendChild(link);
+-    link.click();
+-    document.body.removeChild(link);
++    void saveBlobAs(blob, `rechnungen_${new Date().toISOString().split('T')[0]}.csv`);
+   };
+ 
+   // Status Badge Helper
+@@ -1291,7 +1286,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
+                             onClick={async () => {
+                               try {
+                                 const pdf = await generateInvoicePdf(inv, clubSettings, templateSettings);
+-                                pdf.save(`Rechnung_${inv.invoiceNumber}_${inv.recipientName.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`);
++                                void savePdfAs(pdf, `Rechnung_${inv.invoiceNumber}_${inv.recipientName.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`);
+                               } catch (err) {
+                                 console.error('Failed to export PDF:', err);
+                               }
+diff --git a/src/components/MeetingEmailModal.tsx b/src/components/MeetingEmailModal.tsx
+index 5fb646f..e0f134f 100644
+--- a/src/components/MeetingEmailModal.tsx
++++ b/src/components/MeetingEmailModal.tsx
+@@ -12,6 +12,7 @@ import {
+ } from 'lucide-react';
+ import { Meeting, Member, ClubSettings, MeetingTemplateSettings } from '../types';
+ import { MeetingPdfService } from '../services/meetingPdfService';
++import { savePdfAs } from '../utils/fileExportHelper';
+ 
+ interface MeetingEmailModalProps {
+   isOpen: boolean;
+@@ -211,7 +212,7 @@ ${clubName}`
+       }
+       const prefix = isInvitation ? 'Einladung' : 'Protokoll';
+       const safeTitle = (meeting.title || 'Sitzung').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_');
+-      doc.save(`${prefix}_${safeTitle}.pdf`);
++      void savePdfAs(doc, `${prefix}_${safeTitle}.pdf`);
+     } catch (err) {
+       console.error('Failed to download PDF:', err);
+     }
+diff --git a/src/components/MeetingFormModal.tsx b/src/components/MeetingFormModal.tsx
+index 2ea329a..248edfd 100644
+--- a/src/components/MeetingFormModal.tsx
++++ b/src/components/MeetingFormModal.tsx
+@@ -27,6 +27,7 @@ import {
+ } from '../types';
+ import { MeetingPdfService } from '../services/meetingPdfService';
+ import { DEFAULT_MEETING_TEMPLATE } from '../data/initialMeetings';
++import { savePdfAs } from '../utils/fileExportHelper';
+ 
+ interface MeetingFormModalProps {
+   isOpen: boolean;
+@@ -135,7 +136,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
+         clubSettings || ({ clubName: 'Sportverein Musterstadt e.V.' } as any),
+         templateSettings || DEFAULT_MEETING_TEMPLATE
+       );
+-      doc.save(`Einladung_${date}_${(title || 'Versammlung').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
++      void savePdfAs(doc, `Einladung_${date}_${(title || 'Versammlung').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
+     } catch (err) {
+       console.error('Failed to generate invitation PDF:', err);
+       alert('Fehler beim Erzeugen des Einladungs-PDFs.');
+diff --git a/src/components/MeetingSignatureModal.tsx b/src/components/MeetingSignatureModal.tsx
+index 2d11316..8f5e277 100644
+--- a/src/components/MeetingSignatureModal.tsx
++++ b/src/components/MeetingSignatureModal.tsx
+@@ -15,6 +15,7 @@ import {
+ } from 'lucide-react';
+ import { Meeting, MeetingDigitalSignature, ClubSettings, MeetingTemplateSettings } from '../types';
+ import { MeetingPdfService } from '../services/meetingPdfService';
++import { savePdfAs } from '../utils/fileExportHelper';
+ 
+ interface MeetingSignatureModalProps {
+   isOpen: boolean;
+@@ -262,7 +263,7 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
+       );
+       const safeTitle = (meeting.title || 'Protokoll').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_');
+       const suffix = withDigitalSignatures ? 'digital_signiert' : 'blanko_ausdruck';
+-      doc.save(`Protokoll_${safeTitle}_${suffix}.pdf`);
++      void savePdfAs(doc, `Protokoll_${safeTitle}_${suffix}.pdf`);
+     } catch (err) {
+       console.error('Failed to export protocol PDF:', err);
+     } finally {
+diff --git a/src/components/MeetingsView.tsx b/src/components/MeetingsView.tsx
+index 278aa92..50e65eb 100644
+--- a/src/components/MeetingsView.tsx
++++ b/src/components/MeetingsView.tsx
+@@ -34,6 +34,7 @@ import { MeetingFormModal } from './MeetingFormModal';
+ import { MeetingTemplateModal } from './MeetingTemplateModal';
+ import { MeetingSignatureModal } from './MeetingSignatureModal';
+ import { MeetingEmailModal } from './MeetingEmailModal';
++import { savePdfAs } from '../utils/fileExportHelper';
+ 
+ interface MeetingsViewProps {
+   meetings: Meeting[];
+@@ -204,12 +205,12 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
+         doc = await MeetingPdfService.generateRegisterExtractPdf(m, clubSettings, templateSettings, {
+           includeDigitalSignatures: withDigitalSignatures
+         });
+-        doc.save(`Registerauszug_${m.date}_${safeTitle}_${suffix}.pdf`);
++        void savePdfAs(doc, `Registerauszug_${m.date}_${safeTitle}_${suffix}.pdf`);
+       } else {
+         doc = await MeetingPdfService.generateProtocolPdf(m, clubSettings, templateSettings, {
+           includeDigitalSignatures: withDigitalSignatures
+         });
+-        doc.save(`Protokoll_${m.date}_${safeTitle}_${suffix}.pdf`);
++        void savePdfAs(doc, `Protokoll_${m.date}_${safeTitle}_${suffix}.pdf`);
+       }
+     } catch (err) {
+       console.error('Failed to generate meeting PDF:', err);
+@@ -239,7 +240,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
+         clubSettings,
+         templateSettings
+       );
+-      doc.save(`Einladung_${m.date}_${m.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
++      void savePdfAs(doc, `Einladung_${m.date}_${m.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
+     } catch (err) {
+       console.error('Failed to generate invitation PDF:', err);
+       alert('Fehler beim Erzeugen des Einladungs-PDFs.');
+diff --git a/src/components/MemberFormModal.tsx b/src/components/MemberFormModal.tsx
+index 1a58c49..e3b15fe 100644
+--- a/src/components/MemberFormModal.tsx
++++ b/src/components/MemberFormModal.tsx
+@@ -33,6 +33,7 @@ import {
+   Download,
+   Gift
+ } from 'lucide-react';
++import { saveDataUrlAs } from '../utils/fileExportHelper';
+ 
+ interface MemberFormModalProps {
+   member: Member | null;
+@@ -1363,7 +1364,11 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
+                                 target="_blank"
+                                 rel="noreferrer"
+                                 className="text-blue-600 hover:text-blue-800 font-medium text-[11px] flex items-center gap-1 ml-2 shrink-0 dark:text-blue-400 dark:hover:text-blue-200"
+-                                onClick={e => e.stopPropagation()}
++                                onClick={e => {
++                                  e.stopPropagation();
++                                  e.preventDefault();
++                                  void saveDataUrlAs(doc.dataUrl, doc.fileName || 'Dokument');
++                                }}
+                               >
+                                 <Download className="w-3 h-3" />
+                                 Download
+diff --git a/src/components/MemberImportModal.tsx b/src/components/MemberImportModal.tsx
+index 8233fc1..1451dbf 100644
+--- a/src/components/MemberImportModal.tsx
++++ b/src/components/MemberImportModal.tsx
+@@ -23,6 +23,7 @@ import {
+   FileText,
+   ClipboardPaste
+ } from 'lucide-react';
++import { saveBlobAs } from '../utils/fileExportHelper';
+ 
+ interface MemberImportModalProps {
+   existingMembers: Member[];
+@@ -105,13 +106,7 @@ export const MemberImportModal: FC<MemberImportModalProps> = ({
+   const handleDownloadSample = () => {
+     const sampleCSV = generateSampleCSVTemplate(settings);
+     const blob = new Blob([sampleCSV], { type: 'text/csv;charset=utf-8;' });
+-    const url = URL.createObjectURL(blob);
+-    const link = document.createElement('a');
+-    link.setAttribute('href', url);
+-    link.setAttribute('download', `mitglieder_vorlage_google_sheets_${settings.clubName.replace(/\s+/g, '_')}.csv`);
+-    document.body.appendChild(link);
+-    link.click();
+-    document.body.removeChild(link);
++    void saveBlobAs(blob, `mitglieder_vorlage_google_sheets_${settings.clubName.replace(/\s+/g, '_')}.csv`);
+   };
+ 
+   // Convert to preview rows when moving to step 3
+diff --git a/src/components/OnlineApplicationsView.tsx b/src/components/OnlineApplicationsView.tsx
+index e037dc5..1b8495a 100644
+--- a/src/components/OnlineApplicationsView.tsx
++++ b/src/components/OnlineApplicationsView.tsx
+@@ -21,6 +21,7 @@ import { ApplicationReviewModal } from './ApplicationReviewModal';
+ import { ApplicationTemplateModal } from './ApplicationTemplateModal';
+ import { PublicApplicationForm } from './PublicApplicationForm';
+ import { generateMembershipApplicationPdf } from '../services/membershipPdfService';
++import { savePdfAs } from '../utils/fileExportHelper';
+ 
+ interface OnlineApplicationsViewProps {
+   applications: OnlineMembershipApplication[];
+@@ -97,7 +98,7 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
+   const handleDownloadPdf = (app: OnlineMembershipApplication, e: React.MouseEvent) => {
+     e.stopPropagation();
+     const doc = generateMembershipApplicationPdf(app, settings);
+-    doc.save(`Aufnahmeantrag_${app.lastName}_${app.firstName}_${app.applicationNumber}.pdf`);
++    void savePdfAs(doc, `Aufnahmeantrag_${app.lastName}_${app.firstName}_${app.applicationNumber}.pdf`);
+   };
+ 
+   // Delete with confirm
+diff --git a/src/components/PublicApplicationForm.tsx b/src/components/PublicApplicationForm.tsx
+index 20bc6d8..38c30c9 100644
+--- a/src/components/PublicApplicationForm.tsx
++++ b/src/components/PublicApplicationForm.tsx
+@@ -33,6 +33,7 @@ import {
+   getMembershipTypeLabel,
+   getFeePeriodLabel
+ } from '../services/membershipPdfService';
++import { savePdfAs } from '../utils/fileExportHelper';
+ 
+ /**
+  * Übersetzt einen Fehler beim Absenden in einen Satz, den ein Interessent
+@@ -367,7 +368,7 @@ export const PublicApplicationForm: React.FC<PublicApplicationFormProps> = ({
+   const handleDownloadPdf = () => {
+     if (!submittedApp) return;
+     const doc = generateMembershipApplicationPdf(submittedApp, settings);
+-    doc.save(`Aufnahmeantrag_${submittedApp.lastName}_${submittedApp.firstName}_${submittedApp.applicationNumber}.pdf`);
++    void savePdfAs(doc, `Aufnahmeantrag_${submittedApp.lastName}_${submittedApp.firstName}_${submittedApp.applicationNumber}.pdf`);
+   };
+ 
+   return (
+diff --git a/src/components/ReceiptViewerModal.tsx b/src/components/ReceiptViewerModal.tsx
+index 3513763..ed7f36c 100644
+--- a/src/components/ReceiptViewerModal.tsx
++++ b/src/components/ReceiptViewerModal.tsx
+@@ -1,6 +1,7 @@
+ import React from 'react';
+ import { ReceiptAttachment } from '../types';
+ import { X, Download, FileText, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
++import { saveDataUrlAs } from '../utils/fileExportHelper';
+ 
+ interface ReceiptViewerModalProps {
+   receipt: ReceiptAttachment | null;
+@@ -23,12 +24,7 @@ export const ReceiptViewerModal: React.FC<ReceiptViewerModalProps> = ({
+   const isPdf = receipt.type === 'application/pdf' || receipt.dataUrl.startsWith('data:application/pdf');
+ 
+   const handleDownload = () => {
+-    const link = document.createElement('a');
+-    link.href = receipt.dataUrl;
+-    link.download = receipt.name || `Beleg_${documentNumber}.pdf`;
+-    document.body.appendChild(link);
+-    link.click();
+-    document.body.removeChild(link);
++    void saveDataUrlAs(receipt.dataUrl, receipt.name || `Beleg_${documentNumber}.pdf`);
+   };
+ 
+   return (
+diff --git a/src/components/SettingsView.tsx b/src/components/SettingsView.tsx
+index dea5477..7e6bba9 100644
+--- a/src/components/SettingsView.tsx
++++ b/src/components/SettingsView.tsx
+@@ -11,7 +11,8 @@ import { BackupPasswordDialog } from './BackupPasswordDialog';
+ import { istVerschluesselt, verschluessleSicherung, entschluessleSicherung } from '../services/backupCrypto';
+ import { BereichsVergleich, ImportArt, SicherungsKopf } from '../services/backupContents';
+ import { openExternalUrl } from '../utils/externalLink';
+-import { saveBlobWithLocationPicker } from '../utils/fileExportHelper';
++import { saveBlobWithLocationPicker, saveDataUrlAs } from '../utils/fileExportHelper';
++
+ import QRCode from 'qrcode';
+ import {
+   Settings,
+@@ -2076,6 +2077,48 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
+                 placeholder="z.B. 15.03.2024"
+               />
+             </div>
++
++            <div>
++              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
++                Veranlagungszeitraum (laut Freistellungsbescheid)
++              </label>
++              <input
++                type="text"
++                value={formData.taxAssessmentPeriod || ''}
++                onChange={e => setFormData({ ...formData, taxAssessmentPeriod: e.target.value })}
++                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
++                placeholder="z.B. 2022 - 2024"
++              />
++            </div>
++
++            <div>
++              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
++                Datum Feststellungsbescheid (§ 60a AO)
++              </label>
++              <input
++                type="text"
++                value={formData.taxStatementDate || ''}
++                onChange={e => setFormData({ ...formData, taxStatementDate: e.target.value })}
++                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
++                placeholder="z.B. 15.03.2024"
++              />
++            </div>
++
++            <div className="md:col-span-2">
++              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
++                Steuerbegünstigte Zwecke (laut Satzung / Bescheid)
++              </label>
++              <input
++                type="text"
++                value={formData.promotedPurposes || ''}
++                onChange={e => setFormData({ ...formData, promotedPurposes: e.target.value })}
++                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
++                placeholder="z.B. Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)"
++              />
++              <p className="text-2xs text-slate-500 dark:text-slate-400 mt-1">
++                Diese Angaben stehen auf allen Zuwendungsbestätigungen. Ändern sie sich (neuer Freistellungsbescheid), gelten sie automatisch für alle neu erstellten Bescheinigungen. Bereits ausgestellte behalten ihre damaligen Angaben.
++              </p>
++            </div>
+             </div>
+           </div>
+ 
+@@ -2653,6 +2696,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
+                 <a
+                   href={projectSupportQrUrl ?? undefined}
+                   download="liberapay-qr-code.png"
++                  onClick={e => {
++                    e.preventDefault();
++                    if (projectSupportQrUrl) void saveDataUrlAs(projectSupportQrUrl, 'liberapay-qr-code.png');
++                  }}
+                   className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center cursor-pointer"
+                   title="QR-Code herunterladen"
+                 >
+@@ -3229,6 +3276,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
+               <a
+                 href={projectSupportQrUrl ?? undefined}
+                 download="liberapay-qr-code.png"
++                  onClick={e => {
++                    e.preventDefault();
++                    if (projectSupportQrUrl) void saveDataUrlAs(projectSupportQrUrl, 'liberapay-qr-code.png');
++                  }}
+                 className="py-3 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer"
+               >
+                 <Download className="w-4 h-4" />
+diff --git a/src/components/TransactionDetailsModal.tsx b/src/components/TransactionDetailsModal.tsx
+index d536ef7..af95101 100644
+--- a/src/components/TransactionDetailsModal.tsx
++++ b/src/components/TransactionDetailsModal.tsx
+@@ -29,6 +29,7 @@ import {
+   AlertCircle,
+   Split
+ } from 'lucide-react';
++import { saveDataUrlAs } from '../utils/fileExportHelper';
+ 
+ interface TransactionDetailsModalProps {
+   isOpen: boolean;
+@@ -86,12 +87,7 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
+ 
+   const handleDownloadReceipt = () => {
+     if (!transaction.receipt) return;
+-    const link = document.createElement('a');
+-    link.href = transaction.receipt.dataUrl;
+-    link.download = transaction.receipt.name || `Beleg_${transaction.documentNumber}.pdf`;
+-    document.body.appendChild(link);
+-    link.click();
+-    document.body.removeChild(link);
++    void saveDataUrlAs(transaction.receipt.dataUrl, transaction.receipt.name || `Beleg_${transaction.documentNumber}.pdf`);
+   };
+ 
+   const handleDelete = () => {
+diff --git a/src/components/TransactionImportModal.tsx b/src/components/TransactionImportModal.tsx
+index aaa29a3..bc16311 100644
+--- a/src/components/TransactionImportModal.tsx
++++ b/src/components/TransactionImportModal.tsx
+@@ -28,6 +28,7 @@ import {
+   Scale,
+   Info
+ } from 'lucide-react';
++import { saveBlobAs } from '../utils/fileExportHelper';
+ 
+ interface TransactionImportModalProps {
+   existingTransactions: Transaction[];
+@@ -120,13 +121,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
+   const handleDownloadSample = () => {
+     const sampleCSV = generateSampleTransactionCSVTemplate(settings, accounts);
+     const blob = new Blob([sampleCSV], { type: 'text/csv;charset=utf-8;' });
+-    const url = URL.createObjectURL(blob);
+-    const link = document.createElement('a');
+-    link.setAttribute('href', url);
+-    link.setAttribute('download', `buchungen_vorlage_skr42_${settings.clubName.replace(/\s+/g, '_')}.csv`);
+-    document.body.appendChild(link);
+-    link.click();
+-    document.body.removeChild(link);
++    void saveBlobAs(blob, `buchungen_vorlage_skr42_${settings.clubName.replace(/\s+/g, '_')}.csv`);
+   };
+ 
+   // Convert to preview rows when moving to step 3
+diff --git a/src/services/donationExport.ts b/src/services/donationExport.ts
+index 0f829f7..a04989e 100644
+--- a/src/services/donationExport.ts
++++ b/src/services/donationExport.ts
+@@ -111,7 +111,11 @@ export function baueSpendenXlsx(receipts: DonationReceipt[]): Uint8Array {
+   const rows: XlsxCell[][] = baueSpendenTabelle(receipts).map(row =>
+     row.map((v, i): XlsxCell => {
+       if (i === COL_MONEY) return { t: 'money', v: Number(v) };
+-      if (COL_DATES.includes(i)) return v ? { t: 'date', v: String(v) } : null;
++      if (COL_DATES.includes(i)) {
++        // Das Freistellungsdatum ist in den Stammdaten Freitext (z. B. „24.07.2025“): nur echte Daten als Datum, sonst als Text.
++        if (/^\d{4}-\d{2}-\d{2}$/.test(String(v))) return { t: 'date', v: String(v) };
++        return v ? { t: 'text', v: String(v) } : null;
++      }
+       return { t: 'text', v: String(v) };
+     })
+   );
+diff --git a/src/services/donationService.test.ts b/src/services/donationService.test.ts
+new file mode 100644
+index 0000000..e1898d4
+--- /dev/null
++++ b/src/services/donationService.test.ts
+@@ -0,0 +1,111 @@
++import { describe, it, expect } from 'vitest';
++import {
++  adresszeilen,
++  ermittleSteuerangaben,
++  fehlendeSteuerangaben,
++  standardOrtUndDatum,
++  vereinsOrt
++} from './donationService';
++import { dateiEndung } from '../utils/fileExportHelper';
++import { ClubSettings, DonationReceipt } from '../types';
++
++const stammdaten = {
++  clubName: 'Strelitzer FC e.V.',
++  address: { street: 'Gottfried-Keller-Straße', houseNumber: '1', zip: '17235', city: 'Neustrelitz', country: 'Deutschland' },
++  taxNumber: '075/142/03436',
++  taxOffice: 'Waren (Müritz)',
++  taxExemptionDate: '24.07.2025',
++  taxStatementDate: '24.07.2025',
++  taxAssessmentPeriod: '2022 - 2024',
++  promotedPurposes: 'Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)'
++} as unknown as ClubSettings;
++
++function beleg(teil: Partial<DonationReceipt> = {}): DonationReceipt {
++  return {
++    id: 'a', receiptNumber: 'ZB-1', type: 'money', date: '2025-07-25', donorType: 'external', donorName: 'X',
++    donorAddress: { street: '', houseNumber: '', zip: '', city: '', country: 'Deutschland' },
++    amount: 1, amountInWords: 'ein Euro', isWaiverOfRefund: false,
++    taxOffice: '', taxNumber: '', exemptionDate: '', assessmentPeriod: '', promotedPurpose: '',
++    isDirectlyPromoted: true, issuedBy: '', cityAndDate: '', createdAt: '', updatedAt: '',
++    ...teil
++  };
++}
++
++describe('Steuerangaben für den Vordruck', () => {
++  it('kommen aus den Vereinsstammdaten, wenn die Bescheinigung nichts Eigenes hat', () => {
++    const a = ermittleSteuerangaben(beleg(), stammdaten);
++    expect(a.finanzamt).toBe('Waren (Müritz)');
++    expect(a.steuernummer).toBe('075/142/03436');
++    expect(a.freistellungsDatum).toBe('24.07.2025');
++    expect(a.feststellungsDatum).toBe('24.07.2025');
++    expect(a.veranlagungszeitraum).toBe('2022 - 2024');
++  });
++
++  it('ändern sich mit den Stammdaten (neuer Freistellungsbescheid)', () => {
++    const neu = { ...stammdaten, taxExemptionDate: '15.03.2027', taxAssessmentPeriod: '2024 - 2026' } as ClubSettings;
++    const a = ermittleSteuerangaben(beleg(), neu);
++    expect(a.freistellungsDatum).toBe('15.03.2027');
++    expect(a.veranlagungszeitraum).toBe('2024 - 2026');
++  });
++
++  it('eine bereits ausgestellte Bescheinigung behält ihre gespeicherten Angaben', () => {
++    const a = ermittleSteuerangaben(beleg({ exemptionDate: '2023-02-01', assessmentPeriod: '2020 - 2022' }), stammdaten);
++    expect(a.freistellungsDatum).toBe('01.02.2023');
++    expect(a.veranlagungszeitraum).toBe('2020 - 2022');
++  });
++
++  it('erfindet nichts: fehlt es in den Stammdaten, bleibt es leer', () => {
++    const leer = { clubName: 'V', address: '' } as unknown as ClubSettings;
++    const a = ermittleSteuerangaben(beleg(), leer);
++    expect(a).toEqual({
++      finanzamt: '', steuernummer: '', freistellungsDatum: '', veranlagungszeitraum: '',
++      feststellungsDatum: '', zweckMitVerweis: '', zweckKurz: '', zweckSatzung: ''
++    });
++  });
++
++  it('zerlegt den Zweck für die drei Stellen des Vordrucks', () => {
++    const a = ermittleSteuerangaben(beleg(), stammdaten);
++    expect(a.zweckMitVerweis).toBe('des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)');
++    expect(a.zweckKurz).toBe('des Sports');
++    expect(a.zweckSatzung).toBe('Förderung des Sports');
++  });
++
++  it('meldet fehlende Stammdaten', () => {
++    expect(fehlendeSteuerangaben(stammdaten)).toEqual([]);
++    const luecke = { ...stammdaten, taxNumber: '', taxExemptionDate: '', taxStatementDate: '', promotedPurposes: ' ' } as ClubSettings;
++    expect(fehlendeSteuerangaben(luecke)).toEqual([
++      'Steuernummer',
++      'Datum Freistellungs- oder Feststellungsbescheid',
++      'Steuerbegünstigte Zwecke'
++    ]);
++  });
++});
++
++describe('Ort und Adresse', () => {
++  it('liest den Ort aus Objekt und Freitext', () => {
++    expect(vereinsOrt(stammdaten.address)).toBe('Neustrelitz');
++    expect(vereinsOrt('Gottfried-Keller-Straße 1, 17235 Neustrelitz')).toBe('Neustrelitz');
++    expect(vereinsOrt('irgendwo')).toBe('');
++    expect(vereinsOrt(undefined)).toBe('');
++  });
++
++  it('bildet „Ort, Datum“ ohne Platzhalter', () => {
++    const d = new Date(2025, 6, 28);
++    expect(standardOrtUndDatum(stammdaten, d)).toBe('Neustrelitz, 28.07.2025');
++    expect(standardOrtUndDatum({ ...stammdaten, address: '' } as ClubSettings, d)).toBe('28.07.2025');
++  });
++
++  it('teilt die Vereinsadresse in Zeilen', () => {
++    expect(adresszeilen(stammdaten.address)).toEqual(['Gottfried-Keller-Straße 1', '17235 Neustrelitz']);
++    expect(adresszeilen('Musterweg 3, 12345 Beispielstadt')).toEqual(['Musterweg 3', '12345 Beispielstadt']);
++    expect(adresszeilen(undefined)).toEqual([]);
++  });
++});
++
++describe('Dateiendung', () => {
++  it('erkennt die Endung', () => {
++    expect(dateiEndung('a.PDF')).toBe('pdf');
++    expect(dateiEndung('Bericht.final.csv')).toBe('csv');
++    expect(dateiEndung('ohne')).toBe('');
++  });
++});
+diff --git a/src/services/donationService.ts b/src/services/donationService.ts
+index 8866b8c..034f465 100644
+--- a/src/services/donationService.ts
++++ b/src/services/donationService.ts
+@@ -1,6 +1,6 @@
+ import jsPDF from 'jspdf';
+ import { DonationReceipt, ClubSettings } from '../types';
+-import { formatClubAddress } from '../utils/clubAddress';
++import { savePdfAs } from '../utils/fileExportHelper';
+ 
+ /**
+  * Wandelt einen Geldbetrag in deutsche Worte um (z.B. 1500 -> "Eintausendfünfhundert Euro")
+@@ -74,243 +74,287 @@ export function numberToGermanWords(amount: number): string {
+   return result;
+ }
+ 
+-/**
+- * Erstellt eine rechtskonforme Zuwendungsbestätigung nach dem amtlichen BMF-Muster
+- * (Muster 1: Geldzuwendungen, Muster 2: Sachzuwendungen gem. § 50 Abs. 1 EStDV)
+- */
+-export function generateBmfDonationReceiptPdf(receipt: DonationReceipt, settings: ClubSettings): jsPDF {
+-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+-  const isGoods = receipt.type === 'goods';
+-
+-  // 1. Aussteller Box (oben links)
+-  doc.setDrawColor(71, 85, 105);
+-  doc.setLineWidth(0.3);
+-  doc.rect(14, 12, 182, 22);
+-
+-  doc.setFontSize(8);
+-  doc.setFont('helvetica', 'bold');
+-  doc.setTextColor(30, 41, 59);
+-  doc.text('Aussteller (Bezeichnung und Anschrift der steuerbegünstigten Einrichtung):', 16, 17);
+-
+-  doc.setFontSize(9.5);
+-  doc.setFont('helvetica', 'bold');
+-  doc.text(settings.clubName, 16, 23);
+-  doc.setFont('helvetica', 'normal');
+-  doc.setFontSize(8.5);
+-  doc.text(`${formatClubAddress(settings.address)} • Vereinsregister: ${settings.associationNumber}`, 16, 28);
+-  doc.text(`Steuernummer: ${receipt.taxNumber || settings.taxNumber}`, 16, 32);
+-
+-  // 2. Belegnummer & Datum oben rechts
+-  doc.setFontSize(8);
+-  doc.setTextColor(100, 116, 139);
+-  doc.text(`Bescheinigungs-Nr.: ${receipt.receiptNumber}`, 196, 17, { align: 'right' });
+-  doc.text(`Ausstellungsdatum: ${receipt.cityAndDate || new Date().toLocaleDateString('de-DE')}`, 196, 22, { align: 'right' });
+-
+-  // 3. Amtlicher Titel
+-  const title = isGoods
+-    ? 'Bestätigung über Sachzuwendungen'
+-    : 'Bestätigung über Geldzuwendungen';
+-
+-  doc.setFontSize(13);
+-  doc.setFont('helvetica', 'bold');
+-  doc.setTextColor(15, 23, 42);
+-  doc.text(title, 105, 41, { align: 'center' });
++/** Eine Textzeile aus der Vereinsadresse (Objekt oder Freitext) → bis zu zwei Zeilen. */
++export function adresszeilen(address: ClubSettings['address'] | undefined): string[] {
++  if (!address) return [];
++  if (typeof address === 'string') {
++    return address
++      .split(/\n|,\s*/)
++      .map(s => s.trim())
++      .filter(Boolean);
++  }
++  const strasse = [address.street, address.houseNumber].filter(Boolean).join(' ').trim();
++  const ort = [address.zip, address.city].filter(Boolean).join(' ').trim();
++  return [strasse, ort].filter(Boolean);
++}
+ 
+-  doc.setFontSize(7.5);
+-  doc.setFont('helvetica', 'normal');
+-  doc.setTextColor(71, 85, 105);
+-  const legalSubtitle =
+-    'im Sinne des § 10b des Einkommensteuergesetzes an eine der in § 5 Abs. 1 Nr. 9 des Körperschaftsteuergesetzes bezeichneten Körperschaften, Personenvereinigungen oder Vermögensmassen';
+-  doc.text(doc.splitTextToSize(legalSubtitle, 180), 105, 46, { align: 'center' });
++/** YYYY-MM-DD → TT.MM.JJJJ; Freitext (z. B. „24.07.2025“) bleibt unverändert. */
++function datumFuerFormular(s: string | undefined): string {
++  const t = (s || '').trim();
++  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
++  return m ? `${m[3]}.${m[2]}.${m[1]}` : t;
++}
+ 
+-  // 4. Zuwendender / Spender Box
+-  doc.setDrawColor(148, 163, 184);
+-  doc.rect(14, 52, 182, 22);
++export interface Steuerangaben {
++  finanzamt: string;
++  steuernummer: string;
++  freistellungsDatum: string;
++  veranlagungszeitraum: string;
++  feststellungsDatum: string;
++  /** Zweck mit Gesetzesverweis, ohne führendes „Förderung“ – für „Wir sind wegen Förderung … des Sports (§ 52 …)“ */
++  zweckMitVerweis: string;
++  /** Zweck ohne Klammerverweis – für „… zur Förderung … des Sports verwendet wird“ */
++  zweckKurz: string;
++  /** Zweck ohne Klammerverweis, mit „Förderung“ – für „Wir fördern nach unserer Satzung … Förderung des Sports“ */
++  zweckSatzung: string;
++}
+ 
+-  doc.setFontSize(8);
+-  doc.setFont('helvetica', 'bold');
+-  doc.setTextColor(30, 41, 59);
+-  doc.text('Name und Anschrift des Zuwendenden:', 16, 57);
++/**
++ * Die steuerlichen Angaben für den Vordruck.
++ *
++ * Reihenfolge: Was auf der Bescheinigung selbst gespeichert ist, hat Vorrang
++ * (so bleibt eine bereits ausgestellte Bescheinigung beim erneuten Drucken
++ * unverändert – sie belegt, was zum Ausstellungszeitpunkt galt). Fehlt dort
++ * etwas, kommt es aus den Vereinsstammdaten. Es wird nie etwas erfunden:
++ * fehlt es auch dort, bleibt das Feld leer.
++ */
++export function ermittleSteuerangaben(receipt: DonationReceipt, settings: ClubSettings): Steuerangaben {
++  const zweckRoh = (receipt.promotedPurpose || settings.promotedPurposes || '').trim();
++  const ohneFoerderung = zweckRoh.replace(/^(die\s+)?förderung\s+/i, '').trim();
++  const ohneVerweis = (s: string) => s.replace(/\s*\(\s*§[^)]*\)/g, '').replace(/\s{2,}/g, ' ').trim();
++  return {
++    finanzamt: (receipt.taxOffice || settings.taxOffice || '').trim(),
++    steuernummer: (receipt.taxNumber || settings.taxNumber || '').trim(),
++    freistellungsDatum: datumFuerFormular(receipt.exemptionDate || settings.taxExemptionDate),
++    veranlagungszeitraum: (receipt.assessmentPeriod || settings.taxAssessmentPeriod || '').trim(),
++    feststellungsDatum: datumFuerFormular(receipt.statementDate || settings.taxStatementDate),
++    zweckMitVerweis: ohneFoerderung,
++    zweckKurz: ohneVerweis(ohneFoerderung),
++    zweckSatzung: ohneVerweis(zweckRoh)
++  };
++}
+ 
+-  doc.setFont('helvetica', 'bold');
+-  doc.setFontSize(9.5);
+-  doc.text(receipt.donorName, 16, 63);
++/** Ort aus der Vereinsadresse (Objekt oder Freitext „… 17235 Neustrelitz“); leer, wenn nicht erkennbar. */
++export function vereinsOrt(address: ClubSettings['address'] | undefined): string {
++  if (!address) return '';
++  if (typeof address !== 'string') return (address.city || '').trim();
++  const m = /\b\d{5}\s+([^,\n]+)/.exec(address);
++  return m ? m[1].trim() : '';
++}
+ 
+-  doc.setFont('helvetica', 'normal');
+-  doc.setFontSize(8.5);
+-  doc.text(`${receipt.donorAddress.street} ${receipt.donorAddress.houseNumber}`, 16, 68);
+-  doc.text(`${receipt.donorAddress.zip} ${receipt.donorAddress.city} (${receipt.donorAddress.country || 'Deutschland'})`, 16, 72);
++/** Vorbelegung für „Ort, Datum“: „Neustrelitz, 28.07.2025“ (ohne Ort nur das Datum). */
++export function standardOrtUndDatum(settings: ClubSettings, datum: Date = new Date()): string {
++  const ort = vereinsOrt(settings.address);
++  const z = (n: number) => String(n).padStart(2, '0');
++  const d = `${z(datum.getDate())}.${z(datum.getMonth() + 1)}.${datum.getFullYear()}`;
++  return ort ? `${ort}, ${d}` : d;
++}
+ 
+-  let currentY = 78;
++/** Welche für den Vordruck nötigen Angaben in den Vereinsstammdaten noch fehlen. */
++export function fehlendeSteuerangaben(settings: ClubSettings): string[] {
++  const fehlt: string[] = [];
++  if (!(settings.taxNumber || '').trim()) fehlt.push('Steuernummer');
++  if (!(settings.taxOffice || '').trim()) fehlt.push('Zuständiges Finanzamt');
++  if (!(settings.taxExemptionDate || '').trim() && !(settings.taxStatementDate || '').trim()) {
++    fehlt.push('Datum Freistellungs- oder Feststellungsbescheid');
++  }
++  if (!(settings.taxAssessmentPeriod || '').trim() && (settings.taxExemptionDate || '').trim()) fehlt.push('Veranlagungszeitraum');
++  if (!(settings.promotedPurposes || '').trim()) fehlt.push('Steuerbegünstigte Zwecke');
++  return fehlt;
++}
+ 
+-  // 5. Angaben zur Zuwendung (Geld vs. Sachzuwendung)
++/**
++ * Erstellt die Zuwendungsbestätigung nach dem amtlichen Vordruck (Aufbau und
++ * Wortlaut nach „Bestätigung über Geldzuwendung / steuerbegünstigte
++ * Einrichtung / Verein“, BMF-Muster 2013). Maße in Millimetern, vom
++ * Muster-Beispiel abgenommen; Helvetica entspricht der Arial-Schrift des Musters.
++ *
++ * Geldzuwendung: wie das Muster. Sachzuwendung: gleiche Gestaltung, dazu
++ * die Felder zur Sache und deren Herkunft; die Zeile zum Mitgliedsbeitrag
++ * entfällt, wie im Sach-Muster.
++ */
++export function generateBmfDonationReceiptPdf(receipt: DonationReceipt, settings: ClubSettings): jsPDF {
++  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
++  const isGoods = receipt.type === 'goods';
++  const st = ermittleSteuerangaben(receipt, settings);
++
++  const L = 15.2; // linker Rand der Kästen
++  const TX = 16.2; // Text in den Kästen
++  const BW = 180.1; // Breite der Kästen
++  const IND = 28.9; // eingerückter Text (neben den Kästchen)
++
++  doc.setDrawColor(0, 0, 0);
++  doc.setTextColor(0, 0, 0);
++  doc.setLineWidth(0.25);
++
++  const text = (s: string, x: number, y: number, size: number, bold = false, opts?: { align?: 'left' | 'right' | 'center' }) => {
++    doc.setFont('helvetica', bold ? 'bold' : 'normal');
++    doc.setFontSize(size);
++    doc.text(s, x, y, opts);
++  };
++  const box = (x: number, y: number, w: number, h: number) => doc.rect(x, y, w, h);
++  const kaestchen = (x: number, y: number, angekreuzt: boolean, size = 4.7) => {
++    doc.setLineWidth(0.25);
++    doc.rect(x, y, size, size);
++    if (angekreuzt) {
++      doc.setLineWidth(0.35);
++      doc.line(x + 0.5, y + 0.5, x + size - 0.5, y + size - 0.5);
++      doc.line(x + size - 0.5, y + 0.5, x + 0.5, y + size - 0.5);
++      doc.setLineWidth(0.25);
++    }
++  };
++
++  // 1. Aussteller
++  box(L, 13.7, BW, 18.7);
++  text('Aussteller (Bezeichnung und Anschrift der steuerbegünstigten Einrichtung)', TX, 16.8, 8);
++  const ausstellerZeilen = [settings.clubName || '', ...adresszeilen(settings.address)].slice(0, 3);
++  ausstellerZeilen.forEach((z, i) => text(z, TX, 21.6 + i * 4.3, 10));
++
++  // 2. Titel
++  text(isGoods ? 'Bestätigung über Sachzuwendungen' : 'Bestätigung über Geldzuwendungen/Mitgliedsbeitrag', TX, 36.8, 10, true);
++  text('im Sinne des § 10b des Einkommensteuergesetzes an eine der in § 5 Abs. 1 Nr. 9 des Körperschaftsteuergesetzes bezeichneten', TX, 42.0, 8);
++  text('Körperschaften, Personenvereinigungen oder Vermögensmassen', TX, 45.3, 8);
++
++  // 3. Zuwendender
++  box(L, 50.6, BW, 18.4);
++  text('Name und Anschrift des Zuwendenden', TX, 53.3, 8);
++  const spenderZeilen = [
++    receipt.donorName || '',
++    `${receipt.donorAddress?.street || ''} ${receipt.donorAddress?.houseNumber || ''}`.trim(),
++    `${receipt.donorAddress?.zip || ''} ${receipt.donorAddress?.city || ''}`.trim() +
++      (receipt.donorAddress?.country && receipt.donorAddress.country !== 'Deutschland' ? `, ${receipt.donorAddress.country}` : '')
++  ];
++  spenderZeilen.forEach((z, i) => text(z, TX, 58.5 + i * 4.2, 10));
++
++  // 4. Betrag / in Buchstaben / Tag der Zuwendung
++  box(L, 74.4, BW, 11.9);
++  doc.line(61.1, 74.4, 61.1, 86.3);
++  doc.line(151.8, 74.4, 151.8, 86.3);
++  text(isGoods ? 'Wert der Zuwendung - in Ziffern -' : 'Betrag der Zuwendung - in Ziffern -', TX, 77.8, 8);
++  text('- in Buchstaben -', 106.5, 77.8, 8, false, { align: 'center' });
++  text('Tag der Zuwendung:', 152.9, 77.8, 8);
++  const betrag = (Number.isFinite(receipt.amount) ? receipt.amount : 0).toLocaleString('de-DE', {
++    minimumFractionDigits: 2,
++    maximumFractionDigits: 2
++  });
++  text(`${betrag}€`, 60.3, 84.7, 10, false, { align: 'right' });
++  const inWorten = doc.splitTextToSize(receipt.amountInWords || numberToGermanWords(receipt.amount), 87)[0] || '';
++  text(inWorten, 62.2, 84.7, 10);
++  text(datumFuerFormular(receipt.date), 152.9, 84.7, 10);
++
++  // 5. Verzicht auf Erstattung (Geld) bzw. Angaben zur Sache (Sach)
++  let dy = 0; // Verschiebung aller folgenden Teile bei Sachzuwendungen
+   if (!isGoods) {
+-    // GELDZUWENDUNG
+-    doc.setDrawColor(148, 163, 184);
+-    doc.rect(14, currentY, 182, 30);
+-
+-    doc.setFontSize(8);
+-    doc.setFont('helvetica', 'bold');
+-    doc.text('Betrag der Zuwendung in Ziffern:', 16, currentY + 6);
+-    doc.setFontSize(11);
+-    doc.setTextColor(16, 185, 129);
+-    doc.text(`*** ${receipt.amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € ***`, 65, currentY + 6);
+-
+-    doc.setFontSize(8);
+-    doc.setTextColor(30, 41, 59);
+-    doc.text('– in Buchstaben / Worten:', 16, currentY + 13);
+-    doc.setFont('helvetica', 'normal');
+-    doc.setFontSize(8.5);
+-    doc.text(receipt.amountInWords || numberToGermanWords(receipt.amount), 65, currentY + 13, { maxWidth: 125 });
+-
+-    doc.setFont('helvetica', 'bold');
+-    doc.setFontSize(8);
+-    doc.text('Tag der Zuwendung:', 16, currentY + 20);
+-    doc.setFont('helvetica', 'normal');
+-    doc.text(new Date(receipt.date).toLocaleDateString('de-DE'), 65, currentY + 20);
+-
+-    // Verzicht auf Erstattung
+-    doc.setFontSize(8);
+-    doc.setFont('helvetica', 'bold');
+-    doc.text('Verzicht auf Erstattung:', 16, currentY + 26);
+-    doc.setFont('helvetica', 'normal');
+-
+-    const waiverText = receipt.isWaiverOfRefund
+-      ? '[ X ] Es handelt sich um den Verzicht auf Erstattung von Aufwendungen (Aufwandsspende).'
+-      : '[ X ] Es handelt sich nicht um den Verzicht auf Erstattung von Aufwendungen.';
+-    doc.text(waiverText, 65, currentY + 26);
+-
+-    currentY += 34;
++    text('Es handelt sich um den Verzicht auf Erstattung von Aufwendungen', TX, 97.9, 8);
++    text('Ja', 127.0, 97.9, 8);
++    kaestchen(132.0, 94.7, !!receipt.isWaiverOfRefund);
++    text('Nein', 144.7, 97.9, 8);
++    kaestchen(153.0, 94.7, !receipt.isWaiverOfRefund);
+   } else {
+-    // SACHZUWENDUNG
+-    doc.setDrawColor(148, 163, 184);
+-    doc.rect(14, currentY, 182, 42);
+-
+-    doc.setFontSize(8);
+-    doc.setFont('helvetica', 'bold');
+-    doc.text('Genaue Bezeichnung der Sachzuwendung (Gegenstand, Alter, Zustand, etc.):', 16, currentY + 6);
+-
+-    doc.setFont('helvetica', 'normal');
+-    doc.setFontSize(8);
+-    const descLines = doc.splitTextToSize(receipt.goodsDescription || 'Sachspende gem. Übergabeprotokoll', 178);
+-    doc.text(descLines, 16, currentY + 11);
+-
+-    const descY = currentY + 11 + Math.min(descLines.length * 3.8, 12);
+-
+-    doc.setFont('helvetica', 'bold');
+-    doc.text('Geschätzter / Ermittelter Wert in Ziffern:', 16, descY + 4);
+-    doc.setFontSize(10);
+-    doc.setTextColor(16, 185, 129);
+-    doc.text(`*** ${receipt.amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € ***`, 80, descY + 4);
+-
+-    doc.setFontSize(8);
+-    doc.setTextColor(30, 41, 59);
+-    doc.text('– in Buchstaben / Worten:', 16, descY + 9);
+-    doc.setFont('helvetica', 'normal');
+-    doc.text(receipt.amountInWords || numberToGermanWords(receipt.amount), 80, descY + 9, { maxWidth: 110 });
+-
+-    doc.setFont('helvetica', 'bold');
+-    doc.text('Tag der Zuwendung:', 16, descY + 14);
+-    doc.setFont('helvetica', 'normal');
+-    doc.text(new Date(receipt.date).toLocaleDateString('de-DE'), 80, descY + 14);
+-
+-    // Herkunft & Unterlagen
+-    const isBusiness = receipt.goodsOrigin === 'business';
+-    doc.setFontSize(7.5);
+-    const originText = isBusiness
+-      ? '[ X ] Die Sachzuwendung stammt nach Angaben des Zuwendenden aus einem Betriebsvermögen.'
+-      : '[ X ] Die Sachzuwendung stammt nach Angaben des Zuwendenden aus dem Privatvermögen.';
+-    doc.text(originText, 16, descY + 19);
+-
+-    if (receipt.goodsValuationBasis) {
+-      doc.text(`Unterlagen zur Wertermittlung: ${receipt.goodsValuationBasis}`, 16, descY + 23, { maxWidth: 178 });
+-    }
+-
+-    currentY += 46;
++    text('Genaue Bezeichnung der Sachzuwendung (Gegenstand, Alter, Zustand, Kaufpreis usw.)', TX, 94.9, 8);
++    const beschreibung = doc.splitTextToSize(receipt.goodsDescription || '', BW - 4).slice(0, 2);
++    beschreibung.forEach((z: string, i: number) => text(z, TX, 99.9 + i * 4.2, 10));
++    const herkunftY = 99.9 + 2 * 4.2 + 1.2; // 109.5
++    const betrieb = receipt.goodsOrigin === 'business';
++    kaestchen(TX + 1, herkunftY - 3.6, betrieb, 4.2);
++    text('Die Sachzuwendung stammt nach den Angaben des Zuwendenden aus dem Betriebsvermögen.', IND - 3, herkunftY, 8);
++    kaestchen(TX + 1, herkunftY + 2.2, !betrieb, 4.2);
++    text('Die Sachzuwendung stammt nach den Angaben des Zuwendenden aus dem Privatvermögen.', IND - 3, herkunftY + 5.8, 8);
++    const unterlagen = (receipt.goodsValuationBasis || '').trim();
++    text(
++      unterlagen
++        ? `Unterlagen zur Wertermittlung (z. B. Rechnung, Gutachten): ${unterlagen}`
++        : 'Unterlagen zur Wertermittlung (z. B. Rechnung, Gutachten):',
++      TX,
++      herkunftY + 11.6,
++      8
++    );
++    dy = 18;
+   }
+ 
+-  // 6. Steuerbegünstigung / Freistellungstext gem. BMF
+-  doc.setDrawColor(148, 163, 184);
+-  doc.rect(14, currentY, 182, 54);
+-
+-  doc.setFontSize(8);
+-  doc.setFont('helvetica', 'bold');
+-  doc.setTextColor(30, 41, 59);
+-  doc.text('Angaben zur steuerlichen Freistellung (§ 5 Abs. 1 Nr. 9 KStG / §§ 51 ff. AO):', 16, currentY + 6);
+-
+-  doc.setFont('helvetica', 'normal');
+-  doc.setFontSize(7.8);
+-  doc.setTextColor(51, 65, 85);
+-
+-  const taxOffice = receipt.taxOffice || settings.taxOffice || 'Finanzamt Musterstadt';
+-  const taxNum = receipt.taxNumber || settings.taxNumber || '112/5840/1922';
+-  const exDate = receipt.exemptionDate || settings.taxExemptionDate || '10.01.2024';
+-  const assessPeriod = receipt.assessmentPeriod || settings.taxAssessmentPeriod || '2021 bis 2023';
+-  const purpose = receipt.promotedPurpose || settings.promotedPurposes || 'Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)';
+-
+-  const textPart1 = `Wir sind wegen ${purpose} nach dem Freistellungsbescheid bzw. nach der Anlage zum Körperschaftsteuerbescheid des Finanzamtes ${taxOffice}, StNr. ${taxNum}, vom ${exDate} für den letzten Veranlagungszeitraum ${assessPeriod} nach § 5 Abs. 1 Nr. 9 des Körperschaftsteuergesetzes von der Körperschaftsteuer und nach § 3 Nr. 6 des Gewerbesteuergesetzes von der Gewerbesteuer befreit.`;
+-  const splitPart1 = doc.splitTextToSize(textPart1, 178);
+-  doc.text(splitPart1, 16, currentY + 11);
+-
+-  const nextInnerY = currentY + 11 + splitPart1.length * 3.6 + 3;
+-
+-  doc.setFont('helvetica', 'bold');
+-  doc.text('Verwendungszweck-Bestätigung:', 16, nextInnerY);
+-  doc.setFont('helvetica', 'normal');
+-  const textPart2 = 'Es wird bestätigt, dass die Zuwendung nur zur Förderung des oben genannten steuerbegünstigten Zwecks verwendet wird.';
+-  doc.text(textPart2, 16, nextInnerY + 4, { maxWidth: 178 });
+-
+-  if (isGoods) {
+-    const textGoodsExtra = 'Es wird bestätigt, dass über die genannten Sachzuwendungen keine weiteren Bestätigungen ausgestellt wurden und werden.';
+-    doc.text(textGoodsExtra, 16, nextInnerY + 9, { maxWidth: 178 });
++  // 6. Freistellungsbescheid (Kästchen 1)
++  const hatFreistellung = !!st.freistellungsDatum;
++  kaestchen(20.5, 107.0 + dy, hatFreistellung);
++  text('Wir sind wegen Förderung (Angabe des begünstigten Zwecks / der begünstigten Zwecke)', IND, 109.4 + dy, 8);
++  text(st.zweckMitVerweis, IND, 115.2 + dy, 10);
++  text('nach dem Freistellungsbescheid bzw. nach der Anlage zum Körperschaftsteuerbescheid des Finanzamtes', IND, 130.7 + dy, 8);
++  if (hatFreistellung) {
++    text(st.finanzamt, IND, 136.4 + dy, 10);
++    text(st.steuernummer, 86.9, 136.4 + dy, 10);
++    text(st.freistellungsDatum, 134.0, 136.4 + dy, 10);
++    text(st.veranlagungszeitraum, 66.8, 141.2 + dy, 10);
++  }
++  text('StNr.', 79.5, 136.4 + dy, 7);
++  text('vom', 124.4, 136.4 + dy, 7);
++  text('für den letzten', 156.4, 136.4 + dy, 7);
++  text('Veranlagungszeitraum', IND, 141.2 + dy, 7);
++  text('nach § 5 Abs. 1 Nr. 9 des Körperschaftsteuergesetzes von der', 94.3, 141.2 + dy, 7.5);
++  text('Körperschaftsteuer und nach § 3 Nr. 6 des Gewerbesteuergesetzes von der Gewerbesteuer befreit.', IND, 146.5 + dy, 7.5);
++
++  // 7. Feststellung nach § 60a AO (Kästchen 2)
++  const hatFeststellung = !!st.feststellungsDatum;
++  kaestchen(20.5, 151.3 + dy, hatFeststellung);
++  text('Die Einhaltung der satzungsmäßigen Voraussetzungen nach den §§ 51, 59, 60 und 61 AO wurde vom Finanzamt', IND, 154.6 + dy, 8);
++  if (hatFeststellung) {
++    text(st.finanzamt, IND, 160.1 + dy, 10);
++    text(st.steuernummer, 76.2, 160.1 + dy, 10);
++    text(st.feststellungsDatum, 131.3, 160.1 + dy, 10);
++  }
++  text('StNr.', 69.1, 160.1 + dy, 7);
++  text('mit Bescheid vom', 105.5, 160.1 + dy, 7);
++  text('nach § 60a AO gesondert', 150.6, 160.1 + dy, 7);
++  text('festgestellt. Wir fördern nach unserer Satzung (Angabe des begünstigten Zwecks / der begünstigten Zwecke)', IND, 165.0 + dy, 8);
++  if (hatFeststellung) text(st.zweckSatzung, IND, 170.0 + dy, 10);
++
++  // 8. Bestätigung der Verwendung (+ Mitgliedsbeitrag bei Geldzuwendungen)
++  const kastenY = (isGoods ? 182.0 : 188.4) + dy;
++  const kastenH = isGoods ? 29.0 : 41.8;
++  box(L, kastenY, BW, kastenH);
++  text('Es wird bestätigt, dass die Zuwendung nur zur Förderung (Angabe des begünstigten Zwecks / der begünstigten Zwecke)', TX, kastenY + 2.7, 8);
++  text(st.zweckKurz, TX, kastenY + 8.5, 10);
++  text('verwendet wird.', TX, kastenY + 21.7, 8);
++  if (!isGoods) {
++    text('Nur für steuerbegünstigte Einrichtungen, bei denen die Mitgliedsbeiträge steuerlich nicht abziehbar sind', TX, kastenY + 30.3, 8, true);
++    kaestchen(16.4, kastenY + 32.6, true);
++    text('Es wird bestätigt, dass es sich nicht um einen Mitgliedsbeitrag handelt, dessen Abzug nach § 10b Abs. 1 des Einkommensteuergesetzes', 22.5, kastenY + 35.2, 8);
++    text('ausgeschlossen ist.', 22.5, kastenY + 39.6, 8);
++  } else {
++    text('Es wird bestätigt, dass über die Sachzuwendung keine weitere Bestätigung ausgestellt wurde und wird.', TX, kastenY + 26.2, 8);
+   }
+ 
+-  currentY += 58;
+-
+-  // 7. Amtlicher Haftungshinweis gem. § 50 Abs. 1 EStDV
+-  doc.setFillColor(248, 250, 252);
+-  doc.rect(14, currentY, 182, 32, 'F');
+-  doc.setDrawColor(203, 213, 225);
+-  doc.rect(14, currentY, 182, 32);
+-
+-  doc.setFontSize(7.5);
+-  doc.setFont('helvetica', 'bold');
+-  doc.setTextColor(71, 85, 105);
+-  doc.text('Hinweis zur steuerlichen Anerkennung & Haftung des Ausstellers (§ 50 Abs. 1 EStDV):', 16, currentY + 5);
++  // 9. Ort, Datum, Unterschrift
++  const sigY = kastenY + kastenH + 12.2;
++  text(receipt.cityAndDate || '', L, sigY, 10);
++  doc.setLineWidth(0.25);
++  doc.line(L, sigY + 1.8, L + BW, sigY + 1.8);
++  text('(Ort, Datum und Unterschrift des Zuwendungsempfängers)', TX - 1, sigY + 4.8, 8);
+ 
++  // 10. Hinweis
++  const hy = sigY + 10.2;
++  text('Hinweis:', TX - 1, hy, 8, true);
+   doc.setFont('helvetica', 'normal');
+-  doc.setFontSize(6.8);
+-  doc.setTextColor(100, 116, 139);
+-
+-  const liabilityNotice =
+-    'Wer vorsätzlich oder grob fahrlässig eine unrichtige Zuwendungsbestätigung erstellt oder wer veranlasst, dass Zuwendungen nicht zu den in der Zuwendungsbestätigung angegebenen steuerbegünstigten Zwecken verwendet werden, haftet für die Steuer, die dem Fiskus durch einen etwaigen Abzug der Zuwendungen entgeht (§ 10b Abs. 4 EStG, § 9 Abs. 3 KStG, § 9 Nr. 5 GewStG).\n\nDiese Bestätigung wird nicht als Nachweis für die steuerliche Berücksichtigung der Zuwendung anerkannt, wenn das Datum des Freistellungsbescheides länger als 5 Jahre bzw. das Datum der Feststellung der Einhaltung der satzungsmäßigen Voraussetzungen nach § 60a Abs. 1 AO länger als 3 Jahre seit Ausstellung der Bestätigung zurückliegt (BMF-Schreiben vom 07.11.2013).';
+-
+-  doc.text(doc.splitTextToSize(liabilityNotice, 178), 16, currentY + 10);
+-
+-  currentY += 36;
+-
+-  // 8. Unterschriftenbereich
+-  doc.setDrawColor(148, 163, 184);
+-  doc.line(16, currentY + 20, 85, currentY + 20);
+-  doc.line(115, currentY + 20, 184, currentY + 20);
+-
+   doc.setFontSize(8);
+-  doc.setTextColor(30, 41, 59);
+-  doc.text(`${receipt.cityAndDate || 'Musterstadt, ' + new Date().toLocaleDateString('de-DE')}`, 16, currentY + 25);
+-  doc.text('Ort, Datum der Ausstellung', 16, currentY + 29);
+-
+-  doc.text(receipt.issuedBy || `${settings.treasurer || 'Schatzmeister'} / Vorstand`, 115, currentY + 25);
+-  doc.text('Unterschrift des Zuwendungsempfängers / Vertretungsberechtigten', 115, currentY + 29);
+-
+-  // Footer note
+-  doc.setFontSize(7);
+-  doc.setTextColor(148, 163, 184);
+-  doc.text(
+-    `Erstellt mit VereinsManager • BMF-konformes Muster für ${settings.clubName} • Revisionssicher archiviert`,
+-    105,
+-    288,
+-    { align: 'center' }
+-  );
++  const hinweis1 =
++    'Wer vorsätzlich oder grob fahrlässig eine unrichtige Zuwendungsbestätigung erstellt oder veranlasst, dass Zuwendungen nicht zu den in der Zuwendungsbestätigung angegebenen steuerbegünstigten Zwecken verwendet werden, haftet für die entgangene Steuer (§ 10b Abs. 4 EStG, § 9 Abs. 3 KStG, § 9 Nr. 5 GewStG).';
++  const hinweis2 =
++    'Diese Bestätigung wird nicht als Nachweis für die steuerliche Berücksichtigung der Zuwendung anerkannt, wenn das Datum des Freistellungsbescheides länger als 5 Jahre bzw. das Datum der Feststellung der Einhaltung der satzungsmäßigen Voraussetzungen nach § 60a Abs. 1 AO länger als 3 Jahre seit Ausstellung des Bescheides zurückliegt (§ 63 Abs. 5 AO).';
++  const z1 = doc.splitTextToSize(hinweis1, 179);
++  doc.text(z1, TX - 1, hy + 4.5, { lineHeightFactor: 1.18 });
++  const y2 = hy + 4.5 + z1.length * 3.4 + 4.6;
++  const z2 = doc.splitTextToSize(hinweis2, 179);
++  doc.text(z2, TX - 1, y2, { lineHeightFactor: 1.18 });
++
++  // 11. Fußzeile: Vordruck-Kennung und Beleg-Nr. (nicht Teil des amtlichen Textes)
++  if (isGoods) {
++    text('Bestätigung über Sachzuwendung / steuerbegünstigte Einrichtung / Verein', TX, 290.2, 8);
++  } else {
++    text('034122', TX - 0.2, 290.2, 10, true);
++    text('Bestätigung über Geldzuwendung / steuerbegünstigte Einrichtung / Verein', 29, 290.2, 8);
++    text('(2013)', 29 + doc.getTextWidth('Bestätigung über Geldzuwendung / steuerbegünstigte Einrichtung / Verein ') + 0.6, 290.2, 8, true);
++  }
++  doc.setTextColor(110, 110, 110);
++  text(`Beleg-Nr. ${receipt.receiptNumber || ''}`, 195.3, 290.2, 7, false, { align: 'right' });
++  doc.setTextColor(0, 0, 0);
+ 
+   return doc;
+ }
+@@ -329,5 +373,5 @@ export function getDonationPdfDataUrl(receipt: DonationReceipt, settings: ClubSe
+ export function downloadDonationReceiptPdf(receipt: DonationReceipt, settings: ClubSettings): void {
+   const doc = generateBmfDonationReceiptPdf(receipt, settings);
+   const cleanName = (receipt.donorName || 'Spender').replace(/[^a-zA-Z0-9_-]/g, '_');
+-  doc.save(`Zuwendungsbestaetigung_${receipt.receiptNumber}_${cleanName}.pdf`);
++  void savePdfAs(doc, `Zuwendungsbestaetigung_${receipt.receiptNumber}_${cleanName}.pdf`);
+ }
+diff --git a/src/services/exportService.ts b/src/services/exportService.ts
+index 4328cd9..7048ffe 100644
+--- a/src/services/exportService.ts
++++ b/src/services/exportService.ts
+@@ -14,7 +14,8 @@ import {
+ } from '../types';
+ import { TAX_SPHERES } from '../data/taxSpheres';
+ import { CONTACT_TYPE_MAP } from '../data/contactConstants';
+-import { saveBlobWithLocationPicker, FileSaveResult } from '../utils/fileExportHelper';
++import { FileSaveResult, saveBlobAs, saveBlobWithLocationPicker, savePdfAs } from '../utils/fileExportHelper';
++
+ 
+ export const ExportService = {
+   // 1. Export Members to CSV with location picker & fallback
+@@ -295,13 +296,7 @@ export const ExportService = {
+ 
+     const csv = Papa.unparse(data, { delimiter: ';' });
+     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+-    const url = URL.createObjectURL(blob);
+-    const link = document.createElement('a');
+-    link.setAttribute('href', url);
+-    link.setAttribute('download', filename);
+-    document.body.appendChild(link);
+-    link.click();
+-    document.body.removeChild(link);
++    void saveBlobAs(blob, filename);
+   },
+ 
+   // 4b. Transactions Journal PDF Export
+@@ -406,7 +401,7 @@ export const ExportService = {
+     });
+ 
+     const targetFile = filename || `buchungsjournal_${new Date().toISOString().split('T')[0]}.pdf`;
+-    doc.save(targetFile);
++    void savePdfAs(doc, targetFile);
+   },
+ 
+   // 4c. Inventory CSV Export
+@@ -443,13 +438,7 @@ export const ExportService = {
+ 
+     const csv = Papa.unparse(data, { delimiter: ';' });
+     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+-    const url = URL.createObjectURL(blob);
+-    const link = document.createElement('a');
+-    link.setAttribute('href', url);
+-    link.setAttribute('download', filename);
+-    document.body.appendChild(link);
+-    link.click();
+-    document.body.removeChild(link);
++    void saveBlobAs(blob, filename);
+   },
+ 
+   // 4d. Inventory PDF Export
+@@ -560,7 +549,7 @@ export const ExportService = {
+     });
+ 
+     const targetFile = filename || `inventarliste_${new Date().toISOString().split('T')[0]}.pdf`;
+-    doc.save(targetFile);
++    void savePdfAs(doc, targetFile);
+   },
+ 
+   // 5. Gewinn- und Verlustrechnung (GuV / EÜR) PDF Export nach § 4 Abs. 3 EStG / 4 steuerliche Sphären
+@@ -729,7 +718,7 @@ export const ExportService = {
+       doc.text(`Kassenprüfer / 1. Vorsitzender`, 120, finalY + 22);
+     }
+ 
+-    doc.save(`EStG_GuV_${yearFilter || 'gesamt'}_${new Date().toISOString().split('T')[0]}.pdf`);
++    void savePdfAs(doc, `EStG_GuV_${yearFilter || 'gesamt'}_${new Date().toISOString().split('T')[0]}.pdf`);
+   },
+ 
+   // 6. Export Contacts to CSV
+@@ -773,13 +762,7 @@ export const ExportService = {
+ 
+     const csv = Papa.unparse(data, { delimiter: ';' });
+     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+-    const url = URL.createObjectURL(blob);
+-    const link = document.createElement('a');
+-    link.setAttribute('href', url);
+-    link.setAttribute('download', filename);
+-    document.body.appendChild(link);
+-    link.click();
+-    document.body.removeChild(link);
++    void saveBlobAs(blob, filename);
+   },
+ 
+   // 7. Export Contacts to PDF
+@@ -869,7 +852,7 @@ export const ExportService = {
+       }
+     });
+ 
+-    doc.save(`kontakte_${new Date().toISOString().split('T')[0]}.pdf`);
++    void savePdfAs(doc, `kontakte_${new Date().toISOString().split('T')[0]}.pdf`);
+   },
+ 
+   // 14. Export Issued Inventory (Materialausgabe an Mitglieder) to CSV
+diff --git a/src/services/invoicePdfService.ts b/src/services/invoicePdfService.ts
+index 2ec2148..1bb4d44 100644
+--- a/src/services/invoicePdfService.ts
++++ b/src/services/invoicePdfService.ts
+@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
+ import { formatClubAddress } from '../utils/clubAddress';
+ import { ClubInvoice, ClubSettings, InvoiceTemplateSettings, ClubDocument } from '../types';
+ import { DEFAULT_INVOICE_TEMPLATE } from '../data/initialInvoices';
++import { savePdfAs } from '../utils/fileExportHelper';
+ 
+ /**
+  * Zeichnet den GiroCode (EPC-QR-Code) direkt mit Vektor-Rechtecken in das PDF.
+@@ -499,7 +500,7 @@ export const InvoicePdfService = {
+   ): Promise<void> {
+     const doc = await this.generateInvoicePdf(invoice, settings, template);
+     const fileName = `Rechnung_${invoice.invoiceNumber}_${invoice.recipientName.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+-    doc.save(fileName);
++    await savePdfAs(doc, fileName);
+   },
+ 
+   /**
+diff --git a/src/services/sepaService.ts b/src/services/sepaService.ts
+index 5de9a79..e64a3a9 100644
+--- a/src/services/sepaService.ts
++++ b/src/services/sepaService.ts
+@@ -8,6 +8,7 @@ import {
+   SepaRunConfig,
+   SepaPeriodFilter
+ } from '../types';
++import { saveBlobAs, savePdfAs } from '../utils/fileExportHelper';
+ 
+ export const SepaService = {
+   /**
+@@ -482,14 +483,7 @@ ${txXmlParts.join('\n')}
+    */
+   downloadSepaXmlFile(xmlContent: string, filename: string): void {
+     const blob = new Blob([xmlContent], { type: 'application/xml;charset=utf-8;' });
+-    const url = URL.createObjectURL(blob);
+-    const link = document.createElement('a');
+-    link.href = url;
+-    link.download = filename.endsWith('.xml') ? filename : `${filename}.xml`;
+-    document.body.appendChild(link);
+-    link.click();
+-    document.body.removeChild(link);
+-    URL.revokeObjectURL(url);
++    void saveBlobAs(blob, filename.endsWith('.xml') ? filename : `${filename}.xml`);
+   },
+ 
+   /**
+@@ -631,6 +625,6 @@ ${txXmlParts.join('\n')}
+       doc.text(`Kassenwart / Schatzmeister: ${settings.treasurer}`, 115, finalY + 26);
+     }
+ 
+-    doc.save(`SEPA_Einzugsprotokoll_${config.executionDate}_${config.periodFilter}.pdf`);
++    void savePdfAs(doc, `SEPA_Einzugsprotokoll_${config.executionDate}_${config.periodFilter}.pdf`);
+   }
+ };
+diff --git a/src/types.ts b/src/types.ts
+index f052c51..0604e29 100644
+--- a/src/types.ts
++++ b/src/types.ts
+@@ -264,6 +264,7 @@ export interface ClubSettings {
+   fiscalYearStart?: string;
+   taxOffice?: string; // z.B. 'Finanzamt Musterstadt'
+   taxExemptionDate?: string; // z.B. '10.01.2024'
++  taxStatementDate?: string; // Datum des Feststellungsbescheids nach § 60a AO, z.B. '24.07.2025'
+   taxAssessmentPeriod?: string; // z.B. '2021 bis 2023'
+   promotedPurposes?: string; // z.B. 'Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)'
+ }
+@@ -476,6 +477,7 @@ export interface DonationReceipt {
+   taxOffice: string;
+   taxNumber: string;
+   exemptionDate: string;
++  statementDate?: string; // Datum des Feststellungsbescheids nach § 60a AO (Stand bei Ausstellung)
+   assessmentPeriod: string;
+   promotedPurpose: string;
+   isDirectlyPromoted: boolean;
+diff --git a/src/utils/fileExportHelper.ts b/src/utils/fileExportHelper.ts
+index a33b0e4..80928a3 100644
+--- a/src/utils/fileExportHelper.ts
++++ b/src/utils/fileExportHelper.ts
+@@ -5,6 +5,8 @@
+  * Gracefully falls back to classic browser download when showSaveFilePicker is not supported or restricted.
+  */
+ 
++import { createZip, ZipEntry } from './zipWriter';
++
+ export interface FileSaveResult {
+   success: boolean;
+   cancelled?: boolean;
+@@ -92,3 +94,112 @@ export async function saveBlobWithLocationPicker(
+     };
+   }
+ }
++
++// ---------------------------------------------------------------------------
++// Bequeme Einstiegspunkte – ALLE Speichern-/Herunterladen-Knöpfe der App
++// laufen über diese Funktionen, damit überall dasselbe passiert: Wo der
++// Browser/das Fenster es kann, erscheint der Dialog „Speichern unter“ (frei
++// wählbarer Ordner und Dateiname); sonst wird wie bisher normal heruntergeladen.
++// ---------------------------------------------------------------------------
++
++const DATEITYPEN: Record<string, { description: string; mimeType: string }> = {
++  pdf: { description: 'PDF-Dokument (*.pdf)', mimeType: 'application/pdf' },
++  csv: { description: 'CSV-Tabelle (*.csv)', mimeType: 'text/csv' },
++  xml: { description: 'XML-Datei (*.xml)', mimeType: 'application/xml' },
++  ics: { description: 'Kalenderdatei (*.ics)', mimeType: 'text/calendar' },
++  png: { description: 'PNG-Bild (*.png)', mimeType: 'image/png' },
++  jpg: { description: 'JPEG-Bild (*.jpg)', mimeType: 'image/jpeg' },
++  jpeg: { description: 'JPEG-Bild (*.jpeg)', mimeType: 'image/jpeg' },
++  webp: { description: 'WebP-Bild (*.webp)', mimeType: 'image/webp' },
++  zip: { description: 'ZIP-Archiv (*.zip)', mimeType: 'application/zip' },
++  xlsx: { description: 'Excel-Tabelle (*.xlsx)', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
++  json: { description: 'JSON-Datei (*.json)', mimeType: 'application/json' },
++  txt: { description: 'Textdatei (*.txt)', mimeType: 'text/plain' },
++  docx: { description: 'Word-Dokument (*.docx)', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
++  doc: { description: 'Word-Dokument (*.doc)', mimeType: 'application/msword' }
++};
++
++/** Dateiendung in Kleinbuchstaben ohne Punkt; leer, wenn keine erkennbar. */
++export function dateiEndung(fileName: string): string {
++  const m = /\.([A-Za-z0-9]{1,8})$/.exec(fileName || '');
++  return m ? m[1].toLowerCase() : '';
++}
++
++/**
++ * Speichert eine Datei mit „Speichern unter“-Dialog. Art und Endung werden
++ * aus dem Dateinamen abgeleitet. Schlägt das Speichern fehl (nicht: wird
++ * abgebrochen), erscheint eine Meldung. Liefert das Ergebnis zurück.
++ */
++export async function saveBlobAs(blob: Blob, fileName: string): Promise<FileSaveResult> {
++  const ext = dateiEndung(fileName);
++  const typ = DATEITYPEN[ext];
++  const result = await saveBlobWithLocationPicker(blob, fileName, {
++    description: typ?.description || (ext ? `Datei (*.${ext})` : 'Datei'),
++    mimeType: typ?.mimeType || blob.type || 'application/octet-stream',
++    extension: ext ? `.${ext}` : '.bin'
++  });
++  if (!result.success && !result.cancelled) {
++    console.error('Speichern fehlgeschlagen:', result.error);
++    if (typeof window !== 'undefined' && typeof window.alert === 'function') {
++      window.alert(`Die Datei „${fileName}“ konnte nicht gespeichert werden: ${result.error || 'unbekannter Fehler'}`);
++    }
++  }
++  return result;
++}
++
++/** Text (CSV, XML, ICS …) speichern. Bei CSV wird die Markierung für Excel (BOM) vorangestellt. */
++export function saveTextAs(content: string, fileName: string, mimeType = 'text/plain'): Promise<FileSaveResult> {
++  const mitBom = dateiEndung(fileName) === 'csv' && !content.startsWith('﻿') ? '﻿' : '';
++  return saveBlobAs(new Blob([mitBom + content], { type: `${mimeType};charset=utf-8` }), fileName);
++}
++
++/** Ein mit jsPDF erzeugtes Dokument speichern (ersetzt doc.save). */
++export function savePdfAs(doc: { output: (type: 'blob') => Blob }, fileName: string): Promise<FileSaveResult> {
++  return saveBlobAs(doc.output('blob'), fileName.toLowerCase().endsWith('.pdf') ? fileName : `${fileName}.pdf`);
++}
++
++/** Eine Datei speichern, die als Data-URL (data:…;base64,…) vorliegt. */
++export async function saveDataUrlAs(dataUrl: string, fileName: string): Promise<FileSaveResult> {
++  try {
++    const blob = await (await fetch(dataUrl)).blob();
++    return saveBlobAs(blob, fileName);
++  } catch (err: any) {
++    const result: FileSaveResult = {
++      success: false,
++      method: 'download',
++      fileName,
++      error: err?.message || 'Die Datei konnte nicht gelesen werden'
++    };
++    if (typeof window !== 'undefined') window.alert(`Die Datei „${fileName}“ konnte nicht gespeichert werden: ${result.error}`);
++    return result;
++  }
++}
++
++/**
++ * Mehrere Dateien (als Data-URL) in EINER ZIP-Datei speichern – ein einziger
++ * „Speichern unter“-Dialog statt vieler. Doppelte Namen werden nummeriert.
++ */
++export async function saveDataUrlsAsZip(
++  dateien: { dataUrl: string; name: string }[],
++  zipName: string
++): Promise<FileSaveResult> {
++  try {
++    const benutzt = new Set<string>();
++    const eintraege: ZipEntry[] = [];
++    for (const d of dateien) {
++      const bytes = new Uint8Array(await (await (await fetch(d.dataUrl)).blob()).arrayBuffer());
++      const punkt = d.name.lastIndexOf('.');
++      const stamm = punkt > 0 ? d.name.slice(0, punkt) : d.name;
++      const endung = punkt > 0 ? d.name.slice(punkt) : '';
++      let name = d.name;
++      let n = 2;
++      while (benutzt.has(name.toLowerCase())) name = `${stamm}_${n++}${endung}`;
++      benutzt.add(name.toLowerCase());
++      eintraege.push({ name: name.replace(/[\\/:*?"<>|]/g, '_'), data: bytes });
++    }
++    return await saveBlobAs(new Blob([createZip(eintraege) as BlobPart], { type: 'application/zip' }), zipName);
++  } catch (err: any) {
++    if (typeof window !== 'undefined') window.alert(`Die ZIP-Datei konnte nicht erstellt werden: ${err?.message || 'unbekannter Fehler'}`);
++    return { success: false, method: 'download', fileName: zipName, error: err?.message || 'ZIP-Fehler' };
++  }
++}

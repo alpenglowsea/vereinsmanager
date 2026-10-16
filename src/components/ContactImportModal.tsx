@@ -12,6 +12,7 @@ import {
   ClipboardPaste
 } from 'lucide-react';
 import { CONTACT_TYPES_LIST } from '../data/contactConstants';
+import { saveBlobAs } from '../utils/fileExportHelper';
 
 interface ContactImportModalProps {
   existingContacts: ClubContact[];
@@ -184,14 +185,7 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
 
   const handleDownloadTemplate = () => {
     const blob = new Blob(['\uFEFF' + SAMPLE_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'kontakte_vorlage.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    void saveBlobAs(blob, 'kontakte_vorlage.csv');
   };
 
   // Build mapped contacts for preview

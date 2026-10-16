@@ -32,6 +32,7 @@ import { TablePagination } from './TablePagination';
 import { AuswahlLeiste } from './AuswahlLeiste';
 import { usePagination } from '../hooks/usePagination';
 import { ermittleSeitenStatus, wechsleSeite, waehleAlleGefilterten } from '../utils/tableSelection';
+import { saveBlobAs, savePdfAs } from '../utils/fileExportHelper';
 
 type InvoiceSortField =
   | 'status'
@@ -633,13 +634,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
 
     const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `rechnungen_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    void saveBlobAs(blob, `rechnungen_${new Date().toISOString().split('T')[0]}.csv`);
   };
 
   // Status Badge Helper
@@ -1291,7 +1286,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                             onClick={async () => {
                               try {
                                 const pdf = await generateInvoicePdf(inv, clubSettings, templateSettings);
-                                pdf.save(`Rechnung_${inv.invoiceNumber}_${inv.recipientName.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`);
+                                void savePdfAs(pdf, `Rechnung_${inv.invoiceNumber}_${inv.recipientName.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`);
                               } catch (err) {
                                 console.error('Failed to export PDF:', err);
                               }

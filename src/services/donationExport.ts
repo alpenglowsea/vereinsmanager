@@ -111,7 +111,11 @@ export function baueSpendenXlsx(receipts: DonationReceipt[]): Uint8Array {
   const rows: XlsxCell[][] = baueSpendenTabelle(receipts).map(row =>
     row.map((v, i): XlsxCell => {
       if (i === COL_MONEY) return { t: 'money', v: Number(v) };
-      if (COL_DATES.includes(i)) return v ? { t: 'date', v: String(v) } : null;
+      if (COL_DATES.includes(i)) {
+        // Das Freistellungsdatum ist in den Stammdaten Freitext (z. B. „24.07.2025“): nur echte Daten als Datum, sonst als Text.
+        if (/^\d{4}-\d{2}-\d{2}$/.test(String(v))) return { t: 'date', v: String(v) };
+        return v ? { t: 'text', v: String(v) } : null;
+      }
       return { t: 'text', v: String(v) };
     })
   );

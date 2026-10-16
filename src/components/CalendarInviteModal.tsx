@@ -22,6 +22,7 @@ import {
   Clock,
   Search
 } from 'lucide-react';
+import { saveBlobAs } from '../utils/fileExportHelper';
 
 interface CalendarInviteModalProps {
   isOpen: boolean;
@@ -160,12 +161,7 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
   const handleDownloadIcs = () => {
     const ics = CalendarService.exportSingleEventIcs({ ...event, participants }, categories);
     const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Einladung_${event.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.ics`;
-    a.click();
-    URL.revokeObjectURL(url);
+    void saveBlobAs(blob, `Einladung_${event.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.ics`);
   };
 
   const confirmedCount = participants.filter((p) => p.status === 'confirmed' || p.status === 'attended').length;

@@ -27,6 +27,7 @@ import {
 } from '../types';
 import { MeetingPdfService } from '../services/meetingPdfService';
 import { DEFAULT_MEETING_TEMPLATE } from '../data/initialMeetings';
+import { savePdfAs } from '../utils/fileExportHelper';
 
 interface MeetingFormModalProps {
   isOpen: boolean;
@@ -135,7 +136,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
         clubSettings || ({ clubName: 'Sportverein Musterstadt e.V.' } as any),
         templateSettings || DEFAULT_MEETING_TEMPLATE
       );
-      doc.save(`Einladung_${date}_${(title || 'Versammlung').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
+      void savePdfAs(doc, `Einladung_${date}_${(title || 'Versammlung').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
     } catch (err) {
       console.error('Failed to generate invitation PDF:', err);
       alert('Fehler beim Erzeugen des Einladungs-PDFs.');

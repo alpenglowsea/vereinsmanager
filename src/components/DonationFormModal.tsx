@@ -6,7 +6,12 @@ import {
   FinancialAccount,
   ClubSettings
 } from '../types';
-import { numberToGermanWords, downloadDonationReceiptPdf } from '../services/donationService';
+import {
+  numberToGermanWords,
+  downloadDonationReceiptPdf,
+  fehlendeSteuerangaben,
+  standardOrtUndDatum
+} from '../services/donationService';
 import {
   X,
   HeartHandshake,
@@ -18,7 +23,9 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
-  Wallet
+  Wallet,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 
 interface DonationFormModalProps {
@@ -71,13 +78,14 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
 
   // Tax Exemption Details
   const [showTaxDetails, setShowTaxDetails] = useState(false);
-  const [taxOffice, setTaxOffice] = useState(settings.taxOffice || 'Finanzamt Musterstadt');
-  const [taxNumber, setTaxNumber] = useState(settings.taxNumber || '112/5840/1922');
-  const [exemptionDate, setExemptionDate] = useState(settings.taxExemptionDate || '10.01.2024');
-  const [assessmentPeriod, setAssessmentPeriod] = useState(settings.taxAssessmentPeriod || '2021 bis 2023');
-  const [promotedPurpose, setPromotedPurpose] = useState(settings.promotedPurposes || 'Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)');
+  const [taxOffice, setTaxOffice] = useState(settings.taxOffice || '');
+  const [taxNumber, setTaxNumber] = useState(settings.taxNumber || '');
+  const [exemptionDate, setExemptionDate] = useState(settings.taxExemptionDate || '');
+  const [statementDate, setStatementDate] = useState(settings.taxStatementDate || '');
+  const [assessmentPeriod, setAssessmentPeriod] = useState(settings.taxAssessmentPeriod || '');
+  const [promotedPurpose, setPromotedPurpose] = useState(settings.promotedPurposes || '');
   const [issuedBy, setIssuedBy] = useState(`${settings.treasurer || 'Schatzmeister'} (Vorstand)`);
-  const [cityAndDate, setCityAndDate] = useState(`Musterstadt, ${new Date().toLocaleDateString('de-DE')}`);
+  const [cityAndDate, setCityAndDate] = useState(standardOrtUndDatum(settings));
   const [notes, setNotes] = useState('');
 
   // Automated Integration Options
@@ -106,9 +114,10 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
       setGoodsDescription(editingReceipt.goodsDescription || '');
       setGoodsOrigin(editingReceipt.goodsOrigin || 'private');
       setGoodsValuationBasis(editingReceipt.goodsValuationBasis || '');
-      setTaxOffice(editingReceipt.taxOffice || settings.taxOffice || 'Finanzamt Musterstadt');
+      setTaxOffice(editingReceipt.taxOffice || settings.taxOffice || '');
       setTaxNumber(editingReceipt.taxNumber || settings.taxNumber || '');
       setExemptionDate(editingReceipt.exemptionDate || settings.taxExemptionDate || '');
+      setStatementDate(editingReceipt.statementDate || settings.taxStatementDate || '');
       setAssessmentPeriod(editingReceipt.assessmentPeriod || settings.taxAssessmentPeriod || '');
       setPromotedPurpose(editingReceipt.promotedPurpose || settings.promotedPurposes || '');
       setIssuedBy(editingReceipt.issuedBy || '');
@@ -145,13 +154,14 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
       setGoodsDescription('');
       setGoodsOrigin('private');
       setGoodsValuationBasis('Kaufbeleg / Rechnung liegt vor');
-      setTaxOffice(settings.taxOffice || 'Finanzamt Musterstadt');
-      setTaxNumber(settings.taxNumber || '112/5840/1922');
-      setExemptionDate(settings.taxExemptionDate || '10.01.2024');
-      setAssessmentPeriod(settings.taxAssessmentPeriod || '2021 bis 2023');
-      setPromotedPurpose(settings.promotedPurposes || 'Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)');
+      setTaxOffice(settings.taxOffice || '');
+      setTaxNumber(settings.taxNumber || '');
+      setExemptionDate(settings.taxExemptionDate || '');
+      setStatementDate(settings.taxStatementDate || '');
+      setAssessmentPeriod(settings.taxAssessmentPeriod || '');
+      setPromotedPurpose(settings.promotedPurposes || '');
       setIssuedBy(`${settings.treasurer || 'Schatzmeister'} (Vorstand)`);
-      setCityAndDate(`Musterstadt, ${new Date().toLocaleDateString('de-DE')}`);
+      setCityAndDate(standardOrtUndDatum(settings));
       setNotes('');
       setAutoArchiveDoc(true);
       setAutoCreateTx(true);
@@ -224,6 +234,7 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
       taxOffice: taxOffice.trim(),
       taxNumber: taxNumber.trim(),
       exemptionDate: exemptionDate.trim(),
+      statementDate: statementDate.trim(),
       assessmentPeriod: assessmentPeriod.trim(),
       promotedPurpose: promotedPurpose.trim(),
       isDirectlyPromoted: true,
@@ -276,6 +287,7 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
       taxOffice,
       taxNumber,
       exemptionDate,
+      statementDate,
       assessmentPeriod,
       promotedPurpose,
       isDirectlyPromoted: true,
@@ -285,6 +297,20 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
       updatedAt: new Date().toISOString()
     };
     downloadDonationReceiptPdf(tempReceipt, settings);
+  };
+
+  // Die Steuerangaben kommen immer aus den Vereinsstammdaten. Bei einer schon
+  // gespeicherten Bescheinigung bleiben die damals gespeicherten Werte stehen
+  // (sie belegen, was bei der Ausstellung galt); mit diesem Knopf können sie
+  // bewusst auf den aktuellen Stand der Stammdaten gesetzt werden.
+  const fehlendeAngaben = fehlendeSteuerangaben(settings);
+  const handleTaxFromSettings = () => {
+    setTaxOffice(settings.taxOffice || '');
+    setTaxNumber(settings.taxNumber || '');
+    setExemptionDate(settings.taxExemptionDate || '');
+    setStatementDate(settings.taxStatementDate || '');
+    setAssessmentPeriod(settings.taxAssessmentPeriod || '');
+    setPromotedPurpose(settings.promotedPurposes || '');
   };
 
   if (!isOpen) return null;
@@ -673,6 +699,16 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
             )}
           </div>
 
+          {fehlendeAngaben.length > 0 && (
+            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-200">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                In den Vereinsstammdaten fehlen Angaben für den Vordruck: <strong>{fehlendeAngaben.join(', ')}</strong>.
+                Bitte unter Einstellungen → Vereinsstammdaten → Steuerliche Angaben ergänzen, sonst bleiben die Felder auf der Bescheinigung leer.
+              </span>
+            </div>
+          )}
+
           {/* 7. Collapsible: Freistellungsbescheid & Finanzamtsdaten */}
           <div className="border border-slate-200 rounded-xl overflow-hidden dark:border-slate-800">
             <button
@@ -689,14 +725,28 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
 
             {showTaxDetails && (
               <div className="p-4 bg-white space-y-3 border-t border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-2xs text-slate-500 dark:text-slate-400">
+                  <span>Diese Angaben werden aus den Vereinsstammdaten übernommen und hier nicht geändert.</span>
+                  {editingReceipt && (
+                    <button
+                      type="button"
+                      onClick={handleTaxFromSettings}
+                      className="inline-flex items-center gap-1 px-2 py-1 border border-slate-200 rounded-lg font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                      title="Die gespeicherten Steuerangaben dieser Bescheinigung durch den aktuellen Stand der Vereinsstammdaten ersetzen"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>Auf aktuellen Stand der Stammdaten setzen</span>
+                    </button>
+                  )}
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-medium text-slate-600 mb-1 dark:text-slate-300">Zuständiges Finanzamt</label>
                     <input
                       type="text"
                       value={taxOffice}
-                      onChange={e => setTaxOffice(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800"
+                      readOnly
+                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800 text-slate-500 cursor-not-allowed dark:text-slate-400"
                     />
                   </div>
                   <div>
@@ -704,8 +754,8 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
                     <input
                       type="text"
                       value={taxNumber}
-                      onChange={e => setTaxNumber(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800"
+                      readOnly
+                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800 text-slate-500 cursor-not-allowed dark:text-slate-400"
                     />
                   </div>
                 </div>
@@ -716,8 +766,8 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
                     <input
                       type="text"
                       value={exemptionDate}
-                      onChange={e => setExemptionDate(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800"
+                      readOnly
+                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800 text-slate-500 cursor-not-allowed dark:text-slate-400"
                     />
                   </div>
                   <div>
@@ -725,10 +775,20 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
                     <input
                       type="text"
                       value={assessmentPeriod}
-                      onChange={e => setAssessmentPeriod(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800"
+                      readOnly
+                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800 text-slate-500 cursor-not-allowed dark:text-slate-400"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block font-medium text-slate-600 mb-1 dark:text-slate-300">Datum Feststellungsbescheid (§ 60a AO)</label>
+                  <input
+                    type="text"
+                    value={statementDate}
+                    readOnly
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800 text-slate-500 cursor-not-allowed dark:text-slate-400"
+                  />
                 </div>
 
                 <div>
@@ -736,8 +796,8 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
                   <input
                     type="text"
                     value={promotedPurpose}
-                    onChange={e => setPromotedPurpose(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800"
+                    readOnly
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs dark:bg-slate-800 dark:border-slate-800 text-slate-500 cursor-not-allowed dark:text-slate-400"
                   />
                 </div>
 

@@ -31,6 +31,7 @@ import {
   getPaymentMethodLabel,
   getFeePeriodLabel
 } from '../services/membershipPdfService';
+import { saveDataUrlAs, savePdfAs } from '../utils/fileExportHelper';
 
 interface ApplicationReviewModalProps {
   isOpen: boolean;
@@ -170,14 +171,14 @@ export const ApplicationReviewModal: React.FC<ApplicationReviewModalProps> = ({
 
   const handleDownloadPdf = () => {
     if (application.pdfDataUrl) {
-      const link = document.createElement('a');
-      link.href = application.pdfDataUrl;
-      link.download = `Aufnahmeantrag_${application.lastName || 'Antrag'}_${application.firstName || ''}_${application.applicationNumber || ''}.pdf`;
-      link.click();
+      void saveDataUrlAs(
+        application.pdfDataUrl,
+        `Aufnahmeantrag_${application.lastName || 'Antrag'}_${application.firstName || ''}_${application.applicationNumber || ''}.pdf`
+      );
       return;
     }
     const doc = generateMembershipApplicationPdf(application, settings);
-    doc.save(`Aufnahmeantrag_${application.lastName || 'Antrag'}_${application.firstName || ''}_${application.applicationNumber || ''}.pdf`);
+    void savePdfAs(doc, `Aufnahmeantrag_${application.lastName || 'Antrag'}_${application.firstName || ''}_${application.applicationNumber || ''}.pdf`);
   };
 
   const addr = application.address || {

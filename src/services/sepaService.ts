@@ -8,6 +8,7 @@ import {
   SepaRunConfig,
   SepaPeriodFilter
 } from '../types';
+import { saveBlobAs, savePdfAs } from '../utils/fileExportHelper';
 
 export const SepaService = {
   /**
@@ -482,14 +483,7 @@ ${txXmlParts.join('\n')}
    */
   downloadSepaXmlFile(xmlContent: string, filename: string): void {
     const blob = new Blob([xmlContent], { type: 'application/xml;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename.endsWith('.xml') ? filename : `${filename}.xml`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    void saveBlobAs(blob, filename.endsWith('.xml') ? filename : `${filename}.xml`);
   },
 
   /**
@@ -631,6 +625,6 @@ ${txXmlParts.join('\n')}
       doc.text(`Kassenwart / Schatzmeister: ${settings.treasurer}`, 115, finalY + 26);
     }
 
-    doc.save(`SEPA_Einzugsprotokoll_${config.executionDate}_${config.periodFilter}.pdf`);
+    void savePdfAs(doc, `SEPA_Einzugsprotokoll_${config.executionDate}_${config.periodFilter}.pdf`);
   }
 };

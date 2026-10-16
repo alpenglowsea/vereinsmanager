@@ -40,6 +40,7 @@ import {
   FileDown,
   X
 } from 'lucide-react';
+import { saveBlobAs } from '../utils/fileExportHelper';
 
 type InventorySortField =
   | 'name'
@@ -582,13 +583,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
     const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Inventarliste_${settings.clubName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    void saveBlobAs(blob, `Inventarliste_${settings.clubName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
   };
 
   // Selected items objects

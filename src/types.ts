@@ -264,6 +264,7 @@ export interface ClubSettings {
   fiscalYearStart?: string;
   taxOffice?: string; // z.B. 'Finanzamt Musterstadt'
   taxExemptionDate?: string; // z.B. '10.01.2024'
+  taxStatementDate?: string; // Datum des Feststellungsbescheids nach § 60a AO, z.B. '24.07.2025'
   taxAssessmentPeriod?: string; // z.B. '2021 bis 2023'
   promotedPurposes?: string; // z.B. 'Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)'
 }
@@ -476,6 +477,7 @@ export interface DonationReceipt {
   taxOffice: string;
   taxNumber: string;
   exemptionDate: string;
+  statementDate?: string; // Datum des Feststellungsbescheids nach § 60a AO (Stand bei Ausstellung)
   assessmentPeriod: string;
   promotedPurpose: string;
   isDirectlyPromoted: boolean;

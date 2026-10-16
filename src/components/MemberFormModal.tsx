@@ -33,6 +33,7 @@ import {
   Download,
   Gift
 } from 'lucide-react';
+import { saveDataUrlAs } from '../utils/fileExportHelper';
 
 interface MemberFormModalProps {
   member: Member | null;
@@ -1363,7 +1364,11 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-blue-600 hover:text-blue-800 font-medium text-[11px] flex items-center gap-1 ml-2 shrink-0 dark:text-blue-400 dark:hover:text-blue-200"
-                                onClick={e => e.stopPropagation()}
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  void saveDataUrlAs(doc.dataUrl, doc.fileName || 'Dokument');
+                                }}
                               >
                                 <Download className="w-3 h-3" />
                                 Download

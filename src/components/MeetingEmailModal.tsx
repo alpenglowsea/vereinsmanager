@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Meeting, Member, ClubSettings, MeetingTemplateSettings } from '../types';
 import { MeetingPdfService } from '../services/meetingPdfService';
+import { savePdfAs } from '../utils/fileExportHelper';
 
 interface MeetingEmailModalProps {
   isOpen: boolean;
@@ -211,7 +212,7 @@ ${clubName}`
       }
       const prefix = isInvitation ? 'Einladung' : 'Protokoll';
       const safeTitle = (meeting.title || 'Sitzung').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_');
-      doc.save(`${prefix}_${safeTitle}.pdf`);
+      void savePdfAs(doc, `${prefix}_${safeTitle}.pdf`);
     } catch (err) {
       console.error('Failed to download PDF:', err);
     }

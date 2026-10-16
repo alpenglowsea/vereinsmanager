@@ -36,6 +36,7 @@ import { TablePagination } from './TablePagination';
 import { AuswahlLeiste } from './AuswahlLeiste';
 import { usePagination } from '../hooks/usePagination';
 import { ermittleSeitenStatus, wechsleSeite, waehleAlleGefilterten } from '../utils/tableSelection';
+import { saveDataUrlAs, saveDataUrlsAsZip } from '../utils/fileExportHelper';
 
 interface DocumentsViewProps {
   documents: ClubDocument[];
@@ -299,25 +300,22 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   // Download Single File
   const handleSingleDownload = (doc: ClubDocument, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const link = document.createElement('a');
-    link.href = doc.dataUrl;
-    link.download = doc.fileName || `${doc.title}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    void saveDataUrlAs(doc.dataUrl, doc.fileName || `${doc.title}.pdf`);
   };
 
   // Download Multiple Files
   const handleBatchDownload = () => {
     const docsToDownload = documents.filter(d => selectedIds.has(d.id));
-    docsToDownload.forEach(doc => {
-      const link = document.createElement('a');
-      link.href = doc.dataUrl;
-      link.download = doc.fileName || `${doc.title}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    });
+    if (docsToDownload.length === 0) return;
+    if (docsToDownload.length === 1) {
+      void saveDataUrlAs(docsToDownload[0].dataUrl, docsToDownload[0].fileName || `${docsToDownload[0].title}.pdf`);
+      return;
+    }
+    // Mehrere Dateien: eine ZIP-Datei mit einem einzigen Speichern-Dialog.
+    void saveDataUrlsAsZip(
+      docsToDownload.map(d => ({ dataUrl: d.dataUrl, name: d.fileName || `${d.title}.pdf` })),
+      `Dokumente_${docsToDownload.length}_Stueck.zip`
+    );
   };
 
   // Format File Size

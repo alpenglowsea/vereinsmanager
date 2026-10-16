@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Meeting, MeetingDigitalSignature, ClubSettings, MeetingTemplateSettings } from '../types';
 import { MeetingPdfService } from '../services/meetingPdfService';
+import { savePdfAs } from '../utils/fileExportHelper';
 
 interface MeetingSignatureModalProps {
   isOpen: boolean;
@@ -262,7 +263,7 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
       );
       const safeTitle = (meeting.title || 'Protokoll').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_');
       const suffix = withDigitalSignatures ? 'digital_signiert' : 'blanko_ausdruck';
-      doc.save(`Protokoll_${safeTitle}_${suffix}.pdf`);
+      void savePdfAs(doc, `Protokoll_${safeTitle}_${suffix}.pdf`);
     } catch (err) {
       console.error('Failed to export protocol PDF:', err);
     } finally {

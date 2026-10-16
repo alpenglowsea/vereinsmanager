@@ -29,6 +29,7 @@ import {
   AlertCircle,
   Split
 } from 'lucide-react';
+import { saveDataUrlAs } from '../utils/fileExportHelper';
 
 interface TransactionDetailsModalProps {
   isOpen: boolean;
@@ -86,12 +87,7 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
 
   const handleDownloadReceipt = () => {
     if (!transaction.receipt) return;
-    const link = document.createElement('a');
-    link.href = transaction.receipt.dataUrl;
-    link.download = transaction.receipt.name || `Beleg_${transaction.documentNumber}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    void saveDataUrlAs(transaction.receipt.dataUrl, transaction.receipt.name || `Beleg_${transaction.documentNumber}.pdf`);
   };
 
   const handleDelete = () => {

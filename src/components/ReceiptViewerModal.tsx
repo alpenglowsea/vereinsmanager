@@ -1,6 +1,7 @@
 import React from 'react';
 import { ReceiptAttachment } from '../types';
 import { X, Download, FileText, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
+import { saveDataUrlAs } from '../utils/fileExportHelper';
 
 interface ReceiptViewerModalProps {
   receipt: ReceiptAttachment | null;
@@ -23,12 +24,7 @@ export const ReceiptViewerModal: React.FC<ReceiptViewerModalProps> = ({
   const isPdf = receipt.type === 'application/pdf' || receipt.dataUrl.startsWith('data:application/pdf');
 
   const handleDownload = () => {
-    const link = document.createElement('a');
-    link.href = receipt.dataUrl;
-    link.download = receipt.name || `Beleg_${documentNumber}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    void saveDataUrlAs(receipt.dataUrl, receipt.name || `Beleg_${documentNumber}.pdf`);
   };
 
   return (

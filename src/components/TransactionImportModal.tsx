@@ -28,6 +28,7 @@ import {
   Scale,
   Info
 } from 'lucide-react';
+import { saveBlobAs } from '../utils/fileExportHelper';
 
 interface TransactionImportModalProps {
   existingTransactions: Transaction[];
@@ -120,13 +121,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
   const handleDownloadSample = () => {
     const sampleCSV = generateSampleTransactionCSVTemplate(settings, accounts);
     const blob = new Blob([sampleCSV], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `buchungen_vorlage_skr42_${settings.clubName.replace(/\s+/g, '_')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    void saveBlobAs(blob, `buchungen_vorlage_skr42_${settings.clubName.replace(/\s+/g, '_')}.csv`);
   };
 
   // Convert to preview rows when moving to step 3

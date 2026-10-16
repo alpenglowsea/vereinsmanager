@@ -13,6 +13,26 @@ E-Mail-Versand sind auch alle Funktionen entfernt, die nur für eine der
 beiden anderen Betriebsarten existierten. Vollständige Begründung und
 Versionsgeschichte der einzelnen Schritte: `claude/plan-vereinfachung.md`
 
+### Nachtrag 10 — Zuwendungsbestätigung nach amtlichem Muster; „Speichern unter“ überall
+
+- **Vordruck:** Die Zuwendungsbestätigung (Geld- und Sachspende) ist nach dem
+  amtlichen Muster 034122 des Bundesfinanzministeriums neu aufgebaut
+  (Maße am Beispiel-PDF gemessen, Schrift Helvetica ≈ Arial).
+- **Steuerangaben immer aktuell:** Finanzamt, Steuernummer, Datum des
+  Freistellungs-/Feststellungsbescheids, Veranlagungszeitraum und
+  begünstigte Zwecke kommen aus den Vereinsstammdaten. Neue Bescheinigungen
+  übernehmen sie automatisch (Felder schreibgeschützt); bereits
+  ausgestellte behalten ihre gespeicherten Angaben (rechtlich maßgeblich) und
+  lassen sich mit einem Knopf bewusst aktualisieren. Es werden keine Werte
+  mehr erfunden; fehlende Angaben werden angezeigt.
+- **Neue Felder in den Vereinsstammdaten:** Veranlagungszeitraum, Datum des
+  Feststellungsbescheids (§ 60a AO), steuerbegünstigte Zwecke.
+- **„Speichern unter“ bei jedem Download:** Alle Herunterladen-Knöpfe der App
+  (PDF, CSV, XML, Excel, Kalender, QR-Codes, Dokumente, Belege …) laufen über
+  eine gemeinsame Funktion. Wo das Fenster es kann, erscheint die Ordner- und
+  Namensauswahl; sonst wird normal heruntergeladen. Mehrere Dokumente werden
+  als eine ZIP-Datei mit einem einzigen Dialog gespeichert.
+
 ### Nachtrag 9 — Spenden: ZIP-Download und Listen-Export
 
 - In der Spendenübersicht gibt es drei neue Knöpfe: **PDFs als ZIP** (alle

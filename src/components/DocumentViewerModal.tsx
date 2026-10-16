@@ -14,6 +14,7 @@ import {
   Receipt,
   Info
 } from 'lucide-react';
+import { saveDataUrlAs } from '../utils/fileExportHelper';
 
 interface DocumentViewerModalProps {
   document: ClubDocument | null;
@@ -54,12 +55,7 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   };
 
   const handleDownload = () => {
-    const link = window.document.createElement('a');
-    link.href = doc.dataUrl;
-    link.download = doc.fileName || `${doc.title}.pdf`;
-    window.document.body.appendChild(link);
-    link.click();
-    window.document.body.removeChild(link);
+    void saveDataUrlAs(doc.dataUrl, doc.fileName || `${doc.title}.pdf`);
   };
 
   const categoryInfo = CATEGORY_CONFIG[doc.category] || CATEGORY_CONFIG.sonstiges;

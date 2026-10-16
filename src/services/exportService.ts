@@ -14,7 +14,8 @@ import {
 } from '../types';
 import { TAX_SPHERES } from '../data/taxSpheres';
 import { CONTACT_TYPE_MAP } from '../data/contactConstants';
-import { saveBlobWithLocationPicker, FileSaveResult } from '../utils/fileExportHelper';
+import { FileSaveResult, saveBlobAs, saveBlobWithLocationPicker, savePdfAs } from '../utils/fileExportHelper';
+
 
 export const ExportService = {
   // 1. Export Members to CSV with location picker & fallback
@@ -295,13 +296,7 @@ export const ExportService = {
 
     const csv = Papa.unparse(data, { delimiter: ';' });
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    void saveBlobAs(blob, filename);
   },
 
   // 4b. Transactions Journal PDF Export
@@ -406,7 +401,7 @@ export const ExportService = {
     });
 
     const targetFile = filename || `buchungsjournal_${new Date().toISOString().split('T')[0]}.pdf`;
-    doc.save(targetFile);
+    void savePdfAs(doc, targetFile);
   },
 
   // 4c. Inventory CSV Export
@@ -443,13 +438,7 @@ export const ExportService = {
 
     const csv = Papa.unparse(data, { delimiter: ';' });
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    void saveBlobAs(blob, filename);
   },
 
   // 4d. Inventory PDF Export
@@ -560,7 +549,7 @@ export const ExportService = {
     });
 
     const targetFile = filename || `inventarliste_${new Date().toISOString().split('T')[0]}.pdf`;
-    doc.save(targetFile);
+    void savePdfAs(doc, targetFile);
   },
 
   // 5. Gewinn- und Verlustrechnung (GuV / EÜR) PDF Export nach § 4 Abs. 3 EStG / 4 steuerliche Sphären
@@ -729,7 +718,7 @@ export const ExportService = {
       doc.text(`Kassenprüfer / 1. Vorsitzender`, 120, finalY + 22);
     }
 
-    doc.save(`EStG_GuV_${yearFilter || 'gesamt'}_${new Date().toISOString().split('T')[0]}.pdf`);
+    void savePdfAs(doc, `EStG_GuV_${yearFilter || 'gesamt'}_${new Date().toISOString().split('T')[0]}.pdf`);
   },
 
   // 6. Export Contacts to CSV
@@ -773,13 +762,7 @@ export const ExportService = {
 
     const csv = Papa.unparse(data, { delimiter: ';' });
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    void saveBlobAs(blob, filename);
   },
 
   // 7. Export Contacts to PDF
@@ -869,7 +852,7 @@ export const ExportService = {
       }
     });
 
-    doc.save(`kontakte_${new Date().toISOString().split('T')[0]}.pdf`);
+    void savePdfAs(doc, `kontakte_${new Date().toISOString().split('T')[0]}.pdf`);
   },
 
   // 14. Export Issued Inventory (Materialausgabe an Mitglieder) to CSV

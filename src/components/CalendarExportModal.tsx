@@ -13,6 +13,7 @@ import {
   CheckSquare,
   Square
 } from 'lucide-react';
+import { saveBlobAs } from '../utils/fileExportHelper';
 
 interface CalendarExportModalProps {
   isOpen: boolean;
@@ -83,7 +84,7 @@ export const CalendarExportModal: React.FC<CalendarExportModalProps> = ({
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (filteredEvents.length === 0) {
       alert('Keine Termine für die ausgewählten Filterkriterien vorhanden.');
       return;
@@ -92,21 +93,13 @@ export const CalendarExportModal: React.FC<CalendarExportModalProps> = ({
     if (format === 'ics') {
       const icsContent = CalendarService.exportToIcs(filteredEvents, categories, `${clubName} Terminkalender`);
       const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Vereinskalender_${clubName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${todayStr}.ics`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const ergebnis = await saveBlobAs(blob, `Vereinskalender_${clubName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${todayStr}.ics`);
+      if (ergebnis.cancelled) return;
     } else {
       const csvContent = CalendarService.exportToCsv(filteredEvents, categories);
       const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Vereinskalender_${clubName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${todayStr}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const ergebnis = await saveBlobAs(blob, `Vereinskalender_${clubName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${todayStr}.csv`);
+      if (ergebnis.cancelled) return;
     }
 
     setIsExported(true);

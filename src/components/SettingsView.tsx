@@ -11,7 +11,8 @@ import { BackupPasswordDialog } from './BackupPasswordDialog';
 import { istVerschluesselt, verschluessleSicherung, entschluessleSicherung } from '../services/backupCrypto';
 import { BereichsVergleich, ImportArt, SicherungsKopf } from '../services/backupContents';
 import { openExternalUrl } from '../utils/externalLink';
-import { saveBlobWithLocationPicker } from '../utils/fileExportHelper';
+import { saveBlobWithLocationPicker, saveDataUrlAs } from '../utils/fileExportHelper';
+
 import QRCode from 'qrcode';
 import {
   Settings,
@@ -2076,6 +2077,48 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 placeholder="z.B. 15.03.2024"
               />
             </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Veranlagungszeitraum (laut Freistellungsbescheid)
+              </label>
+              <input
+                type="text"
+                value={formData.taxAssessmentPeriod || ''}
+                onChange={e => setFormData({ ...formData, taxAssessmentPeriod: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                placeholder="z.B. 2022 - 2024"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Datum Feststellungsbescheid (§ 60a AO)
+              </label>
+              <input
+                type="text"
+                value={formData.taxStatementDate || ''}
+                onChange={e => setFormData({ ...formData, taxStatementDate: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                placeholder="z.B. 15.03.2024"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Steuerbegünstigte Zwecke (laut Satzung / Bescheid)
+              </label>
+              <input
+                type="text"
+                value={formData.promotedPurposes || ''}
+                onChange={e => setFormData({ ...formData, promotedPurposes: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                placeholder="z.B. Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)"
+              />
+              <p className="text-2xs text-slate-500 dark:text-slate-400 mt-1">
+                Diese Angaben stehen auf allen Zuwendungsbestätigungen. Ändern sie sich (neuer Freistellungsbescheid), gelten sie automatisch für alle neu erstellten Bescheinigungen. Bereits ausgestellte behalten ihre damaligen Angaben.
+              </p>
+            </div>
             </div>
           </div>
 
@@ -2653,6 +2696,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <a
                   href={projectSupportQrUrl ?? undefined}
                   download="liberapay-qr-code.png"
+                  onClick={e => {
+                    e.preventDefault();
+                    if (projectSupportQrUrl) void saveDataUrlAs(projectSupportQrUrl, 'liberapay-qr-code.png');
+                  }}
                   className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center cursor-pointer"
                   title="QR-Code herunterladen"
                 >
@@ -3229,6 +3276,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <a
                 href={projectSupportQrUrl ?? undefined}
                 download="liberapay-qr-code.png"
+                  onClick={e => {
+                    e.preventDefault();
+                    if (projectSupportQrUrl) void saveDataUrlAs(projectSupportQrUrl, 'liberapay-qr-code.png');
+                  }}
                 className="py-3 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Download className="w-4 h-4" />
