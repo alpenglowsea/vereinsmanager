@@ -1,0 +1,53 @@
+{
+ "clubName": "TSV Musterstadt 1890 e.V.",
+ "associationNumber": "VR 48219 (Amtsgericht Musterstadt)",
+ "taxNumber": "112/5840/1922 (Finanzamt Musterstadt)",
+ "taxOffice": "Finanzamt Musterstadt",
+ "taxExemptionDate": "10.01.2024",
+ "taxAssessmentPeriod": "2021 bis 2023",
+ "promotedPurposes": "Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)",
+ "creditorId": "DE98ZZZ09999999999",
+ "creditorIban": "DE89370501981122334455",
+ "creditorBic": "SPKDMUSTXXX",
+ "creditorAccountId": "acc-1",
+ "address": "Sportplatzweg 12, 12345 Musterstadt",
+ "chairman": "Dr. Michael Sommer",
+ "treasurer": "Sabine Weber",
+ "boardMembers": [
+  {
+   "id": "bm-1",
+   "role": "1. Vorsitzender",
+   "name": "Dr. Michael Sommer",
+   "email": "vorstand@tsv-musterstadt1890.de"
+  },
+  {
+   "id": "bm-2",
+   "role": "Schatzmeisterin / Kassenwart",
+   "name": "Sabine Weber",
+   "email": "finanzen@tsv-musterstadt1890.de"
+  },
+  {
+   "id": "bm-3",
+   "role": "2. Vorsitzender",
+   "name": "Thomas Müller"
+  },
+  {
+   "id": "bm-4",
+   "role": "Schriftführerin",
+   "name": "Claudia Schmidt"
+  }
+ ],
+ "email": "vorstand@tsv-musterstadt1890.de",
+ "departments": [
+  "Fußball",
+  "Tennis",
+  "Leichtathletik",
+  "Turnen & Gymnastik",
+  "Tischtennis",
+  "Schach",
+  "Volleyball",
+  "Schwimmen",
+  "Vorstand & Verwaltung",
+  "Ehrenmitglieder"
+ ]
+}

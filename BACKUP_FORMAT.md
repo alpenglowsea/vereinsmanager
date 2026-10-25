@@ -34,12 +34,12 @@ Beide haben die Endung `.json` und sind UTF-8-Text.
   nur angezeigt, nicht geprüft.
 - Die Daten liegen unter `data`. Fehlt `data`, wird das Objekt selbst als
   Daten behandelt (ältere Dateien).
-- **Eine Datei gilt als Sicherung, wenn mindestens einer der 21 Bereiche
+- **Eine Datei gilt als Sicherung, wenn mindestens einer der 19 Bereiche
   vorkommt.** Sonst lehnt die App sie ab, bevor etwas verändert wird.
 - Die Datei wird mit Einrückung (2 Leerzeichen) geschrieben. Beim Lesen spielt
   das keine Rolle.
 
-## 3. Die 21 Bereiche
+## 3. Die 19 Bereiche
 
 `liste` = Array von Einträgen, jeder Eintrag hat eine Kennung `id` (Text).
 `einzel` = genau ein Objekt.
@@ -64,9 +64,12 @@ Beide haben die Endung `.json` und sind UTF-8-Text.
 | `dashboardConfig` | einzel | Einstellungen der Startseite |
 | `calendarEvents` | liste | Termine |
 | `calendarCategories` | liste | Terminkategorien |
-| `onlineApplications` | liste | Aufnahmeanträge |
-| `applicationSettings` | einzel | Antragsformular-Einstellungen |
 | `settings` | einzel | Vereinsstammdaten und Einstellungen |
+
+**Entfallene Bereiche (Entscheidung 25.10.2026):** `onlineApplications` (Aufnahmeanträge) und
+`applicationSettings` (Antragsformular-Einstellungen) gehören nicht mehr zur Sicherung, weder in der
+Android-App noch künftig am Desktop. Steht einer der beiden in einer älteren Datei, wird er beim
+Einspielen überlesen und verworfen. **Die Desktop-Fassung schreibt sie bis zu ihrer Anpassung noch.**
 
 **Nicht Teil der Sicherung:** das Gerätepasswort. Es sperrt nur das jeweilige
 Gerät und reist bewusst nicht mit. Das gilt auch für die Android-App: Jedes
@@ -137,7 +140,6 @@ Liste). Die Android-App darf sie ebenfalls nie schreiben.
 | `invoiceTemplate` | `main_template` |
 | `meetingTemplate` | `main_meeting_template` |
 | `dashboardConfig` | `main_dashboard` |
-| `applicationSettings` | `main` |
 | `settings` | `main` |
 
 Die Einzel-Objekte in der Datei haben **nicht immer** eine `id` (in der
@@ -256,4 +258,4 @@ Dieses Format ändert sich **nur gemeinsam** für beide Fassungen:
 3. Auf der Desktop-Seite sorgt `pruefungAlleStoresGesichert` in
    `backupContents.ts` dafür, dass ein neuer Datenbereich nicht stillschweigend
    aus der Sicherung fällt. Die Android-App bekommt eine gleichwertige Prüfung
-   (Test, der die 21 Schlüssel dieser Datei gegen den Code abgleicht).
+   (Test, der die 19 Schlüssel dieser Datei gegen den Code abgleicht).
