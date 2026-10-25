@@ -89,6 +89,8 @@ private fun probeA(ctx: Context, input: Uri, password: String, out: Uri?, log: (
 
 /** Probe C: große Sicherung selbst erzeugen und Zeit/Speicher messen. */
 private fun probeC(megabytes: Int, password: String, log: (String) -> Unit) {
+    System.gc()
+    Thread.sleep(500)
     log("Erlaubter Speicher der App: ${maxHeapMb()} MB, aktuell belegt: ${heapMb()} MB")
     val blockChars = 512 * 1024
     val block = "A".repeat(blockChars) // Platzhalter für Dokumentinhalt (Data-URL)
@@ -107,6 +109,7 @@ private fun probeC(megabytes: Int, password: String, log: (String) -> Unit) {
     val text = file.toJsonText()
     log("Erzeugt+geschrieben: ${text.length / 1024 / 1024} MB Text in ${(System.nanoTime() - t) / 1_000_000} ms, Speicher ${heapMb()} MB")
     t = System.nanoTime()
+    log("Vor dem Verschlüsseln: Speicher ${heapMb()} MB")
     val enc = BackupCrypto.encrypt(text, password)
     log("Verschlüsselt in ${(System.nanoTime() - t) / 1_000_000} ms, Speicher ${heapMb()} MB")
     t = System.nanoTime()
@@ -184,7 +187,7 @@ fun ProbeScreen(modifier: Modifier = Modifier) {
     }
 
     Column(modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
-        Text("Phase-0-Proben")
+        Text("Phase-0-Proben (Probe C: Größe in MB; nach einem Fehler App neu starten)")
         OutlinedTextField(password, { password = it }, label = { Text("Passwort (nur bei verschlüsselter Sicherung)") },
             modifier = Modifier.fillMaxWidth())
         Row {
@@ -207,8 +210,10 @@ fun ProbeScreen(modifier: Modifier = Modifier) {
         qrBmp?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxWidth()) }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         Row {
-            Button(onClick = { run("Probe C (25 MB)") { probeC(25, "probe-passwort", ::log) } }) { Text("C: 25 MB") }
-            Button(onClick = { run("Probe C (100 MB)") { probeC(100, "probe-passwort", ::log) } }, modifier = Modifier.padding(start = 8.dp)) { Text("C: 100 MB") }
+            for (mb in listOf(2, 5, 10, 15)) {
+                Button(onClick = { run("Probe C ($mb MB)") { probeC(mb, "probe-passwort", ::log) } },
+                    modifier = Modifier.padding(end = 6.dp)) { Text("$mb") }
+            }
         }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         SelectionContainer { Text(logText) }

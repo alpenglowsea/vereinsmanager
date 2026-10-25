@@ -49,6 +49,7 @@ object BackupCrypto {
 
     /** Entschlüsselt die Hülle und liefert den Klartext der Sicherung (JSON-Text). */
     fun decrypt(envelopeText: String, password: String): String {
+        if (password.isEmpty()) throw IllegalArgumentException("Bitte ein Passwort eingeben.")
         val env = try {
             Json.parseToJsonElement(envelopeText).jsonObject
         } catch (e: Exception) {
