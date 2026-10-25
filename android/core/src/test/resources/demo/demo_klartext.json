@@ -1,0 +1,2790 @@
+{
+  "app": "VereinsManager Lokal",
+  "version": "1.2.3",
+  "exportedAt": "2026-10-25T10:36:38.949Z",
+  "data": {
+    "members": [
+      {
+        "id": "mem-1",
+        "memberNumber": "MG-001",
+        "firstName": "Maximilian",
+        "lastName": "Müller",
+        "gender": "m",
+        "birthDate": "1984-05-14",
+        "address": {
+          "street": "Hauptstraße",
+          "houseNumber": "42",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "phone": "0171 1234567",
+        "email": "max.mueller@example.de",
+        "entryDate": "2015-03-01",
+        "status": "active",
+        "department": "Fußball",
+        "membershipType": "full",
+        "feeAmount": 15,
+        "feePeriod": "monthly",
+        "paymentMethod": "sepa",
+        "bankDetails": {
+          "iban": "DE12370501980000123456",
+          "bic": "SPKDMUSTXXX",
+          "bankName": "Sparkasse Musterstadt",
+          "accountHolder": "Maximilian Müller",
+          "mandateDate": "2015-03-01",
+          "mandateReference": "MANDAT-MG001-2015",
+          "monthlyDueDay": 1
+        },
+        "notes": "Spielführer 1. Herrenmannschaft. Erste-Hilfe-Zertifikat vorhanden.",
+        "dataPrivacyConsent": true,
+        "createdAt": "2015-03-01T08:00:00.000Z",
+        "updatedAt": "2024-01-15T10:30:00.000Z"
+      },
+      {
+        "id": "mem-2",
+        "memberNumber": "MG-002",
+        "firstName": "Anna-Lena",
+        "lastName": "Schmidt",
+        "gender": "w",
+        "birthDate": "1992-11-20",
+        "address": {
+          "street": "Birkenweg",
+          "houseNumber": "7a",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "phone": "0152 9876543",
+        "email": "a.schmidt@example.de",
+        "entryDate": "2018-09-01",
+        "status": "active",
+        "department": "Tennis",
+        "membershipType": "full",
+        "feeAmount": 20,
+        "feePeriod": "monthly",
+        "paymentMethod": "sepa",
+        "bankDetails": {
+          "iban": "DE45370501980000987654",
+          "bic": "SPKDMUSTXXX",
+          "bankName": "Sparkasse Musterstadt",
+          "accountHolder": "Anna-Lena Schmidt",
+          "mandateDate": "2018-09-01",
+          "mandateReference": "MANDAT-MG002-2018",
+          "monthlyDueDay": 15
+        },
+        "notes": "Jugendtrainerin Tennis mit C-Lizenz. Ehrenamtspauschale berechtigt.",
+        "dataPrivacyConsent": true,
+        "createdAt": "2018-09-01T09:00:00.000Z",
+        "updatedAt": "2024-02-10T14:15:00.000Z"
+      },
+      {
+        "id": "mem-3",
+        "memberNumber": "MG-003",
+        "firstName": "Felix",
+        "lastName": "Schneider",
+        "gender": "m",
+        "birthDate": "2010-04-12",
+        "address": {
+          "street": "Goethestraße",
+          "houseNumber": "15",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "phone": "0160 5544332",
+        "email": "familie.schneider@example.de",
+        "entryDate": "2021-01-15",
+        "status": "active",
+        "department": "Leichtathletik",
+        "membershipType": "youth",
+        "feeAmount": 10,
+        "feePeriod": "monthly",
+        "paymentMethod": "sepa",
+        "bankDetails": {
+          "iban": "DE78370501980000554433",
+          "bic": "SPKDMUSTXXX",
+          "bankName": "Sparkasse Musterstadt",
+          "accountHolder": "Thomas Schneider (Vater)",
+          "mandateDate": "2021-01-10",
+          "mandateReference": "MANDAT-MG003-2021",
+          "monthlyDueDay": 1
+        },
+        "notes": "Jugendfördergruppe Sprint / Weitsprung.",
+        "dataPrivacyConsent": true,
+        "createdAt": "2021-01-15T11:00:00.000Z",
+        "updatedAt": "2023-11-20T16:00:00.000Z"
+      },
+      {
+        "id": "mem-4",
+        "memberNumber": "MG-004",
+        "firstName": "Heinrich",
+        "lastName": "Bauer",
+        "gender": "m",
+        "birthDate": "1948-02-18",
+        "address": {
+          "street": "Lindenallee",
+          "houseNumber": "3",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "phone": "01234 56789",
+        "email": "h.bauer.veteran@example.de",
+        "entryDate": "1970-05-01",
+        "status": "honorary",
+        "department": "Ehrenmitglieder",
+        "membershipType": "honorary",
+        "feeAmount": 0,
+        "feePeriod": "yearly",
+        "paymentMethod": "cash",
+        "bankDetails": {
+          "iban": "",
+          "bic": "",
+          "bankName": "",
+          "accountHolder": "",
+          "mandateDate": "",
+          "mandateReference": ""
+        },
+        "notes": "Ehrenmitglied seit 2020. 50 Jahre Vereinsmitgliedschaft.",
+        "dataPrivacyConsent": true,
+        "createdAt": "1970-05-01T00:00:00.000Z",
+        "updatedAt": "2020-05-01T12:00:00.000Z"
+      },
+      {
+        "id": "mem-5",
+        "memberNumber": "MG-005",
+        "firstName": "Laura",
+        "lastName": "Wagner",
+        "gender": "w",
+        "birthDate": "1998-07-03",
+        "address": {
+          "street": "Schulstraße",
+          "houseNumber": "22",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "phone": "0176 3322110",
+        "email": "l.wagner@example.de",
+        "entryDate": "2022-04-01",
+        "status": "passive",
+        "department": "Turnen & Gymnastik",
+        "membershipType": "reduced",
+        "feeAmount": 40,
+        "feePeriod": "yearly",
+        "paymentMethod": "transfer",
+        "bankDetails": {
+          "iban": "",
+          "bic": "",
+          "bankName": "",
+          "accountHolder": "",
+          "mandateDate": "",
+          "mandateReference": ""
+        },
+        "notes": "Studium bis 2025. Nachweis vorgelegt.",
+        "dataPrivacyConsent": true,
+        "createdAt": "2022-04-01T10:00:00.000Z",
+        "updatedAt": "2024-03-01T09:00:00.000Z"
+      },
+      {
+        "id": "mem-6",
+        "memberNumber": "MG-006",
+        "firstName": "Christian",
+        "lastName": "Koch",
+        "gender": "m",
+        "birthDate": "1979-09-12",
+        "address": {
+          "street": "Kastanienweg",
+          "houseNumber": "11",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "phone": "0170 8899001",
+        "email": "c.koch@firma-koch.de",
+        "entryDate": "2019-06-15",
+        "status": "active",
+        "department": "Schach",
+        "membershipType": "supporting",
+        "feeAmount": 75,
+        "feePeriod": "quarterly",
+        "paymentMethod": "sepa",
+        "bankDetails": {
+          "iban": "DE91370501980000889900",
+          "bic": "SPKDMUSTXXX",
+          "bankName": "Sparkasse Musterstadt",
+          "accountHolder": "Christian Koch",
+          "mandateDate": "2019-06-10",
+          "mandateReference": "MANDAT-MG006-2019"
+        },
+        "notes": "Fördermitglied und Sponsor der Jugendmannschaften.",
+        "dataPrivacyConsent": true,
+        "createdAt": "2019-06-15T14:00:00.000Z",
+        "updatedAt": "2024-01-08T11:20:00.000Z"
+      },
+      {
+        "id": "mem-7",
+        "memberNumber": "MG-007",
+        "firstName": "Sophie",
+        "lastName": "Becker",
+        "gender": "w",
+        "birthDate": "2004-03-29",
+        "address": {
+          "street": "Am Sportfeld",
+          "houseNumber": "5",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "phone": "0151 7766554",
+        "email": "sophie.becker@example.de",
+        "entryDate": "2023-01-10",
+        "status": "active",
+        "department": "Volleyball",
+        "membershipType": "full",
+        "feeAmount": 60,
+        "feePeriod": "half_yearly",
+        "paymentMethod": "sepa",
+        "bankDetails": {
+          "iban": "DE62370501980000776655",
+          "bic": "SPKDMUSTXXX",
+          "bankName": "Sparkasse Musterstadt",
+          "accountHolder": "Sophie Becker",
+          "mandateDate": "2023-01-05",
+          "mandateReference": "MANDAT-MG007-2023"
+        },
+        "notes": "Damenmannschaft Volleyball.",
+        "dataPrivacyConsent": true,
+        "createdAt": "2023-01-10T10:00:00.000Z",
+        "updatedAt": "2023-01-10T10:00:00.000Z"
+      },
+      {
+        "id": "mem-8",
+        "memberNumber": "MG-008",
+        "firstName": "Jonas",
+        "lastName": "Richter",
+        "gender": "m",
+        "birthDate": "1995-08-17",
+        "address": {
+          "street": "Parkstraße",
+          "houseNumber": "19",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "phone": "0175 4433221",
+        "email": "j.richter@example.de",
+        "entryDate": "2020-02-01",
+        "status": "active",
+        "department": "Fußball",
+        "membershipType": "full",
+        "feeAmount": 18,
+        "feePeriod": "monthly",
+        "paymentMethod": "sepa",
+        "bankDetails": {
+          "iban": "DE21370501980000332211",
+          "bic": "SPKDMUSTXXX",
+          "bankName": "Sparkasse Musterstadt",
+          "accountHolder": "Jonas Richter",
+          "mandateDate": "2020-02-01",
+          "mandateReference": "MANDAT-MG008-2020",
+          "monthlyDueDay": 15
+        },
+        "notes": "2. Herrenmannschaft Fußball.",
+        "dataPrivacyConsent": true,
+        "createdAt": "2020-02-01T10:00:00.000Z",
+        "updatedAt": "2024-01-10T10:00:00.000Z"
+      },
+      {
+        "id": "mem-9",
+        "memberNumber": "MG-009",
+        "firstName": "Katharina",
+        "lastName": "Hoffmann",
+        "gender": "w",
+        "birthDate": "1988-12-05",
+        "address": {
+          "street": "Rosenweg",
+          "houseNumber": "4",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "phone": "0157 1122334",
+        "email": "k.hoffmann@example.de",
+        "entryDate": "2017-07-01",
+        "status": "active",
+        "department": "Turnen & Gymnastik",
+        "membershipType": "full",
+        "feeAmount": 120,
+        "feePeriod": "yearly",
+        "paymentMethod": "sepa",
+        "bankDetails": {
+          "iban": "DE39370501980000112233",
+          "bic": "SPKDMUSTXXX",
+          "bankName": "Sparkasse Musterstadt",
+          "accountHolder": "Katharina Hoffmann",
+          "mandateDate": "2017-07-01",
+          "mandateReference": "MANDAT-MG009-2017"
+        },
+        "notes": "Übungsleiterin Eltern-Kind-Turnen.",
+        "dataPrivacyConsent": true,
+        "createdAt": "2017-07-01T10:00:00.000Z",
+        "updatedAt": "2024-01-05T10:00:00.000Z"
+      }
+    ],
+    "transactions": [
+      {
+        "id": "tx-10",
+        "date": "2025-03-01",
+        "amount": -280,
+        "type": "expense",
+        "accountId": "acc-1",
+        "documentNumber": "BE-2025-010",
+        "bookingText": "Neue Spielbälle & Trainingshütchen Jugend",
+        "partner": "Sportshop Franke",
+        "sphere": "zweckbetrieb",
+        "category": "Sportgeräte & Trainingsmaterial",
+        "vatRate": 19,
+        "notes": "Trainingsausstattung Fußball- und Leichtathletikabteilung",
+        "createdAt": "2025-03-01T14:00:00.000Z",
+        "updatedAt": "2025-03-01T14:00:00.000Z"
+      },
+      {
+        "id": "tx-9",
+        "date": "2025-02-20",
+        "amount": 1200,
+        "type": "income",
+        "accountId": "acc-1",
+        "documentNumber": "BE-2025-009",
+        "bookingText": "Bandenwerbung Saison 2024/2025",
+        "partner": "Autohaus Müller GmbH",
+        "sphere": "wirtschaftlich",
+        "category": "Banden- & Bannerwerbung",
+        "vatRate": 19,
+        "notes": "Rechnung #RE-2025-012 zzgl. 19% MwSt.",
+        "createdAt": "2025-02-20T11:45:00.000Z",
+        "updatedAt": "2025-02-20T11:45:00.000Z"
+      },
+      {
+        "id": "tx-8",
+        "date": "2025-02-15",
+        "amount": -600,
+        "type": "expense",
+        "accountId": "acc-1",
+        "documentNumber": "BE-2025-008",
+        "bookingText": "Übungsleiterpauschale 1. Quartal 2025",
+        "partner": "Anna-Lena Schmidt",
+        "sphere": "zweckbetrieb",
+        "category": "Übungsleiterpauschalen (§ 3 Nr. 26 EStG)",
+        "vatRate": 0,
+        "notes": "Steuerfreie Aufwandsentschädigung Tennis-Jugend",
+        "createdAt": "2025-02-15T15:00:00.000Z",
+        "updatedAt": "2025-02-15T15:00:00.000Z"
+      },
+      {
+        "id": "tx-7",
+        "date": "2025-02-11",
+        "amount": -480,
+        "type": "expense",
+        "accountId": "acc-1",
+        "documentNumber": "BE-2025-007",
+        "bookingText": "Wareneinkauf Getränke & Grillgut Turniertag",
+        "partner": "Metro Großmarkt Musterstadt",
+        "sphere": "wirtschaftlich",
+        "category": "Wareneinkauf Speisen & Getränke",
+        "vatRate": 19,
+        "notes": "Rechnung #ME-884920 Vorsteuerabzug 19%",
+        "createdAt": "2025-02-11T10:00:00.000Z",
+        "updatedAt": "2025-02-11T10:00:00.000Z"
+      },
+      {
+        "id": "tx-5",
+        "date": "2025-02-10",
+        "amount": 820,
+        "type": "income",
+        "accountId": "acc-3",
+        "documentNumber": "BE-2025-005",
+        "bookingText": "Startgelder & Eintritt Winter-Hallenturnier",
+        "partner": "Teilnehmende Mannschaften & Zuschauer",
+        "sphere": "zweckbetrieb",
+        "category": "Startgelder & Meldegebühren",
+        "vatRate": 7,
+        "notes": "16 Gastmannschaften à 30 € + Zuschauereintritte",
+        "createdAt": "2025-02-10T19:00:00.000Z",
+        "updatedAt": "2025-02-10T19:00:00.000Z"
+      },
+      {
+        "id": "tx-6",
+        "date": "2025-02-10",
+        "amount": 1150,
+        "type": "income",
+        "accountId": "acc-3",
+        "documentNumber": "BE-2025-006",
+        "bookingText": "Kioskverkauf Speisen & Getränke Hallenturnier",
+        "partner": "Turniergäste / Kioskerlöse",
+        "sphere": "wirtschaftlich",
+        "category": "Verkauf Speisen & Getränke (Vereinsfeste)",
+        "vatRate": 19,
+        "notes": "Wirtschaftlicher Geschäftsbetrieb Bewirtung",
+        "createdAt": "2025-02-10T20:00:00.000Z",
+        "updatedAt": "2025-02-10T20:00:00.000Z"
+      },
+      {
+        "id": "tx-4",
+        "date": "2025-02-02",
+        "amount": 600,
+        "type": "income",
+        "accountId": "acc-1",
+        "documentNumber": "BE-2025-004",
+        "bookingText": "Pachterlöse Vereinsgaststätte Monat Januar/Februar",
+        "partner": "Gastronomie Pächter Luigi Rossi",
+        "sphere": "vermoegen",
+        "category": "Pachterlöse Vereinsgelände",
+        "vatRate": 0,
+        "notes": "Pachtvertrag vom 01.01.2023",
+        "createdAt": "2025-02-02T11:00:00.000Z",
+        "updatedAt": "2025-02-02T11:00:00.000Z"
+      },
+      {
+        "id": "tx-3",
+        "date": "2025-01-25",
+        "amount": -450,
+        "type": "expense",
+        "accountId": "acc-1",
+        "documentNumber": "BE-2025-003",
+        "bookingText": "Jahresbeitrag Landessportbund & Sportfachverbände",
+        "partner": "Landessportbund NRW e.V.",
+        "sphere": "ideell",
+        "category": "Verbandsabgaben & Beiträge",
+        "vatRate": 0,
+        "notes": "Pflichtbeitrag inkl. Sportversicherung ARAG",
+        "createdAt": "2025-01-25T09:15:00.000Z",
+        "updatedAt": "2025-01-25T09:15:00.000Z"
+      },
+      {
+        "id": "tx-2",
+        "date": "2025-01-20",
+        "amount": 1500,
+        "type": "income",
+        "accountId": "acc-2",
+        "documentNumber": "BE-2025-002",
+        "bookingText": "Zweckgebundene Spende für neue Jugendtore",
+        "partner": "Musterstadt Stadtwerke AG",
+        "sphere": "ideell",
+        "category": "Spenden / Schenkungen",
+        "vatRate": 0,
+        "notes": "Spendenbescheinigung nach amtl. Muster ausgestellt",
+        "createdAt": "2025-01-20T14:30:00.000Z",
+        "updatedAt": "2025-01-20T14:30:00.000Z"
+      },
+      {
+        "id": "tx-1",
+        "date": "2025-01-15",
+        "amount": 3450,
+        "type": "income",
+        "accountId": "acc-1",
+        "documentNumber": "BE-2025-001",
+        "bookingText": "SEPA-Sammellastschrift Mitgliedsbeiträge 1. Halbjahr",
+        "partner": "Mitglieder TSV Musterstadt",
+        "sphere": "ideell",
+        "category": "Mitgliedsbeiträge",
+        "vatRate": 0,
+        "notes": "Einzug von 42 Mitgliedsbeiträgen per DTAUS/SEPA XML",
+        "createdAt": "2025-01-15T10:00:00.000Z",
+        "updatedAt": "2025-01-15T10:00:00.000Z"
+      }
+    ],
+    "accounts": [
+      {
+        "id": "acc-1",
+        "name": "Sparkasse Girokonto (Hauptkonto)",
+        "accountType": "bank",
+        "iban": "DE89370501981122334455",
+        "bic": "SPKDMUSTXXX",
+        "initialBalance": 12450,
+        "color": "emerald",
+        "description": "Hauptgeschäftskonto für Beiträge, Rechnungen und Gehälter",
+        "createdAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "id": "acc-2",
+        "name": "Volksbank Spendenkonto",
+        "accountType": "bank",
+        "iban": "DE44370601909988776655",
+        "bic": "GENODEM1MST",
+        "initialBalance": 3200,
+        "color": "blue",
+        "description": "Zweckgebundenes Konto für Spenden & Jugendförderung",
+        "createdAt": "2024-01-01T00:00:00.000Z"
+      },
+      {
+        "id": "acc-3",
+        "name": "Hauptkasse (Bargeld Vereinsheim)",
+        "accountType": "cash",
+        "initialBalance": 850,
+        "color": "amber",
+        "description": "Barkasse für Kiosk, Spieltags-Eintritt und Auslagen",
+        "createdAt": "2024-01-01T00:00:00.000Z"
+      }
+    ],
+    "auditLogs": [
+      {
+        "id": "log-2",
+        "memberId": "mem-2",
+        "memberNumber": "MG-002",
+        "memberName": "Anna-Lena Schmidt",
+        "timestamp": "2024-02-10T14:15:00.000Z",
+        "author": "Vorstand (Dr. Sommer)",
+        "action": "update",
+        "summary": "Beitragsklasse und Trainerlizenz-Notiz ergänzt",
+        "changes": [
+          {
+            "field": "notes",
+            "label": "Notizen",
+            "oldValue": "Tennisspielerin",
+            "newValue": "Jugendtrainerin Tennis mit C-Lizenz. Ehrenamtspauschale berechtigt."
+          }
+        ]
+      },
+      {
+        "id": "log-1",
+        "memberId": "mem-1",
+        "memberNumber": "MG-001",
+        "memberName": "Maximilian Müller",
+        "timestamp": "2024-01-15T10:30:00.000Z",
+        "author": "Kassier (Sabine Weber)",
+        "action": "update",
+        "summary": "Telefonnummer und E-Mail aktualisiert",
+        "changes": [
+          {
+            "field": "phone",
+            "label": "Telefonnummer",
+            "oldValue": "0171 0000000",
+            "newValue": "0171 1234567"
+          },
+          {
+            "field": "email",
+            "label": "E-Mail",
+            "oldValue": "m.mueller@alt.de",
+            "newValue": "max.mueller@example.de"
+          }
+        ]
+      }
+    ],
+    "inventory": [
+      {
+        "id": "inv-1",
+        "itemNumber": "INV-FB-001",
+        "name": "Derbystar Bundesliga Spielball-Set (10er Ballpaket)",
+        "category": "sports_equipment",
+        "department": "Fußball",
+        "quantity": 2,
+        "unit": "Set",
+        "location": "Geräteraum Platz 1 (Ballnetz 2)",
+        "condition": "good",
+        "purchaseDate": "2024-03-15",
+        "purchasePrice": 599,
+        "currentValue": 450,
+        "supplier": "Sport2000 Teamstore",
+        "responsiblePerson": "Markus Meier (Zeugwart)",
+        "assignedTo": "1. & 2. Herrenmannschaft",
+        "serialNumber": "DS-BL-2024-SET",
+        "notes": "Inklusive 2 Ballnetzen und Kompressor-Ventiladapter. Bälle für Punktspiele.",
+        "lastCheckedDate": "2024-08-01",
+        "nextInspectionDate": "2025-03-01",
+        "createdAt": "2024-03-15T10:00:00.000Z",
+        "updatedAt": "2024-08-01T14:00:00.000Z"
+      },
+      {
+        "id": "inv-10",
+        "itemNumber": "INV-PF-001",
+        "name": "Aufsitz-Rasenmäher John Deere X350R Sportplatzpflege",
+        "category": "facility",
+        "department": "Gesamtverein",
+        "quantity": 1,
+        "unit": "Stk.",
+        "location": "Maschinenhalle hinter Platz 2",
+        "condition": "good",
+        "purchaseDate": "2021-04-15",
+        "purchasePrice": 5800,
+        "currentValue": 3900,
+        "supplier": "Landtechnik Müller GmbH",
+        "responsiblePerson": "Platzwart Heinz Becker",
+        "assignedTo": "Hauptplatz & Trainingsplätze",
+        "serialNumber": "JD-X350R-994102",
+        "notes": "Jährliche Inspektion und Messerschliff im März durchgeführt. Nächster Service: 03/2025.",
+        "lastCheckedDate": "2024-03-20",
+        "nextInspectionDate": "2025-03-15",
+        "createdAt": "2021-04-15T09:00:00.000Z",
+        "updatedAt": "2024-03-20T12:00:00.000Z"
+      },
+      {
+        "id": "inv-11",
+        "itemNumber": "INV-PF-002",
+        "name": "Nassmarkierwagen Roll-Liner für Sportplatz-Kreidung",
+        "category": "facility",
+        "department": "Fußball",
+        "quantity": 1,
+        "unit": "Stk.",
+        "location": "Kreideschuppen",
+        "condition": "good",
+        "purchaseDate": "2022-08-10",
+        "purchasePrice": 420,
+        "currentValue": 310,
+        "supplier": "Sportplatzkreide24",
+        "responsiblePerson": "Platzwart Heinz Becker",
+        "assignedTo": "Platzabkreidung Wochenende",
+        "notes": "Für umweltfreundliche Flüssigmarkierfarbe geeignet. Nach jedem Einsatz durchspülen.",
+        "lastCheckedDate": "2024-08-15",
+        "createdAt": "2022-08-10T11:00:00.000Z",
+        "updatedAt": "2024-08-15T15:00:00.000Z"
+      },
+      {
+        "id": "inv-12",
+        "itemNumber": "INV-MED-001",
+        "name": "Automatisierter Externer Defibrillator (AED) Philips HeartStart",
+        "category": "medical",
+        "department": "Gesamtverein",
+        "quantity": 1,
+        "unit": "Stk.",
+        "location": "Vereinsheim Eingangsbereich (Wandkasten grün)",
+        "condition": "new",
+        "purchaseDate": "2023-01-10",
+        "purchasePrice": 1650,
+        "currentValue": 1500,
+        "supplier": "DRK Landesverband",
+        "responsiblePerson": "Dr. Michael Sommer (Vereinsarzt)",
+        "assignedTo": "Notfallausstattung Gesamtanlage",
+        "serialNumber": "PHIL-AED-HS1-2023",
+        "notes": "Elektroden & Batterie haltbar bis 12/2026. Monatlicher Selbsttest grün.",
+        "lastCheckedDate": "2024-08-01",
+        "nextInspectionDate": "2024-12-01",
+        "createdAt": "2023-01-10T10:00:00.000Z",
+        "updatedAt": "2024-08-01T09:00:00.000Z"
+      },
+      {
+        "id": "inv-13",
+        "itemNumber": "INV-MED-002",
+        "name": "Sport-Sanitätskoffer nach DIN 13157 (Groß)",
+        "category": "medical",
+        "department": "Gesamtverein",
+        "quantity": 3,
+        "unit": "Stk.",
+        "location": "1x Vereinsheim, 1x Platz 1 Kabine, 1x Halle",
+        "condition": "good",
+        "purchaseDate": "2023-05-15",
+        "purchasePrice": 310,
+        "currentValue": 240,
+        "supplier": "Söhngen Erste Hilfe",
+        "responsiblePerson": "Dr. Michael Sommer",
+        "assignedTo": "Sanitätsraum & Spielbetrieb",
+        "notes": "Inkl. Kältesprays, Tape-Rollen, Druckverbänden und Wunddesinfektion. Ablaufdatum Verbandsstoffe: 2028.",
+        "lastCheckedDate": "2024-07-01",
+        "nextInspectionDate": "2025-01-15",
+        "createdAt": "2023-05-15T12:00:00.000Z",
+        "updatedAt": "2024-07-01T10:00:00.000Z"
+      },
+      {
+        "id": "inv-14",
+        "itemNumber": "INV-MO-001",
+        "name": "Brauereiqualität Bierzeltgarnituren 220x50cm (10 Tische + 20 Bänke)",
+        "category": "furniture",
+        "department": "Gesamtverein",
+        "quantity": 10,
+        "unit": "Set",
+        "location": "Vereinsheim Keller Lagerraum B",
+        "condition": "good",
+        "purchaseDate": "2022-05-01",
+        "purchasePrice": 1950,
+        "currentValue": 1400,
+        "supplier": "Festzeltprofi Süd",
+        "responsiblePerson": "Wirtschaftsausschuss / Festwart",
+        "assignedTo": "Vereinsfeste, Turniere & Vermietung",
+        "notes": "Massives Fichtenholz lackiert, stabiles Klappuntergestell. Transportwagen vorhanden.",
+        "lastCheckedDate": "2024-06-15",
+        "createdAt": "2022-05-01T10:00:00.000Z",
+        "updatedAt": "2024-06-15T11:00:00.000Z"
+      },
+      {
+        "id": "inv-15",
+        "itemNumber": "INV-EL-001",
+        "name": "Mobile Beschallungsanlage JBL EON One MK2 mit Funkmikrofonen",
+        "category": "electronics",
+        "department": "Gesamtverein",
+        "quantity": 1,
+        "unit": "Stk.",
+        "location": "Vereinsheim Technikschrank",
+        "condition": "good",
+        "purchaseDate": "2023-07-10",
+        "purchasePrice": 1190,
+        "currentValue": 980,
+        "supplier": "Thomann Musikhaus",
+        "responsiblePerson": "Technikwart Stefan",
+        "assignedTo": "Stadionsprecher, Turniere & Versammlungen",
+        "serialNumber": "JBL-EON-MK2-0941",
+        "notes": "Akku-Säulen-PA mit Bluetooth und 2 Funk-Handmikrofonen Shure. Akku hält bis zu 6h.",
+        "lastCheckedDate": "2024-08-01",
+        "createdAt": "2023-07-10T14:00:00.000Z",
+        "updatedAt": "2024-08-01T16:00:00.000Z"
+      },
+      {
+        "id": "inv-2",
+        "itemNumber": "INV-FB-002",
+        "name": "Aluminium Jugendtore 5x2m vollverschweißt (Paar)",
+        "category": "sports_equipment",
+        "department": "Fußball",
+        "quantity": 2,
+        "unit": "Stk.",
+        "location": "Kleinfeldplatz Rasen 2",
+        "condition": "good",
+        "purchaseDate": "2023-06-20",
+        "purchasePrice": 2450,
+        "currentValue": 2100,
+        "supplier": "Schäper Sportgeräte",
+        "responsiblePerson": "Markus Meier (Zeugwart)",
+        "assignedTo": "D- & E-Junioren",
+        "serialNumber": "SCH-TOR-5x2-ALU",
+        "notes": "Kippgesichert mit integrierten Gewichten. TÜV-geprüft nach DIN EN 748.",
+        "lastCheckedDate": "2024-05-10",
+        "nextInspectionDate": "2025-05-10",
+        "createdAt": "2023-06-20T09:00:00.000Z",
+        "updatedAt": "2024-05-10T11:00:00.000Z"
+      },
+      {
+        "id": "inv-3",
+        "itemNumber": "INV-TN-001",
+        "name": "Tennis Ballwurfmaschine Spinshot-Player Plus",
+        "category": "sports_equipment",
+        "department": "Tennis",
+        "quantity": 1,
+        "unit": "Stk.",
+        "location": "Tennis-Gerätehütte Platz 3",
+        "condition": "good",
+        "purchaseDate": "2023-04-10",
+        "purchasePrice": 1890,
+        "currentValue": 1600,
+        "supplier": "Tennis-Point GmbH",
+        "responsiblePerson": "Anna-Lena Schmidt (Trainerin)",
+        "assignedTo": "Jugendfördertraining & Clubmitglieder",
+        "serialNumber": "SPIN-PL-883921",
+        "notes": "Mit Akkubetrieb und Fernbedienung. Nur mit druckreduzierten Trainerbällen befüllen.",
+        "lastCheckedDate": "2024-07-15",
+        "nextInspectionDate": "2025-04-01",
+        "createdAt": "2023-04-10T11:00:00.000Z",
+        "updatedAt": "2024-07-15T16:30:00.000Z"
+      },
+      {
+        "id": "inv-4",
+        "itemNumber": "INV-TN-002",
+        "name": "Turnier-Tennisnetze Doppel 12,7m mit Stahlseil",
+        "category": "sports_equipment",
+        "department": "Tennis",
+        "quantity": 4,
+        "unit": "Stk.",
+        "location": "Tennisplätze 1 bis 4",
+        "condition": "good",
+        "purchaseDate": "2022-04-01",
+        "purchasePrice": 680,
+        "currentValue": 400,
+        "supplier": "Huck Seiltechnik",
+        "responsiblePerson": "Platzwart Heinz",
+        "assignedTo": "Tennisanlage",
+        "serialNumber": "HUCK-NET-TN-4",
+        "notes": "Im Winter im Vereinsheim-Keller trocken eingelagert.",
+        "lastCheckedDate": "2024-04-05",
+        "nextInspectionDate": "2025-04-01",
+        "createdAt": "2022-04-01T08:00:00.000Z",
+        "updatedAt": "2024-04-05T09:00:00.000Z"
+      },
+      {
+        "id": "inv-5",
+        "itemNumber": "INV-TR-001",
+        "name": "AirTrack Tumblingbahn 10x2m aufblasbar",
+        "category": "sports_equipment",
+        "department": "Turnen",
+        "quantity": 1,
+        "unit": "Stk.",
+        "location": "Schulturnhalle Geräteraum links",
+        "condition": "good",
+        "purchaseDate": "2023-11-12",
+        "purchasePrice": 1250,
+        "currentValue": 1100,
+        "supplier": "AirTrack Factory",
+        "responsiblePerson": "Katja Sommer (Übungsleiterin)",
+        "assignedTo": "Kinder- & Leistungsturnen",
+        "serialNumber": "ATF-10M-2023",
+        "notes": "Inkl. elektrischer Hochleistungspumpe Ov10 und Tragetasche.",
+        "lastCheckedDate": "2024-06-20",
+        "nextInspectionDate": "2024-12-01",
+        "createdAt": "2023-11-12T14:00:00.000Z",
+        "updatedAt": "2024-06-20T10:00:00.000Z"
+      },
+      {
+        "id": "inv-6",
+        "itemNumber": "INV-LA-001",
+        "name": "Elektronische Zeitmessanlage & Lichtschranken (Wireless)",
+        "category": "electronics",
+        "department": "Leichtathletik",
+        "quantity": 1,
+        "unit": "Koffer",
+        "location": "Sprecherkabine Stadion",
+        "condition": "new",
+        "purchaseDate": "2024-05-02",
+        "purchasePrice": 1450,
+        "currentValue": 1400,
+        "supplier": "ALGE-Timing Deutschland",
+        "responsiblePerson": "Thorsten Klein (Abteilungsleiter)",
+        "assignedTo": "Sportfeste & Wettkämpfe",
+        "serialNumber": "ALG-TIM-5542-PRO",
+        "notes": "Kompakter Transportkoffer mit 4 Lichtschranken, Stoppuhr-Terminal und USB-Funkempfänger.",
+        "lastCheckedDate": "2024-06-01",
+        "nextInspectionDate": "2025-05-01",
+        "createdAt": "2024-05-02T12:00:00.000Z",
+        "updatedAt": "2024-06-01T15:00:00.000Z"
+      },
+      {
+        "id": "inv-7",
+        "itemNumber": "INV-BE-001",
+        "name": "Trikotsatz ERIMA Squad (16 Trikots + Hosen + Stutzen)",
+        "category": "apparel",
+        "department": "Fußball",
+        "quantity": 1,
+        "unit": "Set",
+        "location": "Trikotraum Kabine 1",
+        "condition": "good",
+        "purchaseDate": "2023-08-15",
+        "purchasePrice": 890,
+        "currentValue": 600,
+        "supplier": "Erima Sportbekleidung",
+        "responsiblePerson": "Markus Meier (Zeugwart)",
+        "assignedTo": "1. Herrenmannschaft (Heimtrikots)",
+        "serialNumber": "TRI-FB-HERREN-1",
+        "notes": "Farbe: Blau/Weiß mit Sponsoraufdruck \"Stadtwerke\". Nummern 1 bis 16.",
+        "lastCheckedDate": "2024-08-10",
+        "createdAt": "2023-08-15T10:00:00.000Z",
+        "updatedAt": "2024-08-10T18:00:00.000Z"
+      },
+      {
+        "id": "inv-8",
+        "itemNumber": "INV-BE-002",
+        "name": "Markierungsleibchen-Set Neon (Gelb/Orange je 15 Stk.)",
+        "category": "accessories",
+        "department": "Gesamtverein",
+        "quantity": 30,
+        "unit": "Stk.",
+        "location": "Trainingskiste Zentrallager",
+        "condition": "good",
+        "purchaseDate": "2024-01-20",
+        "purchasePrice": 120,
+        "currentValue": 90,
+        "supplier": "Decathlon Pro",
+        "responsiblePerson": "Zeugwart",
+        "assignedTo": "Alle Sparten (Trainingsbetrieb)",
+        "notes": "Atmungsaktives Mesh. 15x Neongelb Gr. L, 15x Neonorange Gr. L.",
+        "createdAt": "2024-01-20T08:30:00.000Z",
+        "updatedAt": "2024-01-20T08:30:00.000Z"
+      },
+      {
+        "id": "inv-9",
+        "itemNumber": "INV-ZU-001",
+        "name": "Koordinations- & Trainingsset (Hütchen, Stangen, Leiter)",
+        "category": "accessories",
+        "department": "Fußball",
+        "quantity": 3,
+        "unit": "Set",
+        "location": "Geräteraum Platz 1",
+        "condition": "good",
+        "purchaseDate": "2023-09-01",
+        "purchasePrice": 280,
+        "currentValue": 200,
+        "supplier": "Sport-Thieme",
+        "responsiblePerson": "Trainerstab Fußball",
+        "assignedTo": "Jugend- & Seniorenmannschaften",
+        "notes": "Jedes Set enthält 40 Markierteller, 10 Slalomstangen und 2 Koordinationsleitern.",
+        "createdAt": "2023-09-01T10:00:00.000Z",
+        "updatedAt": "2023-09-01T10:00:00.000Z"
+      }
+    ],
+    "memberInventory": [],
+    "sepaRuns": [],
+    "documents": [
+      {
+        "id": "doc-4",
+        "title": "Protokoll Jahreshauptversammlung 2025",
+        "fileName": "Protokoll_JHV_2025.pdf",
+        "fileType": "application/pdf",
+        "fileSize": 115000,
+        "dataUrl": "data:application/pdf;filename=generated.pdf;base64,JVBERi0xLjMKJbrfrOAKMyAwIG9iago8PC9UeXBlIC9QYWdlCi9QYXJlbnQgMSAwIFIKL1Jlc291cmNlcyAyIDAgUgovTWVkaWFCb3ggWzAgMCA1OTUuMjc5OTk5OTk5OTk5OTcyNyA4NDEuODg5OTk5OTk5OTk5OTg2NF0KL0NvbnRlbnRzIDQgMCBSCj4+CmVuZG9iago0IDAgb2JqCjw8Ci9MZW5ndGggMjQxMQo+PgpzdHJlYW0KMC41NjcwMDAwMDAwMDAwMDAxIHcKMCBHCjAuMTIgMC4xNiAwLjIzIHJnCjAuIDg0MS44ODk5OTk5OTk5OTk5ODY0IDU5NS4yNzU1OTA1NTExODExNTM0IC03MC44NjYxNDE3MzIyODM0NjY2IHJlCmYKQlQKL0YyIDE0IFRmCjE2LjA5OTk5OTk5OTk5OTk5NzkgVEwKMS4gZwo0Mi41MTk2ODUwMzkzNzAwODE0IDgwNy44NzQyNTE5Njg1MDM5MjY5IFRkCihUU1YgTXVzdGVyc3RhZHQgMTg5MCBlLlYuKSBUagpFVApCVAovRjEgOSBUZgoxMC4zNDk5OTk5OTk5OTk5OTk2IFRMCjEuIGcKNDIuNTE5Njg1MDM5MzcwMDgxNCA3OTAuODY2Mzc3OTUyNzU1ODk3MiBUZAooUmV2aXNpb25zc2ljaGVyZXMgVmVyZWluc2FyY2hpdiCVIEdvQkQgJiBEU0dWTy1rb25mb3JtKSBUagpFVApCVAovRjIgMTggVGYKMjAuNjk5OTk5OTk5OTk5OTk5MyBUTAowLjA1OSAwLjA5IDAuMTY1IHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNzIyLjgzNDg4MTg4OTc2Mzc3ODQgVGQKKE5pZWRlcnNjaHJpZnQgZGVyIG9yZGVudGxpY2hlbiBNaXRnbGllZGVydmVyc2FtbWx1bmcgMjAyNSkgVGoKRVQKQlQKL0YyIDExIFRmCjEyLjY0OTk5OTk5OTk5OTk5ODYgVEwKMC4zOTIgMC40NTUgMC41NDUgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA3MDAuMTU3NzE2NTM1NDMzMTEgVGQKKERhdHVtOiAyMi4gRmVicnVhciAyMDI1IJUgT3J0OiBWZXJlaW5zaGVpbSBUU1YgTXVzdGVyc3RhZHQglSBBbndlc2VuZGU6IDY4IE1pdGdsaWVkZXIpIFRqCkVUCjAuODkgMC45MSAwLjk0IFJHCjQyLjUxOTY4NTAzOTM3MDA4MTQgNjg1Ljk4NDQ4ODE4ODk3NjM0MjggbQo1NTIuNzU1OTA1NTExODExMDc5MSA2ODUuOTg0NDg4MTg4OTc2MzQyOCBsClMKQlQKL0YyIDEwIFRmCjExLjUgVEwKMC4wNTkgMC4wOSAwLjE2NSByZwo0Mi41MTk2ODUwMzkzNzAwODE0IDY0Ni4yOTk0NDg4MTg4OTc2NDQ3IFRkCihUT1AgMTogQmVncvzfdW5nIHVuZCBGZXN0c3RlbGx1bmcgZGVyIEJlc2NobHVzc2bkaGlna2VpdCkgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4yIDAuMjU1IDAuMzMzIHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNjQ2LjI5OTQ0ODgxODg5NzY0NDcgVGQKKERlciAxLiBWb3JzaXR6ZW5kZSBEci4gTWljaGFlbCBTb21tZXIgZXL2ZmZuZXQgZGllIFZlcnNhbW1sdW5nIHVtIDE5OjMwIFVociB1bmQgc3RlbGx0IGRpZSBvcmRudW5nc2dlbeTfZSkgVGoKVCogKEVpbmxhZHVuZyB1bmQgQmVzY2hsdXNzZuRoaWdrZWl0IGZlc3QuKSBUagpFVApCVAovRjIgMTAgVGYKMTEuNSBUTAowLjA1OSAwLjA5IDAuMTY1IHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNjAwLjk0NTExODExMDIzNjE5NDMgVGQKKFRPUCAyOiBCZXJpY2h0IGRlcyBWb3JzdGFuZHMgJiBLYXNzZW5iZXJpY2h0KSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLjIgMC4yNTUgMC4zMzMgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA2MDAuOTQ1MTE4MTEwMjM2MTk0MyBUZAooS2Fzc2llcmVyaW4gU2FiaW5lIFdlYmVyIHRy5Gd0IGRlbiBGaW5hbnpiZXJpY2h0IGb8ciBkYXMgdmVyZ2FuZ2VuZSBHZXNjaORmdHNqYWhyIHZvci4gRGFzIEdlc2FtdGVyZ2VibmlzKSBUagpUKiAoc2NobGll33QgbWl0IGVpbmVtINxiZXJzY2h1c3Mgdm9uIDQuODIwLDAwIIAgYWIuKSBUagpFVApCVAovRjIgMTAgVGYKMTEuNSBUTAowLjA1OSAwLjA5IDAuMTY1IHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNTU1LjU5MDc4NzQwMTU3NDc0MzkgVGQKKFRPUCAzOiBCZXJpY2h0IGRlciBLYXNzZW5wcvxmZXIgJiBFbnRsYXN0dW5nKSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLjIgMC4yNTUgMC4zMzMgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA1NTUuNTkwNzg3NDAxNTc0NzQzOSBUZAooRGllIEthc3NlbnBy/GZlciBiZXN05HRpZ2VuIGRpZSBs/GNrZW5sb3NlIHVuZCBvcmRudW5nc2dlbeTfZSBCdWNoZvxocnVuZyBuYWNoIEdvQkQuIERpZSBWZXJzYW1tbHVuZykgVGoKVCogKGVydGVpbHQgZGVtIFZvcnN0YW5kIGVpbnN0aW1taWcgRW50bGFzdHVuZy4pIFRqCkVUCjAuODkgMC45MSAwLjk0IFJHCjQyLjUxOTY4NTAzOTM3MDA4MTQgNjIuMzYyNDQwOTQ0ODgxNzgyOSBtCjU1Mi43NTU5MDU1MTE4MTEwNzkxIDYyLjM2MjQ0MDk0NDg4MTc4MjkgbApTCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLjU4IDAuNjM5IDAuNzIyIHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNDIuNTE5OTIxMjU5ODQyNDc2NSBUZAooRG9rdW1lbnQgZXJ6ZXVndCBpbSBUU1YgVmVyZWluc01hbmFnZXIglSBFbGVrdHJvbmlzY2ggYXJjaGl2aWVydCkgVGoKRVQKQlQKL0YxIDggVGYKOS4xOTk5OTk5OTk5OTk5OTkzIFRMCjAuNTggMC42MzkgMC43MjIgcmcKNDk2LjA2Mjk5MjEyNTk4NDI5NDUgNDIuNTE5OTIxMjU5ODQyNDc2NSBUZAooU2VpdGUgMSB2b24gMSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagoxIDAgb2JqCjw8L1R5cGUgL1BhZ2VzCi9LaWRzIFszIDAgUiBdCi9Db3VudCAxCj4+CmVuZG9iago1IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvSGVsdmV0aWNhCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjYgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9IZWx2ZXRpY2EtQm9sZAovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iago3IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvSGVsdmV0aWNhLU9ibGlxdWUKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKOCAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0hlbHZldGljYS1Cb2xkT2JsaXF1ZQovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iago5IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvQ291cmllcgovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxMCAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0NvdXJpZXItQm9sZAovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxMSAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0NvdXJpZXItT2JsaXF1ZQovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxMiAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0NvdXJpZXItQm9sZE9ibGlxdWUKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTMgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9UaW1lcy1Sb21hbgovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxNCAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL1RpbWVzLUJvbGQKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTUgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9UaW1lcy1JdGFsaWMKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTYgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9UaW1lcy1Cb2xkSXRhbGljCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjE3IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvWmFwZkRpbmdiYXRzCi9TdWJ0eXBlIC9UeXBlMQovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjE4IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvU3ltYm9sCi9TdWJ0eXBlIC9UeXBlMQovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1Byb2NTZXQgWy9QREYgL1RleHQgL0ltYWdlQiAvSW1hZ2VDIC9JbWFnZUldCi9Gb250IDw8Ci9GMSA1IDAgUgovRjIgNiAwIFIKL0YzIDcgMCBSCi9GNCA4IDAgUgovRjUgOSAwIFIKL0Y2IDEwIDAgUgovRjcgMTEgMCBSCi9GOCAxMiAwIFIKL0Y5IDEzIDAgUgovRjEwIDE0IDAgUgovRjExIDE1IDAgUgovRjEyIDE2IDAgUgovRjEzIDE3IDAgUgovRjE0IDE4IDAgUgo+PgovWE9iamVjdCA8PAo+Pgo+PgplbmRvYmoKMTkgMCBvYmoKPDwKL1Byb2R1Y2VyIChqc1BERiA0LjIuMSkKL0NyZWF0aW9uRGF0ZSAoRDoyMDI2MTAyNDIzMjYyOSswMicwMCcpCj4+CmVuZG9iagoyMCAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMSAwIFIKL09wZW5BY3Rpb24gWzMgMCBSIC9GaXRIIG51bGxdCi9QYWdlTGF5b3V0IC9PbmVDb2x1bW4KPj4KZW5kb2JqCnhyZWYKMCAyMQowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDI2MTUgMDAwMDAgbiAKMDAwMDAwNDQzMiAwMDAwMCBuIAowMDAwMDAwMDE1IDAwMDAwIG4gCjAwMDAwMDAxNTIgMDAwMDAgbiAKMDAwMDAwMjY3MiAwMDAwMCBuIAowMDAwMDAyNzk3IDAwMDAwIG4gCjAwMDAwMDI5MjcgMDAwMDAgbiAKMDAwMDAwMzA2MCAwMDAwMCBuIAowMDAwMDAzMTk3IDAwMDAwIG4gCjAwMDAwMDMzMjAgMDAwMDAgbiAKMDAwMDAwMzQ0OSAwMDAwMCBuIAowMDAwMDAzNTgxIDAwMDAwIG4gCjAwMDAwMDM3MTcgMDAwMDAgbiAKMDAwMDAwMzg0NSAwMDAwMCBuIAowMDAwMDAzOTcyIDAwMDAwIG4gCjAwMDAwMDQxMDEgMDAwMDAgbiAKMDAwMDAwNDIzNCAwMDAwMCBuIAowMDAwMDA0MzM2IDAwMDAwIG4gCjAwMDAwMDQ2ODAgMDAwMDAgbiAKMDAwMDAwNDc2NiAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDIxCi9Sb290IDIwIDAgUgovSW5mbyAxOSAwIFIKL0lEIFsgPDJFMjUzQjRDMUIzNkQ5OEJEMDUxOTY3MjlDNzgxMjZEPiA8MkUyNTNCNEMxQjM2RDk4QkQwNTE5NjcyOUM3ODEyNkQ+IF0KPj4Kc3RhcnR4cmVmCjQ4NzAKJSVFT0Y=",
+        "category": "protokolle",
+        "folderId": "folder-jhv",
+        "date": "2025-02-22",
+        "uploadDate": "2025-02-25T11:20:00.000Z",
+        "tags": [
+          "Protokoll",
+          "JHV",
+          "Vorstand",
+          "Entlastung",
+          "Mitgliederversammlung"
+        ],
+        "notes": "Vollständiges Protokoll inkl. Entlastung des Vorstands und Genehmigung des Haushaltsplans.",
+        "createdAt": "2025-02-25T11:20:00.000Z",
+        "updatedAt": "2025-02-25T11:20:00.000Z"
+      },
+      {
+        "id": "doc-don-don-2",
+        "title": "Zuwendungsbestätigung: ZB-2025-002 - Christian Koch",
+        "fileName": "Zuwendungsbestaetigung_ZB-2025-002_Christian_Koch.pdf",
+        "fileType": "application/pdf",
+        "fileSize": 11921,
+        "dataUrl": "data:application/pdf;filename=generated.pdf;base64,JVBERi0xLjMKJbrfrOAKMyAwIG9iago8PC9UeXBlIC9QYWdlCi9QYXJlbnQgMSAwIFIKL1Jlc291cmNlcyAyIDAgUgovTWVkaWFCb3ggWzAgMCA1OTUuMjc5OTk5OTk5OTk5OTcyNyA4NDEuODg5OTk5OTk5OTk5OTg2NF0KL0NvbnRlbnRzIDQgMCBSCj4+CmVuZG9iago0IDAgb2JqCjw8Ci9MZW5ndGggODg0Ngo+PgpzdHJlYW0KMC41NjcwMDAwMDAwMDAwMDAxIHcKMCBHCjAuIEcKMC43MDg2NjE0MTczMjI4MzQ3IHcKNDMuMDg2NjE0MTczMjI4MzQ4MSA4MDMuMDU1MzU0MzMwNzA4NjEwMiA1MTAuNTE5Njg1MDM5MzcwMTMxMSAtNTMuMDA3ODc0MDE1NzQ4MDM2OCByZQpTCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLiBnCjQ1LjkyMTI1OTg0MjUxOTY4ODcgNzk0LjI2Nzk1Mjc1NTkwNTUyNTkgVGQKKEF1c3N0ZWxsZXIgXChCZXplaWNobnVuZyB1bmQgQW5zY2hyaWZ0IGRlciBzdGV1ZXJiZWf8bnN0aWd0ZW4gRWlucmljaHR1bmdcKSkgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4gZwo0NS45MjEyNTk4NDI1MTk2ODg3IDc4MC42NjE2NTM1NDMzMDcwMTEyIFRkCihUU1YgTXVzdGVyc3RhZHQgMTg5MCBlLlYuKSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLiBnCjQ1LjkyMTI1OTg0MjUxOTY4ODcgNzY4LjQ3MjY3NzE2NTM1NDI5ODMgVGQKKFNwb3J0cGxhdHp3ZWcgMTIpIFRqCkVUCkJUCi9GMSAxMCBUZgoxMS41IFRMCjAuIGcKNDUuOTIxMjU5ODQyNTE5Njg4NyA3NTYuMjgzNzAwNzg3NDAxNTg1MyBUZAooMTIzNDUgTXVzdGVyc3RhZHQpIFRqCkVUCkJUCi9GMiAxMCBUZgoxMS41IFRMCjAuIGcKNDUuOTIxMjU5ODQyNTE5Njg4NyA3MzcuNTc1MDM5MzcwMDc4Njg0NCBUZAooQmVzdOR0aWd1bmcg/GJlciBTYWNoenV3ZW5kdW5nZW4pIFRqCkVUCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLiBnCjQ1LjkyMTI1OTg0MjUxOTY4ODcgNzIyLjgzNDg4MTg4OTc2Mzc3ODQgVGQKKGltIFNpbm5lIGRlcyCnIDEwYiBkZXMgRWlua29tbWVuc3RldWVyZ2VzZXR6ZXMgYW4gZWluZSBkZXIgaW4gpyA1IEFicy4gMSBOci4gOSBkZXMgS/ZycGVyc2NoYWZ0c3RldWVyZ2VzZXR6ZXMgYmV6ZWljaG5ldGVuKSBUagpFVApCVAovRjEgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC4gZwo0NS45MjEyNTk4NDI1MTk2ODg3IDcxMy40ODA1NTExODExMDIzMjggVGQKKEv2cnBlcnNjaGFmdGVuLCBQZXJzb25lbnZlcmVpbmlndW5nZW4gb2RlciBWZXJt9mdlbnNtYXNzZW4pIFRqCkVUCjQzLjA4NjYxNDE3MzIyODM0ODEgNjk4LjQ1NjkyOTEzMzg1ODIzODkgNTEwLjUxOTY4NTAzOTM3MDEzMTEgLTUyLjE1NzQ4MDMxNDk2MDYyOTYgcmUKUwpCVAovRjEgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC4gZwo0NS45MjEyNTk4NDI1MTk2ODg3IDY5MC44MDMzODU4MjY3NzE2NTk2IFRkCihOYW1lIHVuZCBBbnNjaHJpZnQgZGVzIFp1d2VuZGVuZGVuKSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLiBnCjQ1LjkyMTI1OTg0MjUxOTY4ODcgNjc2LjA2MzIyODM0NjQ1NjYzOTkgVGQKKENocmlzdGlhbiBLb2NoKSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLiBnCjQ1LjkyMTI1OTg0MjUxOTY4ODcgNjY0LjE1NzcxNjUzNTQzMjk5NjQgVGQKKEthc3RhbmllbndlZyAxMSkgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4gZwo0NS45MjEyNTk4NDI1MTk2ODg3IDY1Mi4yNTIyMDQ3MjQ0MDk0NjY1IFRkCigxMjM0NSBNdXN0ZXJzdGFkdCkgVGoKRVQKNDMuMDg2NjE0MTczMjI4MzQ4MSA2MzAuOTkyMzYyMjA0NzI0MzcyNSA1MTAuNTE5Njg1MDM5MzcwMTMxMSAtMzMuNzMyMjgzNDY0NTY2OTMzMiByZQpTCjE3My4xOTY4NTAzOTM3MDA3OTk1IDYzMC45OTIzNjIyMDQ3MjQzNzI1IG0KMTczLjE5Njg1MDM5MzcwMDc5OTUgNTk3LjI2MDA3ODc0MDE1NzM4MjUgbApTCjQzMC4yOTkyMTI1OTg0MjUyOTkzIDYzMC45OTIzNjIyMDQ3MjQzNzI1IG0KNDMwLjI5OTIxMjU5ODQyNTI5OTMgNTk3LjI2MDA3ODc0MDE1NzM4MjUgbApTCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLiBnCjQ1LjkyMTI1OTg0MjUxOTY4ODcgNjIxLjM1NDU2NjkyOTEzMzg1MjcgVGQKKFdlcnQgZGVyIFp1d2VuZHVuZyAtIGluIFppZmZlcm4gLSkgVGoKRVQKQlQKL0YxIDggVGYKOS4xOTk5OTk5OTk5OTk5OTkzIFRMCjAuIGcKMjcxLjg0OTc2Mzc3OTUyNzU2MzcgNjIxLjM1NDU2NjkyOTEzMzg1MjcgVGQKKC0gaW4gQnVjaHN0YWJlbiAtKSBUagpFVApCVAovRjEgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC4gZwo0MzMuNDE3MzIyODM0NjQ1NzQ0OSA2MjEuMzU0NTY2OTI5MTMzODUyNyBUZAooVGFnIGRlciBadXdlbmR1bmc6KSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLiBnCjEzNS4zMjkxMzM4NTgyNjc3MzgzIDYwMS43OTU1MTE4MTEwMjM1MTYyIFRkCig4NTAsMDCAKSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLiBnCjE3Ni4zMTQ5NjA2Mjk5MjEyNzM1IDYwMS43OTU1MTE4MTEwMjM1MTYyIFRkCihBY2h0aHVuZGVydGb8bmZ6aWcgRXVybykgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4gZwo0MzMuNDE3MzIyODM0NjQ1NzQ0OSA2MDEuNzk1NTExODExMDIzNTE2MiBUZAooMTQuMDIuMjAyNSkgVGoKRVQKQlQKL0YxIDggVGYKOS4xOTk5OTk5OTk5OTk5OTkzIFRMCjAuIGcKNDUuOTIxMjU5ODQyNTE5Njg4NyA1NzIuODgyMTI1OTg0MjUxODQzIFRkCihHZW5hdWUgQmV6ZWljaG51bmcgZGVyIFNhY2h6dXdlbmR1bmcgXChHZWdlbnN0YW5kLCBBbHRlciwgWnVzdGFuZCwgS2F1ZnByZWlzIHVzdy5cKSkgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4gZwo0NS45MjEyNTk4NDI1MTk2ODg3IDU1OC43MDg4OTc2Mzc3OTUxODk0IFRkCigxeCBQcm9mZXNzaW9uZWxsZSBUaXNjaHRlbm5pc3BsYXR0ZSBKT09MQSAyMDAwLVMgUHJvIGlua2wuIE5ldHpnYXJuaXR1ciAmIFp1YmVo9nIgXChOZXV3ZXJ0aWdcKSkgVGoKRVQKMC43MDg2NjE0MTczMjI4MzQ3IHcKNDguNzU1OTA1NTExODExMDI5NCA1NDEuNzAxMDIzNjIyMDQ3MDQ2IDExLjkwNTUxMTgxMTAyMzYyNCAtMTEuOTA1NTExODExMDIzNjI0IHJlClMKQlQKL0YxIDggVGYKOS4xOTk5OTk5OTk5OTk5OTkzIFRMCjAuIGcKNzMuNDE3MzIyODM0NjQ1NjczOSA1MzEuNDk2Mjk5MjEyNTk4Mzg3NCBUZAooRGllIFNhY2h6dXdlbmR1bmcgc3RhbW10IG5hY2ggZGVuIEFuZ2FiZW4gZGVzIFp1d2VuZGVuZGVuIGF1cyBkZW0gQmV0cmllYnN2ZXJt9mdlbi4pIFRqCkVUCjAuNzA4NjYxNDE3MzIyODM0NyB3CjQ4Ljc1NTkwNTUxMTgxMTAyOTQgNTI1LjI2MDA3ODc0MDE1NzM4MjUgMTEuOTA1NTExODExMDIzNjI0IC0xMS45MDU1MTE4MTEwMjM2MjQgcmUKUwowLjk5MjEyNTk4NDI1MTk2ODUgdwo1MC4xNzMyMjgzNDY0NTY2OTYyIDUyMy44NDI3NTU5MDU1MTE2OTQ0IG0KNTkuMjQ0MDk0NDg4MTg4OTc3NyA1MTQuNzcxODg5NzYzNzc5NDI3MSBsClMKNTkuMjQ0MDk0NDg4MTg4OTc3NyA1MjMuODQyNzU1OTA1NTExNjk0NCBtCjUwLjE3MzIyODM0NjQ1NjY5NjIgNTE0Ljc3MTg4OTc2Mzc3OTQyNzEgbApTCjAuNzA4NjYxNDE3MzIyODM0NyB3CkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLiBnCjczLjQxNzMyMjgzNDY0NTY3MzkgNTE1LjA1NTM1NDMzMDcwODQ5NjUgVGQKKERpZSBTYWNoenV3ZW5kdW5nIHN0YW1tdCBuYWNoIGRlbiBBbmdhYmVuIGRlcyBadXdlbmRlbmRlbiBhdXMgZGVtIFByaXZhdHZlcm32Z2VuLikgVGoKRVQKQlQKL0YxIDggVGYKOS4xOTk5OTk5OTk5OTk5OTkzIFRMCjAuIGcKNDUuOTIxMjU5ODQyNTE5Njg4NyA0OTguNjE0NDA5NDQ4ODE4ODMzIFRkCihVbnRlcmxhZ2VuIHp1ciBXZXJ0ZXJtaXR0bHVuZyBcKHouIEIuIFJlY2hudW5nLCBHdXRhY2h0ZW5cKTogT3JpZ2luYWwtS2F1ZmJlbGVnIFNwb3J0LVRoaWVtZSBHbWJIIHZvbSAxMC4wMS4yMDI1IPxiZXIgODk5LDAwIIAgbGllZ3Qgdm9yKSBUagpFVAowLjcwODY2MTQxNzMyMjgzNDcgdwo1OC4xMTAyMzYyMjA0NzI0NDQzIDQ4Ny41NTkyOTEzMzg1ODI2MjUgMTMuMzIyODM0NjQ1NjY5MjkyNSAtMTMuMzIyODM0NjQ1NjY5MjkyNSByZQpTCjAuOTkyMTI1OTg0MjUxOTY4NSB3CjU5LjUyNzU1OTA1NTExODExODIgNDg2LjE0MTk2ODUwMzkzNjkzNjkgbQo3MC4wMTU3NDgwMzE0OTYwNzM2IDQ3NS42NTM3Nzk1Mjc1NTkwMzgzIGwKUwo3MC4wMTU3NDgwMzE0OTYwNzM2IDQ4Ni4xNDE5Njg1MDM5MzY5MzY5IG0KNTkuNTI3NTU5MDU1MTE4MTE4MiA0NzUuNjUzNzc5NTI3NTU5MDM4MyBsClMKMC43MDg2NjE0MTczMjI4MzQ3IHcKQlQKL0YxIDggVGYKOS4xOTk5OTk5OTk5OTk5OTkzIFRMCjAuIGcKODEuOTIxMjU5ODQyNTE5Njg4NyA0ODAuNzU2MTQxNzMyMjgzNDI0NSBUZAooV2lyIHNpbmQgd2VnZW4gRvZyZGVydW5nIFwoQW5nYWJlIGRlcyBiZWf8bnN0aWd0ZW4gWndlY2tzIC8gZGVyIGJlZ/xuc3RpZ3RlbiBad2Vja2VcKSkgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4gZwo4MS45MjEyNTk4NDI1MTk2ODg3IDQ2NC4zMTUxOTY4NTAzOTM3MDQyIFRkCihkZXMgU3BvcnRzIFwopyA1MiBBYnMuIDIgU2F0eiAxIE5yLiAyMSBBT1wpKSBUagpFVApCVAovRjEgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC4gZwo4MS45MjEyNTk4NDI1MTk2ODg3IDQyMC4zNzgxODg5NzYzNzc5NDE4IFRkCihuYWNoIGRlbSBGcmVpc3RlbGx1bmdzYmVzY2hlaWQgYnp3LiBuYWNoIGRlciBBbmxhZ2UgenVtIEv2cnBlcnNjaGFmdHN0ZXVlcmJlc2NoZWlkIGRlcyBGaW5hbnphbXRlcykgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4gZwo4MS45MjEyNTk4NDI1MTk2ODg3IDQwNC4yMjA3MDg2NjE0MTcyMzQgVGQKKEZpbmFuemFtdCBNdXN0ZXJzdGFkdCkgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4gZwoyNDYuMzMwNzA4NjYxNDE3MzYxMyA0MDQuMjIwNzA4NjYxNDE3MjM0IFRkCigxMTIvNTg0MC8xOTIyKSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLiBnCjM3OS44NDI1MTk2ODUwMzk0MDU5IDQwNC4yMjA3MDg2NjE0MTcyMzQgVGQKKDEwLjAxLjIwMjQpIFRqCkVUCkJUCi9GMSAxMCBUZgoxMS41IFRMCjAuIGcKMTg5LjM1NDMzMDcwODY2MTQyMiAzOTAuNjE0NDA5NDQ4ODE4ODg5OCBUZAooMjAyMSBiaXMgMjAyMykgVGoKRVQKQlQKL0YxIDcgVGYKOC4wNDk5OTk5OTk5OTk5OTg5IFRMCjAuIGcKMjI1LjM1NDMzMDcwODY2MTQ1MDQgNDA0LjIyMDcwODY2MTQxNzIzNCBUZAooU3ROci4pIFRqCkVUCkJUCi9GMSA3IFRmCjguMDQ5OTk5OTk5OTk5OTk4OSBUTAowLiBnCjM1Mi42Mjk5MjEyNTk4NDI1NDcgNDA0LjIyMDcwODY2MTQxNzIzNCBUZAoodm9tKSBUagpFVApCVAovRjEgNyBUZgo4LjA0OTk5OTk5OTk5OTk5ODkgVEwKMC4gZwo0NDMuMzM4NTgyNjc3MTY1MzkxIDQwNC4yMjA3MDg2NjE0MTcyMzQgVGQKKGb8ciBkZW4gbGV0enRlbikgVGoKRVQKQlQKL0YxIDcgVGYKOC4wNDk5OTk5OTk5OTk5OTg5IFRMCjAuIGcKODEuOTIxMjU5ODQyNTE5Njg4NyAzOTAuNjE0NDA5NDQ4ODE4ODg5OCBUZAooVmVyYW5sYWd1bmdzemVpdHJhdW0pIFRqCkVUCkJUCi9GMSA3LjUgVGYKOC42MjUgVEwKMC4gZwoyNjcuMzA3MDg2NjE0MTczMjcyMiAzOTAuNjE0NDA5NDQ4ODE4ODg5OCBUZAoobmFjaCCnIDUgQWJzLiAxIE5yLiA5IGRlcyBL9nJwZXJzY2hhZnRzdGV1ZXJnZXNldHplcyB2b24gZGVyKSBUagpFVApCVAovRjEgNy41IFRmCjguNjI1IFRMCjAuIGcKODEuOTIxMjU5ODQyNTE5Njg4NyAzNzUuNTkwNzg3NDAxNTc0NzQzOSBUZAooS/ZycGVyc2NoYWZ0c3RldWVyIHVuZCBuYWNoIKcgMyBOci4gNiBkZXMgR2V3ZXJiZXN0ZXVlcmdlc2V0emVzIHZvbiBkZXIgR2V3ZXJiZXN0ZXVlciBiZWZyZWl0LikgVGoKRVQKMC43MDg2NjE0MTczMjI4MzQ3IHcKNTguMTEwMjM2MjIwNDcyNDQ0MyAzNjEuOTg0NDg4MTg4OTc2Mjg2IDEzLjMyMjgzNDY0NTY2OTI5MjUgLTEzLjMyMjgzNDY0NTY2OTI5MjUgcmUKUwpCVAovRjEgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC4gZwo4MS45MjEyNTk4NDI1MTk2ODg3IDM1Mi42MzAxNTc0ODAzMTQ4OTI0IFRkCihEaWUgRWluaGFsdHVuZyBkZXIgc2F0enVuZ3Nt5N9pZ2VuIFZvcmF1c3NldHp1bmdlbiBuYWNoIGRlbiCnpyA1MSwgNTksIDYwIHVuZCA2MSBBTyB3dXJkZSB2b20gRmluYW56YW10KSBUagpFVApCVAovRjEgNyBUZgo4LjA0OTk5OTk5OTk5OTk5ODkgVEwKMC4gZwoxOTUuODc0MDE1NzQ4MDMxNDk2MyAzMzcuMDM5NjA2Mjk5MjEyNTUwOCBUZAooU3ROci4pIFRqCkVUCkJUCi9GMSA3IFRmCjguMDQ5OTk5OTk5OTk5OTk4OSBUTAowLiBnCjI5OS4wNTUxMTgxMTAyMzYyNjQ4IDMzNy4wMzk2MDYyOTkyMTI1NTA4IFRkCihtaXQgQmVzY2hlaWQgdm9tKSBUagpFVApCVAovRjEgNyBUZgo4LjA0OTk5OTk5OTk5OTk5ODkgVEwKMC4gZwo0MjYuODk3NjM3Nzk1Mjc1NjEzOCAzMzcuMDM5NjA2Mjk5MjEyNTUwOCBUZAoobmFjaCCnIDYwYSBBTyBnZXNvbmRlcnQpIFRqCkVUCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLiBnCjgxLjkyMTI1OTg0MjUxOTY4ODcgMzIzLjE0OTg0MjUxOTY4NDk2NjYgVGQKKGZlc3RnZXN0ZWxsdC4gV2lyIGb2cmRlcm4gbmFjaCB1bnNlcmVyIFNhdHp1bmcgXChBbmdhYmUgZGVzIGJlZ/xuc3RpZ3RlbiBad2Vja3MgLyBkZXIgYmVn/G5zdGlndGVuIFp3ZWNrZVwpKSBUagpFVAo0My4wODY2MTQxNzMyMjgzNDgxIDI3NC45NjA4NjYxNDE3MzIxOTY5IDUxMC41MTk2ODUwMzkzNzAxMzExIC04Mi4yMDQ3MjQ0MDk0NDg4MjkyIHJlClMKQlQKL0YxIDggVGYKOS4xOTk5OTk5OTk5OTk5OTkzIFRMCjAuIGcKNDUuOTIxMjU5ODQyNTE5Njg4NyAyNjcuMzA3MzIyODM0NjQ1Njc0NCBUZAooRXMgd2lyZCBiZXN05HRpZ3QsIGRhc3MgZGllIFp1d2VuZHVuZyBudXIgenVyIEb2cmRlcnVuZyBcKEFuZ2FiZSBkZXMgYmVn/G5zdGlndGVuIFp3ZWNrcyAvIGRlciBiZWf8bnN0aWd0ZW4gWndlY2tlXCkpIFRqCkVUCkJUCi9GMSAxMCBUZgoxMS41IFRMCjAuIGcKNDUuOTIxMjU5ODQyNTE5Njg4NyAyNTAuODY2Mzc3OTUyNzU1NzgzNiBUZAooZGVzIFNwb3J0cykgVGoKRVQKQlQKL0YxIDggVGYKOS4xOTk5OTk5OTk5OTk5OTkzIFRMCjAuIGcKNDUuOTIxMjU5ODQyNTE5Njg4NyAyMTMuNDQ5MDU1MTE4MTEwMjA5MiBUZAoodmVyd2VuZGV0IHdpcmQuKSBUagpFVApCVAovRjEgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC4gZwo0NS45MjEyNTk4NDI1MTk2ODg3IDIwMC42OTMxNDk2MDYyOTkxMyBUZAooRXMgd2lyZCBiZXN05HRpZ3QsIGRhc3Mg/GJlciBkaWUgU2FjaHp1d2VuZHVuZyBrZWluZSB3ZWl0ZXJlIEJlc3TkdGlndW5nIGF1c2dlc3RlbGx0IHd1cmRlIHVuZCB3aXJkLikgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4gZwo0My4wODY2MTQxNzMyMjgzNDgxIDE1OC4xNzM0NjQ1NjY5MjkwNTU4IFRkCihNdXN0ZXJzdGFkdCwgMTQuMDIuMjAyNSkgVGoKRVQKMC43MDg2NjE0MTczMjI4MzQ3IHcKNDMuMDg2NjE0MTczMjI4MzQ4MSAxNTMuMDcxMTAyMzYyMjA0NjQxMiBtCjU1My42MDYyOTkyMTI1OTg0MDEgMTUzLjA3MTEwMjM2MjIwNDY0MTIgbApTCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLiBnCjQzLjA4NjYxNDE3MzIyODM0ODEgMTQ0LjU2NzE2NTM1NDMzMDY1NDcgVGQKKFwoT3J0LCBEYXR1bSB1bmQgVW50ZXJzY2hyaWZ0IGRlcyBadXdlbmR1bmdzZW1wZuRuZ2Vyc1wpKSBUagpFVApCVAovRjIgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC4gZwo0My4wODY2MTQxNzMyMjgzNDgxIDEyOS4yNjAwNzg3NDAxNTc0OTYyIFRkCihIaW53ZWlzOikgVGoKRVQKQlQKL0YxIDggVGYKOS40Mzk5OTk5OTk5OTk5OTk1IFRMCjAuIGcKNDMuMDg2NjE0MTczMjI4MzQ4MSAxMTYuNTA0MTczMjI4MzQ2NDE3MSBUZAooV2VyIHZvcnPkdHpsaWNoIG9kZXIgZ3JvYiBmYWhybORzc2lnIGVpbmUgdW5yaWNodGlnZSBadXdlbmR1bmdzYmVzdOR0aWd1bmcgZXJzdGVsbHQgb2RlciB2ZXJhbmxhc3N0LCBkYXNzIFp1d2VuZHVuZ2VuIG5pY2h0IHp1IGRlbiBpbiBkZXIpIFRqClQqIChadXdlbmR1bmdzYmVzdOR0aWd1bmcgYW5nZWdlYmVuZW4gc3RldWVyYmVn/G5zdGlndGVuIFp3ZWNrZW4gdmVyd2VuZGV0IHdlcmRlbiwgaGFmdGV0IGb8ciBkaWUgZW50Z2FuZ2VuZSBTdGV1ZXIgXCinIDEwYiBBYnMuIDQgRVN0RywgpykgVGoKVCogKDkgQWJzLiAzIEtTdEcsIKcgOSBOci4gNSBHZXdTdEdcKS4pIFRqCkVUCkJUCi9GMSA4IFRmCjkuNDM5OTk5OTk5OTk5OTk5NSBUTAowLiBnCjQzLjA4NjYxNDE3MzIyODM0ODEgNzQuNTUxNDE3MzIyODM0NTk1MyBUZAooRGllc2UgQmVzdOR0aWd1bmcgd2lyZCBuaWNodCBhbHMgTmFjaHdlaXMgZvxyIGRpZSBzdGV1ZXJsaWNoZSBCZXL8Y2tzaWNodGlndW5nIGRlciBadXdlbmR1bmcgYW5lcmthbm50LCB3ZW5uIGRhcyBEYXR1bSBkZXMpIFRqClQqIChGcmVpc3RlbGx1bmdzYmVzY2hlaWRlcyBs5G5nZXIgYWxzIDUgSmFocmUgYnp3LiBkYXMgRGF0dW0gZGVyIEZlc3RzdGVsbHVuZyBkZXIgRWluaGFsdHVuZyBkZXIgc2F0enVuZ3Nt5N9pZ2VuIFZvcmF1c3NldHp1bmdlbiBuYWNoIKcgNjBhKSBUagpUKiAoQWJzLiAxIEFPIGzkbmdlciBhbHMgMyBKYWhyZSBzZWl0IEF1c3N0ZWxsdW5nIGRlcyBCZXNjaGVpZGVzIHp1cvxja2xpZWd0IFwopyA2MyBBYnMuIDUgQU9cKS4pIFRqCkVUCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLiBnCjQ1LjkyMTI1OTg0MjUxOTY4ODcgMTkuMjc1ODI2NzcxNjUzNDQxOSBUZAooQmVzdOR0aWd1bmcg/GJlciBTYWNoenV3ZW5kdW5nIC8gc3RldWVyYmVn/G5zdGlndGUgRWlucmljaHR1bmcgLyBWZXJlaW4pIFRqCkVUCkJUCi9GMSA3IFRmCjguMDQ5OTk5OTk5OTk5OTk4OSBUTAowLjQzMSBnCjQ4MS44NTYyOTkyMTI1OTg0NTc5IDE5LjI3NTgyNjc3MTY1MzQ0MTkgVGQKKEJlbGVnLU5yLiBaQi0yMDI1LTAwMikgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagoxIDAgb2JqCjw8L1R5cGUgL1BhZ2VzCi9LaWRzIFszIDAgUiBdCi9Db3VudCAxCj4+CmVuZG9iago1IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvSGVsdmV0aWNhCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjYgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9IZWx2ZXRpY2EtQm9sZAovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iago3IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvSGVsdmV0aWNhLU9ibGlxdWUKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKOCAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0hlbHZldGljYS1Cb2xkT2JsaXF1ZQovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iago5IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvQ291cmllcgovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxMCAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0NvdXJpZXItQm9sZAovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxMSAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0NvdXJpZXItT2JsaXF1ZQovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxMiAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0NvdXJpZXItQm9sZE9ibGlxdWUKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTMgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9UaW1lcy1Sb21hbgovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxNCAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL1RpbWVzLUJvbGQKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTUgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9UaW1lcy1JdGFsaWMKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTYgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9UaW1lcy1Cb2xkSXRhbGljCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjE3IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvWmFwZkRpbmdiYXRzCi9TdWJ0eXBlIC9UeXBlMQovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjE4IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvU3ltYm9sCi9TdWJ0eXBlIC9UeXBlMQovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1Byb2NTZXQgWy9QREYgL1RleHQgL0ltYWdlQiAvSW1hZ2VDIC9JbWFnZUldCi9Gb250IDw8Ci9GMSA1IDAgUgovRjIgNiAwIFIKL0YzIDcgMCBSCi9GNCA4IDAgUgovRjUgOSAwIFIKL0Y2IDEwIDAgUgovRjcgMTEgMCBSCi9GOCAxMiAwIFIKL0Y5IDEzIDAgUgovRjEwIDE0IDAgUgovRjExIDE1IDAgUgovRjEyIDE2IDAgUgovRjEzIDE3IDAgUgovRjE0IDE4IDAgUgo+PgovWE9iamVjdCA8PAo+Pgo+PgplbmRvYmoKMTkgMCBvYmoKPDwKL1Byb2R1Y2VyIChqc1BERiA0LjIuMSkKL0NyZWF0aW9uRGF0ZSAoRDoyMDI2MTAyNDIzMjYyOSswMicwMCcpCj4+CmVuZG9iagoyMCAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMSAwIFIKL09wZW5BY3Rpb24gWzMgMCBSIC9GaXRIIG51bGxdCi9QYWdlTGF5b3V0IC9PbmVDb2x1bW4KPj4KZW5kb2JqCnhyZWYKMCAyMQowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDkwNTAgMDAwMDAgbiAKMDAwMDAxMDg2NyAwMDAwMCBuIAowMDAwMDAwMDE1IDAwMDAwIG4gCjAwMDAwMDAxNTIgMDAwMDAgbiAKMDAwMDAwOTEwNyAwMDAwMCBuIAowMDAwMDA5MjMyIDAwMDAwIG4gCjAwMDAwMDkzNjIgMDAwMDAgbiAKMDAwMDAwOTQ5NSAwMDAwMCBuIAowMDAwMDA5NjMyIDAwMDAwIG4gCjAwMDAwMDk3NTUgMDAwMDAgbiAKMDAwMDAwOTg4NCAwMDAwMCBuIAowMDAwMDEwMDE2IDAwMDAwIG4gCjAwMDAwMTAxNTIgMDAwMDAgbiAKMDAwMDAxMDI4MCAwMDAwMCBuIAowMDAwMDEwNDA3IDAwMDAwIG4gCjAwMDAwMTA1MzYgMDAwMDAgbiAKMDAwMDAxMDY2OSAwMDAwMCBuIAowMDAwMDEwNzcxIDAwMDAwIG4gCjAwMDAwMTExMTUgMDAwMDAgbiAKMDAwMDAxMTIwMSAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDIxCi9Sb290IDIwIDAgUgovSW5mbyAxOSAwIFIKL0lEIFsgPEU2QjQ0MjQ4NDlGREVENTA5NEI5QzQxOEZENjQzMkQxPiA8RTZCNDQyNDg0OUZERUQ1MDk0QjlDNDE4RkQ2NDMyRDE+IF0KPj4Kc3RhcnR4cmVmCjExMzA1CiUlRU9G",
+        "category": "belege",
+        "date": "2025-02-14",
+        "uploadDate": "2025-02-14T11:00:00.000Z",
+        "tags": [
+          "Spendenbescheinigung",
+          "Zuwendungsbestätigung",
+          "Sachzuwendung",
+          "ZB-2025-002",
+          "BMF-Muster"
+        ],
+        "notes": "Sachspende über 850.00 € von Christian Koch. BMF-konformes amtliches Formular.",
+        "memberId": "mem-6",
+        "memberName": "Christian Koch",
+        "isReceipt": true,
+        "createdAt": "2025-02-14T11:00:00.000Z",
+        "updatedAt": "2026-10-24T21:26:29.046Z"
+      },
+      {
+        "id": "doc-don-don-1",
+        "title": "Zuwendungsbestätigung: ZB-2025-001 - Musterstadt Stadtwerke AG",
+        "fileName": "Zuwendungsbestaetigung_ZB-2025-001_Musterstadt_Stadtwerke_AG.pdf",
+        "fileType": "application/pdf",
+        "fileSize": 12248,
+        "dataUrl": "data:application/pdf;filename=generated.pdf;base64,JVBERi0xLjMKJbrfrOAKMyAwIG9iago8PC9UeXBlIC9QYWdlCi9QYXJlbnQgMSAwIFIKL1Jlc291cmNlcyAyIDAgUgovTWVkaWFCb3ggWzAgMCA1OTUuMjc5OTk5OTk5OTk5OTcyNyA4NDEuODg5OTk5OTk5OTk5OTg2NF0KL0NvbnRlbnRzIDQgMCBSCj4+CmVuZG9iago0IDAgb2JqCjw8Ci9MZW5ndGggOTE3Mgo+PgpzdHJlYW0KMC41NjcwMDAwMDAwMDAwMDAxIHcKMCBHCjAuIEcKMC43MDg2NjE0MTczMjI4MzQ3IHcKNDMuMDg2NjE0MTczMjI4MzQ4MSA4MDMuMDU1MzU0MzMwNzA4NjEwMiA1MTAuNTE5Njg1MDM5MzcwMTMxMSAtNTMuMDA3ODc0MDE1NzQ4MDM2OCByZQpTCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLiBnCjQ1LjkyMTI1OTg0MjUxOTY4ODcgNzk0LjI2Nzk1Mjc1NTkwNTUyNTkgVGQKKEF1c3N0ZWxsZXIgXChCZXplaWNobnVuZyB1bmQgQW5zY2hyaWZ0IGRlciBzdGV1ZXJiZWf8bnN0aWd0ZW4gRWlucmljaHR1bmdcKSkgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4gZwo0NS45MjEyNTk4NDI1MTk2ODg3IDc4MC42NjE2NTM1NDMzMDcwMTEyIFRkCihUU1YgTXVzdGVyc3RhZHQgMTg5MCBlLlYuKSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLiBnCjQ1LjkyMTI1OTg0MjUxOTY4ODcgNzY4LjQ3MjY3NzE2NTM1NDI5ODMgVGQKKFNwb3J0cGxhdHp3ZWcgMTIpIFRqCkVUCkJUCi9GMSAxMCBUZgoxMS41IFRMCjAuIGcKNDUuOTIxMjU5ODQyNTE5Njg4NyA3NTYuMjgzNzAwNzg3NDAxNTg1MyBUZAooMTIzNDUgTXVzdGVyc3RhZHQpIFRqCkVUCkJUCi9GMiAxMCBUZgoxMS41IFRMCjAuIGcKNDUuOTIxMjU5ODQyNTE5Njg4NyA3MzcuNTc1MDM5MzcwMDc4Njg0NCBUZAooQmVzdOR0aWd1bmcg/GJlciBHZWxkenV3ZW5kdW5nZW4vTWl0Z2xpZWRzYmVpdHJhZykgVGoKRVQKQlQKL0YxIDggVGYKOS4xOTk5OTk5OTk5OTk5OTkzIFRMCjAuIGcKNDUuOTIxMjU5ODQyNTE5Njg4NyA3MjIuODM0ODgxODg5NzYzNzc4NCBUZAooaW0gU2lubmUgZGVzIKcgMTBiIGRlcyBFaW5rb21tZW5zdGV1ZXJnZXNldHplcyBhbiBlaW5lIGRlciBpbiCnIDUgQWJzLiAxIE5yLiA5IGRlcyBL9nJwZXJzY2hhZnRzdGV1ZXJnZXNldHplcyBiZXplaWNobmV0ZW4pIFRqCkVUCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLiBnCjQ1LjkyMTI1OTg0MjUxOTY4ODcgNzEzLjQ4MDU1MTE4MTEwMjMyOCBUZAooS/ZycGVyc2NoYWZ0ZW4sIFBlcnNvbmVudmVyZWluaWd1bmdlbiBvZGVyIFZlcm32Z2Vuc21hc3NlbikgVGoKRVQKNDMuMDg2NjE0MTczMjI4MzQ4MSA2OTguNDU2OTI5MTMzODU4MjM4OSA1MTAuNTE5Njg1MDM5MzcwMTMxMSAtNTIuMTU3NDgwMzE0OTYwNjI5NiByZQpTCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLiBnCjQ1LjkyMTI1OTg0MjUxOTY4ODcgNjkwLjgwMzM4NTgyNjc3MTY1OTYgVGQKKE5hbWUgdW5kIEFuc2NocmlmdCBkZXMgWnV3ZW5kZW5kZW4pIFRqCkVUCkJUCi9GMSAxMCBUZgoxMS41IFRMCjAuIGcKNDUuOTIxMjU5ODQyNTE5Njg4NyA2NzYuMDYzMjI4MzQ2NDU2NjM5OSBUZAooTXVzdGVyc3RhZHQgU3RhZHR3ZXJrZSBBRykgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4gZwo0NS45MjEyNTk4NDI1MTk2ODg3IDY2NC4xNTc3MTY1MzU0MzI5OTY0IFRkCihFbmVyZ2llc3RyYd9lIDEpIFRqCkVUCkJUCi9GMSAxMCBUZgoxMS41IFRMCjAuIGcKNDUuOTIxMjU5ODQyNTE5Njg4NyA2NTIuMjUyMjA0NzI0NDA5NDY2NSBUZAooMTIzNDUgTXVzdGVyc3RhZHQpIFRqCkVUCjQzLjA4NjYxNDE3MzIyODM0ODEgNjMwLjk5MjM2MjIwNDcyNDM3MjUgNTEwLjUxOTY4NTAzOTM3MDEzMTEgLTMzLjczMjI4MzQ2NDU2NjkzMzIgcmUKUwoxNzMuMTk2ODUwMzkzNzAwNzk5NSA2MzAuOTkyMzYyMjA0NzI0MzcyNSBtCjE3My4xOTY4NTAzOTM3MDA3OTk1IDU5Ny4yNjAwNzg3NDAxNTczODI1IGwKUwo0MzAuMjk5MjEyNTk4NDI1Mjk5MyA2MzAuOTkyMzYyMjA0NzI0MzcyNSBtCjQzMC4yOTkyMTI1OTg0MjUyOTkzIDU5Ny4yNjAwNzg3NDAxNTczODI1IGwKUwpCVAovRjEgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC4gZwo0NS45MjEyNTk4NDI1MTk2ODg3IDYyMS4zNTQ1NjY5MjkxMzM4NTI3IFRkCihCZXRyYWcgZGVyIFp1d2VuZHVuZyAtIGluIFppZmZlcm4gLSkgVGoKRVQKQlQKL0YxIDggVGYKOS4xOTk5OTk5OTk5OTk5OTkzIFRMCjAuIGcKMjcxLjg0OTc2Mzc3OTUyNzU2MzcgNjIxLjM1NDU2NjkyOTEzMzg1MjcgVGQKKC0gaW4gQnVjaHN0YWJlbiAtKSBUagpFVApCVAovRjEgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC4gZwo0MzMuNDE3MzIyODM0NjQ1NzQ0OSA2MjEuMzU0NTY2OTI5MTMzODUyNyBUZAooVGFnIGRlciBadXdlbmR1bmc6KSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLiBnCjEyNy4wMjkxMzM4NTgyNjc3MTI4IDYwMS43OTU1MTE4MTEwMjM1MTYyIFRkCigxLjUwMCwwMIApIFRqCkVUCkJUCi9GMSAxMCBUZgoxMS41IFRMCjAuIGcKMTc2LjMxNDk2MDYyOTkyMTI3MzUgNjAxLjc5NTUxMTgxMTAyMzUxNjIgVGQKKEVpbnRhdXNlbmRm/G5maHVuZGVydCBFdXJvKSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLiBnCjQzMy40MTczMjI4MzQ2NDU3NDQ5IDYwMS43OTU1MTE4MTEwMjM1MTYyIFRkCigyMC4wMS4yMDI1KSBUagpFVApCVAovRjEgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC4gZwo0NS45MjEyNTk4NDI1MTk2ODg3IDU2NC4zNzgxODg5NzYzNzc5NDE4IFRkCihFcyBoYW5kZWx0IHNpY2ggdW0gZGVuIFZlcnppY2h0IGF1ZiBFcnN0YXR0dW5nIHZvbiBBdWZ3ZW5kdW5nZW4pIFRqCkVUCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLiBnCjM2MC4wMDAwMDAwMDAwMDAwNTY4IDU2NC4zNzgxODg5NzYzNzc5NDE4IFRkCihKYSkgVGoKRVQKMC43MDg2NjE0MTczMjI4MzQ3IHcKMzc0LjE3MzIyODM0NjQ1NjcxMDQgNTczLjQ0OTA1NTExODExMDIwOTIgMTMuMzIyODM0NjQ1NjY5MjkyNSAtMTMuMzIyODM0NjQ1NjY5MjkyNSByZQpTCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLiBnCjQxMC4xNzMyMjgzNDY0NTY3MTA0IDU2NC4zNzgxODg5NzYzNzc5NDE4IFRkCihOZWluKSBUagpFVAowLjcwODY2MTQxNzMyMjgzNDcgdwo0MzMuNzAwNzg3NDAxNTc0ODcxMiA1NzMuNDQ5MDU1MTE4MTEwMjA5MiAxMy4zMjI4MzQ2NDU2NjkyOTI1IC0xMy4zMjI4MzQ2NDU2NjkyOTI1IHJlClMKMC45OTIxMjU5ODQyNTE5Njg1IHcKNDM1LjExODExMDIzNjIyMDUwMjQgNTcyLjAzMTczMjI4MzQ2NDUyMTEgbQo0NDUuNjA2Mjk5MjEyNTk4NDU3OSA1NjEuNTQzNTQzMzA3MDg2NTY1NiBsClMKNDQ1LjYwNjI5OTIxMjU5ODQ1NzkgNTcyLjAzMTczMjI4MzQ2NDUyMTEgbQo0MzUuMTE4MTEwMjM2MjIwNTAyNCA1NjEuNTQzNTQzMzA3MDg2NTY1NiBsClMKMC43MDg2NjE0MTczMjI4MzQ3IHcKMC43MDg2NjE0MTczMjI4MzQ3IHcKNTguMTEwMjM2MjIwNDcyNDQ0MyA1MzguNTgyOTEzMzg1ODI2NzE0MSAxMy4zMjI4MzQ2NDU2NjkyOTI1IC0xMy4zMjI4MzQ2NDU2NjkyOTI1IHJlClMKMC45OTIxMjU5ODQyNTE5Njg1IHcKNTkuNTI3NTU5MDU1MTE4MTE4MiA1MzcuMTY1NTkwNTUxMTgxMDI2MSBtCjcwLjAxNTc0ODAzMTQ5NjA3MzYgNTI2LjY3NzQwMTU3NDgwMzA3MDYgbApTCjcwLjAxNTc0ODAzMTQ5NjA3MzYgNTM3LjE2NTU5MDU1MTE4MTAyNjEgbQo1OS41Mjc1NTkwNTUxMTgxMTgyIDUyNi42Nzc0MDE1NzQ4MDMwNzA2IGwKUwowLjcwODY2MTQxNzMyMjgzNDcgdwpCVAovRjEgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC4gZwo4MS45MjEyNTk4NDI1MTk2ODg3IDUzMS43Nzk3NjM3Nzk1Mjc0NTY4IFRkCihXaXIgc2luZCB3ZWdlbiBG9nJkZXJ1bmcgXChBbmdhYmUgZGVzIGJlZ/xuc3RpZ3RlbiBad2Vja3MgLyBkZXIgYmVn/G5zdGlndGVuIFp3ZWNrZVwpKSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLiBnCjgxLjkyMTI1OTg0MjUxOTY4ODcgNTE1LjMzODgxODg5NzYzNzc5MzMgVGQKKGRlcyBTcG9ydHMgXCinIDUyIEFicy4gMiBTYXR6IDEgTnIuIDIxIEFPXCkpIFRqCkVUCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLiBnCjgxLjkyMTI1OTg0MjUxOTY4ODcgNDcxLjQwMTgxMTAyMzYyMjAzMDkgVGQKKG5hY2ggZGVtIEZyZWlzdGVsbHVuZ3NiZXNjaGVpZCBiencuIG5hY2ggZGVyIEFubGFnZSB6dW0gS/ZycGVyc2NoYWZ0c3RldWVyYmVzY2hlaWQgZGVzIEZpbmFuemFtdGVzKSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLiBnCjgxLjkyMTI1OTg0MjUxOTY4ODcgNDU1LjI0NDMzMDcwODY2MTMyMzEgVGQKKEZpbmFuemFtdCBNdXN0ZXJzdGFkdCkgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4gZwoyNDYuMzMwNzA4NjYxNDE3MzYxMyA0NTUuMjQ0MzMwNzA4NjYxMzIzMSBUZAooMTEyLzU4NDAvMTkyMikgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4gZwozNzkuODQyNTE5Njg1MDM5NDA1OSA0NTUuMjQ0MzMwNzA4NjYxMzIzMSBUZAooMTAuMDEuMjAyNCkgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4gZwoxODkuMzU0MzMwNzA4NjYxNDIyIDQ0MS42MzgwMzE0OTYwNjI5Nzg5IFRkCigyMDIxIGJpcyAyMDIzKSBUagpFVApCVAovRjEgNyBUZgo4LjA0OTk5OTk5OTk5OTk5ODkgVEwKMC4gZwoyMjUuMzU0MzMwNzA4NjYxNDUwNCA0NTUuMjQ0MzMwNzA4NjYxMzIzMSBUZAooU3ROci4pIFRqCkVUCkJUCi9GMSA3IFRmCjguMDQ5OTk5OTk5OTk5OTk4OSBUTAowLiBnCjM1Mi42Mjk5MjEyNTk4NDI1NDcgNDU1LjI0NDMzMDcwODY2MTMyMzEgVGQKKHZvbSkgVGoKRVQKQlQKL0YxIDcgVGYKOC4wNDk5OTk5OTk5OTk5OTg5IFRMCjAuIGcKNDQzLjMzODU4MjY3NzE2NTM5MSA0NTUuMjQ0MzMwNzA4NjYxMzIzMSBUZAooZvxyIGRlbiBsZXR6dGVuKSBUagpFVApCVAovRjEgNyBUZgo4LjA0OTk5OTk5OTk5OTk5ODkgVEwKMC4gZwo4MS45MjEyNTk4NDI1MTk2ODg3IDQ0MS42MzgwMzE0OTYwNjI5Nzg5IFRkCihWZXJhbmxhZ3VuZ3N6ZWl0cmF1bSkgVGoKRVQKQlQKL0YxIDcuNSBUZgo4LjYyNSBUTAowLiBnCjI2Ny4zMDcwODY2MTQxNzMyNzIyIDQ0MS42MzgwMzE0OTYwNjI5Nzg5IFRkCihuYWNoIKcgNSBBYnMuIDEgTnIuIDkgZGVzIEv2cnBlcnNjaGFmdHN0ZXVlcmdlc2V0emVzIHZvbiBkZXIpIFRqCkVUCkJUCi9GMSA3LjUgVGYKOC42MjUgVEwKMC4gZwo4MS45MjEyNTk4NDI1MTk2ODg3IDQyNi42MTQ0MDk0NDg4MTg4MzMgVGQKKEv2cnBlcnNjaGFmdHN0ZXVlciB1bmQgbmFjaCCnIDMgTnIuIDYgZGVzIEdld2VyYmVzdGV1ZXJnZXNldHplcyB2b24gZGVyIEdld2VyYmVzdGV1ZXIgYmVmcmVpdC4pIFRqCkVUCjAuNzA4NjYxNDE3MzIyODM0NyB3CjU4LjExMDIzNjIyMDQ3MjQ0NDMgNDEzLjAwODExMDIzNjIyMDM3NTEgMTMuMzIyODM0NjQ1NjY5MjkyNSAtMTMuMzIyODM0NjQ1NjY5MjkyNSByZQpTCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLiBnCjgxLjkyMTI1OTg0MjUxOTY4ODcgNDAzLjY1Mzc3OTUyNzU1OTAzODMgVGQKKERpZSBFaW5oYWx0dW5nIGRlciBzYXR6dW5nc23k32lnZW4gVm9yYXVzc2V0enVuZ2VuIG5hY2ggZGVuIKenIDUxLCA1OSwgNjAgdW5kIDYxIEFPIHd1cmRlIHZvbSBGaW5hbnphbXQpIFRqCkVUCkJUCi9GMSA3IFRmCjguMDQ5OTk5OTk5OTk5OTk4OSBUTAowLiBnCjE5NS44NzQwMTU3NDgwMzE0OTYzIDM4OC4wNjMyMjgzNDY0NTY2Mzk5IFRkCihTdE5yLikgVGoKRVQKQlQKL0YxIDcgVGYKOC4wNDk5OTk5OTk5OTk5OTg5IFRMCjAuIGcKMjk5LjA1NTExODExMDIzNjI2NDggMzg4LjA2MzIyODM0NjQ1NjYzOTkgVGQKKG1pdCBCZXNjaGVpZCB2b20pIFRqCkVUCkJUCi9GMSA3IFRmCjguMDQ5OTk5OTk5OTk5OTk4OSBUTAowLiBnCjQyNi44OTc2Mzc3OTUyNzU2MTM4IDM4OC4wNjMyMjgzNDY0NTY2Mzk5IFRkCihuYWNoIKcgNjBhIEFPIGdlc29uZGVydCkgVGoKRVQKQlQKL0YxIDggVGYKOS4xOTk5OTk5OTk5OTk5OTkzIFRMCjAuIGcKODEuOTIxMjU5ODQyNTE5Njg4NyAzNzQuMTczNDY0NTY2OTI5MDU1OCBUZAooZmVzdGdlc3RlbGx0LiBXaXIgZvZyZGVybiBuYWNoIHVuc2VyZXIgU2F0enVuZyBcKEFuZ2FiZSBkZXMgYmVn/G5zdGlndGVuIFp3ZWNrcyAvIGRlciBiZWf8bnN0aWd0ZW4gWndlY2tlXCkpIFRqCkVUCjQzLjA4NjYxNDE3MzIyODM0ODEgMzA3Ljg0Mjc1NTkwNTUxMTY5NDQgNTEwLjUxOTY4NTAzOTM3MDEzMTEgLTExOC40ODgxODg5NzYzNzc5NTU0IHJlClMKQlQKL0YxIDggVGYKOS4xOTk5OTk5OTk5OTk5OTkzIFRMCjAuIGcKNDUuOTIxMjU5ODQyNTE5Njg4NyAzMDAuMTg5MjEyNTk4NDI1MTE1MiBUZAooRXMgd2lyZCBiZXN05HRpZ3QsIGRhc3MgZGllIFp1d2VuZHVuZyBudXIgenVyIEb2cmRlcnVuZyBcKEFuZ2FiZSBkZXMgYmVn/G5zdGlndGVuIFp3ZWNrcyAvIGRlciBiZWf8bnN0aWd0ZW4gWndlY2tlXCkpIFRqCkVUCkJUCi9GMSAxMCBUZgoxMS41IFRMCjAuIGcKNDUuOTIxMjU5ODQyNTE5Njg4NyAyODMuNzQ4MjY3NzE2NTM1MzM4IFRkCihkZXMgU3BvcnRzKSBUagpFVApCVAovRjEgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC4gZwo0NS45MjEyNTk4NDI1MTk2ODg3IDI0Ni4zMzA5NDQ4ODE4ODk2NDk5IFRkCih2ZXJ3ZW5kZXQgd2lyZC4pIFRqCkVUCkJUCi9GMiA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLiBnCjQ1LjkyMTI1OTg0MjUxOTY4ODcgMjIxLjk1Mjk5MjEyNTk4NDExMDMgVGQKKE51ciBm/HIgc3RldWVyYmVn/G5zdGlndGUgRWlucmljaHR1bmdlbiwgYmVpIGRlbmVuIGRpZSBNaXRnbGllZHNiZWl0cuRnZSBzdGV1ZXJsaWNoIG5pY2h0IGFiemllaGJhciBzaW5kKSBUagpFVAowLjcwODY2MTQxNzMyMjgzNDcgdwo0Ni40ODgxODg5NzYzNzc5NTU0IDIxNS40MzMzMDcwODY2MTQwOTI5IDEzLjMyMjgzNDY0NTY2OTI5MjUgLTEzLjMyMjgzNDY0NTY2OTI5MjUgcmUKUwowLjk5MjEyNTk4NDI1MTk2ODUgdwo0Ny45MDU1MTE4MTEwMjM2MjIyIDIxNC4wMTU5ODQyNTE5Njg0MDQ4IG0KNTguMzkzNzAwNzg3NDAxNTc3NyAyMDMuNTI3Nzk1Mjc1NTkwNDc3OCBsClMKNTguMzkzNzAwNzg3NDAxNTc3NyAyMTQuMDE1OTg0MjUxOTY4NDA0OCBtCjQ3LjkwNTUxMTgxMTAyMzYyMjIgMjAzLjUyNzc5NTI3NTU5MDQ3NzggbApTCjAuNzA4NjYxNDE3MzIyODM0NyB3CkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLiBnCjYzLjc3OTUyNzU1OTA1NTEyNTYgMjA4LjA2MzIyODM0NjQ1NjUyNjIgVGQKKEVzIHdpcmQgYmVzdOR0aWd0LCBkYXNzIGVzIHNpY2ggbmljaHQgdW0gZWluZW4gTWl0Z2xpZWRzYmVpdHJhZyBoYW5kZWx0LCBkZXNzZW4gQWJ6dWcgbmFjaCCnIDEwYiBBYnMuIDEgZGVzIEVpbmtvbW1lbnN0ZXVlcmdlc2V0emVzKSBUagpFVApCVAovRjEgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC4gZwo2My43Nzk1Mjc1NTkwNTUxMjU2IDE5NS41OTA3ODc0MDE1NzQ3NDM5IFRkCihhdXNnZXNjaGxvc3NlbiBpc3QuKSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLiBnCjQzLjA4NjYxNDE3MzIyODM0ODEgMTU0Ljc3MTg4OTc2Mzc3OTU0MDggVGQKKE11c3RlcnN0YWR0LCAyMC4wMS4yMDI1KSBUagpFVAowLjcwODY2MTQxNzMyMjgzNDcgdwo0My4wODY2MTQxNzMyMjgzNDgxIDE0OS42Njk1Mjc1NTkwNTUwNDA5IG0KNTUzLjYwNjI5OTIxMjU5ODQwMSAxNDkuNjY5NTI3NTU5MDU1MDQwOSBsClMKQlQKL0YxIDggVGYKOS4xOTk5OTk5OTk5OTk5OTkzIFRMCjAuIGcKNDMuMDg2NjE0MTczMjI4MzQ4MSAxNDEuMTY1NTkwNTUxMTgxMDI2MSBUZAooXChPcnQsIERhdHVtIHVuZCBVbnRlcnNjaHJpZnQgZGVzIFp1d2VuZHVuZ3NlbXBm5G5nZXJzXCkpIFRqCkVUCkJUCi9GMiA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLiBnCjQzLjA4NjYxNDE3MzIyODM0ODEgMTI1Ljg1ODUwMzkzNzAwNzg2NzUgVGQKKEhpbndlaXM6KSBUagpFVApCVAovRjEgOCBUZgo5LjQzOTk5OTk5OTk5OTk5OTUgVEwKMC4gZwo0My4wODY2MTQxNzMyMjgzNDgxIDExMy4xMDI1OTg0MjUxOTY5MDIxIFRkCihXZXIgdm9yc+R0emxpY2ggb2RlciBncm9iIGZhaHJs5HNzaWcgZWluZSB1bnJpY2h0aWdlIFp1d2VuZHVuZ3NiZXN05HRpZ3VuZyBlcnN0ZWxsdCBvZGVyIHZlcmFubGFzc3QsIGRhc3MgWnV3ZW5kdW5nZW4gbmljaHQgenUgZGVuIGluIGRlcikgVGoKVCogKFp1d2VuZHVuZ3NiZXN05HRpZ3VuZyBhbmdlZ2ViZW5lbiBzdGV1ZXJiZWf8bnN0aWd0ZW4gWndlY2tlbiB2ZXJ3ZW5kZXQgd2VyZGVuLCBoYWZ0ZXQgZvxyIGRpZSBlbnRnYW5nZW5lIFN0ZXVlciBcKKcgMTBiIEFicy4gNCBFU3RHLCCnKSBUagpUKiAoOSBBYnMuIDMgS1N0RywgpyA5IE5yLiA1IEdld1N0R1wpLikgVGoKRVQKQlQKL0YxIDggVGYKOS40Mzk5OTk5OTk5OTk5OTk1IFRMCjAuIGcKNDMuMDg2NjE0MTczMjI4MzQ4MSA3MS4xNDk4NDI1MTk2ODQ5NjY2IFRkCihEaWVzZSBCZXN05HRpZ3VuZyB3aXJkIG5pY2h0IGFscyBOYWNod2VpcyBm/HIgZGllIHN0ZXVlcmxpY2hlIEJlcvxja3NpY2h0aWd1bmcgZGVyIFp1d2VuZHVuZyBhbmVya2FubnQsIHdlbm4gZGFzIERhdHVtIGRlcykgVGoKVCogKEZyZWlzdGVsbHVuZ3NiZXNjaGVpZGVzIGzkbmdlciBhbHMgNSBKYWhyZSBiencuIGRhcyBEYXR1bSBkZXIgRmVzdHN0ZWxsdW5nIGRlciBFaW5oYWx0dW5nIGRlciBzYXR6dW5nc23k32lnZW4gVm9yYXVzc2V0enVuZ2VuIG5hY2ggpyA2MGEpIFRqClQqIChBYnMuIDEgQU8gbORuZ2VyIGFscyAzIEphaHJlIHNlaXQgQXVzc3RlbGx1bmcgZGVzIEJlc2NoZWlkZXMgenVy/GNrbGllZ3QgXCinIDYzIEFicy4gNSBBT1wpLikgVGoKRVQKQlQKL0YyIDEwIFRmCjExLjUgVEwKMC4gZwo0NS4zNTQzMzA3MDg2NjE0MjIgMTkuMjc1ODI2NzcxNjUzNDQxOSBUZAooMDM0MTIyKSBUagpFVApCVAovRjEgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC4gZwo4Mi4yMDQ3MjQ0MDk0NDg4MjkyIDE5LjI3NTgyNjc3MTY1MzQ0MTkgVGQKKEJlc3TkdGlndW5nIPxiZXIgR2VsZHp1d2VuZHVuZyAvIHN0ZXVlcmJlZ/xuc3RpZ3RlIEVpbnJpY2h0dW5nIC8gVmVyZWluKSBUagpFVApCVAovRjIgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC4gZwozNDYuNDY1NTExODExMDIzNzAyNiAxOS4yNzU4MjY3NzE2NTM0NDE5IFRkCihcKDIwMTNcKSkgVGoKRVQKQlQKL0YxIDcgVGYKOC4wNDk5OTk5OTk5OTk5OTg5IFRMCjAuNDMxIGcKNDgxLjg1NjI5OTIxMjU5ODQ1NzkgMTkuMjc1ODI2NzcxNjUzNDQxOSBUZAooQmVsZWctTnIuIFpCLTIwMjUtMDAxKSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCjEgMCBvYmoKPDwvVHlwZSAvUGFnZXMKL0tpZHMgWzMgMCBSIF0KL0NvdW50IDEKPj4KZW5kb2JqCjUgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9IZWx2ZXRpY2EKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKNiAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0hlbHZldGljYS1Cb2xkCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjcgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9IZWx2ZXRpY2EtT2JsaXF1ZQovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iago4IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvSGVsdmV0aWNhLUJvbGRPYmxpcXVlCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjkgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9Db3VyaWVyCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjEwIDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvQ291cmllci1Cb2xkCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjExIDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvQ291cmllci1PYmxpcXVlCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjEyIDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvQ291cmllci1Cb2xkT2JsaXF1ZQovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxMyAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL1RpbWVzLVJvbWFuCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjE0IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvVGltZXMtQm9sZAovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxNSAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL1RpbWVzLUl0YWxpYwovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxNiAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL1RpbWVzLUJvbGRJdGFsaWMKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTcgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9aYXBmRGluZ2JhdHMKL1N1YnR5cGUgL1R5cGUxCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTggMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9TeW1ib2wKL1N1YnR5cGUgL1R5cGUxCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMiAwIG9iago8PAovUHJvY1NldCBbL1BERiAvVGV4dCAvSW1hZ2VCIC9JbWFnZUMgL0ltYWdlSV0KL0ZvbnQgPDwKL0YxIDUgMCBSCi9GMiA2IDAgUgovRjMgNyAwIFIKL0Y0IDggMCBSCi9GNSA5IDAgUgovRjYgMTAgMCBSCi9GNyAxMSAwIFIKL0Y4IDEyIDAgUgovRjkgMTMgMCBSCi9GMTAgMTQgMCBSCi9GMTEgMTUgMCBSCi9GMTIgMTYgMCBSCi9GMTMgMTcgMCBSCi9GMTQgMTggMCBSCj4+Ci9YT2JqZWN0IDw8Cj4+Cj4+CmVuZG9iagoxOSAwIG9iago8PAovUHJvZHVjZXIgKGpzUERGIDQuMi4xKQovQ3JlYXRpb25EYXRlIChEOjIwMjYxMDI0MjMyNjI5KzAyJzAwJykKPj4KZW5kb2JqCjIwIDAgb2JqCjw8Ci9UeXBlIC9DYXRhbG9nCi9QYWdlcyAxIDAgUgovT3BlbkFjdGlvbiBbMyAwIFIgL0ZpdEggbnVsbF0KL1BhZ2VMYXlvdXQgL09uZUNvbHVtbgo+PgplbmRvYmoKeHJlZgowIDIxCjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwOTM3NiAwMDAwMCBuIAowMDAwMDExMTkzIDAwMDAwIG4gCjAwMDAwMDAwMTUgMDAwMDAgbiAKMDAwMDAwMDE1MiAwMDAwMCBuIAowMDAwMDA5NDMzIDAwMDAwIG4gCjAwMDAwMDk1NTggMDAwMDAgbiAKMDAwMDAwOTY4OCAwMDAwMCBuIAowMDAwMDA5ODIxIDAwMDAwIG4gCjAwMDAwMDk5NTggMDAwMDAgbiAKMDAwMDAxMDA4MSAwMDAwMCBuIAowMDAwMDEwMjEwIDAwMDAwIG4gCjAwMDAwMTAzNDIgMDAwMDAgbiAKMDAwMDAxMDQ3OCAwMDAwMCBuIAowMDAwMDEwNjA2IDAwMDAwIG4gCjAwMDAwMTA3MzMgMDAwMDAgbiAKMDAwMDAxMDg2MiAwMDAwMCBuIAowMDAwMDEwOTk1IDAwMDAwIG4gCjAwMDAwMTEwOTcgMDAwMDAgbiAKMDAwMDAxMTQ0MSAwMDAwMCBuIAowMDAwMDExNTI3IDAwMDAwIG4gCnRyYWlsZXIKPDwKL1NpemUgMjEKL1Jvb3QgMjAgMCBSCi9JbmZvIDE5IDAgUgovSUQgWyA8Njg5NjAwRkFDQkIwOTY3QzIzMUM5OEUwMjY4NTU1QUU+IDw2ODk2MDBGQUNCQjA5NjdDMjMxQzk4RTAyNjg1NTVBRT4gXQo+PgpzdGFydHhyZWYKMTE2MzEKJSVFT0Y=",
+        "category": "belege",
+        "date": "2025-01-20",
+        "uploadDate": "2025-01-20T14:30:00.000Z",
+        "tags": [
+          "Spendenbescheinigung",
+          "Zuwendungsbestätigung",
+          "Geldzuwendung",
+          "ZB-2025-001",
+          "BMF-Muster"
+        ],
+        "notes": "Geldspende über 1500.00 € von Musterstadt Stadtwerke AG. BMF-konformes amtliches Formular.",
+        "transactionId": "tx-2",
+        "memberName": "Musterstadt Stadtwerke AG",
+        "isReceipt": true,
+        "createdAt": "2025-01-20T14:30:00.000Z",
+        "updatedAt": "2026-10-24T21:26:29.047Z"
+      },
+      {
+        "id": "doc-6",
+        "title": "Beitrags- und Gebührenordnung 2025",
+        "fileName": "Beitragsordnung_2025.pdf",
+        "fileType": "application/pdf",
+        "fileSize": 76000,
+        "dataUrl": "data:application/pdf;filename=generated.pdf;base64,JVBERi0xLjMKJbrfrOAKMyAwIG9iago8PC9UeXBlIC9QYWdlCi9QYXJlbnQgMSAwIFIKL1Jlc291cmNlcyAyIDAgUgovTWVkaWFCb3ggWzAgMCA1OTUuMjc5OTk5OTk5OTk5OTcyNyA4NDEuODg5OTk5OTk5OTk5OTg2NF0KL0NvbnRlbnRzIDQgMCBSCj4+CmVuZG9iago0IDAgb2JqCjw8Ci9MZW5ndGggMjE3Nwo+PgpzdHJlYW0KMC41NjcwMDAwMDAwMDAwMDAxIHcKMCBHCjAuMTIgMC4xNiAwLjIzIHJnCjAuIDg0MS44ODk5OTk5OTk5OTk5ODY0IDU5NS4yNzU1OTA1NTExODExNTM0IC03MC44NjYxNDE3MzIyODM0NjY2IHJlCmYKQlQKL0YyIDE0IFRmCjE2LjA5OTk5OTk5OTk5OTk5NzkgVEwKMS4gZwo0Mi41MTk2ODUwMzkzNzAwODE0IDgwNy44NzQyNTE5Njg1MDM5MjY5IFRkCihUU1YgTXVzdGVyc3RhZHQgMTg5MCBlLlYuKSBUagpFVApCVAovRjEgOSBUZgoxMC4zNDk5OTk5OTk5OTk5OTk2IFRMCjEuIGcKNDIuNTE5Njg1MDM5MzcwMDgxNCA3OTAuODY2Mzc3OTUyNzU1ODk3MiBUZAooUmV2aXNpb25zc2ljaGVyZXMgVmVyZWluc2FyY2hpdiCVIEdvQkQgJiBEU0dWTy1rb25mb3JtKSBUagpFVApCVAovRjIgMTggVGYKMjAuNjk5OTk5OTk5OTk5OTk5MyBUTAowLjA1OSAwLjA5IDAuMTY1IHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNzIyLjgzNDg4MTg4OTc2Mzc3ODQgVGQKKEJlaXRyYWdzb3JkbnVuZyBkZXMgVFNWIE11c3RlcnN0YWR0IDE4OTAgZS5WLikgVGoKRVQKQlQKL0YyIDExIFRmCjEyLjY0OTk5OTk5OTk5OTk5ODYgVEwKMC4zOTIgMC40NTUgMC41NDUgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA3MDAuMTU3NzE2NTM1NDMzMTEgVGQKKEf8bHRpZyBhYiBkZW0gMDEuIEphbnVhciAyMDI1IGxhdXQgQmVzY2hsdXNzIGRlciBNaXRnbGllZGVydmVyc2FtbWx1bmcpIFRqCkVUCjAuODkgMC45MSAwLjk0IFJHCjQyLjUxOTY4NTAzOTM3MDA4MTQgNjg1Ljk4NDQ4ODE4ODk3NjM0MjggbQo1NTIuNzU1OTA1NTExODExMDc5MSA2ODUuOTg0NDg4MTg4OTc2MzQyOCBsClMKQlQKL0YyIDEwIFRmCjExLjUgVEwKMC4wNTkgMC4wOSAwLjE2NSByZwo0Mi41MTk2ODUwMzkzNzAwODE0IDY0Ni4yOTk0NDg4MTg4OTc2NDQ3IFRkCigxLiBHcnVuZGJlaXRy5GdlKSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLjIgMC4yNTUgMC4zMzMgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA2NDYuMjk5NDQ4ODE4ODk3NjQ0NyBUZAooRXJ3YWNoc2VuZSBWb2xsbWl0Z2xpZWRlcjogMTUsMDAggCBtb25hdGxpY2ggLyBLaW5kZXIgJiBKdWdlbmRsaWNoZTogMTAsMDAggCBtb25hdGxpY2ggLyBGYW1pbGllbmJlaXRyYWc6IDMwLDAwIIApIFRqClQqIChtb25hdGxpY2guKSBUagpFVApCVAovRjIgMTAgVGYKMTEuNSBUTAowLjA1OSAwLjA5IDAuMTY1IHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNjAwLjk0NTExODExMDIzNjE5NDMgVGQKKDIuIEVybeTfaWd1bmdlbikgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4yIDAuMjU1IDAuMzMzIHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNjAwLjk0NTExODExMDIzNjE5NDMgVGQKKFNjaPxsZXIsIFN0dWRlbnRlbiB1bmQgUmVudG5lciBlcmhhbHRlbiBhdWYgTmFjaHdlaXMgZGVuIGVybeTfaWd0ZW4gQmVpdHJhZyB2b24gMTAsMDAggCBtb25hdGxpY2guKSBUagpFVApCVAovRjIgMTAgVGYKMTEuNSBUTAowLjA1OSAwLjA5IDAuMTY1IHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNTY5Ljc2NDAxNTc0ODAzMTM5NzQgVGQKKDMuIFphaGx1bmdzd2Vpc2UgJiBG5GxsaWdrZWl0KSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLjIgMC4yNTUgMC4zMzMgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA1NjkuNzY0MDE1NzQ4MDMxMzk3NCBUZAooQmVpdHLkZ2Ugd2VyZGVuIHdhaGx3ZWlzZSBtb25hdGxpY2gsIHZpZXJ0ZWxq5GhybGljaCwgaGFsYmrkaHJsaWNoIG9kZXIgauRocmxpY2ggcGVyIFNFUEEtTGFzdHNjaHJpZnQgZWluZ2V6b2dlbi4pIFRqCkVUCjAuODkgMC45MSAwLjk0IFJHCjQyLjUxOTY4NTAzOTM3MDA4MTQgNjIuMzYyNDQwOTQ0ODgxNzgyOSBtCjU1Mi43NTU5MDU1MTE4MTEwNzkxIDYyLjM2MjQ0MDk0NDg4MTc4MjkgbApTCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLjU4IDAuNjM5IDAuNzIyIHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNDIuNTE5OTIxMjU5ODQyNDc2NSBUZAooRG9rdW1lbnQgZXJ6ZXVndCBpbSBUU1YgVmVyZWluc01hbmFnZXIglSBFbGVrdHJvbmlzY2ggYXJjaGl2aWVydCkgVGoKRVQKQlQKL0YxIDggVGYKOS4xOTk5OTk5OTk5OTk5OTkzIFRMCjAuNTggMC42MzkgMC43MjIgcmcKNDk2LjA2Mjk5MjEyNTk4NDI5NDUgNDIuNTE5OTIxMjU5ODQyNDc2NSBUZAooU2VpdGUgMSB2b24gMSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagoxIDAgb2JqCjw8L1R5cGUgL1BhZ2VzCi9LaWRzIFszIDAgUiBdCi9Db3VudCAxCj4+CmVuZG9iago1IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvSGVsdmV0aWNhCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjYgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9IZWx2ZXRpY2EtQm9sZAovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iago3IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvSGVsdmV0aWNhLU9ibGlxdWUKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKOCAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0hlbHZldGljYS1Cb2xkT2JsaXF1ZQovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iago5IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvQ291cmllcgovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxMCAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0NvdXJpZXItQm9sZAovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxMSAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0NvdXJpZXItT2JsaXF1ZQovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxMiAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0NvdXJpZXItQm9sZE9ibGlxdWUKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTMgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9UaW1lcy1Sb21hbgovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxNCAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL1RpbWVzLUJvbGQKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTUgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9UaW1lcy1JdGFsaWMKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTYgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9UaW1lcy1Cb2xkSXRhbGljCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjE3IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvWmFwZkRpbmdiYXRzCi9TdWJ0eXBlIC9UeXBlMQovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjE4IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvU3ltYm9sCi9TdWJ0eXBlIC9UeXBlMQovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1Byb2NTZXQgWy9QREYgL1RleHQgL0ltYWdlQiAvSW1hZ2VDIC9JbWFnZUldCi9Gb250IDw8Ci9GMSA1IDAgUgovRjIgNiAwIFIKL0YzIDcgMCBSCi9GNCA4IDAgUgovRjUgOSAwIFIKL0Y2IDEwIDAgUgovRjcgMTEgMCBSCi9GOCAxMiAwIFIKL0Y5IDEzIDAgUgovRjEwIDE0IDAgUgovRjExIDE1IDAgUgovRjEyIDE2IDAgUgovRjEzIDE3IDAgUgovRjE0IDE4IDAgUgo+PgovWE9iamVjdCA8PAo+Pgo+PgplbmRvYmoKMTkgMCBvYmoKPDwKL1Byb2R1Y2VyIChqc1BERiA0LjIuMSkKL0NyZWF0aW9uRGF0ZSAoRDoyMDI2MTAyNDIzMjYyOSswMicwMCcpCj4+CmVuZG9iagoyMCAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMSAwIFIKL09wZW5BY3Rpb24gWzMgMCBSIC9GaXRIIG51bGxdCi9QYWdlTGF5b3V0IC9PbmVDb2x1bW4KPj4KZW5kb2JqCnhyZWYKMCAyMQowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDIzODEgMDAwMDAgbiAKMDAwMDAwNDE5OCAwMDAwMCBuIAowMDAwMDAwMDE1IDAwMDAwIG4gCjAwMDAwMDAxNTIgMDAwMDAgbiAKMDAwMDAwMjQzOCAwMDAwMCBuIAowMDAwMDAyNTYzIDAwMDAwIG4gCjAwMDAwMDI2OTMgMDAwMDAgbiAKMDAwMDAwMjgyNiAwMDAwMCBuIAowMDAwMDAyOTYzIDAwMDAwIG4gCjAwMDAwMDMwODYgMDAwMDAgbiAKMDAwMDAwMzIxNSAwMDAwMCBuIAowMDAwMDAzMzQ3IDAwMDAwIG4gCjAwMDAwMDM0ODMgMDAwMDAgbiAKMDAwMDAwMzYxMSAwMDAwMCBuIAowMDAwMDAzNzM4IDAwMDAwIG4gCjAwMDAwMDM4NjcgMDAwMDAgbiAKMDAwMDAwNDAwMCAwMDAwMCBuIAowMDAwMDA0MTAyIDAwMDAwIG4gCjAwMDAwMDQ0NDYgMDAwMDAgbiAKMDAwMDAwNDUzMiAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDIxCi9Sb290IDIwIDAgUgovSW5mbyAxOSAwIFIKL0lEIFsgPDI0NDM4REQ4NEM3NjU3MENENzlCNTQxNTg2NDBEMDQ0PiA8MjQ0MzhERDg0Qzc2NTcwQ0Q3OUI1NDE1ODY0MEQwNDQ+IF0KPj4Kc3RhcnR4cmVmCjQ2MzYKJSVFT0Y=",
+        "category": "satzung",
+        "folderId": "folder-satzung",
+        "date": "2025-01-01",
+        "uploadDate": "2025-01-02T10:00:00.000Z",
+        "tags": [
+          "Beiträge",
+          "Finanzen",
+          "Ordnung",
+          "Mitglieder"
+        ],
+        "notes": "Aktuelle Beitragstabelle für alle Sparten.",
+        "createdAt": "2025-01-02T10:00:00.000Z",
+        "updatedAt": "2025-01-02T10:00:00.000Z"
+      },
+      {
+        "id": "doc-5",
+        "title": "Aufnahmeantrag & SEPA-Mandatsvorlage",
+        "fileName": "Aufnahmeantrag_Vorlage_TSV.pdf",
+        "fileType": "application/pdf",
+        "fileSize": 84000,
+        "dataUrl": "data:application/pdf;filename=generated.pdf;base64,JVBERi0xLjMKJbrfrOAKMyAwIG9iago8PC9UeXBlIC9QYWdlCi9QYXJlbnQgMSAwIFIKL1Jlc291cmNlcyAyIDAgUgovTWVkaWFCb3ggWzAgMCA1OTUuMjc5OTk5OTk5OTk5OTcyNyA4NDEuODg5OTk5OTk5OTk5OTg2NF0KL0NvbnRlbnRzIDQgMCBSCj4+CmVuZG9iago0IDAgb2JqCjw8Ci9MZW5ndGggMjQ0NQo+PgpzdHJlYW0KMC41NjcwMDAwMDAwMDAwMDAxIHcKMCBHCjAuMTIgMC4xNiAwLjIzIHJnCjAuIDg0MS44ODk5OTk5OTk5OTk5ODY0IDU5NS4yNzU1OTA1NTExODExNTM0IC03MC44NjYxNDE3MzIyODM0NjY2IHJlCmYKQlQKL0YyIDE0IFRmCjE2LjA5OTk5OTk5OTk5OTk5NzkgVEwKMS4gZwo0Mi41MTk2ODUwMzkzNzAwODE0IDgwNy44NzQyNTE5Njg1MDM5MjY5IFRkCihUU1YgTXVzdGVyc3RhZHQgMTg5MCBlLlYuKSBUagpFVApCVAovRjEgOSBUZgoxMC4zNDk5OTk5OTk5OTk5OTk2IFRMCjEuIGcKNDIuNTE5Njg1MDM5MzcwMDgxNCA3OTAuODY2Mzc3OTUyNzU1ODk3MiBUZAooUmV2aXNpb25zc2ljaGVyZXMgVmVyZWluc2FyY2hpdiCVIEdvQkQgJiBEU0dWTy1rb25mb3JtKSBUagpFVApCVAovRjIgMTggVGYKMjAuNjk5OTk5OTk5OTk5OTk5MyBUTAowLjA1OSAwLjA5IDAuMTY1IHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNzIyLjgzNDg4MTg4OTc2Mzc3ODQgVGQKKEF1Zm5haG1lYW50cmFnICYgQmVpdHJpdHRzZXJrbORydW5nIFRTViBNdXN0ZXJzdGFkdCkgVGoKRVQKQlQKL0YyIDExIFRmCjEyLjY0OTk5OTk5OTk5OTk5ODYgVEwKMC4zOTIgMC40NTUgMC41NDUgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA3MDAuMTU3NzE2NTM1NDMzMTEgVGQKKEZvcm11bGFyIGb8ciBOZXVtaXRnbGllZGVyIGlua2wuIFNFUEEtTGFzdHNjaHJpZnRtYW5kYXQgdW5kIERTR1ZPLUVpbndpbGxpZ3VuZykgVGoKRVQKMC44OSAwLjkxIDAuOTQgUkcKNDIuNTE5Njg1MDM5MzcwMDgxNCA2ODUuOTg0NDg4MTg4OTc2MzQyOCBtCjU1Mi43NTU5MDU1MTE4MTEwNzkxIDY4NS45ODQ0ODgxODg5NzYzNDI4IGwKUwpCVAovRjIgMTAgVGYKMTEuNSBUTAowLjA1OSAwLjA5IDAuMTY1IHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNjQ2LjI5OTQ0ODgxODg5NzY0NDcgVGQKKDEuIFBlcnP2bmxpY2hlIEFuZ2FiZW4gZGVzIEFudHJhZ3N0ZWxsZXJzKSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLjIgMC4yNTUgMC4zMzMgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA2NDYuMjk5NDQ4ODE4ODk3NjQ0NyBUZAooTmFtZSwgVm9ybmFtZSwgR2VidXJ0c2RhdHVtLCBBbnNjaHJpZnQsIEUtTWFpbC1BZHJlc3NlIHVuZCBUZWxlZm9ubnVtbWVyLikgVGoKRVQKQlQKL0YyIDEwIFRmCjExLjUgVEwKMC4wNTkgMC4wOSAwLjE2NSByZwo0Mi41MTk2ODUwMzkzNzAwODE0IDYxNS4xMTgzNDY0NTY2OTI4NDc4IFRkCigyLiBHZXf8bnNjaHRlIFNwYXJ0ZSAvIEFidGVpbHVuZykgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4yIDAuMjU1IDAuMzMzIHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNjE1LjExODM0NjQ1NjY5Mjg0NzggVGQKKEZ132JhbGwsIFRlbm5pcywgVHVybmVuICYgR3ltbmFzdGlrLCBMZWljaHRhdGhsZXRpaywgU2Nod2ltbWVuLCBWb2xsZXliYWxsIG9kZXIgU2NoYWNoLikgVGoKRVQKQlQKL0YyIDEwIFRmCjExLjUgVEwKMC4wNTkgMC4wOSAwLjE2NSByZwo0Mi41MTk2ODUwMzkzNzAwODE0IDU4My45MzcyNDQwOTQ0ODgxNjQ2IFRkCigzLiBTRVBBLUxhc3RzY2hyaWZ0bWFuZGF0KSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLjIgMC4yNTUgMC4zMzMgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA1ODMuOTM3MjQ0MDk0NDg4MTY0NiBUZAooR2zkdWJpZ2VyLUlkZW50aWZpa2F0aW9uc251bW1lcjogREU5OFpaWjA5OTk5OTk5OTk5LiBFcm3kY2h0aWd1bmcgenVtIEVpbnp1ZyBkZXIgTWl0Z2xpZWRzYmVpdHLkZ2UuKSBUagpFVApCVAovRjIgMTAgVGYKMTEuNSBUTAowLjA1OSAwLjA5IDAuMTY1IHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNTUyLjc1NjE0MTczMjI4MzM2NzcgVGQKKDQuIERhdGVuc2NodXR6ZXJrbORydW5nICYgRWlud2lsbGlndW5nKSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLjIgMC4yNTUgMC4zMzMgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA1NTIuNzU2MTQxNzMyMjgzMzY3NyBUZAooSW5mb3JtYXRpb25lbiB6dXIgVmVyYXJiZWl0dW5nIHBlcnNvbmVuYmV6b2dlbmVyIERhdGVuIGdlbeTfIEFydC4gMTMgRFNHVk8uKSBUagpFVAowLjg5IDAuOTEgMC45NCBSRwo0Mi41MTk2ODUwMzkzNzAwODE0IDYyLjM2MjQ0MDk0NDg4MTc4MjkgbQo1NTIuNzU1OTA1NTExODExMDc5MSA2Mi4zNjI0NDA5NDQ4ODE3ODI5IGwKUwpCVAovRjEgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC41OCAwLjYzOSAwLjcyMiByZwo0Mi41MTk2ODUwMzkzNzAwODE0IDQyLjUxOTkyMTI1OTg0MjQ3NjUgVGQKKERva3VtZW50IGVyemV1Z3QgaW0gVFNWIFZlcmVpbnNNYW5hZ2VyIJUgRWxla3Ryb25pc2NoIGFyY2hpdmllcnQpIFRqCkVUCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLjU4IDAuNjM5IDAuNzIyIHJnCjQ5Ni4wNjI5OTIxMjU5ODQyOTQ1IDQyLjUxOTkyMTI1OTg0MjQ3NjUgVGQKKFNlaXRlIDEgdm9uIDEpIFRqCkVUCmVuZHN0cmVhbQplbmRvYmoKMSAwIG9iago8PC9UeXBlIC9QYWdlcwovS2lkcyBbMyAwIFIgXQovQ291bnQgMQo+PgplbmRvYmoKNSAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0hlbHZldGljYQovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iago2IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvSGVsdmV0aWNhLUJvbGQKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKNyAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0hlbHZldGljYS1PYmxpcXVlCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjggMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9IZWx2ZXRpY2EtQm9sZE9ibGlxdWUKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKOSAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0NvdXJpZXIKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTAgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9Db3VyaWVyLUJvbGQKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTEgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9Db3VyaWVyLU9ibGlxdWUKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTIgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9Db3VyaWVyLUJvbGRPYmxpcXVlCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjEzIDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvVGltZXMtUm9tYW4KL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9UaW1lcy1Cb2xkCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjE1IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvVGltZXMtSXRhbGljCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjE2IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvVGltZXMtQm9sZEl0YWxpYwovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxNyAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL1phcGZEaW5nYmF0cwovU3VidHlwZSAvVHlwZTEKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxOCAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL1N5bWJvbAovU3VidHlwZSAvVHlwZTEKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoyIDAgb2JqCjw8Ci9Qcm9jU2V0IFsvUERGIC9UZXh0IC9JbWFnZUIgL0ltYWdlQyAvSW1hZ2VJXQovRm9udCA8PAovRjEgNSAwIFIKL0YyIDYgMCBSCi9GMyA3IDAgUgovRjQgOCAwIFIKL0Y1IDkgMCBSCi9GNiAxMCAwIFIKL0Y3IDExIDAgUgovRjggMTIgMCBSCi9GOSAxMyAwIFIKL0YxMCAxNCAwIFIKL0YxMSAxNSAwIFIKL0YxMiAxNiAwIFIKL0YxMyAxNyAwIFIKL0YxNCAxOCAwIFIKPj4KL1hPYmplY3QgPDwKPj4KPj4KZW5kb2JqCjE5IDAgb2JqCjw8Ci9Qcm9kdWNlciAoanNQREYgNC4yLjEpCi9DcmVhdGlvbkRhdGUgKEQ6MjAyNjEwMjQyMzI2MjkrMDInMDAnKQo+PgplbmRvYmoKMjAgMCBvYmoKPDwKL1R5cGUgL0NhdGFsb2cKL1BhZ2VzIDEgMCBSCi9PcGVuQWN0aW9uIFszIDAgUiAvRml0SCBudWxsXQovUGFnZUxheW91dCAvT25lQ29sdW1uCj4+CmVuZG9iagp4cmVmCjAgMjEKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAyNjQ5IDAwMDAwIG4gCjAwMDAwMDQ0NjYgMDAwMDAgbiAKMDAwMDAwMDAxNSAwMDAwMCBuIAowMDAwMDAwMTUyIDAwMDAwIG4gCjAwMDAwMDI3MDYgMDAwMDAgbiAKMDAwMDAwMjgzMSAwMDAwMCBuIAowMDAwMDAyOTYxIDAwMDAwIG4gCjAwMDAwMDMwOTQgMDAwMDAgbiAKMDAwMDAwMzIzMSAwMDAwMCBuIAowMDAwMDAzMzU0IDAwMDAwIG4gCjAwMDAwMDM0ODMgMDAwMDAgbiAKMDAwMDAwMzYxNSAwMDAwMCBuIAowMDAwMDAzNzUxIDAwMDAwIG4gCjAwMDAwMDM4NzkgMDAwMDAgbiAKMDAwMDAwNDAwNiAwMDAwMCBuIAowMDAwMDA0MTM1IDAwMDAwIG4gCjAwMDAwMDQyNjggMDAwMDAgbiAKMDAwMDAwNDM3MCAwMDAwMCBuIAowMDAwMDA0NzE0IDAwMDAwIG4gCjAwMDAwMDQ4MDAgMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSAyMQovUm9vdCAyMCAwIFIKL0luZm8gMTkgMCBSCi9JRCBbIDw4QTJDNjJEREU2MDQwOTczODc4M0FFRTk5MkRCQ0Q2NT4gPDhBMkM2MkRERTYwNDA5NzM4NzgzQUVFOTkyREJDRDY1PiBdCj4+CnN0YXJ0eHJlZgo0OTA0CiUlRU9G",
+        "category": "mitglieder",
+        "date": "2024-06-01",
+        "uploadDate": "2024-06-02T08:15:00.000Z",
+        "tags": [
+          "Formular",
+          "Aufnahme",
+          "SEPA",
+          "Mitglieder",
+          "Vorlage"
+        ],
+        "notes": "Offizielles Beitrittsformular für Neuanmeldungen in allen Abteilungen.",
+        "createdAt": "2024-06-02T08:15:00.000Z",
+        "updatedAt": "2024-06-02T08:15:00.000Z"
+      },
+      {
+        "id": "doc-1",
+        "title": "Vereinssatzung (Fassung 2024)",
+        "fileName": "Vereinssatzung_TSV_Musterstadt_2024.pdf",
+        "fileType": "application/pdf",
+        "fileSize": 142000,
+        "dataUrl": "data:application/pdf;filename=generated.pdf;base64,JVBERi0xLjMKJbrfrOAKMyAwIG9iago8PC9UeXBlIC9QYWdlCi9QYXJlbnQgMSAwIFIKL1Jlc291cmNlcyAyIDAgUgovTWVkaWFCb3ggWzAgMCA1OTUuMjc5OTk5OTk5OTk5OTcyNyA4NDEuODg5OTk5OTk5OTk5OTg2NF0KL0NvbnRlbnRzIDQgMCBSCj4+CmVuZG9iago0IDAgb2JqCjw8Ci9MZW5ndGggMjg2NAo+PgpzdHJlYW0KMC41NjcwMDAwMDAwMDAwMDAxIHcKMCBHCjAuMTIgMC4xNiAwLjIzIHJnCjAuIDg0MS44ODk5OTk5OTk5OTk5ODY0IDU5NS4yNzU1OTA1NTExODExNTM0IC03MC44NjYxNDE3MzIyODM0NjY2IHJlCmYKQlQKL0YyIDE0IFRmCjE2LjA5OTk5OTk5OTk5OTk5NzkgVEwKMS4gZwo0Mi41MTk2ODUwMzkzNzAwODE0IDgwNy44NzQyNTE5Njg1MDM5MjY5IFRkCihUU1YgTXVzdGVyc3RhZHQgMTg5MCBlLlYuKSBUagpFVApCVAovRjEgOSBUZgoxMC4zNDk5OTk5OTk5OTk5OTk2IFRMCjEuIGcKNDIuNTE5Njg1MDM5MzcwMDgxNCA3OTAuODY2Mzc3OTUyNzU1ODk3MiBUZAooUmV2aXNpb25zc2ljaGVyZXMgVmVyZWluc2FyY2hpdiCVIEdvQkQgJiBEU0dWTy1rb25mb3JtKSBUagpFVApCVAovRjIgMTggVGYKMjAuNjk5OTk5OTk5OTk5OTk5MyBUTAowLjA1OSAwLjA5IDAuMTY1IHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNzIyLjgzNDg4MTg4OTc2Mzc3ODQgVGQKKFNhdHp1bmcgZGVzIFRTViBNdXN0ZXJzdGFkdCAxODkwIGUuVi4pIFRqCkVUCkJUCi9GMiAxMSBUZgoxMi42NDk5OTk5OTk5OTk5OTg2IFRMCjAuMzkyIDAuNDU1IDAuNTQ1IHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNzAwLjE1NzcxNjUzNTQzMzExIFRkCihFaW5nZXRyYWdlbiBpbSBWZXJlaW5zcmVnaXN0ZXIgYmVpbSBBbXRzZ2VyaWNodCBNdXN0ZXJzdGFkdCB1bnRlciBWUiA0ODIxOSkgVGoKRVQKMC44OSAwLjkxIDAuOTQgUkcKNDIuNTE5Njg1MDM5MzcwMDgxNCA2ODUuOTg0NDg4MTg4OTc2MzQyOCBtCjU1Mi43NTU5MDU1MTE4MTEwNzkxIDY4NS45ODQ0ODgxODg5NzYzNDI4IGwKUwpCVAovRjIgMTAgVGYKMTEuNSBUTAowLjA1OSAwLjA5IDAuMTY1IHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNjQ2LjI5OTQ0ODgxODg5NzY0NDcgVGQKKKcgMSBOYW1lLCBTaXR6IHVuZCBHZXNjaORmdHNqYWhyKSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLjIgMC4yNTUgMC4zMzMgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA2NDYuMjk5NDQ4ODE4ODk3NjQ0NyBUZAooRGVyIGFtIDE1LiBNYWkgMTg5MCBnZWdy/G5kZXRlIFZlcmVpbiBm/GhydCBkZW4gTmFtZW4gIlR1cm4tIHVuZCBTcG9ydHZlcmVpbiBNdXN0ZXJzdGFkdCAxODkwIGUuVi4iLiBFciBoYXQpIFRqClQqIChzZWluZW4gU2l0eiBpbiAxMjM0NSBNdXN0ZXJzdGFkdCB1bmQgaXN0IGluIGRhcyBWZXJlaW5zcmVnaXN0ZXIgZWluZ2V0cmFnZW4uIERhcyBHZXNjaORmdHNqYWhyIGlzdCBkYXMgS2FsZW5kZXJqYWhyLikgVGoKRVQKQlQKL0YyIDEwIFRmCjExLjUgVEwKMC4wNTkgMC4wOSAwLjE2NSByZwo0Mi41MTk2ODUwMzkzNzAwODE0IDYwMC45NDUxMTgxMTAyMzYxOTQzIFRkCiinIDIgWndlY2sgZGVzIFZlcmVpbnMgJiBHZW1laW5u/HR6aWdrZWl0KSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLjIgMC4yNTUgMC4zMzMgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA2MDAuOTQ1MTE4MTEwMjM2MTk0MyBUZAooRGVyIFZlcmVpbiB2ZXJmb2xndCBhdXNzY2hsaWXfbGljaCB1bmQgdW5taXR0ZWxiYXIgZ2VtZWlubvx0emlnZSBad2Vja2UgaW0gU2lubmUgZGVzIEFic2Nobml0dHMpIFRqClQqICgiU3RldWVyYmVn/G5zdGlndGUgWndlY2tlIiBkZXIgQWJnYWJlbm9yZG51bmcgXCinpyA1MSBmZi4gQU9cKS4gWndlY2sgZGVzIFZlcmVpbnMgaXN0IGRpZSBQZmxlZ2UgdW5kIEb2cmRlcnVuZykgVGoKVCogKGRlcyBCcmVpdGVuLSB1bmQgTGVpc3R1bmdzc3BvcnRzIHNvd2llIGRlciBKdWdlbmRoaWxmZS4pIFRqCkVUCkJUCi9GMiAxMCBUZgoxMS41IFRMCjAuMDU5IDAuMDkgMC4xNjUgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA1NDEuNDE3NTU5MDU1MTE4MDkwMyBUZAoopyAzIE1pdGdsaWVkc2NoYWZ0KSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLjIgMC4yNTUgMC4zMzMgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA1NDEuNDE3NTU5MDU1MTE4MDkwMyBUZAooTWl0Z2xpZWQga2FubiBqZWRlIG5hdPxybGljaGUgdW5kIGp1cmlzdGlzY2hlIFBlcnNvbiB3ZXJkZW4uIERlciBBdWZuYWhtZWFudHJhZyBpc3Qgc2NocmlmdGxpY2ggZWluenVyZWljaGVuLiDcYmVyKSBUagpUKiAoZGllIEF1Zm5haG1lIGVudHNjaGVpZGV0IGRlciBWb3JzdGFuZC4pIFRqCkVUCkJUCi9GMiAxMCBUZgoxMS41IFRMCjAuMDU5IDAuMDkgMC4xNjUgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA0OTYuMDYzMjI4MzQ2NDU2NjM5OSBUZAoopyA0IE9yZ2FuZSBkZXMgVmVyZWlucykgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4yIDAuMjU1IDAuMzMzIHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNDk2LjA2MzIyODM0NjQ1NjYzOTkgVGQKKERpZSBPcmdhbmUgZGVzIFZlcmVpbnMgc2luZDogMS4gRGllIE1pdGdsaWVkZXJ2ZXJzYW1tbHVuZywgMi4gRGVyIGdlc2No5GZ0c2b8aHJlbmRlIFZvcnN0YW5kLCAzLiBEZXIpIFRqClQqIChHZXNhbXR2b3JzdGFuZC4pIFRqCkVUCjAuODkgMC45MSAwLjk0IFJHCjQyLjUxOTY4NTAzOTM3MDA4MTQgNjIuMzYyNDQwOTQ0ODgxNzgyOSBtCjU1Mi43NTU5MDU1MTE4MTEwNzkxIDYyLjM2MjQ0MDk0NDg4MTc4MjkgbApTCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLjU4IDAuNjM5IDAuNzIyIHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNDIuNTE5OTIxMjU5ODQyNDc2NSBUZAooRG9rdW1lbnQgZXJ6ZXVndCBpbSBUU1YgVmVyZWluc01hbmFnZXIglSBFbGVrdHJvbmlzY2ggYXJjaGl2aWVydCkgVGoKRVQKQlQKL0YxIDggVGYKOS4xOTk5OTk5OTk5OTk5OTkzIFRMCjAuNTggMC42MzkgMC43MjIgcmcKNDk2LjA2Mjk5MjEyNTk4NDI5NDUgNDIuNTE5OTIxMjU5ODQyNDc2NSBUZAooU2VpdGUgMSB2b24gMSkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagoxIDAgb2JqCjw8L1R5cGUgL1BhZ2VzCi9LaWRzIFszIDAgUiBdCi9Db3VudCAxCj4+CmVuZG9iago1IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvSGVsdmV0aWNhCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjYgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9IZWx2ZXRpY2EtQm9sZAovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iago3IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvSGVsdmV0aWNhLU9ibGlxdWUKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKOCAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0hlbHZldGljYS1Cb2xkT2JsaXF1ZQovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iago5IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvQ291cmllcgovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxMCAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0NvdXJpZXItQm9sZAovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxMSAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0NvdXJpZXItT2JsaXF1ZQovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxMiAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0NvdXJpZXItQm9sZE9ibGlxdWUKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTMgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9UaW1lcy1Sb21hbgovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxNCAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL1RpbWVzLUJvbGQKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTUgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9UaW1lcy1JdGFsaWMKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTYgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9UaW1lcy1Cb2xkSXRhbGljCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjE3IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvWmFwZkRpbmdiYXRzCi9TdWJ0eXBlIC9UeXBlMQovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjE4IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvU3ltYm9sCi9TdWJ0eXBlIC9UeXBlMQovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1Byb2NTZXQgWy9QREYgL1RleHQgL0ltYWdlQiAvSW1hZ2VDIC9JbWFnZUldCi9Gb250IDw8Ci9GMSA1IDAgUgovRjIgNiAwIFIKL0YzIDcgMCBSCi9GNCA4IDAgUgovRjUgOSAwIFIKL0Y2IDEwIDAgUgovRjcgMTEgMCBSCi9GOCAxMiAwIFIKL0Y5IDEzIDAgUgovRjEwIDE0IDAgUgovRjExIDE1IDAgUgovRjEyIDE2IDAgUgovRjEzIDE3IDAgUgovRjE0IDE4IDAgUgo+PgovWE9iamVjdCA8PAo+Pgo+PgplbmRvYmoKMTkgMCBvYmoKPDwKL1Byb2R1Y2VyIChqc1BERiA0LjIuMSkKL0NyZWF0aW9uRGF0ZSAoRDoyMDI2MTAyNDIzMjYyOSswMicwMCcpCj4+CmVuZG9iagoyMCAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMSAwIFIKL09wZW5BY3Rpb24gWzMgMCBSIC9GaXRIIG51bGxdCi9QYWdlTGF5b3V0IC9PbmVDb2x1bW4KPj4KZW5kb2JqCnhyZWYKMCAyMQowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDMwNjggMDAwMDAgbiAKMDAwMDAwNDg4NSAwMDAwMCBuIAowMDAwMDAwMDE1IDAwMDAwIG4gCjAwMDAwMDAxNTIgMDAwMDAgbiAKMDAwMDAwMzEyNSAwMDAwMCBuIAowMDAwMDAzMjUwIDAwMDAwIG4gCjAwMDAwMDMzODAgMDAwMDAgbiAKMDAwMDAwMzUxMyAwMDAwMCBuIAowMDAwMDAzNjUwIDAwMDAwIG4gCjAwMDAwMDM3NzMgMDAwMDAgbiAKMDAwMDAwMzkwMiAwMDAwMCBuIAowMDAwMDA0MDM0IDAwMDAwIG4gCjAwMDAwMDQxNzAgMDAwMDAgbiAKMDAwMDAwNDI5OCAwMDAwMCBuIAowMDAwMDA0NDI1IDAwMDAwIG4gCjAwMDAwMDQ1NTQgMDAwMDAgbiAKMDAwMDAwNDY4NyAwMDAwMCBuIAowMDAwMDA0Nzg5IDAwMDAwIG4gCjAwMDAwMDUxMzMgMDAwMDAgbiAKMDAwMDAwNTIxOSAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDIxCi9Sb290IDIwIDAgUgovSW5mbyAxOSAwIFIKL0lEIFsgPDg5OEEzNzFDREM4NTJBM0M4QkJCNkQ0QzgwMzY2NDg1PiA8ODk4QTM3MUNEQzg1MkEzQzhCQkI2RDRDODAzNjY0ODU+IF0KPj4Kc3RhcnR4cmVmCjUzMjMKJSVFT0Y=",
+        "category": "satzung",
+        "folderId": "folder-satzung",
+        "date": "2024-03-15",
+        "uploadDate": "2024-03-16T10:00:00.000Z",
+        "tags": [
+          "Satzung",
+          "Register",
+          "Recht",
+          "Amtsgericht"
+        ],
+        "notes": "Aktuelle Fassung beschlossen auf der Jahreshauptversammlung am 15.03.2024.",
+        "createdAt": "2024-03-16T10:00:00.000Z",
+        "updatedAt": "2024-03-16T10:00:00.000Z"
+      },
+      {
+        "id": "doc-2",
+        "title": "Freistellungsbescheid Finanzamt (2023–2025)",
+        "fileName": "Freistellungsbescheid_Finanzamt_Musterstadt.pdf",
+        "fileType": "application/pdf",
+        "fileSize": 98000,
+        "dataUrl": "data:application/pdf;filename=generated.pdf;base64,JVBERi0xLjMKJbrfrOAKMyAwIG9iago8PC9UeXBlIC9QYWdlCi9QYXJlbnQgMSAwIFIKL1Jlc291cmNlcyAyIDAgUgovTWVkaWFCb3ggWzAgMCA1OTUuMjc5OTk5OTk5OTk5OTcyNyA4NDEuODg5OTk5OTk5OTk5OTg2NF0KL0NvbnRlbnRzIDQgMCBSCj4+CmVuZG9iago0IDAgb2JqCjw8Ci9MZW5ndGggMjUwMwo+PgpzdHJlYW0KMC41NjcwMDAwMDAwMDAwMDAxIHcKMCBHCjAuMTIgMC4xNiAwLjIzIHJnCjAuIDg0MS44ODk5OTk5OTk5OTk5ODY0IDU5NS4yNzU1OTA1NTExODExNTM0IC03MC44NjYxNDE3MzIyODM0NjY2IHJlCmYKQlQKL0YyIDE0IFRmCjE2LjA5OTk5OTk5OTk5OTk5NzkgVEwKMS4gZwo0Mi41MTk2ODUwMzkzNzAwODE0IDgwNy44NzQyNTE5Njg1MDM5MjY5IFRkCihUU1YgTXVzdGVyc3RhZHQgMTg5MCBlLlYuKSBUagpFVApCVAovRjEgOSBUZgoxMC4zNDk5OTk5OTk5OTk5OTk2IFRMCjEuIGcKNDIuNTE5Njg1MDM5MzcwMDgxNCA3OTAuODY2Mzc3OTUyNzU1ODk3MiBUZAooUmV2aXNpb25zc2ljaGVyZXMgVmVyZWluc2FyY2hpdiCVIEdvQkQgJiBEU0dWTy1rb25mb3JtKSBUagpFVApCVAovRjIgMTggVGYKMjAuNjk5OTk5OTk5OTk5OTk5MyBUTAowLjA1OSAwLjA5IDAuMTY1IHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNzIyLjgzNDg4MTg4OTc2Mzc3ODQgVGQKKEZyZWlzdGVsbHVuZ3NiZXNjaGVpZCB6dXIgS/ZycGVyc2NoYWZ0c3RldWVyICYgR2V3ZXJiZXN0ZXVlcikgVGoKRVQKQlQKL0YyIDExIFRmCjEyLjY0OTk5OTk5OTk5OTk5ODYgVEwKMC4zOTIgMC40NTUgMC41NDUgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA3MDAuMTU3NzE2NTM1NDMzMTEgVGQKKEZpbmFuemFtdCBNdXN0ZXJzdGFkdCCVIFN0ZXVlcm51bW1lcjogMTEyLzU4NDAvMTkyMikgVGoKRVQKMC44OSAwLjkxIDAuOTQgUkcKNDIuNTE5Njg1MDM5MzcwMDgxNCA2ODUuOTg0NDg4MTg4OTc2MzQyOCBtCjU1Mi43NTU5MDU1MTE4MTEwNzkxIDY4NS45ODQ0ODgxODg5NzYzNDI4IGwKUwpCVAovRjIgMTAgVGYKMTEuNSBUTAowLjA1OSAwLjA5IDAuMTY1IHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNjQ2LjI5OTQ0ODgxODg5NzY0NDcgVGQKKDEuIEZlc3RzdGVsbHVuZyBkZXIgR2VtZWlubvx0emlna2VpdCkgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4yIDAuMjU1IDAuMzMzIHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNjQ2LjI5OTQ0ODgxODg5NzY0NDcgVGQKKERpZSBL9nJwZXJzY2hhZnQgVFNWIE11c3RlcnN0YWR0IDE4OTAgZS5WLiBkaWVudCBuYWNoIGRlciBlaW5nZXJlaWNodGVuIFNhdHp1bmcgdW5kIG5hY2ggZGVyIHRhdHPkY2hsaWNoZW4pIFRqClQqIChHZXNjaORmdHNm/GhydW5nIGF1c3NjaGxpZd9saWNoIHVuZCB1bm1pdHRlbGJhciBzdGV1ZXJiZWf8bnN0aWd0ZW4gZ2VtZWlubvx0emlnZW4gWndlY2tlbiBpbSBTaW5uZSBkZXIgp6cgNTEpIFRqClQqIChmZi4gQU8uKSBUagpFVApCVAovRjIgMTAgVGYKMTEuNSBUTAowLjA1OSAwLjA5IDAuMTY1IHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNTg2Ljc3MTg4OTc2Mzc3OTQyNzEgVGQKKDIuIFN0ZXVlcmJlZnJlaXVuZykgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4yIDAuMjU1IDAuMzMzIHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNTg2Ljc3MTg4OTc2Mzc3OTQyNzEgVGQKKERpZSBL9nJwZXJzY2hhZnQgaXN0IG5hY2ggpyA1IEFicy4gMSBOci4gOSBLU3RHIHZvbiBkZXIgS/ZycGVyc2NoYWZ0c3RldWVyIHVuZCBuYWNoIKcgMyBOci4gNiBHZXdTdEcgdm9uIGRlcikgVGoKVCogKEdld2VyYmVzdGV1ZXIgZvxyIGRpZSBWZXJhbmxhZ3VuZ3N6ZWl0cuR1bWUgMjAyMyBiaXMgMjAyNSBiZWZyZWl0LikgVGoKRVQKQlQKL0YyIDEwIFRmCjExLjUgVEwKMC4wNTkgMC4wOSAwLjE2NSByZwo0Mi41MTk2ODUwMzkzNzAwODE0IDU0MS40MTc1NTkwNTUxMTgwOTAzIFRkCigzLiBadXdlbmR1bmdzYmVzdOR0aWd1bmdlbiBcKFNwZW5kZW5iZXNjaGVpbmlndW5nZW5cKSkgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4yIDAuMjU1IDAuMzMzIHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNTQxLjQxNzU1OTA1NTExODA5MDMgVGQKKERpZSBL9nJwZXJzY2hhZnQgaXN0IGJlcmVjaHRpZ3QsIGb8ciBTcGVuZGVuIHVuZCBNaXRnbGllZHNiZWl0cuRnZSwgZGllIGlociB6dXIgRvZyZGVydW5nIGRlcyBTcG9ydHMgenVnZXdlbmRldCkgVGoKVCogKHdlcmRlbiwgWnV3ZW5kdW5nc2Jlc3TkdGlndW5nZW4gbmFjaCBhbXRsaWNoIHZvcmdlc2NocmllYmVuZW0gVm9yZHJ1Y2sgYXVzenVzdGVsbGVuLikgVGoKRVQKMC44OSAwLjkxIDAuOTQgUkcKNDIuNTE5Njg1MDM5MzcwMDgxNCA2Mi4zNjI0NDA5NDQ4ODE3ODI5IG0KNTUyLjc1NTkwNTUxMTgxMTA3OTEgNjIuMzYyNDQwOTQ0ODgxNzgyOSBsClMKQlQKL0YxIDggVGYKOS4xOTk5OTk5OTk5OTk5OTkzIFRMCjAuNTggMC42MzkgMC43MjIgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA0Mi41MTk5MjEyNTk4NDI0NzY1IFRkCihEb2t1bWVudCBlcnpldWd0IGltIFRTViBWZXJlaW5zTWFuYWdlciCVIEVsZWt0cm9uaXNjaCBhcmNoaXZpZXJ0KSBUagpFVApCVAovRjEgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC41OCAwLjYzOSAwLjcyMiByZwo0OTYuMDYyOTkyMTI1OTg0Mjk0NSA0Mi41MTk5MjEyNTk4NDI0NzY1IFRkCihTZWl0ZSAxIHZvbiAxKSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCjEgMCBvYmoKPDwvVHlwZSAvUGFnZXMKL0tpZHMgWzMgMCBSIF0KL0NvdW50IDEKPj4KZW5kb2JqCjUgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9IZWx2ZXRpY2EKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKNiAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0hlbHZldGljYS1Cb2xkCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjcgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9IZWx2ZXRpY2EtT2JsaXF1ZQovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iago4IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvSGVsdmV0aWNhLUJvbGRPYmxpcXVlCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjkgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9Db3VyaWVyCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjEwIDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvQ291cmllci1Cb2xkCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjExIDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvQ291cmllci1PYmxpcXVlCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjEyIDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvQ291cmllci1Cb2xkT2JsaXF1ZQovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxMyAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL1RpbWVzLVJvbWFuCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjE0IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvVGltZXMtQm9sZAovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxNSAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL1RpbWVzLUl0YWxpYwovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxNiAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL1RpbWVzLUJvbGRJdGFsaWMKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTcgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9aYXBmRGluZ2JhdHMKL1N1YnR5cGUgL1R5cGUxCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTggMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9TeW1ib2wKL1N1YnR5cGUgL1R5cGUxCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMiAwIG9iago8PAovUHJvY1NldCBbL1BERiAvVGV4dCAvSW1hZ2VCIC9JbWFnZUMgL0ltYWdlSV0KL0ZvbnQgPDwKL0YxIDUgMCBSCi9GMiA2IDAgUgovRjMgNyAwIFIKL0Y0IDggMCBSCi9GNSA5IDAgUgovRjYgMTAgMCBSCi9GNyAxMSAwIFIKL0Y4IDEyIDAgUgovRjkgMTMgMCBSCi9GMTAgMTQgMCBSCi9GMTEgMTUgMCBSCi9GMTIgMTYgMCBSCi9GMTMgMTcgMCBSCi9GMTQgMTggMCBSCj4+Ci9YT2JqZWN0IDw8Cj4+Cj4+CmVuZG9iagoxOSAwIG9iago8PAovUHJvZHVjZXIgKGpzUERGIDQuMi4xKQovQ3JlYXRpb25EYXRlIChEOjIwMjYxMDI0MjMyNjI5KzAyJzAwJykKPj4KZW5kb2JqCjIwIDAgb2JqCjw8Ci9UeXBlIC9DYXRhbG9nCi9QYWdlcyAxIDAgUgovT3BlbkFjdGlvbiBbMyAwIFIgL0ZpdEggbnVsbF0KL1BhZ2VMYXlvdXQgL09uZUNvbHVtbgo+PgplbmRvYmoKeHJlZgowIDIxCjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMjcwNyAwMDAwMCBuIAowMDAwMDA0NTI0IDAwMDAwIG4gCjAwMDAwMDAwMTUgMDAwMDAgbiAKMDAwMDAwMDE1MiAwMDAwMCBuIAowMDAwMDAyNzY0IDAwMDAwIG4gCjAwMDAwMDI4ODkgMDAwMDAgbiAKMDAwMDAwMzAxOSAwMDAwMCBuIAowMDAwMDAzMTUyIDAwMDAwIG4gCjAwMDAwMDMyODkgMDAwMDAgbiAKMDAwMDAwMzQxMiAwMDAwMCBuIAowMDAwMDAzNTQxIDAwMDAwIG4gCjAwMDAwMDM2NzMgMDAwMDAgbiAKMDAwMDAwMzgwOSAwMDAwMCBuIAowMDAwMDAzOTM3IDAwMDAwIG4gCjAwMDAwMDQwNjQgMDAwMDAgbiAKMDAwMDAwNDE5MyAwMDAwMCBuIAowMDAwMDA0MzI2IDAwMDAwIG4gCjAwMDAwMDQ0MjggMDAwMDAgbiAKMDAwMDAwNDc3MiAwMDAwMCBuIAowMDAwMDA0ODU4IDAwMDAwIG4gCnRyYWlsZXIKPDwKL1NpemUgMjEKL1Jvb3QgMjAgMCBSCi9JbmZvIDE5IDAgUgovSUQgWyA8MDVDMzE4MEFENDhCRTg2ODNDMEI2OTI4QkYwQ0I5MDc+IDwwNUMzMTgwQUQ0OEJFODY4M0MwQjY5MjhCRjBDQjkwNz4gXQo+PgpzdGFydHhyZWYKNDk2MgolJUVPRg==",
+        "category": "bescheide",
+        "folderId": "folder-bescheide",
+        "date": "2024-01-10",
+        "uploadDate": "2024-01-12T09:30:00.000Z",
+        "tags": [
+          "Finanzamt",
+          "Gemeinnützigkeit",
+          "Freistellung",
+          "Steuern"
+        ],
+        "notes": "Gültig bis zur nächsten Überprüfung 2026. Berechtigt zur Ausstellung von Zuwendungsbestätigungen.",
+        "createdAt": "2024-01-12T09:30:00.000Z",
+        "updatedAt": "2024-01-12T09:30:00.000Z"
+      },
+      {
+        "id": "doc-3",
+        "title": "Pachtvertrag Vereinsgelände & Sportplatz",
+        "fileName": "Pachtvertrag_Stadt_Musterstadt_2023.pdf",
+        "fileType": "application/pdf",
+        "fileSize": 185000,
+        "dataUrl": "data:application/pdf;filename=generated.pdf;base64,JVBERi0xLjMKJbrfrOAKMyAwIG9iago8PC9UeXBlIC9QYWdlCi9QYXJlbnQgMSAwIFIKL1Jlc291cmNlcyAyIDAgUgovTWVkaWFCb3ggWzAgMCA1OTUuMjc5OTk5OTk5OTk5OTcyNyA4NDEuODg5OTk5OTk5OTk5OTg2NF0KL0NvbnRlbnRzIDQgMCBSCj4+CmVuZG9iago0IDAgb2JqCjw8Ci9MZW5ndGggMjMyMgo+PgpzdHJlYW0KMC41NjcwMDAwMDAwMDAwMDAxIHcKMCBHCjAuMTIgMC4xNiAwLjIzIHJnCjAuIDg0MS44ODk5OTk5OTk5OTk5ODY0IDU5NS4yNzU1OTA1NTExODExNTM0IC03MC44NjYxNDE3MzIyODM0NjY2IHJlCmYKQlQKL0YyIDE0IFRmCjE2LjA5OTk5OTk5OTk5OTk5NzkgVEwKMS4gZwo0Mi41MTk2ODUwMzkzNzAwODE0IDgwNy44NzQyNTE5Njg1MDM5MjY5IFRkCihUU1YgTXVzdGVyc3RhZHQgMTg5MCBlLlYuKSBUagpFVApCVAovRjEgOSBUZgoxMC4zNDk5OTk5OTk5OTk5OTk2IFRMCjEuIGcKNDIuNTE5Njg1MDM5MzcwMDgxNCA3OTAuODY2Mzc3OTUyNzU1ODk3MiBUZAooUmV2aXNpb25zc2ljaGVyZXMgVmVyZWluc2FyY2hpdiCVIEdvQkQgJiBEU0dWTy1rb25mb3JtKSBUagpFVApCVAovRjIgMTggVGYKMjAuNjk5OTk5OTk5OTk5OTk5MyBUTAowLjA1OSAwLjA5IDAuMTY1IHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNzIyLjgzNDg4MTg4OTc2Mzc3ODQgVGQKKFBhY2h0dmVydHJhZyD8YmVyIGRhcyBzdORkdGlzY2hlIFNwb3J0Z2Vs5G5kZSkgVGoKRVQKQlQKL0YyIDExIFRmCjEyLjY0OTk5OTk5OTk5OTk5ODYgVEwKMC4zOTIgMC40NTUgMC41NDUgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA3MDAuMTU3NzE2NTM1NDMzMTEgVGQKKFp3aXNjaGVuIGRlciBTdGFkdCBNdXN0ZXJzdGFkdCBcKFZlcnDkY2h0ZXJcKSB1bmQgVFNWIE11c3RlcnN0YWR0IDE4OTAgZS5WLiBcKFDkY2h0ZXJcKSkgVGoKRVQKMC44OSAwLjkxIDAuOTQgUkcKNDIuNTE5Njg1MDM5MzcwMDgxNCA2ODUuOTg0NDg4MTg4OTc2MzQyOCBtCjU1Mi43NTU5MDU1MTE4MTEwNzkxIDY4NS45ODQ0ODgxODg5NzYzNDI4IGwKUwpCVAovRjIgMTAgVGYKMTEuNSBUTAowLjA1OSAwLjA5IDAuMTY1IHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNjQ2LjI5OTQ0ODgxODg5NzY0NDcgVGQKKKcgMSBQYWNodGdlZ2Vuc3RhbmQpIFRqCkVUCkJUCi9GMSAxMCBUZgoxMS41IFRMCjAuMiAwLjI1NSAwLjMzMyByZwo0Mi41MTk2ODUwMzkzNzAwODE0IDY0Ni4yOTk0NDg4MTg4OTc2NDQ3IFRkCihWZXJwYWNodGV0IHdlcmRlbiBkaWUgRmx1cnN0/GNrZSA0Mi8xIHVuZCA0Mi8yIGRlciBHZW1hcmt1bmcgTXVzdGVyc3RhZHQgYW0gU3BvcnRwbGF0endlZyAxMiwgYmVzdGVoZW5kIGF1cykgVGoKVCogKDIgUmFzZW5wbOR0emVuLCA0IFRlbm5pc3Bs5HR6ZW4gc293aWUgZGVtIFZlcmVpbnNoZWltZ2Vi5HVkZSBpbmtsLiBVbWtsZWlkZXRyYWt0LikgVGoKRVQKQlQKL0YyIDEwIFRmCjExLjUgVEwKMC4wNTkgMC4wOSAwLjE2NSByZwo0Mi41MTk2ODUwMzkzNzAwODE0IDYwMC45NDUxMTgxMTAyMzYxOTQzIFRkCiinIDIgUGFjaHRkYXVlciAmIEv8bmRpZ3VuZykgVGoKRVQKQlQKL0YxIDEwIFRmCjExLjUgVEwKMC4yIDAuMjU1IDAuMzMzIHJnCjQyLjUxOTY4NTAzOTM3MDA4MTQgNjAwLjk0NTExODExMDIzNjE5NDMgVGQKKERhcyBQYWNodHZlcmjkbHRuaXMgbOR1ZnQgYXVmIHVuYmVzdGltbXRlIFplaXQgdW5kIGthbm4gdm9uIGJlaWRlbiBQYXJ0ZWllbiBtaXQgZWluZXIgRnJpc3Qgdm9uIDEyIE1vbmF0ZW4genVtKSBUagpUKiAoSmFocmVzZW5kZSBnZWv8bmRpZ3Qgd2VyZGVuLikgVGoKRVQKQlQKL0YyIDEwIFRmCjExLjUgVEwKMC4wNTkgMC4wOSAwLjE2NSByZwo0Mi41MTk2ODUwMzkzNzAwODE0IDU1NS41OTA3ODc0MDE1NzQ3NDM5IFRkCiinIDMgUGFjaHR6aW5zKSBUagpFVApCVAovRjEgMTAgVGYKMTEuNSBUTAowLjIgMC4yNTUgMC4zMzMgcmcKNDIuNTE5Njg1MDM5MzcwMDgxNCA1NTUuNTkwNzg3NDAxNTc0NzQzOSBUZAooRGVyIGrkaHJsaWNoZSBBbmVya2VubnVuZ3NwYWNodHppbnMgYmV0cuRndCAxLDAwIIAgenpnbC4gZGVyIGFuZmFsbGVuZGVuIEJldHJpZWJza29zdGVuIGb8ciBXYXNzZXIsIEFid2Fzc2VyKSBUagpUKiAodW5kIEVuZXJnaWUuKSBUagpFVAowLjg5IDAuOTEgMC45NCBSRwo0Mi41MTk2ODUwMzkzNzAwODE0IDYyLjM2MjQ0MDk0NDg4MTc4MjkgbQo1NTIuNzU1OTA1NTExODExMDc5MSA2Mi4zNjI0NDA5NDQ4ODE3ODI5IGwKUwpCVAovRjEgOCBUZgo5LjE5OTk5OTk5OTk5OTk5OTMgVEwKMC41OCAwLjYzOSAwLjcyMiByZwo0Mi41MTk2ODUwMzkzNzAwODE0IDQyLjUxOTkyMTI1OTg0MjQ3NjUgVGQKKERva3VtZW50IGVyemV1Z3QgaW0gVFNWIFZlcmVpbnNNYW5hZ2VyIJUgRWxla3Ryb25pc2NoIGFyY2hpdmllcnQpIFRqCkVUCkJUCi9GMSA4IFRmCjkuMTk5OTk5OTk5OTk5OTk5MyBUTAowLjU4IDAuNjM5IDAuNzIyIHJnCjQ5Ni4wNjI5OTIxMjU5ODQyOTQ1IDQyLjUxOTkyMTI1OTg0MjQ3NjUgVGQKKFNlaXRlIDEgdm9uIDEpIFRqCkVUCmVuZHN0cmVhbQplbmRvYmoKMSAwIG9iago8PC9UeXBlIC9QYWdlcwovS2lkcyBbMyAwIFIgXQovQ291bnQgMQo+PgplbmRvYmoKNSAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0hlbHZldGljYQovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iago2IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvSGVsdmV0aWNhLUJvbGQKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKNyAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0hlbHZldGljYS1PYmxpcXVlCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjggMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9IZWx2ZXRpY2EtQm9sZE9ibGlxdWUKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKOSAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0NvdXJpZXIKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTAgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9Db3VyaWVyLUJvbGQKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTEgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9Db3VyaWVyLU9ibGlxdWUKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTIgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9Db3VyaWVyLUJvbGRPYmxpcXVlCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjEzIDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvVGltZXMtUm9tYW4KL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCi9GaXJzdENoYXIgMzIKL0xhc3RDaGFyIDI1NQo+PgplbmRvYmoKMTQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9UaW1lcy1Cb2xkCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjE1IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvVGltZXMtSXRhbGljCi9TdWJ0eXBlIC9UeXBlMQovRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZwovRmlyc3RDaGFyIDMyCi9MYXN0Q2hhciAyNTUKPj4KZW5kb2JqCjE2IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvVGltZXMtQm9sZEl0YWxpYwovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxNyAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL1phcGZEaW5nYmF0cwovU3VidHlwZSAvVHlwZTEKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoxOCAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL1N5bWJvbAovU3VidHlwZSAvVHlwZTEKL0ZpcnN0Q2hhciAzMgovTGFzdENoYXIgMjU1Cj4+CmVuZG9iagoyIDAgb2JqCjw8Ci9Qcm9jU2V0IFsvUERGIC9UZXh0IC9JbWFnZUIgL0ltYWdlQyAvSW1hZ2VJXQovRm9udCA8PAovRjEgNSAwIFIKL0YyIDYgMCBSCi9GMyA3IDAgUgovRjQgOCAwIFIKL0Y1IDkgMCBSCi9GNiAxMCAwIFIKL0Y3IDExIDAgUgovRjggMTIgMCBSCi9GOSAxMyAwIFIKL0YxMCAxNCAwIFIKL0YxMSAxNSAwIFIKL0YxMiAxNiAwIFIKL0YxMyAxNyAwIFIKL0YxNCAxOCAwIFIKPj4KL1hPYmplY3QgPDwKPj4KPj4KZW5kb2JqCjE5IDAgb2JqCjw8Ci9Qcm9kdWNlciAoanNQREYgNC4yLjEpCi9DcmVhdGlvbkRhdGUgKEQ6MjAyNjEwMjQyMzI2MjkrMDInMDAnKQo+PgplbmRvYmoKMjAgMCBvYmoKPDwKL1R5cGUgL0NhdGFsb2cKL1BhZ2VzIDEgMCBSCi9PcGVuQWN0aW9uIFszIDAgUiAvRml0SCBudWxsXQovUGFnZUxheW91dCAvT25lQ29sdW1uCj4+CmVuZG9iagp4cmVmCjAgMjEKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAyNTI2IDAwMDAwIG4gCjAwMDAwMDQzNDMgMDAwMDAgbiAKMDAwMDAwMDAxNSAwMDAwMCBuIAowMDAwMDAwMTUyIDAwMDAwIG4gCjAwMDAwMDI1ODMgMDAwMDAgbiAKMDAwMDAwMjcwOCAwMDAwMCBuIAowMDAwMDAyODM4IDAwMDAwIG4gCjAwMDAwMDI5NzEgMDAwMDAgbiAKMDAwMDAwMzEwOCAwMDAwMCBuIAowMDAwMDAzMjMxIDAwMDAwIG4gCjAwMDAwMDMzNjAgMDAwMDAgbiAKMDAwMDAwMzQ5MiAwMDAwMCBuIAowMDAwMDAzNjI4IDAwMDAwIG4gCjAwMDAwMDM3NTYgMDAwMDAgbiAKMDAwMDAwMzg4MyAwMDAwMCBuIAowMDAwMDA0MDEyIDAwMDAwIG4gCjAwMDAwMDQxNDUgMDAwMDAgbiAKMDAwMDAwNDI0NyAwMDAwMCBuIAowMDAwMDA0NTkxIDAwMDAwIG4gCjAwMDAwMDQ2NzcgMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSAyMQovUm9vdCAyMCAwIFIKL0luZm8gMTkgMCBSCi9JRCBbIDw2MENDMUE2RTY1QTMxRDA2MDZCMjNGNzc5RUIwMkE5MD4gPDYwQ0MxQTZFNjVBMzFEMDYwNkIyM0Y3NzlFQjAyQTkwPiBdCj4+CnN0YXJ0eHJlZgo0NzgxCiUlRU9G",
+        "category": "vertraege",
+        "folderId": "folder-pacht",
+        "date": "2023-01-01",
+        "uploadDate": "2023-01-05T14:00:00.000Z",
+        "tags": [
+          "Vertrag",
+          "Pacht",
+          "Stadt",
+          "Sportplatz",
+          "Immobilie"
+        ],
+        "notes": "Unbefristeter Pachtvertrag mit der Stadtverwaltung Musterstadt.",
+        "createdAt": "2023-01-05T14:00:00.000Z",
+        "updatedAt": "2023-01-05T14:00:00.000Z"
+      }
+    ],
+    "folders": [
+      {
+        "id": "folder-belege-2025",
+        "name": "Belege 2025",
+        "parentId": "folder-belege",
+        "category": "belege",
+        "color": "#10b981",
+        "description": "Rechnungen und Zahlungsnachweise des Geschäftsjahres 2025",
+        "createdAt": "2024-01-01T08:00:00.000Z",
+        "updatedAt": "2024-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "folder-belege-2026",
+        "name": "Belege 2026",
+        "parentId": "folder-belege",
+        "category": "belege",
+        "color": "#14b8a6",
+        "description": "Laufendes Geschäftsjahr 2026",
+        "createdAt": "2024-01-01T08:00:00.000Z",
+        "updatedAt": "2024-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "folder-belege",
+        "name": "Buchhaltungsbelege & Finanzen",
+        "category": "belege",
+        "color": "#10b981",
+        "description": "Ein- und Ausgangsrechnungen, Quittungen und Spendenbelege",
+        "createdAt": "2024-01-01T08:00:00.000Z",
+        "updatedAt": "2024-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "folder-aufnahmeantraege",
+        "name": "Digitale Aufnahmeanträge",
+        "parentId": "folder-mitglieder",
+        "category": "mitglieder",
+        "color": "#0369a1",
+        "description": "Vollständig digital erfasste und signierte Mitgliedsanträge",
+        "createdAt": "2024-01-01T08:00:00.000Z",
+        "updatedAt": "2024-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "folder-bescheide",
+        "name": "Finanzamt & Behörden",
+        "category": "bescheide",
+        "color": "#ef4444",
+        "description": "Freistellungsbescheide, Vereinsregisterauszüge und Steuerbescheinigungen",
+        "createdAt": "2024-01-01T08:00:00.000Z",
+        "updatedAt": "2024-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "folder-turniere",
+        "name": "Hallenturniere & Wettkämpfe",
+        "parentId": "folder-events",
+        "category": "sonstiges",
+        "color": "#db2777",
+        "description": "Turnierpläne, Ausschreibungen und Sponsorenübersichten",
+        "createdAt": "2024-01-01T08:00:00.000Z",
+        "updatedAt": "2024-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "folder-jhv",
+        "name": "Jahreshauptversammlungen (JHV)",
+        "parentId": "folder-protokolle",
+        "category": "protokolle",
+        "color": "#d97706",
+        "description": "Niederschriften und Anwesenheitslisten der Mitgliederversammlungen",
+        "createdAt": "2024-01-01T08:00:00.000Z",
+        "updatedAt": "2024-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "folder-pacht",
+        "name": "Miet- & Pachtverträge",
+        "parentId": "folder-vertraege",
+        "category": "vertraege",
+        "color": "#6366f1",
+        "description": "Pachtverträge Sportstätten, Gastronomie und Vereinsheim",
+        "createdAt": "2024-01-01T08:00:00.000Z",
+        "updatedAt": "2024-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "folder-mitglieder",
+        "name": "Mitglieder & Beitrittswesen",
+        "category": "mitglieder",
+        "color": "#0284c7",
+        "description": "Mitgliederakten, Eintrittserklärungen & SEPA-Mandate",
+        "createdAt": "2024-01-01T08:00:00.000Z",
+        "updatedAt": "2024-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "folder-events",
+        "name": "Projekte & Vereinsfeste",
+        "category": "sonstiges",
+        "color": "#ec4899",
+        "description": "Planungsunterlagen, Sommerfeste, Turniere & Flyer",
+        "createdAt": "2024-01-01T08:00:00.000Z",
+        "updatedAt": "2024-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "folder-protokolle",
+        "name": "Protokolle & Niederschriften",
+        "category": "protokolle",
+        "color": "#f59e0b",
+        "description": "Jahreshauptversammlungen, Vorstandssitzungen & Abteilungsberichte",
+        "createdAt": "2024-01-01T08:00:00.000Z",
+        "updatedAt": "2024-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "folder-satzung",
+        "name": "Satzung & Ordnungen",
+        "category": "satzung",
+        "color": "#8b5cf6",
+        "description": "Vereinssatzung, Beitragsordnung, Geschäfts- und Ehrenordnung",
+        "createdAt": "2024-01-01T08:00:00.000Z",
+        "updatedAt": "2024-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "folder-spenden",
+        "name": "Spendenbestätigungen (BMF)",
+        "parentId": "folder-belege",
+        "category": "belege",
+        "color": "#059669",
+        "description": "Geld- und Sachzuwendungsbescheinigungen",
+        "createdAt": "2024-01-01T08:00:00.000Z",
+        "updatedAt": "2024-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "folder-sponsoring",
+        "name": "Sponsoring- & Werbepartner",
+        "parentId": "folder-vertraege",
+        "category": "vertraege",
+        "color": "#8b5cf6",
+        "description": "Bandenwerbung, Trikotsponsoring und Fördervereinbarungen",
+        "createdAt": "2024-01-01T08:00:00.000Z",
+        "updatedAt": "2024-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "folder-trainer",
+        "name": "Übungsleiter & Trainer",
+        "parentId": "folder-vertraege",
+        "category": "vertraege",
+        "color": "#06b6d4",
+        "description": "Honorare, Ehrenamtspauschalen & Übungsleitervereinbarungen",
+        "createdAt": "2024-01-01T08:00:00.000Z",
+        "updatedAt": "2024-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "folder-vertraege",
+        "name": "Verträge & Vereinbarungen",
+        "category": "vertraege",
+        "color": "#3b82f6",
+        "description": "Miet-, Pacht-, Trainer- und Sponsoringverträge",
+        "createdAt": "2024-01-01T08:00:00.000Z",
+        "updatedAt": "2024-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "folder-vorstand",
+        "name": "Vorstandssitzungen",
+        "parentId": "folder-protokolle",
+        "category": "protokolle",
+        "color": "#b45309",
+        "description": "Monatliche Beschlussprotokolle des geschäftsführenden Vorstands",
+        "createdAt": "2024-01-01T08:00:00.000Z",
+        "updatedAt": "2024-01-01T08:00:00.000Z"
+      }
+    ],
+    "donations": [
+      {
+        "id": "don-2",
+        "receiptNumber": "ZB-2025-002",
+        "type": "goods",
+        "date": "2025-02-14",
+        "donorType": "member",
+        "memberId": "mem-6",
+        "donorName": "Christian Koch",
+        "donorAddress": {
+          "street": "Kastanienweg",
+          "houseNumber": "11",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "amount": 850,
+        "amountInWords": "Achthundertfünfzig Euro",
+        "isWaiverOfRefund": false,
+        "goodsDescription": "1x Professionelle Tischtennisplatte JOOLA 2000-S Pro inkl. Netzgarnitur & Zubehör (Neuwertig)",
+        "goodsOrigin": "private",
+        "goodsValuationBasis": "Original-Kaufbeleg Sport-Thieme GmbH vom 10.01.2025 über 899,00 € liegt vor",
+        "taxOffice": "Finanzamt Musterstadt",
+        "taxNumber": "112/5840/1922",
+        "exemptionDate": "10.01.2024",
+        "assessmentPeriod": "2021 bis 2023",
+        "promotedPurpose": "Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)",
+        "isDirectlyPromoted": true,
+        "issuedBy": "Sabine Weber (Schatzmeisterin)",
+        "cityAndDate": "Musterstadt, 14.02.2025",
+        "notes": "Sachspende für die Jugendabteilung Tischtennis & Turnen",
+        "createdAt": "2025-02-14T11:00:00.000Z",
+        "updatedAt": "2025-02-14T11:00:00.000Z"
+      },
+      {
+        "id": "don-1",
+        "receiptNumber": "ZB-2025-001",
+        "type": "money",
+        "date": "2025-01-20",
+        "donorType": "external",
+        "donorName": "Musterstadt Stadtwerke AG",
+        "donorAddress": {
+          "street": "Energiestraße",
+          "houseNumber": "1",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "amount": 1500,
+        "amountInWords": "Eintausendfünfhundert Euro",
+        "isWaiverOfRefund": false,
+        "taxOffice": "Finanzamt Musterstadt",
+        "taxNumber": "112/5840/1922",
+        "exemptionDate": "10.01.2024",
+        "assessmentPeriod": "2021 bis 2023",
+        "promotedPurpose": "Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)",
+        "isDirectlyPromoted": true,
+        "issuedBy": "Sabine Weber (Schatzmeisterin)",
+        "cityAndDate": "Musterstadt, 20.01.2025",
+        "transactionId": "tx-2",
+        "notes": "Zweckgebundene Spende für neue Jugendtore",
+        "createdAt": "2025-01-20T14:30:00.000Z",
+        "updatedAt": "2025-01-20T14:30:00.000Z"
+      }
+    ],
+    "contacts": [
+      {
+        "id": "cnt-2",
+        "contactNumber": "K-1002",
+        "personType": "legal",
+        "types": [
+          "sponsor"
+        ],
+        "companyName": "Autohaus Müller GmbH",
+        "legalForm": "GmbH",
+        "displayName": "Autohaus Müller GmbH",
+        "contactPerson": {
+          "salutation": "Herr",
+          "firstName": "Thomas",
+          "lastName": "Müller",
+          "roleOrPosition": "Geschäftsführer",
+          "email": "t.mueller@autohaus-mueller-musterstadt.de",
+          "phone": "01234 4567-11"
+        },
+        "taxId": "112/5841/4491",
+        "commercialRegister": "HRB 6219 (Amtsgericht Musterstadt)",
+        "address": {
+          "street": "Industriestraße",
+          "houseNumber": "44",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "email": "kontakt@autohaus-mueller-musterstadt.de",
+        "phone": "01234 4567-0",
+        "website": "https://www.autohaus-mueller-musterstadt.de",
+        "bankDetails": {
+          "iban": "DE55370501981122446688",
+          "bic": "SPKDMUSTXXX",
+          "bankName": "Sparkasse Musterstadt",
+          "accountHolder": "Autohaus Müller GmbH"
+        },
+        "creditorOrDebtorNumber": "DEB-10002",
+        "notes": "Bandenwerbung am Hauptplatz und Fuhrpark-Sponsor für Jugendfahrten.",
+        "tags": [
+          "Bandenwerbung",
+          "Sponsor"
+        ],
+        "createdAt": "2024-02-15T09:00:00.000Z",
+        "updatedAt": "2025-02-20T11:45:00.000Z"
+      },
+      {
+        "id": "cnt-6",
+        "contactNumber": "K-1006",
+        "personType": "natural",
+        "types": [
+          "donor",
+          "sponsor"
+        ],
+        "salutation": "Dr.",
+        "firstName": "Martin",
+        "lastName": "Lindner",
+        "displayName": "Dr. Martin Lindner",
+        "address": {
+          "street": "Buchenweg",
+          "houseNumber": "14",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "email": "m.lindner@praxis-lindner.de",
+        "phone": "01234 332211",
+        "mobile": "0171 9988112",
+        "notes": "Langjähriger Förderer der Turn- und Leichtathletikabteilung. Jährliche Spende für Sportgeräte.",
+        "tags": [
+          "Großspender",
+          "Förderkreis"
+        ],
+        "createdAt": "2024-05-12T14:00:00.000Z",
+        "updatedAt": "2025-01-10T09:00:00.000Z"
+      },
+      {
+        "id": "cnt-4",
+        "contactNumber": "K-1004",
+        "personType": "legal",
+        "types": [
+          "association",
+          "authority"
+        ],
+        "companyName": "Landessportbund NRW e.V.",
+        "legalForm": "e.V.",
+        "displayName": "Landessportbund NRW e.V.",
+        "contactPerson": {
+          "salutation": "Frau",
+          "firstName": "Dr. Elke",
+          "lastName": "Schneider",
+          "roleOrPosition": "Vereinsberatung & Sportversicherung",
+          "email": "beratung@lsb.nrw",
+          "phone": "0203 7381-600"
+        },
+        "address": {
+          "street": "Friedrich-Alfred-Straße",
+          "houseNumber": "25",
+          "zip": "47055",
+          "city": "Duisburg",
+          "country": "Deutschland"
+        },
+        "email": "info@lsb.nrw",
+        "phone": "0203 7381-0",
+        "website": "https://www.lsb.nrw",
+        "bankDetails": {
+          "iban": "DE33350500000001234567",
+          "bic": "WELFDE33XXX",
+          "bankName": "Stadtsparkasse Duisburg",
+          "accountHolder": "Landessportbund NRW e.V."
+        },
+        "creditorOrDebtorNumber": "KRED-70002",
+        "notes": "Dachverband. ARAG Sportversicherung, Übungsleiter-Zuschüsse und Bestandserhebung jährlich bis 31.01.",
+        "tags": [
+          "Dachverband",
+          "Sportbund",
+          "Versicherung"
+        ],
+        "createdAt": "2023-01-01T08:00:00.000Z",
+        "updatedAt": "2025-01-25T09:15:00.000Z"
+      },
+      {
+        "id": "cnt-3",
+        "contactNumber": "K-1003",
+        "personType": "legal",
+        "types": [
+          "supplier"
+        ],
+        "companyName": "Metro Großmarkt Musterstadt",
+        "legalForm": "GmbH & Co. KG",
+        "displayName": "Metro Großmarkt Musterstadt",
+        "contactPerson": {
+          "salutation": "Frau",
+          "firstName": "Sabine",
+          "lastName": "Wegner",
+          "roleOrPosition": "Großkundenbetreuung Vereine",
+          "email": "vereine@metro-musterstadt.de",
+          "phone": "01234 8820-22"
+        },
+        "taxId": "DE811122334",
+        "address": {
+          "street": "Großmarktring",
+          "houseNumber": "10",
+          "zip": "12349",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "email": "kundenservice@metro-musterstadt.de",
+        "phone": "01234 8820-0",
+        "website": "https://www.metro.de",
+        "bankDetails": {
+          "iban": "DE89100500001099887766",
+          "bic": "BELADE100",
+          "bankName": "Berliner Bank",
+          "accountHolder": "Metro Cash & Carry Deutschland GmbH"
+        },
+        "creditorOrDebtorNumber": "KRED-70001",
+        "notes": "Kundenkarte TSV Musterstadt #84920. Rabattvereinbarung auf Getränke und Grillgut für Vereinsfeste.",
+        "tags": [
+          "Lieferant",
+          "Kiosk",
+          "Getränke"
+        ],
+        "createdAt": "2024-03-01T12:00:00.000Z",
+        "updatedAt": "2025-02-11T10:00:00.000Z"
+      },
+      {
+        "id": "cnt-1",
+        "contactNumber": "K-1001",
+        "personType": "legal",
+        "types": [
+          "sponsor",
+          "donor"
+        ],
+        "companyName": "Musterstadt Stadtwerke AG",
+        "legalForm": "AG",
+        "displayName": "Musterstadt Stadtwerke AG",
+        "contactPerson": {
+          "salutation": "Herr",
+          "firstName": "Klaus",
+          "lastName": "Bergmann",
+          "roleOrPosition": "Leitung Marketing & Sponsoring",
+          "email": "klaus.bergmann@stadtwerke-musterstadt.de",
+          "phone": "01234 9876-140"
+        },
+        "taxId": "112/5840/0199",
+        "commercialRegister": "HRB 4810 (Amtsgericht Musterstadt)",
+        "address": {
+          "street": "Energiestraße",
+          "houseNumber": "1",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "email": "info@stadtwerke-musterstadt.de",
+        "phone": "01234 9876-0",
+        "website": "https://www.stadtwerke-musterstadt.de",
+        "bankDetails": {
+          "iban": "DE12370501980000112233",
+          "bic": "SPKDMUSTXXX",
+          "bankName": "Sparkasse Musterstadt",
+          "accountHolder": "Musterstadt Stadtwerke AG"
+        },
+        "creditorOrDebtorNumber": "DEB-10001",
+        "notes": "Hauptsponsor der Jugendabteilung und Partner beim jährlichen Hallenturnier. Sponsoringvertrag läuft bis 2027.",
+        "tags": [
+          "Hauptsponsor",
+          "Jugendförderung",
+          "Stadtwerke"
+        ],
+        "createdAt": "2024-01-10T10:00:00.000Z",
+        "updatedAt": "2025-01-20T14:30:00.000Z"
+      },
+      {
+        "id": "cnt-5",
+        "contactNumber": "K-1005",
+        "personType": "legal",
+        "types": [
+          "supplier",
+          "service"
+        ],
+        "companyName": "Sportshop Franke",
+        "legalForm": "Einzelunternehmen",
+        "displayName": "Sportshop Franke",
+        "contactPerson": {
+          "salutation": "Herr",
+          "firstName": "Jürgen",
+          "lastName": "Franke",
+          "roleOrPosition": "Inhaber",
+          "email": "j.franke@sportshop-franke.de",
+          "phone": "01234 554433"
+        },
+        "address": {
+          "street": "Marktplatz",
+          "houseNumber": "7",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "email": "service@sportshop-franke.de",
+        "phone": "01234 554430",
+        "website": "https://www.sportshop-franke.de",
+        "bankDetails": {
+          "iban": "DE77370501980099887766",
+          "bic": "SPKDMUSTXXX",
+          "bankName": "Sparkasse Musterstadt",
+          "accountHolder": "Jürgen Franke Sportartikel"
+        },
+        "creditorOrDebtorNumber": "KRED-70003",
+        "notes": "Ausrüster der Fußball- und Tennissparte. 20% Vereinsrabatt auf Bälle und Trikotsätze mit Vereinsflock.",
+        "tags": [
+          "Sportartikel",
+          "Trikots",
+          "Lieferant"
+        ],
+        "createdAt": "2024-04-10T11:00:00.000Z",
+        "updatedAt": "2025-03-01T10:00:00.000Z"
+      },
+      {
+        "id": "cnt-7",
+        "contactNumber": "K-1007",
+        "personType": "legal",
+        "types": [
+          "authority",
+          "partner"
+        ],
+        "companyName": "Stadtverwaltung Musterstadt (Fachbereich Sport)",
+        "legalForm": "Körperschaft d.ö.R.",
+        "displayName": "Stadtverwaltung Musterstadt (Fachbereich Sport)",
+        "contactPerson": {
+          "salutation": "Frau",
+          "firstName": "Heike",
+          "lastName": "Sommer",
+          "roleOrPosition": "Sachgebietsleitung Sportstätten & Hallenbelegung",
+          "email": "heike.sommer@musterstadt.de",
+          "phone": "01234 100-340"
+        },
+        "address": {
+          "street": "Rathausplatz",
+          "houseNumber": "1",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "email": "sportamt@musterstadt.de",
+        "phone": "01234 100-0",
+        "website": "https://www.musterstadt.de/sport",
+        "notes": "Zuständig für Hallenbelegungspläne städtischer Turnhallen, Sportförderung und Sportlerehrungen.",
+        "tags": [
+          "Kommune",
+          "Sportamt",
+          "Hallenvergabe"
+        ],
+        "createdAt": "2023-05-01T08:00:00.000Z",
+        "updatedAt": "2024-10-15T11:00:00.000Z"
+      }
+    ],
+    "invoices": [
+      {
+        "id": "inv-4",
+        "invoiceNumber": "RE-2026-004",
+        "date": "2026-02-20",
+        "deliveryDate": "2026-03-08",
+        "dueDate": "2026-03-06",
+        "status": "draft",
+        "recipientType": "member",
+        "recipientId": "mem-1",
+        "recipientName": "Maximilian Müller",
+        "recipientContactPerson": "",
+        "recipientAddress": {
+          "street": "Hauptstraße",
+          "houseNumber": "42",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "recipientEmail": "max.mueller@example.de",
+        "recipientPhone": "0171 1234567",
+        "title": "Rechnung",
+        "subject": "Auslagenersatz & Lehrgangsbeitrag Trainerfortbildung",
+        "introText": "Hallo Maximilian,\n\nfür deinen anteiligen Kostenbeitrag zur Trainerfortbildung berechnen wir wie im Vorstand abgestimmt:",
+        "items": [
+          {
+            "id": "item-4-1",
+            "position": 1,
+            "description": "Eigenanteil Lizenzverlängerung DOSB C-Lizenz Fußball",
+            "quantity": 1,
+            "unit": "Pauschale",
+            "unitPrice": 75,
+            "vatRate": 0,
+            "totalPrice": 75
+          }
+        ],
+        "outroText": "Bitte überweise den Betrag bis zur Fälligkeit.",
+        "taxSphere": "ideell",
+        "subtotalNet": 75,
+        "vatAmounts": {
+          "0": 0
+        },
+        "totalVat": 0,
+        "totalAmount": 75,
+        "paymentTermsDays": 14,
+        "paymentMethod": "transfer",
+        "notes": "Entwurf für Abstimmung",
+        "createdAt": "2026-02-20T11:00:00.000Z",
+        "updatedAt": "2026-02-20T11:00:00.000Z"
+      },
+      {
+        "id": "inv-3",
+        "invoiceNumber": "RE-2026-003",
+        "date": "2026-02-12",
+        "deliveryDate": "2026-02-10",
+        "dueDate": "2026-02-26",
+        "status": "open",
+        "recipientType": "contact",
+        "recipientId": "cnt-6",
+        "recipientName": "Landessportbund NRW e.V.",
+        "recipientCompany": "Landessportbund NRW e.V.",
+        "recipientContactPerson": "Abteilung Sportbildung & Förderungen",
+        "recipientAddress": {
+          "street": "Friedrich-Alfred-Straße",
+          "houseNumber": "25",
+          "zip": "47055",
+          "city": "Duisburg",
+          "country": "Deutschland"
+        },
+        "recipientEmail": "abrechnung@lsb-nrw.de",
+        "recipientPhone": "0203 7381-0",
+        "title": "Rechnung",
+        "subject": "Raumbereitstellung & Übungsleiterfortbildung Sportstätte Sporthalle 2",
+        "introText": "Sehr geehrte Damen und Herren,\n\nfür die Durchführung des regionalen C-Lizenz Lehrgangs stellen wir vereinbarungsgemäß die Nutzung unserer Halle sowie Schulungsmedien in Rechnung:",
+        "items": [
+          {
+            "id": "item-3-1",
+            "position": 1,
+            "description": "Hallenbereitstellung Dreifachsporthalle (2 Wochenend-Tage à 8 Std.)",
+            "quantity": 16,
+            "unit": "Std.",
+            "unitPrice": 22.5,
+            "vatRate": 7,
+            "totalPrice": 360
+          },
+          {
+            "id": "item-3-2",
+            "position": 2,
+            "description": "Bereitstellung Seminarraum & Tagungstechnik (Beamer, Flipchart)",
+            "quantity": 2,
+            "unit": "Tage",
+            "unitPrice": 50,
+            "vatRate": 7,
+            "totalPrice": 100
+          }
+        ],
+        "outroText": "Zahlbar rein netto innerhalb von 14 Tagen auf unser Vereinskonto.",
+        "taxSphere": "zweckbetrieb",
+        "subtotalNet": 460,
+        "vatAmounts": {
+          "7": 32.2
+        },
+        "totalVat": 32.2,
+        "totalAmount": 492.2,
+        "paymentTermsDays": 14,
+        "paymentMethod": "transfer",
+        "notes": "Veranstaltungsnummer LSB-2026-FORTB-12",
+        "createdAt": "2026-02-12T14:30:00.000Z",
+        "updatedAt": "2026-02-12T14:30:00.000Z"
+      },
+      {
+        "id": "inv-2",
+        "invoiceNumber": "RE-2026-002",
+        "date": "2026-02-01",
+        "deliveryDate": "2026-02-01",
+        "dueDate": "2026-02-15",
+        "status": "open",
+        "recipientType": "contact",
+        "recipientId": "cnt-4",
+        "recipientName": "Gastronomie Pächter Luigi Rossi",
+        "recipientCompany": "Vereinsgaststätte \"Da Luigi\"",
+        "recipientContactPerson": "Luigi Rossi",
+        "recipientAddress": {
+          "street": "Sportplatzweg",
+          "houseNumber": "12a",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "recipientEmail": "luigi.rossi@gastronomie-musterstadt.de",
+        "recipientPhone": "0171 2233445",
+        "title": "Rechnung",
+        "subject": "Nebenkostenabrechnung & Pacht Vereinsgaststätte Monat Januar 2026",
+        "introText": "Hallo Luigi,\n\ngemäß Pachtvertrag stellen wir dir hiermit die monatliche Pauschalpacht sowie die verbrauchsabhängigen Betriebskosten für Januar 2026 in Rechnung:",
+        "items": [
+          {
+            "id": "item-2-1",
+            "position": 1,
+            "description": "Monatliche Grundpacht Vereinsheim-Gaststätte Januar 2026",
+            "quantity": 1,
+            "unit": "Monat",
+            "unitPrice": 600,
+            "vatRate": 0,
+            "totalPrice": 600
+          },
+          {
+            "id": "item-2-2",
+            "position": 2,
+            "description": "Umlage Strom & Wasser Gastronomiebereich (Zwischenzähler)",
+            "quantity": 1,
+            "unit": "Pauschale",
+            "unitPrice": 185.5,
+            "vatRate": 19,
+            "totalPrice": 185.5
+          }
+        ],
+        "outroText": "Bitte überweise den Gesamtbetrag fristgerecht auf das Vereinskonto. Bei Fragen zur Zählerablesung melde dich gerne.",
+        "taxSphere": "vermoegen",
+        "subtotalNet": 785.5,
+        "vatAmounts": {
+          "0": 0,
+          "19": 35.25
+        },
+        "totalVat": 35.25,
+        "totalAmount": 820.75,
+        "paymentTermsDays": 14,
+        "paymentMethod": "transfer",
+        "notes": "Pachtvertrag § 4 Abs. 2",
+        "createdAt": "2026-02-01T10:00:00.000Z",
+        "updatedAt": "2026-02-01T10:00:00.000Z"
+      },
+      {
+        "id": "inv-1",
+        "invoiceNumber": "RE-2026-001",
+        "date": "2026-01-15",
+        "deliveryDate": "2026-01-15",
+        "dueDate": "2026-01-29",
+        "status": "paid",
+        "recipientType": "contact",
+        "recipientId": "cnt-1",
+        "recipientName": "Musterstadt Stadtwerke AG",
+        "recipientCompany": "Musterstadt Stadtwerke AG",
+        "recipientContactPerson": "Dr. Klaus Becker (Vorstand Marketing)",
+        "recipientAddress": {
+          "street": "Energiestraße",
+          "houseNumber": "1",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "recipientEmail": "sponsoring@stadtwerke-musterstadt.de",
+        "recipientPhone": "0234 5678-100",
+        "title": "Rechnung",
+        "subject": "Sponsoring Werbebande Hauptplatz & Trikotwerbung Saison 2025/2026",
+        "introText": "Sehr geehrte Damen und Herren,\n\nwir bedanken uns herzlich für Ihre treue Partnerschaft zur Förderung unseres Vereins. Für die vertraglich vereinbarte Werbepräsenz berechnen wir wie folgt:",
+        "items": [
+          {
+            "id": "item-1-1",
+            "position": 1,
+            "description": "Bandenwerbung Hauptplatz Sportgelände Ost (Länge 12 Meter)",
+            "quantity": 1,
+            "unit": "Pauschale",
+            "unitPrice": 850,
+            "vatRate": 19,
+            "totalPrice": 850
+          },
+          {
+            "id": "item-1-2",
+            "position": 2,
+            "description": "Anzeigenplatzierung Vereinsheft & Stadionzeitung Ausgabe Rückrunde",
+            "quantity": 1,
+            "unit": "Seite",
+            "unitPrice": 350,
+            "vatRate": 19,
+            "totalPrice": 350
+          }
+        ],
+        "outroText": "Vielen Dank für Ihre Unterstützung! Bitte überweisen Sie den fälligen Betrag unter Angabe der Rechnungsnummer auf unser Geschäftskonto bei der Sparkasse Musterstadt.",
+        "taxSphere": "wirtschaftlich",
+        "subtotalNet": 1200,
+        "vatAmounts": {
+          "19": 228
+        },
+        "totalVat": 228,
+        "totalAmount": 1428,
+        "paymentTermsDays": 14,
+        "paidAt": "2026-01-24",
+        "paymentMethod": "transfer",
+        "notes": "Zahlungseingang termingerecht gebucht auf Sparkassenkonto",
+        "createdAt": "2026-01-15T09:00:00.000Z",
+        "updatedAt": "2026-01-24T16:00:00.000Z"
+      }
+    ],
+    "invoiceTemplate": {
+      "templateName": "Standard-Vereinsbriefbogen (DIN 5008)",
+      "marginTop": 45,
+      "marginBottom": 25,
+      "marginLeft": 20,
+      "marginRight": 20,
+      "defaultIntroText": "Sehr geehrte Damen und Herren,\n\nwir bedanken uns für das entgegengebrachte Vertrauen und die gute Zusammenarbeit. Für die vereinbarten Leistungen stellen wir Ihnen folgende Positionen in Rechnung:",
+      "defaultOutroText": "Zahlungsziel: Bitte überweisen Sie den Rechnungsbetrag ohne Abzug innerhalb von 14 Tagen unter Angabe der Rechnungsnummer auf unser unten genanntes Vereinskonto.",
+      "defaultPaymentTermsDays": 14,
+      "defaultDueNotice": "Zahlbar rein netto innerhalb von 14 Tagen.",
+      "showClubLogo": true,
+      "showFoldingMarks": true,
+      "showGiroCode": true,
+      "accentColor": "#1e40af"
+    },
+    "meetings": [
+      {
+        "id": "meet-2026-02",
+        "title": "Ordentliche Mitgliederversammlung (Jahreshauptversammlung) 2026",
+        "type": "general_assembly",
+        "status": "scheduled",
+        "protocolType": "results",
+        "date": "2026-11-14",
+        "startTime": "19:30",
+        "endTime": "22:00",
+        "location": "Großer Saal im Vereinsheim / Bürgersaal Musterstadt",
+        "chairperson": "Dr. Michael Sommer",
+        "minuteKeeper": "Marcus Bauer",
+        "invitationDate": "2026-10-12",
+        "invitationMethod": "Fristgerecht per E-Mail & Vereinsaushang gem. § 9 der Satzung",
+        "invitationCompliant": true,
+        "quorumConfirmed": true,
+        "totalEligibleVoters": 48,
+        "agenda": [
+          {
+            "id": "mv-top-1",
+            "number": "TOP 1",
+            "title": "Eröffnung der Versammlung, Feststellung der ordnungsgemäßen Ladung und Beschlussfähigkeit",
+            "speaker": "Dr. Michael Sommer",
+            "discussionNotes": "Feststellung der Einhaltung der 4-wöchigen Ladungsfrist und Auszählung der anwesenden stimmberechtigten Vereinsmitglieder."
+          },
+          {
+            "id": "mv-top-2",
+            "number": "TOP 2",
+            "title": "Bericht des Vorstands über das abgelaufene Geschäftsjahr",
+            "speaker": "Dr. Michael Sommer",
+            "discussionNotes": "Rückblick auf sportliche Erfolge, Mitgliederentwicklung und bauliche Maßnahmen."
+          },
+          {
+            "id": "mv-top-3",
+            "number": "TOP 3",
+            "title": "Bericht der Kassenwartin und Kassenprüfungsbericht",
+            "speaker": "Sabine Weber & Kassenprüfer",
+            "discussionNotes": "Erläuterung der Einnahmen-Überschuss-Rechnung und Verlesung des Prüfberichts der Kassenprüfer."
+          },
+          {
+            "id": "mv-top-4",
+            "number": "TOP 4",
+            "title": "Aussprache zu den Berichten und Entlastung des Vorstands",
+            "speaker": "Versammlungsleiter",
+            "discussionNotes": "Diskussion zu den vorgelegten Berichten und anschließende Abstimmung über die Entlastung."
+          },
+          {
+            "id": "mv-top-5",
+            "number": "TOP 5",
+            "title": "Wahlen zum Vorstand gem. § 26 BGB und Wahl der Kassenprüfer",
+            "speaker": "Wahlausschuss",
+            "discussionNotes": "Turnusmäßige Wahl des 1. und 2. Vorsitzenden sowie zweier Rechnungsprüfer für die Periode 2026-2028."
+          },
+          {
+            "id": "mv-top-6",
+            "number": "TOP 6",
+            "title": "Satzungsänderung: Neufassung § 8 (Digitale Einladung zur Mitgliederversammlung)",
+            "speaker": "Dr. Michael Sommer",
+            "discussionNotes": "Ermöglichung der rechtssicheren Einberufung per E-Mail statt einfachem Briefversand zur Kostenersparnis."
+          },
+          {
+            "id": "mv-top-7",
+            "number": "TOP 7",
+            "title": "Anträge und Verschiedenes",
+            "speaker": "Versammlungsleiter",
+            "discussionNotes": "Schriftlich fristgerecht eingegangene Anträge der Mitglieder."
+          }
+        ],
+        "attendees": [],
+        "generalNotes": "Einladungen und Stimmzettel vorbereitet. Raumreservierung bestätigt.",
+        "createdAt": "2026-08-20T11:00:00.000Z",
+        "updatedAt": "2026-08-20T11:00:00.000Z"
+      },
+      {
+        "id": "meet-2026-01",
+        "title": "Vorstandssitzung Q3/2026",
+        "type": "board",
+        "status": "approved",
+        "protocolType": "results",
+        "date": "2026-08-18",
+        "startTime": "19:00",
+        "endTime": "21:15",
+        "location": "Vereinsheim TSV Musterstadt (Besprechungsraum)",
+        "chairperson": "Dr. Michael Sommer (1. Vorsitzender)",
+        "minuteKeeper": "Sabine Weber (Kassenwartin / Schriftführerin)",
+        "invitationDate": "2026-08-04",
+        "invitationMethod": "Per E-Mail mit Tagesordnung gem. § 12 der Satzung",
+        "invitationCompliant": true,
+        "quorumConfirmed": true,
+        "totalEligibleVoters": 5,
+        "signedAt": "2026-08-19",
+        "agenda": [
+          {
+            "id": "top-1",
+            "number": "TOP 1",
+            "title": "Begrüßung, Feststellung der Beschlussfähigkeit und Genehmigung des Protokolls der letzten Sitzung",
+            "speaker": "Dr. Michael Sommer",
+            "discussionNotes": "Der 1. Vorsitzende eröffnet die Sitzung um 19:00 Uhr. Es sind 5 von 5 Vorstandsmitgliedern anwesend. Die Beschlussfähigkeit ist gegeben. Das Protokoll der vorherigen Vorstandssitzung vom 15.06.2026 wird ohne Einwände genehmigt."
+          },
+          {
+            "id": "top-2",
+            "number": "TOP 2",
+            "title": "Finanzbericht Q2 & Haushaltsentwicklung",
+            "speaker": "Sabine Weber",
+            "discussionNotes": "Kassenwartin Sabine Weber stellt den Zwischenabschluss vor. Die Mitgliedsbeiträge wurden fast vollständig eingezogen. Es sind noch offene Rechnungen für Platzinstandhaltung zu begleichen. Das Vereinskonto weist ein solides Guthaben auf."
+          },
+          {
+            "id": "top-3",
+            "number": "TOP 3",
+            "title": "Beschlussfassung: Gewährung der Ehrenamtspauschale gem. § 3 Nr. 26a EStG für das Geschäftsjahr 2026",
+            "speaker": "Dr. Michael Sommer",
+            "discussionNotes": "Gemäß § 14 unserer Satzung ist der Vorstand ermächtigt, für ehrenamtliche Tätigkeiten im ideellen Bereich eine Ehrenamtspauschale im Rahmen der steuerlichen Höchstgrenzen zu beschließen. Zur Vorlage beim Finanzamt wird ein formaler Beschluss gefasst.",
+            "resolutions": [
+              {
+                "id": "res-1",
+                "meetingId": "meet-2026-01",
+                "agendaItemNumber": "TOP 3",
+                "title": "Festsetzung Ehrenamtspauschale 2026 für Vorstands- und Vereinsarbeit",
+                "motionText": "Der Vorstand beschließt einstimmig, für das Geschäftsjahr 2026 an die ehrenamtlich tätigen Funktionsträger jeweils eine pauschale Aufwandsentschädigung (Ehrenamtspauschale gem. § 3 Nr. 26a EStG) in Höhe von max. 840,00 € pro Kalenderjahr auszuzahlen, sofern der Verein über ausreichende liquide Mittel verfügt und keine Doppelförderung vorliegt.",
+                "proposer": "Dr. Michael Sommer",
+                "votesFor": 5,
+                "votesAgainst": 0,
+                "votesAbstain": 0,
+                "result": "accepted",
+                "isTaxRelevant": true,
+                "isRegisterRelevant": false,
+                "responsiblePerson": "Sabine Weber (Kassenwartin)",
+                "dueDate": "2026-11-30",
+                "notes": "Rechtsgrundlage § 3 Nr. 26a EStG i.V.m. Vereinssatzung. Zur Vorlage bei der nächsten Gemeinnützigkeitsprüfung des Finanzamts ablegen."
+              }
+            ]
+          },
+          {
+            "id": "top-4",
+            "number": "TOP 4",
+            "title": "Freigabe Investition: Anschaffung Aufsitzmäher Sportplatz",
+            "speaker": "Thomas Schneider",
+            "discussionNotes": "Der aktuelle Rasenmäher ist defekt (Reparaturkosten über 1.200 € unrentabel). Es liegen drei Angebote vor. Das wirtschaftlichste Angebot der Fa. AgrarTechnik Süd beläuft sich auf 3.850,00 € brutto.",
+            "resolutions": [
+              {
+                "id": "res-2",
+                "meetingId": "meet-2026-01",
+                "agendaItemNumber": "TOP 4",
+                "title": "Anschaffung Rasenpflegetraktor Fa. AgrarTechnik",
+                "motionText": "Der Vorstand bewilligt die Anschaffung des Aufsitzmähers bei Fa. AgrarTechnik Süd zum Angebotspreis von maximal 3.900,00 € aus den laufenden Haushaltsmitteln des Sportbetriebs.",
+                "proposer": "Thomas Schneider",
+                "votesFor": 4,
+                "votesAgainst": 0,
+                "votesAbstain": 1,
+                "result": "accepted",
+                "isTaxRelevant": true,
+                "isRegisterRelevant": false,
+                "responsiblePerson": "Thomas Schneider",
+                "dueDate": "2026-09-15"
+              }
+            ]
+          },
+          {
+            "id": "top-5",
+            "number": "TOP 5",
+            "title": "Vorbereitung Jahreshauptversammlung 2026 & Verschiedenes",
+            "speaker": "Dr. Michael Sommer",
+            "discussionNotes": "Als Termin für die nächste ordentliche Mitgliederversammlung wird Freitag, der 14.11.2026 um 19:30 Uhr festgelegt. Einladungen sollen satzungsgemäß 4 Wochen vorher per E-Mail und Brief versandt werden. Die Sitzung schließt um 21:15 Uhr."
+          }
+        ],
+        "attendees": [
+          {
+            "id": "att-1",
+            "name": "Dr. Michael Sommer",
+            "role": "1. Vorsitzender (Versammlungsleiter)",
+            "present": true,
+            "hasVotingRight": true,
+            "isSignatory": true
+          },
+          {
+            "id": "att-2",
+            "name": "Sabine Weber",
+            "role": "Kassenwartin (Schriftführerin)",
+            "present": true,
+            "hasVotingRight": true,
+            "isSignatory": true
+          },
+          {
+            "id": "att-3",
+            "name": "Thomas Schneider",
+            "role": "2. Vorsitzender",
+            "present": true,
+            "hasVotingRight": true,
+            "isSignatory": false
+          },
+          {
+            "id": "att-4",
+            "name": "Claudia Franke",
+            "role": "Jugendleiterin",
+            "present": true,
+            "hasVotingRight": true,
+            "isSignatory": false
+          },
+          {
+            "id": "att-5",
+            "name": "Marcus Bauer",
+            "role": "Schriftführer & Presse",
+            "present": true,
+            "hasVotingRight": true,
+            "isSignatory": false
+          }
+        ],
+        "generalNotes": "Harmonische Sitzung. Protokoll ist digital archiviert und unterzeichnet.",
+        "createdAt": "2026-08-18T19:00:00.000Z",
+        "updatedAt": "2026-08-19T10:30:00.000Z"
+      }
+    ],
+    "meetingTemplate": {
+      "id": "main_meeting_template",
+      "templateName": "Offizielles Vereinsprotokoll (BGB-konform)",
+      "customBlankoDataUrl": "",
+      "customBlankoFileName": "",
+      "customBlankoUploadedAt": "",
+      "marginTop": 38,
+      "marginBottom": 25,
+      "marginLeft": 20,
+      "marginRight": 20,
+      "showClubHeader": true,
+      "showClubLogo": true,
+      "showSignaturesBlock": true,
+      "showRegisterExtractNotice": true,
+      "accentColor": "#4f46e5"
+    },
+    "dashboardConfig": {
+      "version": 1,
+      "widgets": [
+        {
+          "id": "quick_actions",
+          "enabled": true,
+          "order": 1,
+          "colSpan": 4
+        },
+        {
+          "id": "club_header",
+          "enabled": true,
+          "order": 2,
+          "colSpan": 4
+        },
+        {
+          "id": "members_kpi",
+          "enabled": true,
+          "order": 3,
+          "colSpan": 1
+        },
+        {
+          "id": "online_applications_kpi",
+          "enabled": true,
+          "order": 4,
+          "colSpan": 2
+        },
+        {
+          "id": "departments_distribution",
+          "enabled": true,
+          "order": 5,
+          "colSpan": 1
+        },
+        {
+          "id": "upcoming_birthdays",
+          "enabled": true,
+          "order": 6,
+          "colSpan": 1
+        },
+        {
+          "id": "recent_members",
+          "enabled": false,
+          "order": 7,
+          "colSpan": 2
+        },
+        {
+          "id": "demographics_distribution",
+          "enabled": false,
+          "order": 8,
+          "colSpan": 2
+        },
+        {
+          "id": "total_liquidity",
+          "enabled": true,
+          "order": 9,
+          "colSpan": 1
+        },
+        {
+          "id": "annual_balance",
+          "enabled": true,
+          "order": 10,
+          "colSpan": 1
+        },
+        {
+          "id": "wgb_limit_monitor",
+          "enabled": true,
+          "order": 11,
+          "colSpan": 1
+        },
+        {
+          "id": "tax_spheres_overview",
+          "enabled": true,
+          "order": 12,
+          "colSpan": 2
+        },
+        {
+          "id": "sepa_debit_monitor",
+          "enabled": true,
+          "order": 13,
+          "colSpan": 2
+        },
+        {
+          "id": "recent_journal_transactions",
+          "enabled": true,
+          "order": 14,
+          "colSpan": 2
+        },
+        {
+          "id": "donations_summary",
+          "enabled": true,
+          "order": 15,
+          "colSpan": 1
+        },
+        {
+          "id": "cashflow_chart",
+          "enabled": false,
+          "order": 16,
+          "colSpan": 2
+        },
+        {
+          "id": "invoices_overview",
+          "enabled": true,
+          "order": 17,
+          "colSpan": 2
+        },
+        {
+          "id": "invoices_kpi",
+          "enabled": false,
+          "order": 18,
+          "colSpan": 1
+        },
+        {
+          "id": "contacts_summary",
+          "enabled": true,
+          "order": 19,
+          "colSpan": 2
+        },
+        {
+          "id": "contacts_kpi",
+          "enabled": false,
+          "order": 20,
+          "colSpan": 1
+        },
+        {
+          "id": "upcoming_events",
+          "enabled": true,
+          "order": 21,
+          "colSpan": 2
+        },
+        {
+          "id": "meetings_summary",
+          "enabled": true,
+          "order": 22,
+          "colSpan": 2
+        },
+        {
+          "id": "meetings_kpi",
+          "enabled": false,
+          "order": 23,
+          "colSpan": 1
+        },
+        {
+          "id": "inventory_overview",
+          "enabled": true,
+          "order": 24,
+          "colSpan": 1
+        },
+        {
+          "id": "documents_archive_kpi",
+          "enabled": true,
+          "order": 25,
+          "colSpan": 1
+        }
+      ]
+    },
+    "calendarEvents": [
+      {
+        "id": "evt-1",
+        "title": "Jahreshauptversammlung 2026",
+        "description": "Ordentliche Mitgliederversammlung mit Berichten des Vorstands, Entlastung, Ehrungen langjähriger Mitglieder und Neuwahl des Kassenprüfers. Im Anschluss gemütliches Beisammensein.",
+        "categoryId": "cat-assembly",
+        "department": "all",
+        "startDate": "2026-09-18",
+        "startTime": "19:00",
+        "endDate": "2026-09-18",
+        "endTime": "22:00",
+        "isAllDay": false,
+        "location": "Vereinsheim TSV Musterstadt, Sportplatzweg 12, 12345 Musterstadt",
+        "locationLat": 52.520008,
+        "locationLng": 13.404954,
+        "participants": [
+          {
+            "memberId": "mem-1",
+            "memberName": "Dr. Michael Sommer",
+            "memberEmail": "sommer@tsv-musterstadt.de",
+            "memberDepartment": "Vorstand",
+            "role": "organizer",
+            "status": "confirmed",
+            "notes": "Versammlungsleitung"
+          },
+          {
+            "memberId": "mem-2",
+            "memberName": "Sabine Weber",
+            "memberEmail": "weber@tsv-musterstadt.de",
+            "memberDepartment": "Finanzen",
+            "role": "organizer",
+            "status": "confirmed",
+            "notes": "Kassenbericht 2025/2026"
+          },
+          {
+            "memberId": "mem-3",
+            "memberName": "Klaus Meier",
+            "memberEmail": "meier@tsv-musterstadt.de",
+            "memberDepartment": "Fußball",
+            "role": "organizer",
+            "status": "confirmed",
+            "notes": "Bericht Kassenprüfung"
+          },
+          {
+            "memberId": "mem-4",
+            "memberName": "Laura Schmidt",
+            "memberEmail": "laura.s@example.com",
+            "memberDepartment": "Turnen",
+            "role": "participant",
+            "status": "confirmed"
+          },
+          {
+            "memberId": "mem-5",
+            "memberName": "Thomas Bauer",
+            "memberEmail": "thomas.bauer@muster.de",
+            "memberDepartment": "Tennis",
+            "role": "participant",
+            "status": "invited"
+          }
+        ],
+        "createdAt": "2026-01-10T10:00:00.000Z",
+        "updatedAt": "2026-01-10T10:00:00.000Z"
+      },
+      {
+        "id": "evt-2",
+        "title": "Wöchentliches Jugendtraining Fußball",
+        "description": "Gemeinsames Technik- und Koordinationstraining der C- und B-Jugend. Bitte Trainingskleidung, Schienbeinschoner und Trinkflasche mitbringen.",
+        "categoryId": "cat-training",
+        "department": "Fußball",
+        "startDate": "2026-08-04",
+        "startTime": "17:30",
+        "endDate": "2026-08-04",
+        "endTime": "19:00",
+        "isAllDay": false,
+        "location": "Hauptplatz Sportanlage, Sportplatzweg 12, 12345 Musterstadt",
+        "locationLat": 52.520008,
+        "locationLng": 13.404954,
+        "recurrence": {
+          "frequency": "weekly",
+          "interval": 1,
+          "daysOfWeek": [
+            2,
+            4
+          ],
+          "endType": "never"
+        },
+        "participants": [
+          {
+            "memberId": "mem-3",
+            "memberName": "Klaus Meier",
+            "memberEmail": "meier@tsv-musterstadt.de",
+            "memberDepartment": "Fußball",
+            "role": "trainer",
+            "status": "confirmed",
+            "notes": "Haupttrainer"
+          },
+          {
+            "memberId": "mem-7",
+            "memberName": "Felix Becker",
+            "memberDepartment": "Fußball",
+            "role": "participant",
+            "status": "confirmed"
+          },
+          {
+            "memberId": "mem-8",
+            "memberName": "Maximilian Müller",
+            "memberDepartment": "Fußball",
+            "role": "participant",
+            "status": "confirmed"
+          }
+        ],
+        "createdAt": "2026-01-01T08:00:00.000Z",
+        "updatedAt": "2026-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "evt-3",
+        "title": "Monatliche Vorstandssitzung",
+        "description": "Reguläre Beratung über Vereinsfinanzen, Anträge der Abteilungen, Investitionen und anstehende Veranstaltungen.",
+        "categoryId": "cat-board",
+        "department": "Vorstand",
+        "startDate": "2026-08-03",
+        "startTime": "19:30",
+        "endDate": "2026-08-03",
+        "endTime": "21:30",
+        "isAllDay": false,
+        "location": "Sitzungszimmer Vereinsheim, Sportplatzweg 12, 12345 Musterstadt",
+        "locationLat": 52.520008,
+        "locationLng": 13.404954,
+        "recurrence": {
+          "frequency": "monthly",
+          "interval": 1,
+          "endType": "never"
+        },
+        "participants": [
+          {
+            "memberId": "mem-1",
+            "memberName": "Dr. Michael Sommer",
+            "memberEmail": "sommer@tsv-musterstadt.de",
+            "memberDepartment": "Vorstand",
+            "role": "organizer",
+            "status": "confirmed"
+          },
+          {
+            "memberId": "mem-2",
+            "memberName": "Sabine Weber",
+            "memberEmail": "weber@tsv-musterstadt.de",
+            "memberDepartment": "Finanzen",
+            "role": "organizer",
+            "status": "confirmed"
+          }
+        ],
+        "createdAt": "2026-01-01T08:00:00.000Z",
+        "updatedAt": "2026-01-01T08:00:00.000Z"
+      },
+      {
+        "id": "evt-4",
+        "title": "Heimspiel 1. Herren vs. FC Nordstern",
+        "description": "Spitzenspiel der Bezirksliga! Für Verpflegung mit Grill und Kaltgetränken am Sportlerheim ist gesorgt. Eintritt für Mitglieder frei.",
+        "categoryId": "cat-match",
+        "department": "Fußball",
+        "startDate": "2026-08-29",
+        "startTime": "15:00",
+        "endDate": "2026-08-29",
+        "endTime": "17:00",
+        "isAllDay": false,
+        "location": "Stadion am Sportplatzweg, 12345 Musterstadt",
+        "locationLat": 52.520008,
+        "locationLng": 13.404954,
+        "participants": [
+          {
+            "memberId": "mem-3",
+            "memberName": "Klaus Meier",
+            "memberDepartment": "Fußball",
+            "role": "organizer",
+            "status": "confirmed"
+          },
+          {
+            "memberId": "mem-6",
+            "memberName": "Christian Koch",
+            "memberDepartment": "Fußball",
+            "role": "helper",
+            "status": "confirmed",
+            "notes": "Stadiondurchsage & Grilldienst"
+          }
+        ],
+        "createdAt": "2026-08-01T09:00:00.000Z",
+        "updatedAt": "2026-08-01T09:00:00.000Z"
+      },
+      {
+        "id": "evt-5",
+        "title": "TSV Sommerfest & Tag der offenen Tür",
+        "description": "Großes Familienfest mit Schnupperstationen aller Abteilungen (Fußball, Turnen, Tennis, Schwimmen), Hüpfburg, Tombola und Live-Musik ab 19 Uhr.",
+        "categoryId": "cat-celebration",
+        "department": "all",
+        "startDate": "2026-08-15",
+        "endDate": "2026-08-15",
+        "isAllDay": true,
+        "location": "Gesamtes Vereinsgelände & Festwiese, Sportplatzweg 12, 12345 Musterstadt",
+        "locationLat": 52.520008,
+        "locationLng": 13.404954,
+        "participants": [
+          {
+            "memberId": "mem-1",
+            "memberName": "Dr. Michael Sommer",
+            "memberDepartment": "Vorstand",
+            "role": "organizer",
+            "status": "confirmed"
+          },
+          {
+            "memberId": "mem-4",
+            "memberName": "Laura Schmidt",
+            "memberDepartment": "Turnen",
+            "role": "helper",
+            "status": "confirmed",
+            "notes": "Kinderparcours Betreuung"
+          }
+        ],
+        "createdAt": "2026-05-01T12:00:00.000Z",
+        "updatedAt": "2026-05-01T12:00:00.000Z"
+      },
+      {
+        "id": "evt-6",
+        "title": "Herbst-Arbeitseinsatz & Platzinstandsetzung",
+        "description": "Gemeinsame Platzpflege, Netzausbesserung, Heckenrückschnitt und Hallenreinigung vor Beginn der Wintersaison. Jede helfende Hand ist willkommen! Im Anschluss Helferbrotzeit.",
+        "categoryId": "cat-maintenance",
+        "department": "all",
+        "startDate": "2026-10-10",
+        "startTime": "09:00",
+        "endDate": "2026-10-10",
+        "endTime": "13:30",
+        "isAllDay": false,
+        "location": "Sportgelände TSV Musterstadt, Sportplatzweg 12, 12345 Musterstadt",
+        "locationLat": 52.520008,
+        "locationLng": 13.404954,
+        "participants": [
+          {
+            "memberId": "mem-2",
+            "memberName": "Sabine Weber",
+            "memberDepartment": "Finanzen",
+            "role": "organizer",
+            "status": "confirmed",
+            "notes": "Organisation Verpflegung"
+          },
+          {
+            "memberId": "mem-6",
+            "memberName": "Christian Koch",
+            "memberDepartment": "Fußball",
+            "role": "helper",
+            "status": "confirmed",
+            "notes": "Geräteausgabe & Werkzeuge"
+          }
+        ],
+        "createdAt": "2026-08-01T11:00:00.000Z",
+        "updatedAt": "2026-08-01T11:00:00.000Z"
+      },
+      {
+        "id": "evt-7",
+        "title": "Erste-Hilfe-Schulung & Sportunfall-Prävention",
+        "description": "Offizieller Auffrischungskurs für Trainer, Übungsleiter und Betreuer mit Zertifikat. Themen: Herz-Lungen-Wiederbelebung, AED-Einsatz, Sportverletzungen und Notfallkette.",
+        "categoryId": "cat-course",
+        "department": "all",
+        "startDate": "2026-10-24",
+        "startTime": "09:30",
+        "endDate": "2026-10-24",
+        "endTime": "16:00",
+        "isAllDay": false,
+        "location": "Schulungsraum Vereinsheim, Sportplatzweg 12, 12345 Musterstadt",
+        "locationLat": 52.520008,
+        "locationLng": 13.404954,
+        "participants": [
+          {
+            "memberId": "mem-4",
+            "memberName": "Laura Schmidt",
+            "memberDepartment": "Turnen",
+            "role": "participant",
+            "status": "confirmed"
+          },
+          {
+            "memberId": "mem-5",
+            "memberName": "Thomas Bauer",
+            "memberDepartment": "Tennis",
+            "role": "participant",
+            "status": "confirmed"
+          }
+        ],
+        "createdAt": "2026-08-01T12:00:00.000Z",
+        "updatedAt": "2026-08-01T12:00:00.000Z"
+      }
+    ],
+    "calendarCategories": [
+      {
+        "id": "cat-assembly",
+        "name": "Mitgliederversammlung / JHV",
+        "color": "#2563eb",
+        "badgeBg": "bg-blue-100",
+        "badgeText": "text-blue-800",
+        "badgeBorder": "border-blue-300",
+        "icon": "Landmark",
+        "description": "Ordentliche und außerordentliche Jahreshauptversammlungen",
+        "isSystem": true
+      },
+      {
+        "id": "cat-board",
+        "name": "Vorstandssitzung & Gremien",
+        "color": "#7c3aed",
+        "badgeBg": "bg-purple-100",
+        "badgeText": "text-purple-800",
+        "badgeBorder": "border-purple-300",
+        "icon": "Users",
+        "description": "Monatliche Vorstandssitzungen, Abteilungsleiter-Treffen und Ausschüsse",
+        "isSystem": true
+      },
+      {
+        "id": "cat-celebration",
+        "name": "Vereinsfest & Event",
+        "color": "#f59e0b",
+        "badgeBg": "bg-amber-100",
+        "badgeText": "text-amber-800",
+        "badgeBorder": "border-amber-300",
+        "icon": "PartyPopper",
+        "description": "Sommerfeste, Jubiläen, Weihnachtsfeiern und Vereinsmeisterschaften",
+        "isSystem": true
+      },
+      {
+        "id": "cat-course",
+        "name": "Lehrgang & Fortbildung",
+        "color": "#0891b2",
+        "badgeBg": "bg-cyan-100",
+        "badgeText": "text-cyan-800",
+        "badgeBorder": "border-cyan-300",
+        "icon": "GraduationCap",
+        "description": "Trainerscheine, Schiedsrichterlehrgänge und Erste-Hilfe-Kurse",
+        "isSystem": true
+      },
+      {
+        "id": "cat-general",
+        "name": "Allgemeiner Termin",
+        "color": "#64748b",
+        "badgeBg": "bg-slate-100",
+        "badgeText": "text-slate-800",
+        "badgeBorder": "border-slate-300",
+        "icon": "Calendar",
+        "description": "Sonstige Vereinstermine, Fristen und Ankündigungen",
+        "isSystem": true
+      },
+      {
+        "id": "cat-maintenance",
+        "name": "Arbeitseinsatz & Pflege",
+        "color": "#ea580c",
+        "badgeBg": "bg-orange-100",
+        "badgeText": "text-orange-800",
+        "badgeBorder": "border-orange-300",
+        "icon": "Wrench",
+        "description": "Platzpflege, Hallenreinigung, Reparaturen und Geländearbeiten",
+        "isSystem": true
+      },
+      {
+        "id": "cat-match",
+        "name": "Spiel & Wettkampf",
+        "color": "#ef4444",
+        "badgeBg": "bg-rose-100",
+        "badgeText": "text-rose-800",
+        "badgeBorder": "border-rose-300",
+        "icon": "Trophy",
+        "description": "Punktspiele, Turniere, Pokalspiele und Meisterschaften",
+        "isSystem": true
+      },
+      {
+        "id": "cat-training",
+        "name": "Training & Kurse",
+        "color": "#10b981",
+        "badgeBg": "bg-emerald-100",
+        "badgeText": "text-emerald-800",
+        "badgeBorder": "border-emerald-300",
+        "icon": "Activity",
+        "description": "Reguläre Trainingseinheiten, Übungsstunden und Fitnesskurse",
+        "isSystem": true
+      }
+    ],
+    "onlineApplications": [
+      {
+        "id": "app-demo-1",
+        "applicationNumber": "ANTRAG-2026-001",
+        "submittedAt": "2026-03-01T14:20:00.000Z",
+        "status": "pending",
+        "firstName": "Felix",
+        "lastName": "Bauer",
+        "gender": "m",
+        "birthDate": "2012-06-18",
+        "nationality": "Deutsch",
+        "phone": "0176 9988776",
+        "email": "familie.bauer@example.de",
+        "address": {
+          "street": "Kastanienallee",
+          "houseNumber": "17",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "department": "Fußball",
+        "membershipType": "youth",
+        "feeAmount": 10,
+        "feePeriod": "monthly",
+        "entryDate": "2026-03-15",
+        "notes": "Jugend D-Jugend Training. Bisher vereinslos.",
+        "previousClub": "",
+        "isMinor": true,
+        "guardianName": "Martina Bauer",
+        "guardianRelation": "Mutter",
+        "guardianPhone": "0176 9988776",
+        "guardianEmail": "familie.bauer@example.de",
+        "paymentMethod": "sepa",
+        "bankDetails": {
+          "iban": "DE44370501980011223344",
+          "bic": "SPKDMUSTXXX",
+          "bankName": "Sparkasse Musterstadt",
+          "accountHolder": "Martina Bauer",
+          "mandateDate": "2026-03-01",
+          "mandateReference": "MANDAT-ANTRAG-2026-001",
+          "monthlyDueDay": 1
+        },
+        "dataPrivacyConsent": true,
+        "statuteConsent": true,
+        "applicantSignature": "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"200\" height=\"60\" viewBox=\"0 0 200 60\"><path d=\"M 20 40 Q 50 10, 80 35 T 140 30 T 180 35\" fill=\"none\" stroke=\"%230f172a\" stroke-width=\"3\" stroke-linecap=\"round\"/></svg>",
+        "applicantSignatureDate": "2026-03-01T14:18:00.000Z",
+        "guardianSignature": "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"200\" height=\"60\" viewBox=\"0 0 200 60\"><path d=\"M 20 40 Q 50 10, 80 35 T 140 30 T 180 35\" fill=\"none\" stroke=\"%230f172a\" stroke-width=\"3\" stroke-linecap=\"round\"/></svg>",
+        "guardianSignatureDate": "2026-03-01T14:19:00.000Z"
+      },
+      {
+        "id": "app-demo-2",
+        "applicationNumber": "ANTRAG-2026-002",
+        "submittedAt": "2026-02-28T09:45:00.000Z",
+        "status": "pending",
+        "firstName": "Sophia",
+        "lastName": "Wagner",
+        "gender": "w",
+        "birthDate": "1996-09-12",
+        "nationality": "Deutsch",
+        "phone": "0151 4455667",
+        "email": "sophia.wagner@example.de",
+        "address": {
+          "street": "Lindenweg",
+          "houseNumber": "8b",
+          "zip": "12345",
+          "city": "Musterstadt",
+          "country": "Deutschland"
+        },
+        "department": "Tennis",
+        "membershipType": "full",
+        "feeAmount": 18,
+        "feePeriod": "monthly",
+        "entryDate": "2026-04-01",
+        "notes": "Interesse an Sommer-Medenspielen Damen.",
+        "previousClub": "TC Blau-Weiß 1920 e.V.",
+        "isMinor": false,
+        "paymentMethod": "sepa",
+        "bankDetails": {
+          "iban": "DE89370601900055667788",
+          "bic": "GENODEM1MST",
+          "bankName": "Volksbank Musterstadt",
+          "accountHolder": "Sophia Wagner",
+          "mandateDate": "2026-02-28",
+          "mandateReference": "MANDAT-ANTRAG-2026-002",
+          "monthlyDueDay": 1
+        },
+        "dataPrivacyConsent": true,
+        "statuteConsent": true,
+        "applicantSignature": "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"200\" height=\"60\" viewBox=\"0 0 200 60\"><path d=\"M 20 40 Q 50 10, 80 35 T 140 30 T 180 35\" fill=\"none\" stroke=\"%230f172a\" stroke-width=\"3\" stroke-linecap=\"round\"/></svg>",
+        "applicantSignatureDate": "2026-02-28T09:44:00.000Z",
+        "sepaSignature": "data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"200\" height=\"60\" viewBox=\"0 0 200 60\"><path d=\"M 20 40 Q 50 10, 80 35 T 140 30 T 180 35\" fill=\"none\" stroke=\"%230f172a\" stroke-width=\"3\" stroke-linecap=\"round\"/></svg>",
+        "sepaSignatureDate": "2026-02-28T09:44:00.000Z"
+      }
+    ],
+    "applicationSettings": {
+      "headerText": "Herzlich willkommen beim TSV Musterstadt 1890 e.V.! Füllen Sie den Online-Aufnahmeantrag bitte vollständig aus.",
+      "notificationEmail": "vorstand@tsv-musterstadt1890.de",
+      "defaultFeeRules": {
+        "full": 18,
+        "reduced": 12,
+        "youth": 10,
+        "family": 30,
+        "supporting": 25
+      }
+    },
+    "settings": {
+      "clubName": "TSV Musterstadt 1890 e.V.",
+      "associationNumber": "VR 48219 (Amtsgericht Musterstadt)",
+      "taxNumber": "112/5840/1922 (Finanzamt Musterstadt)",
+      "taxOffice": "Finanzamt Musterstadt",
+      "taxExemptionDate": "10.01.2024",
+      "taxAssessmentPeriod": "2021 bis 2023",
+      "promotedPurposes": "Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)",
+      "creditorId": "DE98ZZZ09999999999",
+      "creditorIban": "DE89370501981122334455",
+      "creditorBic": "SPKDMUSTXXX",
+      "creditorAccountId": "acc-1",
+      "address": "Sportplatzweg 12, 12345 Musterstadt",
+      "chairman": "Dr. Michael Sommer",
+      "treasurer": "Sabine Weber",
+      "boardMembers": [
+        {
+          "id": "bm-1",
+          "role": "1. Vorsitzender",
+          "name": "Dr. Michael Sommer",
+          "email": "vorstand@tsv-musterstadt1890.de"
+        },
+        {
+          "id": "bm-2",
+          "role": "Schatzmeisterin / Kassenwart",
+          "name": "Sabine Weber",
+          "email": "finanzen@tsv-musterstadt1890.de"
+        },
+        {
+          "id": "bm-3",
+          "role": "2. Vorsitzender",
+          "name": "Thomas Müller"
+        },
+        {
+          "id": "bm-4",
+          "role": "Schriftführerin",
+          "name": "Claudia Schmidt"
+        }
+      ],
+      "email": "vorstand@tsv-musterstadt1890.de",
+      "departments": [
+        "Fußball",
+        "Tennis",
+        "Leichtathletik",
+        "Turnen & Gymnastik",
+        "Tischtennis",
+        "Schach",
+        "Volleyball",
+        "Schwimmen",
+        "Vorstand & Verwaltung",
+        "Ehrenmitglieder"
+      ],
+      "currency": "EUR",
+      "dateFormat": "DD.MM.YYYY",
+      "fiscalYearStart": "01-01",
+      "theme": "light"
+    }
+  }
+}

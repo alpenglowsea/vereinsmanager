@@ -24,4 +24,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "VereinsManager"
 include(":app")
+include(":core")
  

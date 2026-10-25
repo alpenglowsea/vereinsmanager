@@ -20,10 +20,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             VereinsManagerTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                    ProbeScreen(Modifier.padding(innerPadding))
                 }
             }
         }
