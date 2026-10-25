@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
+    `java-library`
 }
 
 // Reines Kotlin ohne Android: lässt sich auf jedem Rechner mit "./gradlew :core:test" prüfen.
@@ -14,6 +15,6 @@ java {
 }
 
 dependencies {
-    implementation(libs.kotlinx.serialization.json)
+    api(libs.kotlinx.serialization.json)
     testImplementation(libs.junit)
 }
