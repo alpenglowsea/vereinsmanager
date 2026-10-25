@@ -1,0 +1,117 @@
+package de.vereinsmanager.android
+
+import android.content.Context
+import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import de.vereinsmanager.android.data.SqliteDocumentStore
+import de.vereinsmanager.core.backup.BackupCrypto
+import de.vereinsmanager.core.backup.BackupExporter
+import de.vereinsmanager.core.backup.BackupFile
+import de.vereinsmanager.core.backup.BackupImporter
+import de.vereinsmanager.core.backup.ImportMode
+import de.vereinsmanager.core.members.Member
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlin.concurrent.thread
+
+/** Der Zustand der App: Speicher, geladene Mitglieder und Meldungen. */
+class AppModel(private val appContext: Context) {
+    val store = SqliteDocumentStore(appContext)
+    private val main = Handler(Looper.getMainLooper())
+
+    var members by mutableStateOf<List<Member>>(emptyList())
+        private set
+    var departments by mutableStateOf<List<String>>(emptyList())
+        private set
+    var clubName by mutableStateOf("")
+        private set
+    var message by mutableStateOf("")
+    var busy by mutableStateOf(false)
+        private set
+
+    init { reload() }
+
+    private fun post(block: () -> Unit) { main.post(block) }
+
+    /** Liest Mitglieder und Vereinsdaten neu aus dem Speicher. */
+    fun reload() {
+        members = store.all("members").map { Member.from(it) }
+        val settings = store.get("settings", "main")
+        clubName = (settings?.get("clubName") as? JsonPrimitive)?.contentOrNull ?: ""
+        departments = (settings?.get("departments") as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList()
+    }
+
+    fun isEncrypted(uri: Uri): Boolean = BackupFile.isEncrypted(readText(uri))
+
+    private fun readText(uri: Uri): String =
+        appContext.contentResolver.openInputStream(uri)!!.use { it.readBytes() }.toString(Charsets.UTF_8)
+
+    /** Legt vor dem Einspielen eine Kopie des bisherigen Bestands im geschützten App-Ordner ab (die letzten drei bleiben). */
+    private fun sicherheitskopie(): String? {
+        if (store.count("members") + store.count("transactions") + store.count("settings") == 0) return null
+        return try {
+            val dir = File(appContext.filesDir, "sicherheitskopien").apply { mkdirs() }
+            val stamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.ROOT).format(Date())
+            val f = File(dir, "vor_import_$stamp.json")
+            f.writeText(BackupExporter.export(store).toJsonText(), Charsets.UTF_8)
+            dir.listFiles()?.sortedBy { it.name }?.dropLast(3)?.forEach { it.delete() }
+            f.name
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun importBackup(uri: Uri, password: String, mode: ImportMode) {
+        busy = true
+        message = "Sicherung wird eingespielt …"
+        thread {
+            val text = try {
+                val raw = readText(uri)
+                val plain = if (BackupFile.isEncrypted(raw)) BackupCrypto.decrypt(raw, password) else raw
+                val file = BackupFile.parse(plain)
+                val kopie = sicherheitskopie()
+                val report = BackupImporter.import(file, store, mode)
+                val art = if (mode == ImportMode.REPLACE) "ersetzt" else "ergänzt"
+                buildString {
+                    append("Bestand $art. ")
+                    append(report.inFile.entries.filter { it.value > 0 }.joinToString(", ") { "${it.key}: ${it.value}" })
+                    append(if (kopie != null) "\nSicherheitskopie des vorherigen Bestands: $kopie" else "\nKeine Sicherheitskopie nötig (Bestand war leer) oder sie ließ sich nicht anlegen.")
+                    if (!report.ok) append("\nNICHT alles gespeichert: " + report.failed.joinToString("; "))
+                }
+            } catch (e: Exception) {
+                "Fehler: ${e.message ?: e::class.simpleName}"
+            }
+            post { reload(); message = text; busy = false }
+        }
+    }
+
+    fun exportBackup(uri: Uri, password: String) {
+        busy = true
+        message = "Sicherung wird geschrieben …"
+        thread {
+            val text = try {
+                val plain = BackupExporter.export(store).toJsonText()
+                val out = if (password.isNotEmpty()) BackupCrypto.encrypt(plain, password) else plain
+                appContext.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(out.toByteArray(Charsets.UTF_8)) }
+                "Sicherung geschrieben (${if (password.isNotEmpty()) "verschlüsselt" else "unverschlüsselt"})."
+            } catch (e: Exception) {
+                "Fehler: ${e.message ?: e::class.simpleName}"
+            }
+            post { message = text; busy = false }
+        }
+    }
+
+    fun suggestedFileName(): String {
+        val club = clubName.ifEmpty { "Verein" }.replace(Regex("[^A-Za-z0-9äöüÄÖÜß_-]+"), "_")
+        return "VereinsManager_Sicherung_${club}_${SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date())}.json"
+    }
+}
