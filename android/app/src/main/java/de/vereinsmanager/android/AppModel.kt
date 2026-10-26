@@ -65,6 +65,9 @@ class AppModel(private val appContext: Context) {
     var busy by mutableStateOf(false)
         private set
 
+    /** Reihenfolge der Mitglieder, wie die Liste sie gerade zeigt (für das seitliche Blättern in der Detailansicht). */
+    var ansicht by mutableStateOf<List<String>>(emptyList())
+
     /** Zählt hoch, sobald sich Material oder Historie geändert haben können; Ansichten lesen daraufhin neu. */
     var stand by mutableStateOf(0)
         private set

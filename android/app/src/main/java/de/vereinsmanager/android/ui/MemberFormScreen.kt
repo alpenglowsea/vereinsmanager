@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import de.vereinsmanager.android.AppModel
 import de.vereinsmanager.core.members.FormTab
@@ -68,11 +69,12 @@ internal val PAYMENT_ORDER = listOf("sepa", "transfer", "standing_order", "cash"
 internal fun Feld(
     label: String, value: String, onChange: (String) -> Unit, error: String? = null, enabled: Boolean = true,
     keyboard: KeyboardType = KeyboardType.Text, singleLine: Boolean = true, hinweis: String? = null,
+    transformation: VisualTransformation = VisualTransformation.None,
 ) {
     val unten = error ?: hinweis
     OutlinedTextField(
         value = value, onValueChange = onChange, label = { Text(label) }, enabled = enabled, singleLine = singleLine,
-        isError = error != null, keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+        isError = error != null, keyboardOptions = KeyboardOptions(keyboardType = keyboard), visualTransformation = transformation,
         supportingText = if (unten != null) { { Text(unten) } } else null,
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
     )
@@ -219,7 +221,7 @@ fun MemberFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
                         Feld("Kreditinstitut / Bankname", f.bankName, { f = f.copy(bankName = it) })
                         Feld(
                             "IBAN *", f.iban, { f = MemberRules.setIban(f, it) }, errors["iban"],
-                            hinweis = MemberRules.ibanHinweis(f.iban),
+                            hinweis = MemberRules.ibanHinweis(f.iban), transformation = IbanTransformation,
                         )
                         Feld("BIC (optional bei SEPA)", f.bic, { f = f.copy(bic = it.uppercase().replace(" ", "")) })
                         if (f.feePeriod == "monthly") DueDay(f) { f = it }
@@ -266,5 +268,20 @@ private fun DueDay(f: MemberForm, onChange: (MemberForm) -> Unit) {
             FilterChip(f.monthlyDueDay == 1, { onChange(f.copy(monthlyDueDay = 1)) }, { Text("1. des Monats") })
             FilterChip(f.monthlyDueDay == 15, { onChange(f.copy(monthlyDueDay = 15)) }, { Text("15. des Monats") })
         }
+    }
+}
+
+
+/** Zeigt die IBAN in Vierergruppen an, während sie ohne Leerzeichen gespeichert bleibt. */
+internal object IbanTransformation : VisualTransformation {
+    override fun filter(text: androidx.compose.ui.text.AnnotatedString): androidx.compose.ui.text.input.TransformedText {
+        val roh = text.text
+        val sb = StringBuilder()
+        roh.forEachIndexed { i, c -> if (i > 0 && i % 4 == 0) sb.append(' '); sb.append(c) }
+        val abbildung = object : androidx.compose.ui.text.input.OffsetMapping {
+            override fun originalToTransformed(offset: Int) = if (offset <= 0) 0 else offset + (offset - 1) / 4
+            override fun transformedToOriginal(offset: Int) = (offset - offset / 5).coerceIn(0, roh.length)
+        }
+        return androidx.compose.ui.text.input.TransformedText(androidx.compose.ui.text.AnnotatedString(sb.toString()), abbildung)
     }
 }

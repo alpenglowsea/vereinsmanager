@@ -1,5 +1,6 @@
 package de.vereinsmanager.core.export
 
+import de.vereinsmanager.core.members.Iban
 import de.vereinsmanager.core.members.Member
 import de.vereinsmanager.core.members.MemberLabels
 import de.vereinsmanager.core.members.Zeit
@@ -65,7 +66,7 @@ object Stammblatt {
             listOf("Mitgliedschaftstyp:", MemberLabels.TYPE_DETAIL[m.type] ?: m.type, "Beitragshöhe:", "${Export.fixed2(m.fee).replace('.', ',')} €"),
             listOf("Zahlungsrhythmus:", rhythmus, "Zahlungsmethode:", MemberLabels.PAYMENT[m.paymentMethod] ?: m.paymentMethod),
             listOf("Kontoinhaber:", o(t(bank, "accountHolder")), "Kreditinstitut:", o(t(bank, "bankName"))),
-            listOf("IBAN:", o(t(bank, "iban")), "BIC:", o(t(bank, "bic"))),
+            listOf("IBAN:", o(Iban.gruppiert(t(bank, "iban"))), "BIC:", o(t(bank, "bic"))),
             listOf("SEPA-Mandatsreferenz:", o(t(bank, "mandateReference")), "Mandatsdatum:", d(t(bank, "mandateDate"))),
         )
         return StammblattDaten(

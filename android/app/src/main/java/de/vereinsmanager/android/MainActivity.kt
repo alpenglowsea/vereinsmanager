@@ -56,7 +56,8 @@ class MainActivity : ComponentActivity() {
                             onImport = { stack = stack + Page.MemberImport }, modifier = m,
                         )
                         is Page.Member -> MemberDetailScreen(
-                            model, page.id, onEdit = { stack = stack + Page.MemberEdit(page.id) },
+                            model, page.id, onEdit = { id -> stack = stack + Page.MemberEdit(id) },
+                            onPage = { id -> stack = stack.dropLast(1) + Page.Member(id) },
                             onMaterialOverview = { stack = stack + Page.MaterialOverview },
                             onDeleted = { stack = stack.filter { it !is Page.Member && it !is Page.MemberEdit } }, modifier = m,
                         )

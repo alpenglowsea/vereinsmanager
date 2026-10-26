@@ -1,9 +1,26 @@
 package de.vereinsmanager.android.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import de.vereinsmanager.core.members.Iban
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -92,78 +109,99 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
     val heute = LocalDate.now().toString()
     val deptOptions = remember(model.departments) { model.departments.associateWith { it } }
 
-    Column(modifier.padding(horizontal = 16.dp)) {
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onNew, modifier = Modifier.weight(1f)) { Text("Neues Mitglied") }
-            OutlinedButton(onClick = onImport, modifier = Modifier.weight(1f)) { Text("CSV-Import") }
+    // Kopf blendet beim Hinunterscrollen aus und beim Hinaufscrollen wieder ein.
+    val listState = rememberLazyListState()
+    var kopfSichtbar by remember { mutableStateOf(true) }
+    val scrollVerfolgung = remember(listState) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y < -12f) {
+                    val i = listState.layoutInfo
+                    // Nur ausblenden, wenn nach dem Ausblenden noch genug Zeilen zum Scrollen bleiben.
+                    if (i.totalItemsCount - i.visibleItemsInfo.size >= 6) kopfSichtbar = false
+                } else if (available.y > 12f) {
+                    kopfSichtbar = true
+                }
+                return Offset.Zero
+            }
         }
+    }
+    LaunchedEffect(shown) { model.ansicht = shown.map { it.id } }
+
+    Column(modifier.padding(horizontal = 16.dp).nestedScroll(scrollVerfolgung)) {
         if (selecting) {
             Text("${selected.size} ausgewählt (zum Abwählen erneut antippen)", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { selected = shown.map { it.id }.toSet() }, modifier = Modifier.weight(1f)) { Text("Alle angezeigten") }
-                    OutlinedButton(onClick = { selected = emptySet() }, modifier = Modifier.weight(1f)) { Text("Keine") }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { bulkOpen = true }, modifier = Modifier.weight(1f)) { Text("Bearbeiten") }
-                    OutlinedButton(onClick = { deleteOpen = true }, modifier = Modifier.weight(1f)) { Text("Löschen") }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = {
-                        val auswahl = model.members.filter { it.id in selected }
-                        exporter.csv("mitglieder_${auswahl.size}_ausgewaehlt.csv") { Export.mitgliederCsv(auswahl) }
-                    }, modifier = Modifier.weight(1f)) { Text("CSV (nur Auswahl)") }
-                    OutlinedButton(onClick = {
-                        val auswahl = model.members.filter { it.id in selected }
-                        exporter.pdf("mitglieder_$heute.pdf") { Export.mitgliederPdf(auswahl, model.vereinsname(), LocalDate.now()) }
-                    }, modifier = Modifier.weight(1f)) { Text("PDF (nur Auswahl)") }
-                }
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { selected = shown.map { it.id }.toSet() }) { Text("Alle angezeigten") }
+                OutlinedButton(onClick = { selected = emptySet() }) { Text("Keine") }
+                Button(onClick = { bulkOpen = true }) { Text("Bearbeiten") }
+                OutlinedButton(onClick = { deleteOpen = true }) { Text("Löschen") }
+                OutlinedButton(onClick = {
+                    val auswahl = model.members.filter { it.id in selected }
+                    exporter.csv("mitglieder_${auswahl.size}_ausgewaehlt.csv") { Export.mitgliederCsv(auswahl) }
+                }) { Text("CSV") }
+                OutlinedButton(onClick = {
+                    val auswahl = model.members.filter { it.id in selected }
+                    exporter.pdf("mitglieder_$heute.pdf") { Export.mitgliederPdf(auswahl, model.vereinsname(), LocalDate.now()) }
+                }) { Text("PDF") }
             }
         }
         if (info.isNotEmpty()) Text(info, modifier = Modifier.padding(top = 8.dp))
-        else if (!selecting && model.members.isNotEmpty()) {
-            Text("Tipp: Mitglied lange antippen, um mehrere auszuwählen.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Column { Text("Mitglieder", style = MaterialTheme.typography.labelMedium); Text("${stats.total}", style = MaterialTheme.typography.titleLarge) }
-            Column { Text("Aktiv", style = MaterialTheme.typography.labelMedium); Text("${stats.active} (${stats.activePercent} %)", style = MaterialTheme.typography.titleLarge) }
-            Column { Text("Passiv", style = MaterialTheme.typography.labelMedium); Text("${stats.passive} (${stats.passivePercent} %)", style = MaterialTheme.typography.titleLarge) }
-        }
-        Text(
-            stats.departments.filter { it.count > 0 }.joinToString("  ·  ") { "${it.name} ${it.count}" },
-            style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp),
-        )
-        OutlinedTextField(
-            filter.search, { filter = filter.copy(search = it) }, label = { Text("Suchen") },
-            singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        )
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterMenu("Status", MemberLabels.STATUS, filter.status) { filter = filter.copy(status = it) }
-            FilterMenu("Sparte", deptOptions, filter.department) { filter = filter.copy(department = it) }
-            FilterMenu("Typ", MemberLabels.TYPE_FILTER, filter.type) { filter = filter.copy(type = it) }
-            FilterMenu("Zahlart", MemberLabels.PAYMENT, filter.payment) { filter = filter.copy(payment = it) }
-        }
-        Row {
-            TextButton(onClick = { sortOpen = true }) { Text("Sortiert nach ${SORT_LABELS[sortKey]}") }
-            TextButton(onClick = { ascending = !ascending }) { Text(if (ascending) "aufsteigend ↑" else "absteigend ↓") }
-            DropdownMenu(sortOpen, { sortOpen = false }) {
-                SORT_LABELS.forEach { (k, v) -> DropdownMenuItem(text = { Text(v) }, onClick = { sortKey = k; sortOpen = false }) }
+        AnimatedVisibility(
+            visible = kopfSichtbar,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically(),
+        ) {
+            Column {
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = onNew, modifier = Modifier.weight(1f)) { Text("Neues Mitglied") }
+                    OutlinedButton(onClick = onImport, modifier = Modifier.weight(1f)) { Text("CSV-Import") }
+                }
+                if (!selecting && info.isEmpty() && model.members.isNotEmpty()) {
+                    Text("Tipp: Mitglied lange antippen, um mehrere auszuwählen.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column { Text("Mitglieder", style = MaterialTheme.typography.labelMedium); Text("${stats.total}", style = MaterialTheme.typography.titleLarge) }
+                    Column { Text("Aktiv", style = MaterialTheme.typography.labelMedium); Text("${stats.active} (${stats.activePercent} %)", style = MaterialTheme.typography.titleLarge) }
+                    Column { Text("Passiv", style = MaterialTheme.typography.labelMedium); Text("${stats.passive} (${stats.passivePercent} %)", style = MaterialTheme.typography.titleLarge) }
+                }
+                Text(
+                    stats.departments.filter { it.count > 0 }.joinToString("  ·  ") { "${it.name} ${it.count}" },
+                    style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp),
+                )
+                OutlinedTextField(
+                    filter.search, { filter = filter.copy(search = it) }, label = { Text("Suchen") },
+                    singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+                Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterMenu("Status", MemberLabels.STATUS, filter.status) { filter = filter.copy(status = it) }
+                    FilterMenu("Sparte", deptOptions, filter.department) { filter = filter.copy(department = it) }
+                    FilterMenu("Typ", MemberLabels.TYPE_FILTER, filter.type) { filter = filter.copy(type = it) }
+                    FilterMenu("Zahlart", MemberLabels.PAYMENT, filter.payment) { filter = filter.copy(payment = it) }
+                }
+                Row {
+                    TextButton(onClick = { sortOpen = true }) { Text("Sortiert nach ${SORT_LABELS[sortKey]}") }
+                    TextButton(onClick = { ascending = !ascending }) { Text(if (ascending) "aufsteigend ↑" else "absteigend ↓") }
+                    DropdownMenu(sortOpen, { sortOpen = false }) {
+                        SORT_LABELS.forEach { (k, v) -> DropdownMenuItem(text = { Text(v) }, onClick = { sortKey = k; sortOpen = false }) }
+                    }
+                }
+                if (!selecting) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = {
+                        val liste = shown
+                        exporter.csv("mitglieder_${Export.dateiname(model.vereinsname())}_$heute.csv") { Export.mitgliederCsv(liste) }
+                    }) { Text("CSV-Export") }
+                    TextButton(onClick = {
+                        val liste = shown
+                        exporter.pdf("mitgliederliste_${Export.dateiname(model.vereinsname())}_$heute.pdf") { Export.mitgliederPdf(liste, model.vereinsname(), LocalDate.now()) }
+                    }) { Text("PDF-Liste") }
+                }
             }
         }
-        if (!selecting) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = {
-                val liste = shown
-                exporter.csv("mitglieder_${Export.dateiname(model.vereinsname())}_$heute.csv") { Export.mitgliederCsv(liste) }
-            }) { Text("CSV-Export") }
-            TextButton(onClick = {
-                val liste = shown
-                exporter.pdf("mitgliederliste_${Export.dateiname(model.vereinsname())}_$heute.pdf") { Export.mitgliederPdf(liste, model.vereinsname(), LocalDate.now()) }
-            }) { Text("PDF-Liste") }
-        }
-        Text("${shown.size} von ${model.members.size} angezeigt (Export: die angezeigten)", style = MaterialTheme.typography.bodySmall)
+        Text("${shown.size} von ${model.members.size} angezeigt (Export: die angezeigten)", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
         HorizontalDivider(Modifier.padding(vertical = 4.dp))
         if (model.members.isEmpty()) Text("Keine Mitglieder. Spielen Sie auf der Startseite eine Sicherung ein.", Modifier.padding(top = 16.dp))
-        LazyColumn {
+        LazyColumn(state = listState) {
             items(shown, key = { it.id }) { m ->
                 MemberRow(
                     m, selecting = selecting, checked = m.id in selected,
@@ -218,8 +256,34 @@ private fun MemberRow(m: Member, selecting: Boolean, checked: Boolean, onLongCli
     HorizontalDivider()
 }
 
+/** Detailansicht mit seitlichem Blättern durch die Mitglieder in der Reihenfolge der Liste. */
 @Composable
-fun MemberDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDeleted: () -> Unit, onMaterialOverview: () -> Unit, modifier: Modifier = Modifier) {
+fun MemberDetailScreen(
+    model: AppModel, startId: String, onEdit: (String) -> Unit, onDeleted: () -> Unit, onMaterialOverview: () -> Unit,
+    onPage: (String) -> Unit, modifier: Modifier = Modifier,
+) {
+    val ids = remember(model.ansicht, model.members, startId) {
+        val vorhanden = model.members.map { it.id }.toSet()
+        val basis = model.ansicht.filter { it in vorhanden }
+        if (startId in basis) basis else listOf(startId)
+    }
+    val pager = rememberPagerState(initialPage = ids.indexOf(startId).coerceAtLeast(0)) { ids.size }
+    val aktuelleIds by rememberUpdatedState(ids)
+    val aktuellStart by rememberUpdatedState(startId)
+    LaunchedEffect(pager) {
+        snapshotFlow { pager.settledPage }.collect { i ->
+            val id = aktuelleIds.getOrNull(i)
+            if (id != null && id != aktuellStart) onPage(id)
+        }
+    }
+    HorizontalPager(state = pager, modifier = modifier, key = { ids.getOrNull(it) ?: it }) { i ->
+        val id = ids[i]
+        MemberDetailPage(model, id, onEdit = { onEdit(id) }, onDeleted = onDeleted, onMaterialOverview = onMaterialOverview)
+    }
+}
+
+@Composable
+private fun MemberDetailPage(model: AppModel, id: String, onEdit: () -> Unit, onDeleted: () -> Unit, onMaterialOverview: () -> Unit, modifier: Modifier = Modifier) {
     var deleting by remember { mutableStateOf(false) }
     var tab by remember { mutableStateOf(0) }
     var stammInfo by remember { mutableStateOf("") }
@@ -251,6 +315,16 @@ fun MemberDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
             row("E-Mail", m.email)
             row("Beitrag", if (m.paymentMethod == "exempt" || m.feePeriod == "none") "beitragsfrei" else "${euro(m.fee)} ${MemberLabels.FEE_PERIOD[m.feePeriod] ?: ""}".trim())
             row("Zahlart", MemberLabels.PAYMENT[m.paymentMethod] ?: "")
+            val bank = m.raw["bankDetails"] as? kotlinx.serialization.json.JsonObject
+            fun bk(k: String) = (bank?.get(k) as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
+            row("Kontoinhaber", bk("accountHolder"))
+            row("Kreditinstitut", bk("bankName"))
+            if (bk("iban").isNotBlank()) {
+                SelectionContainer { Field("IBAN (lang antippen zum Kopieren)", Iban.gruppiert(bk("iban"))) }
+            }
+            row("BIC", bk("bic"))
+            row("Mandatsreferenz", bk("mandateReference"))
+            row("Mandatsdatum", if (bk("mandateDate").isNotEmpty()) deDate(bk("mandateDate")) else "")
             row("Notizen", m.notes)
             OutlinedButton(
                 onClick = {

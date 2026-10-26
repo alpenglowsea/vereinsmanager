@@ -2,6 +2,7 @@ package de.vereinsmanager.core.export
 
 import de.vereinsmanager.core.members.Ausgabe
 import de.vereinsmanager.core.members.Gegenstand
+import de.vereinsmanager.core.members.Iban
 import de.vereinsmanager.core.members.Member
 import de.vereinsmanager.core.members.Zeit
 import kotlinx.serialization.json.JsonObject
@@ -89,7 +90,7 @@ object Export {
             m.number, m.lastName, m.firstName, gender, m.birthDate, m.street, m.houseNumber, m.zip, m.city, m.country,
             m.phone, m.email, m.entryDate, m.exitDate, statusText(m.status), m.department, typText(m.type), fixed2(m.fee),
             periodeText(m.feePeriod), zahlartText(m.paymentMethod),
-            sub(m.raw, "bankDetails", "iban"), sub(m.raw, "bankDetails", "bic"), sub(m.raw, "bankDetails", "bankName"),
+            Iban.gruppiert(sub(m.raw, "bankDetails", "iban")), sub(m.raw, "bankDetails", "bic"), sub(m.raw, "bankDetails", "bankName"),
             sub(m.raw, "bankDetails", "accountHolder"), sub(m.raw, "bankDetails", "mandateDate"), sub(m.raw, "bankDetails", "mandateReference"),
             if (consent) "Ja" else "Nein", Csv.einzeilig(m.notes),
         )

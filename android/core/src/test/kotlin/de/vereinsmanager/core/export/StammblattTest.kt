@@ -38,7 +38,7 @@ class StammblattTest {
         val zahlung = d.abschnitte[1].zeilen
         assertEquals("15,00 €", zahlung[0][3])
         assertEquals("Monatlich", zahlung[1][1])
-        assertEquals("DE89370400440532013000", zahlung[3][1])
+        assertEquals("DE89 3704 0044 0532 0130 00", zahlung[3][1])
         assertEquals("01.01.2020", zahlung[4][3])
         assertEquals("Interne Notizen: Keine besonderen Vermerke.", d.notizen)
         assertTrue(d.datenschutz.endsWith("(Einwilligung erteilt)"))
