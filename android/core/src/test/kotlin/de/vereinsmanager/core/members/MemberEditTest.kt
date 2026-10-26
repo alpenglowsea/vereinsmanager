@@ -148,13 +148,14 @@ class MemberEditTest {
 
     // ---- Kontoinhaber ----
 
-    @Test fun kontoinhaberWirdBeimTippenGefuellt() {
+    @Test fun kontoinhaberFolgtDemNamenBuchstabeFuerBuchstabe() {
         var f = neu()
-        f = MemberRules.setFirstName(f, "Max")
+        for (c in "Max") f = MemberRules.setFirstName(f, f.firstName + c)
         assertEquals("Max", f.accountHolder)
-        f = MemberRules.setLastName(f, "Müller")
-        // Schon gefüllt: bleibt, auch wenn der Name sich weiter ändert.
-        assertEquals("Max", f.accountHolder)
+        for (c in "Müller") f = MemberRules.setLastName(f, f.lastName + c)
+        assertEquals("Max Müller", f.accountHolder)
+        f = MemberRules.setFirstName(f, "Maximilian")
+        assertEquals("Maximilian Müller", f.accountHolder)
     }
 
     @Test fun kontoinhaberVonDenElternBleibtErhalten() {
@@ -163,10 +164,25 @@ class MemberEditTest {
         assertEquals("Eltern Kind", f.accountHolder)
     }
 
+    @Test fun elternkontoNachTippenImNamenNichtUeberschrieben() {
+        var f = neu()
+        for (c in "Lena") f = MemberRules.setFirstName(f, f.firstName + c)
+        f = f.copy(accountHolder = "Eltern Kind")
+        for (c in "Kind") f = MemberRules.setLastName(f, f.lastName + c)
+        assertEquals("Eltern Kind", f.accountHolder)
+    }
+
     @Test fun geleerterKontoinhaberFuelltSichBeimNaechstenTippenImNamen() {
         var f = neu().copy(firstName = "Max", lastName = "Müller", accountHolder = "")
         f = MemberRules.setLastName(f, "Mueller")
         assertEquals("Max Mueller", f.accountHolder)
+    }
+
+    @Test fun nameGeleertLeertAuchDenSelbstEingetragenenKontoinhaber() {
+        var f = neu()
+        f = MemberRules.setFirstName(f, "M")
+        f = MemberRules.setFirstName(f, "")
+        assertEquals("", f.accountHolder)
     }
 
     @Test fun ibanWirdGrossUndOhneLeerzeichen() {

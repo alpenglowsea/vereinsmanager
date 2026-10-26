@@ -118,14 +118,26 @@ object MemberRules {
             )
         }
 
-    /** Beim Tippen im Namen: Ist der Kontoinhaber leer, wird er mit "Vorname Nachname" gefüllt. Sonst bleibt er unberührt. */
-    private fun fillHolder(f: MemberForm): MemberForm =
-        if (f.accountHolder.isEmpty() && (f.firstName.isNotEmpty() || f.lastName.isNotEmpty()))
-            f.copy(accountHolder = "${f.firstName} ${f.lastName}".trim())
-        else f
+    private fun name(first: String, last: String) = "$first $last".trim()
 
-    fun setFirstName(f: MemberForm, v: String) = fillHolder(f.copy(firstName = v))
-    fun setLastName(f: MemberForm, v: String) = fillHolder(f.copy(lastName = v))
+    /**
+     * Beim Tippen im Namen: Ist der Kontoinhaber leer oder steht darin noch genau der bisherige Name
+     * ("Vorname Nachname", also vom Formular selbst eingetragen), folgt er dem Namen. Hat jemand ihn selbst
+     * geändert (z. B. Konto der Eltern), bleibt er unberührt.
+     *
+     * Der Desktop trägt nur beim allerersten Buchstaben ein und lässt den Rest stehen; das ergibt "M" statt
+     * "Max Müller". Diese Fassung hält den Namen vollständig.
+     */
+    private fun folgeName(alt: MemberForm, neu: MemberForm): MemberForm {
+        val keinName = neu.firstName.isEmpty() && neu.lastName.isEmpty()
+        val folgt = alt.accountHolder.isEmpty() || alt.accountHolder == name(alt.firstName, alt.lastName)
+        return if (folgt && !keinName) neu.copy(accountHolder = name(neu.firstName, neu.lastName))
+        else if (folgt && keinName) neu.copy(accountHolder = "")
+        else neu
+    }
+
+    fun setFirstName(f: MemberForm, v: String) = folgeName(f, f.copy(firstName = v))
+    fun setLastName(f: MemberForm, v: String) = folgeName(f, f.copy(lastName = v))
 
     /** IBAN wird beim Tippen groß geschrieben und von Leerzeichen befreit. */
     fun setIban(f: MemberForm, v: String) = f.copy(iban = v.uppercase(Locale.ROOT).replace(Regex("\\s"), ""))
