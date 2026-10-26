@@ -5,7 +5,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -92,12 +94,15 @@ class MainActivity : ComponentActivity() {
                                 zurueck = !oberste,
                                 mitMenueKnopf = !breit && oberste,
                                 onKnopf = {
-                                    if (oberste) scope.launch { drawerState.open() } else stack = stack.dropLast(1)
+                                    if (!oberste) stack = stack.dropLast(1)
+                                    else scope.launch { if (drawerState.isOpen) drawerState.close() else drawerState.open() }
                                 },
                             )
                         },
                     ) { inner ->
-                        val m = Modifier.padding(inner)
+                      // Das Menü liegt unter der Kopfzeile, damit der Menü-Knopf zum Schließen sichtbar bleibt.
+                      val seite: @Composable () -> Unit = {
+                        val m = Modifier
                         when (page) {
                             Page.Home -> HomeScreen(
                                 model, onMembers = { stack = stack + Page.Members }, onProbes = { stack = stack + Page.Probes }, modifier = m,
@@ -118,6 +123,17 @@ class MainActivity : ComponentActivity() {
                             Page.MemberImport -> MemberImportScreen(model, onDone = { stack = stack.dropLast(1) }, modifier = m)
                             Page.Probes -> ProbeScreen(m)
                         }
+                      }
+                      if (breit) {
+                          Box(Modifier.padding(inner)) { seite() }
+                      } else {
+                          ModalNavigationDrawer(
+                              drawerState = drawerState,
+                              modifier = Modifier.padding(inner),
+                              drawerContent = { ModalDrawerSheet(windowInsets = WindowInsets(0, 0, 0, 0)) { menue() } },
+                              content = seite,
+                          )
+                      }
                     }
                 }
 
@@ -127,11 +143,7 @@ class MainActivity : ComponentActivity() {
                         Row(Modifier.weight(1f)) { inhalt() }
                     }
                 } else {
-                    ModalNavigationDrawer(
-                        drawerState = drawerState,
-                        drawerContent = { ModalDrawerSheet { menue() } },
-                        content = inhalt,
-                    )
+                    inhalt()
                 }
             }
         }
