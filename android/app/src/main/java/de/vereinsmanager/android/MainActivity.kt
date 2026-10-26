@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import de.vereinsmanager.android.ui.BuchungDetailScreen
+import de.vereinsmanager.android.ui.BuchungFormScreen
 import de.vereinsmanager.android.ui.BuchungenScreen
 import de.vereinsmanager.android.ui.Kopfzeile
 import de.vereinsmanager.android.ui.MenueInhalt
@@ -53,6 +54,7 @@ sealed interface Page {
     data object MemberAnalytics : Page
     data object Transactions : Page
     data class Transaction(val id: String) : Page
+    data class TransactionEdit(val id: String?) : Page
     data object Probes : Page
 }
 
@@ -126,8 +128,15 @@ class MainActivity : ComponentActivity() {
                             Page.MemberAnalytics -> MemberAnalyticsScreen(model, modifier = m)
                             Page.MaterialOverview -> MaterialOverviewScreen(model, modifier = m)
                             Page.MemberImport -> MemberImportScreen(model, onDone = { stack = stack.dropLast(1) }, modifier = m)
-                            Page.Transactions -> BuchungenScreen(model, onOpen = { stack = stack + Page.Transaction(it) }, modifier = m)
-                            is Page.Transaction -> BuchungDetailScreen(model, page.id, modifier = m)
+                            Page.Transactions -> BuchungenScreen(
+                                model, onOpen = { stack = stack + Page.Transaction(it) },
+                                onNew = { stack = stack + Page.TransactionEdit(null) }, modifier = m,
+                            )
+                            is Page.Transaction -> BuchungDetailScreen(
+                                model, page.id, onEdit = { stack = stack + Page.TransactionEdit(page.id) },
+                                onDeleted = { stack = stack.filter { it !is Page.Transaction && it !is Page.TransactionEdit } }, modifier = m,
+                            )
+                            is Page.TransactionEdit -> BuchungFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
                             Page.Probes -> ProbeScreen(m)
                         }
                       }
@@ -167,6 +176,7 @@ private fun seitenTitel(p: Page): String = when (p) {
     Page.MemberAnalytics -> "Mitglieder-Auswertung"
     Page.Transactions -> "Buchungen & Journal"
     is Page.Transaction -> "Buchung"
+    is Page.TransactionEdit -> if (p.id == null) "Neue Buchung" else "Buchung bearbeiten"
     Page.Probes -> "Proben"
 }
 
@@ -175,6 +185,6 @@ private fun aktivesZiel(p: Page): Ziel? = when (p) {
     Page.Home -> Ziel.START
     Page.Members, is Page.Member, is Page.MemberEdit, Page.MemberImport, Page.MaterialOverview -> Ziel.MITGLIEDER
     Page.MemberAnalytics -> Ziel.MITGLIEDER_AUSWERTUNG
-    Page.Transactions, is Page.Transaction -> Ziel.BUCHUNGEN
+    Page.Transactions, is Page.Transaction, is Page.TransactionEdit -> Ziel.BUCHUNGEN
     Page.Probes -> null
 }

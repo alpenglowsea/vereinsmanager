@@ -20,12 +20,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -94,7 +97,7 @@ private fun betragText(b: Buchung): String = when {
 
 /** Buchungsjournal: Kontostände oben, darunter Suche, Filter und die Buchungen als Karten-Liste. */
 @Composable
-fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, modifier: Modifier = Modifier) {
+fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, modifier: Modifier = Modifier) {
     var filter by remember { mutableStateOf(BuchungFilter()) }
     var sortierung by remember { mutableStateOf(BuchungSortierung.DATUM) }
     var aufsteigend by remember { mutableStateOf(false) }
@@ -116,6 +119,7 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, modifier: Modifie
 
     Column(modifier.padding(horizontal = 16.dp).nestedScroll(kopf.verfolgung)) {
         Column(Modifier.einklappbar(kopf)) {
+            Button(onClick = onNew, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Neue Buchung") }
             Row(
                 Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -175,7 +179,7 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, modifier: Modifie
             style = MaterialTheme.typography.bodySmall,
         )
         HorizontalDivider(Modifier.padding(vertical = 4.dp))
-        if (buchungen.isEmpty()) Text("Keine Buchungen. Spielen Sie auf der Startseite eine Sicherung ein.", Modifier.padding(top = 16.dp))
+        if (buchungen.isEmpty()) Text("Keine Buchungen. Legen Sie eine an oder spielen Sie auf der Startseite eine Sicherung ein.", Modifier.padding(top = 16.dp))
         LazyColumn(state = liste) {
             items(shown, key = { it.id }) { b ->
                 BuchungZeile(b, kontoName, onClick = { onOpen(b.id) })
@@ -233,9 +237,11 @@ private fun groesseText(bytes: Long): String = when {
     else -> "$bytes Byte"
 }
 
-/** Eine Buchung mit allen Angaben. Bearbeiten und Löschen folgen im nächsten Schritt. */
+/** Eine Buchung mit allen Angaben, dazu Bearbeiten und Löschen. */
 @Composable
-fun BuchungDetailScreen(model: AppModel, id: String, modifier: Modifier = Modifier) {
+fun BuchungDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDeleted: () -> Unit, modifier: Modifier = Modifier) {
+    var loeschen by remember { mutableStateOf(false) }
+    var fehler by remember { mutableStateOf<String?>(null) }
     val b = model.buchungen.firstOrNull { it.id == id }
     if (b == null) { Text("Buchung nicht gefunden.", modifier.padding(16.dp)); return }
     val kontoName = remember(model.konten) { model.konten.associate { it.id to it.name } }
@@ -288,5 +294,30 @@ fun BuchungDetailScreen(model: AppModel, id: String, modifier: Modifier = Modifi
         } else if (!b.istUmbuchung) {
             Feld("Beleg", "Kein Beleg angehängt.")
         }
+        if (fehler != null) Text(fehler!!, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
+        Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onEdit) { Text("Bearbeiten") }
+            OutlinedButton(onClick = { loeschen = true }) { Text("Löschen") }
+        }
+    }
+    if (loeschen) {
+        AlertDialog(
+            onDismissRequest = { loeschen = false },
+            title = { Text("Buchung löschen?") },
+            text = {
+                Text(
+                    "${b.belegNummer} · ${Finance.titel(b)} über ${Geld.euro(b.betrag.abs())} wird endgültig gelöscht, " +
+                        "die Kontostände ändern sich entsprechend." +
+                        if (b.beleg != null) " Der angehängte Beleg geht mit der Buchung verloren." else "",
+                )
+            },
+            confirmButton = {
+                TextButton(enabled = !model.busy, onClick = {
+                    loeschen = false
+                    model.deleteBuchung(b.id) { f -> if (f == null) onDeleted() else fehler = "Löschen fehlgeschlagen: $f" }
+                }) { Text("Löschen") }
+            },
+            dismissButton = { TextButton(onClick = { loeschen = false }) { Text("Abbrechen") } },
+        )
     }
 }

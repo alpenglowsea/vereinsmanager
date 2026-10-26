@@ -21,6 +21,9 @@ import de.vereinsmanager.core.members.ImportRow
 import de.vereinsmanager.core.members.Ausgabe
 import de.vereinsmanager.core.members.AusgabeForm
 import de.vereinsmanager.core.finance.Buchung
+import de.vereinsmanager.core.finance.BuchungForm
+import de.vereinsmanager.core.finance.BuchungRegeln
+import de.vereinsmanager.core.finance.BuchungStore
 import de.vereinsmanager.core.finance.Finance
 import de.vereinsmanager.core.finance.Konto
 import de.vereinsmanager.core.members.Gegenstand
@@ -163,6 +166,34 @@ class AppModel(private val appContext: Context) {
         busy = true
         thread {
             val fehler = try { MemberStore.speichern(store, form); null } catch (e: Exception) { e.message ?: e::class.simpleName }
+            post { reload(); busy = false; done(fehler) }
+        }
+    }
+
+    // ---- Buchungen bearbeiten ----
+
+    /** Neues Formular mit der nächsten freien Belegnummer des laufenden Jahres. */
+    fun neueBuchung(): BuchungForm {
+        val heute = java.time.LocalDate.now()
+        return BuchungRegeln.neu(
+            id = "tx-${System.currentTimeMillis()}", datum = heute.toString(),
+            belegNummer = BuchungRegeln.naechsteBelegNummer(buchungen.map { it.belegNummer }, heute.year),
+            kontoId = konten.firstOrNull()?.id ?: "",
+        )
+    }
+
+    fun saveBuchung(form: BuchungForm, done: (String?) -> Unit) {
+        busy = true
+        thread {
+            val fehler = try { BuchungStore.speichern(store, form); null } catch (e: Exception) { e.message ?: e::class.simpleName }
+            post { reload(); busy = false; done(fehler) }
+        }
+    }
+
+    fun deleteBuchung(id: String, done: (String?) -> Unit) {
+        busy = true
+        thread {
+            val fehler = try { BuchungStore.loeschen(store, id); null } catch (e: Exception) { e.message ?: e::class.simpleName }
             post { reload(); busy = false; done(fehler) }
         }
     }
