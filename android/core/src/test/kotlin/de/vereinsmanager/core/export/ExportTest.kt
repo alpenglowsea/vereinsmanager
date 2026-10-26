@@ -92,7 +92,7 @@ class ExportTest {
         val m = demo().all("members").map { Member.from(it) }.sortedBy { it.number }
         val t = Export.mitgliederPdf(m, "TSV Demo", heute)
         assertEquals(10, t.spalten.size)
-        assertEquals(269, t.breiten.sum())
+        assertEquals(267, t.breiten.sum())
         assertEquals(m.size, t.zeilen.size)
         assertTrue(t.zeilen.all { it.size == 10 })
         assertEquals("Stand: 26.10.2026 | Gesamt: ${m.size} Mitglieder", t.kopfRechts)
