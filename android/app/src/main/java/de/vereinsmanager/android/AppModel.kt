@@ -20,6 +20,9 @@ import de.vereinsmanager.core.members.DuplicateStrategy
 import de.vereinsmanager.core.members.ImportRow
 import de.vereinsmanager.core.members.Ausgabe
 import de.vereinsmanager.core.members.AusgabeForm
+import de.vereinsmanager.core.finance.Buchung
+import de.vereinsmanager.core.finance.Finance
+import de.vereinsmanager.core.finance.Konto
 import de.vereinsmanager.core.members.Gegenstand
 import de.vereinsmanager.core.members.MemberCsv
 import de.vereinsmanager.core.members.MemberHistory
@@ -59,6 +62,10 @@ class AppModel(private val appContext: Context) {
         private set
     var departments by mutableStateOf<List<String>>(emptyList())
         private set
+    var konten by mutableStateOf<List<Konto>>(emptyList())
+        private set
+    var buchungen by mutableStateOf<List<Buchung>>(emptyList())
+        private set
     var clubName by mutableStateOf("")
         private set
     var message by mutableStateOf("")
@@ -80,6 +87,8 @@ class AppModel(private val appContext: Context) {
     fun reload() {
         stand += 1
         members = store.all("members").map { Member.from(it) }
+        konten = Finance.konten(store)
+        buchungen = Finance.buchungen(store)
         val settings = store.get("settings", "main")
         clubName = (settings?.get("clubName") as? JsonPrimitive)?.contentOrNull ?: ""
         departments = (settings?.get("departments") as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList()

@@ -79,7 +79,7 @@ fun deDate(iso: String): String = try {
 } catch (e: Exception) { iso }
 
 @Composable
-private fun FilterMenu(label: String, options: Map<String, String>, selected: String?, onSelect: (String?) -> Unit) {
+internal fun FilterMenu(label: String, options: Map<String, String>, selected: String?, onSelect: (String?) -> Unit) {
     var open by remember { mutableStateOf(false) }
     FilterChip(
         selected = selected != null, onClick = { open = true },

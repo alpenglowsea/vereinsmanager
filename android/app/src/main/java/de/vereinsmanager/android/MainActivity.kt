@@ -26,6 +26,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
+import de.vereinsmanager.android.ui.BuchungDetailScreen
+import de.vereinsmanager.android.ui.BuchungenScreen
 import de.vereinsmanager.android.ui.Kopfzeile
 import de.vereinsmanager.android.ui.MenueInhalt
 import de.vereinsmanager.android.ui.Ziel
@@ -49,6 +51,8 @@ sealed interface Page {
     data object MemberImport : Page
     data object MaterialOverview : Page
     data object MemberAnalytics : Page
+    data object Transactions : Page
+    data class Transaction(val id: String) : Page
     data object Probes : Page
 }
 
@@ -76,6 +80,7 @@ class MainActivity : ComponentActivity() {
                         Ziel.START -> listOf(Page.Home)
                         Ziel.MITGLIEDER -> listOf(Page.Home, Page.Members)
                         Ziel.MITGLIEDER_AUSWERTUNG -> listOf(Page.Home, Page.MemberAnalytics)
+                        Ziel.BUCHUNGEN -> listOf(Page.Home, Page.Transactions)
                         else -> stack // noch nicht gebaut; das Menü zeigt dafür einen Hinweis
                     }
                     scope.launch { drawerState.close() }
@@ -85,7 +90,7 @@ class MainActivity : ComponentActivity() {
                     MenueInhalt(model.clubName, aktivesZiel(page), onWahl = ::geheZu)
                 }
                 val inhalt: @Composable () -> Unit = {
-                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Probes
+                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || page is Page.Probes
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
                         topBar = {
@@ -121,6 +126,8 @@ class MainActivity : ComponentActivity() {
                             Page.MemberAnalytics -> MemberAnalyticsScreen(model, modifier = m)
                             Page.MaterialOverview -> MaterialOverviewScreen(model, modifier = m)
                             Page.MemberImport -> MemberImportScreen(model, onDone = { stack = stack.dropLast(1) }, modifier = m)
+                            Page.Transactions -> BuchungenScreen(model, onOpen = { stack = stack + Page.Transaction(it) }, modifier = m)
+                            is Page.Transaction -> BuchungDetailScreen(model, page.id, modifier = m)
                             Page.Probes -> ProbeScreen(m)
                         }
                       }
@@ -158,6 +165,8 @@ private fun seitenTitel(p: Page): String = when (p) {
     Page.MemberImport -> "CSV-Import"
     Page.MaterialOverview -> "Ausgeteiltes Material"
     Page.MemberAnalytics -> "Mitglieder-Auswertung"
+    Page.Transactions -> "Buchungen & Journal"
+    is Page.Transaction -> "Buchung"
     Page.Probes -> "Proben"
 }
 
@@ -166,5 +175,6 @@ private fun aktivesZiel(p: Page): Ziel? = when (p) {
     Page.Home -> Ziel.START
     Page.Members, is Page.Member, is Page.MemberEdit, Page.MemberImport, Page.MaterialOverview -> Ziel.MITGLIEDER
     Page.MemberAnalytics -> Ziel.MITGLIEDER_AUSWERTUNG
+    Page.Transactions, is Page.Transaction -> Ziel.BUCHUNGEN
     Page.Probes -> null
 }
