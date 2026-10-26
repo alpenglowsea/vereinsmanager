@@ -2,6 +2,7 @@ package de.vereinsmanager.android.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import de.vereinsmanager.android.AppModel
 import de.vereinsmanager.core.members.MemberAnalytics
@@ -50,12 +52,12 @@ private fun Kachel(titel: String, inhalt: @Composable () -> Unit) {
 }
 
 @Composable
-private fun Kennzahl(titel: String, wert: String, unten: String, modifier: Modifier = Modifier) {
-    Card(modifier) {
+private fun Kennzahl(titel: String, wert: String, unten: String, modifier: Modifier = Modifier, hoehe: Dp = 104.dp) {
+    Card(modifier.height(hoehe)) {
         Column(Modifier.padding(12.dp)) {
-            Text(titel, style = MaterialTheme.typography.labelMedium)
-            Text(wert, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(unten, style = MaterialTheme.typography.bodySmall)
+            Text(titel, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            Text(wert, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(unten, style = MaterialTheme.typography.bodySmall, maxLines = 2)
         }
     }
 }
@@ -84,7 +86,7 @@ fun MemberAnalyticsScreen(model: AppModel, modifier: Modifier = Modifier) {
     var abteilung by remember { mutableStateOf("") }
     var tab by remember { mutableStateOf(0) }
     var suche by remember { mutableStateOf("") }
-    var limit by remember { mutableStateOf(20) }
+    var limit by remember { mutableStateOf(5) }
     var geschlecht by remember { mutableStateOf(GeschlechtFilter.ALLE) }
 
     val k = remember(members) { MemberAnalytics.kennzahlen(members) }
@@ -118,12 +120,12 @@ fun MemberAnalyticsScreen(model: AppModel, modifier: Modifier = Modifier) {
         }
 
         Kachel("Zu- und Abgänge") {
-            Auswahl("Jahr", jahrOptionen, jahr) { jahr = it; limit = 20 }
-            Auswahl("Abteilung", abtOptionen, abteilung) { abteilung = it; limit = 20 }
+            Auswahl("Jahr", jahrOptionen, jahr) { jahr = it; limit = 5 }
+            Auswahl("Abteilung", abtOptionen, abteilung) { abteilung = it; limit = 5 }
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Kennzahl("Zugänge", "$zu", "", Modifier.weight(1f))
-                Kennzahl("Abgänge", "$ab", "", Modifier.weight(1f))
-                Kennzahl("Netto", if (zu - ab > 0) "+${zu - ab}" else "${zu - ab}", "", Modifier.weight(1f))
+                Kennzahl("Zugänge", "$zu", "", Modifier.weight(1f), 80.dp)
+                Kennzahl("Abgänge", "$ab", "", Modifier.weight(1f), 80.dp)
+                Kennzahl("Netto", if (zu - ab > 0) "+${zu - ab}" else "${zu - ab}", "", Modifier.weight(1f), 80.dp)
             }
             Text(if (jahr == "all") "Verlauf je Monat (alle Jahre zusammen)" else "Verlauf je Monat $jahr", style = MaterialTheme.typography.labelLarge)
             val maxWert = maxOf(1, monate.maxOf { maxOf(it.zugaenge, it.abgaenge) })
@@ -145,7 +147,7 @@ fun MemberAnalyticsScreen(model: AppModel, modifier: Modifier = Modifier) {
             if (mehrjahr.isNotEmpty()) {
                 Text("Entwicklung der letzten Jahre (antippen zum Filtern)", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
                 mehrjahr.forEach { y ->
-                    Row(Modifier.fillMaxWidth().clickable { jahr = y.jahr.toString(); limit = 20 }.padding(vertical = 6.dp)) {
+                    Row(Modifier.fillMaxWidth().clickable { jahr = y.jahr.toString(); limit = 5 }.padding(vertical = 6.dp)) {
                         Text("${y.jahr}", Modifier.width(56.dp), fontWeight = if (jahr == y.jahr.toString()) FontWeight.Bold else FontWeight.Normal)
                         Text("+${y.zugaenge}", Modifier.weight(1f), color = MaterialTheme.colorScheme.primary)
                         Text("−${y.abgaenge}", Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
@@ -155,11 +157,11 @@ fun MemberAnalyticsScreen(model: AppModel, modifier: Modifier = Modifier) {
                 }
             }
             Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(tab == 0, { tab = 0; limit = 20 }, label = { Text("Alle") })
-                FilterChip(tab == 1, { tab = 1; limit = 20 }, label = { Text("Eintritte") })
-                FilterChip(tab == 2, { tab = 2; limit = 20 }, label = { Text("Austritte") })
+                FilterChip(tab == 0, { tab = 0; limit = 5 }, label = { Text("Alle") })
+                FilterChip(tab == 1, { tab = 1; limit = 5 }, label = { Text("Eintritte") })
+                FilterChip(tab == 2, { tab = 2; limit = 5 }, label = { Text("Austritte") })
             }
-            OutlinedTextField(suche, { suche = it; limit = 20 }, label = { Text("Suchen (Name, Nr., Sparte)") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+            OutlinedTextField(suche, { suche = it; limit = 5 }, label = { Text("Suchen (Name, Nr., Sparte)") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
             if (ereignisse.isEmpty()) Text("Keine Ereignisse.", Modifier.padding(top = 8.dp))
             ereignisse.take(limit).forEach { e ->
                 Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
@@ -174,7 +176,7 @@ fun MemberAnalyticsScreen(model: AppModel, modifier: Modifier = Modifier) {
                 HorizontalDivider()
             }
             if (ereignisse.size > limit) {
-                OutlinedButton(onClick = { limit += 30 }, modifier = Modifier.padding(top = 8.dp)) { Text("Weitere anzeigen (${ereignisse.size - limit})") }
+                OutlinedButton(onClick = { limit += 10 }, modifier = Modifier.padding(top = 8.dp)) { Text("Weitere anzeigen (${ereignisse.size - limit} übrig)") }
             }
         }
 
@@ -187,12 +189,14 @@ fun MemberAnalyticsScreen(model: AppModel, modifier: Modifier = Modifier) {
         Kachel("Altersstruktur") {
             val gl = remember(members) { MemberAnalytics.geschlechter(members) }
             val beschriftung = mapOf(GeschlechtFilter.M to "Männlich", GeschlechtFilter.W to "Weiblich", GeschlechtFilter.D to "Divers", GeschlechtFilter.KEIN to "Keine Angabe")
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 gl.forEach { (g, n) ->
-                    FilterChip(geschlecht == g, { geschlecht = if (geschlecht == g) GeschlechtFilter.ALLE else g }, label = { Text("${beschriftung[g]} $n") })
+                    FilterChip(
+                        geschlecht == g, { geschlecht = if (geschlecht == g) GeschlechtFilter.ALLE else g },
+                        label = { Text("${beschriftung[g]} $n", maxLines = 1, softWrap = false) },
+                    )
                 }
             }
-            Text("Antippen filtert, nochmaliges Antippen hebt den Filter auf.", style = MaterialTheme.typography.bodySmall)
             val farben = listOf(MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.secondary, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.outline)
             MemberAnalytics.altersgruppen(members, geschlecht, heute).forEachIndexed { i, a ->
                 BalkenZeile(a.bezeichnung, "${a.anzahl} (${a.prozent} %)", a.prozent, farben[i])
