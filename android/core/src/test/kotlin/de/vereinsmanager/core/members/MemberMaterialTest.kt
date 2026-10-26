@@ -178,4 +178,40 @@ class MemberMaterialTest {
         assertEquals("27.03.2026, 14:00:00", MemberHistory.zeit("2026-03-27T13:00:00.000Z", ZoneId.of("Europe/Berlin")))
         assertEquals("kaputt", MemberHistory.zeit("kaputt"))
     }
+
+    // ---- Protokoll der Materialvorgänge ----
+
+    private fun logs(st: InMemoryDocumentStore, memberId: String) = MemberHistory.fuer(st, memberId).map { it.summary }
+
+    @Test fun vorgaengeStehenInDerHistorie() {
+        val st = demo()
+        val a = MemberMaterial.speichern(st, "mem-1", AusgabeForm(itemId = "inv-7", quantity = "2"), heute, jetzt)
+        val id = s(a, "id")
+        assertTrue("Material ausgegeben: Trikotsatz ERIMA Squad (16 Trikots + Hosen + Stutzen) (2 Set)" in logs(st, "mem-1"))
+        MemberMaterial.speichern(st, "mem-1", AusgabeForm.von(Ausgabe.from(a)).copy(quantity = "3", notes = "neu"), heute, jetzt)
+        val bearbeitet = MemberHistory.fuer(st, "mem-1").first { it.summary.startsWith("Material bearbeitet") }
+        assertEquals(listOf("Menge", "Notiz"), bearbeitet.changes.map { it.first })
+        assertEquals("2", bearbeitet.changes[0].second)
+        assertEquals("3", bearbeitet.changes[0].third)
+        MemberMaterial.umschalten(st, id, heute, jetzt)
+        MemberMaterial.umschalten(st, id, heute, jetzt)
+        MemberMaterial.entfernen(st, id, jetzt)
+        val l = logs(st, "mem-1")
+        assertTrue(l.any { it.startsWith("Material zurückgegeben") })
+        assertTrue(l.any { it.startsWith("Material wieder ausgegeben") })
+        assertTrue(l.any { it.startsWith("Material-Verknüpfung entfernt") })
+        // Ohne Änderung kein Eintrag.
+        val st2 = demo()
+        val b = MemberMaterial.speichern(st2, "mem-1", AusgabeForm(itemId = "inv-7"), heute, jetzt)
+        val n = st2.count(MemberStore.LOG)
+        MemberMaterial.speichern(st2, "mem-1", AusgabeForm.von(Ausgabe.from(b)), heute, jetzt)
+        assertEquals(n, st2.count(MemberStore.LOG))
+    }
+
+    @Test fun uebertragungStehtBeimZielMitglied() {
+        val st = demo()
+        MemberMaterial.speichern(st, "mem-1", AusgabeForm(itemId = "inv-7"), heute, jetzt)
+        MemberStore.loeschen(st, "mem-1", DocumentChoice.KEEP, MaterialChoice.Transfer("mem-2"), jetzt)
+        assertTrue(logs(st, "mem-2").any { it.startsWith("Material übernommen von Maximilian Müller (MG-001): 1 Gegenstand") })
+    }
 }

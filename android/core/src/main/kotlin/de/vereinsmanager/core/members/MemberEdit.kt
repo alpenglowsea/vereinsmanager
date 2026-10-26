@@ -393,6 +393,13 @@ object MemberAudit {
         ),
     )
 
+    /** Eintrag für eine Materialausgabe, -rückgabe usw.; [aenderungen] sind (Bezeichnung, alt, neu). */
+    fun material(m: JsonObject, now: ZonedDateTime, summary: String, aenderungen: List<Triple<String, String, String>> = emptyList()) =
+        eintrag(
+            m, now, "update", summary,
+            aenderungen.mapIndexed { i, (l, a, n) -> aenderung("material$i", l, JsonPrimitive(a), JsonPrimitive(n)) },
+        )
+
     fun angelegt(m: JsonObject, now: ZonedDateTime = ZonedDateTime.now()) =
         eintrag(m, now, "create", "Neues Mitglied (${text(m, "memberNumber")}) angelegt", emptyList())
 

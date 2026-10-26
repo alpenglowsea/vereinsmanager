@@ -100,6 +100,12 @@ object MemberStore {
             }
         }
 
+        if (moved > 0) {
+            val ziel = store.get(AREA, (material as MaterialChoice.Transfer).toMemberId)!!
+            val von = "${text(member, "firstName")} ${text(member, "lastName")}".trim()
+            val l = MemberAudit.material(ziel, now, "Material übernommen von $von (${text(member, "memberNumber")}): $moved Gegenstand/Gegenstände")
+            store.put(LOG, text(l, "id"), l)
+        }
         val log = MemberAudit.geloescht(member, now, sammel)
         store.put(LOG, text(log, "id"), log)
         store.delete(AREA, id)

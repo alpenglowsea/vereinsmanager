@@ -102,6 +102,14 @@ object MemberMaterial {
         return if (k.scale() <= 0) JsonPrimitive(k.toBigInteger().toLong()) else JsonPrimitive(k.toDouble())
     }
 
+    private fun menge(a: Ausgabe) = "${a.quantity} ${a.unit}".trim()
+
+    private fun protokoll(store: DocumentStore, memberId: String, now: ZonedDateTime, summary: String, aenderungen: List<Triple<String, String, String>> = emptyList()) {
+        val m = store.get(MemberStore.AREA, memberId) ?: return
+        val log = MemberAudit.material(m, now, summary, aenderungen)
+        store.put(MemberStore.LOG, t(log, "id"), log)
+    }
+
     /** Legt an oder ändert. Unbekannte Felder bleiben erhalten; ein geänderter Gegenstand wird neu kopiert. */
     fun speichern(
         store: DocumentStore, memberId: String, f: AusgabeForm, today: LocalDate = LocalDate.now(), now: ZonedDateTime = ZonedDateTime.now(),
@@ -132,8 +140,24 @@ object MemberMaterial {
         m["updatedAt"] = JsonPrimitive(stamp)
         val doc = JsonObject(m)
         store.put(AREA, id, doc)
+        val neu = Ausgabe.from(doc)
+        if (base == null) {
+            protokoll(store, memberId, now, "Material ausgegeben: ${neu.itemName} (${menge(neu)})")
+        } else {
+            val alt = Ausgabe.from(base)
+            val diff = buildList {
+                if (alt.itemId != neu.itemId) add(Triple("Gegenstand", alt.itemName, neu.itemName))
+                if (alt.quantity != neu.quantity) add(Triple("Menge", alt.quantity.toString(), neu.quantity.toString()))
+                if (alt.issueDate != neu.issueDate) add(Triple("Ausgabedatum", Zeit.deutsch(alt.issueDate), Zeit.deutsch(neu.issueDate)))
+                if (eigen(alt) != eigen(neu)) add(Triple("Eigenanteil", eigen(alt), eigen(neu)))
+                if (alt.notes != neu.notes) add(Triple("Notiz", alt.notes, neu.notes))
+            }
+            if (diff.isNotEmpty()) protokoll(store, memberId, now, "Material bearbeitet: ${neu.itemName}", diff)
+        }
         doc
     }
+
+    private fun eigen(a: Ausgabe) = if (a.hasContribution && a.contribution != null) Zeit.euro(a.contribution) else ""
 
     /** Zurückgeben (heutiges Datum) bzw. wieder als ausgegeben markieren. */
     fun umschalten(store: DocumentStore, id: String, today: LocalDate = LocalDate.now(), now: ZonedDateTime = ZonedDateTime.now()): JsonObject =
@@ -148,10 +172,22 @@ object MemberMaterial {
                 m["returnDate"] = JsonPrimitive(today.toString())
             }
             m["updatedAt"] = JsonPrimitive(Zeit.stempel(now))
-            JsonObject(m).also { store.put(AREA, id, it) }
+            val doc = JsonObject(m).also { store.put(AREA, id, it) }
+            val a2 = Ausgabe.from(doc)
+            protokoll(
+                store, a2.memberId, now,
+                if (a2.returned) "Material zurückgegeben: ${a2.itemName} (${menge(a2)})" else "Material wieder ausgegeben: ${a2.itemName} (${menge(a2)})",
+            )
+            doc
         }
 
-    fun entfernen(store: DocumentStore, id: String) { store.delete(AREA, id) }
+    fun entfernen(store: DocumentStore, id: String, now: ZonedDateTime = ZonedDateTime.now()) {
+        store.transaction {
+            val a = store.get(AREA, id)?.let { Ausgabe.from(it) }
+            store.delete(AREA, id)
+            if (a != null) protokoll(store, a.memberId, now, "Material-Verknüpfung entfernt: ${a.itemName} (${menge(a)})")
+        }
+    }
 
     /** "Beitrag: 12,50 €" bzw. "Kein Eigenanteil". */
     fun eigenanteil(a: Ausgabe): String =
