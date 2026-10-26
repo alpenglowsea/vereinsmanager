@@ -40,7 +40,30 @@ object MemberStore {
     fun loeschen(
         store: DocumentStore, id: String, documents: DocumentChoice, material: MaterialChoice,
         now: ZonedDateTime = ZonedDateTime.now(),
+    ): DeleteReport = store.transaction { entfernen(store, id, documents, material, now, sammel = false) }
+
+    /** Mehrere Mitglieder auf einmal; ein Protokolleintrag "Sammellöschung: …" je Mitglied. Alles oder nichts. */
+    fun sammelLoeschen(
+        store: DocumentStore, ids: List<String>, documents: DocumentChoice, material: MaterialChoice,
+        now: ZonedDateTime = ZonedDateTime.now(),
     ): DeleteReport = store.transaction {
+        if (material is MaterialChoice.Transfer) {
+            require(material.toMemberId !in ids) { "Das Ziel-Mitglied für das Material wird selbst gelöscht." }
+        }
+        var d = 0
+        var r = 0
+        var t = 0
+        for (id in ids) {
+            val x = entfernen(store, id, documents, material, now, sammel = true)
+            d += x.documentsDeleted; r += x.materialReturned; t += x.materialTransferred
+        }
+        DeleteReport(d, r, t)
+    }
+
+    private fun entfernen(
+        store: DocumentStore, id: String, documents: DocumentChoice, material: MaterialChoice,
+        now: ZonedDateTime, sammel: Boolean,
+    ): DeleteReport {
         val member = store.get(AREA, id) ?: throw IllegalArgumentException("Mitglied nicht gefunden.")
         if (material is MaterialChoice.Transfer) {
             require(material.toMemberId != id) { "Das Material kann nicht auf dasselbe Mitglied übertragen werden." }
@@ -77,10 +100,38 @@ object MemberStore {
             }
         }
 
-        val log = MemberAudit.geloescht(member, now)
+        val log = MemberAudit.geloescht(member, now, sammel)
         store.put(LOG, text(log, "id"), log)
         store.delete(AREA, id)
-        DeleteReport(docs, returned, moved)
+        return DeleteReport(docs, returned, moved)
+    }
+
+    /**
+     * Sammelbearbeitung (Funktionsinventar "Sammelbearbeitung"): ändert nur die gesetzten Felder, mit den
+     * Verknüpfungsregeln des Formulars. Mitglieder ohne tatsächliche Änderung bleiben unberührt (kein Protokoll,
+     * kein neuer Änderungszeitstempel). Alles oder nichts.
+     */
+    fun sammelAendern(
+        store: DocumentStore, ids: List<String>, edit: BulkEdit, now: ZonedDateTime = ZonedDateTime.now(),
+    ): BulkReport = store.transaction {
+        var changed = 0
+        var unchanged = 0
+        var skipped = 0
+        for (id in ids) {
+            val alt = store.get(AREA, id) ?: throw IllegalArgumentException("Mitglied nicht gefunden.")
+            val res = MemberBulk.anwenden(MemberRules.von(Member.from(alt)), edit, now.toLocalDate())
+            if (res.feeSkipped) skipped++
+            val neu = MemberDocument.build(res.form, alt, now)
+            val log = MemberAudit.geaendert(alt, neu, now, sammel = true)
+            if (log == null) {
+                unchanged++
+            } else {
+                store.put(AREA, id, neu)
+                store.put(LOG, text(log, "id"), log)
+                changed++
+            }
+        }
+        BulkReport(changed, unchanged, skipped)
     }
 
     /** Anzahl noch ausgegebener Gegenstände und verknüpfter Dokumente, für die Rückfrage vor dem Löschen. */

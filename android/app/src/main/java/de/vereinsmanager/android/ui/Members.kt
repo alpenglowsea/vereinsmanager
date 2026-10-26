@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -26,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import de.vereinsmanager.android.AppModel
@@ -68,6 +70,11 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
     var sortKey by remember { mutableStateOf(SortKey.NAME) }
     var ascending by remember { mutableStateOf(true) }
     var sortOpen by remember { mutableStateOf(false) }
+    var selecting by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var bulkOpen by remember { mutableStateOf(false) }
+    var deleteOpen by remember { mutableStateOf(false) }
+    var info by remember { mutableStateOf("") }
 
     val stats = remember(model.members, model.departments) { MemberList.stats(model.members, model.departments) }
     val shown = remember(model.members, filter, sortKey, ascending) {
@@ -76,7 +83,23 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
     val deptOptions = remember(model.departments) { model.departments.associateWith { it } }
 
     Column(modifier.padding(horizontal = 16.dp)) {
-        Button(onClick = onNew, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Neues Mitglied anlegen") }
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onNew, modifier = Modifier.weight(1f)) { Text("Neues Mitglied") }
+            OutlinedButton(
+                onClick = { selecting = !selecting; selected = emptySet(); info = "" },
+                modifier = Modifier.weight(1f),
+            ) { Text(if (selecting) "Auswahl beenden" else "Auswählen") }
+        }
+        if (selecting) {
+            Text("${selected.size} ausgewählt", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { selected = shown.map { it.id }.toSet() }) { Text("Alle angezeigten") }
+                OutlinedButton(onClick = { selected = emptySet() }, enabled = selected.isNotEmpty()) { Text("Keine") }
+                Button(onClick = { bulkOpen = true }, enabled = selected.isNotEmpty()) { Text("Bearbeiten") }
+                OutlinedButton(onClick = { deleteOpen = true }, enabled = selected.isNotEmpty()) { Text("Löschen") }
+            }
+        }
+        if (info.isNotEmpty()) Text(info, modifier = Modifier.padding(top = 8.dp))
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column { Text("Mitglieder", style = MaterialTheme.typography.labelMedium); Text("${stats.total}", style = MaterialTheme.typography.titleLarge) }
             Column { Text("Aktiv", style = MaterialTheme.typography.labelMedium); Text("${stats.active} (${stats.activePercent} %)", style = MaterialTheme.typography.titleLarge) }
@@ -107,14 +130,37 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
         HorizontalDivider(Modifier.padding(vertical = 4.dp))
         if (model.members.isEmpty()) Text("Keine Mitglieder. Spielen Sie auf der Startseite eine Sicherung ein.", Modifier.padding(top = 16.dp))
         LazyColumn {
-            items(shown, key = { it.id }) { m -> MemberRow(m) { onOpen(m.id) } }
+            items(shown, key = { it.id }) { m ->
+                MemberRow(
+                    m, selecting = selecting, checked = m.id in selected,
+                ) {
+                    if (selecting) {
+                        selected = if (m.id in selected) selected - m.id else selected + m.id
+                    } else {
+                        onOpen(m.id)
+                    }
+                }
+            }
         }
+    }
+    val chosen = model.members.filter { it.id in selected }
+    if (bulkOpen && chosen.isNotEmpty()) {
+        BulkEditDialog(model, chosen, onDismiss = { bulkOpen = false }, onDone = {
+            bulkOpen = false; info = it; selected = emptySet(); selecting = false
+        })
+    }
+    if (deleteOpen && chosen.isNotEmpty()) {
+        DeleteMemberDialog(model, chosen, onDismiss = { deleteOpen = false }, onDeleted = {
+            deleteOpen = false; info = "${chosen.size} Mitglied(er) gelöscht."; selected = emptySet(); selecting = false
+        })
     }
 }
 
 @Composable
-private fun MemberRow(m: Member, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp)) {
+private fun MemberRow(m: Member, selecting: Boolean, checked: Boolean, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    if (selecting) Checkbox(checked, { onClick() })
+    Column(Modifier.weight(1f)) {
         Row {
             Text(m.displayName.ifEmpty { "(ohne Namen)" }, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             Text(MemberLabels.STATUS[m.status] ?: m.status, style = MaterialTheme.typography.labelLarge)
@@ -128,6 +174,7 @@ private fun MemberRow(m: Member, onClick: () -> Unit) {
         val fee = if (m.paymentMethod == "exempt" || m.feePeriod == "none") "beitragsfrei"
         else "${euro(m.fee)} ${MemberLabels.FEE_PERIOD_SHORT[m.feePeriod] ?: ""}".trim()
         Text(fee + (MemberLabels.PAYMENT[m.paymentMethod]?.let { " · $it" } ?: ""), style = MaterialTheme.typography.bodySmall)
+    }
     }
     HorizontalDivider()
 }
@@ -162,7 +209,7 @@ fun MemberDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
             OutlinedButton(onClick = { deleting = true }) { Text("Löschen") }
         }
     }
-    if (deleting) DeleteMemberDialog(model, m, onDismiss = { deleting = false }, onDeleted = onDeleted)
+    if (deleting) DeleteMemberDialog(model, remember(m.id) { listOf(m) }, onDismiss = { deleting = false }, onDeleted = onDeleted)
 }
 
 @Composable

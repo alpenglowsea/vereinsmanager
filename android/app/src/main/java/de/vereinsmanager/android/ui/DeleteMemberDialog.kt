@@ -29,15 +29,16 @@ import de.vereinsmanager.core.members.SortKey
 
 /** Löschen mit Rückfragen zu Dokumenten und ausgegebenem Material (Entscheidung 9). */
 @Composable
-fun DeleteMemberDialog(model: AppModel, m: Member, onDismiss: () -> Unit, onDeleted: () -> Unit) {
-    val (materialCount, docCount) = remember(m.id) { model.dependencies(m.id) }
+fun DeleteMemberDialog(model: AppModel, members: List<Member>, onDismiss: () -> Unit, onDeleted: () -> Unit) {
+    val ids = members.map { it.id }
+    val (materialCount, docCount) = remember(ids) { model.dependencies(ids) }
     var docs by remember { mutableStateOf(DocumentChoice.KEEP) }
     var transfer by remember { mutableStateOf(false) }
     var target by remember { mutableStateOf<Member?>(null) }
     var menu by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val candidates = remember(m.id, model.members) {
-        MemberList.sort(model.members.filter { it.id != m.id && it.isCurrent }, SortKey.NAME)
+    val candidates = remember(ids, model.members) {
+        MemberList.sort(model.members.filter { it.id !in ids && it.isCurrent }, SortKey.NAME)
     }
     val canDelete = !model.busy && (!(materialCount > 0 && transfer) || target != null)
 
@@ -46,7 +47,12 @@ fun DeleteMemberDialog(model: AppModel, m: Member, onDismiss: () -> Unit, onDele
         title = { Text("Mitglied löschen") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text("Soll ${m.displayName} (${m.number}) wirklich unwiderruflich gelöscht werden? Das Änderungsprotokoll bleibt erhalten.")
+                if (members.size == 1) {
+                    val m = members[0]
+                    Text("Soll ${m.displayName} (${m.number}) wirklich unwiderruflich gelöscht werden? Das Änderungsprotokoll bleibt erhalten.")
+                } else {
+                    Text("Sollen ${members.size} Mitglieder wirklich unwiderruflich gelöscht werden? Das Änderungsprotokoll bleibt erhalten.")
+                }
                 if (docCount > 0) {
                     Text("Verknüpfte Dokumente: $docCount", modifier = Modifier.padding(top = 12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -81,9 +87,9 @@ fun DeleteMemberDialog(model: AppModel, m: Member, onDismiss: () -> Unit, onDele
                 enabled = canDelete,
                 onClick = {
                     val choice = if (materialCount > 0 && transfer) MaterialChoice.Transfer(target!!.id) else MaterialChoice.Return
-                    model.deleteMember(m.id, docs, choice) { _, fehler -> if (fehler == null) onDeleted() else error = "Fehler: $fehler" }
+                    model.deleteMembers(ids, docs, choice) { _, fehler -> if (fehler == null) onDeleted() else error = "Fehler: $fehler" }
                 },
-            ) { Text("Unwiderruflich löschen") }
+            ) { Text(if (members.size == 1) "Unwiderruflich löschen" else "Ja, ${members.size} Mitglieder löschen") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
     )

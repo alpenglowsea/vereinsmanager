@@ -239,6 +239,15 @@ object Zeit {
     fun stempel(now: ZonedDateTime = ZonedDateTime.now()): String = now.withZoneSameInstant(ZoneOffset.UTC).format(STAMP)
     private const val ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz"
     fun zufall(n: Int = 5): String = (1..n).map { ALPHABET[Random.nextInt(ALPHABET.length)] }.joinToString("")
+
+    /** "2026-10-26" -> "26.10.2026"; alles andere bleibt unverändert. */
+    fun deutsch(iso: String): String = try {
+        LocalDate.parse(iso).let { "%02d.%02d.%04d".format(it.dayOfMonth, it.monthValue, it.year) }
+    } catch (e: Exception) { iso }
+
+    /** "15,00 €" (feste deutsche Schreibweise, unabhängig von der Gerätesprache). */
+    fun euro(v: BigDecimal): String = java.text.NumberFormat.getCurrencyInstance(Locale.GERMANY).format(v)
+
     fun logId(now: ZonedDateTime = ZonedDateTime.now()) = "log-${now.toInstant().toEpochMilli()}-${zufall()}"
 }
 
@@ -315,7 +324,24 @@ object MemberAudit {
         return if (nx != null && ny != null) nx.compareTo(ny) == 0 else x == y
     }
 
-    private fun anzeige(v: JsonElement?): JsonElement = if (v.leer()) JsonPrimitive("–") else v!!
+    /** Lesbare Anzeige für das Protokoll: deutsche Bezeichnungen statt Kennungen, Beträge und Daten deutsch. */
+    private fun anzeige(feld: String, v: JsonElement?): JsonPrimitive {
+        val roh = (v as? JsonPrimitive)?.contentOrNull ?: ""
+        if (feld != "dataPrivacyConsent" && v.leer()) return JsonPrimitive("–")
+        val text = when (feld) {
+            "status" -> MemberLabels.STATUS[roh]
+            "paymentMethod" -> MemberLabels.PAYMENT[roh]
+            "feePeriod" -> MemberLabels.FEE_PERIOD[roh]
+            "membershipType" -> MemberLabels.TYPE_DETAIL[roh]
+            "gender" -> MemberLabels.GENDER[roh]
+            "feeAmount" -> roh.toBigDecimalOrNull()?.let { Zeit.euro(it) }
+            "entryDate", "exitDate", "birthDate" -> Zeit.deutsch(roh)
+            "dataPrivacyConsent" -> if (roh == "true") "Zugestimmt" else "Nicht erteilt"
+            "monthlyDueDay" -> "$roh. des Monats"
+            else -> null
+        }
+        return JsonPrimitive(text ?: roh)
+    }
 
     private fun text(o: JsonObject, k: String) = (o[k] as? JsonPrimitive)?.contentOrNull ?: ""
 
@@ -330,16 +356,20 @@ object MemberAudit {
         return listOf("street", "houseNumber", "zip", "city", "country").all { gleich(a[it], b[it]) }
     }
 
-    private fun bankGleich(x: JsonObject, y: JsonObject): Boolean {
-        val a = x["bankDetails"] as? JsonObject ?: JsonObject(emptyMap())
-        val b = y["bankDetails"] as? JsonObject ?: JsonObject(emptyMap())
-        // Fehlende Angaben gelten als Vorgabe (Fälligkeitstag 1, Folgelastschrift): Öffnen und Speichern ohne Änderung bleibt ohne Eintrag.
-        val vorgabe = mapOf("mandateSequenceType" to JsonPrimitive("RCUR"), "monthlyDueDay" to JsonPrimitive(1))
-        return (a.keys + b.keys).all { gleich(a[it] ?: vorgabe[it], b[it] ?: vorgabe[it]) }
+    // Fehlende Angaben gelten als Vorgabe (Fälligkeitstag 1, Folgelastschrift): Öffnen und Speichern ohne Änderung bleibt ohne Eintrag.
+    private val BANK_VORGABE = mapOf("mandateSequenceType" to JsonPrimitive("RCUR"), "monthlyDueDay" to JsonPrimitive(1))
+
+    private fun bank(o: JsonObject) = o["bankDetails"] as? JsonObject ?: JsonObject(emptyMap())
+
+    private fun bankGleich(x: JsonObject, y: JsonObject, ohneFaelligkeitstag: Boolean): Boolean {
+        val a = bank(x)
+        val b = bank(y)
+        return (a.keys + b.keys).filter { !(ohneFaelligkeitstag && it == "monthlyDueDay") }
+            .all { gleich(a[it] ?: BANK_VORGABE[it], b[it] ?: BANK_VORGABE[it]) }
     }
 
     private fun bankText(o: JsonObject): String {
-        val iban = text(o["bankDetails"] as? JsonObject ?: JsonObject(emptyMap()), "iban")
+        val iban = text(bank(o), "iban")
         return if (iban.isNotEmpty()) "IBAN: $iban" else "Keine Bankdaten"
     }
 
@@ -366,21 +396,45 @@ object MemberAudit {
     fun angelegt(m: JsonObject, now: ZonedDateTime = ZonedDateTime.now()) =
         eintrag(m, now, "create", "Neues Mitglied (${text(m, "memberNumber")}) angelegt", emptyList())
 
-    /** Vergleich alt gegen neu. Keine Änderung: null (kein Eintrag). Leer, fehlend und 0 gelten als gleich. */
-    fun geaendert(alt: JsonObject, neu: JsonObject, now: ZonedDateTime = ZonedDateTime.now()): JsonObject? {
+    /**
+     * Vergleich alt gegen neu. Keine Änderung: null (kein Eintrag). Leer, fehlend und 0 gelten als gleich.
+     * [sammel]: Sammelbearbeitung; dort zählen auch Datenschutz-Einwilligung und Fälligkeitstag, und die
+     * Bankverbindung wird nicht als Block gezeigt.
+     */
+    fun geaendert(alt: JsonObject, neu: JsonObject, now: ZonedDateTime = ZonedDateTime.now(), sammel: Boolean = false): JsonObject? {
         val changes = ArrayList<JsonObject>()
         for ((k, label) in FELDER) {
-            if (!gleich(alt[k], neu[k])) changes.add(aenderung(k, label, anzeige(alt[k]), anzeige(neu[k])))
+            if (!gleich(alt[k], neu[k])) changes.add(aenderung(k, label, anzeige(k, alt[k]), anzeige(k, neu[k])))
+        }
+        if (sammel && !gleich(alt["dataPrivacyConsent"] ?: JsonPrimitive(true), neu["dataPrivacyConsent"] ?: JsonPrimitive(true))) {
+            changes.add(
+                aenderung(
+                    "dataPrivacyConsent", "Datenschutz-Einwilligung",
+                    anzeige("dataPrivacyConsent", alt["dataPrivacyConsent"] ?: JsonPrimitive(true)),
+                    anzeige("dataPrivacyConsent", neu["dataPrivacyConsent"] ?: JsonPrimitive(true)),
+                ),
+            )
+        }
+        if (sammel && !gleich(bank(alt)["monthlyDueDay"] ?: JsonPrimitive(1), bank(neu)["monthlyDueDay"] ?: JsonPrimitive(1))) {
+            changes.add(
+                aenderung(
+                    "monthlyDueDay", "Fälligkeitstag (monatlicher Einzug)",
+                    anzeige("monthlyDueDay", bank(alt)["monthlyDueDay"] ?: JsonPrimitive(1)),
+                    anzeige("monthlyDueDay", bank(neu)["monthlyDueDay"] ?: JsonPrimitive(1)),
+                ),
+            )
         }
         if (!adresseGleich(alt, neu)) {
             changes.add(aenderung("address", "Adresse", JsonPrimitive(adresse(alt)), JsonPrimitive(adresse(neu))))
         }
-        if (!bankGleich(alt, neu)) {
+        if (!bankGleich(alt, neu, ohneFaelligkeitstag = sammel)) {
             changes.add(aenderung("bankDetails", "Bankverbindung / SEPA", JsonPrimitive(bankText(alt)), JsonPrimitive(bankText(neu))))
         }
         if (changes.isEmpty()) return null
         val labels = changes.joinToString(", ") { (it["label"] as JsonPrimitive).content }
-        return eintrag(neu, now, "update", "${changes.size} Feld(er) aktualisiert ($labels)", changes)
+        val summary = if (sammel) "Sammeländerung Stammdaten: ${changes.size} Feld(er) angepasst ($labels)"
+        else "${changes.size} Feld(er) aktualisiert ($labels)"
+        return eintrag(neu, now, "update", summary, changes)
     }
 
     fun geloescht(m: JsonObject, now: ZonedDateTime = ZonedDateTime.now(), sammel: Boolean = false): JsonObject {

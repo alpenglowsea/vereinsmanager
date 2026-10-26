@@ -13,6 +13,8 @@ import de.vereinsmanager.core.backup.BackupExporter
 import de.vereinsmanager.core.backup.BackupFile
 import de.vereinsmanager.core.backup.BackupImporter
 import de.vereinsmanager.core.backup.ImportMode
+import de.vereinsmanager.core.members.BulkEdit
+import de.vereinsmanager.core.members.BulkReport
 import de.vereinsmanager.core.members.DeleteReport
 import de.vereinsmanager.core.members.DocumentChoice
 import de.vereinsmanager.core.members.Member
@@ -137,13 +139,31 @@ class AppModel(private val appContext: Context) {
         }
     }
 
-    fun dependencies(id: String): Pair<Int, Int> = MemberStore.abhaengigkeiten(store, id)
+    fun dependencies(ids: List<String>): Pair<Int, Int> {
+        var m = 0
+        var d = 0
+        for (id in ids) { val x = MemberStore.abhaengigkeiten(store, id); m += x.first; d += x.second }
+        return m to d
+    }
 
-    fun deleteMember(id: String, docs: DocumentChoice, material: MaterialChoice, done: (DeleteReport?, String?) -> Unit) {
+    fun deleteMembers(ids: List<String>, docs: DocumentChoice, material: MaterialChoice, done: (DeleteReport?, String?) -> Unit) {
         busy = true
         thread {
             var report: DeleteReport? = null
-            val fehler = try { report = MemberStore.loeschen(store, id, docs, material); null } catch (e: Exception) { e.message ?: e::class.simpleName }
+            val fehler = try {
+                report = if (ids.size == 1) MemberStore.loeschen(store, ids[0], docs, material)
+                else MemberStore.sammelLoeschen(store, ids, docs, material)
+                null
+            } catch (e: Exception) { e.message ?: e::class.simpleName }
+            post { reload(); busy = false; done(report, fehler) }
+        }
+    }
+
+    fun bulkEdit(ids: List<String>, edit: BulkEdit, done: (BulkReport?, String?) -> Unit) {
+        busy = true
+        thread {
+            var report: BulkReport? = null
+            val fehler = try { report = MemberStore.sammelAendern(store, ids, edit); null } catch (e: Exception) { e.message ?: e::class.simpleName }
             post { reload(); busy = false; done(report, fehler) }
         }
     }

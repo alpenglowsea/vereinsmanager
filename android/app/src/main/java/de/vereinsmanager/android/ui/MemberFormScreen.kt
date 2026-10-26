@@ -43,29 +43,29 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 
-private val TAB_NAMES = linkedMapOf(
+internal val TAB_NAMES = linkedMapOf(
     FormTab.BASIS to "Basis", FormTab.KONTAKT to "Kontakt", FormTab.MITGLIEDSCHAFT to "Mitgliedschaft",
     FormTab.ZAHLUNG to "Zahlung", FormTab.NOTIZEN to "Notizen",
 )
-private val GENDERS = linkedMapOf("none" to "Keine Angabe", "m" to "Männlich", "w" to "Weiblich", "d" to "Divers")
-private val RELATIONS = linkedMapOf("Mutter" to "Mutter", "Vater" to "Vater", "Gesetzlicher Vormund" to "Gesetzlicher Vormund")
-private val STATUS_FORM = linkedMapOf(
+internal val GENDERS = linkedMapOf("none" to "Keine Angabe", "m" to "Männlich", "w" to "Weiblich", "d" to "Divers")
+internal val RELATIONS = linkedMapOf("Mutter" to "Mutter", "Vater" to "Vater", "Gesetzlicher Vormund" to "Gesetzlicher Vormund")
+internal val STATUS_FORM = linkedMapOf(
     "active" to "Aktiv", "passive" to "Passiv", "honorary" to "Ehrenmitglied", "suspended" to "Ruhend",
     "terminated" to "Gekündigt / Ausgetreten",
 )
-private val TYPE_FORM = linkedMapOf(
+internal val TYPE_FORM = linkedMapOf(
     "full" to "Vollmitglied (Erwachsene)", "youth" to "Jugend / Kind", "reduced" to "Ermäßigt (Student/Rentner)",
     "family" to "Familienbeitrag", "supporting" to "Fördermitglied / Sponsor", "honorary" to "Ehrenmitglied (beitragsfrei)",
     "ausgetreten" to "Ausgetreten",
 )
-private val PERIOD_FORM = linkedMapOf(
+internal val PERIOD_FORM = linkedMapOf(
     "monthly" to "Monatlich", "quarterly" to "Vierteljährlich (Quartal)", "half_yearly" to "Halbjährlich",
     "yearly" to "Jährlich", "none" to "Beitragsfrei (0,00 €)",
 )
-private val PAYMENT_ORDER = listOf("sepa", "transfer", "standing_order", "cash", "exempt")
+internal val PAYMENT_ORDER = listOf("sepa", "transfer", "standing_order", "cash", "exempt")
 
 @Composable
-private fun Feld(
+internal fun Feld(
     label: String, value: String, onChange: (String) -> Unit, error: String? = null, enabled: Boolean = true,
     keyboard: KeyboardType = KeyboardType.Text, singleLine: Boolean = true, hinweis: String? = null,
 ) {
@@ -79,7 +79,7 @@ private fun Feld(
 }
 
 @Composable
-private fun Auswahl(label: String, options: Map<String, String>, value: String, enabled: Boolean = true, onChange: (String) -> Unit) {
+internal fun Auswahl(label: String, options: Map<String, String>, value: String, enabled: Boolean = true, onChange: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(label, style = MaterialTheme.typography.labelMedium)
@@ -94,7 +94,7 @@ private fun Auswahl(label: String, options: Map<String, String>, value: String, 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DatumFeld(label: String, iso: String, error: String? = null, optional: Boolean = false, onChange: (String) -> Unit) {
+internal fun DatumFeld(label: String, iso: String, error: String? = null, optional: Boolean = false, onChange: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(label, style = MaterialTheme.typography.labelMedium)

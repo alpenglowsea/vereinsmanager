@@ -311,8 +311,8 @@ class MemberEditTest {
         val ch = (log["changes"] as JsonArray).map { it as JsonObject }
         assertEquals("0171 1234567", s(ch[0], "oldValue"))
         assertEquals("0170 999", s(ch[0], "newValue"))
-        assertEquals("15", ch[1]["oldValue"].toString())
-        assertEquals("17.5", ch[1]["newValue"].toString())
+        assertEquals("15,00\u00a0€", s(ch[1], "oldValue"))
+        assertEquals("17,50\u00a0€", s(ch[1], "newValue"))
         assertEquals("0170 999", s(store.get("members", "mem-1")!!, "phone"))
     }
 
