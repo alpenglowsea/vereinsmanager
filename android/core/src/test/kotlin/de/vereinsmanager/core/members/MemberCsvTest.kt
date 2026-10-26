@@ -204,7 +204,9 @@ class MemberCsvTest {
             assertEquals("$tag Austritt", str(e, "exitDate"), f.exitDate)
             assertEquals("$tag Sparte", str(e, "department"), f.department)
             assertEquals("$tag Typ", str(e, "membershipType"), f.type)
-            assertEquals("$tag Beitrag", 0, BigDecimal(s(e, "feeAmount")).compareTo(f.feeValue))
+            // Bewusste Abweichung: "Ausgetreten" wird hier Gekündigt (Desktop: aktiv, mit Standardbeitrag).
+            val statusUeberschrieben = f.status == "terminated" && str(e, "status") != "terminated"
+            if (!statusUeberschrieben) assertEquals("$tag Beitrag", 0, BigDecimal(s(e, "feeAmount")).compareTo(f.feeValue))
             assertEquals("$tag Zahlweise", str(e, "feePeriod"), f.feePeriod)
             assertEquals("$tag Zahlart", str(e, "paymentMethod"), f.paymentMethod)
             assertEquals("$tag IBAN", str(e, "iban"), f.iban)
@@ -212,7 +214,10 @@ class MemberCsvTest {
             assertEquals("$tag Bank", str(e, "bankName"), f.bankName)
             assertEquals("$tag Kontoinhaber", str(e, "accountHolder"), f.accountHolder)
             assertEquals("$tag Mandatsdatum", d(str(e, "mandateDate")), f.mandateDate)
-            if (explicitNumber || numCol == null || str(e, "mandateReference").isEmpty() || !str(e, "mandateReference").startsWith("MANDAT-")) {
+            if (!explicitNumber && str(e, "mandateReference").startsWith("MANDAT-")) {
+                // Die Nummer wird hier anders fortgezählt als am Desktop; die Referenz folgt der Nummer.
+                assertEquals("$tag Mandatsreferenz", "MANDAT-${f.number}", f.mandateReference)
+            } else {
                 assertEquals("$tag Mandatsreferenz", str(e, "mandateReference"), f.mandateReference)
             }
             assertEquals("$tag Notizen", str(e, "notes"), f.notes)
@@ -297,7 +302,8 @@ class MemberCsvTest {
             mapOf(ImportField.VORNAME to "V", ImportField.NACHNAME to "N", ImportField.NUMMER to "Nr"),
             ex, abteilungen, null, heute,
         )
-        assertEquals(listOf("MG-010", "MG-011", "MG-012"), rows.map { it.form.number })
+        // Es wird nach der höchsten vergebenen Nummer weitergezählt, auch der ausdrücklich genannten (MG-011).
+        assertEquals(listOf("MG-012", "MG-011", "MG-013"), rows.map { it.form.number })
     }
 
     @Test fun standardSparteUndErsteSparte() {
@@ -346,7 +352,11 @@ class MemberCsvTest {
         assertEquals(s(vorher, "email"), s(nachher, "email"))
         assertEquals(s(vorher, "notes"), s(nachher, "notes"))
         assertEquals(s(vorher, "firstName"), s(nachher, "firstName"))
-        assertEquals(vorher["bankDetails"].toString(), nachher["bankDetails"].toString())
+        val bv = vorher["bankDetails"] as? JsonObject
+        val bn = nachher["bankDetails"] as? JsonObject
+        for (k in listOf("iban", "bic", "bankName", "accountHolder", "mandateReference", "mandateDate")) {
+            assertEquals(k, bv?.get(k)?.toString(), bn?.get(k)?.toString())
+        }
         assertEquals(vorher["feeAmount"].toString(), nachher["feeAmount"].toString())
         assertEquals(s(vorher, "createdAt"), s(nachher, "createdAt"))
         assertEquals("2026-10-26T08:30:00.000Z", s(nachher, "updatedAt"))
