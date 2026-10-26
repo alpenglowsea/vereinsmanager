@@ -1,6 +1,8 @@
 package de.vereinsmanager.android.ui
 
-import androidx.compose.foundation.clickable
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -65,13 +67,15 @@ private fun FilterMenu(label: String, options: Map<String, String>, selected: St
 }
 
 @Composable
-fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, modifier: Modifier = Modifier) {
+fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, onImport: () -> Unit, modifier: Modifier = Modifier) {
     var filter by remember { mutableStateOf(MemberFilter()) }
     var sortKey by remember { mutableStateOf(SortKey.NAME) }
     var ascending by remember { mutableStateOf(true) }
     var sortOpen by remember { mutableStateOf(false) }
-    var selecting by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val selecting = selected.isNotEmpty()
+    // Zurück-Geste beendet zuerst die Auswahl, erst danach verlässt sie die Liste.
+    BackHandler(enabled = selecting) { selected = emptySet() }
     var bulkOpen by remember { mutableStateOf(false) }
     var deleteOpen by remember { mutableStateOf(false) }
     var info by remember { mutableStateOf("") }
@@ -85,21 +89,21 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
     Column(modifier.padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onNew, modifier = Modifier.weight(1f)) { Text("Neues Mitglied") }
-            OutlinedButton(
-                onClick = { selecting = !selecting; selected = emptySet(); info = "" },
-                modifier = Modifier.weight(1f),
-            ) { Text(if (selecting) "Auswahl beenden" else "Auswählen") }
+            OutlinedButton(onClick = onImport, modifier = Modifier.weight(1f)) { Text("CSV-Import") }
         }
         if (selecting) {
-            Text("${selected.size} ausgewählt", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+            Text("${selected.size} ausgewählt (zum Abwählen erneut antippen)", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { selected = shown.map { it.id }.toSet() }) { Text("Alle angezeigten") }
-                OutlinedButton(onClick = { selected = emptySet() }, enabled = selected.isNotEmpty()) { Text("Keine") }
-                Button(onClick = { bulkOpen = true }, enabled = selected.isNotEmpty()) { Text("Bearbeiten") }
-                OutlinedButton(onClick = { deleteOpen = true }, enabled = selected.isNotEmpty()) { Text("Löschen") }
+                OutlinedButton(onClick = { selected = emptySet() }) { Text("Keine") }
+                Button(onClick = { bulkOpen = true }) { Text("Bearbeiten") }
+                OutlinedButton(onClick = { deleteOpen = true }) { Text("Löschen") }
             }
         }
         if (info.isNotEmpty()) Text(info, modifier = Modifier.padding(top = 8.dp))
+        else if (!selecting && model.members.isNotEmpty()) {
+            Text("Tipp: Mitglied lange antippen, um mehrere auszuwählen.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+        }
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column { Text("Mitglieder", style = MaterialTheme.typography.labelMedium); Text("${stats.total}", style = MaterialTheme.typography.titleLarge) }
             Column { Text("Aktiv", style = MaterialTheme.typography.labelMedium); Text("${stats.active} (${stats.activePercent} %)", style = MaterialTheme.typography.titleLarge) }
@@ -133,6 +137,7 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
             items(shown, key = { it.id }) { m ->
                 MemberRow(
                     m, selecting = selecting, checked = m.id in selected,
+                    onLongClick = { if (m.id !in selected) selected = selected + m.id; info = "" },
                 ) {
                     if (selecting) {
                         selected = if (m.id in selected) selected - m.id else selected + m.id
@@ -146,19 +151,23 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
     val chosen = model.members.filter { it.id in selected }
     if (bulkOpen && chosen.isNotEmpty()) {
         BulkEditDialog(model, chosen, onDismiss = { bulkOpen = false }, onDone = {
-            bulkOpen = false; info = it; selected = emptySet(); selecting = false
+            bulkOpen = false; info = it; selected = emptySet()
         })
     }
     if (deleteOpen && chosen.isNotEmpty()) {
         DeleteMemberDialog(model, chosen, onDismiss = { deleteOpen = false }, onDeleted = {
-            deleteOpen = false; info = "${chosen.size} Mitglied(er) gelöscht."; selected = emptySet(); selecting = false
+            deleteOpen = false; info = "${chosen.size} Mitglied(er) gelöscht."; selected = emptySet()
         })
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MemberRow(m: Member, selecting: Boolean, checked: Boolean, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun MemberRow(m: Member, selecting: Boolean, checked: Boolean, onLongClick: () -> Unit, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
     if (selecting) Checkbox(checked, { onClick() })
     Column(Modifier.weight(1f)) {
         Row {

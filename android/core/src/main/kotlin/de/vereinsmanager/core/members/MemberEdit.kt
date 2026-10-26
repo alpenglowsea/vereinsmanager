@@ -437,6 +437,21 @@ object MemberAudit {
         return eintrag(neu, now, "update", summary, changes)
     }
 
+    /** Ein einziger Sammeleintrag für einen CSV-Import (wie am Desktop; Bearbeiter "Administrator", Entscheidung 1). */
+    fun sammelImport(added: Int, updated: Int, now: ZonedDateTime = ZonedDateTime.now()): JsonObject = JsonObject(
+        mapOf(
+            "id" to JsonPrimitive(Zeit.logId(now)),
+            "memberId" to JsonPrimitive("batch-import"),
+            "memberNumber" to JsonPrimitive("CSV-IMPORT"),
+            "memberName" to JsonPrimitive("${added + updated} Mitglieder"),
+            "timestamp" to JsonPrimitive(Zeit.stempel(now)),
+            "author" to JsonPrimitive(BEARBEITER),
+            "action" to JsonPrimitive("create"),
+            "summary" to JsonPrimitive("Batch-CSV-Import: $added Mitglied(er) neu hinzugefügt, $updated aktualisiert."),
+            "changes" to JsonArray(emptyList()),
+        ),
+    )
+
     fun geloescht(m: JsonObject, now: ZonedDateTime = ZonedDateTime.now(), sammel: Boolean = false): JsonObject {
         val was = "Mitglied (${text(m, "memberNumber")} - ${text(m, "firstName")} ${text(m, "lastName")}) gelöscht"
         return eintrag(m, now, "delete", if (sammel) "Sammellöschung: $was" else was, emptyList())

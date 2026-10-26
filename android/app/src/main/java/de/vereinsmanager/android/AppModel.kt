@@ -14,6 +14,11 @@ import de.vereinsmanager.core.backup.BackupFile
 import de.vereinsmanager.core.backup.BackupImporter
 import de.vereinsmanager.core.backup.ImportMode
 import de.vereinsmanager.core.members.BulkEdit
+import de.vereinsmanager.core.members.CsvImportReport
+import de.vereinsmanager.core.members.CsvTable
+import de.vereinsmanager.core.members.DuplicateStrategy
+import de.vereinsmanager.core.members.ImportRow
+import de.vereinsmanager.core.members.MemberCsv
 import de.vereinsmanager.core.members.BulkReport
 import de.vereinsmanager.core.members.DeleteReport
 import de.vereinsmanager.core.members.DocumentChoice
@@ -164,6 +169,30 @@ class AppModel(private val appContext: Context) {
         thread {
             var report: BulkReport? = null
             val fehler = try { report = MemberStore.sammelAendern(store, ids, edit); null } catch (e: Exception) { e.message ?: e::class.simpleName }
+            post { reload(); busy = false; done(report, fehler) }
+        }
+    }
+
+    // ---- CSV-Import ----
+
+    /** Liest die Datei; zweiter Wert: true, wenn sie nicht UTF-8 war und als Windows-1252 gelesen wurde. */
+    fun loadCsv(uri: Uri): Pair<CsvTable, Boolean> {
+        val bytes = appContext.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+        val (text, fallback) = MemberCsv.decode(bytes)
+        return MemberCsv.parse(text) to fallback
+    }
+
+    fun writeCsvTemplate(uri: Uri): String = try {
+        val text = MemberCsv.vorlage(departments)
+        appContext.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray(Charsets.UTF_8)) }
+        "Muster-Vorlage gespeichert."
+    } catch (e: Exception) { "Fehler: ${e.message ?: e::class.simpleName}" }
+
+    fun importCsv(rows: List<ImportRow>, strategy: DuplicateStrategy, done: (CsvImportReport?, String?) -> Unit) {
+        busy = true
+        thread {
+            var report: CsvImportReport? = null
+            val fehler = try { report = MemberCsv.importieren(store, rows, strategy); null } catch (e: Exception) { e.message ?: e::class.simpleName }
             post { reload(); busy = false; done(report, fehler) }
         }
     }

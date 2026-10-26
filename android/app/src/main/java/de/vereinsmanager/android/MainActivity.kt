@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import de.vereinsmanager.android.ui.HomeScreen
 import de.vereinsmanager.android.ui.MemberDetailScreen
 import de.vereinsmanager.android.ui.MemberFormScreen
+import de.vereinsmanager.android.ui.MemberImportScreen
 import de.vereinsmanager.android.ui.MemberListScreen
 import de.vereinsmanager.android.ui.theme.VereinsManagerTheme
 
@@ -26,6 +27,7 @@ sealed interface Page {
     data class Member(val id: String) : Page
     /** id == null: neues Mitglied */
     data class MemberEdit(val id: String?) : Page
+    data object MemberImport : Page
     data object Probes : Page
 }
 
@@ -48,13 +50,15 @@ class MainActivity : ComponentActivity() {
                             model, onMembers = { stack = stack + Page.Members }, onProbes = { stack = stack + Page.Probes }, modifier = m,
                         )
                         Page.Members -> MemberListScreen(
-                            model, onOpen = { stack = stack + Page.Member(it) }, onNew = { stack = stack + Page.MemberEdit(null) }, modifier = m,
+                            model, onOpen = { stack = stack + Page.Member(it) }, onNew = { stack = stack + Page.MemberEdit(null) },
+                            onImport = { stack = stack + Page.MemberImport }, modifier = m,
                         )
                         is Page.Member -> MemberDetailScreen(
                             model, page.id, onEdit = { stack = stack + Page.MemberEdit(page.id) },
                             onDeleted = { stack = stack.filter { it !is Page.Member && it !is Page.MemberEdit } }, modifier = m,
                         )
                         is Page.MemberEdit -> MemberFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
+                        Page.MemberImport -> MemberImportScreen(model, onDone = { stack = stack.dropLast(1) }, modifier = m)
                         Page.Probes -> ProbeScreen(m)
                     }
                 }
