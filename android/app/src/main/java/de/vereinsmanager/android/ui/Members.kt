@@ -191,6 +191,7 @@ private fun MemberRow(m: Member, selecting: Boolean, checked: Boolean, onLongCli
 @Composable
 fun MemberDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDeleted: () -> Unit, modifier: Modifier = Modifier) {
     var deleting by remember { mutableStateOf(false) }
+    var tab by remember { mutableStateOf(0) }
     val m = model.members.firstOrNull { it.id == id }
     if (m == null) { Text("Mitglied nicht gefunden.", modifier.padding(16.dp)); return }
     Column(modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
@@ -199,23 +200,30 @@ fun MemberDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
         val age = MemberList.age(m.birthDate, today)
         val dauer = MemberList.membershipDuration(m.entryDate, today)
         Text(listOfNotNull(MemberLabels.STATUS[m.status], MemberLabels.TYPE_DETAIL[m.type], dauer).joinToString(" · "))
+        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Details", "Material", "Historie").forEachIndexed { i, s -> FilterChip(tab == i, { tab = i }, label = { Text(s) }) }
+        }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        @Composable fun row(label: String, value: String) { if (value.isNotBlank()) Field(label, value) }
-        row("Mitgliedsnummer", m.number)
-        row("Sparte", m.department)
-        row("Eintritt", deDate(m.entryDate).takeIf { m.entryDate.isNotEmpty() } ?: "")
-        row("Austritt", deDate(m.exitDate).takeIf { m.exitDate.isNotEmpty() } ?: "")
-        row("Geburtsdatum", if (m.birthDate.isNotEmpty()) deDate(m.birthDate) + (age?.let { " ($it Jahre)" } ?: "") else "")
-        row("Geschlecht", MemberLabels.GENDER[m.gender] ?: "")
-        row("Anschrift", listOf("${m.street} ${m.houseNumber}".trim(), "${m.zip} ${m.city}".trim(), m.country).filter { it.isNotEmpty() }.joinToString("\n"))
-        row("Telefon", m.phone)
-        row("E-Mail", m.email)
-        row("Beitrag", if (m.paymentMethod == "exempt" || m.feePeriod == "none") "beitragsfrei" else "${euro(m.fee)} ${MemberLabels.FEE_PERIOD[m.feePeriod] ?: ""}".trim())
-        row("Zahlart", MemberLabels.PAYMENT[m.paymentMethod] ?: "")
-        row("Notizen", m.notes)
-        Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onEdit) { Text("Bearbeiten") }
-            OutlinedButton(onClick = { deleting = true }) { Text("Löschen") }
+        if (tab == 1) MemberMaterialTab(model, m)
+        if (tab == 2) MemberHistoryTab(model, m)
+        if (tab == 0) {
+            @Composable fun row(label: String, value: String) { if (value.isNotBlank()) Field(label, value) }
+            row("Mitgliedsnummer", m.number)
+            row("Sparte", m.department)
+            row("Eintritt", deDate(m.entryDate).takeIf { m.entryDate.isNotEmpty() } ?: "")
+            row("Austritt", deDate(m.exitDate).takeIf { m.exitDate.isNotEmpty() } ?: "")
+            row("Geburtsdatum", if (m.birthDate.isNotEmpty()) deDate(m.birthDate) + (age?.let { " ($it Jahre)" } ?: "") else "")
+            row("Geschlecht", MemberLabels.GENDER[m.gender] ?: "")
+            row("Anschrift", listOf("${m.street} ${m.houseNumber}".trim(), "${m.zip} ${m.city}".trim(), m.country).filter { it.isNotEmpty() }.joinToString("\n"))
+            row("Telefon", m.phone)
+            row("E-Mail", m.email)
+            row("Beitrag", if (m.paymentMethod == "exempt" || m.feePeriod == "none") "beitragsfrei" else "${euro(m.fee)} ${MemberLabels.FEE_PERIOD[m.feePeriod] ?: ""}".trim())
+            row("Zahlart", MemberLabels.PAYMENT[m.paymentMethod] ?: "")
+            row("Notizen", m.notes)
+            Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onEdit) { Text("Bearbeiten") }
+                OutlinedButton(onClick = { deleting = true }) { Text("Löschen") }
+            }
         }
     }
     if (deleting) DeleteMemberDialog(model, remember(m.id) { listOf(m) }, onDismiss = { deleting = false }, onDeleted = onDeleted)

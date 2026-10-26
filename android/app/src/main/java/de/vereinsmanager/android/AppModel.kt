@@ -18,7 +18,13 @@ import de.vereinsmanager.core.members.CsvImportReport
 import de.vereinsmanager.core.members.CsvTable
 import de.vereinsmanager.core.members.DuplicateStrategy
 import de.vereinsmanager.core.members.ImportRow
+import de.vereinsmanager.core.members.Ausgabe
+import de.vereinsmanager.core.members.AusgabeForm
+import de.vereinsmanager.core.members.Gegenstand
 import de.vereinsmanager.core.members.MemberCsv
+import de.vereinsmanager.core.members.MemberHistory
+import de.vereinsmanager.core.members.MemberMaterial
+import de.vereinsmanager.core.members.VerlaufEintrag
 import de.vereinsmanager.core.members.BulkReport
 import de.vereinsmanager.core.members.DeleteReport
 import de.vereinsmanager.core.members.DocumentChoice
@@ -59,12 +65,17 @@ class AppModel(private val appContext: Context) {
     var busy by mutableStateOf(false)
         private set
 
+    /** Zählt hoch, sobald sich Material oder Historie geändert haben können; Ansichten lesen daraufhin neu. */
+    var stand by mutableStateOf(0)
+        private set
+
     init { reload() }
 
     private fun post(block: () -> Unit) { main.post(block) }
 
     /** Liest Mitglieder und Vereinsdaten neu aus dem Speicher. */
     fun reload() {
+        stand += 1
         members = store.all("members").map { Member.from(it) }
         val settings = store.get("settings", "main")
         clubName = (settings?.get("clubName") as? JsonPrimitive)?.contentOrNull ?: ""
@@ -172,6 +183,22 @@ class AppModel(private val appContext: Context) {
             post { reload(); busy = false; done(report, fehler) }
         }
     }
+
+    // ---- Material und Historie ----
+
+    fun gegenstaende(): List<Gegenstand> = MemberMaterial.gegenstaende(store)
+    fun ausgaben(memberId: String): List<Ausgabe> = MemberMaterial.ausgaben(store, memberId)
+    fun historie(memberId: String): List<VerlaufEintrag> = MemberHistory.fuer(store, memberId)
+
+    /** Speichert eine Ausgabe; gibt null bei Erfolg zurück, sonst den Fehlertext. */
+    fun speichereAusgabe(memberId: String, form: AusgabeForm): String? =
+        try { MemberMaterial.speichern(store, memberId, form); stand += 1; null } catch (e: Exception) { e.message ?: e::class.simpleName }
+
+    fun ausgabeUmschalten(id: String): String? =
+        try { MemberMaterial.umschalten(store, id); stand += 1; null } catch (e: Exception) { e.message ?: e::class.simpleName }
+
+    fun ausgabeEntfernen(id: String): String? =
+        try { MemberMaterial.entfernen(store, id); stand += 1; null } catch (e: Exception) { e.message ?: e::class.simpleName }
 
     // ---- CSV-Import ----
 
