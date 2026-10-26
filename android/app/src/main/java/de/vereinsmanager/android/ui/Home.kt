@@ -58,11 +58,11 @@ fun HomeScreen(model: AppModel, onMembers: () -> Unit, onProbes: () -> Unit, mod
 
         HorizontalDivider(Modifier.padding(vertical = 12.dp))
         Text("Datensicherung", style = MaterialTheme.typography.titleMedium)
-        Row(Modifier.padding(top = 8.dp)) {
-            Button(onClick = { openLauncher.launch(arrayOf("*/*")) }, enabled = !model.busy) { Text("Sicherung einspielen") }
-            OutlinedButton(onClick = { exportDialog = true }, enabled = !model.busy, modifier = Modifier.padding(start = 8.dp)) {
-                Text("Sicherung ausgeben")
-            }
+        Button(onClick = { openLauncher.launch(arrayOf("*/*")) }, enabled = !model.busy, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+            Text("Sicherung einspielen")
+        }
+        OutlinedButton(onClick = { exportDialog = true }, enabled = !model.busy, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+            Text("Sicherung ausgeben")
         }
         if (model.message.isNotEmpty()) Text(model.message, Modifier.padding(top = 12.dp))
 

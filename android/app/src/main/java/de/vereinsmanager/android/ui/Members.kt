@@ -11,11 +11,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -61,7 +63,7 @@ private fun FilterMenu(label: String, options: Map<String, String>, selected: St
 }
 
 @Composable
-fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, modifier: Modifier = Modifier) {
+fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, modifier: Modifier = Modifier) {
     var filter by remember { mutableStateOf(MemberFilter()) }
     var sortKey by remember { mutableStateOf(SortKey.NAME) }
     var ascending by remember { mutableStateOf(true) }
@@ -74,6 +76,7 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, modifier: Modifi
     val deptOptions = remember(model.departments) { model.departments.associateWith { it } }
 
     Column(modifier.padding(horizontal = 16.dp)) {
+        Button(onClick = onNew, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Neues Mitglied anlegen") }
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column { Text("Mitglieder", style = MaterialTheme.typography.labelMedium); Text("${stats.total}", style = MaterialTheme.typography.titleLarge) }
             Column { Text("Aktiv", style = MaterialTheme.typography.labelMedium); Text("${stats.active} (${stats.activePercent} %)", style = MaterialTheme.typography.titleLarge) }
@@ -130,7 +133,8 @@ private fun MemberRow(m: Member, onClick: () -> Unit) {
 }
 
 @Composable
-fun MemberDetailScreen(model: AppModel, id: String, modifier: Modifier = Modifier) {
+fun MemberDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDeleted: () -> Unit, modifier: Modifier = Modifier) {
+    var deleting by remember { mutableStateOf(false) }
     val m = model.members.firstOrNull { it.id == id }
     if (m == null) { Text("Mitglied nicht gefunden.", modifier.padding(16.dp)); return }
     Column(modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
@@ -153,8 +157,12 @@ fun MemberDetailScreen(model: AppModel, id: String, modifier: Modifier = Modifie
         row("Beitrag", if (m.paymentMethod == "exempt" || m.feePeriod == "none") "beitragsfrei" else "${euro(m.fee)} ${MemberLabels.FEE_PERIOD[m.feePeriod] ?: ""}".trim())
         row("Zahlart", MemberLabels.PAYMENT[m.paymentMethod] ?: "")
         row("Notizen", m.notes)
-        Text("Nur Ansicht. Bearbeiten folgt im nächsten Schritt.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 16.dp))
+        Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onEdit) { Text("Bearbeiten") }
+            OutlinedButton(onClick = { deleting = true }) { Text("Löschen") }
+        }
     }
+    if (deleting) DeleteMemberDialog(model, m, onDismiss = { deleting = false }, onDeleted = onDeleted)
 }
 
 @Composable

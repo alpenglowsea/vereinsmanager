@@ -13,7 +13,13 @@ import de.vereinsmanager.core.backup.BackupExporter
 import de.vereinsmanager.core.backup.BackupFile
 import de.vereinsmanager.core.backup.BackupImporter
 import de.vereinsmanager.core.backup.ImportMode
+import de.vereinsmanager.core.members.DeleteReport
+import de.vereinsmanager.core.members.DocumentChoice
 import de.vereinsmanager.core.members.Member
+import de.vereinsmanager.core.members.MemberForm
+import de.vereinsmanager.core.members.MemberRules
+import de.vereinsmanager.core.members.MemberStore
+import de.vereinsmanager.core.members.MaterialChoice
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -24,6 +30,14 @@ import java.util.Locale
 import kotlin.concurrent.thread
 
 /** Der Zustand der App: Speicher, geladene Mitglieder und Meldungen. */
+private val BEREICHE = mapOf(
+    "members" to "Mitglieder", "transactions" to "Buchungen", "accounts" to "Konten", "auditLogs" to "Protokoll",
+    "inventory" to "Inventar", "memberInventory" to "Materialausgaben", "sepaRuns" to "SEPA-Läufe",
+    "documents" to "Dokumente", "folders" to "Ordner", "donations" to "Spenden", "contacts" to "Kontakte",
+    "invoices" to "Rechnungen", "meetings" to "Sitzungen", "calendarEvents" to "Termine",
+    "calendarCategories" to "Kalenderkategorien",
+)
+
 class AppModel(private val appContext: Context) {
     val store = SqliteDocumentStore(appContext)
     private val main = Handler(Looper.getMainLooper())
@@ -83,7 +97,7 @@ class AppModel(private val appContext: Context) {
                 val art = if (mode == ImportMode.REPLACE) "ersetzt" else "ergänzt"
                 buildString {
                     append("Bestand $art. ")
-                    append(report.inFile.entries.filter { it.value > 0 }.joinToString(", ") { "${it.key}: ${it.value}" })
+                    append(report.inFile.entries.filter { it.value > 0 }.joinToString(", ") { "${BEREICHE[it.key] ?: it.key}: ${it.value}" })
                     append(if (kopie != null) "\nSicherheitskopie des vorherigen Bestands: $kopie" else "\nKeine Sicherheitskopie nötig (Bestand war leer) oder sie ließ sich nicht anlegen.")
                     if (!report.ok) append("\nNICHT alles gespeichert: " + report.failed.joinToString("; "))
                 }
@@ -107,6 +121,30 @@ class AppModel(private val appContext: Context) {
                 "Fehler: ${e.message ?: e::class.simpleName}"
             }
             post { message = text; busy = false }
+        }
+    }
+
+    // ---- Mitglieder bearbeiten ----
+
+    fun naechsteNummer(): String = MemberRules.naechsteNummer(members.map { it.number })
+
+    /** Speichert im Hintergrund; danach meldet [done] auf dem Hauptfaden null (Erfolg) oder den Fehlertext. */
+    fun saveMember(form: MemberForm, done: (String?) -> Unit) {
+        busy = true
+        thread {
+            val fehler = try { MemberStore.speichern(store, form); null } catch (e: Exception) { e.message ?: e::class.simpleName }
+            post { reload(); busy = false; done(fehler) }
+        }
+    }
+
+    fun dependencies(id: String): Pair<Int, Int> = MemberStore.abhaengigkeiten(store, id)
+
+    fun deleteMember(id: String, docs: DocumentChoice, material: MaterialChoice, done: (DeleteReport?, String?) -> Unit) {
+        busy = true
+        thread {
+            var report: DeleteReport? = null
+            val fehler = try { report = MemberStore.loeschen(store, id, docs, material); null } catch (e: Exception) { e.message ?: e::class.simpleName }
+            post { reload(); busy = false; done(report, fehler) }
         }
     }
 
