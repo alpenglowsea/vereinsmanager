@@ -184,6 +184,26 @@ class AppModel(private val appContext: Context) {
         }
     }
 
+    // ---- Export ----
+
+    fun vereinsname(): String = clubName.ifEmpty { "Verein" }
+
+    /** Schreibt im Hintergrund in die gewählte Datei; [done] bekommt die Meldung auf dem Hauptfaden. */
+    fun exportiere(uri: Uri, schreiben: (java.io.OutputStream) -> Unit, erfolg: String, done: (String) -> Unit) {
+        busy = true
+        thread {
+            val text = try {
+                appContext.contentResolver.openOutputStream(uri, "wt")!!.use { schreiben(it) }
+                erfolg
+            } catch (e: Exception) {
+                "Fehler beim Exportieren: ${e.message ?: e::class.simpleName}"
+            }
+            post { busy = false; done(text) }
+        }
+    }
+
+    fun alleAusgaben(): List<Ausgabe> = MemberMaterial.alle(store)
+
     // ---- Material und Historie ----
 
     fun gegenstaende(): List<Gegenstand> = MemberMaterial.gegenstaende(store)

@@ -83,6 +83,10 @@ object MemberMaterial {
         store.all(INVENTORY).map { Gegenstand(t(it, "id"), t(it, "name").ifEmpty { "Gegenstand" }, t(it, "itemNumber"), t(it, "unit").ifEmpty { "Stk." }) }
             .sortedWith(compareBy(java.text.Collator.getInstance(java.util.Locale.GERMANY)) { it.name })
 
+    /** Alle Ausgaben aller Mitglieder, neueste zuerst. */
+    fun alle(store: DocumentStore): List<Ausgabe> =
+        store.all(AREA).map { Ausgabe.from(it) }.sortedWith(compareByDescending<Ausgabe> { it.issueDate }.thenByDescending { it.id })
+
     /** Ausgaben eines Mitglieds, neueste Ausgabe zuerst. */
     fun ausgaben(store: DocumentStore, memberId: String): List<Ausgabe> =
         store.all(AREA).filter { t(it, "memberId") == memberId }.map { Ausgabe.from(it) }

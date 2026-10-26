@@ -25,6 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import de.vereinsmanager.android.AppModel
+import de.vereinsmanager.android.export.rememberExporter
+import de.vereinsmanager.core.export.Export
 import de.vereinsmanager.core.members.Ausgabe
 import de.vereinsmanager.core.members.AusgabeForm
 import de.vereinsmanager.core.members.Member
@@ -34,11 +36,12 @@ import java.time.LocalDate
 
 /** Reiter "Material": was dem Mitglied aus dem Inventar überlassen wurde. */
 @Composable
-fun MemberMaterialTab(model: AppModel, m: Member) {
+fun MemberMaterialTab(model: AppModel, m: Member, onOverview: () -> Unit) {
     val ausgaben = remember(model.stand, m.id) { model.ausgaben(m.id) }
     var dialog by remember { mutableStateOf<AusgabeForm?>(null) }
     var entfernen by remember { mutableStateOf<Ausgabe?>(null) }
     var fehler by remember { mutableStateOf("") }
+    val exporter = rememberExporter(model) { fehler = it }
 
     Column {
         Text("Inventar & Material (${ausgaben.size})", style = MaterialTheme.typography.titleMedium)
@@ -47,6 +50,19 @@ fun MemberMaterialTab(model: AppModel, m: Member) {
             onClick = { dialog = AusgabeForm(issueDate = LocalDate.now().toString()) },
             modifier = Modifier.padding(vertical = 8.dp),
         ) { Text("Gegenstand ausgeben") }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = {
+                val liste = ausgaben
+                exporter.csv("material_${m.lastName}_${m.firstName}.csv") { Export.materialCsv(liste, model.members, model.gegenstaende()) }
+            }) { Text("CSV") }
+            OutlinedButton(onClick = {
+                val liste = ausgaben
+                exporter.pdf("material_${m.lastName}_${m.firstName}.pdf") {
+                    Export.materialPdf(liste, model.members, model.gegenstaende(), model.vereinsname(), LocalDate.now())
+                }
+            }) { Text("PDF") }
+            OutlinedButton(onClick = onOverview) { Text("Alle ausgeteilten Gegenstände") }
+        }
         if (fehler.isNotEmpty()) Text(fehler, color = MaterialTheme.colorScheme.error)
         if (ausgaben.isEmpty()) Text("Keine Gegenstände verknüpft.", Modifier.padding(top = 8.dp))
         ausgaben.forEach { a ->

@@ -33,6 +33,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import de.vereinsmanager.android.AppModel
+import de.vereinsmanager.android.export.rememberExporter
+import de.vereinsmanager.core.export.Export
 import de.vereinsmanager.core.members.Member
 import de.vereinsmanager.core.members.MemberFilter
 import de.vereinsmanager.core.members.MemberLabels
@@ -84,6 +86,8 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
     val shown = remember(model.members, filter, sortKey, ascending) {
         MemberList.sort(MemberList.filter(model.members, filter), sortKey, ascending)
     }
+    val exporter = rememberExporter(model) { info = it }
+    val heute = LocalDate.now().toString()
     val deptOptions = remember(model.departments) { model.departments.associateWith { it } }
 
     Column(modifier.padding(horizontal = 16.dp)) {
@@ -98,6 +102,14 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                 OutlinedButton(onClick = { selected = emptySet() }) { Text("Keine") }
                 Button(onClick = { bulkOpen = true }) { Text("Bearbeiten") }
                 OutlinedButton(onClick = { deleteOpen = true }) { Text("Löschen") }
+                OutlinedButton(onClick = {
+                    val auswahl = model.members.filter { it.id in selected }
+                    exporter.csv("mitglieder_${auswahl.size}_ausgewaehlt.csv") { Export.mitgliederCsv(auswahl) }
+                }) { Text("CSV") }
+                OutlinedButton(onClick = {
+                    val auswahl = model.members.filter { it.id in selected }
+                    exporter.pdf("mitglieder_$heute.pdf") { Export.mitgliederPdf(auswahl, model.vereinsname(), LocalDate.now()) }
+                }) { Text("PDF") }
             }
         }
         if (info.isNotEmpty()) Text(info, modifier = Modifier.padding(top = 8.dp))
@@ -130,7 +142,17 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                 SORT_LABELS.forEach { (k, v) -> DropdownMenuItem(text = { Text(v) }, onClick = { sortKey = k; sortOpen = false }) }
             }
         }
-        Text("${shown.size} von ${model.members.size} angezeigt", style = MaterialTheme.typography.bodySmall)
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = {
+                val liste = shown
+                exporter.csv("mitglieder_${Export.dateiname(model.vereinsname())}_$heute.csv") { Export.mitgliederCsv(liste) }
+            }) { Text("CSV-Export") }
+            TextButton(onClick = {
+                val liste = shown
+                exporter.pdf("mitgliederliste_${Export.dateiname(model.vereinsname())}_$heute.pdf") { Export.mitgliederPdf(liste, model.vereinsname(), LocalDate.now()) }
+            }) { Text("PDF-Liste") }
+        }
+        Text("${shown.size} von ${model.members.size} angezeigt (Export betrifft die angezeigten)", style = MaterialTheme.typography.bodySmall)
         HorizontalDivider(Modifier.padding(vertical = 4.dp))
         if (model.members.isEmpty()) Text("Keine Mitglieder. Spielen Sie auf der Startseite eine Sicherung ein.", Modifier.padding(top = 16.dp))
         LazyColumn {
@@ -189,7 +211,7 @@ private fun MemberRow(m: Member, selecting: Boolean, checked: Boolean, onLongCli
 }
 
 @Composable
-fun MemberDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDeleted: () -> Unit, modifier: Modifier = Modifier) {
+fun MemberDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDeleted: () -> Unit, onMaterialOverview: () -> Unit, modifier: Modifier = Modifier) {
     var deleting by remember { mutableStateOf(false) }
     var tab by remember { mutableStateOf(0) }
     val m = model.members.firstOrNull { it.id == id }
@@ -204,7 +226,7 @@ fun MemberDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
             listOf("Details", "Material", "Historie").forEachIndexed { i, s -> FilterChip(tab == i, { tab = i }, label = { Text(s) }) }
         }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        if (tab == 1) MemberMaterialTab(model, m)
+        if (tab == 1) MemberMaterialTab(model, m, onMaterialOverview)
         if (tab == 2) MemberHistoryTab(model, m)
         if (tab == 0) {
             @Composable fun row(label: String, value: String) { if (value.isNotBlank()) Field(label, value) }
