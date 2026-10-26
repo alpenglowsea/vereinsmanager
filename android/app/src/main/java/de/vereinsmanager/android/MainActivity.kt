@@ -17,6 +17,7 @@ import de.vereinsmanager.android.ui.HomeScreen
 import de.vereinsmanager.android.ui.MemberDetailScreen
 import de.vereinsmanager.android.ui.MemberFormScreen
 import de.vereinsmanager.android.ui.MaterialOverviewScreen
+import de.vereinsmanager.android.ui.MemberAnalyticsScreen
 import de.vereinsmanager.android.ui.MemberImportScreen
 import de.vereinsmanager.android.ui.MemberListScreen
 import de.vereinsmanager.android.ui.theme.VereinsManagerTheme
@@ -30,6 +31,7 @@ sealed interface Page {
     data class MemberEdit(val id: String?) : Page
     data object MemberImport : Page
     data object MaterialOverview : Page
+    data object MemberAnalytics : Page
     data object Probes : Page
 }
 
@@ -53,7 +55,8 @@ class MainActivity : ComponentActivity() {
                         )
                         Page.Members -> MemberListScreen(
                             model, onOpen = { stack = stack + Page.Member(it) }, onNew = { stack = stack + Page.MemberEdit(null) },
-                            onImport = { stack = stack + Page.MemberImport }, modifier = m,
+                            onImport = { stack = stack + Page.MemberImport },
+                            onAnalytics = { stack = stack + Page.MemberAnalytics }, modifier = m,
                         )
                         is Page.Member -> MemberDetailScreen(
                             model, page.id, onEdit = { id -> stack = stack + Page.MemberEdit(id) },
@@ -62,6 +65,7 @@ class MainActivity : ComponentActivity() {
                             onDeleted = { stack = stack.filter { it !is Page.Member && it !is Page.MemberEdit } }, modifier = m,
                         )
                         is Page.MemberEdit -> MemberFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
+                        Page.MemberAnalytics -> MemberAnalyticsScreen(model, modifier = m)
                         Page.MaterialOverview -> MaterialOverviewScreen(model, modifier = m)
                         Page.MemberImport -> MemberImportScreen(model, onDone = { stack = stack.dropLast(1) }, modifier = m)
                         Page.Probes -> ProbeScreen(m)

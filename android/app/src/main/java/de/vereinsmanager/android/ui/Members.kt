@@ -9,12 +9,16 @@ import androidx.compose.runtime.snapshotFlow
 import de.vereinsmanager.core.members.Iban
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
+import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.geometry.Offset
@@ -88,7 +92,7 @@ private fun FilterMenu(label: String, options: Map<String, String>, selected: St
 }
 
 @Composable
-fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, onImport: () -> Unit, modifier: Modifier = Modifier) {
+fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, onImport: () -> Unit, onAnalytics: () -> Unit, modifier: Modifier = Modifier) {
     var filter by remember { mutableStateOf(MemberFilter()) }
     var sortKey by remember { mutableStateOf(SortKey.NAME) }
     var ascending by remember { mutableStateOf(true) }
@@ -109,18 +113,28 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
     val heute = LocalDate.now().toString()
     val deptOptions = remember(model.departments) { model.departments.associateWith { it } }
 
-    // Kopf blendet beim Hinunterscrollen aus und beim Hinaufscrollen wieder ein.
+    // Der Kopf schrumpft und verblasst im Takt des Scrollens (langsam beim Hinunterscrollen) und kommt beim
+    // Hinaufscrollen schneller wieder (doppelte Geschwindigkeit).
     val listState = rememberLazyListState()
-    var kopfSichtbar by remember { mutableStateOf(true) }
+    val kopfHoehe = remember { IntArray(1) }
+    var kopfVersatz by remember { mutableFloatStateOf(0f) } // 0 = ganz sichtbar, -Höhe = ganz eingeklappt
     val scrollVerfolgung = remember(listState) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y < -12f) {
-                    val i = listState.layoutInfo
-                    // Nur ausblenden, wenn nach dem Ausblenden noch genug Zeilen zum Scrollen bleiben.
-                    if (i.totalItemsCount - i.visibleItemsInfo.size >= 6) kopfSichtbar = false
-                } else if (available.y > 12f) {
-                    kopfSichtbar = true
+                val dy = available.y
+                if (dy < 0f) {
+                    if (kopfVersatz <= -kopfHoehe[0]) return Offset.Zero
+                    if (kopfVersatz == 0f && !listState.canScrollForward) return Offset.Zero
+                    val neu = (kopfVersatz + dy).coerceAtLeast(-kopfHoehe[0].toFloat())
+                    val verbraucht = neu - kopfVersatz
+                    kopfVersatz = neu
+                    return Offset(0f, verbraucht)
+                } else if (dy > 0f) {
+                    if (kopfVersatz >= 0f) return Offset.Zero
+                    val neu = (kopfVersatz + dy * 2f).coerceAtMost(0f)
+                    val verbraucht = (neu - kopfVersatz) / 2f
+                    kopfVersatz = neu
+                    return Offset(0f, verbraucht)
                 }
                 return Offset.Zero
             }
@@ -129,28 +143,19 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
     LaunchedEffect(shown) { model.ansicht = shown.map { it.id } }
 
     Column(modifier.padding(horizontal = 16.dp).nestedScroll(scrollVerfolgung)) {
-        if (selecting) {
-            Text("${selected.size} ausgewählt (zum Abwählen erneut antippen)", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { selected = shown.map { it.id }.toSet() }) { Text("Alle angezeigten") }
-                OutlinedButton(onClick = { selected = emptySet() }) { Text("Keine") }
-                Button(onClick = { bulkOpen = true }) { Text("Bearbeiten") }
-                OutlinedButton(onClick = { deleteOpen = true }) { Text("Löschen") }
-                OutlinedButton(onClick = {
-                    val auswahl = model.members.filter { it.id in selected }
-                    exporter.csv("mitglieder_${auswahl.size}_ausgewaehlt.csv") { Export.mitgliederCsv(auswahl) }
-                }) { Text("CSV") }
-                OutlinedButton(onClick = {
-                    val auswahl = model.members.filter { it.id in selected }
-                    exporter.pdf("mitglieder_$heute.pdf") { Export.mitgliederPdf(auswahl, model.vereinsname(), LocalDate.now()) }
-                }) { Text("PDF") }
-            }
-        }
         if (info.isNotEmpty()) Text(info, modifier = Modifier.padding(top = 8.dp))
-        AnimatedVisibility(
-            visible = kopfSichtbar,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically(),
+        Box(
+            Modifier.clipToBounds()
+                .layout { measurable, constraints ->
+                    val p = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+                    kopfHoehe[0] = p.height
+                    val sichtbar = (p.height + kopfVersatz).roundToInt().coerceIn(0, p.height)
+                    layout(p.width, sichtbar) { p.placeRelative(0, kopfVersatz.roundToInt().coerceIn(-p.height, 0)) }
+                }
+                .graphicsLayer {
+                    val h = kopfHoehe[0].coerceAtLeast(1)
+                    alpha = (1f + 1.5f * kopfVersatz / h).coerceIn(0f, 1f)
+                },
         ) {
             Column {
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -195,7 +200,28 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                         val liste = shown
                         exporter.pdf("mitgliederliste_${Export.dateiname(model.vereinsname())}_$heute.pdf") { Export.mitgliederPdf(liste, model.vereinsname(), LocalDate.now()) }
                     }) { Text("PDF-Liste") }
+                    TextButton(onClick = onAnalytics) { Text("Auswertung") }
                 }
+            }
+        }
+        if (selecting) {
+            // Auswahlleiste: sitzt an der Stelle der Export-Knöpfe und bleibt beim Scrollen stehen.
+            val schmal = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+            val knopf = Modifier.height(32.dp)
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("${selected.size} gewählt", style = MaterialTheme.typography.labelLarge)
+                OutlinedButton(onClick = { selected = shown.map { it.id }.toSet() }, modifier = knopf, contentPadding = schmal) { Text("Alle angezeigten", style = MaterialTheme.typography.labelMedium) }
+                OutlinedButton(onClick = { selected = emptySet() }, modifier = knopf, contentPadding = schmal) { Text("Keine", style = MaterialTheme.typography.labelMedium) }
+                Button(onClick = { bulkOpen = true }, modifier = knopf, contentPadding = schmal) { Text("Bearbeiten", style = MaterialTheme.typography.labelMedium) }
+                OutlinedButton(onClick = { deleteOpen = true }, modifier = knopf, contentPadding = schmal) { Text("Löschen", style = MaterialTheme.typography.labelMedium) }
+                OutlinedButton(onClick = {
+                    val auswahl = model.members.filter { it.id in selected }
+                    exporter.csv("mitglieder_${auswahl.size}_ausgewaehlt.csv") { Export.mitgliederCsv(auswahl) }
+                }, modifier = knopf, contentPadding = schmal) { Text("CSV", style = MaterialTheme.typography.labelMedium) }
+                OutlinedButton(onClick = {
+                    val auswahl = model.members.filter { it.id in selected }
+                    exporter.pdf("mitglieder_$heute.pdf") { Export.mitgliederPdf(auswahl, model.vereinsname(), LocalDate.now()) }
+                }, modifier = knopf, contentPadding = schmal) { Text("PDF", style = MaterialTheme.typography.labelMedium) }
             }
         }
         Text("${shown.size} von ${model.members.size} angezeigt (Export: die angezeigten)", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
