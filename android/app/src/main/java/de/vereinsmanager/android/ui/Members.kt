@@ -92,7 +92,7 @@ private fun FilterMenu(label: String, options: Map<String, String>, selected: St
 }
 
 @Composable
-fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, onImport: () -> Unit, onAnalytics: () -> Unit, modifier: Modifier = Modifier) {
+fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, onImport: () -> Unit, modifier: Modifier = Modifier) {
     var filter by remember { mutableStateOf(MemberFilter()) }
     var sortKey by remember { mutableStateOf(SortKey.NAME) }
     var ascending by remember { mutableStateOf(true) }
@@ -200,7 +200,6 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                         val liste = shown
                         exporter.pdf("mitgliederliste_${Export.dateiname(model.vereinsname())}_$heute.pdf") { Export.mitgliederPdf(liste, model.vereinsname(), LocalDate.now()) }
                     }) { Text("PDF-Liste") }
-                    TextButton(onClick = onAnalytics) { Text("Auswertung") }
                 }
             }
         }
