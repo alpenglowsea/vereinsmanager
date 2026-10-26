@@ -5,6 +5,7 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import de.vereinsmanager.core.export.PdfTabelle
+import de.vereinsmanager.core.export.StammblattDaten
 import java.io.OutputStream
 
 /**
@@ -28,7 +29,7 @@ object PdfWriter {
     }
 
     /** Bricht [text] auf Zeilen der Breite [breite] um; zu lange Wörter werden hart getrennt. */
-    private fun umbrechen(text: String, p: Paint, breite: Float): List<String> {
+    internal fun umbrechen(text: String, p: Paint, breite: Float): List<String> {
         val zeilen = ArrayList<String>()
         for (absatz in text.split("\n")) {
             var aktuell = ""
@@ -120,6 +121,65 @@ object PdfWriter {
             pg.canvas.drawText("Seite $seite | ${t.fusszeile}", LINKS, FUSS_Y, paint(8f, Color.rgb(140, 140, 140)))
             doc.finishPage(pg)
         }
+        doc.writeTo(out)
+        doc.close()
+    }
+
+    /** Stammblatt eines Mitglieds, A4 hoch, Aufbau wie am Desktop. */
+    fun stammblatt(d: StammblattDaten, out: OutputStream) {
+        val doc = PdfDocument()
+        val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, 1).create())
+        val c = page.canvas
+        val dunkel = Color.rgb(15, 23, 42)
+        val grau = Color.rgb(100, 116, 139)
+        val linie = Paint().apply { color = Color.rgb(203, 213, 225); strokeWidth = 1.4f }
+        val balken = Paint().apply { color = Color.rgb(241, 245, 249); style = Paint.Style.FILL }
+        val rechts = 196 * MM
+        c.drawText(d.verein, LINKS, 18 * MM, paint(16f, dunkel))
+        val klein = paint(9f, grau)
+        if (d.kopf1.isNotEmpty()) c.drawText(d.kopf1, LINKS, 24 * MM, klein)
+        if (d.kopf2.isNotEmpty()) c.drawText(d.kopf2, LINKS, 29 * MM, klein)
+        c.drawLine(LINKS, 33 * MM, rechts, 33 * MM, linie)
+        c.drawText(d.titel, LINKS, 42 * MM, paint(14f, dunkel))
+        c.drawText(d.erstellt, rechts - klein.measureText(d.erstellt), 42 * MM, klein)
+
+        var y = 48 * MM
+        val label = paint(8.5f, Color.rgb(71, 85, 105), bold = true)
+        val wert = paint(8.5f, Color.rgb(40, 40, 40))
+        val zeile = 8.5f * 1.3f
+        for (a in d.abschnitte) {
+            c.drawRect(LINKS, y, rechts, y + 7 * MM, balken)
+            c.drawText(a.titel, 16 * MM, y + 5 * MM, paint(10f, Color.rgb(30, 41, 59), bold = true))
+            y += 9 * MM
+            for (z in a.zeilen) {
+                var x = LINKS
+                var hoehe = zeile
+                val umbr = z.mapIndexed { i, s -> umbrechen(s, if (i % 2 == 0) label else wert, a.breiten[i] * MM - 2 * 1.5f * MM) }
+                hoehe = umbr.maxOf { it.size } * zeile
+                umbr.forEachIndexed { i, zl ->
+                    zl.forEachIndexed { k, s -> c.drawText(s, x + 1.5f * MM, y + 1.5f * MM + (k + 1) * zeile - 3f, if (i % 2 == 0) label else wert) }
+                    x += a.breiten[i] * MM
+                }
+                y += hoehe + 3f * MM
+            }
+            y += 3 * MM
+        }
+        c.drawRect(LINKS, y, rechts, y + 7 * MM, balken)
+        c.drawText(d.notizenTitel, 16 * MM, y + 5 * MM, paint(10f, Color.rgb(30, 41, 59), bold = true))
+        y += 12 * MM
+        val klein8 = paint(8f, Color.rgb(71, 85, 105))
+        for (blockText in listOf(d.notizen, d.datenschutz)) {
+            for (zl in umbrechen(blockText, klein8, 178 * MM)) { c.drawText(zl, 16 * MM, y, klein8); y += 8f * 1.3f }
+            y += 4 * MM
+        }
+        y += 18 * MM
+        val strich = Paint().apply { color = Color.rgb(180, 180, 180); strokeWidth = 1f }
+        c.drawLine(16 * MM, y, 85 * MM, y, strich)
+        c.drawLine(115 * MM, y, 184 * MM, y, strich)
+        val sp = paint(8f, Color.rgb(100, 100, 100))
+        c.drawText("Ort, Datum", 16 * MM, y + 4 * MM, sp)
+        c.drawText("Unterschrift Mitglied / Gesetzl. Vertreter", 115 * MM, y + 4 * MM, sp)
+        doc.finishPage(page)
         doc.writeTo(out)
         doc.close()
     }

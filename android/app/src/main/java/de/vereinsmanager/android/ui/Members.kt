@@ -33,7 +33,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import de.vereinsmanager.android.AppModel
+import de.vereinsmanager.android.export.PdfWriter
 import de.vereinsmanager.android.export.rememberExporter
+import de.vereinsmanager.core.export.Stammblatt
 import de.vereinsmanager.core.export.Export
 import de.vereinsmanager.core.members.Member
 import de.vereinsmanager.core.members.MemberFilter
@@ -97,19 +99,25 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
         }
         if (selecting) {
             Text("${selected.size} ausgewählt (zum Abwählen erneut antippen)", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { selected = shown.map { it.id }.toSet() }) { Text("Alle angezeigten") }
-                OutlinedButton(onClick = { selected = emptySet() }) { Text("Keine") }
-                Button(onClick = { bulkOpen = true }) { Text("Bearbeiten") }
-                OutlinedButton(onClick = { deleteOpen = true }) { Text("Löschen") }
-                OutlinedButton(onClick = {
-                    val auswahl = model.members.filter { it.id in selected }
-                    exporter.csv("mitglieder_${auswahl.size}_ausgewaehlt.csv") { Export.mitgliederCsv(auswahl) }
-                }) { Text("CSV") }
-                OutlinedButton(onClick = {
-                    val auswahl = model.members.filter { it.id in selected }
-                    exporter.pdf("mitglieder_$heute.pdf") { Export.mitgliederPdf(auswahl, model.vereinsname(), LocalDate.now()) }
-                }) { Text("PDF") }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { selected = shown.map { it.id }.toSet() }, modifier = Modifier.weight(1f)) { Text("Alle angezeigten") }
+                    OutlinedButton(onClick = { selected = emptySet() }, modifier = Modifier.weight(1f)) { Text("Keine") }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { bulkOpen = true }, modifier = Modifier.weight(1f)) { Text("Bearbeiten") }
+                    OutlinedButton(onClick = { deleteOpen = true }, modifier = Modifier.weight(1f)) { Text("Löschen") }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        val auswahl = model.members.filter { it.id in selected }
+                        exporter.csv("mitglieder_${auswahl.size}_ausgewaehlt.csv") { Export.mitgliederCsv(auswahl) }
+                    }, modifier = Modifier.weight(1f)) { Text("CSV (nur Auswahl)") }
+                    OutlinedButton(onClick = {
+                        val auswahl = model.members.filter { it.id in selected }
+                        exporter.pdf("mitglieder_$heute.pdf") { Export.mitgliederPdf(auswahl, model.vereinsname(), LocalDate.now()) }
+                    }, modifier = Modifier.weight(1f)) { Text("PDF (nur Auswahl)") }
+                }
             }
         }
         if (info.isNotEmpty()) Text(info, modifier = Modifier.padding(top = 8.dp))
@@ -142,7 +150,7 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                 SORT_LABELS.forEach { (k, v) -> DropdownMenuItem(text = { Text(v) }, onClick = { sortKey = k; sortOpen = false }) }
             }
         }
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (!selecting) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = {
                 val liste = shown
                 exporter.csv("mitglieder_${Export.dateiname(model.vereinsname())}_$heute.csv") { Export.mitgliederCsv(liste) }
@@ -152,7 +160,7 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                 exporter.pdf("mitgliederliste_${Export.dateiname(model.vereinsname())}_$heute.pdf") { Export.mitgliederPdf(liste, model.vereinsname(), LocalDate.now()) }
             }) { Text("PDF-Liste") }
         }
-        Text("${shown.size} von ${model.members.size} angezeigt (Export betrifft die angezeigten)", style = MaterialTheme.typography.bodySmall)
+        Text("${shown.size} von ${model.members.size} angezeigt (Export: die angezeigten)", style = MaterialTheme.typography.bodySmall)
         HorizontalDivider(Modifier.padding(vertical = 4.dp))
         if (model.members.isEmpty()) Text("Keine Mitglieder. Spielen Sie auf der Startseite eine Sicherung ein.", Modifier.padding(top = 16.dp))
         LazyColumn {
@@ -214,6 +222,8 @@ private fun MemberRow(m: Member, selecting: Boolean, checked: Boolean, onLongCli
 fun MemberDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDeleted: () -> Unit, onMaterialOverview: () -> Unit, modifier: Modifier = Modifier) {
     var deleting by remember { mutableStateOf(false) }
     var tab by remember { mutableStateOf(0) }
+    var stammInfo by remember { mutableStateOf("") }
+    val exporter = rememberExporter(model) { stammInfo = it }
     val m = model.members.firstOrNull { it.id == id }
     if (m == null) { Text("Mitglied nicht gefunden.", modifier.padding(16.dp)); return }
     Column(modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
@@ -242,6 +252,14 @@ fun MemberDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
             row("Beitrag", if (m.paymentMethod == "exempt" || m.feePeriod == "none") "beitragsfrei" else "${euro(m.fee)} ${MemberLabels.FEE_PERIOD[m.feePeriod] ?: ""}".trim())
             row("Zahlart", MemberLabels.PAYMENT[m.paymentMethod] ?: "")
             row("Notizen", m.notes)
+            OutlinedButton(
+                onClick = {
+                    val d = Stammblatt.erstellen(m, model.store.get("settings", "main"), LocalDate.now())
+                    exporter.pdfSchreiber(d.dateiname) { out -> PdfWriter.stammblatt(d, out) }
+                },
+                modifier = Modifier.padding(top = 12.dp),
+            ) { Text("Stammblatt (PDF)") }
+            if (stammInfo.isNotEmpty()) Text(stammInfo, style = MaterialTheme.typography.bodySmall)
             Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onEdit) { Text("Bearbeiten") }
                 OutlinedButton(onClick = { deleting = true }) { Text("Löschen") }

@@ -13,13 +13,15 @@ import de.vereinsmanager.core.export.PdfTabelle
 /** Öffnet den Speicherdialog des Systems und schreibt danach die Datei. Das Ergebnis meldet [onResult] auf dem Hauptfaden. */
 class Exporter(
     val csv: (dateiname: String, inhalt: () -> String) -> Unit,
-    val pdf: (dateiname: String, tabelle: () -> PdfTabelle) -> Unit,
-)
+    val pdfSchreiber: (dateiname: String, schreiber: (java.io.OutputStream) -> Unit) -> Unit,
+) {
+    fun pdf(dateiname: String, tabelle: () -> PdfTabelle) = pdfSchreiber(dateiname) { out -> PdfWriter.schreiben(tabelle(), out) }
+}
 
 @Composable
 fun rememberExporter(model: AppModel, onResult: (String) -> Unit): Exporter {
     var wartendCsv by remember { mutableStateOf<(() -> String)?>(null) }
-    var wartendPdf by remember { mutableStateOf<(() -> PdfTabelle)?>(null) }
+    var wartendPdf by remember { mutableStateOf<((java.io.OutputStream) -> Unit)?>(null) }
     val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         val p = wartendCsv
         wartendCsv = null
@@ -29,13 +31,13 @@ fun rememberExporter(model: AppModel, onResult: (String) -> Unit): Exporter {
     val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
         val p = wartendPdf
         wartendPdf = null
-        if (uri != null && p != null) model.exportiere(uri, { out -> PdfWriter.schreiben(p(), out) }, "PDF-Datei gespeichert.", onResult)
+        if (uri != null && p != null) model.exportiere(uri, p, "PDF-Datei gespeichert.", onResult)
         else onResult("Export abgebrochen.")
     }
     return remember(csvLauncher, pdfLauncher) {
         Exporter(
             csv = { name, f -> wartendCsv = f; csvLauncher.launch(name) },
-            pdf = { name, f -> wartendPdf = f; pdfLauncher.launch(name) },
+            pdfSchreiber = { name, f -> wartendPdf = f; pdfLauncher.launch(name) },
         )
     }
 }
