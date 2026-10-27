@@ -16,5 +16,6 @@ java {
 
 dependencies {
     api(libs.kotlinx.serialization.json)
+    implementation(libs.zip4j) // ZIP mit AES-256-Passwort (Sicherungspaket)
     testImplementation(libs.junit)
 }

@@ -247,6 +247,8 @@ ganze Datei als einen Text laden. Probe C in Phase 0 misst das auf dem Gerät.
 
 ## 7. Änderungsregel
 
+(Das Sicherungspaket, Abschnitt 8, ist ein Entwurf dieser Änderung und wird ebenfalls nur gemeinsam eingeführt.)
+
 Dieses Format ändert sich **nur gemeinsam** für beide Fassungen:
 
 1. Soll an der Desktop-Fassung etwas geändert werden, das die Sicherungsdatei
@@ -259,3 +261,73 @@ Dieses Format ändert sich **nur gemeinsam** für beide Fassungen:
    `backupContents.ts` dafür, dass ein neuer Datenbereich nicht stillschweigend
    aus der Sicherung fällt. Die Android-App bekommt eine gleichwertige Prüfung
    (Test, der die 19 Schlüssel dieser Datei gegen den Code abgleicht).
+
+## 8. Sicherungspaket (Format 1.3.0) – Entwurf, Stand 27.10.2026
+
+**Status:** auf Android im Kern umgesetzt und getestet (`BackupPaket`), am Desktop **noch nicht umgesetzt**. Bis dahin
+schreibt und liest die Desktop-Fassung nur die JSON-Sicherung nach den Abschnitten 1 bis 5. Die Android-App liest beides.
+
+**Warum:** Belege, Dokumente und Fotos als Base64 im Text sprengen bei echten Beständen Speicher und Zeilengrenzen
+(Abschnitt 6). Im Paket liegen sie als eigene Dateien.
+
+### Aufbau
+
+Eine ZIP-Datei (Endung `.zip`). Der **erste Eintrag ist `sicherung.json`**, danach die Dateien:
+
+```
+sicherung.json
+dokumente/<Ordner>/<Unterordner>/<Datei>
+dokumente/Buchhaltungsbelege & Finanzen/Belege 2026/2026-03-01 Sportshop Franke BE-2026-010.pdf
+mitglieder-fotos/M-0012 Müller Jörg.jpg
+inventar-fotos/Trikotsatz.png
+```
+
+- ZIP nach Standard, Dateinamen UTF-8 (Flag Bit 11), Kompression Deflate. Schreiben ohne Kenntnis der Größe vorab
+  (Datenbeschreibung nach den Daten), deshalb beim Lesen mit Datenstrom nur Deflate, nicht „gespeichert“.
+- **Passwort (optional):** WinZip-AES (AE-2), 256 Bit, Schlüsselableitung PBKDF2-HMAC-SHA1 mit 1000 Runden
+  (so legt es der Standard fest), jeder Eintrag einzeln. Auf Android mit der Bibliothek zip4j 2.11.5 (Apache-2.0)
+  erzeugt und mit einer unabhängigen Python-Umsetzung der AE-Beschreibung nachgerechnet (Schlüssel, Prüfwert,
+  HMAC, Entschlüsselung stimmen). **Dateinamen und Ordnernamen sind nach dem ZIP-Standard nicht verschlüsselt**, der
+  Inhalt aller Einträge einschließlich `sicherung.json` schon. Mindestlänge des Passworts: 8 Zeichen (Anwendungsregel, nicht Teil des Formats).
+- Die alte Hülle aus Abschnitt 5 (AES-GCM) bleibt für JSON-Sicherungen bestehen und lesbar.
+
+### `sicherung.json`
+
+Wie Abschnitt 2 mit `version: "1.3.0"`. Der Inhalt von Dateien steht nicht mehr im Eintrag. Statt der Data-URL steht der
+**Pfad der Datei im ZIP**:
+
+| Bereich | bisher (1.2.3) | im Paket (1.3.0) |
+| --- | --- | --- |
+| `documents[]` | `dataUrl` | `file` |
+| `transactions[].receipt` | `receipt.dataUrl` | `receipt.file` |
+| `members[]` | `avatarUrl` | `avatarFile` |
+| `inventory[]` | `photoUrl` | `photoFile` |
+
+- Dieselbe Datei darf von mehreren Einträgen genannt werden (gleicher Pfad); sie steht im ZIP nur einmal. Das ist der
+  Normalfall, wenn ein Beleg zugleich an der Buchung hängt und als Dokument geführt wird.
+- Andere Data-URLs (Logo, Unterschriften, Briefpapier-Vorlagen in den Einstellungen, Sitzungen und Anträgen) bleiben unverändert
+  im Text; sie sind klein und gehören nicht zu dieser Änderung.
+- Maßgeblich sind die Pfade in der JSON. Die Namen im ZIP sind für Menschen gedacht: Ordner stammen aus `folders[]`
+  (Name, `parentId`), Belege liegen unter „Buchhaltungsbelege & Finanzen / Belege <Jahr der Buchung>“, Dokumente ohne Ordner unter
+  „(ohne Ordner)“. Verbotene Zeichen (`/ \ : * ? " < > |`, Steuerzeichen) werden zu „-“, Namen auf 100 Zeichen gekürzt, gleiche Namen
+  im selben Ordner erhalten „ (2)“, „ (3)“ (Groß-/Kleinschreibung zählt nicht).
+- Beim Lesen werden nur Einträge beachtet, die die JSON nennt. Pfade aus dem ZIP werden nie als Dateipfade im System verwendet.
+- Fehlt eine genannte Datei im ZIP, wird der Verweis weggelassen und gemeldet; der Eintrag selbst bleibt.
+
+### Einspielen
+
+1. `sicherung.json` lesen (muss der erste Eintrag sein; größer als 64 MB gilt als unplausibel).
+2. Jede genannte Datei einlesen und ablegen. Bei einem Fehler (falsches Passwort, beschädigter Eintrag, abgeschnittene Datei)
+   wird nichts eingespielt und bereits abgelegte Dateien werden wieder entfernt.
+3. Einträge nach Abschnitt 4 einspielen (Ersetzen oder Zusammenführen).
+4. Dateien, auf die kein Eintrag mehr verweist, entfernen.
+
+**Interne Darstellung auf Android** (nicht Teil des Austauschformats): Der Eintrag trägt `fileId` (bei Fotos `avatarFileId`,
+`photoFileId`) und verweist auf eine Datei im lokalen Dateispeicher. Beim Lesen einer alten JSON-Sicherung (1.2.3) werden
+die Data-URLs in den Dateispeicher ausgelagert; gleiche Inhalte (SHA-256) werden nur einmal abgelegt.
+
+### Offene Punkte für den Desktop
+
+- Schreiben und Lesen von AES-ZIP im Browser bzw. unter Tauri (Bibliothek noch zu wählen, nicht geprüft).
+- Umstellung von `Transaction.receipt` / `ClubDocument.dataUrl` auf Dateiverweise und Migration beim ersten Start.
+- Gemeinsame Gegenprobe: Paket von Android am Desktop öffnen und umgekehrt, mit und ohne Passwort.
