@@ -13,6 +13,8 @@ import de.vereinsmanager.core.backup.BackupExporter
 import de.vereinsmanager.core.backup.BackupFile
 import de.vereinsmanager.core.backup.BackupImporter
 import de.vereinsmanager.core.backup.ImportMode
+import de.vereinsmanager.core.files.DirFileStore
+import de.vereinsmanager.core.files.FileStore
 import de.vereinsmanager.core.members.BulkEdit
 import de.vereinsmanager.core.members.CsvImportReport
 import de.vereinsmanager.core.members.CsvTable
@@ -59,6 +61,9 @@ private val BEREICHE = mapOf(
 
 class AppModel(private val appContext: Context) {
     val store = SqliteDocumentStore(appContext)
+
+    /** Inhalte von Belegen, Dokumenten und Fotos; liegen einzeln im App-Ordner "dateien". */
+    val dateien: FileStore = DirFileStore(File(appContext.filesDir, "dateien"))
     private val main = Handler(Looper.getMainLooper())
 
     var members by mutableStateOf<List<Member>>(emptyList())
