@@ -118,6 +118,36 @@ class BuchungEditTest {
     }
 
     @Test
+    fun zweiterTeilbetragWirdMitDemRestVorausgefuellt() {
+        val f = BuchungRegeln.aufteilen(gut().copy(betrag = "100"), nummer = "t")
+        val a = BuchungRegeln.teilBetragSetzen(f, 0, "60")
+        assertEquals("60", a.teile[0].betrag)
+        assertEquals("40", a.teile[1].betrag)
+        // weiteres Ändern des ersten Teils führt den Vorschlag nach
+        val b = BuchungRegeln.teilBetragSetzen(a, 0, "70,5")
+        assertEquals("29,5", b.teile[1].betrag)
+    }
+
+    @Test
+    fun selbstGeaenderterZweiterTeilbetragBleibtStehen() {
+        val f = BuchungRegeln.aufteilen(gut().copy(betrag = "100"), nummer = "t")
+        val a = BuchungRegeln.teilBetragSetzen(f, 0, "60")
+        val eigen = BuchungRegeln.teilBetragSetzen(a, 1, "35")
+        assertEquals("35", eigen.teile[1].betrag)
+        assertEquals("35", BuchungRegeln.teilBetragSetzen(eigen, 0, "50").teile[1].betrag)
+    }
+
+    @Test
+    fun keinVorschlagBeiUnbrauchbarerEingabeOderMehrAlsZweiTeilen() {
+        val f = BuchungRegeln.aufteilen(gut().copy(betrag = "100"), nummer = "t")
+        assertEquals("", BuchungRegeln.teilBetragSetzen(f, 0, "abc").teile[1].betrag)
+        assertEquals("", BuchungRegeln.teilBetragSetzen(f, 0, "100").teile[1].betrag)
+        assertEquals("", BuchungRegeln.teilBetragSetzen(f, 0, "150").teile[1].betrag)
+        val drei = f.copy(teile = f.teile + BuchungRegeln.neuerTeil("x", "ideell"))
+        assertEquals("", BuchungRegeln.teilBetragSetzen(drei, 0, "60").teile[1].betrag)
+    }
+
+    @Test
     fun aufteilenUebernimmtBetragUndKonto() {
         val f = BuchungRegeln.aufteilen(gut().copy(betrag = "100"), nummer = "t")
         assertTrue(f.aufgeteilt)

@@ -192,6 +192,26 @@ object BuchungRegeln {
         )
     }
 
+    /**
+     * Setzt den Betrag einer Teilbuchung. Bei genau zwei Teilen füllt die Änderung des ersten Teilbetrags den
+     * zweiten mit dem Rest (Gesamtbetrag minus erster Teil) vor – aber nur, solange der zweite leer ist oder noch
+     * den zuletzt vorgeschlagenen Rest enthält. Hat der Anwender den zweiten selbst geändert, bleibt er unangetastet.
+     */
+    fun teilBetragSetzen(f: BuchungForm, index: Int, text: String): BuchungForm {
+        val teile = f.teile.mapIndexed { i, t -> if (i == index) t.copy(betrag = text) else t }
+        val ohne = f.copy(teile = teile)
+        if (index != 0 || f.teile.size != 2) return ohne
+        val gesamt = parseBetrag(f.betrag) ?: return ohne
+        val neu1 = parseBetrag(text) ?: return ohne
+        val rest = gesamt - neu1
+        if (rest.signum() <= 0) return ohne
+        val zweiter = f.teile[1].betrag
+        val alt1 = parseBetrag(f.teile[0].betrag)
+        val vorschlagAlt = alt1?.let { gesamt - it }
+        val unberuehrt = zweiter.isBlank() || (vorschlagAlt != null && parseBetrag(zweiter)?.compareTo(vorschlagAlt) == 0)
+        return if (unberuehrt) ohne.copy(teile = teile.mapIndexed { i, t -> if (i == 1) t.copy(betrag = betragText(rest)) else t }) else ohne
+    }
+
     /** Summe der Teilbeträge; ungültige Zeilen zählen 0. */
     fun teilSumme(f: BuchungForm): BigDecimal =
         f.teile.fold(BigDecimal.ZERO) { a, t -> a + (parseBetrag(t.betrag) ?: BigDecimal.ZERO) }

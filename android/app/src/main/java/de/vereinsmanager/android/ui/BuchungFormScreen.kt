@@ -115,7 +115,7 @@ fun BuchungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
                                     }
                                 }
                                 fun setze(neu: TeilForm) { f = f.copy(teile = f.teile.mapIndexed { j, x -> if (j == i) neu else x }) }
-                                Feld("Teilbetrag (€)", t.betrag, { setze(t.copy(betrag = it)) }, keyboard = KeyboardType.Decimal)
+                                Feld("Teilbetrag (€)", t.betrag, { f = BuchungRegeln.teilBetragSetzen(f, i, it) }, keyboard = KeyboardType.Decimal)
                                 Feld("Text", t.text, { setze(t.copy(text = it)) })
                                 Zuordnung(
                                     sphaere = t.sphaere, sparte = t.sparte, nummernkreis = t.nummernkreis, konto = t.konto, ust = t.ust,
