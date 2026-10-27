@@ -341,4 +341,70 @@ class BackupPaketTest {
         assertEquals("pdf", Dateityp.endungZu("application/pdf; charset=binary"))
         assertNull(Dateityp.endungZu("application/x-unbekannt"))
     }
+
+    @Test
+    fun verschluesselungDesPaketsLaesstSichVorabErkennen() {
+        val (offen, _) = schreiben(bestand())
+        val (zu, _) = schreiben(bestand(), "geheim-123")
+        assertTrue(BackupPaket.istPaket(offen) && !BackupPaket.istVerschluesselt(offen))
+        assertTrue(BackupPaket.istPaket(zu) && BackupPaket.istVerschluesselt(zu))
+        assertFalse(BackupPaket.istVerschluesselt("{\"a\":1}".toByteArray()))
+        assertFalse(BackupPaket.istVerschluesselt(byteArrayOf(0x50, 0x4B, 3, 4)))
+    }
+
+    @Test
+    fun vorEinspielenLaeuftNachDemLesenUndEinFehlerLaesstDenBestandUnangetastet() {
+        val (zip, _) = schreiben(bestand())
+        val store = InMemoryDocumentStore()
+        val files = InMemoryFileStore()
+        store.put("documents", "alt", o("id" to "alt"))
+        var aufgerufen = 0
+        try {
+            PaketImport.paket(ByteArrayInputStream(zip), null, store, files, ImportMode.REPLACE, zaehler()) {
+                aufgerufen++
+                assertTrue(store.get("documents", "alt") != null) // noch nichts verändert
+                throw IllegalStateException("Kopie ging schief")
+            }
+            fail("Fehler erwartet")
+        } catch (e: IllegalStateException) {
+            // erwartet
+        }
+        assertEquals(1, aufgerufen)
+        assertEquals(listOf("alt"), store.ids("documents"))
+        assertTrue(files.ids().isEmpty())
+
+        // Falsches Passwort: der Hook wird gar nicht erst aufgerufen
+        val (zu, _) = schreiben(bestand(), "geheim-123")
+        try {
+            PaketImport.paket(ByteArrayInputStream(zu), "nein-nein-1".toCharArray(), store, files, ImportMode.REPLACE, zaehler()) { aufgerufen++ }
+            fail("Fehler erwartet")
+        } catch (e: BackupPasswortException) {
+            // erwartet
+        }
+        assertEquals(1, aufgerufen)
+    }
+
+    @Test
+    fun einlagernMachtAusDateiverweisenWiederDataUrlsUndAuslagernFindetSieWieder() {
+        val store = InMemoryDocumentStore()
+        val files = InMemoryFileStore()
+        PaketImport.alt(BackupFile.parse(alt), store, files, ImportMode.REPLACE, zaehler())
+        val export = BackupExporter.export(store, jetzt)
+        // je Verweis gezählt, weil jede Data-URL den Inhalt noch einmal trägt: Hallo (5) am Dokument + Hallo (5) am Beleg + PNG-Kopf (8)
+        assertEquals(18L, Einlagerung.gesamtgroesse(export.data, files))
+        val zurueck = Einlagerung.einlagern(export.data, files)
+        val d1 = (zurueck["documents"] as JsonArray).map { it as JsonObject }.first { str(it, "id") == "d1" }
+        assertEquals("data:application/octet-stream;base64,SGFsbG8=", str(d1, "dataUrl"))
+        assertNull(d1["fileId"])
+        assertEquals("bleibt", str(d1, "extra"))
+        val t1 = ((zurueck["transactions"] as JsonArray)[0] as JsonObject)["receipt"] as JsonObject
+        assertEquals("data:application/pdf;base64,SGFsbG8=", str(t1, "dataUrl"))
+        val m1 = (zurueck["members"] as JsonArray)[0] as JsonObject
+        assertEquals("data:image/png;base64,iVBORw0KGgo=", str(m1, "avatarUrl"))
+        assertNull(m1["avatarFileId"])
+        // und wieder hinein: gleicher Bestand an Dateien
+        val files2 = InMemoryFileStore()
+        val noch = Auslagerung.auslagern(zurueck, files2, zaehler())
+        assertEquals(2, noch.angelegt.size)
+    }
 }

@@ -58,6 +58,9 @@ object BackupPaket {
     fun istPaket(kopf: ByteArray): Boolean =
         kopf.size >= 4 && kopf[0] == 'P'.code.toByte() && kopf[1] == 'K'.code.toByte() && kopf[2] == 3.toByte() && kopf[3] == 4.toByte()
 
+    /** Ist der erste Eintrag des Pakets verschlüsselt? Nur sinnvoll, wenn [istPaket] wahr ist; braucht die ersten acht Bytes. */
+    fun istVerschluesselt(kopf: ByteArray): Boolean = istPaket(kopf) && kopf.size >= 8 && (kopf[6].toInt() and 1) == 1
+
     fun neueKennung(files: FileStore): String {
         while (true) {
             val id = "f-" + Zeit.zufall(12)
@@ -293,22 +296,32 @@ object PaketImport {
     fun paket(
         input: InputStream, passwort: CharArray?, store: DocumentStore, files: FileStore, mode: ImportMode,
         neueId: () -> String = { BackupPaket.neueKennung(files) },
+        vorEinspielen: () -> Unit = {},
     ): PaketImportBericht {
         val gelesen = BackupPaket.lesen(input, passwort, files, neueId)
-        return abschliessen(gelesen.sicherung, gelesen.fehlend, store, files, mode)
+        return abschliessen(gelesen.sicherung, gelesen.fehlend, store, files, mode, vorEinspielen, gelesen.angelegt)
     }
 
     /** Eine Sicherung im alten Format (JSON, Dateien als Data-URL) einspielen; die Dateien werden dabei ausgelagert. */
     fun alt(
         sicherung: BackupFile, store: DocumentStore, files: FileStore, mode: ImportMode,
         neueId: () -> String = { BackupPaket.neueKennung(files) },
+        vorEinspielen: () -> Unit = {},
     ): PaketImportBericht {
         val aus = Auslagerung.auslagern(sicherung.data, files, neueId)
-        return abschliessen(BackupFile(sicherung.app, sicherung.version, sicherung.exportedAt, aus.daten), emptyList(), store, files, mode)
+        return abschliessen(BackupFile(sicherung.app, sicherung.version, sicherung.exportedAt, aus.daten), emptyList(), store, files, mode, vorEinspielen, aus.angelegt)
     }
 
-    private fun abschliessen(datei: BackupFile, fehlend: List<String>, store: DocumentStore, files: FileStore, mode: ImportMode): PaketImportBericht {
+    /**
+     * [vorEinspielen] läuft, nachdem die Datei erfolgreich gelesen wurde und bevor am Bestand etwas geändert wird
+     * (z. B. für die Sicherheitskopie). Wirft es, bleibt der Bestand unverändert und die neu abgelegten Dateien werden entfernt.
+     */
+    private fun abschliessen(
+        datei: BackupFile, fehlend: List<String>, store: DocumentStore, files: FileStore, mode: ImportMode,
+        vorEinspielen: () -> Unit, neuAngelegt: List<String>,
+    ): PaketImportBericht {
         val bericht = try {
+            vorEinspielen()
             BackupImporter.import(datei, store, mode)
         } catch (e: Throwable) {
             Dateiverwaltung.aufraeumen(store, files) // eingelesene Dateien ohne Eintrag wieder entfernen

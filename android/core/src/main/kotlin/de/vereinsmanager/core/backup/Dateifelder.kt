@@ -87,6 +87,12 @@ object Dateityp {
     )
 
     fun endungZu(mime: String): String? = MIME[mime.substringBefore(';').trim().lowercase()]
+
+    /** Umkehrung für die Endungen pdf, jpg, png, gif, webp. */
+    fun mimeZu(endung: String): String? = when (endung) {
+        "pdf" -> "application/pdf"; "jpg" -> "image/jpeg"; "png" -> "image/png"; "gif" -> "image/gif"; "webp" -> "image/webp"
+        else -> null
+    }
 }
 
 /** Zerlegt eine Base64-Data-URL; null, wenn sie anders aufgebaut ist (dann bleibt sie unverändert im Eintrag). */
@@ -138,6 +144,41 @@ object Auslagerung {
             throw e
         }
     }
+}
+
+/** Gegenstück zur [Auslagerung]: holt die Dateien als Data-URL zurück in die Einträge (für die JSON-Sicherung des Formats 1.2.3). */
+object Einlagerung {
+    /** Summe der Größen aller Dateien, auf die die Daten verweisen; null-Größen (fehlende Dateien) zählen 0. */
+    fun gesamtgroesse(data: Map<String, JsonElement>, files: FileStore): Long {
+        var summe = 0L
+        umschreiben(data) { art, ziel, _ -> ziel.text(art.speicherFeld)?.let { summe += files.size(it) ?: 0L }; ziel }
+        return summe
+    }
+
+    /**
+     * Ersetzt jede `fileId` durch `dataUrl` (bei Fotos `avatarUrl`/`photoUrl`). Der Medientyp stammt aus dem Eintrag
+     * (`fileType`, `type`), sonst aus den ersten Bytes, sonst „application/octet-stream“. Fehlende Dateien: Verweis entfällt.
+     * Der ganze Inhalt landet im Speicher; vorher mit [gesamtgroesse] prüfen.
+     */
+    fun einlagern(data: Map<String, JsonElement>, files: FileStore): Map<String, JsonElement> =
+        umschreiben(data) { art, ziel, rekord ->
+            val id = ziel.text(art.speicherFeld)
+            if (id.isNullOrEmpty()) {
+                ziel
+            } else {
+                val m = LinkedHashMap<String, JsonElement>(ziel)
+                m.remove(art.speicherFeld)
+                val bytes = files.open(id)?.use { it.readBytes() }
+                if (bytes != null) {
+                    val mime = (if (art == Art.DOKUMENT) rekord.text("fileType") else if (art == Art.BELEG) ziel.text("type") else null)
+                        ?.takeIf { it.contains('/') }
+                        ?: Dateityp.erkennen(bytes.copyOf(minOf(bytes.size, 16)))?.let { Dateityp.mimeZu(it) }
+                        ?: "application/octet-stream"
+                    m[art.altFeld] = JsonPrimitive("data:$mime;base64," + Base64.getEncoder().encodeToString(bytes))
+                }
+                JsonObject(m)
+            }
+        }
 }
 
 /** Pflege des Dateispeichers: welche Dateien gehören noch zu einem Eintrag? */

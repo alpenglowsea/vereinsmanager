@@ -2,6 +2,7 @@ package de.vereinsmanager.android
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.getValue
@@ -12,6 +13,9 @@ import de.vereinsmanager.core.backup.BackupCrypto
 import de.vereinsmanager.core.backup.BackupExporter
 import de.vereinsmanager.core.backup.BackupFile
 import de.vereinsmanager.core.backup.BackupImporter
+import de.vereinsmanager.core.backup.BackupPaket
+import de.vereinsmanager.core.backup.Einlagerung
+import de.vereinsmanager.core.backup.PaketImport
 import de.vereinsmanager.core.backup.ImportMode
 import de.vereinsmanager.core.files.DirFileStore
 import de.vereinsmanager.core.files.FileStore
@@ -44,7 +48,9 @@ import de.vereinsmanager.core.members.MaterialChoice
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import java.io.BufferedOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -58,6 +64,11 @@ private val BEREICHE = mapOf(
     "invoices" to "Rechnungen", "meetings" to "Sitzungen", "calendarEvents" to "Termine",
     "calendarCategories" to "Kalenderkategorien",
 )
+
+/** Was für eine Sicherungsdatei vorliegt (aus den ersten Bytes erkannt). */
+enum class Eingabe(val geschuetzt: Boolean) {
+    PAKET(false), PAKET_GESCHUETZT(true), JSON(false), JSON_GESCHUETZT(true)
+}
 
 class AppModel(private val appContext: Context) {
     val store = SqliteDocumentStore(appContext)
@@ -75,6 +86,9 @@ class AppModel(private val appContext: Context) {
     var buchungen by mutableStateOf<List<Buchung>>(emptyList())
         private set
     var clubName by mutableStateOf("")
+
+    /** Anzahl und Größe der abgelegten Dateien (Belege, Dokumente, Fotos), fertig formatiert. */
+    var dateiText by mutableStateOf("")
         private set
     var message by mutableStateOf("")
     var busy by mutableStateOf(false)
@@ -97,25 +111,50 @@ class AppModel(private val appContext: Context) {
         members = store.all("members").map { Member.from(it) }
         konten = Finance.konten(store)
         buchungen = Finance.buchungen(store)
+        dateiText = dateiInfo()
         val settings = store.get("settings", "main")
         clubName = (settings?.get("clubName") as? JsonPrimitive)?.contentOrNull ?: ""
         departments = (settings?.get("departments") as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList()
     }
 
-    fun isEncrypted(uri: Uri): Boolean = BackupFile.isEncrypted(readText(uri))
+    /** Erkennt Paket (ZIP) und JSON-Sicherung und ob ein Passwort nötig ist. */
+    fun eingabeArt(uri: Uri): Eingabe {
+        appContext.contentResolver.openInputStream(uri)!!.use { s ->
+            val kopf = ByteArray(8)
+            var n = 0
+            while (n < kopf.size) {
+                val r = s.read(kopf, n, kopf.size - n)
+                if (r < 0) break
+                n += r
+            }
+            val k = kopf.copyOf(n)
+            if (BackupPaket.istPaket(k)) return if (BackupPaket.istVerschluesselt(k)) Eingabe.PAKET_GESCHUETZT else Eingabe.PAKET
+        }
+        return if (BackupFile.isEncrypted(readText(uri))) Eingabe.JSON_GESCHUETZT else Eingabe.JSON
+    }
+
+    private fun dateiInfo(): String {
+        val ids = dateien.ids()
+        val bytes = ids.sumOf { dateien.size(it) ?: 0L }
+        val mb = String.format(Locale.GERMANY, "%.1f", bytes / 1024.0 / 1024.0)
+        return "${ids.size} Dateien, $mb MB"
+    }
 
     private fun readText(uri: Uri): String =
         appContext.contentResolver.openInputStream(uri)!!.use { it.readBytes() }.toString(Charsets.UTF_8)
 
-    /** Legt vor dem Einspielen eine Kopie des bisherigen Bestands im geschützten App-Ordner ab (die letzten drei bleiben). */
+    /**
+     * Legt vor dem Einspielen eine Kopie des bisherigen Bestands samt Dateien als Paket (ZIP, ohne Passwort) im geschützten
+     * App-Ordner ab. Es bleiben die letzten zwei (die Dateien können groß sein).
+     */
     private fun sicherheitskopie(): String? {
         if (store.count("members") + store.count("transactions") + store.count("settings") == 0) return null
         return try {
             val dir = File(appContext.filesDir, "sicherheitskopien").apply { mkdirs() }
             val stamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.ROOT).format(Date())
-            val f = File(dir, "vor_import_$stamp.json")
-            f.writeText(BackupExporter.export(store).toJsonText(), Charsets.UTF_8)
-            dir.listFiles()?.sortedBy { it.name }?.dropLast(3)?.forEach { it.delete() }
+            val f = File(dir, "vor_import_$stamp.zip")
+            BackupPaket.schreiben(store, dateien, BufferedOutputStream(FileOutputStream(f), 64 * 1024))
+            dir.listFiles()?.sortedBy { it.name }?.dropLast(2)?.forEach { it.delete() }
             f.name
         } catch (e: Exception) {
             null
@@ -127,15 +166,30 @@ class AppModel(private val appContext: Context) {
         message = "Sicherung wird eingespielt …"
         thread {
             val text = try {
-                val raw = readText(uri)
-                val plain = if (BackupFile.isEncrypted(raw)) BackupCrypto.decrypt(raw, password) else raw
-                val file = BackupFile.parse(plain)
-                val kopie = sicherheitskopie()
-                val report = BackupImporter.import(file, store, mode)
-                val art = if (mode == ImportMode.REPLACE) "ersetzt" else "ergänzt"
+                var kopie: String? = null
+                val vorher: () -> Unit = { kopie = sicherheitskopie() }
+                val art = eingabeArt(uri)
+                val bericht = when (art) {
+                    Eingabe.PAKET, Eingabe.PAKET_GESCHUETZT ->
+                        appContext.contentResolver.openInputStream(uri)!!.use { s ->
+                            PaketImport.paket(
+                                s, if (art.geschuetzt) password.toCharArray() else null, store, dateien, mode,
+                                vorEinspielen = vorher,
+                            )
+                        }
+                    else -> {
+                        val raw = readText(uri)
+                        val plain = if (art.geschuetzt) BackupCrypto.decrypt(raw, password) else raw
+                        PaketImport.alt(BackupFile.parse(plain), store, dateien, mode, vorEinspielen = vorher)
+                    }
+                }
+                val report = bericht.import
+                val was = if (mode == ImportMode.REPLACE) "ersetzt" else "ergänzt"
                 buildString {
-                    append("Bestand $art. ")
+                    append("Bestand $was. ")
                     append(report.inFile.entries.filter { it.value > 0 }.joinToString(", ") { "${BEREICHE[it.key] ?: it.key}: ${it.value}" })
+                    append("\nDateien danach: ${dateiInfo()}")
+                    if (bericht.fehlend.isNotEmpty()) append("\nIm Paket fehlten ${bericht.fehlend.size} genannte Dateien.")
                     append(if (kopie != null) "\nSicherheitskopie des vorherigen Bestands: $kopie" else "\nKeine Sicherheitskopie nötig (Bestand war leer) oder sie ließ sich nicht anlegen.")
                     if (!report.ok) append("\nNICHT alles gespeichert: " + report.failed.joinToString("; "))
                 }
@@ -146,15 +200,43 @@ class AppModel(private val appContext: Context) {
         }
     }
 
-    fun exportBackup(uri: Uri, password: String) {
+    /** Größte Dateimenge, die noch als JSON-Sicherung (Dateien als Text im Speicher) ausgegeben wird; mein Messwert für den ganzen Text lag bei etwa 10 MB. */
+    private val jsonGrenze = 7L * 1024 * 1024
+
+    private fun leereDateiLoeschen(uri: Uri) {
+        try { DocumentsContract.deleteDocument(appContext.contentResolver, uri) } catch (e: Exception) { /* nicht schlimm */ }
+    }
+
+    /** [paket] = true: ZIP mit Belegen und Fotos; false: JSON im alten Format 1.2.3 (Dateien als Text darin). */
+    fun exportBackup(uri: Uri, password: String, paket: Boolean) {
         busy = true
         message = "Sicherung wird geschrieben …"
         thread {
             val text = try {
-                val plain = BackupExporter.export(store).toJsonText()
-                val out = if (password.isNotEmpty()) BackupCrypto.encrypt(plain, password) else plain
-                appContext.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(out.toByteArray(Charsets.UTF_8)) }
-                "Sicherung geschrieben (${if (password.isNotEmpty()) "verschlüsselt" else "unverschlüsselt"})."
+                if (paket) {
+                    val out = BufferedOutputStream(appContext.contentResolver.openOutputStream(uri, "wt")!!, 64 * 1024)
+                    val bericht = try {
+                        BackupPaket.schreiben(store, dateien, out, if (password.isNotEmpty()) password.toCharArray() else null)
+                    } catch (e: Exception) {
+                        leereDateiLoeschen(uri)
+                        throw e
+                    }
+                    buildString {
+                        append("Paket geschrieben (${bericht.dateien} Dateien, ${if (password.isNotEmpty()) "mit Passwort" else "ohne Passwort"}).")
+                        if (bericht.fehlend.isNotEmpty()) append("\nFür ${bericht.fehlend.size} Einträge fehlte die Datei; der Verweis wurde weggelassen.")
+                    }
+                } else {
+                    val roh = BackupExporter.export(store)
+                    val groesse = Einlagerung.gesamtgroesse(roh.data, dateien)
+                    if (groesse > jsonGrenze) {
+                        leereDateiLoeschen(uri)
+                        throw IllegalStateException("Die Dateien sind für eine JSON-Sicherung zu groß (${groesse / 1024 / 1024} MB). Bitte das Paket (ZIP) verwenden.")
+                    }
+                    val plain = BackupFile(roh.app, roh.version, roh.exportedAt, Einlagerung.einlagern(roh.data, dateien)).toJsonText()
+                    val out = if (password.isNotEmpty()) BackupCrypto.encrypt(plain, password) else plain
+                    appContext.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(out.toByteArray(Charsets.UTF_8)) }
+                    "JSON-Sicherung geschrieben (${if (password.isNotEmpty()) "verschlüsselt" else "unverschlüsselt"})."
+                }
             } catch (e: Exception) {
                 "Fehler: ${e.message ?: e::class.simpleName}"
             }
@@ -292,8 +374,8 @@ class AppModel(private val appContext: Context) {
         }
     }
 
-    fun suggestedFileName(): String {
+    fun suggestedFileName(paket: Boolean): String {
         val club = clubName.ifEmpty { "Verein" }.replace(Regex("[^A-Za-z0-9äöüÄÖÜß_-]+"), "_")
-        return "VereinsManager_Sicherung_${club}_${SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date())}.json"
+        return "VereinsManager_Sicherung_${club}_${SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date())}.${if (paket) "zip" else "json"}"
     }
 }

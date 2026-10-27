@@ -36,16 +36,21 @@ fun HomeScreen(model: AppModel, onMembers: () -> Unit, onProbes: () -> Unit, mod
     var mode by remember { mutableStateOf(ImportMode.REPLACE) }
     var exportPassword by remember { mutableStateOf("") }
     var exportDialog by remember { mutableStateOf(false) }
+    var exportPaket by remember { mutableStateOf(true) }
 
     val openLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            pendingEncrypted = try { model.isEncrypted(uri) } catch (e: Exception) { false }
+            pendingEncrypted = try { model.eingabeArt(uri).geschuetzt } catch (e: Exception) { false }
             importPassword = ""
             pending = uri
         }
     }
-    val saveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        if (uri != null) model.exportBackup(uri, exportPassword)
+    val saveZip = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) model.exportBackup(uri, exportPassword, true)
+        exportPassword = ""
+    }
+    val saveJson = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) model.exportBackup(uri, exportPassword, false)
         exportPassword = ""
     }
 
@@ -64,6 +69,7 @@ fun HomeScreen(model: AppModel, onMembers: () -> Unit, onProbes: () -> Unit, mod
         OutlinedButton(onClick = { exportDialog = true }, enabled = !model.busy, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
             Text("Sicherung ausgeben")
         }
+        if (model.dateiText.isNotEmpty()) Text("Gespeicherte Dateien (Belege, Dokumente, Fotos): ${model.dateiText}", Modifier.padding(top = 12.dp))
         if (model.message.isNotEmpty()) Text(model.message, Modifier.padding(top = 12.dp))
 
         HorizontalDivider(Modifier.padding(vertical = 12.dp))
@@ -118,7 +124,22 @@ fun HomeScreen(model: AppModel, onMembers: () -> Unit, onProbes: () -> Unit, mod
             title = { Text("Sicherung ausgeben") },
             text = {
                 Column {
-                    Text("Mit Passwort (mindestens 8 Zeichen) wird die Datei verschlüsselt. Ohne Passwort liegt sie im Klartext vor.")
+                    Row {
+                        TextButton(onClick = { exportPaket = true }) { Text((if (exportPaket) "● " else "○ ") + "Paket (ZIP)") }
+                        TextButton(onClick = { exportPaket = false }) { Text((if (!exportPaket) "● " else "○ ") + "JSON (alt)") }
+                    }
+                    Text(
+                        if (exportPaket)
+                            "Paket: enthält alle Daten und alle Dateien (Belege, Dokumente, Fotos) in lesbaren Ordnern. " +
+                                "Mit Passwort wird es als normales ZIP mit AES-256 gesichert; die Dateinamen bleiben dabei lesbar, der Inhalt nicht."
+                        else
+                            "JSON: das bisherige Format, das auch der Desktop liest. Dateien stehen darin als Text und machen die Datei groß; " +
+                                "bei sehr vielen Dateien geht es nicht mehr, dann bitte das Paket nehmen.",
+                    )
+                    Text(
+                        "Passwort mindestens 8 Zeichen; ohne Passwort liegt alles im Klartext vor.",
+                        Modifier.padding(top = 8.dp),
+                    )
                     OutlinedTextField(
                         exportPassword, { exportPassword = it }, label = { Text("Passwort (optional)") },
                         visualTransformation = PasswordVisualTransformation(), singleLine = true,
@@ -128,7 +149,7 @@ fun HomeScreen(model: AppModel, onMembers: () -> Unit, onProbes: () -> Unit, mod
             },
             confirmButton = {
                 TextButton(
-                    onClick = { exportDialog = false; saveLauncher.launch(model.suggestedFileName()) },
+                    onClick = { exportDialog = false; (if (exportPaket) saveZip else saveJson).launch(model.suggestedFileName(exportPaket)) },
                     enabled = exportPassword.isEmpty() || exportPassword.length >= 8,
                 ) { Text("Weiter") }
             },
