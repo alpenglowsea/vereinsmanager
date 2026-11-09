@@ -68,7 +68,7 @@ import java.io.FileInputStream
 import java.util.Locale
 import kotlin.concurrent.thread
 
-private fun groesse(bytes: Long): String = when {
+internal fun groesse(bytes: Long): String = when {
     bytes >= 1024 * 1024 -> String.format(Locale.GERMANY, "%.1f MB", bytes / 1024.0 / 1024.0)
     bytes >= 1024 -> "${bytes / 1024} KB"
     else -> "$bytes Byte"
@@ -205,7 +205,7 @@ fun BelegAbschnitt(model: AppModel, buchung: Buchung, onAnzeigen: () -> Unit) {
  * Knöpfe in seiner Knopfleiste übereinander; hier bestimmen wir den Aufbau selbst. [onDismiss] null: nur über die Knöpfe schließbar.
  */
 @Composable
-private fun Aktionsdialog(
+internal fun Aktionsdialog(
     titel: String,
     onDismiss: (() -> Unit)?,
     inhalt: @Composable ColumnScope.() -> Unit,
@@ -286,33 +286,47 @@ private class BildQuelle(private val datei: File) : Seitenquelle {
 private sealed interface Ansicht {
     object Laedt : Ansicht
     class Fehler(val text: String) : Ansicht
-    class Bereit(val quelle: Seitenquelle, val datei: AppModel.BelegDatei) : Ansicht
+    class Bereit(val quelle: Seitenquelle?, val datei: AppModel.BelegDatei) : Ansicht
 }
 
 private val handler = Handler(Looper.getMainLooper())
 
+private val ANZEIGBARE_BILDER = setOf("image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp")
+
 /** Zeigt den Beleg einer Buchung im Programm an (PDF seitenweise, Bilder als Ganzes) – mit Vergrößern und „Öffnen mit …". */
 @Composable
-fun BelegAnsichtScreen(model: AppModel, buchungId: String, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    var ansicht by remember(buchungId) { mutableStateOf<Ansicht>(Ansicht.Laedt) }
-    val halter = remember(buchungId) { arrayOfNulls<Seitenquelle>(1) }
+fun BelegAnsichtScreen(model: AppModel, buchungId: String, modifier: Modifier = Modifier) =
+    DateiAnsicht("beleg-$buchungId", { model.belegDatei(buchungId) }, "Der Beleg", modifier)
 
-    DisposableEffect(buchungId) {
+/**
+ * Zeigt eine Datei im Programm an: PDF seitenweise, Bilder als Ganzes, alles andere nur über „Öffnen mit …".
+ * [laden] holt die Datei in den Zwischenspeicher (läuft im Hintergrund); [schluessel] bestimmt, wann neu geladen wird.
+ */
+@Composable
+internal fun DateiAnsicht(schluessel: String, laden: () -> AppModel.BelegDatei?, wasText: String, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var ansicht by remember(schluessel) { mutableStateOf<Ansicht>(Ansicht.Laedt) }
+    val halter = remember(schluessel) { arrayOfNulls<Seitenquelle>(1) }
+
+    DisposableEffect(schluessel) {
         var aktiv = true
         thread {
             val ergebnis: Ansicht = try {
-                val d = model.belegDatei(buchungId) ?: throw IllegalStateException("Der Beleg ist nicht mehr vorhanden.")
-                val q: Seitenquelle = if (d.mime == "application/pdf") PdfQuelle(d.datei) else BildQuelle(d.datei)
+                val d = laden() ?: throw IllegalStateException("$wasText ist nicht mehr vorhanden.")
+                val q: Seitenquelle? = when {
+                    d.mime == "application/pdf" -> PdfQuelle(d.datei)
+                    d.mime in ANZEIGBARE_BILDER -> BildQuelle(d.datei)
+                    else -> null
+                }
                 Ansicht.Bereit(q, d)
             } catch (e: SecurityException) {
                 Ansicht.Fehler("Die PDF ist passwortgeschützt und lässt sich hier nicht anzeigen. „Öffnen mit …“ ist nicht möglich, solange sie nicht lesbar ist.")
             } catch (e: Exception) {
-                Ansicht.Fehler("Der Beleg lässt sich hier nicht anzeigen (${e.message ?: e::class.simpleName}).")
+                Ansicht.Fehler("$wasText lässt sich hier nicht anzeigen (${e.message ?: e::class.simpleName}).")
             }
             handler.post {
                 if (aktiv) {
-                    (ergebnis as? Ansicht.Bereit)?.let { halter[0] = it.quelle }
+                    (ergebnis as? Ansicht.Bereit)?.quelle?.let { halter[0] = it }
                     ansicht = ergebnis
                 } else {
                     (ergebnis as? Ansicht.Bereit)?.quelle?.schliessen()
@@ -327,7 +341,7 @@ fun BelegAnsichtScreen(model: AppModel, buchungId: String, modifier: Modifier = 
     }
 
     when (val a = ansicht) {
-        Ansicht.Laedt -> Text("Beleg wird geladen …", modifier.padding(16.dp))
+        Ansicht.Laedt -> Text("$wasText wird geladen …", modifier.padding(16.dp))
         is Ansicht.Fehler -> Text(a.text, modifier.padding(16.dp))
         is Ansicht.Bereit -> {
             var stufe by remember { mutableStateOf(1f) }
@@ -357,9 +371,14 @@ fun BelegAnsichtScreen(model: AppModel, buchungId: String, modifier: Modifier = 
                     }
                     if (hinweis != null) Text(hinweis!!, Modifier.padding(horizontal = 8.dp), color = MaterialTheme.colorScheme.error)
                     Box(Modifier.weight(1f).fillMaxWidth().horizontalScroll(rememberScrollState())) {
-                        LazyColumn(Modifier.width(breiteDp * stufe)) {
-                            items(count = a.quelle.anzahl) { i ->
-                                SeitenBild(a.quelle, i, (breitePx * stufe).toInt().coerceAtMost(2400))
+                        val quelle = a.quelle
+                        if (quelle == null) {
+                            Text("Diesen Dateityp kann die App nicht selbst anzeigen. Mit „Öffnen mit …“ geht es in einer anderen App.", Modifier.padding(16.dp))
+                        } else {
+                            LazyColumn(Modifier.width(breiteDp * stufe)) {
+                                items(count = quelle.anzahl) { i ->
+                                    SeitenBild(quelle, i, (breitePx * stufe).toInt().coerceAtMost(2400))
+                                }
                             }
                         }
                     }
@@ -395,7 +414,7 @@ private fun SeitenBild(quelle: Seitenquelle, index: Int, breitePx: Int) {
 
 /** Vollbild-Fenster: das Foto drehen und den Ausschnitt mit den vier Ecken (oder durch Verschieben) festlegen. */
 @Composable
-private fun SeitenEditor(entwurf: AppModel.FotoEntwurf, onFertig: () -> Unit, onVerwerfen: () -> Unit) {
+internal fun SeitenEditor(entwurf: AppModel.FotoEntwurf, onFertig: () -> Unit, onVerwerfen: () -> Unit) {
     var basis by remember(entwurf) { mutableStateOf<Bitmap?>(null) }
     var fehler by remember(entwurf) { mutableStateOf<String?>(null) }
     var grad by remember(entwurf) { mutableStateOf(entwurf.edit.grad) }

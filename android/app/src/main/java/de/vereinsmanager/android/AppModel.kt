@@ -3,6 +3,7 @@ package de.vereinsmanager.android
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.provider.OpenableColumns
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.getValue
@@ -18,6 +19,15 @@ import de.vereinsmanager.core.backup.BackupImporter
 import de.vereinsmanager.core.backup.BackupPaket
 import de.vereinsmanager.core.backup.Einlagerung
 import de.vereinsmanager.core.backup.PaketImport
+import de.vereinsmanager.core.backup.Dateiverwaltung
+import de.vereinsmanager.core.documents.Dokument
+import de.vereinsmanager.core.documents.DokumentForm
+import de.vereinsmanager.core.documents.DokumentStore
+import de.vereinsmanager.core.documents.Dokumente
+import de.vereinsmanager.core.documents.LoeschBericht
+import de.vereinsmanager.core.documents.Ordner
+import de.vereinsmanager.core.documents.OrdnerForm
+import de.vereinsmanager.core.documents.StandardOrdner
 import de.vereinsmanager.core.backup.ImportMode
 import de.vereinsmanager.core.files.DirFileStore
 import de.vereinsmanager.core.files.FileStore
@@ -97,6 +107,11 @@ class AppModel(private val appContext: Context) {
         private set
     var clubName by mutableStateOf("")
 
+    var dokumente by mutableStateOf<List<Dokument>>(emptyList())
+        private set
+    var ordner by mutableStateOf<List<Ordner>>(emptyList())
+        private set
+
     /** Anzahl und Größe der abgelegten Dateien (Belege, Dokumente, Fotos), fertig formatiert. */
     var dateiText by mutableStateOf("")
         private set
@@ -124,6 +139,8 @@ class AppModel(private val appContext: Context) {
         members = store.all("members").map { Member.from(it) }
         konten = Finance.konten(store)
         buchungen = Finance.buchungen(store)
+        dokumente = Dokumente.dokumente(store)
+        ordner = Dokumente.ordner(store)
         dateiText = dateiInfo()
         val settings = store.get("settings", "main")
         clubName = (settings?.get("clubName") as? JsonPrimitive)?.contentOrNull ?: ""
@@ -197,6 +214,8 @@ class AppModel(private val appContext: Context) {
                     }
                 }
                 val report = bericht.import
+                // Hat die Sicherung eine Ordnerstruktur mitgebracht, gilt sie; die Standard-Ordner kommen dann nicht noch einmal dazu.
+                if (store.all("folders").isNotEmpty()) prefs.edit().putBoolean("standardOrdner", true).apply()
                 val was = if (mode == ImportMode.REPLACE) "ersetzt" else "ergänzt"
                 buildString {
                     append("Bestand $was. ")
@@ -438,6 +457,139 @@ class AppModel(private val appContext: Context) {
         return BelegDatei(ziel, Dateityp.mimeZu(endung) ?: "application/octet-stream", name)
     }
 
+    // ---- Dokumente ----
+
+    private val prefs get() = appContext.getSharedPreferences("vereinsmanager", Context.MODE_PRIVATE)
+
+    /** Legt beim ersten Öffnen der Dokumente die Standard-Ordner an (dieselben wie am Desktop); danach nie wieder von selbst. */
+    fun standardOrdnerSicherstellen() {
+        if (prefs.getBoolean("standardOrdner", false)) return
+        thread {
+            try {
+                StandardOrdner.anlegenFehlende(store)
+                prefs.edit().putBoolean("standardOrdner", true).apply()
+                post { reload() }
+            } catch (e: Exception) { /* beim nächsten Öffnen noch einmal */ }
+        }
+    }
+
+    /** Eine gewählte, noch nicht abgelegte Datei samt Name und Typ. */
+    class DokEntwurf(val bytes: ByteArray, val name: String, val mime: String)
+
+    var dokEntwurf by mutableStateOf<DokEntwurf?>(null)
+
+    private fun anzeigeName(uri: Uri): String? = try {
+        appContext.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+    } catch (e: Exception) { null }
+
+    private fun <T> hintergrund(arbeit: () -> T, done: (T?, String?) -> Unit) {
+        busy = true
+        thread {
+            var r: T? = null
+            var f: String? = null
+            try { r = arbeit() } catch (e: Exception) { f = e.message ?: e::class.simpleName }
+            post { reload(); busy = false; done(r, f) }
+        }
+    }
+
+    /** Liest eine gewählte Datei (beliebiger Typ, höchstens 25 MB) in den Entwurf; [done] bekommt null oder den Fehlertext. */
+    fun dokumentDateiWaehlen(uri: Uri, done: (String?) -> Unit) {
+        busy = true
+        thread {
+            var entwurf: DokEntwurf? = null
+            var fehler: String? = null
+            try {
+                val bytes = liesBegrenzt(uri)
+                if (bytes.isEmpty()) throw BelegException("Die Datei ist leer.")
+                if (bytes.size > DokumentStore.MAX_GROESSE) {
+                    throw BelegException("Die Datei ist zu groß (${bytes.size / 1024 / 1024} MB). Erlaubt sind höchstens ${DokumentStore.MAX_GROESSE / 1024 / 1024} MB.")
+                }
+                val mime = appContext.contentResolver.getType(uri)?.takeIf { it.isNotBlank() }
+                    ?: Dateityp.erkennen(bytes.copyOf(minOf(bytes.size, 16)))?.let { Dateityp.mimeZu(it) }
+                    ?: "application/octet-stream"
+                entwurf = DokEntwurf(bytes, anzeigeName(uri) ?: "Dokument", mime)
+            } catch (e: Exception) {
+                fehler = e.message ?: e::class.simpleName
+            }
+            post { if (entwurf != null) dokEntwurf = entwurf; busy = false; done(fehler) }
+        }
+    }
+
+    /** Macht aus den aufgenommenen Fotoseiten eine PDF und legt sie als Entwurf bereit. */
+    fun dokumentAusFotos(done: (String?) -> Unit) {
+        val seiten = fotoSeiten.toList().map { it.datei to it.edit }
+        val grau = fotoGrau
+        busy = true
+        thread {
+            var entwurf: DokEntwurf? = null
+            var fehler: String? = null
+            try {
+                val bytes = FotoPdf.erzeugen(seiten.map { s -> BildZuPdf.seite({ FileInputStream(s.first) }, s.second, grau) })
+                entwurf = DokEntwurf(bytes, "Scan " + SimpleDateFormat("yyyy-MM-dd HH.mm", Locale.ROOT).format(Date()) + ".pdf", "application/pdf")
+            } catch (e: Exception) {
+                fehler = e.message ?: e::class.simpleName
+            }
+            post {
+                busy = false
+                if (entwurf != null) { dokEntwurf = entwurf; fotosVerwerfen() }
+                done(fehler)
+            }
+        }
+    }
+
+    fun dokumentSpeichern(form: DokumentForm, done: (String?) -> Unit) {
+        val e = dokEntwurf
+        if (e == null) { done("Keine Datei gewählt."); return }
+        hintergrund({ DokumentStore.neu(store, dateien, e.bytes, e.name, e.mime, form) }) { r, f ->
+            if (r != null) dokEntwurf = null
+            done(f)
+        }
+    }
+
+    fun dokumentAendern(form: DokumentForm, done: (String?) -> Unit) =
+        hintergrund({ DokumentStore.aendern(store, form) }) { _, f -> done(f) }
+
+    fun dokumenteVerschieben(ids: List<String>, ordnerId: String?, kategorie: String?, done: (Int?, String?) -> Unit) =
+        hintergrund({ DokumentStore.verschieben(store, ids, ordnerId, kategorie) }, done)
+
+    fun dokumenteLoeschen(ids: List<String>, done: (LoeschBericht?, String?) -> Unit) =
+        hintergrund({ DokumentStore.loeschen(store, dateien, ids) }, done)
+
+    fun ordnerSpeichern(form: OrdnerForm, done: (String?) -> Unit) =
+        hintergrund({ DokumentStore.ordnerSpeichern(store, form) }) { _, f -> done(f) }
+
+    fun ordnerLoeschen(id: String, done: (String?) -> Unit) =
+        hintergrund({ DokumentStore.ordnerLoeschen(store, id) }) { _, f -> done(f) }
+
+    /** Die Datei eines Dokuments im Zwischenspeicher (zum Anzeigen oder Weitergeben). Nicht im Hauptstrang aufrufen. */
+    fun dokumentDatei(docId: String): BelegDatei? {
+        val d = store.get("documents", docId)?.let { Dokument.from(it) } ?: return null
+        val id = d.dateiId ?: return null
+        val kopf = dateien.open(id)?.use { s -> ByteArray(16).let { k -> k.copyOf(maxOf(s.read(k), 0)) } } ?: return null
+        val endung = d.dateiName.substringAfterLast('.', "").lowercase().filter { it.isLetterOrDigit() }.take(8)
+            .ifEmpty { Dateityp.erkennen(kopf) ?: "bin" }
+        val ordnerCache = cacheOrdner("dokumente")
+        val ziel = File(ordnerCache, "$id.$endung")
+        if (!ziel.isFile || ziel.length() != dateien.size(id)) {
+            dateien.open(id)?.use { i -> ziel.outputStream().use { o -> i.copyTo(o) } } ?: return null
+        }
+        ordnerCache.listFiles()?.filter { it != ziel }?.forEach { it.delete() }
+        val mime = d.dateiTyp.takeIf { it.isNotBlank() }
+            ?: Dateityp.erkennen(kopf)?.let { Dateityp.mimeZu(it) }
+            ?: java.net.URLConnection.guessContentTypeFromName(d.dateiName)
+            ?: "application/octet-stream"
+        return BelegDatei(ziel, mime, d.dateiName)
+    }
+
+    /** Schreibt die Datei des Dokuments in die gewählte Zieldatei („Speichern unter …"). */
+    fun dokumentSpeichernUnter(docId: String, uri: Uri, done: (String) -> Unit) {
+        val fileId = store.get("documents", docId)?.let { Dokument.from(it).dateiId }
+        if (fileId == null) { done("Das Dokument hat keine Datei."); return }
+        exportiere(uri, { out -> (dateien.open(fileId) ?: throw IllegalStateException("Die Datei fehlt.")).use { it.copyTo(out) } }, "Datei gespeichert.", done)
+    }
+
     fun dependencies(ids: List<String>): Pair<Int, Int> {
         var m = 0
         var d = 0
@@ -452,6 +604,8 @@ class AppModel(private val appContext: Context) {
             val fehler = try {
                 report = if (ids.size == 1) MemberStore.loeschen(store, ids[0], docs, material)
                 else MemberStore.sammelLoeschen(store, ids, docs, material)
+                // Gelöschte Dokumente lassen ihre Dateien zurück; die räumen wir hier weg.
+                if (docs == DocumentChoice.DELETE) Dateiverwaltung.aufraeumen(store, dateien)
                 null
             } catch (e: Exception) { e.message ?: e::class.simpleName }
             post { reload(); busy = false; done(report, fehler) }

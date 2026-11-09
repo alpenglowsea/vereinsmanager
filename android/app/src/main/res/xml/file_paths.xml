@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Nur diese zwei Ordner im Zwischenspeicher der App dürfen an andere Apps (Kamera, PDF-Betrachter) weitergegeben werden. -->
+<!-- Nur diese drei Ordner im Zwischenspeicher der App dürfen an andere Apps (Kamera, PDF-Betrachter) weitergegeben werden. -->
 <paths>
     <cache-path name="belege" path="belege/" />
     <cache-path name="fotos" path="fotos/" />
+    <cache-path name="dokumente" path="dokumente/" />
 </paths>

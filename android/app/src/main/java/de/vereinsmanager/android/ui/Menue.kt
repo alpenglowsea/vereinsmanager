@@ -54,7 +54,7 @@ enum class Ziel(val titel: String, val icon: ImageVector, val farbe: Farbe, val 
     KALENDER("Kalender", Lucide.CalendarDays, Farbe.INDIGO, false),
     SITZUNGEN("Sitzungen", Lucide.ScrollText, Farbe.ROSE, false),
     INVENTAR("Inventar", Lucide.Package, Farbe.LILA, false),
-    DOKUMENTE("Dokumente", Lucide.FolderArchive, Farbe.BERNSTEIN, false),
+    DOKUMENTE("Dokumente", Lucide.FolderArchive, Farbe.BERNSTEIN, true),
     EINSTELLUNGEN("Einstellungen", Lucide.Settings, Farbe.GRAU, false),
 }
 

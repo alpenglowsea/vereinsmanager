@@ -30,6 +30,10 @@ import de.vereinsmanager.android.ui.BelegAnsichtScreen
 import de.vereinsmanager.android.ui.BuchungDetailScreen
 import de.vereinsmanager.android.ui.BuchungFormScreen
 import de.vereinsmanager.android.ui.BuchungenScreen
+import de.vereinsmanager.android.ui.DokumentAnsichtScreen
+import de.vereinsmanager.android.ui.DokumentDetailScreen
+import de.vereinsmanager.android.ui.DokumentFormScreen
+import de.vereinsmanager.android.ui.DokumenteScreen
 import de.vereinsmanager.android.ui.Kopfzeile
 import de.vereinsmanager.android.ui.MenueInhalt
 import de.vereinsmanager.android.ui.Ziel
@@ -57,6 +61,12 @@ sealed interface Page {
     data class Transaction(val id: String) : Page
     data class TransactionEdit(val id: String?) : Page
     data class BelegAnsicht(val id: String) : Page
+    /** folderId == null: oberste Ebene. Jeder Ordner ist eine eigene Seite auf dem Stapel. */
+    data class Documents(val folderId: String?) : Page
+    data class Document(val id: String) : Page
+    /** id == null: neues Dokument (dann ist ordnerId der Ordner, in dem es angelegt wird). */
+    data class DocumentEdit(val id: String?, val ordnerId: String?) : Page
+    data class DocumentView(val id: String) : Page
     data object Probes : Page
 }
 
@@ -85,6 +95,7 @@ class MainActivity : ComponentActivity() {
                         Ziel.MITGLIEDER -> listOf(Page.Home, Page.Members)
                         Ziel.MITGLIEDER_AUSWERTUNG -> listOf(Page.Home, Page.MemberAnalytics)
                         Ziel.BUCHUNGEN -> listOf(Page.Home, Page.Transactions)
+                        Ziel.DOKUMENTE -> listOf(Page.Home, Page.Documents(null))
                         else -> stack // noch nicht gebaut; das Menü zeigt dafür einen Hinweis
                     }
                     scope.launch { drawerState.close() }
@@ -94,12 +105,12 @@ class MainActivity : ComponentActivity() {
                     MenueInhalt(model.clubName, aktivesZiel(page), onWahl = ::geheZu)
                 }
                 val inhalt: @Composable () -> Unit = {
-                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || page is Page.Probes
+                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || (page is Page.Documents && page.folderId == null) || page is Page.Probes
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
                         topBar = {
                             Kopfzeile(
-                                titel = seitenTitel(page),
+                                titel = seitenTitel(page, model),
                                 zurueck = !oberste,
                                 mitMenueKnopf = !breit && oberste,
                                 onKnopf = {
@@ -141,6 +152,19 @@ class MainActivity : ComponentActivity() {
                             )
                             is Page.BelegAnsicht -> BelegAnsichtScreen(model, page.id, modifier = m)
             is Page.TransactionEdit -> BuchungFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
+                            is Page.Documents -> DokumenteScreen(
+                                model, page.folderId, onOpenFolder = { stack = stack + Page.Documents(it) },
+                                onJump = { ids -> stack = listOf(Page.Home, Page.Documents(null)) + ids.map { Page.Documents(it) } },
+                                onOpenDoc = { stack = stack + Page.Document(it) },
+                                onNewDoc = { stack = stack + Page.DocumentEdit(null, it) }, modifier = m,
+                            )
+                            is Page.Document -> DokumentDetailScreen(
+                                model, page.id, onEdit = { stack = stack + Page.DocumentEdit(page.id, null) },
+                                onAnzeigen = { stack = stack + Page.DocumentView(page.id) },
+                                onDeleted = { stack = stack.filter { it !is Page.Document && it !is Page.DocumentEdit && it !is Page.DocumentView } }, modifier = m,
+                            )
+                            is Page.DocumentEdit -> DokumentFormScreen(model, page.id, page.ordnerId, onDone = { stack = stack.dropLast(1) }, modifier = m)
+                            is Page.DocumentView -> DokumentAnsichtScreen(model, page.id, modifier = m)
                             Page.Probes -> ProbeScreen(m)
                         }
                       }
@@ -170,7 +194,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private fun seitenTitel(p: Page): String = when (p) {
+private fun seitenTitel(p: Page, model: AppModel): String = when (p) {
     Page.Home -> "Dashboard"
     Page.Members -> "Mitgliederverwaltung"
     is Page.Member -> "Mitglied"
@@ -182,6 +206,10 @@ private fun seitenTitel(p: Page): String = when (p) {
     is Page.Transaction -> "Buchung"
     is Page.BelegAnsicht -> "Beleg"
     is Page.TransactionEdit -> if (p.id == null) "Neue Buchung" else "Buchung bearbeiten"
+    is Page.Documents -> if (p.folderId == null) "Dokumente" else model.ordner.firstOrNull { it.id == p.folderId }?.name ?: "Ordner"
+    is Page.Document -> "Dokument"
+    is Page.DocumentEdit -> if (p.id == null) "Neues Dokument" else "Dokument bearbeiten"
+    is Page.DocumentView -> "Dokument anzeigen"
     Page.Probes -> "Proben"
 }
 
@@ -191,5 +219,6 @@ private fun aktivesZiel(p: Page): Ziel? = when (p) {
     Page.Members, is Page.Member, is Page.MemberEdit, Page.MemberImport, Page.MaterialOverview -> Ziel.MITGLIEDER
     Page.MemberAnalytics -> Ziel.MITGLIEDER_AUSWERTUNG
     Page.Transactions, is Page.Transaction, is Page.TransactionEdit, is Page.BelegAnsicht -> Ziel.BUCHUNGEN
+    is Page.Documents, is Page.Document, is Page.DocumentEdit, is Page.DocumentView -> Ziel.DOKUMENTE
     Page.Probes -> null
 }
