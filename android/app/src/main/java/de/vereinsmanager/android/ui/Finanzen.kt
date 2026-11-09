@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -231,15 +230,9 @@ private fun Feld(label: String, wert: String) {
     }
 }
 
-private fun groesseText(bytes: Long): String = when {
-    bytes >= 1024 * 1024 -> "%.1f MB".format(java.util.Locale.GERMANY, bytes / 1024.0 / 1024.0)
-    bytes >= 1024 -> "${bytes / 1024} KB"
-    else -> "$bytes Byte"
-}
-
 /** Eine Buchung mit allen Angaben, dazu Bearbeiten und Löschen. */
 @Composable
-fun BuchungDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDeleted: () -> Unit, modifier: Modifier = Modifier) {
+fun BuchungDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onBeleg: () -> Unit, onDeleted: () -> Unit, modifier: Modifier = Modifier) {
     var loeschen by remember { mutableStateOf(false) }
     var fehler by remember { mutableStateOf<String?>(null) }
     val b = model.buchungen.firstOrNull { it.id == id }
@@ -286,14 +279,7 @@ fun BuchungDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelet
                 }
             }
         }
-        val beleg = b.beleg
-        if (beleg != null) {
-            SelectionContainer {
-                Feld("Beleg", "${beleg.name} (${groesseText(beleg.groesse)}). Anzeigen und Anhängen folgen in einem späteren Schritt.")
-            }
-        } else if (!b.istUmbuchung) {
-            Feld("Beleg", "Kein Beleg angehängt.")
-        }
+        BelegAbschnitt(model, b, onAnzeigen = onBeleg)
         if (fehler != null) Text(fehler!!, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
         Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onEdit) { Text("Bearbeiten") }
@@ -308,7 +294,7 @@ fun BuchungDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelet
                 Text(
                     "${b.belegNummer} · ${Finance.titel(b)} über ${Geld.euro(b.betrag.abs())} wird endgültig gelöscht, " +
                         "die Kontostände ändern sich entsprechend." +
-                        if (b.beleg != null) " Der angehängte Beleg geht mit der Buchung verloren." else "",
+                        if (b.beleg != null) " Der angehängte Beleg wird mit gelöscht." else "",
                 )
             },
             confirmButton = {

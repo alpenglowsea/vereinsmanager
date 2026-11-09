@@ -6,8 +6,10 @@ import android.provider.DocumentsContract
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.content.FileProvider
 import de.vereinsmanager.android.data.SqliteDocumentStore
 import de.vereinsmanager.core.backup.BackupCrypto
 import de.vereinsmanager.core.backup.BackupExporter
@@ -26,6 +28,11 @@ import de.vereinsmanager.core.members.DuplicateStrategy
 import de.vereinsmanager.core.members.ImportRow
 import de.vereinsmanager.core.members.Ausgabe
 import de.vereinsmanager.core.members.AusgabeForm
+import de.vereinsmanager.core.backup.Dateityp
+import de.vereinsmanager.core.files.FotoPdf
+import de.vereinsmanager.core.finance.BelegErgebnis
+import de.vereinsmanager.core.finance.BelegException
+import de.vereinsmanager.core.finance.Belege
 import de.vereinsmanager.core.finance.Buchung
 import de.vereinsmanager.core.finance.BuchungForm
 import de.vereinsmanager.core.finance.BuchungRegeln
@@ -46,9 +53,12 @@ import de.vereinsmanager.core.members.MemberRules
 import de.vereinsmanager.core.members.MemberStore
 import de.vereinsmanager.core.members.MaterialChoice
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import java.io.BufferedOutputStream
+import java.io.ByteArrayOutputStream
+import java.io.FileInputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -91,6 +101,9 @@ class AppModel(private val appContext: Context) {
     var dateiText by mutableStateOf("")
         private set
     var message by mutableStateOf("")
+
+    /** Zählt jede neue Meldung, damit auch zweimal derselbe Text wieder als Fenster erscheint. */
+    var meldungNr by mutableStateOf(0)
     var busy by mutableStateOf(false)
         private set
 
@@ -196,7 +209,7 @@ class AppModel(private val appContext: Context) {
             } catch (e: Exception) {
                 "Fehler: ${e.message ?: e::class.simpleName}"
             }
-            post { reload(); message = text; busy = false }
+            post { reload(); message = text; meldungNr += 1; busy = false }
         }
     }
 
@@ -240,7 +253,7 @@ class AppModel(private val appContext: Context) {
             } catch (e: Exception) {
                 "Fehler: ${e.message ?: e::class.simpleName}"
             }
-            post { message = text; busy = false }
+            post { message = text; meldungNr += 1; busy = false }
         }
     }
 
@@ -280,9 +293,124 @@ class AppModel(private val appContext: Context) {
     fun deleteBuchung(id: String, done: (String?) -> Unit) {
         busy = true
         thread {
-            val fehler = try { BuchungStore.loeschen(store, id); null } catch (e: Exception) { e.message ?: e::class.simpleName }
+            val fehler = try { Belege.buchungLoeschen(store, dateien, id); null } catch (e: Exception) { e.message ?: e::class.simpleName }
             post { reload(); busy = false; done(fehler) }
         }
+    }
+
+    // ---- Belege ----
+
+    /** Bereits aufgenommene Seiten eines Belegs (Fotos im Zwischenspeicher), bis sie angehängt oder verworfen werden. */
+    val fotoSeiten = mutableStateListOf<File>()
+    private var aktuellesFoto: File? = null
+
+    /** Zu welcher Buchung die aufgenommenen Seiten gehören (damit sie nicht an einer anderen landen). */
+    var fotoBuchungId by mutableStateOf<String?>(null)
+
+    private fun cacheOrdner(name: String): File = File(appContext.cacheDir, name).apply { mkdirs() }
+
+    /** Ziel für die Kamera-App; die Datei gehört der App, die Kamera bekommt nur für diese eine Datei Schreibrecht. */
+    fun neuesFotoZiel(buchungId: String): Uri {
+        fotoBuchungId = buchungId
+        val f = File(cacheOrdner("fotos"), "seite-${System.currentTimeMillis()}.jpg")
+        aktuellesFoto = f
+        return FileProvider.getUriForFile(appContext, "${appContext.packageName}.fileprovider", f)
+    }
+
+    fun fotoAufgenommen(ok: Boolean) {
+        val f = aktuellesFoto
+        aktuellesFoto = null
+        if (f == null) return
+        if (ok && f.length() > 0) fotoSeiten.add(f) else f.delete()
+    }
+
+    fun fotosVerwerfen() {
+        fotoSeiten.toList().forEach { it.delete() }
+        fotoSeiten.clear()
+        fotoBuchungId = null
+    }
+
+    /** Größte Datei, die zum Umwandeln gelesen wird (ein Foto ist oft größer als die fertige PDF). */
+    private val maxEinlesen = 40L * 1024 * 1024
+
+    private fun liesBegrenzt(uri: Uri): ByteArray {
+        appContext.contentResolver.openInputStream(uri)!!.use { s ->
+            val out = ByteArrayOutputStream()
+            val puffer = ByteArray(64 * 1024)
+            var summe = 0L
+            while (true) {
+                val n = s.read(puffer)
+                if (n < 0) break
+                summe += n
+                if (summe > maxEinlesen) throw BelegException("Die Datei ist zu groß.")
+                out.write(puffer, 0, n)
+            }
+            return out.toByteArray()
+        }
+    }
+
+    private fun belegAnhaengen(buchungId: String, erzeugen: () -> ByteArray, done: (BelegErgebnis?, String?) -> Unit) {
+        busy = true
+        thread {
+            var ergebnis: BelegErgebnis? = null
+            var fehler: String? = null
+            try {
+                ergebnis = Belege.anhaengen(store, dateien, buchungId, erzeugen())
+            } catch (e: Exception) {
+                fehler = e.message ?: e::class.simpleName
+            }
+            post {
+                reload()
+                busy = false
+                if (fehler == null) fotosVerwerfen()
+                done(ergebnis, fehler)
+            }
+        }
+    }
+
+    /** Eine gewählte Datei: eine PDF kommt unverändert in den Speicher, ein Bild wird zuerst zur PDF. */
+    fun belegAusDatei(buchungId: String, uri: Uri, done: (BelegErgebnis?, String?) -> Unit) = belegAnhaengen(buchungId, {
+        val bytes = liesBegrenzt(uri)
+        if (Dateityp.erkennen(bytes.copyOf(minOf(bytes.size, 16))) == "pdf") {
+            bytes
+        } else {
+            FotoPdf.erzeugen(listOf(BildZuPdf.seite { appContext.contentResolver.openInputStream(uri)!! }))
+        }
+    }, done)
+
+    /** Alle aufgenommenen Seiten zu einer PDF (eine Seite je Foto). */
+    fun belegAusFotos(buchungId: String, done: (BelegErgebnis?, String?) -> Unit) {
+        val seiten = fotoSeiten.toList()
+        belegAnhaengen(buchungId, {
+            FotoPdf.erzeugen(seiten.map { f -> BildZuPdf.seite { FileInputStream(f) } })
+        }, done)
+    }
+
+    fun belegEntfernen(buchungId: String, done: (String?) -> Unit) {
+        busy = true
+        thread {
+            val fehler = try { Belege.entfernen(store, dateien, buchungId); null } catch (e: Exception) { e.message ?: e::class.simpleName }
+            post { reload(); busy = false; done(fehler) }
+        }
+    }
+
+    /** Der Beleg als Datei im Zwischenspeicher (zum Anzeigen oder Weitergeben). */
+    class BelegDatei(val datei: File, val mime: String, val name: String)
+
+    /** Nicht im Hauptstrang aufrufen: kopiert die Datei. */
+    fun belegDatei(buchungId: String): BelegDatei? {
+        val b = store.get("transactions", buchungId) ?: return null
+        val id = Belege.dateiId(b) ?: return null
+        val name = ((b["receipt"] as? JsonObject)?.get("name") as? JsonPrimitive)?.contentOrNull ?: "Beleg"
+        val kopf = dateien.open(id)?.use { s -> ByteArray(16).let { k -> k.copyOf(maxOf(s.read(k), 0)) } } ?: return null
+        val endung = Dateityp.erkennen(kopf) ?: "bin"
+        val ordner = cacheOrdner("belege")
+        val ziel = File(ordner, "$id.$endung")
+        if (!ziel.isFile || ziel.length() != dateien.size(id)) {
+            dateien.open(id)?.use { i -> ziel.outputStream().use { o -> i.copyTo(o) } } ?: return null
+        }
+        ordner.listFiles()?.filter { it != ziel }?.forEach { it.delete() }
+        return BelegDatei(ziel, Dateityp.mimeZu(endung) ?: "application/octet-stream", name)
     }
 
     fun dependencies(ids: List<String>): Pair<Int, Int> {

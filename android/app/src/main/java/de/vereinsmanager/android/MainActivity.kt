@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
+import de.vereinsmanager.android.ui.BelegAnsichtScreen
 import de.vereinsmanager.android.ui.BuchungDetailScreen
 import de.vereinsmanager.android.ui.BuchungFormScreen
 import de.vereinsmanager.android.ui.BuchungenScreen
@@ -55,6 +56,7 @@ sealed interface Page {
     data object Transactions : Page
     data class Transaction(val id: String) : Page
     data class TransactionEdit(val id: String?) : Page
+    data class BelegAnsicht(val id: String) : Page
     data object Probes : Page
 }
 
@@ -134,9 +136,11 @@ class MainActivity : ComponentActivity() {
                             )
                             is Page.Transaction -> BuchungDetailScreen(
                                 model, page.id, onEdit = { stack = stack + Page.TransactionEdit(page.id) },
-                                onDeleted = { stack = stack.filter { it !is Page.Transaction && it !is Page.TransactionEdit } }, modifier = m,
+                                onBeleg = { stack = stack + Page.BelegAnsicht(page.id) },
+                                onDeleted = { stack = stack.filter { it !is Page.Transaction && it !is Page.TransactionEdit && it !is Page.BelegAnsicht } }, modifier = m,
                             )
-                            is Page.TransactionEdit -> BuchungFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
+                            is Page.BelegAnsicht -> BelegAnsichtScreen(model, page.id, modifier = m)
+            is Page.TransactionEdit -> BuchungFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
                             Page.Probes -> ProbeScreen(m)
                         }
                       }
@@ -176,6 +180,7 @@ private fun seitenTitel(p: Page): String = when (p) {
     Page.MemberAnalytics -> "Mitglieder-Auswertung"
     Page.Transactions -> "Buchungen & Journal"
     is Page.Transaction -> "Buchung"
+    is Page.BelegAnsicht -> "Beleg"
     is Page.TransactionEdit -> if (p.id == null) "Neue Buchung" else "Buchung bearbeiten"
     Page.Probes -> "Proben"
 }
@@ -185,6 +190,6 @@ private fun aktivesZiel(p: Page): Ziel? = when (p) {
     Page.Home -> Ziel.START
     Page.Members, is Page.Member, is Page.MemberEdit, Page.MemberImport, Page.MaterialOverview -> Ziel.MITGLIEDER
     Page.MemberAnalytics -> Ziel.MITGLIEDER_AUSWERTUNG
-    Page.Transactions, is Page.Transaction, is Page.TransactionEdit -> Ziel.BUCHUNGEN
+    Page.Transactions, is Page.Transaction, is Page.TransactionEdit, is Page.BelegAnsicht -> Ziel.BUCHUNGEN
     Page.Probes -> null
 }

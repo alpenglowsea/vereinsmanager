@@ -326,6 +326,15 @@ Wie Abschnitt 2 mit `version: "1.3.0"`. Der Inhalt von Dateien steht nicht mehr 
 `photoFileId`) und verweist auf eine Datei im lokalen Dateispeicher. Beim Lesen einer alten JSON-Sicherung (1.2.3) werden
 die Data-URLs in den Dateispeicher ausgelagert; gleiche Inhalte (SHA-256) werden nur einmal abgelegt.
 
+### Belege (so schreibt sie Android)
+
+Ein Beleg steht wie am Desktop doppelt im Bestand: als `transactions[].receipt` und als Dokument mit der Kennung
+`doc-receipt-<Buchungs-Id>` (`category: "belege"`, `isReceipt: true`, `transactionId`, `transactionDocNumber`). Beide zeigen auf
+dieselbe Datei; im Paket steht sie deshalb nur einmal. Das Dokument liegt im Ordner „Belege <Jahr>“ (Jahr der Buchung) unter
+„Buchhaltungsbelege & Finanzen“; fehlen die Ordner, legt Android sie an (Kennungen `folder-belege` und `folder-belege-<Jahr>`,
+falls frei). Der Dateiname lautet `<Datum> <Zahlungspartner> <Belegnummer>.<Endung>`. Fotos werden auf Android vor dem Ablegen
+zu einer PDF (längere Seite höchstens 1600 Pixel, JPEG-Qualität 75, eine Seite je Foto); Dateien über 8 MB werden abgelehnt.
+
 ### Offene Punkte für den Desktop
 
 - Schreiben und Lesen von AES-ZIP im Browser bzw. unter Tauri (Bibliothek noch zu wählen, nicht geprüft).

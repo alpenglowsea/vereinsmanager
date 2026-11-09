@@ -54,6 +54,17 @@ fun HomeScreen(model: AppModel, onMembers: () -> Unit, onProbes: () -> Unit, mod
         exportPassword = ""
     }
 
+    // Jedes Ergebnis erscheint in einem Fenster, damit es nicht unten auf der Seite untergeht.
+    var gesehen by remember { mutableStateOf(model.meldungNr) }
+    if (!model.busy && model.meldungNr != gesehen && model.message.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { gesehen = model.meldungNr },
+            title = { Text(if (model.message.startsWith("Fehler")) "Fehler" else "Fertig") },
+            text = { Text(model.message) },
+            confirmButton = { TextButton(onClick = { gesehen = model.meldungNr }) { Text("OK") } },
+        )
+    }
+
     Column(modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
         Text("VereinsManager", style = MaterialTheme.typography.headlineMedium)
         Text(if (model.clubName.isEmpty()) "Noch keine Vereinsdaten – spielen Sie zuerst eine Sicherung ein." else model.clubName)
