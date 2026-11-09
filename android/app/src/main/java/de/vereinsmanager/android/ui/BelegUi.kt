@@ -9,7 +9,9 @@ import android.os.Looper
 import android.os.ParcelFileDescriptor
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,14 +21,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,16 +42,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import de.vereinsmanager.android.AppModel
+import de.vereinsmanager.android.BildZuPdf
+import de.vereinsmanager.android.SeitenEdit
 import de.vereinsmanager.core.finance.Buchung
 import java.io.File
+import java.io.FileInputStream
 import java.util.Locale
 import kotlin.concurrent.thread
 
@@ -117,19 +132,46 @@ fun BelegAbschnitt(model: AppModel, buchung: Buchung, onAnzeigen: () -> Unit) {
     }
 
     // Solange aufgenommene Seiten da sind, bleibt dieses Fenster stehen (auch wenn die Kamera die App im Hintergrund lässt).
-    if (model.fotoSeiten.isNotEmpty() && model.fotoBuchungId == buchung.id && !model.busy) {
+    val fotosHier = model.fotoSeiten.isNotEmpty() && model.fotoBuchungId == buchung.id && !model.busy
+    if (fotosHier) {
         AlertDialog(
             onDismissRequest = { },
             title = { Text("Beleg fotografiert") },
-            text = { Text("${model.fotoSeiten.size} Seite(n) aufgenommen. Weitere Seite aufnehmen oder fertig?") },
+            text = {
+                Column {
+                    model.fotoSeiten.forEachIndexed { i, s ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "Seite ${i + 1}" + if (s.edit.istUnveraendert) "" else " (bearbeitet)",
+                                Modifier.weight(1f),
+                            )
+                            TextButton(onClick = { model.fotoBearbeiten = i }) { Text("Zuschneiden / Drehen") }
+                            TextButton(onClick = { model.fotoEntfernen(i) }) { Text("Entfernen") }
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+                        Checkbox(checked = model.fotoGrau, onCheckedChange = { model.fotoGrau = it })
+                        Text("Graustufen (kleinere Datei)")
+                    }
+                }
+            },
             confirmButton = {
                 Column(horizontalAlignment = Alignment.End) {
                     TextButton(onClick = { model.belegAusFotos(buchung.id, ::ergebnis) }) { Text("Fertig – als PDF speichern") }
                     TextButton(onClick = { fotoMachen() }) { Text("Weitere Seite aufnehmen") }
                 }
             },
-            dismissButton = { TextButton(onClick = { model.fotosVerwerfen() }) { Text("Verwerfen") } },
+            dismissButton = { TextButton(onClick = { model.fotosVerwerfen() }) { Text("Alles verwerfen") } },
         )
+        val nr = model.fotoBearbeiten
+        val entwurf = if (nr != null) model.fotoSeiten.getOrNull(nr) else null
+        if (nr != null && entwurf != null) {
+            SeitenEditor(
+                entwurf,
+                onFertig = { model.fotoBearbeiten = null },
+                onVerwerfen = { model.fotoEntfernen(nr) },
+            )
+        }
     }
 
     if (entfernen) {
@@ -321,5 +363,125 @@ private fun SeitenBild(quelle: Seitenquelle, index: Int, breitePx: Int) {
         )
     } else {
         Box(Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) { Text("Seite ${index + 1} wird geladen …") }
+    }
+}
+
+// ---------------------------------------------------------------- Zuschneiden und Drehen
+
+/** Vollbild-Fenster: das Foto drehen und den Ausschnitt mit den vier Ecken (oder durch Verschieben) festlegen. */
+@Composable
+private fun SeitenEditor(entwurf: AppModel.FotoEntwurf, onFertig: () -> Unit, onVerwerfen: () -> Unit) {
+    var basis by remember(entwurf) { mutableStateOf<Bitmap?>(null) }
+    var fehler by remember(entwurf) { mutableStateOf<String?>(null) }
+    var grad by remember(entwurf) { mutableStateOf(entwurf.edit.grad) }
+    var links by remember(entwurf) { mutableStateOf(entwurf.edit.links) }
+    var oben by remember(entwurf) { mutableStateOf(entwurf.edit.oben) }
+    var rechts by remember(entwurf) { mutableStateOf(entwurf.edit.rechts) }
+    var unten by remember(entwurf) { mutableStateOf(entwurf.edit.unten) }
+
+    DisposableEffect(entwurf) {
+        var aktiv = true
+        thread {
+            var b: Bitmap? = null
+            var f: String? = null
+            try {
+                b = BildZuPdf.vorschau({ FileInputStream(entwurf.datei) }, 1400)
+            } catch (e: Exception) {
+                f = e.message ?: "Das Foto lässt sich nicht anzeigen."
+            }
+            handler.post { if (aktiv) { basis = b; fehler = f } }
+        }
+        onDispose { aktiv = false }
+    }
+    val anzeige = remember(basis, grad) { basis?.let { BildZuPdf.drehen(it, grad) } }
+
+    Dialog(onDismissRequest = { }, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false, dismissOnClickOutside = false)) {
+        Surface(Modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxSize().padding(8.dp)) {
+                Text("Foto zuschneiden: Ecken ziehen oder den Rahmen verschieben.", style = MaterialTheme.typography.bodyMedium)
+                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp)) {
+                    val maxB = maxWidth
+                    val maxH = maxHeight
+                    val dichte = LocalDensity.current
+                    val bild = anzeige
+                    if (bild == null) {
+                        Text(fehler ?: "Foto wird geladen …", Modifier.align(Alignment.Center))
+                    } else {
+                        val faktor = minOf(with(dichte) { maxB.toPx() } / bild.width, with(dichte) { maxH.toPx() } / bild.height)
+                        val breite = with(dichte) { (bild.width * faktor).toDp() }
+                        val hoehe = with(dichte) { (bild.height * faktor).toDp() }
+                        Box(Modifier.size(breite, hoehe).align(Alignment.Center)) {
+                            Image(bitmap = bild.asImageBitmap(), contentDescription = "Foto", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
+                            Canvas(
+                                Modifier.fillMaxSize().pointerInput(bild) {
+                                    var modus = 0 // 1 bis 4: Ecke links oben, rechts oben, links unten, rechts unten; 5: verschieben
+                                    val fang = 44.dp.toPx()
+                                    val mind = 0.08f
+                                    detectDragGestures(
+                                        onDragStart = { p ->
+                                            val w = size.width.toFloat()
+                                            val h = size.height.toFloat()
+                                            val ecken = listOf(Offset(links * w, oben * h), Offset(rechts * w, oben * h), Offset(links * w, unten * h), Offset(rechts * w, unten * h))
+                                            var best = 0
+                                            for (i in 1..3) if ((ecken[i] - p).getDistance() < (ecken[best] - p).getDistance()) best = i
+                                            modus = when {
+                                                (ecken[best] - p).getDistance() <= fang -> best + 1
+                                                p.x in (links * w)..(rechts * w) && p.y in (oben * h)..(unten * h) -> 5
+                                                else -> 0
+                                            }
+                                        },
+                                        onDrag = { change, d ->
+                                            change.consume()
+                                            val dx = d.x / size.width
+                                            val dy = d.y / size.height
+                                            when (modus) {
+                                                1 -> { links = (links + dx).coerceIn(0f, rechts - mind); oben = (oben + dy).coerceIn(0f, unten - mind) }
+                                                2 -> { rechts = (rechts + dx).coerceIn(links + mind, 1f); oben = (oben + dy).coerceIn(0f, unten - mind) }
+                                                3 -> { links = (links + dx).coerceIn(0f, rechts - mind); unten = (unten + dy).coerceIn(oben + mind, 1f) }
+                                                4 -> { rechts = (rechts + dx).coerceIn(links + mind, 1f); unten = (unten + dy).coerceIn(oben + mind, 1f) }
+                                                5 -> {
+                                                    val bb = rechts - links
+                                                    val hh = unten - oben
+                                                    val nl = (links + dx).coerceIn(0f, 1f - bb)
+                                                    val no = (oben + dy).coerceIn(0f, 1f - hh)
+                                                    links = nl; rechts = nl + bb; oben = no; unten = no + hh
+                                                }
+                                            }
+                                        },
+                                        onDragEnd = { modus = 0 },
+                                        onDragCancel = { modus = 0 },
+                                    )
+                                },
+                            ) {
+                                val w = size.width
+                                val h = size.height
+                                val abdunkeln = Color(0x99000000)
+                                drawRect(abdunkeln, Offset(0f, 0f), Size(w, oben * h))
+                                drawRect(abdunkeln, Offset(0f, unten * h), Size(w, h - unten * h))
+                                drawRect(abdunkeln, Offset(0f, oben * h), Size(links * w, (unten - oben) * h))
+                                drawRect(abdunkeln, Offset(rechts * w, oben * h), Size(w - rechts * w, (unten - oben) * h))
+                                drawRect(Color.White, Offset(links * w, oben * h), Size((rechts - links) * w, (unten - oben) * h), style = Stroke(width = 3.dp.toPx()))
+                                for (ecke in listOf(Offset(links * w, oben * h), Offset(rechts * w, oben * h), Offset(links * w, unten * h), Offset(rechts * w, unten * h))) {
+                                    drawCircle(Color.White, radius = 10.dp.toPx(), center = ecke)
+                                    drawCircle(Color(0xFF1976D2), radius = 7.dp.toPx(), center = ecke)
+                                }
+                            }
+                        }
+                    }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    OutlinedButton(onClick = { grad = (grad + 270) % 360; links = 0f; oben = 0f; rechts = 1f; unten = 1f }, enabled = basis != null) { Text("Links drehen") }
+                    OutlinedButton(onClick = { grad = (grad + 90) % 360; links = 0f; oben = 0f; rechts = 1f; unten = 1f }, enabled = basis != null) { Text("Rechts drehen") }
+                    OutlinedButton(onClick = { links = 0f; oben = 0f; rechts = 1f; unten = 1f }, enabled = basis != null) { Text("Ganz") }
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Button(
+                        onClick = { entwurf.edit = SeitenEdit(grad, links, oben, rechts, unten); onFertig() },
+                        enabled = basis != null,
+                    ) { Text("Übernehmen") }
+                    TextButton(onClick = onVerwerfen) { Text("Seite verwerfen") }
+                }
+            }
+        }
     }
 }

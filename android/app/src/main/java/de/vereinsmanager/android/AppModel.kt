@@ -301,7 +301,18 @@ class AppModel(private val appContext: Context) {
     // ---- Belege ----
 
     /** Bereits aufgenommene Seiten eines Belegs (Fotos im Zwischenspeicher), bis sie angehängt oder verworfen werden. */
-    val fotoSeiten = mutableStateListOf<File>()
+    class FotoEntwurf(val datei: File) {
+        /** Drehung und Ausschnitt, die der Anwender eingestellt hat. */
+        var edit by mutableStateOf(SeitenEdit())
+    }
+
+    val fotoSeiten = mutableStateListOf<FotoEntwurf>()
+
+    /** Nummer der Seite, die gerade zugeschnitten wird (null: keine). */
+    var fotoBearbeiten by mutableStateOf<Int?>(null)
+
+    /** Alle Seiten als Graustufen speichern (kleinere Datei). */
+    var fotoGrau by mutableStateOf(false)
     private var aktuellesFoto: File? = null
 
     /** Zu welcher Buchung die aufgenommenen Seiten gehören (damit sie nicht an einer anderen landen). */
@@ -321,13 +332,26 @@ class AppModel(private val appContext: Context) {
         val f = aktuellesFoto
         aktuellesFoto = null
         if (f == null) return
-        if (ok && f.length() > 0) fotoSeiten.add(f) else f.delete()
+        if (ok && f.length() > 0) {
+            fotoSeiten.add(FotoEntwurf(f))
+            fotoBearbeiten = fotoSeiten.lastIndex // gleich zum Drehen und Zuschneiden öffnen
+        } else {
+            f.delete()
+        }
     }
 
     fun fotosVerwerfen() {
-        fotoSeiten.toList().forEach { it.delete() }
+        fotoSeiten.toList().forEach { it.datei.delete() }
         fotoSeiten.clear()
+        fotoBearbeiten = null
         fotoBuchungId = null
+    }
+
+    fun fotoEntfernen(index: Int) {
+        if (index !in fotoSeiten.indices) return
+        fotoSeiten.removeAt(index).datei.delete()
+        fotoBearbeiten = null
+        if (fotoSeiten.isEmpty()) fotoBuchungId = null
     }
 
     /** Größte Datei, die zum Umwandeln gelesen wird (ein Foto ist oft größer als die fertige PDF). */
@@ -374,15 +398,16 @@ class AppModel(private val appContext: Context) {
         if (Dateityp.erkennen(bytes.copyOf(minOf(bytes.size, 16))) == "pdf") {
             bytes
         } else {
-            FotoPdf.erzeugen(listOf(BildZuPdf.seite { appContext.contentResolver.openInputStream(uri)!! }))
+            FotoPdf.erzeugen(listOf(BildZuPdf.seite(oeffnen = { appContext.contentResolver.openInputStream(uri)!! })))
         }
     }, done)
 
     /** Alle aufgenommenen Seiten zu einer PDF (eine Seite je Foto). */
     fun belegAusFotos(buchungId: String, done: (BelegErgebnis?, String?) -> Unit) {
-        val seiten = fotoSeiten.toList()
+        val seiten = fotoSeiten.toList().map { it.datei to it.edit }
+        val grau = fotoGrau
         belegAnhaengen(buchungId, {
-            FotoPdf.erzeugen(seiten.map { f -> BildZuPdf.seite { FileInputStream(f) } })
+            FotoPdf.erzeugen(seiten.map { s -> BildZuPdf.seite({ FileInputStream(s.first) }, s.second, grau) })
         }, done)
     }
 
