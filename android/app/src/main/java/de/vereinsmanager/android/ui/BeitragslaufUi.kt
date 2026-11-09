@@ -41,8 +41,6 @@ import de.vereinsmanager.core.sepa.SepaPeriodFilter
 import java.math.BigDecimal
 import java.time.LocalDate
 
-private fun euro(b: BigDecimal) = Export.fixed2(b) + " €"
-
 private fun maskiert(iban: String) = if (iban.isEmpty()) "keine IBAN" else iban.take(6) + "..." + iban.takeLast(4)
 
 /** Beitragslauf: Lastschrifteinzug der Mitgliedsbeiträge vorbereiten, als SEPA-Datei und Prüfprotokoll ausgeben, frühere Läufe ansehen. */
