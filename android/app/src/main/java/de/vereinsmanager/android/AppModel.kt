@@ -49,6 +49,8 @@ import de.vereinsmanager.core.finance.BuchungRegeln
 import de.vereinsmanager.core.finance.BuchungStore
 import de.vereinsmanager.core.finance.Finance
 import de.vereinsmanager.core.finance.Konto
+import de.vereinsmanager.core.finance.KontoForm
+import de.vereinsmanager.core.finance.KontoStore
 import de.vereinsmanager.core.members.Gegenstand
 import de.vereinsmanager.core.members.MemberCsv
 import de.vereinsmanager.core.members.MemberHistory
@@ -455,6 +457,19 @@ class AppModel(private val appContext: Context) {
         }
         ordner.listFiles()?.filter { it != ziel }?.forEach { it.delete() }
         return BelegDatei(ziel, Dateityp.mimeZu(endung) ?: "application/octet-stream", name)
+    }
+
+    // ---- Konten ----
+
+    fun kontoSpeichern(form: KontoForm, done: (String?) -> Unit) =
+        hintergrund({ KontoStore.speichern(store, form) }) { _, f -> done(f) }
+
+    /** Löscht das Konto; hängen Buchungen daran, gehen sie vorher auf [ziel] über. */
+    fun kontoLoeschen(id: String, ziel: String?, done: (String?) -> Unit) =
+        hintergrund({ KontoStore.loeschen(store, id, ziel) }) { _, f -> done(f) }
+
+    fun kontoSchieben(id: String, schritt: Int) {
+        if (KontoStore.schieben(store, id, schritt)) reload()
     }
 
     // ---- Dokumente ----

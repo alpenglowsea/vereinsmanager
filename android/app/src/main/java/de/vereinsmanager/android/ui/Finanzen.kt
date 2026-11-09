@@ -60,7 +60,7 @@ private val SORTIERUNG = linkedMapOf(
 private val BELEG_AUSWAHL = linkedMapOf("ja" to "Mit Beleg", "nein" to "Ohne Beleg")
 
 /** Die Kontofarben der Desktop-Fassung (Farbnamen aus dem Konto-Datensatz). */
-private fun kontoFarbe(name: String): Color = when (name) {
+internal fun kontoFarbe(name: String): Color = when (name) {
     "emerald" -> Color(0xFF10B981)
     "green" -> Color(0xFF22C55E)
     "blue" -> Color(0xFF3B82F6)
@@ -96,7 +96,7 @@ private fun betragText(b: Buchung): String = when {
 
 /** Buchungsjournal: Kontostände oben, darunter Suche, Filter und die Buchungen als Karten-Liste. */
 @Composable
-fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, modifier: Modifier = Modifier) {
+fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, onKonten: () -> Unit, modifier: Modifier = Modifier) {
     var filter by remember { mutableStateOf(BuchungFilter()) }
     var sortierung by remember { mutableStateOf(BuchungSortierung.DATUM) }
     var aufsteigend by remember { mutableStateOf(false) }
@@ -118,7 +118,10 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
 
     Column(modifier.padding(horizontal = 16.dp).nestedScroll(kopf.verfolgung)) {
         Column(Modifier.einklappbar(kopf)) {
-            Button(onClick = onNew, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Neue Buchung") }
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onNew, modifier = Modifier.weight(1f)) { Text("Neue Buchung") }
+                OutlinedButton(onClick = onKonten, modifier = Modifier.weight(1f)) { Text("Konten verwalten") }
+            }
             Row(
                 Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
