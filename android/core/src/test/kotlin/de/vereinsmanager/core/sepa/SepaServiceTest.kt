@@ -69,6 +69,7 @@ class SepaServiceTest {
     // --- Zeichensatz ---
     @Test fun umlauteAusschreiben() =
         assertEquals("Mueller Gruen Strasse", SepaService.sanitizeText("Müller Grün Straße"))
+    @Test fun geschuetzteUndMehrfachLeerzeichenWerdenEines() = assertEquals("Beitrag 2026 Mueller", SepaService.sanitizeText("Beitrag\u00A0\u00A02026 \t Müller"))
     @Test fun kaufmaennischesUnd() = assertEquals("Meier + Sohn", SepaService.sanitizeText("Meier & Sohn"))
     @Test fun unterstrichEntfernt() = assertEquals("Beitrag2026", SepaService.sanitizeText("Beitrag_2026"))
     @Test fun akzenteAufGrundbuchstaben() = assertEquals("Jose Nunez", SepaService.sanitizeText("José Núñez"))

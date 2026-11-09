@@ -68,7 +68,8 @@ object SepaService {
             .replace("ß", "ss").replace("&", "+")
         res = Normalizer.normalize(res, Normalizer.Form.NFD)
             .replace(Regex("[\\u0300-\\u036f]"), "")
-            .replace(Regex("(?U)\\s+"), " ")
+            // Kein (?U): Android kennt die Option nicht und stürzt ab. Die Unicode-Leerzeichen stehen deshalb ausdrücklich da.
+            .replace(Regex("[\\s\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+"), " ")
             .replace(Regex("[^A-Za-z0-9/\\-?:().,'+ ]"), "")
             .trim()
         if (maxLength > 0 && res.length > maxLength) res = res.substring(0, maxLength)
