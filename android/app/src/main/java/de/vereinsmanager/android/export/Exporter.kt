@@ -14,6 +14,7 @@ import de.vereinsmanager.core.export.PdfTabelle
 class Exporter(
     val csv: (dateiname: String, inhalt: () -> String) -> Unit,
     val pdfSchreiber: (dateiname: String, schreiber: (java.io.OutputStream) -> Unit) -> Unit,
+    val xml: (dateiname: String, inhalt: () -> String) -> Unit,
 ) {
     fun pdf(dateiname: String, tabelle: () -> PdfTabelle) = pdfSchreiber(dateiname) { out -> PdfWriter.schreiben(tabelle(), out) }
 }
@@ -21,6 +22,7 @@ class Exporter(
 @Composable
 fun rememberExporter(model: AppModel, onResult: (String) -> Unit): Exporter {
     var wartendCsv by remember { mutableStateOf<(() -> String)?>(null) }
+    var wartendXml by remember { mutableStateOf<(() -> String)?>(null) }
     var wartendPdf by remember { mutableStateOf<((java.io.OutputStream) -> Unit)?>(null) }
     val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         val p = wartendCsv
@@ -34,10 +36,17 @@ fun rememberExporter(model: AppModel, onResult: (String) -> Unit): Exporter {
         if (uri != null && p != null) model.exportiere(uri, p, "PDF-Datei gespeichert.", onResult)
         else onResult("Export abgebrochen.")
     }
-    return remember(csvLauncher, pdfLauncher) {
+    val xmlLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/xml")) { uri ->
+        val p = wartendXml
+        wartendXml = null
+        if (uri != null && p != null) model.exportiere(uri, { out -> out.write(p().toByteArray(Charsets.UTF_8)) }, "Datei gespeichert.", onResult)
+        else onResult("Speichern abgebrochen.")
+    }
+    return remember(csvLauncher, pdfLauncher, xmlLauncher) {
         Exporter(
             csv = { name, f -> wartendCsv = f; csvLauncher.launch(name) },
             pdfSchreiber = { name, f -> wartendPdf = f; pdfLauncher.launch(name) },
+            xml = { name, f -> wartendXml = f; xmlLauncher.launch(name) },
         )
     }
 }

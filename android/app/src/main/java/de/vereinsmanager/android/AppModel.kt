@@ -49,6 +49,14 @@ import de.vereinsmanager.core.finance.BuchungRegeln
 import de.vereinsmanager.core.finance.BuchungStore
 import de.vereinsmanager.core.finance.Finance
 import de.vereinsmanager.core.finance.Konto
+import de.vereinsmanager.core.sepa.Beitragslauf
+import de.vereinsmanager.core.sepa.Lauf
+import de.vereinsmanager.core.sepa.LaufErgebnis
+import de.vereinsmanager.core.sepa.LaufParameter
+import de.vereinsmanager.core.sepa.SepaItem
+import de.vereinsmanager.core.settings.Glaeubiger
+import de.vereinsmanager.core.settings.VereinsForm
+import de.vereinsmanager.core.settings.Vereinsdaten
 import de.vereinsmanager.core.finance.KontoForm
 import de.vereinsmanager.core.finance.KontoStore
 import de.vereinsmanager.core.members.Gegenstand
@@ -114,6 +122,16 @@ class AppModel(private val appContext: Context) {
     var ordner by mutableStateOf<List<Ordner>>(emptyList())
         private set
 
+    var laeufe by mutableStateOf<List<Lauf>>(emptyList())
+        private set
+    var vereinsdaten by mutableStateOf(VereinsForm())
+        private set
+    /** Was für einen Lastschrifteinzug in den Einstellungen noch fehlt (null: alles da). */
+    var lastschriftFehlt by mutableStateOf<String?>(null)
+        private set
+    var glaeubiger by mutableStateOf<Glaeubiger?>(null)
+        private set
+
     /** Anzahl und Größe der abgelegten Dateien (Belege, Dokumente, Fotos), fertig formatiert. */
     var dateiText by mutableStateOf("")
         private set
@@ -143,6 +161,10 @@ class AppModel(private val appContext: Context) {
         buchungen = Finance.buchungen(store)
         dokumente = Dokumente.dokumente(store)
         ordner = Dokumente.ordner(store)
+        laeufe = Beitragslauf.laeufe(store)
+        vereinsdaten = Vereinsdaten.lesen(store.get("settings", "main"))
+        lastschriftFehlt = Vereinsdaten.fehlt(store.get("settings", "main"))
+        glaeubiger = Vereinsdaten.glaeubiger(store.get("settings", "main"))
         dateiText = dateiInfo()
         val settings = store.get("settings", "main")
         clubName = (settings?.get("clubName") as? JsonPrimitive)?.contentOrNull ?: ""
@@ -458,6 +480,21 @@ class AppModel(private val appContext: Context) {
         ordner.listFiles()?.filter { it != ziel }?.forEach { it.delete() }
         return BelegDatei(ziel, Dateityp.mimeZu(endung) ?: "application/octet-stream", name)
     }
+
+    // ---- Einstellungen und Beitragslauf ----
+
+    fun vereinSpeichern(form: VereinsForm, done: (String?) -> Unit) =
+        hintergrund({ Vereinsdaten.speichern(store, form) }) { _, f -> done(f) }
+
+    /** Erzeugt die SEPA-Datei und legt den Lauf in der Historie ab. */
+    fun laufErzeugen(p: LaufParameter, posten: List<SepaItem>, done: (LaufErgebnis?, String?) -> Unit) {
+        val g = glaeubiger
+        if (g == null) { done(null, lastschriftFehlt ?: "Die Vereinsdaten sind unvollständig."); return }
+        hintergrund({ Beitragslauf.erzeugen(store, p, posten, g) }, done)
+    }
+
+    fun laufLoeschen(id: String, done: (String?) -> Unit) =
+        hintergrund({ Beitragslauf.loeschen(store, id) }) { _, f -> done(f) }
 
     // ---- Konten ----
 

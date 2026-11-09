@@ -6,6 +6,7 @@ import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import de.vereinsmanager.core.export.PdfTabelle
 import de.vereinsmanager.core.export.StammblattDaten
+import de.vereinsmanager.core.sepa.SepaProtokoll
 import java.io.OutputStream
 
 /**
@@ -180,6 +181,133 @@ object PdfWriter {
         c.drawText("Ort, Datum", 16 * MM, y + 4 * MM, sp)
         c.drawText("Unterschrift Mitglied / Gesetzl. Vertreter", 115 * MM, y + 4 * MM, sp)
         doc.finishPage(page)
+        doc.writeTo(out)
+        doc.close()
+    }
+
+    /**
+     * Prüfprotokoll zum Lastschrifteinzug, A4 hoch: Kopf mit Vereinsdaten, Summenkasten, Tabelle über mehrere Seiten
+     * (Kopfzeile auf jeder Seite) und am Ende die Freigabezeile für Kassenprüfung und Bankeinreichung.
+     * Aufbau wie am Desktop, Schrift und Abstände angenähert.
+     */
+    fun sepaProtokoll(d: SepaProtokoll, out: OutputStream) {
+        val doc = PdfDocument()
+        val breite = 595
+        val hoehe = 842
+        val rechts = 196 * MM
+        val unten = hoehe - 18 * MM
+        val dunkel = Color.rgb(15, 23, 42)
+        val grau = Color.rgb(100, 116, 139)
+        val textP = paint(7.5f, Color.rgb(40, 40, 40))
+        val kopfP = paint(7.5f, Color.WHITE, bold = true)
+        val rand = Paint().apply { color = Color.rgb(200, 205, 212); strokeWidth = 0.5f; style = Paint.Style.STROKE }
+        val fill = Paint().apply { style = Paint.Style.FILL }
+        val breiten = listOf(8f, 16f, 38f, 38f, 34f, 34f, 14f).map { it * MM }
+        val rechtsbuendig = setOf(0, 6)
+        val zeilenHoehe = 7.5f * 1.25f
+        var seite = 0
+        var page: PdfDocument.Page? = null
+        var y = 0f
+
+        fun seiteAbschliessen() {
+            page?.let { pg ->
+                pg.canvas.drawText("Seite $seite | ${d.fusszeile}", LINKS, hoehe - 10 * MM, paint(8f, Color.rgb(140, 140, 140)))
+                doc.finishPage(pg)
+            }
+        }
+
+        fun tabellenKopf() {
+            val c = page!!.canvas
+            val kh = zeilenHoehe + 2 * POLSTER
+            fill.color = Color.rgb(30, 41, 59)
+            c.drawRect(LINKS, y, LINKS + breiten.sum(), y + kh, fill)
+            var x = LINKS
+            d.spalten.forEachIndexed { i, s ->
+                val tx = if (i in rechtsbuendig && i != 0) x + breiten[i] - POLSTER - kopfP.measureText(s) else x + POLSTER
+                c.drawText(s, tx, y + POLSTER + zeilenHoehe - 3f, kopfP)
+                x += breiten[i]
+            }
+            y += kh
+        }
+
+        fun neueSeite() {
+            seiteAbschliessen()
+            seite += 1
+            val pg = doc.startPage(PdfDocument.PageInfo.Builder(breite, hoehe, seite).create())
+            page = pg
+            y = 15 * MM
+            if (seite > 1) tabellenKopf()
+        }
+
+        // Seite 1: Kopf
+        seite = 1
+        page = doc.startPage(PdfDocument.PageInfo.Builder(breite, hoehe, seite).create())
+        val c1 = page!!.canvas
+        val klein = paint(9f, grau)
+        c1.drawText(d.verein, LINKS, 18 * MM, paint(16f, dunkel))
+        if (d.kopf1.isNotEmpty()) c1.drawText(d.kopf1, LINKS, 24 * MM, klein)
+        if (d.kopf2.isNotEmpty()) c1.drawText(d.kopf2, LINKS, 29 * MM, klein)
+        c1.drawLine(LINKS, 33 * MM, rechts, 33 * MM, Paint().apply { color = Color.rgb(203, 213, 225); strokeWidth = 1.4f })
+        c1.drawText(d.titel, LINKS, 42 * MM, paint(13f, dunkel))
+        c1.drawText(d.daten, LINKS, 48 * MM, klein)
+
+        // Summenkasten
+        val kastenOben = 53 * MM
+        val kastenHoehe = 18 * MM
+        fill.color = Color.rgb(241, 245, 249)
+        c1.drawRect(LINKS, kastenOben, rechts, kastenOben + kastenHoehe, fill)
+        val spaltenBreite = (rechts - LINKS) / 3f
+        val beschriftung = listOf("Gesamtsumme", "Anzahl", "Zyklus")
+        val werte = listOf(d.summeText, d.anzahlText, d.zyklus)
+        for (i in 0..2) {
+            val x = LINKS + i * spaltenBreite + 4 * MM
+            c1.drawText(beschriftung[i], x, kastenOben + 6 * MM, paint(8f, grau))
+            c1.drawText(werte[i], x, kastenOben + 13 * MM, paint(12f, dunkel, bold = true))
+        }
+        y = kastenOben + kastenHoehe + 6 * MM
+        tabellenKopf()
+
+        d.zeilen.forEachIndexed { zi, zeile ->
+            val umbruch = zeile.mapIndexed { i, s -> umbrechen(s, textP, breiten[i] - 2 * POLSTER) }
+            val h = umbruch.maxOf { it.size } * zeilenHoehe + 2 * POLSTER
+            if (y + h > unten) neueSeite()
+            val c = page!!.canvas
+            if (zi % 2 == 1) { fill.color = Color.rgb(248, 250, 252); c.drawRect(LINKS, y, LINKS + breiten.sum(), y + h, fill) }
+            var x = LINKS
+            umbruch.forEachIndexed { i, zl ->
+                c.drawRect(x, y, x + breiten[i], y + h, rand)
+                zl.forEachIndexed { k, s ->
+                    val tx = if (i in rechtsbuendig) x + breiten[i] - POLSTER - textP.measureText(s) else x + POLSTER
+                    c.drawText(s, tx, y + POLSTER + (k + 1) * zeilenHoehe - 3f, textP)
+                }
+                x += breiten[i]
+            }
+            y += h
+        }
+
+        // Fußnote und Freigabe; passt der Block nicht mehr auf die Seite, kommt er auf eine neue
+        val blockHoehe = 52 * MM
+        if (y + blockHoehe > unten) { neueSeite(); y = 20 * MM }
+        val c = page!!.canvas
+        y += 5 * MM
+        if (d.fussnote.isNotEmpty()) {
+            c.drawText(d.fussnote, LINKS, y, paint(7.5f, grau))
+            y += 8 * MM
+        }
+        y += 4 * MM
+        c.drawText("Kassenprüfung & Freigabe zur Bankeinreichung", LINKS, y, paint(10f, dunkel, bold = true))
+        y += 16 * MM
+        val strich = Paint().apply { color = Color.rgb(60, 60, 60); strokeWidth = 0.8f }
+        val mitte = LINKS + 80 * MM
+        c.drawLine(LINKS, y, LINKS + 70 * MM, y, strich)
+        c.drawLine(mitte, y, rechts, y, strich)
+        val beschr = paint(8f, grau)
+        c.drawText("Datum", LINKS, y + 4.5f * MM, beschr)
+        val name = if (d.kassenwart.isNotEmpty()) "Unterschrift Kassenwart/Schatzmeister: ${d.kassenwart}" else "Unterschrift Kassenwart/Schatzmeister"
+        c.drawText(name, mitte, y + 4.5f * MM, beschr)
+        c.drawText("Erstellt am ${d.erstellt}", LINKS, y + 14 * MM, beschr)
+
+        seiteAbschliessen()
         doc.writeTo(out)
         doc.close()
     }

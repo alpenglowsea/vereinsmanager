@@ -45,7 +45,7 @@ enum class Ziel(val titel: String, val icon: ImageVector, val farbe: Farbe, val 
     ANTRAEGE("Mitgliedsanträge", Lucide.FileSignature, Farbe.BLAU, false),
     MITGLIEDER_AUSWERTUNG("Mitglieder-Auswertung", Lucide.BarChart3, Farbe.BLAU, true),
     BUCHUNGEN("Buchungen & Journal", Lucide.Wallet, Farbe.GRUEN, true),
-    BEITRAGSLAUF("Beitragslauf", Lucide.CreditCard, Farbe.GRUEN, false),
+    BEITRAGSLAUF("Beitragslauf", Lucide.CreditCard, Farbe.GRUEN, true),
     EUER("EÜR / GuV", Lucide.FileSpreadsheet, Farbe.GRUEN, false),
     RECHNUNGEN("Rechnungen", Lucide.FileText, Farbe.GRUEN, false),
     SPENDEN("Spenden", Lucide.HeartHandshake, Farbe.GRUEN, false),
@@ -55,7 +55,7 @@ enum class Ziel(val titel: String, val icon: ImageVector, val farbe: Farbe, val 
     SITZUNGEN("Sitzungen", Lucide.ScrollText, Farbe.ROSE, false),
     INVENTAR("Inventar", Lucide.Package, Farbe.LILA, false),
     DOKUMENTE("Dokumente", Lucide.FolderArchive, Farbe.BERNSTEIN, true),
-    EINSTELLUNGEN("Einstellungen", Lucide.Settings, Farbe.GRAU, false),
+    EINSTELLUNGEN("Einstellungen", Lucide.Settings, Farbe.GRAU, true),
 }
 
 /** Die Farben der Desktop-Piktogramme. Hell etwas dunkler getönt, damit sie auf weißem Grund lesbar bleiben. */
