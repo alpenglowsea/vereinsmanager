@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -100,10 +103,10 @@ fun BelegAbschnitt(model: AppModel, buchung: Buchung, onAnzeigen: () -> Unit) {
         val beleg = buchung.beleg
         if (beleg != null) {
             Text("${beleg.name} (${groesse(beleg.groesse)})")
-            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onAnzeigen, enabled = !model.busy) { Text("Anzeigen") }
-                OutlinedButton(onClick = { wahl = true }, enabled = !model.busy) { Text("Ersetzen") }
-                OutlinedButton(onClick = { entfernen = true }, enabled = !model.busy) { Text("Entfernen") }
+            Button(onClick = onAnzeigen, enabled = !model.busy, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Anzeigen") }
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { wahl = true }, enabled = !model.busy, modifier = Modifier.weight(1f)) { Text("Ersetzen") }
+                OutlinedButton(onClick = { entfernen = true }, enabled = !model.busy, modifier = Modifier.weight(1f)) { Text("Entfernen") }
             }
         } else if (!buchung.istUmbuchung) {
             Text("Kein Beleg angehängt.")
@@ -112,56 +115,53 @@ fun BelegAbschnitt(model: AppModel, buchung: Buchung, onAnzeigen: () -> Unit) {
     }
 
     if (wahl) {
-        AlertDialog(
-            onDismissRequest = { wahl = false },
-            title = { Text(if (buchung.beleg != null) "Beleg ersetzen" else "Beleg anhängen") },
-            text = {
-                Column {
-                    Text("Eine PDF wird unverändert übernommen. Fotos und Bilder werden verkleinert und zu einer PDF gemacht.")
-                    if (buchung.beleg != null) Text("Der bisherige Beleg wird dabei ersetzt.", Modifier.padding(top = 8.dp))
-                }
+        Aktionsdialog(
+            titel = if (buchung.beleg != null) "Beleg ersetzen" else "Beleg anhängen",
+            onDismiss = { wahl = false },
+            inhalt = {
+                Text("Eine PDF wird unverändert übernommen. Fotos und Bilder werden verkleinert und zu einer PDF gemacht.")
+                if (buchung.beleg != null) Text("Der bisherige Beleg wird dabei ersetzt.", Modifier.padding(top = 8.dp))
             },
-            confirmButton = {
-                Column(horizontalAlignment = Alignment.End) {
-                    TextButton(onClick = { wahl = false; model.fotosVerwerfen(); fotoMachen() }) { Text("Foto aufnehmen") }
-                    TextButton(onClick = { wahl = false; dateiLauncher.launch(arrayOf("application/pdf", "image/*")) }) { Text("Datei wählen (PDF oder Bild)") }
-                }
+            aktionen = {
+                Button(onClick = { wahl = false; model.fotosVerwerfen(); fotoMachen() }, modifier = Modifier.fillMaxWidth()) { Text("Foto aufnehmen") }
+                OutlinedButton(
+                    onClick = { wahl = false; dateiLauncher.launch(arrayOf("application/pdf", "image/*")) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Datei wählen (PDF oder Bild)") }
+                TextButton(onClick = { wahl = false }, modifier = Modifier.fillMaxWidth()) { Text("Abbrechen") }
             },
-            dismissButton = { TextButton(onClick = { wahl = false }) { Text("Abbrechen") } },
         )
     }
 
     // Solange aufgenommene Seiten da sind, bleibt dieses Fenster stehen (auch wenn die Kamera die App im Hintergrund lässt).
     val fotosHier = model.fotoSeiten.isNotEmpty() && model.fotoBuchungId == buchung.id && !model.busy
     if (fotosHier) {
-        AlertDialog(
-            onDismissRequest = { },
-            title = { Text("Beleg fotografiert") },
-            text = {
-                Column {
-                    model.fotoSeiten.forEachIndexed { i, s ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                "Seite ${i + 1}" + if (s.edit.istUnveraendert) "" else " (bearbeitet)",
-                                Modifier.weight(1f),
-                            )
-                            TextButton(onClick = { model.fotoBearbeiten = i }) { Text("Zuschneiden / Drehen") }
-                            TextButton(onClick = { model.fotoEntfernen(i) }) { Text("Entfernen") }
+        Aktionsdialog(
+            titel = "Beleg fotografiert",
+            onDismiss = null,
+            inhalt = {
+                model.fotoSeiten.forEachIndexed { i, s ->
+                    Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                        Text(
+                            "Seite ${i + 1}" + if (s.edit.istUnveraendert) "" else " (bearbeitet)",
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { model.fotoBearbeiten = i }, modifier = Modifier.weight(1f)) { Text("Zuschneiden / Drehen") }
+                            OutlinedButton(onClick = { model.fotoEntfernen(i) }) { Text("Entfernen") }
                         }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-                        Checkbox(checked = model.fotoGrau, onCheckedChange = { model.fotoGrau = it })
-                        Text("Graustufen (kleinere Datei)")
-                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = model.fotoGrau, onCheckedChange = { model.fotoGrau = it })
+                    Text("Graustufen (kleinere Datei)")
                 }
             },
-            confirmButton = {
-                Column(horizontalAlignment = Alignment.End) {
-                    TextButton(onClick = { model.belegAusFotos(buchung.id, ::ergebnis) }) { Text("Fertig – als PDF speichern") }
-                    TextButton(onClick = { fotoMachen() }) { Text("Weitere Seite aufnehmen") }
-                }
+            aktionen = {
+                Button(onClick = { model.belegAusFotos(buchung.id, ::ergebnis) }, modifier = Modifier.fillMaxWidth()) { Text("Fertig – als PDF speichern") }
+                OutlinedButton(onClick = { fotoMachen() }, modifier = Modifier.fillMaxWidth()) { Text("Weitere Seite aufnehmen") }
+                TextButton(onClick = { model.fotosVerwerfen() }, modifier = Modifier.fillMaxWidth()) { Text("Alles verwerfen") }
             },
-            dismissButton = { TextButton(onClick = { model.fotosVerwerfen() }) { Text("Alles verwerfen") } },
         )
         val nr = model.fotoBearbeiten
         val entwurf = if (nr != null) model.fotoSeiten.getOrNull(nr) else null
@@ -197,6 +197,31 @@ fun BelegAbschnitt(model: AppModel, buchung: Buchung, onAnzeigen: () -> Unit) {
             text = { Text(m) },
             confirmButton = { TextButton(onClick = { meldung = null }) { Text("OK") } },
         )
+    }
+}
+
+/**
+ * Ein Fenster mit Titel, Inhalt und Knöpfen, die untereinander in voller Breite stehen. Der Standard-Dialog legt mehrere
+ * Knöpfe in seiner Knopfleiste übereinander; hier bestimmen wir den Aufbau selbst. [onDismiss] null: nur über die Knöpfe schließbar.
+ */
+@Composable
+private fun Aktionsdialog(
+    titel: String,
+    onDismiss: (() -> Unit)?,
+    inhalt: @Composable ColumnScope.() -> Unit,
+    aktionen: @Composable ColumnScope.() -> Unit,
+) {
+    Dialog(
+        onDismissRequest = { onDismiss?.invoke() },
+        properties = DialogProperties(dismissOnBackPress = onDismiss != null, dismissOnClickOutside = onDismiss != null),
+    ) {
+        Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge, tonalElevation = 6.dp) {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(24.dp)) {
+                Text(titel, style = MaterialTheme.typography.headlineSmall)
+                Column(Modifier.fillMaxWidth().padding(vertical = 16.dp), content = inhalt)
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp), content = aktionen)
+            }
+        }
     }
 }
 
@@ -470,9 +495,18 @@ private fun SeitenEditor(entwurf: AppModel.FotoEntwurf, onFertig: () -> Unit, on
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    OutlinedButton(onClick = { grad = (grad + 270) % 360; links = 0f; oben = 0f; rechts = 1f; unten = 1f }, enabled = basis != null) { Text("Links drehen") }
-                    OutlinedButton(onClick = { grad = (grad + 90) % 360; links = 0f; oben = 0f; rechts = 1f; unten = 1f }, enabled = basis != null) { Text("Rechts drehen") }
-                    OutlinedButton(onClick = { links = 0f; oben = 0f; rechts = 1f; unten = 1f }, enabled = basis != null) { Text("Ganz") }
+                    OutlinedButton(
+                        onClick = { grad = (grad + 270) % 360; links = 0f; oben = 0f; rechts = 1f; unten = 1f },
+                        enabled = basis != null, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 8.dp),
+                    ) { Text("Links drehen", maxLines = 1) }
+                    OutlinedButton(
+                        onClick = { grad = (grad + 90) % 360; links = 0f; oben = 0f; rechts = 1f; unten = 1f },
+                        enabled = basis != null, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 8.dp),
+                    ) { Text("Rechts drehen", maxLines = 1) }
+                    OutlinedButton(
+                        onClick = { links = 0f; oben = 0f; rechts = 1f; unten = 1f },
+                        enabled = basis != null, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 8.dp),
+                    ) { Text("Ganz", maxLines = 1) }
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Button(
