@@ -80,8 +80,9 @@ object KontoStore {
             m["id"] = s(f.id)
             m["name"] = s(f.name.trim())
             m["accountType"] = s(f.art)
-            m["iban"] = s(bereinigeIban(f.iban))
-            m["bic"] = s(f.bic.uppercase().trim())
+            // IBAN und BIC gehören nur zu Bankkonten: Wird ein Konto zur Barkasse o. Ä., fallen sie weg (der Desktop behält sie).
+            m["iban"] = s(if (f.art == "bank") bereinigeIban(f.iban) else "")
+            m["bic"] = s(if (f.art == "bank") f.bic.uppercase().trim() else "")
             m["initialBalance"] = zahl(parseBestand(f.anfangsbestand)!!)
             m["color"] = s(f.farbe.ifEmpty { "blue" })
             m["description"] = s(f.beschreibung.trim())

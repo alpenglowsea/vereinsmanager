@@ -79,6 +79,16 @@ class KontoStoreTest {
     }
 
     @Test
+    fun ibanUndBicFallenWegWennKeinBankkontoMehr() {
+        val s = store()
+        KontoStore.speichern(s, KontoForm("a", "X", "bank", iban, "SPKDMUSTXXX"), jetzt)
+        val k = KontoStore.speichern(s, KontoForm("a", "X", "cash", iban, "SPKDMUSTXXX"), jetzt)
+        assertEquals("", k.iban)
+        assertEquals("", k.bic)
+        assertEquals("", (s.get("accounts", "a")!!["iban"] as JsonPrimitive).content)
+    }
+
+    @Test
     fun formVonUndZurueck() {
         val s = store()
         KontoStore.speichern(s, KontoForm("a", "X", "cash", "", "", "-12,5", "red", ""), jetzt)
