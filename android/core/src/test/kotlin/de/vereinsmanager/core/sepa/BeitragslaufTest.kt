@@ -170,4 +170,104 @@ class BeitragslaufTest {
         assertEquals("", p.fussnote)
         assertNotNull(p.zeilen.single())
     }
+
+    // ---------------------------------------------------------------- Verbuchen
+
+    private fun konto(s: InMemoryDocumentStore, id: String = "acc-1") =
+        s.put("accounts", id, buildJsonObject { put("id", id); put("name", "Giro"); put("type", "bank"); put("initialBalance", 0) })
+
+    private fun setzeFolge(s: InMemoryDocumentStore, nr: String, folge: String) {
+        val doc = s.get("members", "m-$nr")!!
+        val bank = kotlinx.serialization.json.JsonObject(doc["bankDetails"]!!.let { it as kotlinx.serialization.json.JsonObject } + ("mandateSequenceType" to JsonPrimitive(folge)))
+        s.put("members", "m-$nr", kotlinx.serialization.json.JsonObject(doc + ("bankDetails" to bank) + ("sonstiges" to JsonPrimitive("bleibt"))))
+    }
+
+    private fun lauf(s: InMemoryDocumentStore): Lauf {
+        val p = param()
+        val e = Beitragslauf.erzeugen(s, p, Beitragslauf.vorbereiten(s, p), g, jetzt)
+        return e.lauf
+    }
+
+    private fun bsp(): InMemoryDocumentStore {
+        val s = InMemoryDocumentStore()
+        mitglied(s, "1", "Anna", "Alt"); mitglied(s, "2", "Bernd", "Bar", beitrag = 15)
+        konto(s)
+        return s
+    }
+
+    @Test
+    fun verbuchenLegtEinnahmenMitKonto40000An() {
+        val s = bsp()
+        val l = lauf(s)
+        val r = Beitragslauf.verbuchen(s, l.id, "acc-1", jetzt)
+        assertEquals(2, r.anzahl)
+        assertEquals(0, BigDecimal("27").compareTo(r.summe))
+        val b = s.all("transactions").sortedBy { (it["documentNumber"] as JsonPrimitive).content }
+        assertEquals(2, b.size)
+        val e = b.first()
+        fun f(k: String) = (e[k] as JsonPrimitive).content
+        assertEquals("SEPA-2026-11-1", f("documentNumber"))
+        assertEquals("income", f("type")); assertEquals("acc-1", f("accountId")); assertEquals("2026-11-16", f("date"))
+        assertEquals("ideell", f("sphere")); assertEquals("40000", f("skrAccount"))
+        assertEquals("40000 - Mitgliedsbeiträge & Aufnahmegebühren", f("mainCategory"))
+        assertEquals("40000 - Echte Mitgliedsbeiträge (laufend)", f("category"))
+        assertEquals(12.0, (e["amount"] as JsonPrimitive).content.toDouble(), 0.0)
+        assertTrue(f("notes").contains("MR-1"))
+        assertTrue(f("id").startsWith("tx-sepa-${l.id}-1-"))
+        val danach = Beitragslauf.lauf(s, l.id)!!
+        assertTrue(danach.gebucht); assertEquals("acc-1", danach.gebuchtAufKonto)
+        assertEquals(l.xml, danach.xml)
+    }
+
+    @Test
+    fun verbuchenNurEinmal() {
+        val s = bsp(); val l = lauf(s)
+        Beitragslauf.verbuchen(s, l.id, "acc-1", jetzt)
+        try { Beitragslauf.verbuchen(s, l.id, "acc-1", jetzt); fail() } catch (e: IllegalStateException) { assertTrue(e.message!!.contains("schon verbucht")) }
+        assertEquals(2, s.all("transactions").size)
+    }
+
+    @Test
+    fun verbuchenAufUnbekanntesKontoLegtNichtsAn() {
+        val s = bsp(); val l = lauf(s)
+        try { Beitragslauf.verbuchen(s, l.id, "gibt-es-nicht", jetzt); fail() } catch (e: IllegalStateException) { }
+        assertEquals(0, s.all("transactions").size)
+        assertFalse(Beitragslauf.lauf(s, l.id)!!.gebucht)
+    }
+
+    @Test
+    fun belegnummernBleibenEindeutig() {
+        val s = bsp()
+        s.put("transactions", "alt", buildJsonObject { put("id", "alt"); put("documentNumber", "SEPA-2026-11-1") })
+        val l = lauf(s)
+        Beitragslauf.verbuchen(s, l.id, "acc-1", jetzt)
+        val nummern = s.all("transactions").map { (it["documentNumber"] as JsonPrimitive).content }
+        assertEquals(nummern.size, nummern.toSet().size)
+        assertTrue("SEPA-2026-11-1-2" in nummern)
+    }
+
+    @Test
+    fun abgewaehltePostenWerdenNichtVerbucht() {
+        val s = bsp()
+        val p = param()
+        val posten = Beitragslauf.vorbereiten(s, p).map { if (it.memberNumber == "2") it.copy(selected = false) else it }
+        val l = Beitragslauf.erzeugen(s, p, posten, g, jetzt).lauf
+        assertEquals(1, Beitragslauf.verbuchen(s, l.id, "acc-1", jetzt).anzahl)
+    }
+
+    @Test
+    fun erstlastschriftenUndUmstellungAufFolge() {
+        val s = bsp()
+        setzeFolge(s, "1", "FRST")
+        val l = lauf(s)
+        assertEquals(listOf("1"), Beitragslauf.erstlastschriften(s, l).map { it.memberNumber })
+        assertEquals(1, Beitragslauf.aufFolgelastschrift(s, listOf("m-1", "m-2", "m-1"), jetzt))
+        val bank = s.get("members", "m-1")!!["bankDetails"] as kotlinx.serialization.json.JsonObject
+        assertEquals("RCUR", (bank["mandateSequenceType"] as JsonPrimitive).content)
+        assertEquals("MR-1", (bank["mandateReference"] as JsonPrimitive).content)
+        assertEquals("bleibt", (s.get("members", "m-1")!!["sonstiges"] as JsonPrimitive).content)
+        // nach der Umstellung wird nichts mehr angeboten
+        assertTrue(Beitragslauf.erstlastschriften(s, l).isEmpty())
+        assertEquals(0, Beitragslauf.aufFolgelastschrift(s, listOf("m-1"), jetzt))
+    }
 }

@@ -449,8 +449,8 @@ fun DokumentDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onAnze
             OutlinedButton(onClick = { speichern.launch(d.dateiName.ifEmpty { "Dokument" }) }, enabled = d.dateiId != null && !model.busy, modifier = Modifier.weight(1f)) { Text("Speichern unter …") }
         }
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onEdit, enabled = !model.busy, modifier = Modifier.weight(1f)) { Text("Bearbeiten") }
-            OutlinedButton(onClick = { loeschen = true }, enabled = !model.busy, modifier = Modifier.weight(1f)) { Text("Löschen") }
+            KompaktKnopf("Bearbeiten", onEdit, Modifier.weight(1f), enabled = !model.busy)
+            KompaktKnopf("Löschen", { loeschen = true }, Modifier.weight(1f), enabled = !model.busy)
         }
     }
 

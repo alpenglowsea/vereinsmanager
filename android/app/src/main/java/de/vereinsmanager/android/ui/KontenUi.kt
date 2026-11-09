@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -79,10 +80,10 @@ fun KontenScreen(model: AppModel, modifier: Modifier = Modifier) {
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedButton(onClick = { model.kontoSchieben(k.id, -1) }, enabled = i > 0 && !model.busy, contentPadding = PaddingValues(horizontal = 14.dp)) { Text("↑") }
-                        OutlinedButton(onClick = { model.kontoSchieben(k.id, 1) }, enabled = i < konten.lastIndex && !model.busy, contentPadding = PaddingValues(horizontal = 14.dp)) { Text("↓") }
-                        OutlinedButton(onClick = { neu = false; form = KontoForm.von(k) }, enabled = !model.busy, modifier = Modifier.weight(1f)) { Text("Bearbeiten") }
-                        OutlinedButton(onClick = { loeschen = k }, enabled = !model.busy, modifier = Modifier.weight(1f)) { Text("Löschen") }
+                        KompaktKnopf("↑", { model.kontoSchieben(k.id, -1) }, Modifier.width(44.dp), enabled = i > 0 && !model.busy)
+                        KompaktKnopf("↓", { model.kontoSchieben(k.id, 1) }, Modifier.width(44.dp), enabled = i < konten.lastIndex && !model.busy)
+                        KompaktKnopf("Bearbeiten", { neu = false; form = KontoForm.von(k) }, Modifier.weight(1f), enabled = !model.busy)
+                        KompaktKnopf("Löschen", { loeschen = k }, Modifier.weight(1f), enabled = !model.busy)
                     }
                 }
             }

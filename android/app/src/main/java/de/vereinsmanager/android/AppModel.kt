@@ -54,6 +54,7 @@ import de.vereinsmanager.core.sepa.Lauf
 import de.vereinsmanager.core.sepa.LaufErgebnis
 import de.vereinsmanager.core.sepa.LaufParameter
 import de.vereinsmanager.core.sepa.SepaItem
+import de.vereinsmanager.core.sepa.Verbucht
 import de.vereinsmanager.core.settings.Glaeubiger
 import de.vereinsmanager.core.settings.VereinsForm
 import de.vereinsmanager.core.settings.Vereinsdaten
@@ -492,6 +493,16 @@ class AppModel(private val appContext: Context) {
         if (g == null) { done(null, lastschriftFehlt ?: "Die Vereinsdaten sind unvollständig."); return }
         hintergrund({ Beitragslauf.erzeugen(store, p, posten, g) }, done)
     }
+
+    /** Bucht den Lauf als Einnahmen auf das Konto (Konto 40000, ideeller Bereich). */
+    fun laufVerbuchen(id: String, kontoId: String, done: (Verbucht?, String?) -> Unit) =
+        hintergrund({ Beitragslauf.verbuchen(store, id, kontoId) }, done)
+
+    /** Posten des Laufs, deren Mandat noch auf Erstlastschrift (FRST) steht. */
+    fun erstlastschriften(l: Lauf): List<SepaItem> = Beitragslauf.erstlastschriften(store, l)
+
+    fun aufFolgelastschrift(memberIds: List<String>, done: (Int?, String?) -> Unit) =
+        hintergrund({ Beitragslauf.aufFolgelastschrift(store, memberIds) }, done)
 
     fun laufLoeschen(id: String, done: (String?) -> Unit) =
         hintergrund({ Beitragslauf.loeschen(store, id) }) { _, f -> done(f) }

@@ -226,6 +226,8 @@ private fun NeuerLauf(model: AppModel, onEinstellungen: () -> Unit) {
 private fun Historie(model: AppModel) {
     var info by remember { mutableStateOf<String?>(null) }
     var loeschen by remember { mutableStateOf<Lauf?>(null) }
+    var verbuchen by remember { mutableStateOf<Lauf?>(null) }
+    var folgeFuer by remember { mutableStateOf<Pair<String, List<SepaItem>>?>(null) }
     val exporter = rememberExporter(model) { info = it }
     val g = model.glaeubiger
 
@@ -240,30 +242,43 @@ private fun Historie(model: AppModel) {
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Text(
-                        "Erstellt ${l.erstellt.take(10).let { deDate(it) }}" + if (l.gebucht) " · verbucht" else " · nicht verbucht",
+                        "Erstellt ${l.erstellt.take(10).let { deDate(it) }}" +
+                            if (l.gebucht) " · verbucht" + (model.konten.firstOrNull { it.id == l.gebuchtAufKonto }?.let { " auf ${it.name}" } ?: "") else " · nicht verbucht",
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = { exporter.xml(Beitragslauf.xmlDateiname(l.titel, l.ausfuehrung)) { l.xml.orEmpty() } },
-                            enabled = !l.xml.isNullOrEmpty() && !model.busy, modifier = Modifier.weight(1f),
-                        ) { Text("XML") }
-                        OutlinedButton(
-                            onClick = {
+                        KompaktKnopf(
+                            "XML", { exporter.xml(Beitragslauf.xmlDateiname(l.titel, l.ausfuehrung)) { l.xml.orEmpty() } },
+                            Modifier.weight(1f), enabled = !l.xml.isNullOrEmpty() && !model.busy,
+                        )
+                        KompaktKnopf(
+                            "Protokoll",
+                            {
                                 if (g == null) info = "Für das Protokoll fehlen Vereinsdaten: ${model.lastschriftFehlt ?: "bitte in den Einstellungen ergänzen"}."
                                 else {
                                     val proto = Beitragslauf.protokoll(Beitragslauf.parameterVon(l), l.posten, g)
                                     exporter.pdfSchreiber(proto.dateiname) { out -> PdfWriter.sepaProtokoll(proto, out) }
                                 }
                             },
-                            enabled = !model.busy, modifier = Modifier.weight(1f),
-                        ) { Text("Protokoll") }
-                        OutlinedButton(onClick = { loeschen = l }, enabled = !model.busy, modifier = Modifier.weight(1f)) { Text("Löschen") }
+                            Modifier.weight(1f), enabled = !model.busy,
+                        )
+                        KompaktKnopf("Löschen", { loeschen = l }, Modifier.weight(1f), enabled = !model.busy)
+                    }
+                    if (!l.gebucht && l.aktive.isNotEmpty()) {
+                        Button(onClick = { verbuchen = l }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Als Einnahmen verbuchen …") }
                     }
                 }
             }
         }
     }
+
+    val v = verbuchen
+    if (v != null) VerbuchenDialog(
+        model, v, onDismiss = { verbuchen = null },
+        onFertig = { text, folge -> verbuchen = null; if (folge.isEmpty()) info = text else folgeFuer = text to folge },
+    )
+    val ff = folgeFuer
+    if (ff != null) FolgeDialog(model, ff.first, ff.second, onDismiss = { folgeFuer = null; info = ff.first }, onErgebnis = { folgeFuer = null; info = ff.first + " " + it })
 
     val l = loeschen
     if (l != null) AlertDialog(
@@ -284,5 +299,57 @@ private fun Historie(model: AppModel) {
     if (m != null) AlertDialog(
         onDismissRequest = { info = null }, title = { Text("Hinweis") }, text = { Text(m) },
         confirmButton = { TextButton(onClick = { info = null }) { Text("OK") } },
+    )
+}
+
+@Composable
+private fun VerbuchenDialog(model: AppModel, l: Lauf, onDismiss: () -> Unit, onFertig: (String, List<SepaItem>) -> Unit) {
+    val konten = model.konten
+    var kontoId by remember { mutableStateOf(konten.firstOrNull { it.art == "bank" }?.id ?: konten.firstOrNull()?.id.orEmpty()) }
+    var fehler by remember { mutableStateOf<String?>(null) }
+    val summe = l.aktive.fold(BigDecimal.ZERO) { s, i -> s + i.amount }
+
+    Aktionsdialog(
+        titel = "Lauf verbuchen?",
+        onDismiss = onDismiss,
+        inhalt = {
+            Text("„${l.titel}“: ${l.aktive.size} Lastschriften über ${euro(summe)} werden als Einnahmen gebucht (Konto 40000, ideeller Bereich, Datum ${deDate(l.ausfuehrung)}).")
+            Auswahl("Gutschrift auf Konto", konten.associate { it.id to it.name }, kontoId) { kontoId = it }
+            Text("Das geht nur einmal je Lauf. Gebucht wird erst, wenn du hier bestätigst – die Bank hat das Geld zu dem Zeitpunkt vielleicht noch nicht eingezogen.", style = MaterialTheme.typography.bodySmall)
+            if (fehler != null) Text(fehler!!, color = MaterialTheme.colorScheme.error)
+        },
+        aktionen = {
+            Button(
+                onClick = {
+                    model.laufVerbuchen(l.id, kontoId) { r, e ->
+                        if (r == null) fehler = e ?: "Das Verbuchen ist fehlgeschlagen."
+                        else onFertig("${r.anzahl} Buchungen über ${euro(r.summe)} angelegt.", model.erstlastschriften(l))
+                    }
+                },
+                enabled = !model.busy && kontoId.isNotEmpty(), modifier = Modifier.fillMaxWidth(),
+            ) { Text("Verbuchen") }
+            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Abbrechen") }
+        },
+    )
+}
+
+@Composable
+private fun FolgeDialog(model: AppModel, ergebnis: String, posten: List<SepaItem>, onDismiss: () -> Unit, onErgebnis: (String) -> Unit) {
+    Aktionsdialog(
+        titel = "Auf Folgelastschrift umstellen?",
+        onDismiss = onDismiss,
+        inhalt = {
+            Text(ergebnis, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
+            Text("Bei ${posten.size} Mitgliedern steht das Mandat noch auf Erstlastschrift (FRST). Nach dem ersten Einzug gilt normalerweise Folgelastschrift (RCUR):")
+            Text(posten.joinToString("\n") { "${it.memberNumber} · ${it.memberName}" }, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+            Text("Erst umstellen, wenn die Bank den Einzug wirklich ausgeführt hat.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+        },
+        aktionen = {
+            Button(
+                onClick = { model.aufFolgelastschrift(posten.map { it.memberId }) { n, e -> onErgebnis(e ?: "$n Mandate auf Folgelastschrift umgestellt.") } },
+                enabled = !model.busy, modifier = Modifier.fillMaxWidth(),
+            ) { Text("Ja, umstellen") }
+            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Nein, so lassen") }
+        },
     )
 }

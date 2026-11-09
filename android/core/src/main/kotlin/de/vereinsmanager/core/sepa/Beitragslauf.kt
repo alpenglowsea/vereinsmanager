@@ -1,6 +1,11 @@
 package de.vereinsmanager.core.sepa
 
 import de.vereinsmanager.core.export.Export
+import de.vereinsmanager.core.finance.BuchungDokument
+import de.vereinsmanager.core.finance.BuchungForm
+import de.vereinsmanager.core.finance.BuchungRegeln
+import de.vereinsmanager.core.finance.Finance
+import de.vereinsmanager.core.skr42.Skr42
 import de.vereinsmanager.core.members.Zeit
 import de.vereinsmanager.core.settings.Glaeubiger
 import de.vereinsmanager.core.settings.Vereinsdaten
@@ -68,6 +73,9 @@ data class SepaProtokoll(
     val fusszeile: String,
     val dateiname: String,
 )
+
+/** Was das Verbuchen angelegt hat. */
+data class Verbucht(val anzahl: Int, val summe: BigDecimal)
 
 data class LaufErgebnis(val lauf: Lauf, val xml: String, val xmlDateiname: String)
 
@@ -215,6 +223,74 @@ object Beitragslauf {
             filter = l.filter ?: SepaPeriodFilter.MONTHLY_1, jahr = l.jahr, monat = monat, quartal = (monat + 2) / 3,
             halbjahr = if (monat <= 6) 1 else 2, ausfuehrung = l.ausfuehrung, titel = l.titel,
         )
+    }
+
+    // ---------------------------------------------------------------- Verbuchen
+
+    const val NUMMERNKREIS_KONTO = "40000"
+
+    private fun beitragsKonto() = Skr42.standard.firstNotNullOfOrNull { m -> m.subCategories.firstOrNull { it.code == NUMMERNKREIS_KONTO }?.let { m to it } }
+
+    /**
+     * Bucht jeden eingezogenen Posten als Einnahme auf das Konto [kontoId]: Ausführungsdatum als Buchungsdatum, ideeller Bereich,
+     * Konto 40000 „Echte Mitgliedsbeiträge (laufend)“. Alles oder nichts; ein Lauf lässt sich nur einmal verbuchen.
+     * Abweichung vom Desktop: der dort nur mit „Mitgliedsbeiträge“ beschriftete Buchungssatz bekommt hier den Nummernkreis 40000.
+     */
+    fun verbuchen(
+        store: DocumentStore, runId: String, kontoId: String, now: ZonedDateTime = ZonedDateTime.now(), zufall: kotlin.random.Random = kotlin.random.Random.Default,
+    ): Verbucht = store.transaction {
+        val lauf = lauf(store, runId) ?: throw IllegalStateException("Der Lauf ist nicht mehr vorhanden.")
+        if (lauf.gebucht) throw IllegalStateException("Dieser Lauf ist schon verbucht.")
+        if (store.get(Finance.KONTEN, kontoId) == null) throw IllegalStateException("Das Konto gibt es nicht mehr.")
+        val aktiv = lauf.aktive
+        if (aktiv.isEmpty()) throw IllegalStateException("Der Lauf enthält keine Posten zum Verbuchen.")
+        val (haupt, unter) = beitragsKonto() ?: throw IllegalStateException("Das Konto 40000 fehlt im Kontenrahmen.")
+        val vergeben = store.all(Finance.BUCHUNGEN).mapNotNull { it.t("documentNumber") }.toMutableSet()
+        var summe = BigDecimal.ZERO
+        for (i in aktiv) {
+            val grund = "SEPA-${lauf.jahr}-${lauf.monat?.toString()?.padStart(2, '0') ?: "RUN"}-${i.memberNumber}"
+            var nummer = grund
+            var n = 2
+            while (nummer in vergeben) nummer = "$grund-${n++}"
+            vergeben.add(nummer)
+            val iban = i.iban
+            val id = "tx-sepa-${lauf.id}-${i.memberNumber}-" + (1..4).map { "abcdefghijklmnopqrstuvwxyz0123456789"[zufall.nextInt(36)] }.joinToString("")
+            val form = BuchungForm(
+                id = id, datum = lauf.ausfuehrung, betrag = BuchungRegeln.betragText(i.amount), art = "income", kontoId = kontoId,
+                belegNummer = nummer, text = i.remittanceInfo, partner = i.accountHolder.ifEmpty { i.memberName }, sphaere = "ideell",
+                nummernkreis = BuchungRegeln.nummernkreisText(haupt), konto = unter.label, skrKonto = unter.code, ust = 0,
+                notiz = "Automatische Verbuchung aus SEPA-Beitragslauf \"${lauf.titel}\" (Mandat: ${i.mandateReference}, IBAN: ${iban.take(6)}...${iban.takeLast(4)})",
+            )
+            store.put(Finance.BUCHUNGEN, id, BuchungDokument.build(form, null, now))
+            summe += i.amount
+        }
+        val m = LinkedHashMap<String, JsonElement>(lauf.roh)
+        m["isBooked"] = JsonPrimitive(true)
+        m["bookedToAccountId"] = JsonPrimitive(kontoId)
+        store.put(BEREICH, lauf.id, JsonObject(m))
+        Verbucht(aktiv.size, summe)
+    }
+
+    /** Die Mitglieder dieses Laufs, deren Mandat noch als Erstlastschrift (FRST) gespeichert ist. */
+    fun erstlastschriften(store: DocumentStore, l: Lauf): List<SepaItem> = l.aktive.filter { i ->
+        i.sequenceType == "FRST" && mandatsfolge(store.get("members", i.memberId)) == "FRST"
+    }
+
+    private fun mandatsfolge(m: JsonObject?): String? = ((m?.get("bankDetails") as? JsonObject)?.get("mandateSequenceType") as? JsonPrimitive)?.contentOrNull
+
+    /** Stellt die Mandate der genannten Mitglieder von FRST auf RCUR (Folgelastschrift). Alle anderen Angaben bleiben, Mitglieder mit anderer Folge bleiben unberührt. */
+    fun aufFolgelastschrift(store: DocumentStore, memberIds: List<String>, now: ZonedDateTime = ZonedDateTime.now()): Int = store.transaction {
+        var n = 0
+        for (id in memberIds.distinct()) {
+            val doc = store.get("members", id) ?: continue
+            val bank = doc["bankDetails"] as? JsonObject ?: continue
+            if (mandatsfolge(doc) != "FRST") continue
+            val b = LinkedHashMap<String, JsonElement>(bank); b["mandateSequenceType"] = JsonPrimitive("RCUR")
+            val d = LinkedHashMap<String, JsonElement>(doc); d["bankDetails"] = JsonObject(b)
+            if (d.containsKey("updatedAt")) d["updatedAt"] = JsonPrimitive(Zeit.stempel(now))
+            store.put("members", id, JsonObject(d)); n++
+        }
+        n
     }
 
     // ---------------------------------------------------------------- JSON
