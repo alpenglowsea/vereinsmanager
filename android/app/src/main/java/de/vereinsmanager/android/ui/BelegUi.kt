@@ -266,7 +266,8 @@ fun BelegAnsichtScreen(model: AppModel, buchungId: String, modifier: Modifier = 
             var stufe by remember { mutableStateOf(1f) }
             var hinweis by remember { mutableStateOf<String?>(null) }
             BoxWithConstraints(modifier.fillMaxSize()) {
-                val breitePx = with(LocalDensity.current) { maxWidth.roundToPx() }
+                val breiteDp = maxWidth
+                val breitePx = with(LocalDensity.current) { breiteDp.roundToPx() }
                 Column(Modifier.fillMaxSize()) {
                     Row(
                         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
@@ -289,7 +290,7 @@ fun BelegAnsichtScreen(model: AppModel, buchungId: String, modifier: Modifier = 
                     }
                     if (hinweis != null) Text(hinweis!!, Modifier.padding(horizontal = 8.dp), color = MaterialTheme.colorScheme.error)
                     Box(Modifier.weight(1f).fillMaxWidth().horizontalScroll(rememberScrollState())) {
-                        LazyColumn(Modifier.width(maxWidth * stufe)) {
+                        LazyColumn(Modifier.width(breiteDp * stufe)) {
                             items(count = a.quelle.anzahl) { i ->
                                 SeitenBild(a.quelle, i, (breitePx * stufe).toInt().coerceAtMost(2400))
                             }
