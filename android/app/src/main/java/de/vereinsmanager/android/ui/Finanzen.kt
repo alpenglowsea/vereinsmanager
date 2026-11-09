@@ -1,11 +1,15 @@
 package de.vereinsmanager.android.ui
 
 import androidx.compose.foundation.background
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -101,6 +106,13 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
     var sortierung by remember { mutableStateOf(BuchungSortierung.DATUM) }
     var aufsteigend by remember { mutableStateOf(false) }
     var sortOffen by remember { mutableStateOf(false) }
+    var gewaehlt by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val waehlt = gewaehlt.isNotEmpty()
+    // Zurück-Geste beendet zuerst die Auswahl.
+    BackHandler(enabled = waehlt) { gewaehlt = emptySet() }
+    var sammelOffen by remember { mutableStateOf(false) }
+    var loeschenOffen by remember { mutableStateOf(false) }
+    var info by remember { mutableStateOf<String?>(null) }
 
     val konten = model.konten
     val buchungen = model.buchungen
@@ -120,7 +132,7 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
         Column(Modifier.einklappbar(kopf)) {
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onNew, modifier = Modifier.weight(1f)) { Text("Neue Buchung") }
-                OutlinedButton(onClick = onKonten, modifier = Modifier.weight(1f)) { Text("Konten verwalten") }
+                KompaktKnopf("Konten verwalten", onKonten, Modifier.weight(1f))
             }
             Row(
                 Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp),
@@ -180,22 +192,63 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
             "Einnahmen ${Geld.euro(summen.einnahmen)} · Ausgaben ${Geld.euro(summen.ausgaben)} · Saldo ${Geld.euro(summen.saldo)}",
             style = MaterialTheme.typography.bodySmall,
         )
+        if (waehlt) {
+            val schmal = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+            val knopf = Modifier.height(32.dp)
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("${gewaehlt.size} gewählt", style = MaterialTheme.typography.labelLarge)
+                OutlinedButton(onClick = { gewaehlt = shown.map { it.id }.toSet() }, modifier = knopf, contentPadding = schmal) { Text("Alle angezeigten", style = MaterialTheme.typography.labelMedium) }
+                OutlinedButton(onClick = { gewaehlt = emptySet() }, modifier = knopf, contentPadding = schmal) { Text("Keine", style = MaterialTheme.typography.labelMedium) }
+                Button(onClick = { sammelOffen = true }, enabled = !model.busy, modifier = knopf, contentPadding = schmal) { Text("Bearbeiten", style = MaterialTheme.typography.labelMedium) }
+                OutlinedButton(onClick = { loeschenOffen = true }, enabled = !model.busy, modifier = knopf, contentPadding = schmal) { Text("Löschen", style = MaterialTheme.typography.labelMedium) }
+            }
+        }
         HorizontalDivider(Modifier.padding(vertical = 4.dp))
         if (buchungen.isEmpty()) Text("Keine Buchungen. Legen Sie eine an oder spielen Sie auf der Startseite eine Sicherung ein.", Modifier.padding(top = 16.dp))
         LazyColumn(state = liste) {
             items(shown, key = { it.id }) { b ->
-                BuchungZeile(b, kontoName, onClick = { onOpen(b.id) })
+                BuchungZeile(
+                    b, kontoName, waehlt = waehlt, angehakt = b.id in gewaehlt,
+                    onLongClick = { if (b.id !in gewaehlt) gewaehlt = gewaehlt + b.id; info = null },
+                    onClick = { if (waehlt) gewaehlt = if (b.id in gewaehlt) gewaehlt - b.id else gewaehlt + b.id else onOpen(b.id) },
+                )
             }
         }
     }
+
+    val ids = gewaehlt.filter { id -> buchungen.any { it.id == id } }
+    if (sammelOffen && ids.isNotEmpty()) {
+        BuchungSammelDialog(model, ids.size, ids, onDismiss = { sammelOffen = false }, onDone = { sammelOffen = false; info = it; gewaehlt = emptySet() })
+    }
+    if (loeschenOffen && ids.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { loeschenOffen = false },
+            title = { Text("${ids.size} Buchungen löschen?") },
+            text = { Text("Die Buchungen werden endgültig gelöscht, die Kontostände ändern sich entsprechend. Angehängte Belege werden mit gelöscht.") },
+            confirmButton = {
+                TextButton(enabled = !model.busy, onClick = {
+                    loeschenOffen = false
+                    model.buchungenLoeschen(ids) { n, e -> gewaehlt = emptySet(); info = if (e == null) "$n Buchungen gelöscht." else "Löschen fehlgeschlagen: $e" }
+                }) { Text("Löschen") }
+            },
+            dismissButton = { TextButton(onClick = { loeschenOffen = false }) { Text("Abbrechen") } },
+        )
+    }
+    val meldung = info
+    if (meldung != null) AlertDialog(
+        onDismissRequest = { info = null }, title = { Text("Fertig") }, text = { Text(meldung) },
+        confirmButton = { TextButton(onClick = { info = null }) { Text("OK") } },
+    )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun BuchungZeile(b: Buchung, kontoName: Map<String, String>, onClick: () -> Unit) {
+private fun BuchungZeile(b: Buchung, kontoName: Map<String, String>, waehlt: Boolean, angehakt: Boolean, onLongClick: () -> Unit, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp),
+        Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (waehlt) Checkbox(angehakt, { onClick() })
         Column(Modifier.weight(1f)) {
             Text(Finance.titel(b), style = MaterialTheme.typography.bodyLarge, maxLines = 2)
             val konto = if (b.istUmbuchung) "${kontoName[b.kontoId] ?: "?"} → ${kontoName[b.zielkontoId] ?: "?"}" else kontoName[b.kontoId]

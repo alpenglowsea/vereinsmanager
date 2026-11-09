@@ -160,7 +160,7 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
             Column {
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = onNew, modifier = Modifier.weight(1f)) { Text("Neues Mitglied") }
-                    OutlinedButton(onClick = onImport, modifier = Modifier.weight(1f)) { Text("CSV-Import") }
+                    KompaktKnopf("CSV-Import", onImport, Modifier.weight(1f))
                 }
                 if (!selecting && info.isEmpty() && model.members.isNotEmpty()) {
                     Text("Tipp: Mitglied lange antippen, um mehrere auszuwählen.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))

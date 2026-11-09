@@ -29,7 +29,7 @@ import de.vereinsmanager.core.members.MemberRules
 import de.vereinsmanager.core.members.NotesEdit
 
 @Composable
-private fun Haken(label: String, an: Boolean, onChange: (Boolean) -> Unit, inhalt: @Composable () -> Unit) {
+internal fun Haken(label: String, an: Boolean, onChange: (Boolean) -> Unit, inhalt: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(an, onChange)

@@ -150,6 +150,8 @@ object MemberRules {
         department = departments.firstOrNull() ?: "Fußball",
         mandateDate = today.toString(),
         mandateReference = "MANDAT-$number-${today.year}",
+        // Ein neues Mandat wurde noch nie eingezogen (Abweichung vom Desktop, der RCUR vorgibt und keine Auswahl bietet).
+        mandateSequenceType = "FRST",
     )
 
     fun von(m: Member): MemberForm {

@@ -32,6 +32,8 @@ object MemberLabels {
         "sepa" to "SEPA-Lastschrift", "transfer" to "Überweisung", "cash" to "Bargeld",
         "standing_order" to "Dauerauftrag", "exempt" to "Beitragsfrei",
     )
+    /** Mandatsfolge der Lastschrift: das erste Mal FRST, danach RCUR. */
+    val MANDATE_SEQUENCE = linkedMapOf("FRST" to "Erstlastschrift (erster Einzug)", "RCUR" to "Folgelastschrift (schon eingezogen)")
     /** Kurz für die Liste. Entscheidung 5: vierteljährlich heißt "viertelj.", nicht "halbj.". */
     val FEE_PERIOD_SHORT = linkedMapOf(
         "monthly" to "mtl.", "quarterly" to "viertelj.", "half_yearly" to "halbj.", "yearly" to "jährl.",

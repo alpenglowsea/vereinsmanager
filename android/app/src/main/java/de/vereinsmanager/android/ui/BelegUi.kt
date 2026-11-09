@@ -105,8 +105,8 @@ fun BelegAbschnitt(model: AppModel, buchung: Buchung, onAnzeigen: () -> Unit) {
             Text("${beleg.name} (${groesse(beleg.groesse)})")
             Button(onClick = onAnzeigen, enabled = !model.busy, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Anzeigen") }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { wahl = true }, enabled = !model.busy, modifier = Modifier.weight(1f)) { Text("Ersetzen") }
-                OutlinedButton(onClick = { entfernen = true }, enabled = !model.busy, modifier = Modifier.weight(1f)) { Text("Entfernen") }
+                KompaktKnopf("Ersetzen", { wahl = true }, Modifier.weight(1f), enabled = !model.busy)
+                KompaktKnopf("Entfernen", { entfernen = true }, Modifier.weight(1f), enabled = !model.busy)
             }
         } else if (!buchung.istUmbuchung) {
             Text("Kein Beleg angehängt.")
@@ -147,7 +147,7 @@ fun BelegAbschnitt(model: AppModel, buchung: Buchung, onAnzeigen: () -> Unit) {
                             style = MaterialTheme.typography.titleSmall,
                         )
                         Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { model.fotoBearbeiten = i }, modifier = Modifier.weight(1f)) { Text("Zuschneiden / Drehen") }
+                            KompaktKnopf("Zuschneiden / Drehen", { model.fotoBearbeiten = i }, Modifier.weight(1f))
                             OutlinedButton(onClick = { model.fotoEntfernen(i) }) { Text("Entfernen") }
                         }
                     }

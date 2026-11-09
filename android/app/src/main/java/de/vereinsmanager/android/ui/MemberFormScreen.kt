@@ -227,6 +227,7 @@ fun MemberFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
                         if (f.feePeriod == "monthly") DueDay(f) { f = it }
                         DatumFeld("Datum der Lastschriftermächtigung", f.mandateDate, optional = true) { f = f.copy(mandateDate = it) }
                         Feld("Mandatsreferenz", f.mandateReference, { f = f.copy(mandateReference = it) })
+                        Auswahl("Mandatsfolge", MemberLabels.MANDATE_SEQUENCE, f.mandateSequenceType) { f = f.copy(mandateSequenceType = it) }
                     }
                 }
                 FormTab.NOTIZEN -> {

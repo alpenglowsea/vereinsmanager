@@ -48,6 +48,9 @@ import de.vereinsmanager.core.finance.BuchungForm
 import de.vereinsmanager.core.finance.BuchungRegeln
 import de.vereinsmanager.core.finance.BuchungStore
 import de.vereinsmanager.core.finance.Finance
+import de.vereinsmanager.core.finance.BuchungSammel
+import de.vereinsmanager.core.finance.BuchungSammelStore
+import de.vereinsmanager.core.finance.SammelBericht
 import de.vereinsmanager.core.finance.Konto
 import de.vereinsmanager.core.sepa.Beitragslauf
 import de.vereinsmanager.core.sepa.Lauf
@@ -341,6 +344,14 @@ class AppModel(private val appContext: Context) {
             post { reload(); busy = false; done(fehler) }
         }
     }
+
+    /** Sammelbearbeitung: ändert die gewählten Buchungen (nur gesetzte Felder). */
+    fun buchungenSammel(ids: List<String>, edit: BuchungSammel, done: (SammelBericht?, String?) -> Unit) =
+        hintergrund({ BuchungSammelStore.anwenden(store, ids, edit) }, done)
+
+    /** Löscht die gewählten Buchungen samt Belegen. */
+    fun buchungenLoeschen(ids: List<String>, done: (Int?, String?) -> Unit) =
+        hintergrund({ Belege.buchungenLoeschen(store, dateien, ids) }, done)
 
     // ---- Belege ----
 

@@ -445,8 +445,8 @@ fun DokumentDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onAnze
         Zeile("Notiz", d.notiz)
         Button(onClick = onAnzeigen, enabled = d.dateiId != null, modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) { Text("Anzeigen") }
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { weitergeben() }, enabled = d.dateiId != null && !model.busy, modifier = Modifier.weight(1f)) { Text("Weitergeben") }
-            OutlinedButton(onClick = { speichern.launch(d.dateiName.ifEmpty { "Dokument" }) }, enabled = d.dateiId != null && !model.busy, modifier = Modifier.weight(1f)) { Text("Speichern unter …") }
+            KompaktKnopf("Weitergeben", { weitergeben() }, Modifier.weight(1f), enabled = d.dateiId != null && !model.busy)
+            KompaktKnopf("Speichern unter …", { speichern.launch(d.dateiName.ifEmpty { "Dokument" }) }, Modifier.weight(1f), enabled = d.dateiId != null && !model.busy)
         }
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             KompaktKnopf("Bearbeiten", onEdit, Modifier.weight(1f), enabled = !model.busy)
@@ -670,7 +670,7 @@ private fun DateiWahl(model: AppModel, onAbbrechen: () -> Unit, modifier: Modifi
                     Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                         Text("Seite ${i + 1}" + if (s.edit.istUnveraendert) "" else " (bearbeitet)", style = MaterialTheme.typography.titleSmall)
                         Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { model.fotoBearbeiten = i }, modifier = Modifier.weight(1f)) { Text("Zuschneiden / Drehen") }
+                            KompaktKnopf("Zuschneiden / Drehen", { model.fotoBearbeiten = i }, Modifier.weight(1f))
                             OutlinedButton(onClick = { model.fotoEntfernen(i) }) { Text("Entfernen") }
                         }
                     }

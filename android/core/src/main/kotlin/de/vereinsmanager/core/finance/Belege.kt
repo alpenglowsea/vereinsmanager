@@ -191,6 +191,16 @@ object Belege {
         if (datei != null && datei !in Dateiverwaltung.referenziert(store)) files.delete(datei)
     }
 
+    /** Löscht mehrere Buchungen samt Belegen (jede für sich vollständig). Gibt die Zahl der gelöschten zurück. */
+    fun buchungenLoeschen(store: DocumentStore, files: FileStore, ids: List<String>): Int {
+        var n = 0
+        for (id in ids.distinct()) {
+            if (store.get(Finance.BUCHUNGEN, id) == null) continue
+            buchungLoeschen(store, files, id); n++
+        }
+        return n
+    }
+
     /** Löscht die Buchung samt Beleg-Dokument und – wenn niemand sie mehr braucht – der Datei. */
     fun buchungLoeschen(store: DocumentStore, files: FileStore, buchungId: String) {
         val datei = dateiId(store.get(Finance.BUCHUNGEN, buchungId))
