@@ -136,7 +136,7 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
     Column(modifier.padding(horizontal = 16.dp).nestedScroll(kopf.verfolgung)) {
         Column(Modifier.einklappbar(kopf)) {
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onNew, modifier = Modifier.weight(1f)) { Text("Neue Buchung") }
+                KompaktKnopf("Neue Buchung", onNew, Modifier.weight(1f), primaer = true)
                 KompaktKnopf("Konten verwalten", onKonten, Modifier.weight(1f))
             }
             Row(
@@ -181,9 +181,9 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
                     filter = filter.copy(mitBeleg = when (it) { "ja" -> true; "nein" -> false; else -> null })
                 }
             }
-            Row(Modifier.horizontalScroll(rememberScrollState())) {
-                TextButton(onClick = { sortOffen = true }) { Text("Sortiert nach ${SORTIERUNG[sortierung]}", maxLines = 1, softWrap = false) }
-                TextButton(onClick = { aufsteigend = !aufsteigend }) { Text(if (aufsteigend) "aufsteigend ↑" else "absteigend ↓", maxLines = 1, softWrap = false) }
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                KompaktKnopf("Sortiert nach ${SORTIERUNG[sortierung]}", { sortOffen = true })
+                KompaktKnopf(if (aufsteigend) "aufsteigend ↑" else "absteigend ↓", { aufsteigend = !aufsteigend })
                 ExportMenue("Exportieren", exportPunkte(model, exporter, shown, "angezeigte"), kompakt = false)
                 DropdownMenu(sortOffen, { sortOffen = false }) {
                     SORTIERUNG.forEach { (k, v) -> DropdownMenuItem(text = { Text(v) }, onClick = { sortierung = k; sortOffen = false }) }
@@ -199,14 +199,12 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
             style = MaterialTheme.typography.bodySmall,
         )
         if (waehlt) {
-            val schmal = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
-            val knopf = Modifier.height(32.dp)
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("${gewaehlt.size} gewählt", style = MaterialTheme.typography.labelLarge)
-                OutlinedButton(onClick = { gewaehlt = shown.map { it.id }.toSet() }, modifier = knopf, contentPadding = schmal) { Text("Alle angezeigten", style = MaterialTheme.typography.labelMedium) }
-                OutlinedButton(onClick = { gewaehlt = emptySet() }, modifier = knopf, contentPadding = schmal) { Text("Keine", style = MaterialTheme.typography.labelMedium) }
-                Button(onClick = { sammelOffen = true }, enabled = !model.busy, modifier = knopf, contentPadding = schmal) { Text("Bearbeiten", style = MaterialTheme.typography.labelMedium) }
-                OutlinedButton(onClick = { loeschenOffen = true }, enabled = !model.busy, modifier = knopf, contentPadding = schmal) { Text("Löschen", style = MaterialTheme.typography.labelMedium) }
+                KompaktKnopf("Alle angezeigten", { gewaehlt = shown.map { it.id }.toSet() })
+                KompaktKnopf("Keine", { gewaehlt = emptySet() })
+                KompaktKnopf("Bearbeiten", { sammelOffen = true }, enabled = !model.busy, primaer = true)
+                KompaktKnopf("Löschen", { loeschenOffen = true }, enabled = !model.busy)
                 ExportMenue("Exportieren", exportPunkte(model, exporter, shown.filter { it.id in gewaehlt }, "gewählte"), kompakt = true)
             }
         }
@@ -264,11 +262,7 @@ private fun exportPunkte(model: AppModel, exporter: de.vereinsmanager.android.ex
 internal fun ExportMenue(titel: String, punkte: List<Pair<String, () -> Unit>>, kompakt: Boolean) {
     var offen by remember { mutableStateOf(false) }
     Box {
-        if (kompakt) OutlinedButton(
-            onClick = { offen = true }, modifier = Modifier.height(32.dp), enabled = punkte.isNotEmpty(),
-            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-        ) { Text(titel, style = MaterialTheme.typography.labelMedium, maxLines = 1, softWrap = false) }
-        else TextButton(onClick = { offen = true }) { Text(titel, maxLines = 1, softWrap = false) }
+        KompaktKnopf(titel, { offen = true }, enabled = punkte.isNotEmpty())
         DropdownMenu(offen, { offen = false }) {
             punkte.forEach { (text, aktion) -> DropdownMenuItem(text = { Text(text) }, onClick = { offen = false; aktion() }) }
         }
@@ -322,7 +316,10 @@ private fun Feld(label: String, wert: String) {
 
 /** Eine Buchung mit allen Angaben, dazu Bearbeiten und Löschen. */
 @Composable
-fun BuchungDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onBeleg: () -> Unit, onDeleted: () -> Unit, modifier: Modifier = Modifier) {
+fun BuchungDetailScreen(
+    model: AppModel, id: String, onEdit: () -> Unit, onBeleg: () -> Unit, onDeleted: () -> Unit, modifier: Modifier = Modifier,
+    onRechnung: (String) -> Unit = {}, onSpende: (String) -> Unit = {},
+) {
     var loeschen by remember { mutableStateOf(false) }
     var fehler by remember { mutableStateOf<String?>(null) }
     val b = model.buchungen.firstOrNull { it.id == id }
@@ -371,10 +368,17 @@ fun BuchungDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onBeleg
         }
         BelegAbschnitt(model, b, onAnzeigen = onBeleg)
         if (fehler != null) Text(fehler!!, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
-        Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onEdit) { Text("Bearbeiten") }
-            OutlinedButton(onClick = { loeschen = true }) { Text("Löschen") }
-        }
+        val rechnung = model.rechnungen.firstOrNull { it.buchungId == b.id }
+        val spende = model.spenden.firstOrNull { it.transactionId == b.id }
+        Aktionsleiste(
+            listOfNotNull(
+                Aktion("Bearbeiten", onEdit, primaer = true),
+                Aktion("Löschen", { loeschen = true }),
+                rechnung?.let { r -> Aktion("Rechnung ${r.nummer} öffnen", { onRechnung(r.id) }) },
+                spende?.let { s -> Aktion("Bestätigung ${s.receiptNumber} öffnen", { onSpende(s.id) }) },
+            ),
+            Modifier.padding(top = 16.dp),
+        )
     }
     if (loeschen) {
         AlertDialog(

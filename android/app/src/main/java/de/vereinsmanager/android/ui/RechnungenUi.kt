@@ -104,14 +104,12 @@ fun RechnungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             FilterMenu("Status", STATI, status) { status = it }
             FilterMenu("Jahr", jahre.associateWith { it }, jahr) { jahr = it }
-            Button(onClick = onNew, modifier = Modifier.height(32.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp)) {
-                Text("Neue Rechnung", style = MaterialTheme.typography.labelMedium, maxLines = 1, softWrap = false)
-            }
+            KompaktKnopf("Neue Rechnung", onNew, primaer = true)
             KompaktKnopf("Vorlage", onVorlage)
             ExportMenue("Exportieren", rechnungenExport(model, exporter, shown, "angezeigte"), kompakt = false)
         }
         if (waehlt) {
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("${gewaehlt.size} gewählt", style = MaterialTheme.typography.labelLarge)
                 KompaktKnopf("Alle angezeigten", { gewaehlt = shown.map { it.id }.toSet() })
                 KompaktKnopf("Keine", { gewaehlt = emptySet() })
@@ -157,7 +155,7 @@ private fun rechnungenExport(model: AppModel, exporter: Exporter, liste: List<Re
 // ---------------------------------------------------------------- Detail
 
 @Composable
-fun RechnungDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDeleted: () -> Unit, modifier: Modifier = Modifier) {
+fun RechnungDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onAnsehen: () -> Unit, onDeleted: () -> Unit, modifier: Modifier = Modifier) {
     val r = model.rechnungen.firstOrNull { it.id == id }
     var loeschen by remember { mutableStateOf(false) }
     var bezahlen by remember { mutableStateOf(false) }
@@ -213,16 +211,19 @@ fun RechnungDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDele
         Zeile("Notiz", r.notiz)
         if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
 
-        Row(Modifier.padding(top = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (r.status != "paid" && r.status != "cancelled") Button(onClick = { bezahlen = true }, enabled = !model.busy) { Text("Als bezahlt markieren") }
-            if (r.status == "paid") OutlinedButton(onClick = { zurueck = true }, enabled = !model.busy) { Text("Auf offen zurücksetzen") }
-            Button(onClick = onEdit) { Text("Bearbeiten") }
-        }
-        Row(Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { exporter.pdfSchreiber(RechnungsExport.pdfDateiname(r)) { out -> model.rechnungPdfSchreiben(r, out) } }, enabled = !model.busy) { Text("PDF speichern") }
-            if (r.status == "draft" || r.status == "open") OutlinedButton(onClick = { stornieren = true }, enabled = !model.busy) { Text("Stornieren") }
-            OutlinedButton(onClick = { loeschen = true }, enabled = !model.busy) { Text("Löschen") }
-        }
+        val offen = r.status != "paid" && r.status != "cancelled"
+        Aktionsleiste(
+            listOfNotNull(
+                if (offen) Aktion("Als bezahlt markieren", { bezahlen = true }, primaer = true, enabled = !model.busy) else null,
+                if (r.status == "paid") Aktion("Auf offen zurücksetzen", { zurueck = true }, primaer = true, enabled = !model.busy) else null,
+                Aktion("Bearbeiten", onEdit),
+                Aktion("PDF ansehen", onAnsehen),
+                Aktion("PDF speichern", { exporter.pdfSchreiber(RechnungsExport.pdfDateiname(r)) { out -> model.rechnungPdfSchreiben(r, out) } }, enabled = !model.busy),
+                if (r.status == "draft" || r.status == "open") Aktion("Stornieren", { stornieren = true }, enabled = !model.busy) else null,
+                Aktion("Löschen", { loeschen = true }, enabled = !model.busy),
+            ),
+            Modifier.padding(top = 16.dp),
+        )
     }
 
     if (bezahlen) BezahltDialog(model, r, onDismiss = { bezahlen = false }) { f -> bezahlen = false; meldung = f }

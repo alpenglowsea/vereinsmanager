@@ -64,6 +64,7 @@ import de.vereinsmanager.core.donation.Unterschrift
 import de.vereinsmanager.core.invoice.Absender
 import de.vereinsmanager.core.invoice.BezahltAngaben
 import de.vereinsmanager.core.invoice.Rechnung
+import de.vereinsmanager.core.invoice.toRechnung
 import de.vereinsmanager.core.invoice.RechnungErgebnis
 import de.vereinsmanager.core.invoice.RechnungForm
 import de.vereinsmanager.core.invoice.RechnungOptionen
@@ -631,6 +632,39 @@ class AppModel(private val appContext: Context) {
     /** Schreibt das PDF einer Rechnung frisch aus den gespeicherten Angaben. */
     fun rechnungPdfSchreiben(r: Rechnung, out: java.io.OutputStream) {
         out.write(rechnungsPdfBytes(r, Absender.lesen(store.get("settings", "main")), vorlage))
+    }
+
+    /**
+     * Das PDF eines Eintrags zum Ansehen: das im Dokumentenarchiv abgelegte, sonst frisch aus den Angaben erzeugt (im Zwischenspeicher,
+     * nichts wird abgelegt). [art] "rechnung" oder "spende"; weitere Arten kommen hier dazu. Nicht im Hauptstrang aufrufen.
+     */
+    fun vorschauDatei(art: String, id: String): BelegDatei? {
+        val doc = when (art) {
+            "rechnung" -> store.get("invoices", id)?.toRechnung()?.dokumentId
+            "spende" -> Spenden.alle(store).firstOrNull { it.id == id }?.documentId
+            else -> null
+        }
+        if (doc != null) dokumentDatei(doc)?.let { return it }
+        val bytes: ByteArray
+        val name: String
+        when (art) {
+            "rechnung" -> {
+                val r = store.get("invoices", id)?.toRechnung() ?: return null
+                bytes = rechnungsPdfBytes(r, Absender.lesen(store.get("settings", "main")), Vorlagen.lesen(store))
+                name = RechnungsExport.pdfDateiname(r)
+            }
+            "spende" -> {
+                val r = Spenden.alle(store).firstOrNull { it.id == id } ?: return null
+                bytes = java.io.ByteArrayOutputStream().also { PdfWriter.zuwendung(r, Spenden.steuerangaben(store), it, Unterschriften.lesen(store)) }.toByteArray()
+                name = DonationExport.pdfDateinamen(listOf(r)).first()
+            }
+            else -> return null
+        }
+        val ordner = cacheOrdner("vorschau")
+        val ziel = File(ordner, "$art-$id.pdf")
+        ziel.writeBytes(bytes)
+        ordner.listFiles()?.filter { it != ziel }?.forEach { it.delete() }
+        return BelegDatei(ziel, "application/pdf", name)
     }
 
     fun vorlageSpeichern(v: Vorlage, done: (String?) -> Unit) =

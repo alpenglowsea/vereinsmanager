@@ -147,9 +147,9 @@ fun MenueInhalt(vereinsname: String, aktiv: Ziel?, onWahl: (Ziel) -> Unit) {
     }
 }
 
-/** Schmale Kopfzeile: links Menü-Knopf (oder Zurück-Pfeil auf Unterseiten), daneben der Seitenname. */
+/** Schmale Kopfzeile: links der Menü-Knopf, auf Unterseiten daneben der Zurück-Pfeil, dann der Seitenname. */
 @Composable
-fun Kopfzeile(titel: String, zurueck: Boolean, mitMenueKnopf: Boolean, onKnopf: () -> Unit) {
+fun Kopfzeile(titel: String, zurueck: Boolean, mitMenueKnopf: Boolean, onZurueck: () -> Unit, onMenue: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -159,13 +159,14 @@ fun Kopfzeile(titel: String, zurueck: Boolean, mitMenueKnopf: Boolean, onKnopf: 
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Start,
     ) {
-        if (zurueck || mitMenueKnopf) {
-            IconButton(onClick = onKnopf) {
-                Icon(if (zurueck) Lucide.ArrowLeft else Lucide.Menu, if (zurueck) "Zurück" else "Menü öffnen", Modifier.size(24.dp))
-            }
-        } else {
-            Spacer(Modifier.width(16.dp))
+        // Das Menü ist auf jeder Seite erreichbar (außer am Tablet, wo es dauerhaft steht); der Zurück-Pfeil kommt auf Unterseiten dazu.
+        if (mitMenueKnopf) {
+            IconButton(onClick = onMenue) { Icon(Lucide.Menu, "Menü öffnen", Modifier.size(24.dp)) }
         }
+        if (zurueck) {
+            IconButton(onClick = onZurueck) { Icon(Lucide.ArrowLeft, "Zurück", Modifier.size(24.dp)) }
+        }
+        if (!mitMenueKnopf && !zurueck) Spacer(Modifier.width(16.dp))
         Text(titel, style = MaterialTheme.typography.titleMedium, maxLines = 1)
     }
 }

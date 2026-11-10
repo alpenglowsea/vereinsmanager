@@ -31,6 +31,7 @@ import de.vereinsmanager.android.ui.BelegAnsichtScreen
 import de.vereinsmanager.android.ui.EinstellungenScreen
 import de.vereinsmanager.android.ui.EuerScreen
 import de.vereinsmanager.android.ui.RechnungDetailScreen
+import de.vereinsmanager.android.ui.VorschauScreen
 import de.vereinsmanager.android.ui.RechnungFormScreen
 import de.vereinsmanager.android.ui.RechnungenScreen
 import de.vereinsmanager.android.ui.RechnungsVorlageScreen
@@ -80,6 +81,8 @@ sealed interface Page {
     /** id == null: neue Rechnung */
     data class RechnungEdit(val id: String?) : Page
     data object RechnungsVorlage : Page
+    /** PDF zu einem Eintrag ansehen; [art] "rechnung" oder "spende" (weitere kommen in AppModel.vorschauDatei dazu). */
+    data class Vorschau(val art: String, val id: String) : Page
     data object Spenden : Page
     data class Spende(val id: String) : Page
     data class SpendeEdit(val id: String?) : Page
@@ -140,11 +143,9 @@ class MainActivity : ComponentActivity() {
                             Kopfzeile(
                                 titel = seitenTitel(page, model),
                                 zurueck = !oberste,
-                                mitMenueKnopf = !breit && oberste,
-                                onKnopf = {
-                                    if (!oberste) stack = stack.dropLast(1)
-                                    else scope.launch { if (drawerState.isOpen) drawerState.close() else drawerState.open() }
-                                },
+                                mitMenueKnopf = !breit,
+                                onZurueck = { stack = stack.dropLast(1) },
+                                onMenue = { scope.launch { if (drawerState.isOpen) drawerState.close() else drawerState.open() } },
                             )
                         },
                     ) { inner ->
@@ -176,6 +177,7 @@ class MainActivity : ComponentActivity() {
                             is Page.Transaction -> BuchungDetailScreen(
                                 model, page.id, onEdit = { stack = stack + Page.TransactionEdit(page.id) },
                                 onBeleg = { stack = stack + Page.BelegAnsicht(page.id) },
+                                onRechnung = { stack = stack + Page.Rechnung(it) }, onSpende = { stack = stack + Page.Spende(it) },
                                 onDeleted = { stack = stack.filter { it !is Page.Transaction && it !is Page.TransactionEdit && it !is Page.BelegAnsicht } }, modifier = m,
                             )
                             is Page.BelegAnsicht -> BelegAnsichtScreen(model, page.id, modifier = m)
@@ -190,14 +192,17 @@ class MainActivity : ComponentActivity() {
                             )
                             is Page.Rechnung -> RechnungDetailScreen(
                                 model, page.id, onEdit = { stack = stack + Page.RechnungEdit(page.id) },
-                                onDeleted = { stack = stack.filter { it !is Page.Rechnung && it !is Page.RechnungEdit } }, modifier = m,
+                                onAnsehen = { stack = stack + Page.Vorschau("rechnung", page.id) },
+                                onDeleted = { stack = stack.filter { it !is Page.Rechnung && it !is Page.RechnungEdit && it !is Page.Vorschau } }, modifier = m,
                             )
                             is Page.RechnungEdit -> RechnungFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
                             Page.RechnungsVorlage -> RechnungsVorlageScreen(model, onDone = { stack = stack.dropLast(1) }, modifier = m)
+                            is Page.Vorschau -> VorschauScreen(model, page.art, page.id, modifier = m)
                             Page.Spenden -> SpendenScreen(model, onOpen = { stack = stack + Page.Spende(it) }, onNew = { stack = stack + Page.SpendeEdit(null) }, modifier = m)
                             is Page.Spende -> SpendeDetailScreen(
                                 model, page.id, onEdit = { stack = stack + Page.SpendeEdit(page.id) },
-                                onDeleted = { stack = stack.filter { it !is Page.Spende && it !is Page.SpendeEdit } }, modifier = m,
+                                onAnsehen = { stack = stack + Page.Vorschau("spende", page.id) },
+                                onDeleted = { stack = stack.filter { it !is Page.Spende && it !is Page.SpendeEdit && it !is Page.Vorschau } }, modifier = m,
                             )
                             is Page.SpendeEdit -> SpendeFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
             is Page.Documents -> DokumenteScreen(
@@ -260,6 +265,7 @@ private fun seitenTitel(p: Page, model: AppModel): String = when (p) {
     is Page.Rechnung -> "Rechnung"
     is Page.RechnungEdit -> if (p.id == null) "Neue Rechnung" else "Rechnung bearbeiten"
     Page.RechnungsVorlage -> "Rechnungsvorlage"
+    is Page.Vorschau -> "PDF ansehen"
     Page.Spenden -> "Spenden"
     is Page.Spende -> "Zuwendungsbestätigung"
     is Page.SpendeEdit -> if (p.id == null) "Neue Bestätigung" else "Bestätigung bearbeiten"
@@ -282,6 +288,7 @@ private fun aktivesZiel(p: Page): Ziel? = when (p) {
     Page.Sepa -> Ziel.BEITRAGSLAUF
     Page.Euer -> Ziel.EUER
     Page.Rechnungen, is Page.Rechnung, is Page.RechnungEdit, Page.RechnungsVorlage -> Ziel.RECHNUNGEN
+    is Page.Vorschau -> if (p.art == "rechnung") Ziel.RECHNUNGEN else Ziel.SPENDEN
     Page.Spenden, is Page.Spende, is Page.SpendeEdit -> Ziel.SPENDEN
     Page.Settings -> Ziel.EINSTELLUNGEN
     Page.Probes -> null

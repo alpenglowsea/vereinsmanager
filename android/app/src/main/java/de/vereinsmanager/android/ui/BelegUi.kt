@@ -1,5 +1,22 @@
 package de.vereinsmanager.android.ui
 
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.positionChanged
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -298,6 +315,11 @@ private val ANZEIGBARE_BILDER = setOf("image/jpeg", "image/png", "image/webp", "
 fun BelegAnsichtScreen(model: AppModel, buchungId: String, modifier: Modifier = Modifier) =
     DateiAnsicht("beleg-$buchungId", { model.belegDatei(buchungId) }, "Der Beleg", modifier)
 
+/** Das PDF zu einer Rechnung oder Zuwendungsbestätigung ansehen (abgelegt oder frisch erzeugt); weitere Arten: [AppModel.vorschauDatei]. */
+@Composable
+fun VorschauScreen(model: AppModel, art: String, id: String, modifier: Modifier = Modifier) =
+    DateiAnsicht("vorschau-$art-$id", { model.vorschauDatei(art, id) }, "Das PDF", modifier)
+
 /**
  * Zeigt eine Datei im Programm an: PDF seitenweise, Bilder als Ganzes, alles andere nur über „Öffnen mit …".
  * [laden] holt die Datei in den Zwischenspeicher (läuft im Hintergrund); [schluessel] bestimmt, wann neu geladen wird.
@@ -344,8 +366,15 @@ internal fun DateiAnsicht(schluessel: String, laden: () -> AppModel.BelegDatei?,
         Ansicht.Laedt -> Text("$wasText wird geladen …", modifier.padding(16.dp))
         is Ansicht.Fehler -> Text(a.text, modifier.padding(16.dp))
         is Ansicht.Bereit -> {
-            var stufe by remember { mutableStateOf(1f) }
             var hinweis by remember { mutableStateOf<String?>(null) }
+            // Zoom: skala ist die festgeschriebene Vergrößerung (so breit ist die Seite wirklich und so scharf wird sie gezeichnet),
+            // live nur der Zwischenstand während der Zwei-Finger-Geste (rein optisch, ohne neu zu rechnen). tx/ty verschieben das Bild.
+            var skala by remember(schluessel) { mutableStateOf(1f) }
+            var live by remember(schluessel) { mutableStateOf(1f) }
+            var tx by remember(schluessel) { mutableStateOf(0f) }
+            var ty by remember(schluessel) { mutableStateOf(0f) }
+            val liste = rememberLazyListState()
+            val bereich = rememberCoroutineScope()
             BoxWithConstraints(modifier.fillMaxSize()) {
                 val breiteDp = maxWidth
                 val breitePx = with(LocalDensity.current) { breiteDp.roundToPx() }
@@ -353,12 +382,10 @@ internal fun DateiAnsicht(schluessel: String, laden: () -> AppModel.BelegDatei?,
                     Row(
                         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(a.datei.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        OutlinedButton(onClick = { stufe = (stufe - 0.5f).coerceAtLeast(1f) }, enabled = stufe > 1f) { Text("−") }
-                        OutlinedButton(onClick = { stufe = (stufe + 0.5f).coerceAtMost(2.5f) }, enabled = stufe < 2.5f) { Text("+") }
-                        OutlinedButton(onClick = {
+                        KompaktKnopf("Öffnen mit …", {
                             try {
                                 val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", a.datei.datei)
                                 context.startActivity(
@@ -367,17 +394,71 @@ internal fun DateiAnsicht(schluessel: String, laden: () -> AppModel.BelegDatei?,
                             } catch (e: Exception) {
                                 hinweis = "Keine App zum Öffnen gefunden."
                             }
-                        }) { Text("Öffnen mit …") }
+                        })
                     }
                     if (hinweis != null) Text(hinweis!!, Modifier.padding(horizontal = 8.dp), color = MaterialTheme.colorScheme.error)
-                    Box(Modifier.weight(1f).fillMaxWidth().horizontalScroll(rememberScrollState())) {
-                        val quelle = a.quelle
-                        if (quelle == null) {
-                            Text("Diesen Dateityp kann die App nicht selbst anzeigen. Mit „Öffnen mit …“ geht es in einer anderen App.", Modifier.padding(16.dp))
-                        } else {
-                            LazyColumn(Modifier.width(breiteDp * stufe)) {
+                    val quelle = a.quelle
+                    if (quelle == null) {
+                        Text("Diesen Dateityp kann die App nicht selbst anzeigen. Mit „Öffnen mit …“ geht es in einer anderen App.", Modifier.padding(16.dp))
+                    } else {
+                        Box(
+                            Modifier.weight(1f).fillMaxWidth().clipToBounds().pointerInput(schluessel) {
+                                val breite = size.width.toFloat()
+                                // Zwei Finger: zoomen und verschieben. Ein Finger: bei Vergrößerung seitlich verschieben (senkrecht blättert die Liste).
+                                awaitEachGesture {
+                                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                                    var mehrfinger = false
+                                    fun festschreiben() {
+                                        val f = live
+                                        if (f != 1f) {
+                                            val neu = (skala * f).coerceIn(1f, 4f)
+                                            val ff = neu / skala
+                                            val idx = liste.firstVisibleItemIndex
+                                            val off = liste.firstVisibleItemScrollOffset
+                                            skala = neu
+                                            tx = tx.coerceIn(-(breite * neu - breite), 0f)
+                                            val o = (off * ff - ty).roundToInt().coerceAtLeast(0)
+                                            live = 1f
+                                            ty = 0f
+                                            bereich.launch { liste.scrollToItem(idx, o) }
+                                        }
+                                    }
+                                    do {
+                                        val ev = awaitPointerEvent(PointerEventPass.Initial)
+                                        val gedrueckt = ev.changes.count { it.pressed }
+                                        if (gedrueckt >= 2) {
+                                            mehrfinger = true
+                                            val c = ev.calculateCentroid(useCurrent = true)
+                                            val pan = ev.calculatePan()
+                                            val ziel = (skala * live * ev.calculateZoom()).coerceIn(1f, 4f) / skala
+                                            val z = ziel / live
+                                            live = ziel
+                                            tx = z * (tx - c.x) + c.x + pan.x
+                                            ty = z * (ty - c.y) + c.y + pan.y
+                                            ev.changes.forEach { if (it.positionChanged()) it.consume() }
+                                        } else if (gedrueckt == 1) {
+                                            if (mehrfinger) { festschreiben(); mehrfinger = false }
+                                            if (skala > 1f) {
+                                                val dx = ev.changes.first { it.pressed }.positionChange().x
+                                                tx = (tx + dx).coerceIn(-(breite * skala - breite), 0f)
+                                            }
+                                        }
+                                    } while (ev.changes.any { it.pressed })
+                                    if (mehrfinger) festschreiben()
+                                }
+                            },
+                        ) {
+                            LazyColumn(
+                                state = liste,
+                                modifier = Modifier.fillMaxHeight().wrapContentWidth(Alignment.Start, unbounded = true).width(breiteDp * skala)
+                                    .graphicsLayer {
+                                        transformOrigin = TransformOrigin(0f, 0f)
+                                        scaleX = live; scaleY = live
+                                        translationX = tx; translationY = ty
+                                    },
+                            ) {
                                 items(count = quelle.anzahl) { i ->
-                                    SeitenBild(quelle, i, (breitePx * stufe).toInt().coerceAtMost(2400))
+                                    SeitenBild(quelle, i, (breitePx * skala).toInt().coerceAtMost(2400))
                                 }
                             }
                         }

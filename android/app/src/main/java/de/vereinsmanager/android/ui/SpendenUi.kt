@@ -95,13 +95,11 @@ fun SpendenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, 
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             FilterMenu("Art", ART, art) { art = it }
             FilterMenu("Jahr", jahre.associateWith { it }, jahr) { jahr = it }
-            Button(onClick = onNew, modifier = Modifier.height(32.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp)) {
-                Text("Neue Bestätigung", style = MaterialTheme.typography.labelMedium, maxLines = 1, softWrap = false)
-            }
+            KompaktKnopf("Neue Bestätigung", onNew, primaer = true)
             ExportMenue("Exportieren", spendenExport(model, exporter, shown, "angezeigte"), kompakt = false)
         }
         if (waehlt) {
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("${gewaehlt.size} gewählt", style = MaterialTheme.typography.labelLarge)
                 KompaktKnopf("Alle angezeigten", { gewaehlt = shown.map { it.id }.toSet() })
                 KompaktKnopf("Keine", { gewaehlt = emptySet() })
@@ -163,7 +161,7 @@ private fun spendenExport(model: AppModel, exporter: Exporter, liste: List<Donat
 // ---------------------------------------------------------------- Detail
 
 @Composable
-fun SpendeDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDeleted: () -> Unit, modifier: Modifier = Modifier) {
+fun SpendeDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onAnsehen: () -> Unit, onDeleted: () -> Unit, modifier: Modifier = Modifier) {
     val r = model.spenden.firstOrNull { it.id == id }
     var loeschen by remember { mutableStateOf(false) }
     var meldung by remember { mutableStateOf<String?>(null) }
@@ -206,13 +204,15 @@ fun SpendeDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
         Zeile("Verknüpfte Buchung", if (r.transactionId == null) "Keine" else buchung?.let { "${it.belegNummer} · ${Geld.euro(it.betrag.abs())}" } ?: "Die Buchung gibt es nicht mehr")
         Zeile("PDF im Dokumentenarchiv", if (r.documentId == null) "Nicht abgelegt" else "Abgelegt (Belege ${jahrVon(r)} → Spendenbescheinigungen)")
         if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
-        Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onEdit) { Text("Bearbeiten") }
-            OutlinedButton(onClick = {
-                exporter.pdfSchreiber(DonationExport.pdfDateinamen(listOf(r)).first()) { out -> model.spendePdfSchreiben(r, out) }
-            }, enabled = !model.busy) { Text("PDF speichern") }
-            OutlinedButton(onClick = { loeschen = true }) { Text("Löschen") }
-        }
+        Aktionsleiste(
+            listOf(
+                Aktion("Bearbeiten", onEdit, primaer = true),
+                Aktion("PDF ansehen", onAnsehen),
+                Aktion("PDF speichern", { exporter.pdfSchreiber(DonationExport.pdfDateinamen(listOf(r)).first()) { out -> model.spendePdfSchreiben(r, out) } }, enabled = !model.busy),
+                Aktion("Löschen", { loeschen = true }),
+            ),
+            Modifier.padding(top = 16.dp),
+        )
     }
     if (loeschen) {
         if (buchung != null) {

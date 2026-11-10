@@ -159,7 +159,7 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
         ) {
             Column {
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onNew, modifier = Modifier.weight(1f)) { Text("Neues Mitglied") }
+                    KompaktKnopf("Neues Mitglied", onNew, Modifier.weight(1f), primaer = true)
                     KompaktKnopf("CSV-Import", onImport, Modifier.weight(1f))
                 }
                 if (!selecting && info.isEmpty() && model.members.isNotEmpty()) {
@@ -184,43 +184,41 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                     FilterMenu("Typ", MemberLabels.TYPE_FILTER, filter.type) { filter = filter.copy(type = it) }
                     FilterMenu("Zahlart", MemberLabels.PAYMENT, filter.payment) { filter = filter.copy(payment = it) }
                 }
-                Row {
-                    TextButton(onClick = { sortOpen = true }) { Text("Sortiert nach ${SORT_LABELS[sortKey]}") }
-                    TextButton(onClick = { ascending = !ascending }) { Text(if (ascending) "aufsteigend ↑" else "absteigend ↓") }
+                Row(Modifier.horizontalScroll(rememberScrollState()).padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    KompaktKnopf("Sortiert nach ${SORT_LABELS[sortKey]}", { sortOpen = true })
+                    KompaktKnopf(if (ascending) "aufsteigend ↑" else "absteigend ↓", { ascending = !ascending })
                     DropdownMenu(sortOpen, { sortOpen = false }) {
                         SORT_LABELS.forEach { (k, v) -> DropdownMenuItem(text = { Text(v) }, onClick = { sortKey = k; sortOpen = false }) }
                     }
                 }
                 if (!selecting) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = {
+                    KompaktKnopf("CSV-Export", {
                         val liste = shown
                         exporter.csv("mitglieder_${Export.dateiname(model.vereinsname())}_$heute.csv") { Export.mitgliederCsv(liste) }
-                    }) { Text("CSV-Export") }
-                    TextButton(onClick = {
+                    })
+                    KompaktKnopf("PDF-Liste", {
                         val liste = shown
                         exporter.pdf("mitgliederliste_${Export.dateiname(model.vereinsname())}_$heute.pdf") { Export.mitgliederPdf(liste, model.vereinsname(), LocalDate.now()) }
-                    }) { Text("PDF-Liste") }
+                    })
                 }
             }
         }
         if (selecting) {
             // Auswahlleiste: sitzt an der Stelle der Export-Knöpfe und bleibt beim Scrollen stehen.
-            val schmal = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
-            val knopf = Modifier.height(32.dp)
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("${selected.size} gewählt", style = MaterialTheme.typography.labelLarge)
-                OutlinedButton(onClick = { selected = shown.map { it.id }.toSet() }, modifier = knopf, contentPadding = schmal) { Text("Alle angezeigten", style = MaterialTheme.typography.labelMedium) }
-                OutlinedButton(onClick = { selected = emptySet() }, modifier = knopf, contentPadding = schmal) { Text("Keine", style = MaterialTheme.typography.labelMedium) }
-                Button(onClick = { bulkOpen = true }, modifier = knopf, contentPadding = schmal) { Text("Bearbeiten", style = MaterialTheme.typography.labelMedium) }
-                OutlinedButton(onClick = { deleteOpen = true }, modifier = knopf, contentPadding = schmal) { Text("Löschen", style = MaterialTheme.typography.labelMedium) }
-                OutlinedButton(onClick = {
+                KompaktKnopf("Alle angezeigten", { selected = shown.map { it.id }.toSet() })
+                KompaktKnopf("Keine", { selected = emptySet() })
+                KompaktKnopf("Bearbeiten", { bulkOpen = true }, primaer = true)
+                KompaktKnopf("Löschen", { deleteOpen = true })
+                KompaktKnopf("CSV", {
                     val auswahl = model.members.filter { it.id in selected }
                     exporter.csv("mitglieder_${auswahl.size}_ausgewaehlt.csv") { Export.mitgliederCsv(auswahl) }
-                }, modifier = knopf, contentPadding = schmal) { Text("CSV", style = MaterialTheme.typography.labelMedium) }
-                OutlinedButton(onClick = {
+                })
+                KompaktKnopf("PDF", {
                     val auswahl = model.members.filter { it.id in selected }
                     exporter.pdf("mitglieder_$heute.pdf") { Export.mitgliederPdf(auswahl, model.vereinsname(), LocalDate.now()) }
-                }, modifier = knopf, contentPadding = schmal) { Text("PDF", style = MaterialTheme.typography.labelMedium) }
+                })
             }
         }
         Text("${shown.size} von ${model.members.size} angezeigt (Export: die angezeigten)", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
@@ -351,18 +349,18 @@ private fun MemberDetailPage(model: AppModel, id: String, onEdit: () -> Unit, on
             row("Mandatsreferenz", bk("mandateReference"))
             row("Mandatsdatum", if (bk("mandateDate").isNotEmpty()) deDate(bk("mandateDate")) else "")
             row("Notizen", m.notes)
-            OutlinedButton(
-                onClick = {
-                    val d = Stammblatt.erstellen(m, model.store.get("settings", "main"), LocalDate.now())
-                    exporter.pdfSchreiber(d.dateiname) { out -> PdfWriter.stammblatt(d, out) }
-                },
-                modifier = Modifier.padding(top = 12.dp),
-            ) { Text("Stammblatt (PDF)") }
-            if (stammInfo.isNotEmpty()) Text(stammInfo, style = MaterialTheme.typography.bodySmall)
-            Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onEdit) { Text("Bearbeiten") }
-                OutlinedButton(onClick = { deleting = true }) { Text("Löschen") }
-            }
+            if (stammInfo.isNotEmpty()) Text(stammInfo, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+            Aktionsleiste(
+                listOf(
+                    Aktion("Bearbeiten", onEdit, primaer = true),
+                    Aktion("Löschen", { deleting = true }),
+                    Aktion("Stammblatt (PDF)", {
+                        val d = Stammblatt.erstellen(m, model.store.get("settings", "main"), LocalDate.now())
+                        exporter.pdfSchreiber(d.dateiname) { out -> PdfWriter.stammblatt(d, out) }
+                    }),
+                ),
+                Modifier.padding(top = 16.dp),
+            )
         }
     }
     if (deleting) DeleteMemberDialog(model, remember(m.id) { listOf(m) }, onDismiss = { deleting = false }, onDeleted = onDeleted)
