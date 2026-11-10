@@ -332,7 +332,7 @@ object PdfWriter {
     }
 
     /** Textbreite in Millimetern mit der Schrift der PDF-Seiten (für den Seitenumbruch im Kern). */
-    val mass = de.vereinsmanager.core.invoice.Mass { text, groesse, fett -> schrift(groesse, fett, Color.BLACK).measureText(text) / MM }
+    val mass = de.vereinsmanager.core.invoice.Mass { text, groesse, fett -> schrift(groesse, fett, Color.BLACK).measureText(text).toDouble() / MM.toDouble() }
 
     /**
      * Zeichnet Befehle des Kerns auf eine Seite. [begrenzen]: Zeilen, die über den rechten Rand des Vordrucks hinausragen
