@@ -40,6 +40,17 @@ data class SepaMember(
     val monthlyDueDay: Int? = null,
 )
 
+/** Dateiformat der Lastschrift-XML. Seit der Formatumstellung der Banken im November 2026 gilt .08; .02 bleibt für ältere Bankprogramme wählbar. */
+enum class SepaFormat(val wire: String, val namespace: String, val bicElement: String, val text: String) {
+    PAIN_008_001_08("pain.008.001.08", "urn:iso:std:iso:20022:tech:xsd:pain.008.001.08", "BICFI", "Neu (pain.008.001.08)"),
+    PAIN_008_001_02("pain.008.001.02", "urn:iso:std:iso:20022:tech:xsd:pain.008.001.02", "BIC", "Alt (pain.008.001.02)"),
+    ;
+
+    companion object {
+        fun fromWire(w: String?): SepaFormat? = entries.firstOrNull { it.wire == w }
+    }
+}
+
 data class SepaRunConfig(
     val periodFilter: SepaPeriodFilter = SepaPeriodFilter.MONTHLY_1,
     val targetYear: Int? = null,
@@ -52,6 +63,7 @@ data class SepaRunConfig(
     val creditorIban: String = "",
     val creditorBic: String? = null,
     val remittanceTemplate: String? = null,
+    val format: SepaFormat = SepaFormat.PAIN_008_001_08,
 )
 
 data class SepaItem(

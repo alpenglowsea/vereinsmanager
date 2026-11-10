@@ -32,6 +32,7 @@ data class LaufParameter(
     val ausfuehrung: String,
     val titel: String = "",
     val vorlage: String = Beitragslauf.STANDARD_VORLAGE,
+    val format: SepaFormat = SepaFormat.PAIN_008_001_08,
 )
 
 /** Ein gespeicherter Lauf (Bereich `sepaRuns`, gleiche Felder wie `SepaRunHistory` am Desktop). */
@@ -119,7 +120,7 @@ object Beitragslauf {
         targetHalfYear = if (p.filter == SepaPeriodFilter.HALF_YEARLY) p.halbjahr else null,
         executionDate = p.ausfuehrung,
         creditorId = g?.id.orEmpty(), creditorName = g?.name.orEmpty(), creditorIban = g?.iban.orEmpty(), creditorBic = g?.bic,
-        remittanceTemplate = p.vorlage,
+        remittanceTemplate = p.vorlage, format = p.format,
     )
 
     /** Die Einzugsposten aus dem Mitgliederbestand für diese Einstellungen. */

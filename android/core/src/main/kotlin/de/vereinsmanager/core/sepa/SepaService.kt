@@ -253,6 +253,13 @@ object SepaService {
         val count = active.size
         val creDtTm = now.withZoneSameInstant(ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"))
         val msgId = "MSG-" + now.format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + "-" + random.nextInt(1000)
+        val fmt = config.format
+        val bic = fmt.bicElement
+        // Kennungen: nur Zeichen aus dem Zeichensatz der Banken (kein Unterstrich), höchstens 35 Stellen
+        fun kennung(basis: String, zusatz: String = ""): String {
+            val roh = basis.replace('_', '-').replace(Regex("[^A-Za-z0-9+?/:().,' -]"), "")
+            return roh.take(35 - zusatz.length) + zusatz
+        }
         val pmtInfId = "PMT-${config.periodFilter.wire}-${config.targetYear}-${config.executionDate}"
 
         val creditorIban = config.creditorIban.uppercase().replace(Regex("\\s"), "")
@@ -267,7 +274,7 @@ object SepaService {
             val debtorBic = item.bic.uppercase().trim()
             return """      <DrctDbtTxInf>
         <PmtId>
-          <EndToEndId>${escapeXml(item.endToEndId)}</EndToEndId>
+          <EndToEndId>${escapeXml(kennung(item.endToEndId))}</EndToEndId>
         </PmtId>
         <InstdAmt Ccy="EUR">${round2(item.amount).toPlainString()}</InstdAmt>
         <DrctDbtTx>
@@ -278,7 +285,7 @@ object SepaService {
         </DrctDbtTx>
         <DbtrAgt>
           <FinInstnId>
-            ${if (debtorBic.isNotEmpty()) "<BIC>$debtorBic</BIC>" else "<Othr><Id>NOTPROVIDED</Id></Othr>"}
+            ${if (debtorBic.isNotEmpty()) "<$bic>$debtorBic</$bic>" else "<Othr><Id>NOTPROVIDED</Id></Othr>"}
           </FinInstnId>
         </DbtrAgt>
         <Dbtr>
@@ -303,7 +310,7 @@ object SepaService {
         val bloecke = folgen.filter { it in gruppen }.joinToString("\n") { f ->
             val posten = gruppen.getValue(f)
             val summe = round2(posten.fold(BigDecimal.ZERO) { s, i -> s + i.amount }).toPlainString()
-            val id = if (gruppen.size == 1) pmtInfId else "$pmtInfId-$f"
+            val id = if (gruppen.size == 1) kennung(pmtInfId) else kennung(pmtInfId, "-$f")
             """    <PmtInf>
       <PmtInfId>${escapeXml(id)}</PmtInfId>
       <PmtMtd>DD</PmtMtd>
@@ -330,7 +337,7 @@ object SepaService {
       </CdtrAcct>
       <CdtrAgt>
         <FinInstnId>
-          ${if (!creditorBic.isNullOrEmpty()) "<BIC>$creditorBic</BIC>" else "<Othr><Id>NOTPROVIDED</Id></Othr>"}
+          ${if (!creditorBic.isNullOrEmpty()) "<$bic>$creditorBic</$bic>" else "<Othr><Id>NOTPROVIDED</Id></Othr>"}
         </FinInstnId>
       </CdtrAgt>
       <CdtrSchmeId>
@@ -351,10 +358,10 @@ ${posten.joinToString("\n") { buchung(it) }}
 
         val totalStr = total.toPlainString()
         return """<?xml version="1.0" encoding="UTF-8"?>
-<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.008.001.02" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:iso:std:iso:20022:tech:xsd:pain.008.001.02 pain.008.001.02.xsd">
+<Document xmlns="${fmt.namespace}">
   <CstmrDrctDbtInitn>
     <GrpHdr>
-      <MsgId>${escapeXml(msgId)}</MsgId>
+      <MsgId>${escapeXml(kennung(msgId))}</MsgId>
       <CreDtTm>$creDtTm</CreDtTm>
       <NbOfTxs>$count</NbOfTxs>
       <CtrlSum>$totalStr</CtrlSum>

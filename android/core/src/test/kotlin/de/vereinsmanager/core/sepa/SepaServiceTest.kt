@@ -154,8 +154,29 @@ class SepaServiceTest {
 
     @Test fun pain008() {
         val x = xml(listOf(item()))
-        assertTrue(x.contains("urn:iso:std:iso:20022:tech:xsd:pain.008.001.02"))
+        assertTrue(x.contains("urn:iso:std:iso:20022:tech:xsd:pain.008.001.08"))
+        assertFalse(x.contains("pain.008.001.02"))
         assertTrue(x.contains("<PmtMtd>DD</PmtMtd>"))
+    }
+    @Test fun altesFormatWaehlbar() {
+        val x = SepaService.generateSepaXml(run.copy(format = SepaFormat.PAIN_008_001_02), listOf(item()), fixedNow)
+        assertTrue(x.contains("urn:iso:std:iso:20022:tech:xsd:pain.008.001.02"))
+        assertTrue(x.contains("<BIC>") && !x.contains("BICFI"))
+    }
+    @Test fun neuesFormatNutztBicfi() {
+        val x = xml(listOf(item()))
+        assertTrue(x.contains("<BICFI>") && !x.contains("<BIC>"))
+    }
+    @Test fun kennungenOhneUnterstrichUndHoechstens35() {
+        val lang = run.copy(periodFilter = SepaPeriodFilter.HALF_YEARLY, targetYear = 2026, executionDate = "2026-11-13")
+        val x = SepaService.generateSepaXml(lang, listOf(item(), item(memberNumber = "M-0002", e2e = "E2E_2", seq = "FRST")), fixedNow)
+        val ids = Regex("<PmtInfId>([^<]*)</PmtInfId>").findAll(x).map { it.groupValues[1] }.toList()
+        assertEquals(2, ids.size)
+        ids.forEach { assertTrue(it, it.length <= 35); assertFalse(it.contains("_")) }
+        assertFalse(x.contains("E2E_2"))
+    }
+    @Test fun keinSchemaLocationVerweis() {
+        assertFalse(xml(listOf(item())).contains("schemaLocation"))
     }
     @Test fun anzahlUndSumme() {
         val x = xml(listOf(item(), item(memberNumber = "M-0002", amount = "80.5", e2e = "E2E-2")))

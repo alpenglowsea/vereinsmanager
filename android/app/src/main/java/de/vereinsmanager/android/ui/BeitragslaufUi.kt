@@ -37,6 +37,7 @@ import de.vereinsmanager.core.sepa.Beitragslauf
 import de.vereinsmanager.core.sepa.Lauf
 import de.vereinsmanager.core.sepa.LaufParameter
 import de.vereinsmanager.core.sepa.SepaItem
+import de.vereinsmanager.core.sepa.SepaFormat
 import de.vereinsmanager.core.sepa.SepaPeriodFilter
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -67,13 +68,14 @@ private fun NeuerLauf(model: AppModel, onEinstellungen: () -> Unit) {
     var ausfuehrung by remember { mutableStateOf(heute.plusDays(5).toString()) }
     var titel by remember { mutableStateOf("") }
     var vorlage by remember { mutableStateOf(Beitragslauf.STANDARD_VORLAGE) }
+    var format by remember { mutableStateOf(SepaFormat.PAIN_008_001_08) }
     var suche by remember { mutableStateOf("") }
     var gueltigFilter by remember { mutableStateOf<String?>(null) }
     var sparte by remember { mutableStateOf<String?>(null) }
     var info by remember { mutableStateOf<String?>(null) }
     var betragFuer by remember { mutableStateOf<SepaItem?>(null) }
 
-    val p = LaufParameter(filter, jahr, monat, quartal, halbjahr, ausfuehrung, titel, vorlage)
+    val p = LaufParameter(filter, jahr, monat, quartal, halbjahr, ausfuehrung, titel, vorlage, format)
     val basis = remember(model.members, filter, jahr, monat, quartal, halbjahr, vorlage, ausfuehrung) {
         Beitragslauf.vorbereiten(model.members.map { it.raw }, p)
     }
@@ -126,6 +128,7 @@ private fun NeuerLauf(model: AppModel, onEinstellungen: () -> Unit) {
                             Auswahl("Halbjahr", (1..2).associate { it.toString() to "H$it" }, halbjahr.toString()) { halbjahr = it.toInt() }
                     }
                     DatumFeld("Ausführungsdatum (Fälligkeit)", ausfuehrung) { ausfuehrung = it }
+                    Auswahl("Dateiformat", SepaFormat.entries.associate { it.wire to it.text }, format.wire) { format = SepaFormat.fromWire(it) ?: format }
                     Feld("Titel", titel, { titel = it }, hinweis = "Leer lassen: ${Beitragslauf.titel(p.copy(titel = ""))}")
                     Feld("Verwendungszweck", vorlage, { vorlage = it }, hinweis = "Platzhalter: {PERIOD} {month} {year} {MEMBER_NO} {NAME} {DEPT}")
                 }
