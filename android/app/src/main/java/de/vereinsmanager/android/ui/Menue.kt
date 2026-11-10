@@ -46,7 +46,7 @@ enum class Ziel(val titel: String, val icon: ImageVector, val farbe: Farbe, val 
     MITGLIEDER_AUSWERTUNG("Mitglieder-Auswertung", Lucide.BarChart3, Farbe.BLAU, true),
     BUCHUNGEN("Buchungen & Journal", Lucide.Wallet, Farbe.GRUEN, true),
     BEITRAGSLAUF("Beitragslauf", Lucide.CreditCard, Farbe.GRUEN, true),
-    EUER("EÜR / GuV", Lucide.FileSpreadsheet, Farbe.GRUEN, false),
+    EUER("EÜR / GuV", Lucide.FileSpreadsheet, Farbe.GRUEN, true),
     RECHNUNGEN("Rechnungen", Lucide.FileText, Farbe.GRUEN, false),
     SPENDEN("Spenden", Lucide.HeartHandshake, Farbe.GRUEN, false),
     FINANZ_AUSWERTUNG("Finanz-Auswertungen", Lucide.PieChart, Farbe.GRUEN, false),

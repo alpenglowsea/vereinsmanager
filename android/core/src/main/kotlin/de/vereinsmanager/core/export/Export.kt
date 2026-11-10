@@ -45,6 +45,8 @@ data class PdfTabelle(
     val ausrichtung: List<Char>, // 'l', 'c', 'r'
     val zeilen: List<List<String>>,
     val fusszeile: String,
+    /** Nummern der Zeilen (ab 0), die fett gedruckt werden, z. B. Summenzeilen. */
+    val fett: Set<Int> = emptySet(),
 )
 
 object Export {

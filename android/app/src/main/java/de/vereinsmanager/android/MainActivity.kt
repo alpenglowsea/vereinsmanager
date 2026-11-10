@@ -66,6 +66,7 @@ sealed interface Page {
     data class BelegAnsicht(val id: String) : Page
     data object Accounts : Page
     data object Sepa : Page
+    data object Euer : Page
     data object Settings : Page
     /** folderId == null: oberste Ebene. Jeder Ordner ist eine eigene Seite auf dem Stapel. */
     data class Documents(val folderId: String?) : Page
@@ -103,6 +104,7 @@ class MainActivity : ComponentActivity() {
                         Ziel.BUCHUNGEN -> listOf(Page.Home, Page.Transactions)
                         Ziel.DOKUMENTE -> listOf(Page.Home, Page.Documents(null))
                         Ziel.BEITRAGSLAUF -> listOf(Page.Home, Page.Sepa)
+                        Ziel.EUER -> listOf(Page.Home, Page.Euer)
                         Ziel.EINSTELLUNGEN -> listOf(Page.Home, Page.Settings)
                         else -> stack // noch nicht gebaut; das Menü zeigt dafür einen Hinweis
                     }
@@ -113,7 +115,7 @@ class MainActivity : ComponentActivity() {
                     MenueInhalt(model.clubName, aktivesZiel(page), onWahl = ::geheZu)
                 }
                 val inhalt: @Composable () -> Unit = {
-                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || (page is Page.Documents && page.folderId == null) || page is Page.Sepa || (page is Page.Settings && stack.size <= 2) || page is Page.Probes
+                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || (page is Page.Documents && page.folderId == null) || page is Page.Sepa || page is Page.Euer || (page is Page.Settings && stack.size <= 2) || page is Page.Probes
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
                         topBar = {
@@ -163,6 +165,7 @@ class MainActivity : ComponentActivity() {
                             Page.Accounts -> KontenScreen(model, modifier = m)
                             Page.Sepa -> BeitragslaufScreen(model, onEinstellungen = { stack = stack + Page.Settings }, modifier = m)
                             Page.Settings -> EinstellungenScreen(model, modifier = m)
+                            Page.Euer -> EuerScreen(model, modifier = m)
             is Page.Documents -> DokumenteScreen(
                                 model, page.folderId, onOpenFolder = { stack = stack + Page.Documents(it) },
                                 onJump = { ids -> stack = listOf(Page.Home, Page.Documents(null)) + ids.map { Page.Documents(it) } },
@@ -218,6 +221,7 @@ private fun seitenTitel(p: Page, model: AppModel): String = when (p) {
     is Page.BelegAnsicht -> "Beleg"
     Page.Accounts -> "Konten & Kassen"
     Page.Sepa -> "Beitragslauf"
+    Page.Euer -> "EÜR / GuV"
     Page.Settings -> "Einstellungen"
     is Page.TransactionEdit -> if (p.id == null) "Neue Buchung" else "Buchung bearbeiten"
     is Page.Documents -> if (p.folderId == null) "Dokumente" else model.ordner.firstOrNull { it.id == p.folderId }?.name ?: "Ordner"
@@ -235,6 +239,7 @@ private fun aktivesZiel(p: Page): Ziel? = when (p) {
     Page.Transactions, is Page.Transaction, is Page.TransactionEdit, is Page.BelegAnsicht, Page.Accounts -> Ziel.BUCHUNGEN
     is Page.Documents, is Page.Document, is Page.DocumentEdit, is Page.DocumentView -> Ziel.DOKUMENTE
     Page.Sepa -> Ziel.BEITRAGSLAUF
+    Page.Euer -> Ziel.EUER
     Page.Settings -> Ziel.EINSTELLUNGEN
     Page.Probes -> null
 }

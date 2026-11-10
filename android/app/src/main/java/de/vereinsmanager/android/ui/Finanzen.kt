@@ -50,6 +50,10 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.vereinsmanager.android.AppModel
+import de.vereinsmanager.android.export.rememberExporter
+import de.vereinsmanager.core.export.Export
+import de.vereinsmanager.core.finance.Berichte
+import java.time.LocalDate
 import de.vereinsmanager.core.finance.Buchung
 import de.vereinsmanager.core.finance.BuchungFilter
 import de.vereinsmanager.core.finance.BuchungSortierung
@@ -113,6 +117,7 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
     var sammelOffen by remember { mutableStateOf(false) }
     var loeschenOffen by remember { mutableStateOf(false) }
     var info by remember { mutableStateOf<String?>(null) }
+    val exporter = rememberExporter(model) { info = it }
 
     val konten = model.konten
     val buchungen = model.buchungen
@@ -176,9 +181,10 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
                     filter = filter.copy(mitBeleg = when (it) { "ja" -> true; "nein" -> false; else -> null })
                 }
             }
-            Row {
-                TextButton(onClick = { sortOffen = true }) { Text("Sortiert nach ${SORTIERUNG[sortierung]}") }
-                TextButton(onClick = { aufsteigend = !aufsteigend }) { Text(if (aufsteigend) "aufsteigend ↑" else "absteigend ↓") }
+            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                TextButton(onClick = { sortOffen = true }) { Text("Sortiert nach ${SORTIERUNG[sortierung]}", maxLines = 1, softWrap = false) }
+                TextButton(onClick = { aufsteigend = !aufsteigend }) { Text(if (aufsteigend) "aufsteigend ↑" else "absteigend ↓", maxLines = 1, softWrap = false) }
+                ExportMenue("Exportieren", exportPunkte(model, exporter, shown, "angezeigte"), kompakt = false)
                 DropdownMenu(sortOffen, { sortOffen = false }) {
                     SORTIERUNG.forEach { (k, v) -> DropdownMenuItem(text = { Text(v) }, onClick = { sortierung = k; sortOffen = false }) }
                 }
@@ -201,6 +207,7 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
                 OutlinedButton(onClick = { gewaehlt = emptySet() }, modifier = knopf, contentPadding = schmal) { Text("Keine", style = MaterialTheme.typography.labelMedium) }
                 Button(onClick = { sammelOffen = true }, enabled = !model.busy, modifier = knopf, contentPadding = schmal) { Text("Bearbeiten", style = MaterialTheme.typography.labelMedium) }
                 OutlinedButton(onClick = { loeschenOffen = true }, enabled = !model.busy, modifier = knopf, contentPadding = schmal) { Text("Löschen", style = MaterialTheme.typography.labelMedium) }
+                ExportMenue("Exportieren", exportPunkte(model, exporter, shown.filter { it.id in gewaehlt }, "gewählte"), kompakt = true)
             }
         }
         HorizontalDivider(Modifier.padding(vertical = 4.dp))
@@ -239,6 +246,33 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
         onDismissRequest = { info = null }, title = { Text("Fertig") }, text = { Text(meldung) },
         confirmButton = { TextButton(onClick = { info = null }) { Text("OK") } },
     )
+}
+
+/** Die Einträge des Export-Menüs für eine Liste von Buchungen (in der Reihenfolge der Liste). */
+private fun exportPunkte(model: AppModel, exporter: de.vereinsmanager.android.export.Exporter, liste: List<Buchung>, wort: String): List<Pair<String, () -> Unit>> {
+    val heute = LocalDate.now()
+    val name = model.vereinsname()
+    val verein = Export.dateiname(name)
+    val konten = model.konten
+    return listOf(
+        "CSV – ${liste.size} $wort Buchungen" to { exporter.csv("buchungen_${verein}_$heute.csv") { Berichte.journalCsv(liste, konten) } },
+        "PDF – ${liste.size} $wort Buchungen" to { exporter.pdf("buchungsjournal_${verein}_$heute.pdf") { Berichte.journalPdf(liste, konten, name, heute) } },
+    )
+}
+
+@Composable
+private fun ExportMenue(titel: String, punkte: List<Pair<String, () -> Unit>>, kompakt: Boolean) {
+    var offen by remember { mutableStateOf(false) }
+    Box {
+        if (kompakt) OutlinedButton(
+            onClick = { offen = true }, modifier = Modifier.height(32.dp), enabled = punkte.isNotEmpty(),
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+        ) { Text(titel, style = MaterialTheme.typography.labelMedium, maxLines = 1, softWrap = false) }
+        else TextButton(onClick = { offen = true }) { Text(titel, maxLines = 1, softWrap = false) }
+        DropdownMenu(offen, { offen = false }) {
+            punkte.forEach { (text, aktion) -> DropdownMenuItem(text = { Text(text) }, onClick = { offen = false; aktion() }) }
+        }
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)

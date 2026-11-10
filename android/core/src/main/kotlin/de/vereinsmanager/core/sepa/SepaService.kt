@@ -132,8 +132,13 @@ object SepaService {
         return raw
     }
 
-    private fun isEligible(m: SepaMember, filter: SepaPeriodFilter): Boolean {
+    private fun datumOrNull(s: String?): LocalDate? = try { s?.trim()?.takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it) } } catch (e: Exception) { null }
+
+    private fun isEligible(m: SepaMember, filter: SepaPeriodFilter, today: LocalDate): Boolean {
         if (m.status == "terminated" || m.status == "suspended") return false
+        // Wer schon ausgetreten ist (Austritt vor heute) oder noch nicht eingetreten ist (Eintritt nach heute), wird nicht eingezogen.
+        datumOrNull(m.exitDate)?.let { if (it.isBefore(today)) return false }
+        datumOrNull(m.entryDate)?.let { if (it.isAfter(today)) return false }
         if (m.paymentMethod != "sepa") return false
         val dueDay = m.monthlyDueDay?.takeIf { it != 0 } ?: 1
         return when (filter) {
@@ -161,7 +166,7 @@ object SepaService {
         val targetMonth = config.targetMonth?.takeIf { it != 0 } ?: today.monthValue
         val monthStr = targetMonth.toString().padStart(2, '0')
 
-        return members.filter { isEligible(it, filter) }.map { m ->
+        return members.filter { isEligible(it, filter, today) }.map { m ->
             val amount = calculateCollectionAmount(m, filter)
             val errors = mutableListOf<String>()
 

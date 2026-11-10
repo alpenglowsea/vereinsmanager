@@ -130,7 +130,8 @@ fun DokumenteScreen(
         item {
             OutlinedTextField(
                 value = text, onValueChange = { text = it }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                label = { Text(if (folderId == null) "Suchen (Titel, Datei, Notiz, Schlagwort …)" else "In diesem Ordner suchen") },
+                label = { Text(if (folderId == null) "Dokumente suchen" else "In diesem Ordner suchen", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                placeholder = { Text("Titel, Datei, Notiz, Schlagwort", maxLines = 1, overflow = TextOverflow.Ellipsis) },
             )
         }
         item {

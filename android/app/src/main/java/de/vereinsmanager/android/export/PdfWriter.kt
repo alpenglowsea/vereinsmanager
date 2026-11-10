@@ -55,6 +55,7 @@ object PdfWriter {
         val kopfFarbe = Color.rgb(30, 41, 59)
         val textP = paint(8f * 1.0f, Color.rgb(40, 40, 40))
         val kopfP = paint(8f, Color.WHITE, bold = true)
+        val fettP = paint(8f, Color.rgb(15, 23, 42), bold = true)
         val rand = Paint().apply { color = Color.rgb(200, 205, 212); strokeWidth = 0.5f; style = Paint.Style.STROKE }
         val fill = Paint().apply { style = Paint.Style.FILL }
         val breiten = t.breiten.map { it * MM }
@@ -97,7 +98,8 @@ object PdfWriter {
 
         neueSeite()
         t.zeilen.forEachIndexed { zi, zeile ->
-            val umbruch = zeile.mapIndexed { i, s -> umbrechen(s, textP, breiten[i] - 2 * POLSTER) }
+            val zp = if (zi in t.fett) fettP else textP
+            val umbruch = zeile.mapIndexed { i, s -> umbrechen(s, zp, breiten[i] - 2 * POLSTER) }
             val hoehe = (umbruch.maxOf { it.size }) * zeilenHoehe + 2 * POLSTER
             if (y + hoehe > SEITE_UNTEN) neueSeite()
             val c = page!!.canvas
@@ -107,11 +109,11 @@ object PdfWriter {
                 c.drawRect(x, y, x + breiten[i], y + hoehe, rand)
                 zl.forEachIndexed { k, s ->
                     val tx = when (t.ausrichtung.getOrElse(i) { 'l' }) {
-                        'r' -> x + breiten[i] - POLSTER - textP.measureText(s)
-                        'c' -> x + (breiten[i] - textP.measureText(s)) / 2
+                        'r' -> x + breiten[i] - POLSTER - zp.measureText(s)
+                        'c' -> x + (breiten[i] - zp.measureText(s)) / 2
                         else -> x + POLSTER
                     }
-                    c.drawText(s, tx, y + POLSTER + (k + 1) * zeilenHoehe - 3f, textP)
+                    c.drawText(s, tx, y + POLSTER + (k + 1) * zeilenHoehe - 3f, zp)
                 }
                 x += breiten[i]
             }
