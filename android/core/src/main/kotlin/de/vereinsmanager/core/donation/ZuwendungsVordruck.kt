@@ -20,6 +20,8 @@ sealed interface Zeichnung {
     ) : Zeichnung
 
     data class Rechteck(val x: Double, val y: Double, val b: Double, val h: Double) : Zeichnung
+    /** Ein Linienzug (zusammenhängender Strich) durch die Punkte, etwa für die Unterschrift. */
+    data class Linienzug(val punkte: List<Pair<Double, Double>>, val dicke: Double = 0.5) : Zeichnung
     data class Linie(val x1: Double, val y1: Double, val x2: Double, val y2: Double, val dicke: Double = 0.25) : Zeichnung
 
     /**
@@ -29,6 +31,8 @@ sealed interface Zeichnung {
     data class Umbruch(
         val absaetze: List<String>, val x: Double, val y: Double, val breite: Double, val groesse: Double,
         val zeilenabstand: Double, val absatzAbstand: Double = 0.0, val maxZeilen: Int? = null,
+        /** Einzeilig bleiben und die Schrift verkleinern (bis 5,5 pt), statt umzubrechen; danach zweizeilig in 6 pt. */
+        val schrumpfen: Boolean = false,
     ) : Zeichnung
 }
 
@@ -46,7 +50,7 @@ object ZuwendungsVordruck {
     private val DE = DecimalFormatSymbols(Locale.GERMANY)
     private fun betragDe(v: BigDecimal) = DecimalFormat("#,##0.00", DE).format(v.setScale(2, RoundingMode.HALF_UP))
 
-    fun bauen(r: DonationReceipt, settings: ClubTaxSettings): List<Zeichnung> {
+    fun bauen(r: DonationReceipt, settings: ClubTaxSettings, unterschrift: Unterschrift? = null): List<Zeichnung> {
         val z = ArrayList<Zeichnung>()
         val sach = r.type == "goods"
         val st = DonationService.ermittleSteuerangaben(r, settings)
@@ -91,7 +95,7 @@ object ZuwendungsVordruck {
         text("- in Buchstaben -", 106.5, 77.8, 8.0, aus = Zeichnung.Aus.MITTE)
         text("Tag der Zuwendung:", 152.9, 77.8, 8.0)
         text("${betragDe(r.amount)}€", 60.3, 84.7, 10.0, aus = Zeichnung.Aus.RECHTS)
-        z.add(Zeichnung.Umbruch(listOf(r.amountInWords.ifEmpty { DonationService.numberToGermanWords(r.amount) }), 62.2, 84.7, 87.0, 10.0, 4.2, maxZeilen = 1))
+        z.add(Zeichnung.Umbruch(listOf(r.amountInWords.ifEmpty { DonationService.numberToGermanWords(r.amount) }), 62.2, 84.7, 87.0, 10.0, 4.2, maxZeilen = 1, schrumpfen = true))
         text(DonationService.datumFuerFormular(r.date), 152.9, 84.7, 10.0)
 
         // 5. Verzicht auf Erstattung (Geld) bzw. Angaben zur Sache (Sach)
@@ -174,6 +178,14 @@ object ZuwendungsVordruck {
         text(r.cityAndDate, L, sigY, 10.0)
         linie(L, sigY + 1.8, L + BW, sigY + 1.8)
         text("(Ort, Datum und Unterschrift des Zuwendungsempfängers)", TX - 1, sigY + 4.8, 8.0)
+        if (r.signed && unterschrift != null && !unterschrift.leer) {
+            // Rechts neben Ort und Datum, auf der Linie; höchstens 70 x 11 mm, Seitenverhältnis bleibt.
+            val hoehe = minOf(11.0, 70.0 / unterschrift.seitenverhaeltnis)
+            val breite = hoehe * unterschrift.seitenverhaeltnis
+            val x0 = L + 100.0
+            val y0 = sigY + 1.2 - hoehe
+            for (st in unterschrift.striche) if (st.size >= 2) z.add(Zeichnung.Linienzug(st.map { (x, y) -> (x0 + x * breite) to (y0 + y * hoehe) }))
+        }
 
         // 10. Hinweis
         val hy = sigY + 10.2

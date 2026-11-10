@@ -50,6 +50,8 @@ data class DonationReceipt(
     val transactionId: String? = null,
     /** Das abgelegte PDF im Dokumentenarchiv. */
     val documentId: String? = null,
+    /** Die hinterlegte Unterschrift soll im PDF stehen. */
+    val signed: Boolean = false,
     val createdAt: String = "",
     val updatedAt: String = "",
 )
@@ -101,6 +103,7 @@ fun JsonObject.toDonationReceipt(): DonationReceipt {
         memberId = s("memberId")?.takeIf { it.isNotEmpty() },
         transactionId = s("transactionId")?.takeIf { it.isNotEmpty() },
         documentId = s("documentId")?.takeIf { it.isNotEmpty() },
+        signed = b("signed") ?: false,
         createdAt = s("createdAt") ?: "",
         updatedAt = s("updatedAt") ?: "",
     )

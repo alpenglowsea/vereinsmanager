@@ -60,6 +60,8 @@ import de.vereinsmanager.core.donation.SpendeOptionen
 import de.vereinsmanager.core.donation.Spenden
 import de.vereinsmanager.core.donation.SpendenPdf
 import de.vereinsmanager.core.donation.SpendenZip
+import de.vereinsmanager.core.donation.Unterschrift
+import de.vereinsmanager.core.donation.Unterschriften
 import de.vereinsmanager.android.export.PdfWriter
 import de.vereinsmanager.core.sepa.Beitragslauf
 import de.vereinsmanager.core.sepa.Lauf
@@ -139,6 +141,8 @@ class AppModel(private val appContext: Context) {
         private set
     var spenden by mutableStateOf<List<DonationReceipt>>(emptyList())
         private set
+    var unterschrift by mutableStateOf<Unterschrift?>(null)
+        private set
     var vereinsdaten by mutableStateOf(VereinsForm())
         private set
     /** Was für einen Lastschrifteinzug in den Einstellungen noch fehlt (null: alles da). */
@@ -178,6 +182,7 @@ class AppModel(private val appContext: Context) {
         ordner = Dokumente.ordner(store)
         laeufe = Beitragslauf.laeufe(store)
         spenden = Spenden.alle(store)
+        unterschrift = Unterschriften.lesen(store)
         vereinsdaten = Vereinsdaten.lesen(store.get("settings", "main"))
         lastschriftFehlt = Vereinsdaten.fehlt(store.get("settings", "main"))
         glaeubiger = Vereinsdaten.glaeubiger(store.get("settings", "main"))
@@ -533,7 +538,7 @@ class AppModel(private val appContext: Context) {
     // ---- Spenden (Zuwendungsbestätigungen) ----
 
     /** Zeichnet eine Bestätigung als PDF; wird auch beim Ablegen im Dokumentenarchiv benutzt. */
-    private val spendenPdf: SpendenPdf = { r, st -> java.io.ByteArrayOutputStream().also { PdfWriter.zuwendung(r, st, it) }.toByteArray() }
+    private val spendenPdf: SpendenPdf = { r, st -> java.io.ByteArrayOutputStream().also { PdfWriter.zuwendung(r, st, it, Unterschriften.lesen(store)) }.toByteArray() }
 
     fun spendeNeu(): SpendeForm = Spenden.neu(store)
     fun spendeFormular(r: DonationReceipt): SpendeForm = Spenden.von(r, Spenden.steuerangaben(store))
@@ -544,17 +549,20 @@ class AppModel(private val appContext: Context) {
     fun spendeSpeichern(f: SpendeForm, opt: SpendeOptionen, done: (SpendeErgebnis?, String?) -> Unit) =
         hintergrund({ Spenden.speichern(store, dateien, f, opt, spendenPdf) }, done)
 
+    fun unterschriftSpeichern(u: Unterschrift?, done: (String?) -> Unit) =
+        hintergrund({ Unterschriften.speichern(store, u) }) { _, f -> done(f) }
+
     fun spendeLoeschen(id: String, buchungMit: Boolean, done: (String?) -> Unit) =
         hintergrund({ Spenden.loeschen(store, dateien, id, buchungMit) }) { _, f -> done(f) }
 
     /** Schreibt das PDF einer Bestätigung (frisch aus den gespeicherten Angaben gezeichnet). */
-    fun spendePdfSchreiben(r: DonationReceipt, out: java.io.OutputStream) = PdfWriter.zuwendung(r, Spenden.steuerangaben(store), out)
+    fun spendePdfSchreiben(r: DonationReceipt, out: java.io.OutputStream) = PdfWriter.zuwendung(r, Spenden.steuerangaben(store), out, unterschrift)
 
     /** Schreibt eine ZIP-Datei mit den PDFs aller genannten Bestätigungen. */
     fun spendenZipSchreiben(liste: List<DonationReceipt>, out: java.io.OutputStream) {
         val st = Spenden.steuerangaben(store)
         val namen = DonationExport.pdfDateinamen(liste)
-        val daten = liste.map { r -> java.io.ByteArrayOutputStream().also { PdfWriter.zuwendung(r, st, it) }.toByteArray() }
+        val daten = liste.map { r -> java.io.ByteArrayOutputStream().also { PdfWriter.zuwendung(r, st, it, unterschrift) }.toByteArray() }
         out.write(SpendenZip.bauen(namen, daten))
     }
 

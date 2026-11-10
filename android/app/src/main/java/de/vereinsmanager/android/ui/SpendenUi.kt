@@ -202,8 +202,9 @@ fun SpendeDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
         Zeile("Ausgestellt von", r.issuedBy)
         Zeile("Ort und Datum", r.cityAndDate)
         Zeile("Notiz", r.notes.orEmpty())
+        Zeile("Unterschrift im PDF", if (r.signed) (if (model.unterschrift != null) "Ja" else "Ja, aber es ist keine Unterschrift mehr hinterlegt") else "Nein")
         Zeile("Verknüpfte Buchung", if (r.transactionId == null) "Keine" else buchung?.let { "${it.belegNummer} · ${Geld.euro(it.betrag.abs())}" } ?: "Die Buchung gibt es nicht mehr")
-        Zeile("PDF im Dokumentenarchiv", if (r.documentId == null) "Nicht abgelegt" else "Abgelegt (Ordner „Belege ${jahrVon(r)}“)")
+        Zeile("PDF im Dokumentenarchiv", if (r.documentId == null) "Nicht abgelegt" else "Abgelegt (Belege ${jahrVon(r)} → Spendenbescheinigungen)")
         if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
         Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onEdit) { Text("Bearbeiten") }
@@ -314,8 +315,13 @@ fun SpendeFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
         Text("Beim Speichern", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(pdfAblegen, { pdfAblegen = it })
-            Text("  PDF im Dokumentenarchiv ablegen (Ordner „Belege ${f.datum.take(4).ifEmpty { "…" }}“)", Modifier.weight(1f))
+            Text("  PDF im Dokumentenarchiv ablegen (Belege ${f.datum.take(4).ifEmpty { "…" }} → Spendenbescheinigungen)", Modifier.weight(1f))
         }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Switch(f.unterschrift && model.unterschrift != null, { f = f.copy(unterschrift = it) }, enabled = model.unterschrift != null)
+            Text("  Unterschrift ins PDF setzen", Modifier.weight(1f))
+        }
+        if (model.unterschrift == null) Text("Dafür zuerst in den Einstellungen unterschreiben.", style = MaterialTheme.typography.bodySmall)
         if (geld && !verknuepft) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Switch(buchungAnlegen, { buchungAnlegen = it }, enabled = model.konten.isNotEmpty())

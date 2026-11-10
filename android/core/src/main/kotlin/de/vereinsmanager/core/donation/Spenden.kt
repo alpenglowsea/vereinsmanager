@@ -58,6 +58,8 @@ data class SpendeForm(
     val aussteller: String = "",
     val ortDatum: String = "",
     val notiz: String = "",
+    /** Die hinterlegte Unterschrift ins PDF setzen. */
+    val unterschrift: Boolean = false,
 )
 
 /** Was beim Speichern zusätzlich geschehen soll. */
@@ -78,7 +80,7 @@ typealias SpendenPdf = (DonationReceipt, ClubTaxSettings) -> ByteArray
 /**
  * Zuwendungsbestätigungen im Bereich `donations`. Wie am Desktop gehört zu einer Bestätigung auf Wunsch eine Einnahmebuchung
  * (nur Geldspenden) und ein abgelegtes PDF im Dokumentenarchiv. Abweichungen vom Desktop: Nummern werden nicht doppelt vergeben,
- * die Buchung geht auf Konto 40450 statt nur in eine Kategorie, das PDF liegt im Ordner „Belege <Jahr>“, und beim Ändern oder
+ * die Buchung geht auf Konto 40450 statt nur in eine Kategorie, das PDF liegt im Ordner „Belege <Jahr>/Spendenbescheinigungen“, und beim Ändern oder
  * Löschen entscheidet der Anwender, was mit der verknüpften Buchung geschieht.
  */
 object Spenden {
@@ -125,6 +127,7 @@ object Spenden {
             veranlagung = st.taxAssessmentPeriod, zweck = st.promotedPurposes,
             aussteller = "${v.kassenwart.ifBlank { "Schatzmeister" }} (Vorstand)",
             ortDatum = DonationService.standardOrtUndDatum(st, heute),
+            unterschrift = Unterschriften.lesen(store) != null,
         )
     }
 
@@ -138,7 +141,7 @@ object Spenden {
         finanzamt = r.taxOffice.ifEmpty { st.taxOffice }, steuernummer = r.taxNumber.ifEmpty { st.taxNumber },
         freistellung = r.exemptionDate.ifEmpty { st.taxExemptionDate }, feststellung = r.statementDate?.ifEmpty { null } ?: st.taxStatementDate,
         veranlagung = r.assessmentPeriod.ifEmpty { st.taxAssessmentPeriod }, zweck = r.promotedPurpose.ifEmpty { st.promotedPurposes },
-        aussteller = r.issuedBy, ortDatum = r.cityAndDate, notiz = r.notes.orEmpty(),
+        aussteller = r.issuedBy, ortDatum = r.cityAndDate, notiz = r.notes.orEmpty(), unterschrift = r.signed,
     )
 
     /** Übernimmt Name und Anschrift eines Mitglieds. */
@@ -203,6 +206,7 @@ object Spenden {
         m["isDirectlyPromoted"] = JsonPrimitive(true)
         m["issuedBy"] = s(f.aussteller.trim()); m["cityAndDate"] = s(f.ortDatum.trim())
         m["notes"] = s(f.notiz.trim())
+        m["signed"] = JsonPrimitive(f.unterschrift)
         m["createdAt"] = base?.get("createdAt") ?: s(stamp)
         m["updatedAt"] = s(stamp)
         return m
@@ -290,7 +294,8 @@ object Spenden {
                     val id = dokId?.takeIf { it.isNotEmpty() } ?: "doc-don-${f.id}"
                     val altDoc = store.get(DOKUMENTE, id)
                     alteDatei = altDoc?.let { t(it, "fileId") }?.takeIf { it.isNotEmpty() }
-                    val ordner = Belege.zielOrdner(store, form.datum.take(4).takeIf { it.length == 4 && it.all(Char::isDigit) }, stamp)
+                    val jahrOrdner = Belege.zielOrdner(store, form.datum.take(4).takeIf { it.length == 4 && it.all(Char::isDigit) }, stamp)
+                    val ordner = Belege.unterordner(store, jahrOrdner, "Spendenbescheinigungen", "Zuwendungsbestätigungen (Spendenquittungen) dieses Geschäftsjahres", stamp)
                     val sach = form.art == "goods"
                     val dateiName = "Zuwendungsbestaetigung_${DonationExport.dateinameTeil(form.nummer).ifEmpty { "ohne-Nr" }}_${DonationExport.dateinameTeil(form.name).ifEmpty { "Spender" }}.pdf"
                     val d = LinkedHashMap<String, JsonElement>(altDoc ?: JsonObject(emptyMap()))

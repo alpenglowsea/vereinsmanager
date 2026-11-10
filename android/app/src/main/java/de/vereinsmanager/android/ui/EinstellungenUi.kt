@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,6 +34,8 @@ fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
     var f by remember(model.vereinsdaten) { mutableStateOf(model.vereinsdaten) }
     var zeigeFehler by remember { mutableStateOf(false) }
     var meldung by remember { mutableStateOf<String?>(null) }
+    var unterschreiben by remember { mutableStateOf(false) }
+    var sigMeldung by remember { mutableStateOf<String?>(null) }
     val fehler = Vereinsdaten.pruefen(f)
     fun fehlerFuer(k: String) = if (zeigeFehler) fehler[k] else null
     val geaendert = f != model.vereinsdaten
@@ -70,6 +74,22 @@ fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
                 Feld("Gemeinnützige Zwecke", f.zweck, { f = f.copy(zweck = it) }, singleLine = false, hinweis = "Steht so auf der Bestätigung")
             }
         }
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Unterschrift für Zuwendungsbestätigungen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                val u = model.unterschrift
+                if (u != null) UnterschriftVorschau(u) else Text("Noch keine Unterschrift hinterlegt.", style = MaterialTheme.typography.bodySmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { unterschreiben = true }, enabled = !model.busy) { Text(if (u == null) "Unterschreiben" else "Neu unterschreiben") }
+                    if (u != null) OutlinedButton(onClick = { model.unterschriftSpeichern(null) { e -> sigMeldung = e ?: "Unterschrift gelöscht." } }, enabled = !model.busy) { Text("Löschen") }
+                }
+                Text(
+                    "Die Unterschrift wird mit den Vereinsdaten gespeichert und steht damit auch in jeder Datensicherung. Sie kommt nur ins PDF, wenn Sie das beim jeweiligen Beleg einschalten.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (sigMeldung != null) Text(sigMeldung!!, style = MaterialTheme.typography.bodySmall)
+            }
+        }
         if (meldung != null) Text(meldung!!, color = if (meldung == "Gespeichert.") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
         Button(
             onClick = {
@@ -78,5 +98,11 @@ fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
             },
             enabled = !model.busy && geaendert, modifier = Modifier.fillMaxWidth(),
         ) { Text("Speichern") }
+    }
+    if (unterschreiben) {
+        UnterschriftDialog(
+            onDismiss = { unterschreiben = false },
+            onFertig = { u -> unterschreiben = false; model.unterschriftSpeichern(u) { e -> sigMeldung = e ?: "Unterschrift gespeichert." } },
+        )
     }
 }

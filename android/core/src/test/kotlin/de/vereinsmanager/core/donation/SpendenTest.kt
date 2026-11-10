@@ -121,7 +121,10 @@ class SpendenTest {
         assertEquals("application/pdf", str(d, "fileType"))
         assertEquals(erg.buchungId, str(d, "transactionId"))
         val ordner = u.store.get("folders", str(d, "folderId")!!)!!
-        assertEquals("Belege 2026", str(ordner, "name"))
+        assertEquals("Spendenbescheinigungen", str(ordner, "name"))
+        val jahr = u.store.get("folders", str(ordner, "parentId")!!)!!
+        assertEquals("Belege 2026", str(jahr, "name"))
+        assertEquals(1, u.store.all("folders").count { str(it, "name") == "Spendenbescheinigungen" })
         assertTrue(u.files.readBytes(str(d, "fileId")!!)!!.contentEquals(pdfBytes))
     }
 
@@ -310,5 +313,38 @@ class SpendenTest {
         assertFalse(texte.contains("Neubrandenburg"))
         // Kreuze nur bei "Nein" (kein Verzicht) und beim Mitgliedsbeitrag-Kästchen; keines bei Freistellung und Feststellung
         assertEquals(4, z.filterIsInstance<Zeichnung.Linie>().count { it.dicke == 0.35 })
+    }
+
+    private val kritzel = Unterschrift(2.5, listOf(listOf(0.1 to 0.5, 0.4 to 0.2, 0.9 to 0.6), listOf(0.2 to 0.8)))
+
+    @Test fun unterschriftWirdGespeichertUndGelesen() {
+        val u = umgebung()
+        assertNull(Unterschriften.lesen(u.store))
+        Unterschriften.speichern(u.store, kritzel)
+        val g = Unterschriften.lesen(u.store)!!
+        assertEquals(2.5, g.seitenverhaeltnis, 0.0001)
+        assertEquals(1, g.striche.size) // der Einzelpunkt ist kein Strich
+        assertEquals(3, g.striche[0].size)
+        assertEquals("TSV Beispiel", str(u.store.get("settings", "main"), "clubName")) // Vereinsdaten bleiben
+        Unterschriften.speichern(u.store, null)
+        assertNull(Unterschriften.lesen(u.store))
+        assertEquals("TSV Beispiel", str(u.store.get("settings", "main"), "clubName"))
+    }
+
+    @Test fun unterschriftErscheintNurAufWunschImVordruck() {
+        val u = umgebung()
+        Unterschriften.speichern(u.store, kritzel)
+        val st = Spenden.steuerangaben(u.store)
+        val f = form(u)
+        assertTrue(f.unterschrift) // vorbelegt, weil eine hinterlegt ist
+        val erg = Spenden.speichern(u.store, u.files, f, SpendeOptionen(pdfAblegen = false), null, jetzt)
+        assertTrue(erg.spende.signed)
+        val mit = ZuwendungsVordruck.bauen(erg.spende, st, Unterschriften.lesen(u.store))
+        assertEquals(1, mit.filterIsInstance<Zeichnung.Linienzug>().size)
+        assertEquals(0, ZuwendungsVordruck.bauen(erg.spende, st, null).filterIsInstance<Zeichnung.Linienzug>().size)
+        assertEquals(0, ZuwendungsVordruck.bauen(erg.spende.copy(signed = false), st, Unterschriften.lesen(u.store)).filterIsInstance<Zeichnung.Linienzug>().size)
+        // alle Punkte liegen auf der Seite, über der Unterschriftslinie
+        val pkt = mit.filterIsInstance<Zeichnung.Linienzug>().single().punkte
+        assertTrue(pkt.all { it.first in 100.0..200.0 && it.second in 100.0..290.0 })
     }
 }

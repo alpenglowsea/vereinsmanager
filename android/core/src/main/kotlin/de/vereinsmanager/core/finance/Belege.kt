@@ -69,6 +69,22 @@ object Belege {
 
     private fun parentId(o: JsonObject): String? = (o["parentId"] as? JsonPrimitive)?.takeIf { it !is JsonNull }?.content?.takeIf { it.isNotEmpty() }
 
+    /** Findet oder legt einen Unterordner [name] unter [elternId] an. Gibt dessen Kennung zurück. */
+    internal fun unterordner(store: DocumentStore, elternId: String, name: String, beschreibung: String, stempel: String): String {
+        store.all(ORDNER).firstOrNull { parentId(it) == elternId && it.text("name") == name }?.text("id")?.let { return it }
+        val id = "folder-" + zufall()
+        store.put(
+            ORDNER, id,
+            JsonObject(
+                linkedMapOf(
+                    "id" to s(id), "name" to s(name), "parentId" to s(elternId), "category" to s("belege"), "color" to s("#10b981"),
+                    "description" to s(beschreibung), "createdAt" to s(stempel), "updatedAt" to s(stempel),
+                ),
+            ),
+        )
+        return id
+    }
+
     /** Findet oder legt an: „Buchhaltungsbelege & Finanzen" und darunter „Belege <Jahr>". Gibt die Kennung des Zielordners zurück. */
     internal fun zielOrdner(store: DocumentStore, jahr: String?, stempel: String): String {
         val alle = store.all(ORDNER)

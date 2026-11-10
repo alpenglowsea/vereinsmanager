@@ -324,7 +324,7 @@ object PdfWriter {
      * schmaler als die des Desktops: Zeilen, die über den rechten Rand des Vordrucks hinausragen würden, werden dafür
      * etwas verkleinert statt abgeschnitten.
      */
-    fun zuwendung(r: DonationReceipt, st: ClubTaxSettings, out: OutputStream) {
+    fun zuwendung(r: DonationReceipt, st: ClubTaxSettings, out: OutputStream, unterschrift: de.vereinsmanager.core.donation.Unterschrift? = null) {
         val doc = PdfDocument()
         val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, 1).create())
         val c = page.canvas
@@ -336,11 +336,21 @@ object PdfWriter {
         }
         val strich = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = schwarz; style = Paint.Style.STROKE }
         val rechterRand = 195.3f * MM
-        for (z in ZuwendungsVordruck.bauen(r, st)) {
+        for (z in ZuwendungsVordruck.bauen(r, st, unterschrift)) {
             when (z) {
                 is Zeichnung.Rechteck -> {
                     strich.strokeWidth = 0.25f * MM
                     c.drawRect(z.x.toFloat() * MM, z.y.toFloat() * MM, (z.x + z.b).toFloat() * MM, (z.y + z.h).toFloat() * MM, strich)
+                }
+                is Zeichnung.Linienzug -> {
+                    strich.strokeWidth = z.dicke.toFloat() * MM
+                    strich.strokeCap = Paint.Cap.ROUND
+                    strich.strokeJoin = Paint.Join.ROUND
+                    val weg = android.graphics.Path()
+                    z.punkte.forEachIndexed { i, (x, y) -> if (i == 0) weg.moveTo(x.toFloat() * MM, y.toFloat() * MM) else weg.lineTo(x.toFloat() * MM, y.toFloat() * MM) }
+                    c.drawPath(weg, strich)
+                    strich.strokeCap = Paint.Cap.BUTT
+                    strich.strokeJoin = Paint.Join.MITER
                 }
                 is Zeichnung.Linie -> {
                     strich.strokeWidth = z.dicke.toFloat() * MM
@@ -364,7 +374,21 @@ object PdfWriter {
                     c.drawText(z.text, x, y, paint)
                     z.fettAnhang?.let { a -> c.drawText(a, x0 + paint.measureText(z.text + " ") + 0.6f * MM, y, p(z.groesse, true)) }
                 }
-                is Zeichnung.Umbruch -> {
+                is Zeichnung.Umbruch -> if (z.schrumpfen) {
+                    val text = z.absaetze.joinToString(" ")
+                    val breite = z.breite.toFloat() * MM
+                    var groesse = z.groesse
+                    var paint = p(groesse, false)
+                    while (paint.measureText(text) > breite && groesse > 5.5) { groesse -= 0.25; paint = p(groesse, false) }
+                    if (paint.measureText(text) <= breite) {
+                        c.drawText(text, z.x.toFloat() * MM, z.y.toFloat() * MM, paint)
+                    } else {
+                        val klein = p(6.0, false)
+                        umbrechen(text, klein, breite).take(2).forEachIndexed { i, zl ->
+                            c.drawText(zl, z.x.toFloat() * MM, (z.y + (i - 1) * 3.0 + 0.2).toFloat() * MM, klein)
+                        }
+                    }
+                } else {
                     val paint = p(z.groesse, false)
                     var y = z.y.toFloat() * MM
                     for (absatz in z.absaetze) {
