@@ -45,6 +45,9 @@ import de.vereinsmanager.android.ui.DokumentAnsichtScreen
 import de.vereinsmanager.android.ui.DokumentDetailScreen
 import de.vereinsmanager.android.ui.DokumentFormScreen
 import de.vereinsmanager.android.ui.DokumenteScreen
+import de.vereinsmanager.android.ui.KontakteScreen
+import de.vereinsmanager.android.ui.KontaktDetailScreen
+import de.vereinsmanager.android.ui.KontaktFormScreen
 import de.vereinsmanager.android.ui.KontenScreen
 import de.vereinsmanager.android.ui.Kopfzeile
 import de.vereinsmanager.android.ui.MenueInhalt
@@ -71,7 +74,8 @@ sealed interface Page {
     data object MemberAnalytics : Page
     data object Transactions : Page
     data class Transaction(val id: String) : Page
-    data class TransactionEdit(val id: String?) : Page
+    /** [partner]: Vorbelegung des Zahlungspartners bei einer neuen Buchung (z. B. aus einem Kontakt). */
+    data class TransactionEdit(val id: String?, val partner: String? = null) : Page
     data class BelegAnsicht(val id: String) : Page
     data object Accounts : Page
     data object Sepa : Page
@@ -79,13 +83,17 @@ sealed interface Page {
     data object Rechnungen : Page
     data class Rechnung(val id: String) : Page
     /** id == null: neue Rechnung */
-    data class RechnungEdit(val id: String?) : Page
+    data class RechnungEdit(val id: String?, val kontaktId: String? = null) : Page
     data object RechnungsVorlage : Page
     /** PDF zu einem Eintrag ansehen; [art] "rechnung" oder "spende" (weitere kommen in AppModel.vorschauDatei dazu). */
     data class Vorschau(val art: String, val id: String) : Page
     data object Spenden : Page
     data class Spende(val id: String) : Page
     data class SpendeEdit(val id: String?) : Page
+    data object Contacts : Page
+    data class Contact(val id: String) : Page
+    /** id == null: neuer Kontakt */
+    data class ContactEdit(val id: String?) : Page
     data object Settings : Page
     /** folderId == null: oberste Ebene. Jeder Ordner ist eine eigene Seite auf dem Stapel. */
     data class Documents(val folderId: String?) : Page
@@ -126,6 +134,7 @@ class MainActivity : ComponentActivity() {
                         Ziel.EUER -> listOf(Page.Home, Page.Euer)
                         Ziel.RECHNUNGEN -> listOf(Page.Home, Page.Rechnungen)
                         Ziel.SPENDEN -> listOf(Page.Home, Page.Spenden)
+                        Ziel.KONTAKTE -> listOf(Page.Home, Page.Contacts)
                         Ziel.EINSTELLUNGEN -> listOf(Page.Home, Page.Settings)
                         else -> stack // noch nicht gebaut; das Menü zeigt dafür einen Hinweis
                     }
@@ -136,7 +145,7 @@ class MainActivity : ComponentActivity() {
                     MenueInhalt(model.clubName, aktivesZiel(page), onWahl = ::geheZu)
                 }
                 val inhalt: @Composable () -> Unit = {
-                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || (page is Page.Documents && page.folderId == null) || page is Page.Sepa || page is Page.Euer || page is Page.Rechnungen || page is Page.Spenden || (page is Page.Settings && stack.size <= 2) || page is Page.Probes
+                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || (page is Page.Documents && page.folderId == null) || page is Page.Sepa || page is Page.Euer || page is Page.Rechnungen || page is Page.Spenden || page is Page.Contacts || (page is Page.Settings && stack.size <= 2) || page is Page.Probes
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
                         topBar = {
@@ -181,7 +190,7 @@ class MainActivity : ComponentActivity() {
                                 onDeleted = { stack = stack.filter { it !is Page.Transaction && it !is Page.TransactionEdit && it !is Page.BelegAnsicht } }, modifier = m,
                             )
                             is Page.BelegAnsicht -> BelegAnsichtScreen(model, page.id, modifier = m)
-            is Page.TransactionEdit -> BuchungFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
+            is Page.TransactionEdit -> BuchungFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m, vorPartner = page.partner)
                             Page.Accounts -> KontenScreen(model, modifier = m)
                             Page.Sepa -> BeitragslaufScreen(model, onEinstellungen = { stack = stack + Page.Settings }, modifier = m)
                             Page.Settings -> EinstellungenScreen(model, modifier = m)
@@ -195,9 +204,18 @@ class MainActivity : ComponentActivity() {
                                 onAnsehen = { stack = stack + Page.Vorschau("rechnung", page.id) },
                                 onDeleted = { stack = stack.filter { it !is Page.Rechnung && it !is Page.RechnungEdit && it !is Page.Vorschau } }, modifier = m,
                             )
-                            is Page.RechnungEdit -> RechnungFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
+                            is Page.RechnungEdit -> RechnungFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m, kontaktId = page.kontaktId)
                             Page.RechnungsVorlage -> RechnungsVorlageScreen(model, onDone = { stack = stack.dropLast(1) }, modifier = m)
                             is Page.Vorschau -> VorschauScreen(model, page.art, page.id, modifier = m)
+                            Page.Contacts -> KontakteScreen(model, onOpen = { stack = stack + Page.Contact(it) }, onNew = { stack = stack + Page.ContactEdit(null) }, modifier = m)
+                            is Page.Contact -> KontaktDetailScreen(
+                                model, page.id, onEdit = { stack = stack + Page.ContactEdit(page.id) },
+                                onBuchung = { name -> stack = stack + Page.TransactionEdit(null, name) },
+                                onRechnung = { kid -> stack = stack + Page.RechnungEdit(null, kid) },
+                                onOpenBuchung = { stack = stack + Page.Transaction(it) }, onOpenRechnung = { stack = stack + Page.Rechnung(it) },
+                                onDeleted = { stack = stack.filter { it !is Page.Contact && it !is Page.ContactEdit } }, modifier = m,
+                            )
+                            is Page.ContactEdit -> KontaktFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
                             Page.Spenden -> SpendenScreen(model, onOpen = { stack = stack + Page.Spende(it) }, onNew = { stack = stack + Page.SpendeEdit(null) }, modifier = m)
                             is Page.Spende -> SpendeDetailScreen(
                                 model, page.id, onEdit = { stack = stack + Page.SpendeEdit(page.id) },
@@ -269,6 +287,9 @@ private fun seitenTitel(p: Page, model: AppModel): String = when (p) {
     Page.Spenden -> "Spenden"
     is Page.Spende -> "Zuwendungsbestätigung"
     is Page.SpendeEdit -> if (p.id == null) "Neue Bestätigung" else "Bestätigung bearbeiten"
+    Page.Contacts -> "Kontakte"
+    is Page.Contact -> "Kontakt"
+    is Page.ContactEdit -> if (p.id == null) "Neuer Kontakt" else "Kontakt bearbeiten"
     Page.Settings -> "Einstellungen"
     is Page.TransactionEdit -> if (p.id == null) "Neue Buchung" else "Buchung bearbeiten"
     is Page.Documents -> if (p.folderId == null) "Dokumente" else model.ordner.firstOrNull { it.id == p.folderId }?.name ?: "Ordner"
@@ -290,6 +311,7 @@ private fun aktivesZiel(p: Page): Ziel? = when (p) {
     Page.Rechnungen, is Page.Rechnung, is Page.RechnungEdit, Page.RechnungsVorlage -> Ziel.RECHNUNGEN
     is Page.Vorschau -> if (p.art == "rechnung") Ziel.RECHNUNGEN else Ziel.SPENDEN
     Page.Spenden, is Page.Spende, is Page.SpendeEdit -> Ziel.SPENDEN
+    Page.Contacts, is Page.Contact, is Page.ContactEdit -> Ziel.KONTAKTE
     Page.Settings -> Ziel.EINSTELLUNGEN
     Page.Probes -> null
 }

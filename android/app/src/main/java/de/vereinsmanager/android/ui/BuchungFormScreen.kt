@@ -40,9 +40,9 @@ import java.math.BigDecimal
 
 /** Anlegen (id == null) und Bearbeiten einer Buchung. Alle Regeln stecken im Kern ([BuchungRegeln]). */
 @Composable
-fun BuchungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier: Modifier = Modifier) {
+fun BuchungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier: Modifier = Modifier, vorPartner: String? = null) {
     val vorhanden: Buchung? = remember(id) { id?.let { i -> model.buchungen.firstOrNull { it.id == i } } }
-    var f by remember(id) { mutableStateOf(vorhanden?.let { BuchungRegeln.von(it) } ?: model.neueBuchung()) }
+    var f by remember(id) { mutableStateOf(vorhanden?.let { BuchungRegeln.von(it) } ?: model.neueBuchung().let { n -> if (vorPartner.isNullOrBlank()) n else n.copy(partner = vorPartner) }) }
     var fehler by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var speicherFehler by remember { mutableStateOf<String?>(null) }
     val skr = Skr42.standard
@@ -54,8 +54,8 @@ fun BuchungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
         (listOf(f.sparte) + f.teile.map { it.sparte }).filter { it.isNotEmpty() }.forEach { liste.putIfAbsent(it, it) }
         liste
     }
-    val vorschlaege = remember(model.buchungen, model.members) {
-        (model.buchungen.map { it.partner } + model.members.map { "${it.firstName} ${it.lastName}".trim() })
+    val vorschlaege = remember(model.buchungen, model.members, model.kontakte) {
+        (model.buchungen.map { it.partner } + model.members.map { "${it.firstName} ${it.lastName}".trim() } + model.kontakte.map { it.anzeigeName })
             .map { it.trim() }.filter { it.isNotEmpty() }.distinct()
     }
 

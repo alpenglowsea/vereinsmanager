@@ -12,6 +12,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.FileProvider
 import de.vereinsmanager.android.data.SqliteDocumentStore
+import de.vereinsmanager.core.contacts.Kontakt
+import de.vereinsmanager.core.contacts.KontaktForm
+import de.vereinsmanager.core.contacts.Kontakte
 import de.vereinsmanager.core.backup.BackupCrypto
 import de.vereinsmanager.core.backup.BackupExporter
 import de.vereinsmanager.core.backup.BackupFile
@@ -157,6 +160,7 @@ class AppModel(private val appContext: Context) {
     var unterschrift by mutableStateOf<Unterschrift?>(null)
         private set
     var rechnungen by mutableStateOf<List<Rechnung>>(emptyList())
+    var kontakte by mutableStateOf<List<Kontakt>>(emptyList())
         private set
     var vorlage by mutableStateOf(Vorlage())
         private set
@@ -201,6 +205,7 @@ class AppModel(private val appContext: Context) {
         spenden = Spenden.alle(store)
         unterschrift = Unterschriften.lesen(store)
         rechnungen = Rechnungen.alle(store)
+        kontakte = Kontakte.alle(store)
         vorlage = Vorlagen.lesen(store)
         vereinsdaten = Vereinsdaten.lesen(store.get("settings", "main"))
         lastschriftFehlt = Vereinsdaten.fehlt(store.get("settings", "main"))
@@ -584,6 +589,15 @@ class AppModel(private val appContext: Context) {
         val daten = liste.map { r -> java.io.ByteArrayOutputStream().also { PdfWriter.zuwendung(r, st, it, unterschrift) }.toByteArray() }
         out.write(SpendenZip.bauen(namen, daten))
     }
+
+    // ---- Kontakte ----
+
+    fun kontaktNeu(): KontaktForm = Kontakte.neu(store)
+    fun kontaktFormular(k: Kontakt): KontaktForm = Kontakte.von(k)
+    fun kontaktPruefen(f: KontaktForm): Map<String, String> = Kontakte.pruefen(store, f)
+    fun kontaktSpeichern(f: KontaktForm, done: (Kontakt?, String?) -> Unit) = hintergrund({ Kontakte.speichern(store, f) }, done)
+    fun kontaktLoeschen(id: String, done: (String?) -> Unit) = hintergrund({ Kontakte.loeschen(store, id) }) { _, e -> done(e) }
+    fun kontakteLoeschen(ids: List<String>, done: (String?) -> Unit) = hintergrund({ Kontakte.sammelLoeschen(store, ids) }) { _, e -> done(e) }
 
     // ---- Rechnungen ----
 

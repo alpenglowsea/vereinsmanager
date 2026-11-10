@@ -334,8 +334,8 @@ private fun MemberDetailPage(model: AppModel, id: String, onEdit: () -> Unit, on
             row("Geburtsdatum", if (m.birthDate.isNotEmpty()) deDate(m.birthDate) + (age?.let { " ($it Jahre)" } ?: "") else "")
             row("Geschlecht", MemberLabels.GENDER[m.gender] ?: "")
             row("Anschrift", listOf("${m.street} ${m.houseNumber}".trim(), "${m.zip} ${m.city}".trim(), m.country).filter { it.isNotEmpty() }.joinToString("\n"))
-            row("Telefon", m.phone)
-            row("E-Mail", m.email)
+            KontaktLink("Telefon", m.phone, LinkArt.TELEFON)
+            KontaktLink("E-Mail", m.email, LinkArt.MAIL)
             row("Beitrag", if (m.paymentMethod == "exempt" || m.feePeriod == "none") "beitragsfrei" else "${euro(m.fee)} ${MemberLabels.FEE_PERIOD[m.feePeriod] ?: ""}".trim())
             row("Zahlart", MemberLabels.PAYMENT[m.paymentMethod] ?: "")
             val bank = m.raw["bankDetails"] as? kotlinx.serialization.json.JsonObject

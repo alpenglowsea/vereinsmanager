@@ -344,9 +344,14 @@ private fun BezahltDialog(model: AppModel, r: Rechnung, onDismiss: () -> Unit, o
 // ---------------------------------------------------------------- Formular
 
 @Composable
-fun RechnungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier: Modifier = Modifier) {
+fun RechnungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier: Modifier = Modifier, kontaktId: String? = null) {
     val vorhanden = id?.let { i -> model.rechnungen.firstOrNull { it.id == i } }
-    var f by remember { mutableStateOf(if (vorhanden != null) model.rechnungFormular(vorhanden) else model.rechnungNeu()) }
+    var f by remember {
+        mutableStateOf(
+            if (vorhanden != null) model.rechnungFormular(vorhanden)
+            else model.rechnungNeu().let { n -> kontaktId?.let { model.rechnungKontakt(it) }?.let { Rechnungen.mitKontakt(n, it) } ?: n },
+        )
+    }
     var tageText by remember { mutableStateOf(f.zahlungszielTage.toString()) }
     var zeigeFehler by remember { mutableStateOf(false) }
     var fehler by remember { mutableStateOf<String?>(null) }
