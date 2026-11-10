@@ -52,6 +52,15 @@ import de.vereinsmanager.core.finance.BuchungSammel
 import de.vereinsmanager.core.finance.BuchungSammelStore
 import de.vereinsmanager.core.finance.SammelBericht
 import de.vereinsmanager.core.finance.Konto
+import de.vereinsmanager.core.donation.DonationExport
+import de.vereinsmanager.core.donation.DonationReceipt
+import de.vereinsmanager.core.donation.SpendeErgebnis
+import de.vereinsmanager.core.donation.SpendeForm
+import de.vereinsmanager.core.donation.SpendeOptionen
+import de.vereinsmanager.core.donation.Spenden
+import de.vereinsmanager.core.donation.SpendenPdf
+import de.vereinsmanager.core.donation.SpendenZip
+import de.vereinsmanager.android.export.PdfWriter
 import de.vereinsmanager.core.sepa.Beitragslauf
 import de.vereinsmanager.core.sepa.Lauf
 import de.vereinsmanager.core.sepa.LaufErgebnis
@@ -128,6 +137,8 @@ class AppModel(private val appContext: Context) {
 
     var laeufe by mutableStateOf<List<Lauf>>(emptyList())
         private set
+    var spenden by mutableStateOf<List<DonationReceipt>>(emptyList())
+        private set
     var vereinsdaten by mutableStateOf(VereinsForm())
         private set
     /** Was für einen Lastschrifteinzug in den Einstellungen noch fehlt (null: alles da). */
@@ -166,6 +177,7 @@ class AppModel(private val appContext: Context) {
         dokumente = Dokumente.dokumente(store)
         ordner = Dokumente.ordner(store)
         laeufe = Beitragslauf.laeufe(store)
+        spenden = Spenden.alle(store)
         vereinsdaten = Vereinsdaten.lesen(store.get("settings", "main"))
         lastschriftFehlt = Vereinsdaten.fehlt(store.get("settings", "main"))
         glaeubiger = Vereinsdaten.glaeubiger(store.get("settings", "main"))
@@ -517,6 +529,34 @@ class AppModel(private val appContext: Context) {
 
     fun laufLoeschen(id: String, done: (String?) -> Unit) =
         hintergrund({ Beitragslauf.loeschen(store, id) }) { _, f -> done(f) }
+
+    // ---- Spenden (Zuwendungsbestätigungen) ----
+
+    /** Zeichnet eine Bestätigung als PDF; wird auch beim Ablegen im Dokumentenarchiv benutzt. */
+    private val spendenPdf: SpendenPdf = { r, st -> java.io.ByteArrayOutputStream().also { PdfWriter.zuwendung(r, st, it) }.toByteArray() }
+
+    fun spendeNeu(): SpendeForm = Spenden.neu(store)
+    fun spendeFormular(r: DonationReceipt): SpendeForm = Spenden.von(r, Spenden.steuerangaben(store))
+    fun spendePruefen(f: SpendeForm): String? = Spenden.pruefen(store, f)
+    fun spendeBuchungBetroffen(f: SpendeForm): Boolean = Spenden.buchungBetroffen(store, f)
+    fun spendeFehlendeAngaben(): List<String> = de.vereinsmanager.core.donation.DonationService.fehlendeSteuerangaben(Spenden.steuerangaben(store))
+
+    fun spendeSpeichern(f: SpendeForm, opt: SpendeOptionen, done: (SpendeErgebnis?, String?) -> Unit) =
+        hintergrund({ Spenden.speichern(store, dateien, f, opt, spendenPdf) }, done)
+
+    fun spendeLoeschen(id: String, buchungMit: Boolean, done: (String?) -> Unit) =
+        hintergrund({ Spenden.loeschen(store, dateien, id, buchungMit) }) { _, f -> done(f) }
+
+    /** Schreibt das PDF einer Bestätigung (frisch aus den gespeicherten Angaben gezeichnet). */
+    fun spendePdfSchreiben(r: DonationReceipt, out: java.io.OutputStream) = PdfWriter.zuwendung(r, Spenden.steuerangaben(store), out)
+
+    /** Schreibt eine ZIP-Datei mit den PDFs aller genannten Bestätigungen. */
+    fun spendenZipSchreiben(liste: List<DonationReceipt>, out: java.io.OutputStream) {
+        val st = Spenden.steuerangaben(store)
+        val namen = DonationExport.pdfDateinamen(liste)
+        val daten = liste.map { r -> java.io.ByteArrayOutputStream().also { PdfWriter.zuwendung(r, st, it) }.toByteArray() }
+        out.write(SpendenZip.bauen(namen, daten))
+    }
 
     // ---- Konten ----
 

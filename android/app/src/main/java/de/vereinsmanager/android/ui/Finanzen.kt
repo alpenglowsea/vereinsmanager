@@ -261,7 +261,7 @@ private fun exportPunkte(model: AppModel, exporter: de.vereinsmanager.android.ex
 }
 
 @Composable
-private fun ExportMenue(titel: String, punkte: List<Pair<String, () -> Unit>>, kompakt: Boolean) {
+internal fun ExportMenue(titel: String, punkte: List<Pair<String, () -> Unit>>, kompakt: Boolean) {
     var offen by remember { mutableStateOf(false) }
     Box {
         if (kompakt) OutlinedButton(

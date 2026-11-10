@@ -4,6 +4,10 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
+import de.vereinsmanager.core.donation.ClubTaxSettings
+import de.vereinsmanager.core.donation.DonationReceipt
+import de.vereinsmanager.core.donation.Zeichnung
+import de.vereinsmanager.core.donation.ZuwendungsVordruck
 import de.vereinsmanager.core.export.PdfTabelle
 import de.vereinsmanager.core.export.StammblattDaten
 import de.vereinsmanager.core.sepa.SepaProtokoll
@@ -310,6 +314,68 @@ object PdfWriter {
         c.drawText("Erstellt am ${d.erstellt}", LINKS, y + 14 * MM, beschr)
 
         seiteAbschliessen()
+        doc.writeTo(out)
+        doc.close()
+    }
+
+    /**
+     * Zuwendungsbestätigung nach amtlichem Muster, A4 hoch. Die Zeichenbefehle kommen aus dem Kern
+     * ([ZuwendungsVordruck], Maße des Desktops); hier wird nur gezeichnet. Die Schrift des Geräts ist etwas breiter oder
+     * schmaler als die des Desktops: Zeilen, die über den rechten Rand des Vordrucks hinausragen würden, werden dafür
+     * etwas verkleinert statt abgeschnitten.
+     */
+    fun zuwendung(r: DonationReceipt, st: ClubTaxSettings, out: OutputStream) {
+        val doc = PdfDocument()
+        val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, 1).create())
+        val c = page.canvas
+        val schwarz = Color.BLACK
+        val normal = Typeface.create("sans-serif", Typeface.NORMAL)
+        val fett = Typeface.create("sans-serif", Typeface.BOLD)
+        fun p(size: Double, bold: Boolean, grau: Boolean = false) = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = size.toFloat(); color = if (grau) Color.rgb(110, 110, 110) else schwarz; typeface = if (bold) fett else normal
+        }
+        val strich = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = schwarz; style = Paint.Style.STROKE }
+        val rechterRand = 195.3f * MM
+        for (z in ZuwendungsVordruck.bauen(r, st)) {
+            when (z) {
+                is Zeichnung.Rechteck -> {
+                    strich.strokeWidth = 0.25f * MM
+                    c.drawRect(z.x.toFloat() * MM, z.y.toFloat() * MM, (z.x + z.b).toFloat() * MM, (z.y + z.h).toFloat() * MM, strich)
+                }
+                is Zeichnung.Linie -> {
+                    strich.strokeWidth = z.dicke.toFloat() * MM
+                    c.drawLine(z.x1.toFloat() * MM, z.y1.toFloat() * MM, z.x2.toFloat() * MM, z.y2.toFloat() * MM, strich)
+                }
+                is Zeichnung.Text -> {
+                    val paint = p(z.groesse, z.fett, z.grau)
+                    val x0 = z.x.toFloat() * MM
+                    val y = z.y.toFloat() * MM
+                    val w = paint.measureText(z.text)
+                    // Zu breite Zeilen verkleinern, damit sie nicht über den Rand des Vordrucks laufen.
+                    if (z.aus == Zeichnung.Aus.LINKS && z.fettAnhang == null && x0 + w > rechterRand && w > 0f) {
+                        paint.textSize = paint.textSize * ((rechterRand - x0) / w).coerceAtLeast(0.7f)
+                    }
+                    val breite = paint.measureText(z.text)
+                    val x = when (z.aus) {
+                        Zeichnung.Aus.LINKS -> x0
+                        Zeichnung.Aus.MITTE -> x0 - breite / 2
+                        Zeichnung.Aus.RECHTS -> x0 - breite
+                    }
+                    c.drawText(z.text, x, y, paint)
+                    z.fettAnhang?.let { a -> c.drawText(a, x0 + paint.measureText(z.text + " ") + 0.6f * MM, y, p(z.groesse, true)) }
+                }
+                is Zeichnung.Umbruch -> {
+                    val paint = p(z.groesse, false)
+                    var y = z.y.toFloat() * MM
+                    for (absatz in z.absaetze) {
+                        val zeilen = umbrechen(absatz, paint, z.breite.toFloat() * MM).let { l -> if (z.maxZeilen != null) l.take(z.maxZeilen!!) else l }
+                        zeilen.forEachIndexed { i, zl -> c.drawText(zl, z.x.toFloat() * MM, y + i * z.zeilenabstand.toFloat() * MM, paint) }
+                        y += zeilen.size * z.zeilenabstand.toFloat() * MM + z.absatzAbstand.toFloat() * MM
+                    }
+                }
+            }
+        }
+        doc.finishPage(page)
         doc.writeTo(out)
         doc.close()
     }

@@ -22,6 +22,13 @@ data class VereinsForm(
     val glaeubigerId: String = "",
     val iban: String = "",
     val bic: String = "",
+    /** Angaben für Zuwendungsbestätigungen (Spendenquittungen) */
+    val finanzamt: String = "",
+    val steuernummer: String = "",
+    val freistellungsDatum: String = "",
+    val feststellungsDatum: String = "",
+    val veranlagungszeitraum: String = "",
+    val zweck: String = "",
 )
 
 /** Die Angaben, die ein SEPA-Lastschrifteinzug vom Verein braucht. */
@@ -48,6 +55,9 @@ object Vereinsdaten {
             name = t(settings, "clubName"), strasse = strasse, hausnummer = haus, plz = plz, ort = ort,
             vorsitzender = t(settings, "chairman"), kassenwart = t(settings, "treasurer"),
             glaeubigerId = t(settings, "creditorId"), iban = t(settings, "creditorIban"), bic = t(settings, "creditorBic"),
+            finanzamt = t(settings, "taxOffice"), steuernummer = t(settings, "taxNumber"),
+            freistellungsDatum = t(settings, "taxExemptionDate"), feststellungsDatum = t(settings, "taxStatementDate"),
+            veranlagungszeitraum = t(settings, "taxAssessmentPeriod"), zweck = t(settings, "promotedPurposes"),
         )
     }
 
@@ -88,6 +98,12 @@ object Vereinsdaten {
             m["creditorId"] = JsonPrimitive(f.glaeubigerId.uppercase().filterNot { it.isWhitespace() })
             m["creditorIban"] = JsonPrimitive(f.iban.uppercase().filterNot { it.isWhitespace() })
             m["creditorBic"] = JsonPrimitive(f.bic.uppercase().trim())
+            m["taxOffice"] = JsonPrimitive(f.finanzamt.trim())
+            m["taxNumber"] = JsonPrimitive(f.steuernummer.trim())
+            m["taxExemptionDate"] = JsonPrimitive(f.freistellungsDatum.trim())
+            m["taxStatementDate"] = JsonPrimitive(f.feststellungsDatum.trim())
+            m["taxAssessmentPeriod"] = JsonPrimitive(f.veranlagungszeitraum.trim())
+            m["promotedPurposes"] = JsonPrimitive(f.zweck.trim())
             m["updatedAt"] = JsonPrimitive(Zeit.stempel(now))
             store.put(BEREICH, ID, JsonObject(m))
         }

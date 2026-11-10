@@ -496,7 +496,7 @@ fun DokumentAnsichtScreen(model: AppModel, id: String, modifier: Modifier = Modi
 
 /** Ein Fenster zum Suchen und Wählen aus einer Liste (Mitglied oder Buchung). Zeigt höchstens 30 Treffer. */
 @Composable
-private fun WahlDialog(titel: String, eintraege: List<Pair<String, String>>, onDismiss: () -> Unit, onWahl: (String) -> Unit) {
+internal fun WahlDialog(titel: String, eintraege: List<Pair<String, String>>, onDismiss: () -> Unit, onWahl: (String) -> Unit) {
     var q by remember { mutableStateOf("") }
     val treffer = eintraege.filter { q.isBlank() || it.second.contains(q.trim(), ignoreCase = true) }
     Aktionsdialog(

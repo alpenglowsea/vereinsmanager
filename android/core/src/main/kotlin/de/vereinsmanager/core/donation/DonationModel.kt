@@ -45,6 +45,13 @@ data class DonationReceipt(
     val issuedBy: String = "",
     val cityAndDate: String = "",
     val notes: String? = null,
+    val memberId: String? = null,
+    /** Die Einnahmebuchung, die zu dieser Spende angelegt wurde. */
+    val transactionId: String? = null,
+    /** Das abgelegte PDF im Dokumentenarchiv. */
+    val documentId: String? = null,
+    val createdAt: String = "",
+    val updatedAt: String = "",
 )
 
 /** Die für den Vordruck nötigen Vereinsdaten (Ausschnitt der Einstellungen). */
@@ -91,6 +98,11 @@ fun JsonObject.toDonationReceipt(): DonationReceipt {
         issuedBy = s("issuedBy") ?: "",
         cityAndDate = s("cityAndDate") ?: "",
         notes = s("notes"),
+        memberId = s("memberId")?.takeIf { it.isNotEmpty() },
+        transactionId = s("transactionId")?.takeIf { it.isNotEmpty() },
+        documentId = s("documentId")?.takeIf { it.isNotEmpty() },
+        createdAt = s("createdAt") ?: "",
+        updatedAt = s("updatedAt") ?: "",
     )
 }
 
