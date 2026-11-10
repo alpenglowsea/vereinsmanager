@@ -324,25 +324,41 @@ object PdfWriter {
      * schmaler als die des Desktops: Zeilen, die über den rechten Rand des Vordrucks hinausragen würden, werden dafür
      * etwas verkleinert statt abgeschnitten.
      */
-    fun zuwendung(r: DonationReceipt, st: ClubTaxSettings, out: OutputStream, unterschrift: de.vereinsmanager.core.donation.Unterschrift? = null) {
-        val doc = PdfDocument()
-        val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, 1).create())
-        val c = page.canvas
+    private val NORMAL = Typeface.create("sans-serif", Typeface.NORMAL)
+    private val FETT = Typeface.create("sans-serif", Typeface.BOLD)
+
+    private fun schrift(size: Double, bold: Boolean, farbe: Int) = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = size.toFloat(); color = farbe; typeface = if (bold) FETT else NORMAL
+    }
+
+    /** Textbreite in Millimetern mit der Schrift der PDF-Seiten (für den Seitenumbruch im Kern). */
+    val mass = de.vereinsmanager.core.invoice.Mass { text, groesse, fett -> schrift(groesse, fett, Color.BLACK).measureText(text) / MM }
+
+    /**
+     * Zeichnet Befehle des Kerns auf eine Seite. [begrenzen]: Zeilen, die über den rechten Rand des Vordrucks hinausragen
+     * würden, werden etwas verkleinert statt abgeschnitten (Zuwendungsbestätigung).
+     */
+    private fun zeichneSeite(c: android.graphics.Canvas, befehle: List<Zeichnung>, begrenzen: Boolean) {
         val schwarz = Color.BLACK
-        val normal = Typeface.create("sans-serif", Typeface.NORMAL)
-        val fett = Typeface.create("sans-serif", Typeface.BOLD)
-        fun p(size: Double, bold: Boolean, grau: Boolean = false) = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            textSize = size.toFloat(); color = if (grau) Color.rgb(110, 110, 110) else schwarz; typeface = if (bold) fett else normal
-        }
         val strich = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = schwarz; style = Paint.Style.STROKE }
+        val flaeche = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
         val rechterRand = 195.3f * MM
-        for (z in ZuwendungsVordruck.bauen(r, st, unterschrift)) {
+        fun p(size: Double, bold: Boolean, grau: Boolean = false, farbe: Int? = null) =
+            schrift(size, bold, farbe ?: if (grau) Color.rgb(110, 110, 110) else schwarz)
+        for (z in befehle) {
             when (z) {
                 is Zeichnung.Rechteck -> {
-                    strich.strokeWidth = 0.25f * MM
-                    c.drawRect(z.x.toFloat() * MM, z.y.toFloat() * MM, (z.x + z.b).toFloat() * MM, (z.y + z.h).toFloat() * MM, strich)
+                    val l = z.x.toFloat() * MM; val o = z.y.toFloat() * MM; val r = (z.x + z.b).toFloat() * MM; val u = (z.y + z.h).toFloat() * MM
+                    if (z.fuellung != null) { flaeche.color = z.fuellung!!; c.drawRect(l, o, r, u, flaeche) }
+                    if (z.rand) {
+                        strich.color = z.farbe ?: schwarz
+                        strich.strokeWidth = 0.25f * MM
+                        c.drawRect(l, o, r, u, strich)
+                    }
                 }
+                is Zeichnung.Qr -> zeichneQr(c, z, strich, flaeche)
                 is Zeichnung.Linienzug -> {
+                    strich.color = z.farbe ?: schwarz
                     strich.strokeWidth = z.dicke.toFloat() * MM
                     strich.strokeCap = Paint.Cap.ROUND
                     strich.strokeJoin = Paint.Join.ROUND
@@ -353,16 +369,16 @@ object PdfWriter {
                     strich.strokeJoin = Paint.Join.MITER
                 }
                 is Zeichnung.Linie -> {
+                    strich.color = z.farbe ?: schwarz
                     strich.strokeWidth = z.dicke.toFloat() * MM
                     c.drawLine(z.x1.toFloat() * MM, z.y1.toFloat() * MM, z.x2.toFloat() * MM, z.y2.toFloat() * MM, strich)
                 }
                 is Zeichnung.Text -> {
-                    val paint = p(z.groesse, z.fett, z.grau)
+                    val paint = p(z.groesse, z.fett, z.grau, z.farbe)
                     val x0 = z.x.toFloat() * MM
                     val y = z.y.toFloat() * MM
                     val w = paint.measureText(z.text)
-                    // Zu breite Zeilen verkleinern, damit sie nicht über den Rand des Vordrucks laufen.
-                    if (z.aus == Zeichnung.Aus.LINKS && z.fettAnhang == null && x0 + w > rechterRand && w > 0f) {
+                    if (begrenzen && z.aus == Zeichnung.Aus.LINKS && z.fettAnhang == null && x0 + w > rechterRand && w > 0f) {
                         paint.textSize = paint.textSize * ((rechterRand - x0) / w).coerceAtLeast(0.7f)
                     }
                     val breite = paint.measureText(z.text)
@@ -399,7 +415,55 @@ object PdfWriter {
                 }
             }
         }
+    }
+
+    /** QR-Code als Vektor-Quadrate (scharf in jeder Vergrößerung), auf weißem Feld mit Ruhezone von zwei Modulen. */
+    private fun zeichneQr(c: android.graphics.Canvas, z: Zeichnung.Qr, strich: Paint, flaeche: Paint) {
+        val hints = mapOf(com.google.zxing.EncodeHintType.CHARACTER_SET to "UTF-8")
+        val matrix = com.google.zxing.qrcode.encoder.Encoder.encode(z.inhalt, com.google.zxing.qrcode.decoder.ErrorCorrectionLevel.M, hints).matrix
+        val n = matrix.width
+        val x0 = z.x.toFloat() * MM; val y0 = z.y.toFloat() * MM; val g = z.groesse.toFloat() * MM
+        flaeche.color = Color.WHITE
+        strich.color = Color.rgb(203, 213, 225); strich.strokeWidth = 0.3f * MM
+        c.drawRoundRect(x0, y0, x0 + g, y0 + g, MM, MM, flaeche)
+        c.drawRoundRect(x0, y0, x0 + g, y0 + g, MM, MM, strich)
+        flaeche.color = Color.BLACK
+        val rand = 2
+        val m = g / (n + 2 * rand)
+        for (r in 0 until n) for (s in 0 until n) {
+            if (matrix.get(s, r).toInt() == 1) {
+                val x = x0 + (s + rand) * m
+                val y = y0 + (r + rand) * m
+                c.drawRect(x, y, x + m + 0.04f * MM, y + m + 0.04f * MM, flaeche)
+            }
+        }
+    }
+
+    /**
+     * Zuwendungsbestätigung nach amtlichem Muster, A4 hoch. Die Zeichenbefehle kommen aus dem Kern
+     * ([ZuwendungsVordruck], Maße des Desktops); hier wird nur gezeichnet.
+     */
+    fun zuwendung(r: DonationReceipt, st: ClubTaxSettings, out: OutputStream, unterschrift: de.vereinsmanager.core.donation.Unterschrift? = null) {
+        val doc = PdfDocument()
+        val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, 1).create())
+        zeichneSeite(page.canvas, ZuwendungsVordruck.bauen(r, st, unterschrift), begrenzen = true)
         doc.finishPage(page)
+        doc.writeTo(out)
+        doc.close()
+    }
+
+    /** Eine Rechnung: je Seite die Befehle aus dem Kern; [hintergrund] ist das Briefpapier, das auf jede Seite gelegt wird. */
+    fun rechnung(seiten: List<List<Zeichnung>>, hintergrund: android.graphics.Bitmap?, out: OutputStream) {
+        val doc = PdfDocument()
+        seiten.forEachIndexed { i, befehle ->
+            val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, i + 1).create())
+            val c = page.canvas
+            if (hintergrund != null) {
+                c.drawBitmap(hintergrund, null, android.graphics.RectF(0f, 0f, 595f, 842f), Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
+            }
+            zeichneSeite(c, befehle, begrenzen = false)
+            doc.finishPage(page)
+        }
         doc.writeTo(out)
         doc.close()
     }

@@ -81,12 +81,12 @@ fun SpendenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, 
 
     Column(modifier.fillMaxSize().padding(horizontal = 12.dp)) {
         Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Kachel("Gesamt", Geld.euro(summe(shown)), "${shown.size} Bestätigungen", Modifier.weight(1f))
-            Kachel("Geldspenden", Geld.euro(summe(geld)), "${geld.size} Stück", Modifier.weight(1f))
+            KpiKachel("Gesamt", Geld.euro(summe(shown)), "${shown.size} Bestätigungen", Modifier.weight(1f))
+            KpiKachel("Geldspenden", Geld.euro(summe(geld)), "${geld.size} Stück", Modifier.weight(1f))
         }
         Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Kachel("Sachspenden", Geld.euro(summe(sach)), "${sach.size} Stück", Modifier.weight(1f))
-            Kachel("Aufwandsverzicht", Geld.euro(summe(verzicht)), "${verzicht.size} Stück", Modifier.weight(1f))
+            KpiKachel("Sachspenden", Geld.euro(summe(sach)), "${sach.size} Stück", Modifier.weight(1f))
+            KpiKachel("Aufwandsverzicht", Geld.euro(summe(verzicht)), "${verzicht.size} Stück", Modifier.weight(1f))
         }
         OutlinedTextField(
             suche, { suche = it }, label = { Text("Spender, Nummer oder Notiz suchen") }, singleLine = true,
@@ -139,7 +139,7 @@ fun SpendenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, 
 }
 
 @Composable
-private fun Kachel(titel: String, wert: String, unten: String, modifier: Modifier) {
+internal fun KpiKachel(titel: String, wert: String, unten: String, modifier: Modifier) {
     Card(modifier) {
         Column(Modifier.padding(10.dp)) {
             Text(titel, style = MaterialTheme.typography.labelMedium)

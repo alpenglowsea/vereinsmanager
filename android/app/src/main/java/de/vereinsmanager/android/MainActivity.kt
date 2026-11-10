@@ -30,6 +30,10 @@ import de.vereinsmanager.android.ui.BeitragslaufScreen
 import de.vereinsmanager.android.ui.BelegAnsichtScreen
 import de.vereinsmanager.android.ui.EinstellungenScreen
 import de.vereinsmanager.android.ui.EuerScreen
+import de.vereinsmanager.android.ui.RechnungDetailScreen
+import de.vereinsmanager.android.ui.RechnungFormScreen
+import de.vereinsmanager.android.ui.RechnungenScreen
+import de.vereinsmanager.android.ui.RechnungsVorlageScreen
 import de.vereinsmanager.android.ui.SpendeDetailScreen
 import de.vereinsmanager.android.ui.SpendeFormScreen
 import de.vereinsmanager.android.ui.SpendenScreen
@@ -71,6 +75,11 @@ sealed interface Page {
     data object Accounts : Page
     data object Sepa : Page
     data object Euer : Page
+    data object Rechnungen : Page
+    data class Rechnung(val id: String) : Page
+    /** id == null: neue Rechnung */
+    data class RechnungEdit(val id: String?) : Page
+    data object RechnungsVorlage : Page
     data object Spenden : Page
     data class Spende(val id: String) : Page
     data class SpendeEdit(val id: String?) : Page
@@ -112,6 +121,7 @@ class MainActivity : ComponentActivity() {
                         Ziel.DOKUMENTE -> listOf(Page.Home, Page.Documents(null))
                         Ziel.BEITRAGSLAUF -> listOf(Page.Home, Page.Sepa)
                         Ziel.EUER -> listOf(Page.Home, Page.Euer)
+                        Ziel.RECHNUNGEN -> listOf(Page.Home, Page.Rechnungen)
                         Ziel.SPENDEN -> listOf(Page.Home, Page.Spenden)
                         Ziel.EINSTELLUNGEN -> listOf(Page.Home, Page.Settings)
                         else -> stack // noch nicht gebaut; das Menü zeigt dafür einen Hinweis
@@ -123,7 +133,7 @@ class MainActivity : ComponentActivity() {
                     MenueInhalt(model.clubName, aktivesZiel(page), onWahl = ::geheZu)
                 }
                 val inhalt: @Composable () -> Unit = {
-                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || (page is Page.Documents && page.folderId == null) || page is Page.Sepa || page is Page.Euer || page is Page.Spenden || (page is Page.Settings && stack.size <= 2) || page is Page.Probes
+                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || (page is Page.Documents && page.folderId == null) || page is Page.Sepa || page is Page.Euer || page is Page.Rechnungen || page is Page.Spenden || (page is Page.Settings && stack.size <= 2) || page is Page.Probes
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
                         topBar = {
@@ -174,6 +184,16 @@ class MainActivity : ComponentActivity() {
                             Page.Sepa -> BeitragslaufScreen(model, onEinstellungen = { stack = stack + Page.Settings }, modifier = m)
                             Page.Settings -> EinstellungenScreen(model, modifier = m)
                             Page.Euer -> EuerScreen(model, modifier = m)
+                            Page.Rechnungen -> RechnungenScreen(
+                                model, onOpen = { stack = stack + Page.Rechnung(it) }, onNew = { stack = stack + Page.RechnungEdit(null) },
+                                onVorlage = { stack = stack + Page.RechnungsVorlage }, modifier = m,
+                            )
+                            is Page.Rechnung -> RechnungDetailScreen(
+                                model, page.id, onEdit = { stack = stack + Page.RechnungEdit(page.id) },
+                                onDeleted = { stack = stack.filter { it !is Page.Rechnung && it !is Page.RechnungEdit } }, modifier = m,
+                            )
+                            is Page.RechnungEdit -> RechnungFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
+                            Page.RechnungsVorlage -> RechnungsVorlageScreen(model, onDone = { stack = stack.dropLast(1) }, modifier = m)
                             Page.Spenden -> SpendenScreen(model, onOpen = { stack = stack + Page.Spende(it) }, onNew = { stack = stack + Page.SpendeEdit(null) }, modifier = m)
                             is Page.Spende -> SpendeDetailScreen(
                                 model, page.id, onEdit = { stack = stack + Page.SpendeEdit(page.id) },
@@ -236,6 +256,10 @@ private fun seitenTitel(p: Page, model: AppModel): String = when (p) {
     Page.Accounts -> "Konten & Kassen"
     Page.Sepa -> "Beitragslauf"
     Page.Euer -> "EÜR / GuV"
+    Page.Rechnungen -> "Rechnungen"
+    is Page.Rechnung -> "Rechnung"
+    is Page.RechnungEdit -> if (p.id == null) "Neue Rechnung" else "Rechnung bearbeiten"
+    Page.RechnungsVorlage -> "Rechnungsvorlage"
     Page.Spenden -> "Spenden"
     is Page.Spende -> "Zuwendungsbestätigung"
     is Page.SpendeEdit -> if (p.id == null) "Neue Bestätigung" else "Bestätigung bearbeiten"
@@ -257,6 +281,7 @@ private fun aktivesZiel(p: Page): Ziel? = when (p) {
     is Page.Documents, is Page.Document, is Page.DocumentEdit, is Page.DocumentView -> Ziel.DOKUMENTE
     Page.Sepa -> Ziel.BEITRAGSLAUF
     Page.Euer -> Ziel.EUER
+    Page.Rechnungen, is Page.Rechnung, is Page.RechnungEdit, Page.RechnungsVorlage -> Ziel.RECHNUNGEN
     Page.Spenden, is Page.Spende, is Page.SpendeEdit -> Ziel.SPENDEN
     Page.Settings -> Ziel.EINSTELLUNGEN
     Page.Probes -> null

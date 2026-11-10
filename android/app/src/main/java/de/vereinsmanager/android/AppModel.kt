@@ -61,6 +61,18 @@ import de.vereinsmanager.core.donation.Spenden
 import de.vereinsmanager.core.donation.SpendenPdf
 import de.vereinsmanager.core.donation.SpendenZip
 import de.vereinsmanager.core.donation.Unterschrift
+import de.vereinsmanager.core.invoice.Absender
+import de.vereinsmanager.core.invoice.BezahltAngaben
+import de.vereinsmanager.core.invoice.Rechnung
+import de.vereinsmanager.core.invoice.RechnungErgebnis
+import de.vereinsmanager.core.invoice.RechnungForm
+import de.vereinsmanager.core.invoice.RechnungOptionen
+import de.vereinsmanager.core.invoice.Rechnungen
+import de.vereinsmanager.core.invoice.RechnungsExport
+import de.vereinsmanager.core.invoice.RechnungsLayout
+import de.vereinsmanager.core.invoice.RechnungsPdf
+import de.vereinsmanager.core.invoice.Vorlage
+import de.vereinsmanager.core.invoice.Vorlagen
 import de.vereinsmanager.core.donation.Unterschriften
 import de.vereinsmanager.android.export.PdfWriter
 import de.vereinsmanager.core.sepa.Beitragslauf
@@ -143,6 +155,10 @@ class AppModel(private val appContext: Context) {
         private set
     var unterschrift by mutableStateOf<Unterschrift?>(null)
         private set
+    var rechnungen by mutableStateOf<List<Rechnung>>(emptyList())
+        private set
+    var vorlage by mutableStateOf(Vorlage())
+        private set
     var vereinsdaten by mutableStateOf(VereinsForm())
         private set
     /** Was für einen Lastschrifteinzug in den Einstellungen noch fehlt (null: alles da). */
@@ -183,6 +199,8 @@ class AppModel(private val appContext: Context) {
         laeufe = Beitragslauf.laeufe(store)
         spenden = Spenden.alle(store)
         unterschrift = Unterschriften.lesen(store)
+        rechnungen = Rechnungen.alle(store)
+        vorlage = Vorlagen.lesen(store)
         vereinsdaten = Vereinsdaten.lesen(store.get("settings", "main"))
         lastschriftFehlt = Vereinsdaten.fehlt(store.get("settings", "main"))
         glaeubiger = Vereinsdaten.glaeubiger(store.get("settings", "main"))
@@ -565,6 +583,87 @@ class AppModel(private val appContext: Context) {
         val daten = liste.map { r -> java.io.ByteArrayOutputStream().also { PdfWriter.zuwendung(r, st, it, unterschrift) }.toByteArray() }
         out.write(SpendenZip.bauen(namen, daten))
     }
+
+    // ---- Rechnungen ----
+
+    /** Das Briefpapier (Data-URL) als Bild; null, wenn keines hinterlegt oder nicht lesbar. */
+    private fun briefpapierBild(v: Vorlage): android.graphics.Bitmap? {
+        if (!v.hatBriefpapier) return null
+        return try {
+            val b64 = v.briefpapier.substringAfter("base64,", "")
+            val bytes = android.util.Base64.decode(b64, android.util.Base64.DEFAULT)
+            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        } catch (e: Exception) { null }
+    }
+
+    private fun rechnungsPdfBytes(r: Rechnung, a: Absender, v: Vorlage): ByteArray {
+        val seiten = RechnungsLayout.bauen(r, a, v, PdfWriter.mass)
+        val bild = briefpapierBild(v)
+        return try {
+            java.io.ByteArrayOutputStream().also { PdfWriter.rechnung(seiten, bild, it) }.toByteArray()
+        } finally { bild?.recycle() }
+    }
+
+    private val rechnungsPdf: RechnungsPdf = { r, a, v -> rechnungsPdfBytes(r, a, v) }
+
+    fun rechnungNeu(): RechnungForm = Rechnungen.neu(store)
+    fun rechnungFormular(r: Rechnung): RechnungForm = Rechnungen.von(r)
+    fun rechnungPruefen(f: RechnungForm): String? = Rechnungen.pruefen(store, f)
+    fun rechnungBuchungBetroffen(f: RechnungForm): Boolean = Rechnungen.buchungBetroffen(store, f)
+    fun rechnungKontakte(): List<Pair<String, String>> = Rechnungen.kontakte(store)
+    fun rechnungKontakt(id: String) = store.get("contacts", id)
+
+    fun rechnungSpeichern(f: RechnungForm, opt: RechnungOptionen, done: (RechnungErgebnis?, String?) -> Unit) =
+        hintergrund({ Rechnungen.speichern(store, dateien, f, opt, rechnungsPdf) }, done)
+
+    fun rechnungBezahlen(id: String, a: BezahltAngaben, done: (String?) -> Unit) =
+        hintergrund({ Rechnungen.bezahlen(store, id, a) }) { _, f -> done(f) }
+
+    fun rechnungZuruecksetzen(id: String, buchungMit: Boolean, done: (String?) -> Unit) =
+        hintergrund({ Rechnungen.zuruecksetzen(store, dateien, id, buchungMit) }) { _, f -> done(f) }
+
+    fun rechnungStornieren(id: String, done: (String?) -> Unit) =
+        hintergrund({ Rechnungen.stornieren(store, id) }) { _, f -> done(f) }
+
+    fun rechnungLoeschen(id: String, buchungMit: Boolean, done: (String?) -> Unit) =
+        hintergrund({ Rechnungen.loeschen(store, dateien, id, buchungMit) }) { _, f -> done(f) }
+
+    /** Schreibt das PDF einer Rechnung frisch aus den gespeicherten Angaben. */
+    fun rechnungPdfSchreiben(r: Rechnung, out: java.io.OutputStream) {
+        out.write(rechnungsPdfBytes(r, Absender.lesen(store.get("settings", "main")), vorlage))
+    }
+
+    fun vorlageSpeichern(v: Vorlage, done: (String?) -> Unit) =
+        hintergrund({ Vorlagen.speichern(store, v) }) { _, f -> done(f) }
+
+    /** Beispiel-PDF mit dem (noch nicht gespeicherten) Entwurf der Vorlage. */
+    fun vorlagePdfSchreiben(v: Vorlage, out: java.io.OutputStream) {
+        out.write(rechnungsPdfBytes(RechnungsExport.beispiel(vorlage = v), Absender.lesen(store.get("settings", "main")), v))
+    }
+
+    /**
+     * Liest ein gewähltes Bild als Briefpapier: verkleinert auf höchstens 1240 x 1754 Punkte (A4 bei 150 dpi), legt es auf weißen
+     * Grund und gibt es als JPEG-Data-URL zurück. [done] bekommt die Data-URL oder den Fehlertext.
+     */
+    fun briefpapierLaden(uri: Uri, done: (String?, String?) -> Unit) = hintergrund({
+        val cr = appContext.contentResolver
+        val grenzen = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        cr.openInputStream(uri)!!.use { android.graphics.BitmapFactory.decodeStream(it, null, grenzen) }
+        if (grenzen.outWidth <= 0 || grenzen.outHeight <= 0) throw IllegalArgumentException("Das ist kein Bild, das gelesen werden kann (PNG oder JPEG).")
+        var probe = 1
+        while (grenzen.outWidth / (probe * 2) >= 1240 && grenzen.outHeight / (probe * 2) >= 1754) probe *= 2
+        val opt = android.graphics.BitmapFactory.Options().apply { inSampleSize = probe }
+        val roh = cr.openInputStream(uri)!!.use { android.graphics.BitmapFactory.decodeStream(it, null, opt) }
+            ?: throw IllegalArgumentException("Das Bild konnte nicht gelesen werden.")
+        val faktor = minOf(1.0, 1240.0 / roh.width, 1754.0 / roh.height)
+        val b = android.graphics.Bitmap.createBitmap(maxOf(1, (roh.width * faktor).toInt()), maxOf(1, (roh.height * faktor).toInt()), android.graphics.Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(b)
+        c.drawColor(android.graphics.Color.WHITE)
+        c.drawBitmap(roh, null, android.graphics.Rect(0, 0, b.width, b.height), android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG))
+        val bytes = java.io.ByteArrayOutputStream().also { b.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray()
+        if (roh !== b) roh.recycle(); b.recycle()
+        "data:image/jpeg;base64," + android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+    }, done)
 
     // ---- Konten ----
 

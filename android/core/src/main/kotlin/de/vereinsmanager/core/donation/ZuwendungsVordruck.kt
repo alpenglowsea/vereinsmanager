@@ -17,12 +17,18 @@ sealed interface Zeichnung {
     data class Text(
         val text: String, val x: Double, val y: Double, val groesse: Double, val fett: Boolean = false,
         val aus: Aus = Aus.LINKS, val grau: Boolean = false, val fettAnhang: String? = null,
+        /** Eigene Farbe als ARGB; null: schwarz (grau, wenn [grau]). */
+        val farbe: Int? = null,
     ) : Zeichnung
 
-    data class Rechteck(val x: Double, val y: Double, val b: Double, val h: Double) : Zeichnung
+    /** [fuellung] und [farbe] (Rand) als ARGB; ohne Angaben: nur schwarzer Rand. */
+    data class Rechteck(val x: Double, val y: Double, val b: Double, val h: Double, val fuellung: Int? = null, val farbe: Int? = null, val rand: Boolean = true) : Zeichnung
+
+    /** Ein QR-Code für [inhalt], quadratisch [groesse] groß, mit weißem Rand (Ruhezone) darin. */
+    data class Qr(val inhalt: String, val x: Double, val y: Double, val groesse: Double) : Zeichnung
     /** Ein Linienzug (zusammenhängender Strich) durch die Punkte, etwa für die Unterschrift. */
-    data class Linienzug(val punkte: List<Pair<Double, Double>>, val dicke: Double = 0.5) : Zeichnung
-    data class Linie(val x1: Double, val y1: Double, val x2: Double, val y2: Double, val dicke: Double = 0.25) : Zeichnung
+    data class Linienzug(val punkte: List<Pair<Double, Double>>, val dicke: Double = 0.5, val farbe: Int? = null) : Zeichnung
+    data class Linie(val x1: Double, val y1: Double, val x2: Double, val y2: Double, val dicke: Double = 0.25, val farbe: Int? = null) : Zeichnung
 
     /**
      * Text, der in der Breite [breite] umbrochen wird (der Umbruch hängt von der Schrift ab und geschieht beim Zeichnen).

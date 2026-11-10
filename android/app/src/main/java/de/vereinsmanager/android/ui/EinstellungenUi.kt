@@ -49,6 +49,8 @@ fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
                 Feld("Hausnummer", f.hausnummer, { f = f.copy(hausnummer = it) })
                 Feld("PLZ", f.plz, { f = f.copy(plz = it) })
                 Feld("Ort", f.ort, { f = f.copy(ort = it) })
+                Feld("E-Mail", f.email, { f = f.copy(email = it) }, keyboard = androidx.compose.ui.text.input.KeyboardType.Email, hinweis = "Steht im Briefkopf der Rechnungen")
+                Feld("Vereinsregister-Nr.", f.registernummer, { f = f.copy(registernummer = it) }, hinweis = "z. B. VR 12345 – steht in der Fußzeile der Rechnungen")
                 Feld("Vorsitzende/r", f.vorsitzender, { f = f.copy(vorsitzender = it) })
                 Feld("Kassenwart / Schatzmeister", f.kassenwart, { f = f.copy(kassenwart = it) }, hinweis = "Steht im Prüfprotokoll beim Lastschrifteinzug")
             }
