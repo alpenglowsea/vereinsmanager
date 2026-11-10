@@ -38,9 +38,13 @@ internal class Aktion(val text: String, val onClick: () -> Unit, val primaer: Bo
  * So bricht kein Wort mitten im Wort um und alle Detailansichten sehen gleich aus.
  */
 @Composable
-internal fun Aktionsleiste(aktionen: List<Aktion>, modifier: Modifier = Modifier) {
+internal fun Aktionsleiste(aktionen: List<Aktion>, modifier: Modifier = Modifier) = AktionsZeilen(aktionen.chunked(2), modifier)
+
+/** Wie [Aktionsleiste], aber mit festgelegten Zeilen (höchstens zwei Knöpfe je Zeile); leere Zeilen entfallen. */
+@Composable
+internal fun AktionsZeilen(zeilen: List<List<Aktion>>, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        aktionen.chunked(2).forEach { paar ->
+        zeilen.filter { it.isNotEmpty() }.forEach { paar ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 paar.forEach { a ->
                     val m = Modifier.weight(1f).heightIn(min = 44.dp)

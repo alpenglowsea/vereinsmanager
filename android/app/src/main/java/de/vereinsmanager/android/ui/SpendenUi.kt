@@ -204,12 +204,13 @@ fun SpendeDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onAnsehe
         Zeile("Verknüpfte Buchung", if (r.transactionId == null) "Keine" else buchung?.let { "${it.belegNummer} · ${Geld.euro(it.betrag.abs())}" } ?: "Die Buchung gibt es nicht mehr")
         Zeile("PDF im Dokumentenarchiv", if (r.documentId == null) "Nicht abgelegt" else "Abgelegt (Belege ${jahrVon(r)} → Spendenbescheinigungen)")
         if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
-        Aktionsleiste(
+        AktionsZeilen(
             listOf(
-                Aktion("Bearbeiten", onEdit, primaer = true),
-                Aktion("PDF ansehen", onAnsehen),
-                Aktion("PDF speichern", { exporter.pdfSchreiber(DonationExport.pdfDateinamen(listOf(r)).first()) { out -> model.spendePdfSchreiben(r, out) } }, enabled = !model.busy),
-                Aktion("Löschen", { loeschen = true }),
+                listOf(Aktion("Bearbeiten", onEdit, primaer = true), Aktion("Löschen", { loeschen = true })),
+                listOf(
+                    Aktion("PDF ansehen", onAnsehen),
+                    Aktion("PDF speichern", { exporter.pdfSchreiber(DonationExport.pdfDateinamen(listOf(r)).first()) { out -> model.spendePdfSchreiben(r, out) } }, enabled = !model.busy),
+                ),
             ),
             Modifier.padding(top = 16.dp),
         )

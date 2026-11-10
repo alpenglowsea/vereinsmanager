@@ -374,7 +374,6 @@ internal fun DateiAnsicht(schluessel: String, laden: () -> AppModel.BelegDatei?,
             var tx by remember(schluessel) { mutableStateOf(0f) }
             var ty by remember(schluessel) { mutableStateOf(0f) }
             val liste = rememberLazyListState()
-            val bereich = rememberCoroutineScope()
             BoxWithConstraints(modifier.fillMaxSize()) {
                 val breiteDp = maxWidth
                 val breitePx = with(LocalDensity.current) { breiteDp.roundToPx() }
@@ -420,7 +419,7 @@ internal fun DateiAnsicht(schluessel: String, laden: () -> AppModel.BelegDatei?,
                                             val o = (off * ff - ty).roundToInt().coerceAtLeast(0)
                                             live = 1f
                                             ty = 0f
-                                            bereich.launch { liste.scrollToItem(idx, o) }
+                                            liste.requestScrollToItem(idx, o)
                                         }
                                     }
                                     do {
@@ -471,12 +470,13 @@ internal fun DateiAnsicht(schluessel: String, laden: () -> AppModel.BelegDatei?,
 
 @Composable
 private fun SeitenBild(quelle: Seitenquelle, index: Int, breitePx: Int) {
-    var bild by remember(quelle, index, breitePx) { mutableStateOf<Bitmap?>(null) }
+    // Das alte Bild bleibt stehen, bis das neue (schärfere) fertig ist; sonst springt die Seite beim Zoomen kurz.
+    var bild by remember(quelle, index) { mutableStateOf<Bitmap?>(null) }
     DisposableEffect(quelle, index, breitePx) {
         var aktiv = true
         thread {
             val b = try { quelle.zeichnen(index, breitePx) } catch (e: Exception) { null }
-            handler.post { if (aktiv) bild = b }
+            handler.post { if (aktiv && b != null) bild = b }
         }
         onDispose { aktiv = false }
     }

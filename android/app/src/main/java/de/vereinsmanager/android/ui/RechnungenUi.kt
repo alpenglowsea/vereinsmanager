@@ -212,15 +212,18 @@ fun RechnungDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onAnse
         if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
 
         val offen = r.status != "paid" && r.status != "cancelled"
-        Aktionsleiste(
-            listOfNotNull(
-                if (offen) Aktion("Als bezahlt markieren", { bezahlen = true }, primaer = true, enabled = !model.busy) else null,
-                if (r.status == "paid") Aktion("Auf offen zurücksetzen", { zurueck = true }, primaer = true, enabled = !model.busy) else null,
-                Aktion("Bearbeiten", onEdit),
-                Aktion("PDF ansehen", onAnsehen),
-                Aktion("PDF speichern", { exporter.pdfSchreiber(RechnungsExport.pdfDateiname(r)) { out -> model.rechnungPdfSchreiben(r, out) } }, enabled = !model.busy),
-                if (r.status == "draft" || r.status == "open") Aktion("Stornieren", { stornieren = true }, enabled = !model.busy) else null,
-                Aktion("Löschen", { loeschen = true }, enabled = !model.busy),
+        AktionsZeilen(
+            listOf(
+                listOfNotNull(
+                    if (offen) Aktion("Als bezahlt markieren", { bezahlen = true }, primaer = true, enabled = !model.busy) else null,
+                    if (r.status == "paid") Aktion("Auf offen zurücksetzen", { zurueck = true }, primaer = true, enabled = !model.busy) else null,
+                    if (r.status == "draft" || r.status == "open") Aktion("Stornieren", { stornieren = true }, enabled = !model.busy) else null,
+                ),
+                listOf(Aktion("Bearbeiten", onEdit), Aktion("Löschen", { loeschen = true }, enabled = !model.busy)),
+                listOf(
+                    Aktion("PDF ansehen", onAnsehen),
+                    Aktion("PDF speichern", { exporter.pdfSchreiber(RechnungsExport.pdfDateiname(r)) { out -> model.rechnungPdfSchreiben(r, out) } }, enabled = !model.busy),
+                ),
             ),
             Modifier.padding(top = 16.dp),
         )
