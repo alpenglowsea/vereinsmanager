@@ -33,12 +33,12 @@ class SepaServiceTest {
     private fun item(
         memberNumber: String = "M-0001", amount: String = "120", e2e: String = "E2E-1",
         isValid: Boolean = true, selected: Boolean = true, holder: String = "Max Muster",
-        remittance: String = "Mitgliedsbeitrag 2026",
+        remittance: String = "Mitgliedsbeitrag 2026", seq: String = "RCUR",
     ) = SepaItem(
         memberId = "mem-1", memberNumber = memberNumber, memberName = "Muster, Max",
         accountHolder = holder, iban = validIban, bic = "COBADEFFXXX", mandateReference = "MAND-1",
         mandateDate = "2020-01-01", amount = bd(amount), feePeriod = "yearly",
-        remittanceInfo = remittance, endToEndId = e2e, isValid = isValid, selected = selected,
+        remittanceInfo = remittance, endToEndId = e2e, isValid = isValid, selected = selected, sequenceType = seq,
     )
 
     private val run = SepaRunConfig(
@@ -186,6 +186,29 @@ class SepaServiceTest {
         ))
         assertEquals(1, Regex("<DrctDbtTxInf>").findAll(x).count())
         assertTrue(x.contains("<NbOfTxs>1</NbOfTxs>"))
+    }
+    @Test fun jeMandatsfolgeEinBlock() {
+        val x = xml(listOf(
+            item(memberNumber = "M-0001", amount = "10", e2e = "E1", seq = "FRST"),
+            item(memberNumber = "M-0002", amount = "20", e2e = "E2", seq = "RCUR"),
+            item(memberNumber = "M-0003", amount = "5.5", e2e = "E3", seq = "FRST"),
+        ))
+        assertEquals(2, Regex("<PmtInf>").findAll(x).count())
+        assertTrue(x.indexOf("<SeqTp>FRST</SeqTp>") < x.indexOf("<SeqTp>RCUR</SeqTp>"))
+        assertTrue(x.contains("<NbOfTxs>2</NbOfTxs>\n      <CtrlSum>15.50</CtrlSum>"))
+        assertTrue(x.contains("<NbOfTxs>1</NbOfTxs>\n      <CtrlSum>20.00</CtrlSum>") || x.contains("<NbOfTxs>1</NbOfTxs>\n      <CtrlSum>20</CtrlSum>"))
+        assertTrue(x.contains("<NbOfTxs>3</NbOfTxs>\n      <CtrlSum>35.50</CtrlSum>"))
+        // wohlgeformt: lässt sich als XML einlesen, mit 2 Zahlungsblöcken und 3 Buchungen
+        val dok = javax.xml.parsers.DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(x.byteInputStream())
+        assertEquals(2, dok.getElementsByTagName("PmtInf").length)
+        assertEquals(3, dok.getElementsByTagName("DrctDbtTxInf").length)
+        val ids = Regex("<PmtInfId>(.*?)</PmtInfId>").findAll(x).map { it.groupValues[1] }.toList()
+        assertEquals(ids.size, ids.toSet().size)
+    }
+    @Test fun unbekannteFolgeWirdFolgelastschrift() {
+        val x = xml(listOf(item(seq = ""), item(memberNumber = "M-0002", e2e = "E2", seq = "quatsch")))
+        assertEquals(1, Regex("<PmtInf>").findAll(x).count())
+        assertTrue(x.contains("<SeqTp>RCUR</SeqTp>"))
     }
     @Test fun sonderzeichenMaskiert() {
         val x = xml(listOf(item(holder = "Meier & Sohn", remittance = "Beitrag <2026>")))

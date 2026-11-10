@@ -255,12 +255,12 @@ object SepaService {
         val creditorId = config.creditorId.uppercase().trim()
         val clubName = sanitizeText(config.creditorName.ifEmpty { "Verein" }, 70)
 
-        val tx = active.joinToString("\n") { item ->
+        fun buchung(item: SepaItem): String {
             val debtorName = sanitizeText(item.accountHolder, 70)
             val remittance = sanitizeText(item.remittanceInfo, 140)
             val debtorIban = item.iban.uppercase().replace(Regex("\\s"), "")
             val debtorBic = item.bic.uppercase().trim()
-            """      <DrctDbtTxInf>
+            return """      <DrctDbtTxInf>
         <PmtId>
           <EndToEndId>${escapeXml(item.endToEndId)}</EndToEndId>
         </PmtId>
@@ -290,25 +290,21 @@ object SepaService {
       </DrctDbtTxInf>"""
         }
 
-        val totalStr = total.toPlainString()
-        return """<?xml version="1.0" encoding="UTF-8"?>
-<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.008.001.02" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:iso:std:iso:20022:tech:xsd:pain.008.001.02 pain.008.001.02.xsd">
-  <CstmrDrctDbtInitn>
-    <GrpHdr>
-      <MsgId>${escapeXml(msgId)}</MsgId>
-      <CreDtTm>$creDtTm</CreDtTm>
-      <NbOfTxs>$count</NbOfTxs>
-      <CtrlSum>$totalStr</CtrlSum>
-      <InitgPty>
-        <Nm>${escapeXml(clubName)}</Nm>
-      </InitgPty>
-    </GrpHdr>
-    <PmtInf>
-      <PmtInfId>${escapeXml(pmtInfId)}</PmtInfId>
+        // Je Mandatsfolge ein eigener Zahlungsblock (Erst-, einmalige, Folge-, letzte Lastschrift), wie es das Bankformat vorsieht.
+        // Der Desktop schreibt für alle Posten fest RCUR; das ist dort vorgemerkt.
+        val folgen = listOf("FRST", "OOFF", "RCUR", "FNAL")
+        fun folge(i: SepaItem) = i.sequenceType.trim().uppercase().takeIf { it in folgen } ?: "RCUR"
+        val gruppen = active.groupBy { folge(it) }
+        val bloecke = folgen.filter { it in gruppen }.joinToString("\n") { f ->
+            val posten = gruppen.getValue(f)
+            val summe = round2(posten.fold(BigDecimal.ZERO) { s, i -> s + i.amount }).toPlainString()
+            val id = if (gruppen.size == 1) pmtInfId else "$pmtInfId-$f"
+            """    <PmtInf>
+      <PmtInfId>${escapeXml(id)}</PmtInfId>
       <PmtMtd>DD</PmtMtd>
       <BtchBookg>true</BtchBookg>
-      <NbOfTxs>$count</NbOfTxs>
-      <CtrlSum>$totalStr</CtrlSum>
+      <NbOfTxs>${posten.size}</NbOfTxs>
+      <CtrlSum>$summe</CtrlSum>
       <PmtTpInf>
         <SvcLvl>
           <Cd>SEPA</Cd>
@@ -316,7 +312,7 @@ object SepaService {
         <LclInstrm>
           <Cd>CORE</Cd>
         </LclInstrm>
-        <SeqTp>RCUR</SeqTp>
+        <SeqTp>$f</SeqTp>
       </PmtTpInf>
       <ReqdColltnDt>${formatDate(config.executionDate)}</ReqdColltnDt>
       <Cdtr>
@@ -344,8 +340,24 @@ object SepaService {
           </PrvtId>
         </Id>
       </CdtrSchmeId>
-$tx
-    </PmtInf>
+${posten.joinToString("\n") { buchung(it) }}
+    </PmtInf>"""
+        }
+
+        val totalStr = total.toPlainString()
+        return """<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.008.001.02" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:iso:std:iso:20022:tech:xsd:pain.008.001.02 pain.008.001.02.xsd">
+  <CstmrDrctDbtInitn>
+    <GrpHdr>
+      <MsgId>${escapeXml(msgId)}</MsgId>
+      <CreDtTm>$creDtTm</CreDtTm>
+      <NbOfTxs>$count</NbOfTxs>
+      <CtrlSum>$totalStr</CtrlSum>
+      <InitgPty>
+        <Nm>${escapeXml(clubName)}</Nm>
+      </InitgPty>
+    </GrpHdr>
+$bloecke
   </CstmrDrctDbtInitn>
 </Document>"""
     }
