@@ -1,5 +1,6 @@
 package de.vereinsmanager.android.ui
 
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateCentroid
@@ -374,6 +375,9 @@ internal fun DateiAnsicht(schluessel: String, laden: () -> AppModel.BelegDatei?,
             var tx by remember(schluessel) { mutableStateOf(0f) }
             var ty by remember(schluessel) { mutableStateOf(0f) }
             val liste = rememberLazyListState()
+            // Die Seiten werden schon während der Geste in der jeweils nötigen Schärfe nachgezeichnet (in Viertelstufen),
+            // das bisherige Bild bleibt solange stehen.
+            val zeichenStufe by remember(schluessel) { derivedStateOf { kotlin.math.ceil(skala * live * 4f) / 4f } }
             BoxWithConstraints(modifier.fillMaxSize()) {
                 val breiteDp = maxWidth
                 val breitePx = with(LocalDensity.current) { breiteDp.roundToPx() }
@@ -457,7 +461,7 @@ internal fun DateiAnsicht(schluessel: String, laden: () -> AppModel.BelegDatei?,
                                     },
                             ) {
                                 items(count = quelle.anzahl) { i ->
-                                    SeitenBild(quelle, i, (breitePx * skala).toInt().coerceAtMost(2400))
+                                    SeitenBild(quelle, i, (breitePx * zeichenStufe).toInt().coerceAtMost(2400))
                                 }
                             }
                         }
@@ -475,7 +479,8 @@ private fun SeitenBild(quelle: Seitenquelle, index: Int, breitePx: Int) {
     DisposableEffect(quelle, index, breitePx) {
         var aktiv = true
         thread {
-            val b = try { quelle.zeichnen(index, breitePx) } catch (e: Exception) { null }
+            // Überholte Aufträge (die Vergrößerung hat sich inzwischen weiter geändert) werden gar nicht erst gezeichnet.
+            val b = try { synchronized(quelle) { if (aktiv) quelle.zeichnen(index, breitePx) else null } } catch (e: Exception) { null }
             handler.post { if (aktiv && b != null) bild = b }
         }
         onDispose { aktiv = false }
