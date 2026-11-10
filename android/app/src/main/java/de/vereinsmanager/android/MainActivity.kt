@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import de.vereinsmanager.android.ui.BeitragslaufScreen
 import de.vereinsmanager.android.ui.BelegAnsichtScreen
 import de.vereinsmanager.android.ui.EinstellungenScreen
+import de.vereinsmanager.android.ui.EuerScreen
 import de.vereinsmanager.android.ui.BuchungDetailScreen
 import de.vereinsmanager.android.ui.BuchungFormScreen
 import de.vereinsmanager.android.ui.BuchungenScreen
