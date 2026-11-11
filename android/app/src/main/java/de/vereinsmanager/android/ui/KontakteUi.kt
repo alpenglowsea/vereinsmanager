@@ -80,7 +80,7 @@ private val ART_FILTER = linkedMapOf("legal" to "Firmen", "natural" to "Privatpe
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun KontakteScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, modifier: Modifier = Modifier) {
+fun KontakteScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, onImport: () -> Unit, modifier: Modifier = Modifier) {
     val alle = model.kontakte
     var suche by remember { mutableStateOf("") }
     var art by remember { mutableStateOf<String?>(null) }
@@ -120,6 +120,7 @@ fun KontakteScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit,
             FilterMenu("Typ", Kontakte.TYPEN, typ) { typ = it }
             FilterMenu("Sortierung", Kontakte.SORTIERUNG, sortierung.takeIf { it != "name" }) { sortierung = it ?: "name" }
             KompaktKnopf("Neuer Kontakt", onNew, primaer = true)
+            KompaktKnopf("Importieren", onImport)
             ExportMenue("Exportieren", export(shown, "angezeigte"), kompakt = false)
         }
         if (waehlt) {

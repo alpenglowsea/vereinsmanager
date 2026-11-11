@@ -105,7 +105,7 @@ private fun betragText(b: Buchung): String = when {
 
 /** Buchungsjournal: Kontostände oben, darunter Suche, Filter und die Buchungen als Karten-Liste. */
 @Composable
-fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, onKonten: () -> Unit, modifier: Modifier = Modifier) {
+fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, onKonten: () -> Unit, onImport: () -> Unit, modifier: Modifier = Modifier) {
     var filter by remember { mutableStateOf(BuchungFilter()) }
     var sortierung by remember { mutableStateOf(BuchungSortierung.DATUM) }
     var aufsteigend by remember { mutableStateOf(false) }
@@ -139,6 +139,7 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
                 KompaktKnopf("Neue Buchung", onNew, Modifier.weight(1f), primaer = true)
                 KompaktKnopf("Konten verwalten", onKonten, Modifier.weight(1f))
             }
+            KompaktKnopf("Importieren (Bank, Excel, CSV)", onImport, Modifier.fillMaxWidth().padding(top = 8.dp))
             Row(
                 Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

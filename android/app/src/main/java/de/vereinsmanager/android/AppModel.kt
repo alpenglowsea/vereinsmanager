@@ -950,6 +950,47 @@ class AppModel(private val appContext: Context) {
         }
     }
 
+    // ---- Importe (Buchungen, Kontakte) ----
+
+    /** Liest eine Excel- oder CSV-Datei als Tabelle; zweiter Wert: Hinweis für die Anzeige (leer, wenn keiner nötig ist). */
+    fun loadTabelle(uri: Uri): Pair<CsvTable, String> {
+        val bytes = appContext.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+        return de.vereinsmanager.core.importe.Tabellen.ausDatei(bytes)
+    }
+
+    /** Eingefügter Text (aus Excel/Google Sheets: Tabulator-getrennt, aus CSV: Semikolon oder Komma). */
+    fun tabelleAusText(text: String): CsvTable = MemberCsv.parse(text)
+
+    /** Schreibt Text (UTF-8 mit Kennzeichen, damit Excel Umlaute richtig liest), z. B. eine Muster-Vorlage. */
+    fun writeText(uri: Uri, text: String): String = try {
+        appContext.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(("\uFEFF" + text).toByteArray(Charsets.UTF_8)) }
+        "Muster-Vorlage gespeichert."
+    } catch (e: Exception) { "Fehler: ${e.message ?: e::class.simpleName}" }
+
+    fun importBuchungen(
+        zeilen: List<de.vereinsmanager.core.importe.BuchungsZeile>, quelle: de.vereinsmanager.core.importe.ImportQuelle,
+        done: (de.vereinsmanager.core.importe.BuchungImportBericht?, String?) -> Unit,
+    ) {
+        busy = true
+        thread {
+            var bericht: de.vereinsmanager.core.importe.BuchungImportBericht? = null
+            val fehler = try { bericht = de.vereinsmanager.core.importe.BuchungImport.importieren(store, zeilen, quelle); null } catch (e: Exception) { e.message ?: e::class.simpleName }
+            post { reload(); busy = false; done(bericht, fehler) }
+        }
+    }
+
+    fun importKontakte(
+        zeilen: List<de.vereinsmanager.core.importe.KontaktZeile>,
+        done: (de.vereinsmanager.core.importe.KontaktImportBericht?, String?) -> Unit,
+    ) {
+        busy = true
+        thread {
+            var bericht: de.vereinsmanager.core.importe.KontaktImportBericht? = null
+            val fehler = try { bericht = de.vereinsmanager.core.importe.KontaktImport.importieren(store, zeilen); null } catch (e: Exception) { e.message ?: e::class.simpleName }
+            post { reload(); busy = false; done(bericht, fehler) }
+        }
+    }
+
     fun suggestedFileName(paket: Boolean): String {
         val club = clubName.ifEmpty { "Verein" }.replace(Regex("[^A-Za-z0-9äöüÄÖÜß_-]+"), "_")
         return "VereinsManager_Sicherung_${club}_${SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date())}.${if (paket) "zip" else "json"}"

@@ -58,6 +58,8 @@ import de.vereinsmanager.android.ui.MemberDetailScreen
 import de.vereinsmanager.android.ui.MemberFormScreen
 import de.vereinsmanager.android.ui.MaterialOverviewScreen
 import de.vereinsmanager.android.ui.MemberAnalyticsScreen
+import de.vereinsmanager.android.ui.BuchungImportScreen
+import de.vereinsmanager.android.ui.KontaktImportScreen
 import de.vereinsmanager.android.ui.MemberImportScreen
 import de.vereinsmanager.android.ui.MemberListScreen
 import de.vereinsmanager.android.ui.theme.VereinsManagerTheme
@@ -70,6 +72,8 @@ sealed interface Page {
     /** id == null: neues Mitglied */
     data class MemberEdit(val id: String?) : Page
     data object MemberImport : Page
+    data object BuchungImport : Page
+    data object KontaktImport : Page
     data object MaterialOverview : Page
     data object MemberAnalytics : Page
     data object Transactions : Page
@@ -181,7 +185,7 @@ class MainActivity : ComponentActivity() {
                             Page.MemberImport -> MemberImportScreen(model, onDone = { stack = stack.dropLast(1) }, modifier = m)
                             Page.Transactions -> BuchungenScreen(
                                 model, onOpen = { stack = stack + Page.Transaction(it) },
-                                onNew = { stack = stack + Page.TransactionEdit(null) }, onKonten = { stack = stack + Page.Accounts }, modifier = m,
+                                onNew = { stack = stack + Page.TransactionEdit(null) }, onKonten = { stack = stack + Page.Accounts }, onImport = { stack = stack + Page.BuchungImport }, modifier = m,
                             )
                             is Page.Transaction -> BuchungDetailScreen(
                                 model, page.id, onEdit = { stack = stack + Page.TransactionEdit(page.id) },
@@ -207,7 +211,9 @@ class MainActivity : ComponentActivity() {
                             is Page.RechnungEdit -> RechnungFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m, kontaktId = page.kontaktId)
                             Page.RechnungsVorlage -> RechnungsVorlageScreen(model, onDone = { stack = stack.dropLast(1) }, modifier = m)
                             is Page.Vorschau -> VorschauScreen(model, page.art, page.id, modifier = m)
-                            Page.Contacts -> KontakteScreen(model, onOpen = { stack = stack + Page.Contact(it) }, onNew = { stack = stack + Page.ContactEdit(null) }, modifier = m)
+                            Page.Contacts -> KontakteScreen(model, onOpen = { stack = stack + Page.Contact(it) }, onNew = { stack = stack + Page.ContactEdit(null) }, onImport = { stack = stack + Page.KontaktImport }, modifier = m)
+                            Page.BuchungImport -> BuchungImportScreen(model, onDone = { stack = stack.dropLast(1) }, modifier = m)
+                            Page.KontaktImport -> KontaktImportScreen(model, onDone = { stack = stack.dropLast(1) }, modifier = m)
                             is Page.Contact -> KontaktDetailScreen(
                                 model, page.id, onEdit = { stack = stack + Page.ContactEdit(page.id) },
                                 onBuchung = { name -> stack = stack + Page.TransactionEdit(null, name) },
@@ -271,6 +277,8 @@ private fun seitenTitel(p: Page, model: AppModel): String = when (p) {
     is Page.Member -> "Mitglied"
     is Page.MemberEdit -> if (p.id == null) "Neues Mitglied" else "Mitglied bearbeiten"
     Page.MemberImport -> "CSV-Import"
+    Page.BuchungImport -> "Buchungen importieren"
+    Page.KontaktImport -> "Kontakte importieren"
     Page.MaterialOverview -> "Ausgeteiltes Material"
     Page.MemberAnalytics -> "Mitglieder-Auswertung"
     Page.Transactions -> "Buchungen & Journal"
@@ -304,14 +312,14 @@ private fun aktivesZiel(p: Page): Ziel? = when (p) {
     Page.Home -> Ziel.START
     Page.Members, is Page.Member, is Page.MemberEdit, Page.MemberImport, Page.MaterialOverview -> Ziel.MITGLIEDER
     Page.MemberAnalytics -> Ziel.MITGLIEDER_AUSWERTUNG
-    Page.Transactions, is Page.Transaction, is Page.TransactionEdit, is Page.BelegAnsicht, Page.Accounts -> Ziel.BUCHUNGEN
+    Page.Transactions, is Page.Transaction, is Page.TransactionEdit, is Page.BelegAnsicht, Page.Accounts, Page.BuchungImport -> Ziel.BUCHUNGEN
     is Page.Documents, is Page.Document, is Page.DocumentEdit, is Page.DocumentView -> Ziel.DOKUMENTE
     Page.Sepa -> Ziel.BEITRAGSLAUF
     Page.Euer -> Ziel.EUER
     Page.Rechnungen, is Page.Rechnung, is Page.RechnungEdit, Page.RechnungsVorlage -> Ziel.RECHNUNGEN
     is Page.Vorschau -> if (p.art == "rechnung") Ziel.RECHNUNGEN else Ziel.SPENDEN
     Page.Spenden, is Page.Spende, is Page.SpendeEdit -> Ziel.SPENDEN
-    Page.Contacts, is Page.Contact, is Page.ContactEdit -> Ziel.KONTAKTE
+    Page.Contacts, is Page.Contact, is Page.ContactEdit, Page.KontaktImport -> Ziel.KONTAKTE
     Page.Settings -> Ziel.EINSTELLUNGEN
     Page.Probes -> null
 }

@@ -172,7 +172,7 @@ private fun Fehlertext(text: String) {
 
 /** Sphäre, Sparte, Nummernkreis, Konto und Umsatzsteuer: gemeinsam für die Buchung und jede Teilbuchung. */
 @Composable
-private fun Zuordnung(
+internal fun Zuordnung(
     sphaere: String, sparte: String, nummernkreis: String, konto: String, ust: Int, art: String,
     sparten: Map<String, String>, skr: List<de.vereinsmanager.core.skr42.Skr42Main>,
     onSphaere: (String) -> Unit, onSparte: (String) -> Unit,
