@@ -28,6 +28,8 @@ sealed interface Zeichnung {
     data class Qr(val inhalt: String, val x: Double, val y: Double, val groesse: Double) : Zeichnung
     /** Ein Linienzug (zusammenhängender Strich) durch die Punkte, etwa für die Unterschrift. */
     data class Linienzug(val punkte: List<Pair<Double, Double>>, val dicke: Double = 0.5, val farbe: Int? = null) : Zeichnung
+    /** Ein Kreisring (oder Kuchenstück, wenn [innen] 0 ist) um ([cx], [cy]); Winkel in Grad, 0 = rechts, im Uhrzeigersinn. */
+    data class Sektor(val cx: Double, val cy: Double, val aussen: Double, val innen: Double, val start: Double, val winkel: Double, val fuellung: Int) : Zeichnung
     data class Linie(val x1: Double, val y1: Double, val x2: Double, val y2: Double, val dicke: Double = 0.25, val farbe: Int? = null) : Zeichnung
 
     /**

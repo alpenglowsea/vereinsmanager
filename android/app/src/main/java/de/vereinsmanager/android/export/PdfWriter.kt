@@ -338,7 +338,7 @@ object PdfWriter {
      * Zeichnet Befehle des Kerns auf eine Seite. [begrenzen]: Zeilen, die über den rechten Rand des Vordrucks hinausragen
      * würden, werden etwas verkleinert statt abgeschnitten (Zuwendungsbestätigung).
      */
-    private fun zeichneSeite(c: android.graphics.Canvas, befehle: List<Zeichnung>, begrenzen: Boolean) {
+    internal fun zeichneSeite(c: android.graphics.Canvas, befehle: List<Zeichnung>, begrenzen: Boolean) {
         val schwarz = Color.BLACK
         val strich = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = schwarz; style = Paint.Style.STROKE }
         val flaeche = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -357,6 +357,21 @@ object PdfWriter {
                     }
                 }
                 is Zeichnung.Qr -> zeichneQr(c, z, strich, flaeche)
+                is Zeichnung.Sektor -> {
+                    flaeche.color = z.fuellung
+                    val aussen = android.graphics.RectF((z.cx - z.aussen).toFloat() * MM, (z.cy - z.aussen).toFloat() * MM, (z.cx + z.aussen).toFloat() * MM, (z.cy + z.aussen).toFloat() * MM)
+                    val weg = android.graphics.Path()
+                    weg.arcTo(aussen, z.start.toFloat(), z.winkel.toFloat())
+                    if (z.innen > 0.0) {
+                        val innen = android.graphics.RectF((z.cx - z.innen).toFloat() * MM, (z.cy - z.innen).toFloat() * MM, (z.cx + z.innen).toFloat() * MM, (z.cy + z.innen).toFloat() * MM)
+                        weg.arcTo(innen, (z.start + z.winkel).toFloat(), -z.winkel.toFloat())
+                    } else weg.lineTo(z.cx.toFloat() * MM, z.cy.toFloat() * MM)
+                    weg.close()
+                    c.drawPath(weg, flaeche)
+                    // dünner weißer Rand trennt die Scheiben
+                    strich.color = Color.WHITE; strich.strokeWidth = 0.5f * MM
+                    c.drawPath(weg, strich)
+                }
                 is Zeichnung.Linienzug -> {
                     strich.color = z.farbe ?: schwarz
                     strich.strokeWidth = z.dicke.toFloat() * MM
