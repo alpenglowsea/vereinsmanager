@@ -51,7 +51,7 @@ enum class Ziel(val titel: String, val icon: ImageVector, val farbe: Farbe, val 
     SPENDEN("Spenden", Lucide.HeartHandshake, Farbe.GRUEN, true),
     FINANZ_AUSWERTUNG("Finanz-Auswertungen", Lucide.PieChart, Farbe.GRUEN, true),
     KONTAKTE("Kontakte", Lucide.Contact, Farbe.TUERKIS, true),
-    KALENDER("Kalender", Lucide.CalendarDays, Farbe.INDIGO, false),
+    KALENDER("Kalender", Lucide.CalendarDays, Farbe.INDIGO, true),
     SITZUNGEN("Sitzungen", Lucide.ScrollText, Farbe.ROSE, false),
     INVENTAR("Inventar", Lucide.Package, Farbe.LILA, true),
     DOKUMENTE("Dokumente", Lucide.FolderArchive, Farbe.BERNSTEIN, true),

@@ -16,6 +16,7 @@ class Exporter(
     val pdfSchreiber: (dateiname: String, schreiber: (java.io.OutputStream) -> Unit) -> Unit,
     val xml: (dateiname: String, inhalt: () -> String) -> Unit,
     val zipSchreiber: (dateiname: String, schreiber: (java.io.OutputStream) -> Unit) -> Unit = { _, _ -> },
+    val ics: (dateiname: String, inhalt: () -> String) -> Unit = { _, _ -> },
 ) {
     fun pdf(dateiname: String, tabelle: () -> PdfTabelle) = pdfSchreiber(dateiname) { out -> PdfWriter.schreiben(tabelle(), out) }
 }
@@ -26,6 +27,7 @@ fun rememberExporter(model: AppModel, onResult: (String) -> Unit): Exporter {
     var wartendXml by remember { mutableStateOf<(() -> String)?>(null) }
     var wartendPdf by remember { mutableStateOf<((java.io.OutputStream) -> Unit)?>(null) }
     var wartendZip by remember { mutableStateOf<((java.io.OutputStream) -> Unit)?>(null) }
+    var wartendIcs by remember { mutableStateOf<(() -> String)?>(null) }
     val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         val p = wartendCsv
         wartendCsv = null
@@ -50,12 +52,19 @@ fun rememberExporter(model: AppModel, onResult: (String) -> Unit): Exporter {
         if (uri != null && p != null) model.exportiere(uri, { out -> out.write(p().toByteArray(Charsets.UTF_8)) }, "Datei gespeichert.", onResult)
         else onResult("Speichern abgebrochen.")
     }
-    return remember(csvLauncher, pdfLauncher, xmlLauncher, zipLauncher) {
+    val icsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/calendar")) { uri ->
+        val p = wartendIcs
+        wartendIcs = null
+        if (uri != null && p != null) model.exportiere(uri, { out -> out.write(p().toByteArray(Charsets.UTF_8)) }, "Kalenderdatei gespeichert.", onResult)
+        else onResult("Export abgebrochen.")
+    }
+    return remember(csvLauncher, pdfLauncher, xmlLauncher, zipLauncher, icsLauncher) {
         Exporter(
             csv = { name, f -> wartendCsv = f; csvLauncher.launch(name) },
             pdfSchreiber = { name, f -> wartendPdf = f; pdfLauncher.launch(name) },
             xml = { name, f -> wartendXml = f; xmlLauncher.launch(name) },
             zipSchreiber = { name, f -> wartendZip = f; zipLauncher.launch(name) },
+            ics = { name, f -> wartendIcs = f; icsLauncher.launch(name) },
         )
     }
 }

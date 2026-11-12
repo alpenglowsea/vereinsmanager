@@ -12,6 +12,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.FileProvider
 import de.vereinsmanager.android.data.SqliteDocumentStore
+import de.vereinsmanager.core.calendar.Austausch
+import de.vereinsmanager.core.calendar.ImportBericht
+import de.vereinsmanager.core.calendar.Kalender
+import de.vereinsmanager.core.calendar.Termin
+import de.vereinsmanager.core.calendar.TerminForm
+import de.vereinsmanager.core.calendar.TerminLesung
+import de.vereinsmanager.core.calendar.Terminart
 import de.vereinsmanager.core.contacts.Kontakt
 import de.vereinsmanager.core.contacts.KontaktForm
 import de.vereinsmanager.core.contacts.Kontakte
@@ -173,6 +180,8 @@ class AppModel(private val appContext: Context) {
     var rechnungen by mutableStateOf<List<Rechnung>>(emptyList())
     var kontakte by mutableStateOf<List<Kontakt>>(emptyList())
     /** Inventar und, je Gegenstand, wie viele Stück gerade an Mitglieder ausgegeben sind. */
+    var termine by mutableStateOf<List<Termin>>(emptyList())
+    var terminarten by mutableStateOf<List<Terminart>>(emptyList())
     var inventar by mutableStateOf<List<Artikel>>(emptyList())
     var inventarAusgegeben by mutableStateOf<Map<String, Int>>(emptyMap())
         private set
@@ -220,6 +229,8 @@ class AppModel(private val appContext: Context) {
         unterschrift = Unterschriften.lesen(store)
         rechnungen = Rechnungen.alle(store)
         kontakte = Kontakte.alle(store)
+        termine = Kalender.alle(store)
+        terminarten = Kalender.arten(store)
         inventar = Inventar.alle(store)
         inventarAusgegeben = Inventar.ausgegeben(store)
         vorlage = Vorlagen.lesen(store)
@@ -614,6 +625,29 @@ class AppModel(private val appContext: Context) {
     fun kontaktSpeichern(f: KontaktForm, done: (Kontakt?, String?) -> Unit) = hintergrund({ Kontakte.speichern(store, f) }, done)
     fun kontaktLoeschen(id: String, done: (String?) -> Unit) = hintergrund({ Kontakte.loeschen(store, id) }) { _, e -> done(e) }
     fun kontakteLoeschen(ids: List<String>, done: (String?) -> Unit) = hintergrund({ Kontakte.sammelLoeschen(store, ids) }) { _, e -> done(e) }
+
+    // ---- Kalender ----
+
+    fun terminNeu(tag: java.time.LocalDate): TerminForm = Kalender.neu(tag, terminarten.firstOrNull { it.id == "cat-general" }?.id ?: terminarten.firstOrNull()?.id ?: "cat-general")
+    fun terminFormular(t: Termin): TerminForm = TerminForm.von(t)
+    fun terminPruefen(f: TerminForm): Map<String, String> = Kalender.pruefen(f)
+    fun terminSpeichern(f: TerminForm, done: (Termin?, String?) -> Unit) = hintergrund({ Termin.from(Kalender.speichern(store, f)) }, done)
+    fun terminLoeschen(id: String, done: (String?) -> Unit) = hintergrund({ Kalender.loeschen(store, id) }) { _, e -> done(e) }
+    fun terminStatus(terminId: String, memberId: String, status: String, done: (String?) -> Unit) =
+        hintergrund({ Kalender.teilnehmerStatus(store, terminId, memberId, status) }) { _, e -> done(e) }
+    fun terminartSpeichern(id: String?, name: String, farbe: Int, beschreibung: String, done: (String?) -> Unit) =
+        hintergrund({ Kalender.artSpeichern(store, id, name, farbe, beschreibung) }) { _, e -> done(e) }
+    fun terminartLoeschen(id: String, done: (String?) -> Unit) = hintergrund({ Kalender.artLoeschen(store, id) }) { _, e -> done(e) }
+
+    /** Liest eine iCal-, CSV- oder Excel-Datei mit Terminen; [done] bekommt die gelesenen Termine (noch nicht gespeichert) oder einen Fehlertext. */
+    fun kalenderDateiLesen(uri: Uri, done: (TerminLesung?, String?) -> Unit) = hintergrund({
+        val bytes = liesBegrenzt(uri)
+        val text = bytes.toString(Charsets.UTF_8)
+        if (text.contains("BEGIN:VCALENDAR", ignoreCase = true)) Austausch.icsLesen(text, terminarten)
+        else Austausch.csvLesen(de.vereinsmanager.core.importe.Tabellen.ausDatei(bytes).first, terminarten)
+    }, done)
+
+    fun kalenderImportieren(lesung: TerminLesung, done: (ImportBericht?, String?) -> Unit) = hintergrund({ Austausch.importieren(store, lesung) }, done)
 
     // ---- Inventar ----
 
