@@ -15,6 +15,11 @@ import de.vereinsmanager.android.data.SqliteDocumentStore
 import de.vereinsmanager.core.contacts.Kontakt
 import de.vereinsmanager.core.contacts.KontaktForm
 import de.vereinsmanager.core.contacts.Kontakte
+import de.vereinsmanager.core.inventory.Artikel
+import de.vereinsmanager.core.inventory.ArtikelForm
+import de.vereinsmanager.core.inventory.Inventar
+import de.vereinsmanager.core.inventory.LoeschErgebnis
+import de.vereinsmanager.core.inventory.SammelAenderung
 import de.vereinsmanager.core.backup.BackupCrypto
 import de.vereinsmanager.core.backup.BackupExporter
 import de.vereinsmanager.core.backup.BackupFile
@@ -167,6 +172,9 @@ class AppModel(private val appContext: Context) {
         private set
     var rechnungen by mutableStateOf<List<Rechnung>>(emptyList())
     var kontakte by mutableStateOf<List<Kontakt>>(emptyList())
+    /** Inventar und, je Gegenstand, wie viele Stück gerade an Mitglieder ausgegeben sind. */
+    var inventar by mutableStateOf<List<Artikel>>(emptyList())
+    var inventarAusgegeben by mutableStateOf<Map<String, Int>>(emptyMap())
         private set
     var vorlage by mutableStateOf(Vorlage())
         private set
@@ -212,6 +220,8 @@ class AppModel(private val appContext: Context) {
         unterschrift = Unterschriften.lesen(store)
         rechnungen = Rechnungen.alle(store)
         kontakte = Kontakte.alle(store)
+        inventar = Inventar.alle(store)
+        inventarAusgegeben = Inventar.ausgegeben(store)
         vorlage = Vorlagen.lesen(store)
         vereinsdaten = Vereinsdaten.lesen(store.get("settings", "main"))
         lastschriftFehlt = Vereinsdaten.fehlt(store.get("settings", "main"))
@@ -604,6 +614,49 @@ class AppModel(private val appContext: Context) {
     fun kontaktSpeichern(f: KontaktForm, done: (Kontakt?, String?) -> Unit) = hintergrund({ Kontakte.speichern(store, f) }, done)
     fun kontaktLoeschen(id: String, done: (String?) -> Unit) = hintergrund({ Kontakte.loeschen(store, id) }) { _, e -> done(e) }
     fun kontakteLoeschen(ids: List<String>, done: (String?) -> Unit) = hintergrund({ Kontakte.sammelLoeschen(store, ids) }) { _, e -> done(e) }
+
+    // ---- Inventar ----
+
+    fun artikelNeu(): ArtikelForm = Inventar.neu(inventar)
+    fun artikelFormular(a: Artikel): ArtikelForm = ArtikelForm.von(a)
+    fun artikelPruefen(f: ArtikelForm): Map<String, String> = Inventar.pruefen(f, inventar)
+    fun artikelSpeichern(f: ArtikelForm, done: (Artikel?, String?) -> Unit) = hintergrund({ Artikel.from(Inventar.speichern(store, f)) }, done)
+    fun artikelGeprueft(id: String, done: (String?) -> Unit) = hintergrund({ Inventar.geprueft(store, id) }) { _, e -> done(e) }
+    fun artikelLoeschen(ids: List<String>, done: (LoeschErgebnis?, String?) -> Unit) = hintergrund({ Inventar.loeschen(store, ids) }, done)
+    fun artikelSammel(ids: List<String>, a: SammelAenderung, done: (Int?, String?) -> Unit) = hintergrund({ Inventar.sammelAendern(store, ids, a) }, done)
+
+    private var artikelFotoDatei: File? = null
+
+    /** Ziel für die Kamera-App beim Foto eines Gegenstands (eigene Datei im Zwischenspeicher, wird nach dem Umwandeln gelöscht). */
+    fun artikelFotoZiel(): Uri {
+        val f = File(cacheOrdner("fotos"), "gegenstand-${System.currentTimeMillis()}.jpg")
+        artikelFotoDatei = f
+        return FileProvider.getUriForFile(appContext, "${appContext.packageName}.fileprovider", f)
+    }
+
+    /** Nach der Kamera: Foto verkleinern und als Data-URL liefern ([done] bekommt sie oder einen Fehlertext). */
+    fun artikelFotoAufgenommen(ok: Boolean, done: (String?, String?) -> Unit) {
+        val f = artikelFotoDatei
+        artikelFotoDatei = null
+        if (f == null) return
+        if (!ok || f.length() == 0L) { f.delete(); return }
+        artikelFotoUmwandeln({ f.inputStream() }, done) { f.delete() }
+    }
+
+    /** Foto aus der Galerie. */
+    fun artikelFotoGewaehlt(uri: Uri, done: (String?, String?) -> Unit) =
+        artikelFotoUmwandeln({ appContext.contentResolver.openInputStream(uri)!! }, done) { }
+
+    private fun artikelFotoUmwandeln(oeffnen: () -> java.io.InputStream, done: (String?, String?) -> Unit, aufraeumen: () -> Unit) {
+        busy = true
+        thread {
+            var r: String? = null
+            var f: String? = null
+            try { r = ArtikelFoto.zuDataUrl(oeffnen) } catch (e: Exception) { f = "Das Foto lässt sich nicht übernehmen: ${e.message ?: e::class.simpleName}" }
+            aufraeumen()
+            post { busy = false; done(r, f) }
+        }
+    }
 
     // ---- Rechnungen ----
 

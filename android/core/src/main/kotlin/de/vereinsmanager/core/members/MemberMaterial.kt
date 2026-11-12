@@ -80,7 +80,7 @@ object MemberMaterial {
     private fun t(o: JsonObject, k: String) = (o[k] as? JsonPrimitive)?.takeIf { it !is JsonNull }?.contentOrNull ?: ""
 
     fun gegenstaende(store: DocumentStore): List<Gegenstand> =
-        store.all(INVENTORY).map { Gegenstand(t(it, "id"), t(it, "name").ifEmpty { "Gegenstand" }, t(it, "itemNumber"), t(it, "unit").ifEmpty { "Stk." }) }
+        store.all(INVENTORY).filter { t(it, "condition") != "discarded" }.map { Gegenstand(t(it, "id"), t(it, "name").ifEmpty { "Gegenstand" }, t(it, "itemNumber"), t(it, "unit").ifEmpty { "Stk." }) }
             .sortedWith(compareBy(java.text.Collator.getInstance(java.util.Locale.GERMANY)) { it.name })
 
     /** Alle Ausgaben aller Mitglieder, neueste zuerst. */

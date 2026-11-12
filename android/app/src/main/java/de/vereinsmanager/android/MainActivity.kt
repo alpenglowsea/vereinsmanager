@@ -49,6 +49,9 @@ import de.vereinsmanager.android.ui.DokumentDetailScreen
 import de.vereinsmanager.android.ui.DokumentFormScreen
 import de.vereinsmanager.android.ui.DokumenteScreen
 import de.vereinsmanager.android.ui.KontakteScreen
+import de.vereinsmanager.android.ui.InventarDetailScreen
+import de.vereinsmanager.android.ui.InventarFormScreen
+import de.vereinsmanager.android.ui.InventarScreen
 import de.vereinsmanager.android.ui.KontaktDetailScreen
 import de.vereinsmanager.android.ui.KontaktFormScreen
 import de.vereinsmanager.android.ui.KontenScreen
@@ -102,6 +105,10 @@ sealed interface Page {
     data class Contact(val id: String) : Page
     /** id == null: neuer Kontakt */
     data class ContactEdit(val id: String?) : Page
+    data object Inventory : Page
+    data class InventoryItem(val id: String) : Page
+    /** id == null: neuer Gegenstand */
+    data class InventoryEdit(val id: String?) : Page
     data object Settings : Page
     /** folderId == null: oberste Ebene. Jeder Ordner ist eine eigene Seite auf dem Stapel. */
     data class Documents(val folderId: String?) : Page
@@ -147,6 +154,7 @@ class MainActivity : ComponentActivity() {
                         Ziel.RECHNUNGEN -> listOf(Page.Home, Page.Rechnungen)
                         Ziel.SPENDEN -> listOf(Page.Home, Page.Spenden)
                         Ziel.KONTAKTE -> listOf(Page.Home, Page.Contacts)
+                        Ziel.INVENTAR -> listOf(Page.Home, Page.Inventory)
                         Ziel.ANTRAEGE -> listOf(Page.Home, if (model.antragWartet != null) Page.AntragPruefen else Page.AntragAusfuellen)
                         Ziel.EINSTELLUNGEN -> listOf(Page.Home, Page.Settings)
                         else -> stack // noch nicht gebaut; das Menü zeigt dafür einen Hinweis
@@ -158,7 +166,7 @@ class MainActivity : ComponentActivity() {
                     MenueInhalt(model.clubName, aktivesZiel(page), onWahl = ::geheZu)
                 }
                 val inhalt: @Composable () -> Unit = {
-                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || (page is Page.Documents && page.folderId == null) || page is Page.Sepa || page is Page.Euer || page is Page.FinanzAuswertung || page is Page.Rechnungen || page is Page.Spenden || page is Page.Contacts || (page is Page.Settings && stack.size <= 2) || page is Page.Probes
+                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || (page is Page.Documents && page.folderId == null) || page is Page.Sepa || page is Page.Euer || page is Page.FinanzAuswertung || page is Page.Rechnungen || page is Page.Spenden || page is Page.Contacts || page is Page.Inventory || (page is Page.Settings && stack.size <= 2) || page is Page.Probes
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
                         topBar = {
@@ -207,6 +215,12 @@ class MainActivity : ComponentActivity() {
             is Page.TransactionEdit -> BuchungFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m, vorPartner = page.partner)
                             Page.Accounts -> KontenScreen(model, modifier = m)
                             Page.Sepa -> BeitragslaufScreen(model, onEinstellungen = { stack = stack + Page.Settings }, modifier = m)
+                            Page.Inventory -> InventarScreen(model, onOpen = { stack = stack + Page.InventoryItem(it) }, onNew = { stack = stack + Page.InventoryEdit(null) }, modifier = m)
+                            is Page.InventoryItem -> InventarDetailScreen(
+                                model, page.id, onEdit = { stack = stack + Page.InventoryEdit(page.id) },
+                                onDeleted = { stack = stack.filter { it !is Page.InventoryItem && it !is Page.InventoryEdit } }, modifier = m,
+                            )
+                            is Page.InventoryEdit -> InventarFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
                             Page.Settings -> EinstellungenScreen(model, modifier = m)
                             Page.Euer -> EuerScreen(model, modifier = m)
                             Page.FinanzAuswertung -> FinanzAuswertungScreen(model, modifier = m)
@@ -324,6 +338,9 @@ private fun seitenTitel(p: Page, model: AppModel): String = when (p) {
     Page.Contacts -> "Kontakte"
     is Page.Contact -> "Kontakt"
     is Page.ContactEdit -> if (p.id == null) "Neuer Kontakt" else "Kontakt bearbeiten"
+    Page.Inventory -> "Inventar"
+    is Page.InventoryItem -> "Gegenstand"
+    is Page.InventoryEdit -> if (p.id == null) "Neuer Gegenstand" else "Gegenstand bearbeiten"
     Page.Settings -> "Einstellungen"
     is Page.TransactionEdit -> if (p.id == null) "Neue Buchung" else "Buchung bearbeiten"
     is Page.Documents -> if (p.folderId == null) "Dokumente" else model.ordner.firstOrNull { it.id == p.folderId }?.name ?: "Ordner"
@@ -349,6 +366,7 @@ private fun aktivesZiel(p: Page): Ziel? = when (p) {
     is Page.Vorschau -> if (p.art == "rechnung") Ziel.RECHNUNGEN else Ziel.SPENDEN
     Page.Spenden, is Page.Spende, is Page.SpendeEdit -> Ziel.SPENDEN
     Page.Contacts, is Page.Contact, is Page.ContactEdit, Page.KontaktImport -> Ziel.KONTAKTE
+    Page.Inventory, is Page.InventoryItem, is Page.InventoryEdit -> Ziel.INVENTAR
     Page.Settings -> Ziel.EINSTELLUNGEN
     Page.AntragAusfuellen, Page.AntragPruefen -> Ziel.ANTRAEGE
     Page.Probes -> null
