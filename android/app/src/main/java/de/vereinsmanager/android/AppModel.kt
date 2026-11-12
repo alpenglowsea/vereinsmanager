@@ -79,6 +79,12 @@ import de.vereinsmanager.core.invoice.Vorlage
 import de.vereinsmanager.core.invoice.Vorlagen
 import de.vereinsmanager.core.donation.Unterschriften
 import de.vereinsmanager.android.export.PdfWriter
+import de.vereinsmanager.core.antrag.Antrag
+import de.vereinsmanager.core.antrag.AntragEinstellungen
+import de.vereinsmanager.core.antrag.AntragEinstellungenStore
+import de.vereinsmanager.core.antrag.AntragLayout
+import de.vereinsmanager.core.antrag.Aufnahme
+import de.vereinsmanager.core.antrag.AufnahmeErgebnis
 import de.vereinsmanager.core.sepa.Beitragslauf
 import de.vereinsmanager.core.sepa.Lauf
 import de.vereinsmanager.core.sepa.LaufErgebnis
@@ -752,6 +758,59 @@ class AppModel(private val appContext: Context) {
             if (c.moveToFirst()) c.getString(0) else null
         }
     } catch (e: Exception) { null }
+
+    // ---- Mitgliedsanträge (am Gerät ausgefüllt) ----
+
+    /** Der ausgefüllte, unterschriebene Antrag, der auf die Prüfung durch den Verein wartet. Nur im Arbeitsspeicher. */
+    var antragWartet by mutableStateOf<Antrag?>(null)
+
+    fun antragEinstellungen(): AntragEinstellungen = AntragEinstellungenStore.lesen(store)
+
+    fun antragEinstellungenSpeichern(e: AntragEinstellungen, done: (String?) -> Unit) {
+        val f = AntragEinstellungenStore.pruefen(e)
+        if (f.isNotEmpty()) { done(f.values.first()); return }
+        hintergrund({ AntragEinstellungenStore.speichern(store, e) }) { _, fehler -> done(fehler) }
+    }
+
+    /** Name der eigenen Leervorlage oder null, wenn keine hinterlegt ist. */
+    fun antragVorlageName(): String? = AntragEinstellungenStore.vorlage(store)?.dateiName
+
+    fun antragVorlageWaehlen(uri: Uri, done: (String?) -> Unit) {
+        hintergrund({
+            val bytes = liesBegrenzt(uri)
+            AntragEinstellungenStore.vorlageSetzen(store, dateien, bytes, anzeigeName(uri) ?: "Aufnahmeantrag.pdf", java.time.LocalDate.now())
+        }) { _, fehler -> done(fehler) }
+    }
+
+    fun antragVorlageEntfernen(done: (String?) -> Unit) {
+        hintergrund({ AntragEinstellungenStore.vorlageEntfernen(store, dateien) }) { _, fehler -> done(fehler) }
+    }
+
+    /** Baut das PDF zu einem Antrag; a == null ergibt das leere Formular zum Ausdrucken. */
+    private fun antragPdfBytes(a: Antrag?, nummer: String): ByteArray {
+        val seiten = AntragLayout.bauen(
+            a, Vereinsdaten.lesen(store), AntragEinstellungenStore.lesen(store), nummer, java.time.LocalDate.now(), PdfWriter.mass,
+        )
+        return ByteArrayOutputStream().also { PdfWriter.rechnung(seiten, null, it) }.toByteArray()
+    }
+
+    /** Schreibt das leere Formular: die eigene Vorlage, wenn eine hinterlegt ist, sonst das von der App erzeugte. Nicht im Hauptstrang aufrufen. */
+    fun antragLeerSchreiben(out: java.io.OutputStream) {
+        val eigene = AntragEinstellungenStore.vorlageBytes(store, dateien)
+        out.write(eigene ?: antragPdfBytes(null, ""))
+    }
+
+    /** Nimmt den wartenden Antrag als Mitglied auf (Mitglied und PDF zusammen oder gar nicht). [done] bekommt das Ergebnis oder den Fehlertext. */
+    fun antragAufnehmen(a: Antrag, nummer: String, done: (AufnahmeErgebnis?, String?) -> Unit) {
+        hintergrund({
+            val e = AntragEinstellungenStore.lesen(store)
+            val pdf = antragPdfBytes(a, nummer)
+            Aufnahme.aufnehmen(
+                store, dateien, a, nummer, e.beitrag(a.mitgliedsart), pdf,
+                departments.ifEmpty { listOf("Hauptverein") }, java.time.LocalDate.now(),
+            )
+        }) { r, fehler -> if (r != null) antragWartet = null; done(r, fehler) }
+    }
 
     private fun <T> hintergrund(arbeit: () -> T, done: (T?, String?) -> Unit) {
         busy = true
