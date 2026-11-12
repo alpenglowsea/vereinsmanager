@@ -249,7 +249,7 @@ private fun TagesListe(model: AppModel, termine: List<Vorkommen>, besondere: Lis
             Column(Modifier.weight(1f)) {
                 Text(v.termin.titel, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    listOf(uhrzeit(v) + if (v.ende != v.datum) " (bis ${Zeit(v.ende)})" else "", v.termin.ort).filter { it.isNotEmpty() }.joinToString(" · "),
+                    listOf(uhrzeit(v) + if (v.ende != v.datum) " (bis ${dt(v.ende)})" else "", v.termin.ort).filter { it.isNotEmpty() }.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
