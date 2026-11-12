@@ -1045,13 +1045,13 @@ class AppModel(private val appContext: Context) {
 
     /** Speichert eine Ausgabe; gibt null bei Erfolg zurück, sonst den Fehlertext. */
     fun speichereAusgabe(memberId: String, form: AusgabeForm): String? =
-        try { MemberMaterial.speichern(store, memberId, form); stand += 1; null } catch (e: Exception) { e.message ?: e::class.simpleName }
+        try { MemberMaterial.speichern(store, memberId, form); stand += 1; inventarAusgegeben = Inventar.ausgegeben(store); null } catch (e: Exception) { e.message ?: e::class.simpleName }
 
     fun ausgabeUmschalten(id: String): String? =
-        try { MemberMaterial.umschalten(store, id); stand += 1; null } catch (e: Exception) { e.message ?: e::class.simpleName }
+        try { MemberMaterial.umschalten(store, id); stand += 1; inventarAusgegeben = Inventar.ausgegeben(store); null } catch (e: Exception) { e.message ?: e::class.simpleName }
 
     fun ausgabeEntfernen(id: String): String? =
-        try { MemberMaterial.entfernen(store, id); stand += 1; null } catch (e: Exception) { e.message ?: e::class.simpleName }
+        try { MemberMaterial.entfernen(store, id); stand += 1; inventarAusgegeben = Inventar.ausgegeben(store); null } catch (e: Exception) { e.message ?: e::class.simpleName }
 
     // ---- CSV-Import ----
 
