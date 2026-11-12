@@ -358,6 +358,9 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
                                 model.antragWartet = a
                                 abgegeben = true
                             } else {
+                                if (seite == AntragRegeln.SEITE_PERSON && a.mitgliedsart == "full") {
+                                    AntragRegeln.vorschlagArt(AntragRegeln.alter(a.geburtsdatum, heute))?.let { a = a.copy(mitgliedsart = it) }
+                                }
                                 if (seite == AntragRegeln.SEITE_ZAHLUNG - 1 && a.sepa && a.kontoinhaber.isBlank()) a = a.copy(kontoinhaber = a.name)
                                 seite += 1
                             }
@@ -523,8 +526,9 @@ fun AntragEinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Eigene Leervorlage", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Hier können Sie ein eigenes Antragsformular als PDF hinterlegen. Es ersetzt das von der App erzeugte leere Formular, " +
-                        "wenn Sie „Leeres Antragsformular als PDF speichern“ wählen. Der am Gerät ausgefüllte Antrag wird weiterhin von der App erzeugt.",
+                    "Hier können Sie ein eigenes PDF hinterlegen. Es wird auf zwei Arten genutzt: Erstens ersetzt es das leere Formular, wenn Sie " +
+                        "„Leeres Antragsformular als PDF speichern“ wählen. Zweitens liegt seine erste Seite als Briefkopf/Hintergrund unter jeder Seite " +
+                        "des am Gerät ausgefüllten Antrags – lassen Sie darum oben und unten Platz (Logo, Kopf, Fuß).",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Text(vorlageName?.let { "Hinterlegt: $it" } ?: "Keine eigene Vorlage hinterlegt.", style = MaterialTheme.typography.bodyMedium)

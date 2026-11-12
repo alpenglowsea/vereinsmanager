@@ -791,8 +791,29 @@ class AppModel(private val appContext: Context) {
         val seiten = AntragLayout.bauen(
             a, Vereinsdaten.lesen(store), AntragEinstellungenStore.lesen(store), nummer, java.time.LocalDate.now(), PdfWriter.mass,
         )
-        return ByteArrayOutputStream().also { PdfWriter.rechnung(seiten, null, it) }.toByteArray()
+        // Eigene Vorlage = Briefkopf: ihre erste Seite liegt unter jeder Seite des ausgefüllten Antrags.
+        val grund = if (a != null) antragVorlageBild() else null
+        return ByteArrayOutputStream().also { PdfWriter.rechnung(seiten, grund, it) }.toByteArray()
     }
+
+    /** Die erste Seite der eigenen Vorlage als Bild (A4, doppelte Auflösung) oder null; Fehler lassen den Antrag ohne Hintergrund entstehen. */
+    private fun antragVorlageBild(): android.graphics.Bitmap? = try {
+        val bytes = AntragEinstellungenStore.vorlageBytes(store, dateien) ?: return null
+        val tmp = File(appContext.cacheDir, "antrag-vorlage.pdf")
+        tmp.writeBytes(bytes)
+        try {
+            android.os.ParcelFileDescriptor.open(tmp, android.os.ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
+                android.graphics.pdf.PdfRenderer(pfd).use { r ->
+                    r.openPage(0).use { seite ->
+                        val bild = android.graphics.Bitmap.createBitmap(1190, 1684, android.graphics.Bitmap.Config.ARGB_8888)
+                        bild.eraseColor(android.graphics.Color.WHITE)
+                        seite.render(bild, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
+                        bild
+                    }
+                }
+            }
+        } finally { tmp.delete() }
+    } catch (e: Exception) { null }
 
     /** Schreibt das leere Formular: die eigene Vorlage, wenn eine hinterlegt ist, sonst das von der App erzeugte. Nicht im Hauptstrang aufrufen. */
     fun antragLeerSchreiben(out: java.io.OutputStream) {

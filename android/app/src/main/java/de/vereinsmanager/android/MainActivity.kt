@@ -190,6 +190,7 @@ class MainActivity : ComponentActivity() {
                                 model, page.id, onEdit = { id -> stack = stack + Page.MemberEdit(id) },
                                 onPage = { id -> stack = stack.dropLast(1) + Page.Member(id) },
                                 onMaterialOverview = { stack = stack + Page.MaterialOverview },
+                                onOpenDoc = { stack = stack + Page.Document(it) },
                                 onDeleted = { stack = stack.filter { it !is Page.Member && it !is Page.MemberEdit } }, modifier = m,
                             )
                             is Page.MemberEdit -> MemberFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
