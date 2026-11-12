@@ -154,11 +154,16 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
         }
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    if (abgegeben) "Antrag abgegeben" else "Aufnahmeantrag – Schritt $seite von ${AntragRegeln.SEITE_ZUSAMMENFASSUNG}",
-                    Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
-                    maxLines = 1, softWrap = false,
-                )
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        if (abgegeben) "Antrag abgegeben" else "Aufnahmeantrag",
+                        style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
+                    )
+                    if (!abgegeben) Text(
+                        "Schritt $seite von ${AntragRegeln.SEITE_ZUSAMMENFASSUNG}",
+                        style = MaterialTheme.typography.titleSmall, maxLines = 1, softWrap = false,
+                    )
+                }
                 if (!abgegeben) TextButton(onClick = { abbrechenFrage = true }) {
                     Text("Abbrechen\n(Vereinsvertreter)", style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 }
