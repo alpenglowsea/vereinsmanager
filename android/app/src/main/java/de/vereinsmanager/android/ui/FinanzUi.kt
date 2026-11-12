@@ -4,7 +4,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -67,13 +71,13 @@ fun FinanzAuswertungScreen(model: AppModel, modifier: Modifier = Modifier) {
     val spartenWahl = remember(model.departments) { linkedMapOf(Finanzauswertung.GESAMT to Finanzauswertung.GESAMT).also { m -> model.departments.forEach { m[it] = it } } }
 
     Column(modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             FilterMenu("Jahr", jahre.associateWith { it }, gewaehlt) { jahr = it }
             FilterMenu("Bereich", FinanceLabels.SPHERE_SHORT, sphaere) { sphaere = it }
             FilterMenu("Konto", model.konten.associate { it.id to it.name }, konto) { kontoId = it }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(filterText, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            Text(filterText, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f).fillMaxHeight())
             KompaktKnopf("CSV", {
                 val verein = model.vereinsname()
                 exporter.csv("${Finanzauswertung.dateiname(a, "csv").removeSuffix(".csv")}_${Export.dateiname(verein)}.csv") {
@@ -91,13 +95,13 @@ fun FinanzAuswertungScreen(model: AppModel, modifier: Modifier = Modifier) {
         else if (a.keineBuchungen) Text("Für diese Auswahl gibt es keine Buchungen. Umbuchungen zwischen Konten zählen nicht.", Modifier.padding(top = 8.dp))
 
         val k = a.kennzahlen
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Kachel("Einnahmen (ohne Spenden)", Geld.euro(k.einnahmen), Modifier.weight(1f))
-            Kachel("Spenden", Geld.euro(k.spenden), Modifier.weight(1f))
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Kachel("Einnahmen (ohne Spenden)", Geld.euro(k.einnahmen), Modifier.weight(1f).fillMaxHeight())
+            Kachel("Spenden", Geld.euro(k.spenden), Modifier.weight(1f).fillMaxHeight())
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Kachel("Ausgaben", Geld.euro(k.ausgaben), Modifier.weight(1f))
-            Kachel("Saldo", Geld.euroMitVorzeichen(k.saldo), Modifier.weight(1f))
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Kachel("Ausgaben", Geld.euro(k.ausgaben), Modifier.weight(1f).fillMaxHeight())
+            Kachel("Saldo", Geld.euroMitVorzeichen(k.saldo), Modifier.weight(1f).fillMaxHeight())
         }
 
         val alle = gewaehlt == null

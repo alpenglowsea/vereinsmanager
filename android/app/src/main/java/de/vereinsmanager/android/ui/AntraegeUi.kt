@@ -91,7 +91,7 @@ fun AntraegeScreen(
         ) { Text("Leeres Antragsformular als PDF speichern") }
         Text(
             if (model.antragVorlageName() != null) "Es wird Ihre eigene Vorlage „${model.antragVorlageName()}“ gespeichert."
-            else "Es wird das von der App erzeugte Formular gespeichert. Eine eigene Vorlage können Sie in den Einstellungen für Anträge hinterlegen.",
+            else "Es wird das von der App erzeugte Formular gespeichert (mit Ihrem Briefpapier, falls in den Einstellungen hinterlegt).",
             style = MaterialTheme.typography.bodySmall,
         )
         OutlinedButton(onClick = onEinstellungen, modifier = Modifier.fillMaxWidth()) { Text("Einstellungen für Anträge") }
@@ -524,11 +524,10 @@ fun AntragEinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
         ) { Text("Speichern") }
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Eigene Leervorlage", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Eigenes leeres Formular (PDF)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Hier können Sie ein eigenes PDF hinterlegen. Es wird auf zwei Arten genutzt: Erstens ersetzt es das leere Formular, wenn Sie " +
-                        "„Leeres Antragsformular als PDF speichern“ wählen. Zweitens liegt seine erste Seite als Briefkopf/Hintergrund unter jeder Seite " +
-                        "des am Gerät ausgefüllten Antrags – lassen Sie darum oben und unten Platz (Logo, Kopf, Fuß).",
+                    "Optional: Ein eigenes, fertiges Antragsformular als PDF. Es ersetzt nur das leere Formular, wenn Sie „Leeres Antragsformular als PDF " +
+                        "speichern“ wählen. Das Briefpapier für den am Gerät ausgefüllten Antrag stellen Sie in den allgemeinen Einstellungen ein.",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Text(vorlageName?.let { "Hinterlegt: $it" } ?: "Keine eigene Vorlage hinterlegt.", style = MaterialTheme.typography.bodyMedium)

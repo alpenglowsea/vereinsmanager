@@ -31,10 +31,13 @@ object AntragLayout {
         return "$betrag € ${AntragEinstellungen.PERIODEN[v.periode] ?: v.periode}"
     }
 
-    private class Baum(val a: Antrag?, val verein: VereinsForm, val e: AntragEinstellungen, val nummer: String, val heute: LocalDate, val m: Mass) {
+    private class Baum(
+        val a: Antrag?, val verein: VereinsForm, val e: AntragEinstellungen, val nummer: String, val heute: LocalDate, val m: Mass,
+        val briefpapier: Boolean, val oben: Double,
+    ) {
         val seiten = ArrayList<MutableList<Zeichnung>>()
         var s: MutableList<Zeichnung> = ArrayList<Zeichnung>().also { seiten.add(it) }
-        var y = 15.0
+        var y = oben
         val leer get() = a == null
 
         fun text(t: String, x: Double, yy: Double, pt: Double, fett: Boolean = false, aus: Zeichnung.Aus = Zeichnung.Aus.LINKS, farbe: Int? = null) {
@@ -45,19 +48,22 @@ object AntragLayout {
         fun platz(hoehe: Double) {
             if (y + hoehe <= UNTEN) return
             s = ArrayList<Zeichnung>().also { seiten.add(it) }
-            y = 15.0
+            y = oben
         }
 
         fun kopf() {
-            s.add(Zeichnung.Rechteck(L, y, B, 19.0, fuellung = MARINE, rand = false))
-            text(verein.name.ifBlank { "Verein" }, L + 4, y + 8.0, 14.0, true, farbe = WEISS)
-            val anschrift = listOf("${verein.strasse} ${verein.hausnummer}".trim(), "${verein.plz} ${verein.ort}".trim()).filter { it.isNotEmpty() }.joinToString(", ")
-            val unter = listOfNotNull(
-                anschrift.takeIf { it.isNotEmpty() }, verein.registernummer.takeIf { it.isNotBlank() }?.let { "Register: $it" },
-                verein.steuernummer.takeIf { it.isNotBlank() }?.let { "St.-Nr.: $it" },
-            ).joinToString("  •  ")
-            text(unter, L + 4, y + 14.5, 8.0, farbe = WEISS)
-            y += 25.0
+            // Mit Briefpapier steht der Kopf des Vereins schon auf dem Papier: kein eigener Kopf, Text beginnt unter dem oberen Rand.
+            if (!briefpapier) {
+                s.add(Zeichnung.Rechteck(L, y, B, 19.0, fuellung = MARINE, rand = false))
+                text(verein.name.ifBlank { "Verein" }, L + 4, y + 8.0, 14.0, true, farbe = WEISS)
+                val anschrift = listOf("${verein.strasse} ${verein.hausnummer}".trim(), "${verein.plz} ${verein.ort}".trim()).filter { it.isNotEmpty() }.joinToString(", ")
+                val unter = listOfNotNull(
+                    anschrift.takeIf { it.isNotEmpty() }, verein.registernummer.takeIf { it.isNotBlank() }?.let { "Register: $it" },
+                    verein.steuernummer.takeIf { it.isNotBlank() }?.let { "St.-Nr.: $it" },
+                ).joinToString("  •  ")
+                text(unter, L + 4, y + 14.5, 8.0, farbe = WEISS)
+                y += 25.0
+            }
             text("AUFNAHMEANTRAG & BEITRITTSERKLÄRUNG", L, y, 13.0, true)
             y += 5.0
             text(
@@ -151,8 +157,11 @@ object AntragLayout {
         }
     }
 
-    fun bauen(a: Antrag?, verein: VereinsForm, e: AntragEinstellungen, nummer: String, heute: LocalDate, m: Mass): List<List<Zeichnung>> {
-        val t = Baum(a, verein, e, nummer, heute, m)
+    fun bauen(
+        a: Antrag?, verein: VereinsForm, e: AntragEinstellungen, nummer: String, heute: LocalDate, m: Mass,
+        briefpapier: Boolean = false, randOben: Double = 45.0,
+    ): List<List<Zeichnung>> {
+        val t = Baum(a, verein, e, nummer, heute, m, briefpapier, if (briefpapier) randOben.coerceIn(20.0, 100.0) else 15.0)
         val v = verein.name.ifBlank { "dem Verein" }
         fun ersetze(s: String) = s.replace("{verein}", v)
         val k = a ?: Antrag()

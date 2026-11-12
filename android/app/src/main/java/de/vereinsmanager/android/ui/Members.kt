@@ -83,7 +83,7 @@ internal fun FilterMenu(label: String, options: Map<String, String>, selected: S
     var open by remember { mutableStateOf(false) }
     FilterChip(
         selected = selected != null, onClick = { open = true },
-        label = { Text(if (selected == null) label else "$label: ${options[selected] ?: selected}") },
+        label = { Text(if (selected == null) label else "$label: ${options[selected] ?: selected}", maxLines = 1, softWrap = false) },
     )
     DropdownMenu(open, { open = false }) {
         DropdownMenuItem(text = { Text("Alle") }, onClick = { onSelect(null); open = false })
@@ -319,8 +319,8 @@ private fun MemberDetailPage(model: AppModel, id: String, onEdit: () -> Unit, on
         val age = MemberList.age(m.birthDate, today)
         val dauer = MemberList.membershipDuration(m.entryDate, today)
         Text(listOfNotNull(MemberLabels.STATUS[m.status], MemberLabels.TYPE_DETAIL[m.type], dauer).joinToString(" · "))
-        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Details", "Material", "Dokumente", "Historie").forEachIndexed { i, s -> FilterChip(tab == i, { tab = i }, label = { Text(s) }) }
+        Row(Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Details", "Material", "Dokumente", "Historie").forEachIndexed { i, s -> FilterChip(tab == i, { tab = i }, label = { Text(s, maxLines = 1, softWrap = false) }) }
         }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         if (tab == 1) MemberMaterialTab(model, m, onMaterialOverview)

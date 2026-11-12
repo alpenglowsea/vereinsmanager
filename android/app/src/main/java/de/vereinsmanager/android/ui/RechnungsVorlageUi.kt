@@ -38,57 +38,21 @@ import de.vereinsmanager.core.invoice.Vorlagen
 /** Die Rechnungsvorlage: Texte, Zahlungsziel, Briefpapier-Bild, Akzentfarbe und § 19-Hinweis. */
 @Composable
 fun RechnungsVorlageScreen(model: AppModel, onDone: () -> Unit, modifier: Modifier = Modifier) {
-    val ctx = LocalContext.current
     var v by remember { mutableStateOf(model.vorlage) }
     var tage by remember { mutableStateOf(model.vorlage.zahlungszielTage.toString()) }
-    var rand by remember { mutableStateOf(model.vorlage.randOben.toString()) }
     var fehler by remember { mutableStateOf<String?>(null) }
     var meldung by remember { mutableStateOf<String?>(null) }
     var zeigeFehler by remember { mutableStateOf(false) }
     val exporter = rememberExporter(model) { meldung = it }
 
-    val aktuell = v.copy(zahlungszielTage = tage.toIntOrNull() ?: -1, randOben = rand.toIntOrNull() ?: -1)
+    val aktuell = v.copy(zahlungszielTage = tage.toIntOrNull() ?: -1)
     val fehlerMap = if (zeigeFehler) Vorlagen.pruefen(aktuell) else emptyMap()
 
-    val waehler = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            val name = try {
-                ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
-            } catch (e: Exception) { null } ?: "Briefpapier"
-            model.briefpapierLaden(uri) { url, f ->
-                if (url != null) { v = v.copy(briefpapier = url, briefpapierName = name, briefpapierDatum = ""); meldung = null }
-                else meldung = f ?: "Das Bild konnte nicht gelesen werden."
-            }
-        }
-    }
-    val vorschau = remember(v.briefpapier) {
-        if (!v.hatBriefpapier) null else try {
-            val bytes = android.util.Base64.decode(v.briefpapier.substringAfter("base64,", ""), android.util.Base64.DEFAULT)
-            val o = android.graphics.BitmapFactory.Options().apply { inSampleSize = 4 }
-            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)?.asImageBitmap()
-        } catch (e: Exception) { null }
-    }
-
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Briefpapier", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text(
-                    "Mit eigenem Briefpapier (Bild, am besten A4 hochkant) wird der Briefkopf des Vereins nicht gedruckt – Sie haben ihn schon auf dem Papier. " +
-                        "Ohne Bild druckt die App einen einfachen Briefkopf aus den Vereinsdaten.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                if (vorschau != null) {
-                    Image(vorschau, contentDescription = "Vorschau des Briefpapiers", modifier = Modifier.width(140.dp).padding(vertical = 4.dp))
-                    Text(v.briefpapierName.ifEmpty { "Briefpapier" }, style = MaterialTheme.typography.bodySmall)
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { waehler.launch("image/*") }, enabled = !model.busy) { Text(if (v.hatBriefpapier) "Anderes Bild wählen" else "Bild wählen") }
-                    if (v.hatBriefpapier) OutlinedButton(onClick = { v = v.copy(briefpapier = "", briefpapierName = "", briefpapierDatum = "") }) { Text("Entfernen") }
-                }
-                Feld("Oberer Rand in mm (Platz für den Briefkopf auf dem Papier)", rand, { rand = it.filter { c -> c.isDigit() }.take(3) }, error = fehlerMap["rand"], keyboard = KeyboardType.Number)
-            }
-        }
+        Text(
+            "Das Briefpapier (Bild oder PDF und oberer Rand) gilt für Rechnungen und Aufnahmeanträge und steht jetzt in den Einstellungen.",
+            style = MaterialTheme.typography.bodySmall,
+        )
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Texte und Zahlungsziel", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -131,5 +95,69 @@ fun RechnungsVorlageScreen(model: AppModel, onDone: () -> Unit, modifier: Modifi
             },
             enabled = !model.busy, modifier = Modifier.fillMaxWidth(),
         ) { Text("Beispiel-PDF mit diesen Einstellungen") }
+    }
+}
+
+
+/**
+ * Das Briefpapier des Vereins für Rechnungen und Aufnahmeanträge: ein Bild (PNG/JPEG) oder die erste Seite einer PDF, dazu der obere Rand
+ * in Millimetern. Mit Briefpapier druckt die App keinen eigenen Briefkopf. Speichert sofort, die übrigen Vorlagenwerte bleiben unverändert.
+ */
+@Composable
+fun BriefpapierKarte(model: AppModel) {
+    val ctx = LocalContext.current
+    val v = model.vorlage
+    var rand by remember(v.randOben) { mutableStateOf(v.randOben.toString()) }
+    var meldung by remember { mutableStateOf<String?>(null) }
+    val randZahl = rand.toIntOrNull()
+    val randFehler = if (randZahl == null || randZahl !in 0..200) "Bitte eine Zahl von 0 bis 200 eingeben." else null
+
+    val waehler = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val name = try {
+                ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+            } catch (e: Exception) { null } ?: "Briefpapier"
+            model.briefpapierLaden(uri) { url, f ->
+                if (url == null) { meldung = f ?: "Die Datei konnte nicht gelesen werden."; return@briefpapierLaden }
+                model.vorlageSpeichern(model.vorlage.copy(briefpapier = url, briefpapierName = name, briefpapierDatum = "")) { e -> meldung = e ?: "Briefpapier gespeichert." }
+            }
+        }
+    }
+    val vorschau = remember(v.briefpapier) {
+        if (!v.hatBriefpapier) null else try {
+            val bytes = android.util.Base64.decode(v.briefpapier.substringAfter("base64,", ""), android.util.Base64.DEFAULT)
+            val o = android.graphics.BitmapFactory.Options().apply { inSampleSize = 4 }
+            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)?.asImageBitmap()
+        } catch (e: Exception) { null }
+    }
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Briefpapier (Rechnungen und Anträge)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Mit eigenem Briefpapier (Bild oder PDF, am besten A4 hochkant) druckt die App keinen eigenen Briefkopf – er steht schon auf dem Papier, " +
+                    "und der Text beginnt unter dem oberen Rand. Ohne Briefpapier druckt die App einen einfachen Briefkopf aus den Vereinsdaten. " +
+                    "Bei einer PDF wird die erste Seite verwendet.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (vorschau != null) {
+                Image(vorschau, contentDescription = "Vorschau des Briefpapiers", modifier = Modifier.width(140.dp).padding(vertical = 4.dp))
+                Text(v.briefpapierName.ifEmpty { "Briefpapier" }, style = MaterialTheme.typography.bodySmall)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { waehler.launch(arrayOf("image/*", "application/pdf")) }, enabled = !model.busy) {
+                    Text(if (v.hatBriefpapier) "Anderes wählen" else "Bild oder PDF wählen")
+                }
+                if (v.hatBriefpapier) OutlinedButton(
+                    onClick = { model.vorlageSpeichern(model.vorlage.copy(briefpapier = "", briefpapierName = "", briefpapierDatum = "")) { e -> meldung = e ?: "Briefpapier entfernt." } },
+                    enabled = !model.busy,
+                ) { Text("Entfernen") }
+            }
+            Feld("Oberer Rand in mm (Platz für den Briefkopf auf dem Papier)", rand, { rand = it.filter { c -> c.isDigit() }.take(3) }, error = randFehler, keyboard = KeyboardType.Number)
+            OutlinedButton(
+                onClick = { model.vorlageSpeichern(model.vorlage.copy(randOben = randZahl ?: 45)) { e -> meldung = e ?: "Rand gespeichert." } },
+                enabled = !model.busy && randFehler == null && randZahl != v.randOben,
+            ) { Text("Rand speichern") }
+            if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }

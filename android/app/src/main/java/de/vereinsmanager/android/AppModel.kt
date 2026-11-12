@@ -699,8 +699,33 @@ class AppModel(private val appContext: Context) {
      * Liest ein gewähltes Bild als Briefpapier: verkleinert auf höchstens 1240 x 1754 Punkte (A4 bei 150 dpi), legt es auf weißen
      * Grund und gibt es als JPEG-Data-URL zurück. [done] bekommt die Data-URL oder den Fehlertext.
      */
+    /** Die erste Seite einer PDF als JPEG-Data-URL (A4, 150 dpi), damit auch ein PDF-Briefbogen als Briefpapier dient. */
+    private fun pdfAlsBriefpapier(uri: Uri): String {
+        val tmp = File(appContext.cacheDir, "briefpapier.pdf")
+        try {
+            tmp.writeBytes(liesBegrenzt(uri))
+            val b = android.os.ParcelFileDescriptor.open(tmp, android.os.ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
+                android.graphics.pdf.PdfRenderer(pfd).use { r ->
+                    r.openPage(0).use { seite ->
+                        val bild = android.graphics.Bitmap.createBitmap(1240, 1754, android.graphics.Bitmap.Config.ARGB_8888)
+                        bild.eraseColor(android.graphics.Color.WHITE)
+                        seite.render(bild, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
+                        bild
+                    }
+                }
+            }
+            val bytes = java.io.ByteArrayOutputStream().also { b.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray()
+            b.recycle()
+            return "data:image/jpeg;base64," + android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+        } catch (e: Exception) {
+            throw IllegalArgumentException("Die PDF konnte nicht gelesen werden.")
+        } finally { tmp.delete() }
+    }
+
+    /** Briefpapier aus einem Bild (PNG/JPEG) oder einer PDF (erste Seite). Gilt für Rechnungen und Anträge. */
     fun briefpapierLaden(uri: Uri, done: (String?, String?) -> Unit) = hintergrund({
         val cr = appContext.contentResolver
+        if (cr.getType(uri) == "application/pdf") return@hintergrund pdfAlsBriefpapier(uri)
         val grenzen = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
         cr.openInputStream(uri)!!.use { android.graphics.BitmapFactory.decodeStream(it, null, grenzen) }
         if (grenzen.outWidth <= 0 || grenzen.outHeight <= 0) throw IllegalArgumentException("Das ist kein Bild, das gelesen werden kann (PNG oder JPEG).")
@@ -788,32 +813,16 @@ class AppModel(private val appContext: Context) {
 
     /** Baut das PDF zu einem Antrag; a == null ergibt das leere Formular zum Ausdrucken. */
     private fun antragPdfBytes(a: Antrag?, nummer: String): ByteArray {
+        val v0 = Vorlagen.lesen(store)
         val seiten = AntragLayout.bauen(
             a, Vereinsdaten.lesen(store), AntragEinstellungenStore.lesen(store), nummer, java.time.LocalDate.now(), PdfWriter.mass,
+            briefpapier = v0.hatBriefpapier, randOben = v0.randOben.toDouble(),
         )
-        // Eigene Vorlage = Briefkopf: ihre erste Seite liegt unter jeder Seite des ausgefüllten Antrags.
-        val grund = if (a != null) antragVorlageBild() else null
-        return ByteArrayOutputStream().also { PdfWriter.rechnung(seiten, grund, it) }.toByteArray()
+        val bild = briefpapierBild(v0)
+        return try {
+            ByteArrayOutputStream().also { PdfWriter.rechnung(seiten, bild, it) }.toByteArray()
+        } finally { bild?.recycle() }
     }
-
-    /** Die erste Seite der eigenen Vorlage als Bild (A4, doppelte Auflösung) oder null; Fehler lassen den Antrag ohne Hintergrund entstehen. */
-    private fun antragVorlageBild(): android.graphics.Bitmap? = try {
-        val bytes = AntragEinstellungenStore.vorlageBytes(store, dateien) ?: return null
-        val tmp = File(appContext.cacheDir, "antrag-vorlage.pdf")
-        tmp.writeBytes(bytes)
-        try {
-            android.os.ParcelFileDescriptor.open(tmp, android.os.ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
-                android.graphics.pdf.PdfRenderer(pfd).use { r ->
-                    r.openPage(0).use { seite ->
-                        val bild = android.graphics.Bitmap.createBitmap(1190, 1684, android.graphics.Bitmap.Config.ARGB_8888)
-                        bild.eraseColor(android.graphics.Color.WHITE)
-                        seite.render(bild, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
-                        bild
-                    }
-                }
-            }
-        } finally { tmp.delete() }
-    } catch (e: Exception) { null }
 
     /** Schreibt das leere Formular: die eigene Vorlage, wenn eine hinterlegt ist, sonst das von der App erzeugte. Nicht im Hauptstrang aufrufen. */
     fun antragLeerSchreiben(out: java.io.OutputStream) {

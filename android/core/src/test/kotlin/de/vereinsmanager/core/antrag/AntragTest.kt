@@ -242,6 +242,21 @@ class AntragTest {
         assertTrue(texte(fremd).any { it.startsWith("Unterschrift Kontoinhaber") })
     }
 
+    @Test fun mitBriefpapierKeinEigenerKopfUndTextUnterDemRand() {
+        val e = AntragEinstellungen.standard()
+        for (a in listOf(erwachsener(), null)) {
+            val s = AntragLayout.bauen(a, verein, e, "M-1", heute, mass, briefpapier = true, randOben = 50.0)
+            assertFalse(s.flatten().any { it is Zeichnung.Rechteck && it.fuellung != null && it.y < 50.0 && it.h > 15.0 })
+            assertFalse(texte(s).any { it == verein.name })
+            s.forEach { seite -> assertTrue(seite.filterIsInstance<Zeichnung.Text>().filter { !it.text.startsWith("Seite ") }.all { it.y >= 50.0 }) }
+            imRahmen(s)
+        }
+        // Ohne Briefpapier bleibt der eigene Kopf.
+        assertTrue(texte(AntragLayout.bauen(erwachsener(), verein, e, "M-1", heute, mass)).any { it == verein.name })
+        // Unsinnig großer Rand führt nicht zu endlosen Seiten.
+        assertTrue(AntragLayout.bauen(erwachsener(), verein, e, "M-1", heute, mass, briefpapier = true, randOben = 900.0).size < 10)
+    }
+
     @Test fun fehlendeGlaeubigerIdWirdNichtErfunden() {
         val t = texte(AntragLayout.bauen(erwachsener(), verein.copy(glaeubigerId = ""), AntragEinstellungen.standard(), "M-1", heute, mass))
         assertTrue(t.contains("nicht hinterlegt")); assertFalse(t.any { it.contains("ZZZ0999") })
