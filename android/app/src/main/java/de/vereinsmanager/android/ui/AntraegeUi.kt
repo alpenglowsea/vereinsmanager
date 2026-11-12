@@ -51,61 +51,6 @@ private val GESCHLECHT = linkedMapOf("none" to "keine Angabe", "w" to "weiblich"
 
 private fun mitVerein(text: String, verein: String) = text.replace("{verein}", verein.ifBlank { "dem Verein" })
 
-// ------------------------------------------------------------------ Startseite
-
-/**
- * Einstieg für die Vereinsvertreter: neuen Antrag am Gerät aufnehmen lassen, das leere Formular zum Ausdrucken holen,
- * einen wartenden Antrag prüfen und die Einstellungen (Beiträge, Texte, eigene Vorlage) öffnen.
- */
-@Composable
-fun AntraegeScreen(
-    model: AppModel, onNeu: () -> Unit, onPruefen: () -> Unit, onEinstellungen: () -> Unit, modifier: Modifier = Modifier,
-) {
-    var info by remember { mutableStateOf<String?>(null) }
-    val exporter = rememberExporter(model) { info = it }
-    val wartet = model.antragWartet
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            "Das neue Mitglied füllt den Antrag selbst auf diesem Gerät aus und unterschreibt am Ende mit dem Finger – " +
-                "im Beisein eines Vereinsvertreters. Danach prüfen Sie den Antrag und nehmen die Person als Mitglied auf.",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        if (wartet != null) {
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Ein Antrag wartet auf Ihre Prüfung", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(wartet.name, style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "Der Antrag liegt nur im Arbeitsspeicher. Wird die App vorher beendet, geht er verloren und muss neu ausgefüllt werden.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    Button(onClick = onPruefen, modifier = Modifier.fillMaxWidth()) { Text("Prüfen und aufnehmen") }
-                }
-            }
-        }
-        Button(onClick = onNeu, modifier = Modifier.fillMaxWidth(), enabled = wartet == null) { Text("Neuen Antrag aufnehmen") }
-        if (wartet != null) Text("Bitte zuerst den wartenden Antrag aufnehmen oder verwerfen.", style = MaterialTheme.typography.bodySmall)
-        OutlinedButton(
-            onClick = { exporter.pdfSchreiber("Aufnahmeantrag-leer.pdf") { out -> model.antragLeerSchreiben(out) } },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Leeres Antragsformular als PDF speichern") }
-        Text(
-            if (model.antragVorlageName() != null) "Es wird Ihre eigene Vorlage „${model.antragVorlageName()}“ gespeichert."
-            else "Es wird das von der App erzeugte Formular gespeichert (mit Ihrem Briefpapier, falls in den Einstellungen hinterlegt).",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        OutlinedButton(onClick = onEinstellungen, modifier = Modifier.fillMaxWidth()) { Text("Einstellungen für Anträge") }
-        Text(
-            "Aufgenommene Anträge liegen als PDF in den Dokumenten (Ordner „Digitale Aufnahmeanträge“) und am Mitglied. " +
-                "Abgelehnte Anträge werden nicht aufbewahrt.",
-            style = MaterialTheme.typography.bodySmall,
-        )
-    }
-    info?.let { text ->
-        Aktionsdialog(titel = "Hinweis", onDismiss = { info = null }, inhalt = { Text(text) }, aktionen = { TextButton(onClick = { info = null }) { Text("OK") } })
-    }
-}
-
 // ------------------------------------------------------------------ Ausfüllen durch das neue Mitglied
 
 @Composable
@@ -211,9 +156,12 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     if (abgegeben) "Antrag abgegeben" else "Aufnahmeantrag – Schritt $seite von ${AntragRegeln.SEITE_ZUSAMMENFASSUNG}",
-                    Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold,
+                    Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
+                    maxLines = 1, softWrap = false,
                 )
-                if (!abgegeben) TextButton(onClick = { abbrechenFrage = true }) { Text("Abbrechen (Vereinsvertreter)") }
+                if (!abgegeben) TextButton(onClick = { abbrechenFrage = true }) {
+                    Text("Abbrechen\n(Vereinsvertreter)", style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
             }
             HorizontalDivider()
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
@@ -457,33 +405,28 @@ fun AntragPruefenScreen(model: AppModel, onAufgenommen: (String) -> Unit, onVerw
 
 // ------------------------------------------------------------------ Einstellungen
 
-/** Beiträge je Mitgliedsart, Texte und eigene Leervorlage. */
+/** Beiträge je Mitgliedsart, Texte im Antrag und das leere Formular – als Karten in den Einstellungen. */
 @Composable
-fun AntragEinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
+fun AntragEinstellungenKarten(model: AppModel) {
     val start = remember { model.antragEinstellungen() }
     var beitraege by remember { mutableStateOf(start.beitraege) }
     var datenschutz by remember { mutableStateOf(start.datenschutz) }
     var satzung by remember { mutableStateOf(start.satzung) }
     var meldung by remember { mutableStateOf<String?>(null) }
     var zeigeFehler by remember { mutableStateOf(false) }
-    var vorlageName by remember { mutableStateOf(model.antragVorlageName()) }
     val aktuell = start.copy(beitraege = beitraege, datenschutz = datenschutz, satzung = satzung)
     val fehler = de.vereinsmanager.core.antrag.AntragEinstellungenStore.pruefen(aktuell)
     val geaendert = beitraege != start.beitraege || datenschutz != start.datenschutz || satzung != start.satzung
 
-    val waehler = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) model.antragVorlageWaehlen(uri) { f ->
-            vorlageName = model.antragVorlageName()
-            meldung = f ?: "Ihre Vorlage ist hinterlegt."
-        }
-    }
+    var info by remember { mutableStateOf<String?>(null) }
+    val exporter = rememberExporter(model) { info = it }
 
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Beiträge je Mitgliedsart", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Diese Werte zeigt der Antrag dem neuen Mitglied und trägt sie beim Aufnehmen als Beitrag ein.",
+                    "Diese Werte zeigt der Aufnahmeantrag dem neuen Mitglied und trägt sie beim Aufnehmen als Beitrag ein. Meist einmal bei der Ersteinrichtung festlegen.",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 AntragEinstellungen.ARTEN.forEach { (art, name) ->
@@ -521,28 +464,22 @@ fun AntragEinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
                 model.antragEinstellungenSpeichern(aktuell) { f -> meldung = f ?: "Gespeichert." }
             },
             enabled = geaendert && !model.busy, modifier = Modifier.fillMaxWidth(),
-        ) { Text("Speichern") }
+        ) { Text("Beiträge und Texte speichern") }
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Eigenes leeres Formular (PDF)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Leeres Antragsformular", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Optional: Ein eigenes, fertiges Antragsformular als PDF. Es ersetzt nur das leere Formular, wenn Sie „Leeres Antragsformular als PDF " +
-                        "speichern“ wählen. Das Briefpapier für den am Gerät ausgefüllten Antrag stellen Sie in den allgemeinen Einstellungen ein.",
+                    "Zum Ausdrucken, wenn jemand den Antrag lieber auf Papier ausfüllt. Mit Ihrem Briefpapier, falls oben hinterlegt.",
                     style = MaterialTheme.typography.bodySmall,
                 )
-                Text(vorlageName?.let { "Hinterlegt: $it" } ?: "Keine eigene Vorlage hinterlegt.", style = MaterialTheme.typography.bodyMedium)
-                OutlinedButton(onClick = { waehler.launch("application/pdf") }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (vorlageName == null) "PDF-Vorlage hochladen" else "Andere Vorlage hochladen")
-                }
-                if (vorlageName != null) {
-                    TextButton(onClick = {
-                        model.antragVorlageEntfernen { f -> vorlageName = model.antragVorlageName(); meldung = f ?: "Die eigene Vorlage wurde entfernt." }
-                    }) { Text("Eigene Vorlage entfernen") }
-                }
+                OutlinedButton(
+                    onClick = { exporter.pdfSchreiber("Aufnahmeantrag-leer.pdf") { out -> model.antragLeerSchreiben(out) } },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Leeres Antragsformular als PDF speichern") }
             }
         }
     }
-    meldung?.let { text ->
-        Aktionsdialog(titel = "Hinweis", onDismiss = { meldung = null }, inhalt = { Text(text) }, aktionen = { TextButton(onClick = { meldung = null }) { Text("OK") } })
+    (meldung ?: info)?.let { text ->
+        Aktionsdialog(titel = "Hinweis", onDismiss = { meldung = null; info = null }, inhalt = { Text(text) }, aktionen = { TextButton(onClick = { meldung = null; info = null }) { Text("OK") } })
     }
 }

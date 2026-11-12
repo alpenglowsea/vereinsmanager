@@ -26,9 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
-import de.vereinsmanager.android.ui.AntraegeScreen
 import de.vereinsmanager.android.ui.AntragAusfuellenScreen
-import de.vereinsmanager.android.ui.AntragEinstellungenScreen
 import de.vereinsmanager.android.ui.AntragPruefenScreen
 import de.vereinsmanager.android.ui.BeitragslaufScreen
 import de.vereinsmanager.android.ui.BelegAnsichtScreen
@@ -111,11 +109,9 @@ sealed interface Page {
     /** id == null: neues Dokument (dann ist ordnerId der Ordner, in dem es angelegt wird). */
     data class DocumentEdit(val id: String?, val ordnerId: String?) : Page
     data class DocumentView(val id: String) : Page
-    data object Antraege : Page
     /** Vollbild für das neue Mitglied; Menü und Zurück sind gesperrt. */
     data object AntragAusfuellen : Page
     data object AntragPruefen : Page
-    data object AntragEinstellungen : Page
     data object Probes : Page
 }
 
@@ -151,7 +147,7 @@ class MainActivity : ComponentActivity() {
                         Ziel.RECHNUNGEN -> listOf(Page.Home, Page.Rechnungen)
                         Ziel.SPENDEN -> listOf(Page.Home, Page.Spenden)
                         Ziel.KONTAKTE -> listOf(Page.Home, Page.Contacts)
-                        Ziel.ANTRAEGE -> listOf(Page.Home, Page.Antraege)
+                        Ziel.ANTRAEGE -> listOf(Page.Home, if (model.antragWartet != null) Page.AntragPruefen else Page.AntragAusfuellen)
                         Ziel.EINSTELLUNGEN -> listOf(Page.Home, Page.Settings)
                         else -> stack // noch nicht gebaut; das Menü zeigt dafür einen Hinweis
                     }
@@ -162,7 +158,7 @@ class MainActivity : ComponentActivity() {
                     MenueInhalt(model.clubName, aktivesZiel(page), onWahl = ::geheZu)
                 }
                 val inhalt: @Composable () -> Unit = {
-                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || (page is Page.Documents && page.folderId == null) || page is Page.Sepa || page is Page.Euer || page is Page.FinanzAuswertung || page is Page.Rechnungen || page is Page.Spenden || page is Page.Contacts || page is Page.Antraege || (page is Page.Settings && stack.size <= 2) || page is Page.Probes
+                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || (page is Page.Documents && page.folderId == null) || page is Page.Sepa || page is Page.Euer || page is Page.FinanzAuswertung || page is Page.Rechnungen || page is Page.Spenden || page is Page.Contacts || (page is Page.Settings && stack.size <= 2) || page is Page.Probes
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
                         topBar = {
@@ -257,15 +253,10 @@ class MainActivity : ComponentActivity() {
                             )
                             is Page.DocumentEdit -> DokumentFormScreen(model, page.id, page.ordnerId, onDone = { stack = stack.dropLast(1) }, modifier = m)
                             is Page.DocumentView -> DokumentAnsichtScreen(model, page.id, modifier = m)
-                            Page.Antraege -> AntraegeScreen(
-                                model, onNeu = { stack = stack + Page.AntragAusfuellen }, onPruefen = { stack = stack + Page.AntragPruefen },
-                                onEinstellungen = { stack = stack + Page.AntragEinstellungen }, modifier = m,
-                            )
-                            Page.AntragEinstellungen -> AntragEinstellungenScreen(model, modifier = m)
                             Page.AntragPruefen -> AntragPruefenScreen(
                                 model,
                                 onAufgenommen = { id -> stack = listOf(Page.Home, Page.Members, Page.Member(id)) },
-                                onVerworfen = { stack = listOf(Page.Home, Page.Antraege) }, modifier = m,
+                                onVerworfen = { stack = listOf(Page.Home) }, modifier = m,
                             )
                             // Wird weiter unten im Vollbild gezeigt, nie hier.
                             Page.AntragAusfuellen -> Unit
@@ -289,8 +280,8 @@ class MainActivity : ComponentActivity() {
                     // Das neue Mitglied sieht nur den Antrag: kein Menü, keine Kopfzeile, keine Zurück-Taste.
                     AntragAusfuellenScreen(
                         model,
-                        onFertig = { stack = listOf(Page.Home, Page.Antraege, Page.AntragPruefen) },
-                        onAbbruch = { model.antragWartet = null; stack = listOf(Page.Home, Page.Antraege) },
+                        onFertig = { stack = listOf(Page.Home, Page.AntragPruefen) },
+                        onAbbruch = { model.antragWartet = null; stack = listOf(Page.Home) },
                     )
                 } else if (breit) {
                     Row(Modifier.fillMaxSize()) {
@@ -339,10 +330,8 @@ private fun seitenTitel(p: Page, model: AppModel): String = when (p) {
     is Page.Document -> "Dokument"
     is Page.DocumentEdit -> if (p.id == null) "Neues Dokument" else "Dokument bearbeiten"
     is Page.DocumentView -> "Dokument anzeigen"
-    Page.Antraege -> "Mitgliedsanträge"
     Page.AntragAusfuellen -> "Aufnahmeantrag"
     Page.AntragPruefen -> "Antrag prüfen"
-    Page.AntragEinstellungen -> "Einstellungen für Anträge"
     Page.Probes -> "Proben"
 }
 
@@ -361,6 +350,6 @@ private fun aktivesZiel(p: Page): Ziel? = when (p) {
     Page.Spenden, is Page.Spende, is Page.SpendeEdit -> Ziel.SPENDEN
     Page.Contacts, is Page.Contact, is Page.ContactEdit, Page.KontaktImport -> Ziel.KONTAKTE
     Page.Settings -> Ziel.EINSTELLUNGEN
-    Page.Antraege, Page.AntragAusfuellen, Page.AntragPruefen, Page.AntragEinstellungen -> Ziel.ANTRAEGE
+    Page.AntragAusfuellen, Page.AntragPruefen -> Ziel.ANTRAEGE
     Page.Probes -> null
 }

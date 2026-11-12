@@ -797,20 +797,6 @@ class AppModel(private val appContext: Context) {
         hintergrund({ AntragEinstellungenStore.speichern(store, e) }) { _, fehler -> done(fehler) }
     }
 
-    /** Name der eigenen Leervorlage oder null, wenn keine hinterlegt ist. */
-    fun antragVorlageName(): String? = AntragEinstellungenStore.vorlage(store)?.dateiName
-
-    fun antragVorlageWaehlen(uri: Uri, done: (String?) -> Unit) {
-        hintergrund({
-            val bytes = liesBegrenzt(uri)
-            AntragEinstellungenStore.vorlageSetzen(store, dateien, bytes, anzeigeName(uri) ?: "Aufnahmeantrag.pdf", java.time.LocalDate.now())
-        }) { _, fehler -> done(fehler) }
-    }
-
-    fun antragVorlageEntfernen(done: (String?) -> Unit) {
-        hintergrund({ AntragEinstellungenStore.vorlageEntfernen(store, dateien) }) { _, fehler -> done(fehler) }
-    }
-
     /** Baut das PDF zu einem Antrag; a == null ergibt das leere Formular zum Ausdrucken. */
     private fun antragPdfBytes(a: Antrag?, nummer: String): ByteArray {
         val v0 = Vorlagen.lesen(store)
@@ -824,10 +810,9 @@ class AppModel(private val appContext: Context) {
         } finally { bild?.recycle() }
     }
 
-    /** Schreibt das leere Formular: die eigene Vorlage, wenn eine hinterlegt ist, sonst das von der App erzeugte. Nicht im Hauptstrang aufrufen. */
+    /** Schreibt das leere Antragsformular (mit dem Briefpapier der Einstellungen, falls vorhanden). Nicht im Hauptstrang aufrufen. */
     fun antragLeerSchreiben(out: java.io.OutputStream) {
-        val eigene = AntragEinstellungenStore.vorlageBytes(store, dateien)
-        out.write(eigene ?: antragPdfBytes(null, ""))
+        out.write(antragPdfBytes(null, ""))
     }
 
     /** Nimmt den wartenden Antrag als Mitglied auf (Mitglied und PDF zusammen oder gar nicht). [done] bekommt das Ergebnis oder den Fehlertext. */

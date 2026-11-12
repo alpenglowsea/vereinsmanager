@@ -77,6 +77,7 @@ fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
             }
         }
         BriefpapierKarte(model)
+        AntragEinstellungenKarten(model)
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Unterschrift für Zuwendungsbestätigungen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)

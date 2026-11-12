@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.dp
 enum class Ziel(val titel: String, val icon: ImageVector, val farbe: Farbe, val fertig: Boolean) {
     START("Dashboard", Lucide.LayoutDashboard, Farbe.BLAU, true),
     MITGLIEDER("Mitgliederverwaltung", Lucide.Users, Farbe.BLAU, true),
-    ANTRAEGE("Mitgliedsanträge", Lucide.FileSignature, Farbe.BLAU, true),
+    ANTRAEGE("Neues Mitglied aufnehmen", Lucide.FileSignature, Farbe.BLAU, true),
     MITGLIEDER_AUSWERTUNG("Mitglieder-Auswertung", Lucide.BarChart3, Farbe.BLAU, true),
     BUCHUNGEN("Buchungen & Journal", Lucide.Wallet, Farbe.GRUEN, true),
     BEITRAGSLAUF("Beitragslauf", Lucide.CreditCard, Farbe.GRUEN, true),
