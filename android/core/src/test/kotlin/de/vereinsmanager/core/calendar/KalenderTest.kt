@@ -137,18 +137,25 @@ class KalenderTest {
 
     // ---- Terminarten ----
 
-    @Test fun terminartenStandardUndLoeschschutz() {
+    @Test fun terminartenLoeschenMitUmstellung() {
         val s = InMemoryDocumentStore()
         assertEquals(8, Kalender.arten(s).size)
         val neu = Kalender.artSpeichern(s, null, "Wandern", 2, "", jetzt)
         assertEquals(9, Kalender.arten(s).size) // Standardarten wurden dabei mitgespeichert
         assertTrue(fehlerText { Kalender.artSpeichern(s, null, "wandern", 1, "") }.contains("schon"))
-        assertTrue(fehlerText { Kalender.artLoeschen(s, "cat-general") }.contains("Standardarten"))
         val t = speichere(s, basis("Tour", "2026-11-20").copy(art = neu.id))
-        assertTrue(fehlerText { Kalender.artLoeschen(s, neu.id) }.contains("1 Termin"))
-        Kalender.loeschen(s, t.id)
-        Kalender.artLoeschen(s, neu.id)
+        assertEquals(1, Kalender.artNutzung(s, neu.id))
+        assertEquals(1, Kalender.artLoeschen(s, neu.id)) // benutzte Art: Termin wechselt zu "Allgemeiner Termin"
+        assertEquals("cat-general", Kalender.termin(s, t.id)!!.art)
         assertEquals(8, Kalender.arten(s).size)
+        assertEquals(1, Kalender.artLoeschen(s, "cat-general")) // auch Standardarten sind löschbar; der Termin wechselt weiter
+        assertEquals(7, Kalender.arten(s).size)
+        val t2 = Kalender.termin(s, t.id)!!
+        assertTrue(Kalender.arten(s).any { it.id == t2.art }) // Termin zeigt auf eine vorhandene Art
+        assertTrue(fehlerText { Kalender.artLoeschen(s, "cat-general") }.contains("nicht mehr"))
+        Kalender.arten(s).drop(1).forEach { Kalender.artLoeschen(s, it.id) }
+        assertEquals(1, Kalender.arten(s).size)
+        assertTrue(fehlerText { Kalender.artLoeschen(s, Kalender.arten(s).first().id) }.contains("Mindestens"))
     }
 
     // ---- Teilnehmer und Einladung ----

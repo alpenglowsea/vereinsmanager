@@ -36,6 +36,10 @@ import de.vereinsmanager.core.backup.Einlagerung
 import de.vereinsmanager.core.backup.PaketImport
 import de.vereinsmanager.core.backup.Dateiverwaltung
 import de.vereinsmanager.core.documents.Dokument
+import de.vereinsmanager.core.meeting.Sitzung
+import de.vereinsmanager.core.meeting.SitzungForm
+import de.vereinsmanager.core.meeting.Sitzungen
+import de.vereinsmanager.core.meeting.SitzungsLayout
 import de.vereinsmanager.core.documents.DokumentForm
 import de.vereinsmanager.core.documents.DokumentStore
 import de.vereinsmanager.core.documents.Dokumente
@@ -181,6 +185,7 @@ class AppModel(private val appContext: Context) {
     var kontakte by mutableStateOf<List<Kontakt>>(emptyList())
     /** Inventar und, je Gegenstand, wie viele Stück gerade an Mitglieder ausgegeben sind. */
     var termine by mutableStateOf<List<Termin>>(emptyList())
+    var sitzungen by mutableStateOf<List<Sitzung>>(emptyList())
     var terminarten by mutableStateOf<List<Terminart>>(emptyList())
     var inventar by mutableStateOf<List<Artikel>>(emptyList())
     var inventarAusgegeben by mutableStateOf<Map<String, Int>>(emptyMap())
@@ -230,6 +235,7 @@ class AppModel(private val appContext: Context) {
         rechnungen = Rechnungen.alle(store)
         kontakte = Kontakte.alle(store)
         termine = Kalender.alle(store)
+        sitzungen = Sitzungen.alle(store)
         terminarten = Kalender.arten(store)
         inventar = Inventar.alle(store)
         inventarAusgegeben = Inventar.ausgegeben(store)
@@ -637,7 +643,83 @@ class AppModel(private val appContext: Context) {
         hintergrund({ Kalender.teilnehmerStatus(store, terminId, memberId, status) }) { _, e -> done(e) }
     fun terminartSpeichern(id: String?, name: String, farbe: Int, beschreibung: String, done: (String?) -> Unit) =
         hintergrund({ Kalender.artSpeichern(store, id, name, farbe, beschreibung) }) { _, e -> done(e) }
-    fun terminartLoeschen(id: String, done: (String?) -> Unit) = hintergrund({ Kalender.artLoeschen(store, id) }) { _, e -> done(e) }
+    fun terminartNutzung(id: String): Int = Kalender.artNutzung(store, id)
+    /** [done] bekommt die Zahl der Termine, die zu "Allgemeiner Termin" gewechselt sind, oder einen Fehlertext. */
+    fun terminartLoeschen(id: String, done: (Int?, String?) -> Unit) = hintergrund({ Kalender.artLoeschen(store, id) }, done)
+    /** Der Vereinsname aus den Einstellungen, leer wenn dort nichts steht (für Grußzeilen; [vereinsname] fällt auf "Verein" zurück). */
+    fun vereinsnameOderLeer(): String = clubName.trim()
+
+    // ---- Sitzungen ----
+
+    enum class SitzungsPdf { EINLADUNG, PROTOKOLL, AUSZUG }
+
+    fun sitzungNeu(art: String): SitzungForm = Sitzungen.neu(art, java.time.LocalDate.now())
+    fun sitzungFormular(s: Sitzung): SitzungForm = SitzungForm.von(s)
+    fun sitzungPruefen(f: SitzungForm): Map<String, String> = Sitzungen.pruefen(f)
+    fun sitzungSpeichern(f: SitzungForm, done: (Sitzung?, String?) -> Unit) = hintergrund({ Sitzungen.speichern(store, f) }, done)
+    fun sitzungLoeschen(id: String, done: (String?) -> Unit) = hintergrund({ Sitzungen.loeschen(store, id) }) { _, e -> done(e) }
+    fun sitzungUnterschreiben(id: String, rolle: String, u: Unterschrift, done: (String?) -> Unit) =
+        hintergrund({ Sitzungen.unterschreiben(store, id, rolle, u, unterschriftAlsPng(u)) }) { _, e -> done(e) }
+    fun sitzungEntsperren(id: String, done: (String?) -> Unit) = hintergrund({ Sitzungen.unterschriftenEntfernen(store, id) }) { _, e -> done(e) }
+    fun sitzungImArchiv(s: Sitzung): Boolean = Sitzungen.imArchiv(store, s)
+    fun sitzungArchivieren(id: String, done: (Dokument?, String?) -> Unit) = hintergrund({
+        val s = Sitzungen.sitzung(store, id) ?: throw IllegalStateException("Die Sitzung gibt es nicht mehr.")
+        Sitzungen.archivieren(store, dateien, id, sitzungPdfBytes(s, SitzungsPdf.PROTOKOLL, true))
+    }, done)
+
+    /** Die Unterschrift als PNG-Data-URL (weißer Grund, schwarze Linien), damit auch der Desktop sie anzeigen kann. */
+    private fun unterschriftAlsPng(u: Unterschrift): String {
+        val b = 600
+        val h = (b / u.seitenverhaeltnis).toInt().coerceIn(100, 1200)
+        val bmp = android.graphics.Bitmap.createBitmap(b, h, android.graphics.Bitmap.Config.ARGB_8888)
+        try {
+            val c = android.graphics.Canvas(bmp)
+            c.drawColor(android.graphics.Color.WHITE)
+            val pinsel = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.BLACK; style = android.graphics.Paint.Style.STROKE; strokeWidth = 4f
+                strokeCap = android.graphics.Paint.Cap.ROUND; strokeJoin = android.graphics.Paint.Join.ROUND
+            }
+            for (st in u.striche) {
+                if (st.size < 2) continue
+                val weg = android.graphics.Path()
+                st.forEachIndexed { i, (x, y) -> if (i == 0) weg.moveTo((x * b).toFloat(), (y * h).toFloat()) else weg.lineTo((x * b).toFloat(), (y * h).toFloat()) }
+                c.drawPath(weg, pinsel)
+            }
+            val out = ByteArrayOutputStream()
+            bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+            return "data:image/png;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+        } finally { bmp.recycle() }
+    }
+
+    /** Einladung, Protokoll oder Registerauszug als PDF (mit dem gemeinsamen Briefpapier der Einstellungen, falls hinterlegt). Nicht im Hauptstrang aufrufen. */
+    fun sitzungPdfBytes(s: Sitzung, art: SitzungsPdf, mitUnterschriften: Boolean): ByteArray {
+        val v0 = Vorlagen.lesen(store)
+        val verein = Vereinsdaten.lesen(store)
+        val bp = v0.hatBriefpapier; val oben = v0.randOben.toDouble()
+        val seiten = when (art) {
+            SitzungsPdf.EINLADUNG -> SitzungsLayout.einladung(s, verein, PdfWriter.mass, bp, oben)
+            SitzungsPdf.PROTOKOLL -> SitzungsLayout.protokoll(s, verein, PdfWriter.mass, mitUnterschriften, bp, oben)
+            SitzungsPdf.AUSZUG -> SitzungsLayout.auszug(s, verein, PdfWriter.mass, mitUnterschriften, bp, oben)
+        }
+        val bild = briefpapierBild(v0)
+        return try { ByteArrayOutputStream().also { PdfWriter.rechnung(seiten, bild, it) }.toByteArray() } finally { bild?.recycle() }
+    }
+
+    fun sitzungDateiname(s: Sitzung, art: SitzungsPdf): String =
+        Sitzungen.dateiname(when (art) { SitzungsPdf.EINLADUNG -> "Einladung"; SitzungsPdf.PROTOKOLL -> "Protokoll"; SitzungsPdf.AUSZUG -> "Registerauszug" }, s)
+
+    /** Schreibt das PDF einer Sitzung. Nicht im Hauptstrang aufrufen. */
+    fun sitzungPdfSchreiben(id: String, art: SitzungsPdf, mitUnterschriften: Boolean, out: java.io.OutputStream) {
+        val s = Sitzungen.sitzung(store, id) ?: throw IllegalStateException("Die Sitzung gibt es nicht mehr.")
+        out.write(sitzungPdfBytes(s, art, mitUnterschriften))
+    }
+
+    /** Legt das PDF im Zwischenspeicher ab (Ordner „dokumente“, der für das Weitergeben freigegeben ist); [done] bekommt die Datei. */
+    fun sitzungPdfDatei(id: String, art: SitzungsPdf, mitUnterschriften: Boolean, done: (File?, String?) -> Unit) = hintergrund({
+        val s = Sitzungen.sitzung(store, id) ?: throw IllegalStateException("Die Sitzung gibt es nicht mehr.")
+        val ordner = File(appContext.cacheDir, "dokumente").also { it.mkdirs() }
+        File(ordner, sitzungDateiname(s, art)).also { it.writeBytes(sitzungPdfBytes(s, art, mitUnterschriften)) }
+    }, done)
 
     /** Liest eine iCal-, CSV- oder Excel-Datei mit Terminen; [done] bekommt die gelesenen Termine (noch nicht gespeichert) oder einen Fehlertext. */
     fun kalenderDateiLesen(uri: Uri, done: (TerminLesung?, String?) -> Unit) = hintergrund({

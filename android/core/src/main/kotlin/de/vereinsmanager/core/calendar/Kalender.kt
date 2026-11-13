@@ -232,13 +232,29 @@ object Kalender {
         JsonObject(m).also { store.put(ARTEN_AREA, neueId, it) }.let { art(it) }
     }
 
-    /** Eine Terminart löschen, die kein Termin mehr benutzt und keine Standardart ist (der Desktop lässt verwaiste Termine zurück). */
-    fun artLoeschen(store: DocumentStore, id: String) = store.transaction {
-        val a = arten(store).firstOrNull { it.id == id } ?: throw IllegalArgumentException("Die Terminart gibt es nicht mehr.")
-        require(!a.system) { "Standardarten lassen sich nicht löschen." }
-        val n = alle(store).count { it.art == id }
-        require(n == 0) { "${a.name} wird noch von $n ${if (n == 1) "Termin" else "Terminen"} benutzt. Bitte zuerst dort eine andere Terminart wählen." }
+    /** Wie viele Termine die Terminart gerade benutzen (für die Warnung vor dem Löschen). */
+    fun artNutzung(store: DocumentStore, id: String): Int = alle(store).count { it.art == id }
+
+    /**
+     * Eine Terminart löschen, auch eine Standardart. Termine, die sie benutzen, wechseln zu "Allgemeiner Termin"
+     * (bzw. zur ersten verbliebenen Art); die Zahl der umgestellten Termine kommt zurück. Die letzte Terminart bleibt.
+     */
+    fun artLoeschen(store: DocumentStore, id: String): Int = store.transaction {
+        val alle = arten(store)
+        require(alle.any { it.id == id }) { "Die Terminart gibt es nicht mehr." }
+        require(alle.size > 1) { "Mindestens eine Terminart muss bleiben." }
+        artenSichern(store)
+        val rest = alle.filter { it.id != id }
+        val ziel = (rest.firstOrNull { it.id == "cat-general" } ?: rest.first()).id
+        var n = 0
+        store.all(AREA).forEach { o ->
+            if ((o["categoryId"] as? JsonPrimitive)?.contentOrNull == id) {
+                val m = LinkedHashMap<String, JsonElement>(o); m["categoryId"] = JsonPrimitive(ziel)
+                store.put(AREA, (o["id"] as JsonPrimitive).content, JsonObject(m)); n++
+            }
+        }
         store.delete(ARTEN_AREA, id)
+        n
     }
 
     // ---------- Termine lesen ----------

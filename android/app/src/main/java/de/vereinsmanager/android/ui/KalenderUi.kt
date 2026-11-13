@@ -27,6 +27,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -62,7 +63,7 @@ import de.vereinsmanager.core.export.Export
 import java.time.LocalDate
 import java.time.YearMonth
 
-private fun hexFarbe(hex: String): Color = try { Color(android.graphics.Color.parseColor(hex)) } catch (e: Exception) { Color(0xFF64748B) }
+internal fun hexFarbe(hex: String): Color = try { Color(android.graphics.Color.parseColor(hex)) } catch (e: Exception) { Color(0xFF64748B) }
 
 private fun artFarbe(arten: List<Terminart>, id: String): Color = hexFarbe(arten.firstOrNull { it.id == id }?.farbe ?: "#64748b")
 
@@ -304,13 +305,16 @@ fun TerminDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
         if (t.ort.isNotBlank()) {
             Column(Modifier.padding(vertical = 4.dp)) {
                 Text("Ort", style = MaterialTheme.typography.labelMedium)
-                Text(
-                    t.ort, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyLarge,
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.clickable {
                         // Die Karten-App des Geräts öffnet die Suche; unsere App schickt nichts ins Internet.
                         try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(t.ort)))) } catch (e: Exception) { meldung = "Keine Karten-App gefunden." }
                     },
-                )
+                ) {
+                    Icon(Lucide.MapPin, contentDescription = "Auf der Karte zeigen", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Text("  " + t.ort, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyLarge)
+                }
                 Text("Antippen öffnet die Karten-App.", style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -350,7 +354,7 @@ fun TerminDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
     }
 
     if (einladen) {
-        val verein = model.vereinsname()
+        val verein = model.vereinsnameOderLeer()
         AlertDialog(
             onDismissRequest = { einladen = false }, title = { Text("Einladung verschicken") },
             text = {
@@ -395,7 +399,7 @@ fun TerminDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
 
 /** Uhrzeit ohne Tippen: zwei Auswahllisten, damit keine ungültige Zeit entstehen kann. */
 @Composable
-private fun ZeitFeld(label: String, wert: String, fehler: String?, optional: Boolean = false, onChange: (String) -> Unit) {
+internal fun ZeitFeld(label: String, wert: String, fehler: String?, optional: Boolean = false, onChange: (String) -> Unit) {
     val h = wert.substringBefore(':', "").toIntOrNull()
     val m = wert.substringAfter(':', "").toIntOrNull()
     var hOffen by remember { mutableStateOf(false) }
@@ -543,7 +547,7 @@ private fun MitgliedWahl(model: AppModel, schonDabei: Set<String>, onDismiss: ()
             .sortedBy { it.displayName.lowercase() }.take(40)
     }
     AlertDialog(
-        onDismissRequest = onDismiss, title = { Text("Mitglied hinzufügen") },
+        onDismissRequest = onDismiss, title = { Text("Mitglieder hinzufügen") },
         text = {
             Column {
                 OutlinedTextField(suche, { suche = it }, label = { Text("Name oder Nummer") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -551,7 +555,7 @@ private fun MitgliedWahl(model: AppModel, schonDabei: Set<String>, onDismiss: ()
                 Column(Modifier.height(260.dp).verticalScroll(rememberScrollState())) {
                     treffer.forEach { m ->
                         val dabei = m.id in schonDabei
-                        TextButton(onClick = { onWahl(m, rolle); onDismiss() }, enabled = !dabei, modifier = Modifier.fillMaxWidth()) {
+                        TextButton(onClick = { onWahl(m, rolle) }, enabled = !dabei, modifier = Modifier.fillMaxWidth()) {
                             Text(m.displayName + (if (m.department.isNotEmpty()) " · ${m.department}" else "") + if (dabei) " (dabei)" else "", maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
@@ -559,7 +563,7 @@ private fun MitgliedWahl(model: AppModel, schonDabei: Set<String>, onDismiss: ()
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Schließen") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Fertig") } },
     )
 }
 
@@ -613,8 +617,7 @@ fun TerminartenScreen(model: AppModel, modifier: Modifier = Modifier) {
                         }
                     }
                     Feld("Beschreibung", text, { text = it }, singleLine = false)
-                    if (a != null && !a.system) TextButton(onClick = { neu = false; bearbeiten = null; loeschen = a }) { Text("Terminart löschen", color = MaterialTheme.colorScheme.error) }
-                    if (a?.system == true) Text("Standardarten lassen sich umbenennen und umfärben, aber nicht löschen.", style = MaterialTheme.typography.bodySmall)
+                    if (a != null) TextButton(onClick = { neu = false; bearbeiten = null; loeschen = a }) { Text("Terminart löschen", color = MaterialTheme.colorScheme.error) }
                 }
             },
             confirmButton = {
@@ -626,10 +629,21 @@ fun TerminartenScreen(model: AppModel, modifier: Modifier = Modifier) {
         )
     }
     loeschen?.let { a ->
+        val n = remember(a, model.termine) { model.terminartNutzung(a.id) }
         AlertDialog(
-            onDismissRequest = { loeschen = null }, title = { Text("Terminart löschen?") },
-            text = { Text("${a.name} wird gelöscht. Das geht nur, wenn kein Termin sie mehr benutzt.") },
-            confirmButton = { TextButton(onClick = { loeschen = null; model.terminartLoeschen(a.id) { f -> meldung = f ?: "${a.name} gelöscht." } }) { Text("Löschen") } },
+            onDismissRequest = { loeschen = null }, title = { Text(if (n > 0) "Achtung: ${a.name} wird benutzt" else "Terminart löschen?") },
+            text = {
+                Text(
+                    if (n == 0) "${a.name} wird von keinem Termin benutzt und endgültig gelöscht."
+                    else "${a.name} wird von $n ${if (n == 1) "Termin" else "Terminen"} benutzt. " +
+                        "Beim Löschen ${if (n == 1) "wechselt dieser Termin" else "wechseln diese Termine"} zu „Allgemeiner Termin“ (oder der ersten übrigen Terminart). Das lässt sich nicht rückgängig machen.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { loeschen = null; model.terminartLoeschen(a.id) { u, f -> meldung = f ?: (if ((u ?: 0) > 0) "${a.name} gelöscht, $u Termine umgestellt." else "${a.name} gelöscht.") } }) {
+                    Text(if (n > 0) "Trotzdem löschen" else "Löschen", color = MaterialTheme.colorScheme.error)
+                }
+            },
             dismissButton = { TextButton(onClick = { loeschen = null }) { Text("Abbrechen") } },
         )
     }

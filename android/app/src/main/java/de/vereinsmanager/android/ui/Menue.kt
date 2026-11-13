@@ -52,7 +52,7 @@ enum class Ziel(val titel: String, val icon: ImageVector, val farbe: Farbe, val 
     FINANZ_AUSWERTUNG("Finanz-Auswertungen", Lucide.PieChart, Farbe.GRUEN, true),
     KONTAKTE("Kontakte", Lucide.Contact, Farbe.TUERKIS, true),
     KALENDER("Kalender", Lucide.CalendarDays, Farbe.INDIGO, true),
-    SITZUNGEN("Sitzungen", Lucide.ScrollText, Farbe.ROSE, false),
+    SITZUNGEN("Sitzungen", Lucide.ScrollText, Farbe.ROSE, true),
     INVENTAR("Inventar", Lucide.Package, Farbe.LILA, true),
     DOKUMENTE("Dokumente", Lucide.FolderArchive, Farbe.BERNSTEIN, true),
     EINSTELLUNGEN("Einstellungen", Lucide.Settings, Farbe.GRAU, true),

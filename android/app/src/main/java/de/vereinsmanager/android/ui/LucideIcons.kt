@@ -70,6 +70,10 @@ object Lucide {
         "M 19 17 V 5 a 2 2 0 0 0 -2 -2 H 4",
         "M 8 21 h 12 a 2 2 0 0 0 2 -2 v -1 a 1 1 0 0 0 -1 -1 H 11 a 1 1 0 0 0 -1 1 v 1 a 2 2 0 1 1 -4 0 V 5 a 2 2 0 1 0 -4 0 v 2 a 1 1 0 0 0 1 1 h 3"
     ) }
+    val MapPin: ImageVector by lazy { strich("MapPin",
+        "M 20 10 c 0 4.993 -5.539 10.193 -7.399 11.799 a 1 1 0 0 1 -1.202 0 C 9.539 20.193 4 14.993 4 10 a 8 8 0 0 1 16 0",
+        "M 15 10 a 3 3 0 1 1 -6 0 a 3 3 0 1 1 6 0"
+    ) }
     val Package: ImageVector by lazy { strich("Package",
         "M 11 21.73 a 2 2 0 0 0 2 0 l 7 -4 A 2 2 0 0 0 21 16 V 8 a 2 2 0 0 0 -1 -1.73 l -7 -4 a 2 2 0 0 0 -2 0 l -7 4 A 2 2 0 0 0 3 8 v 8 a 2 2 0 0 0 1 1.73 z",
         "M 12 22 V 12",

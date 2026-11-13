@@ -53,6 +53,9 @@ import de.vereinsmanager.android.ui.InventarDetailScreen
 import de.vereinsmanager.android.ui.InventarFormScreen
 import de.vereinsmanager.android.ui.InventarScreen
 import de.vereinsmanager.android.ui.KalenderScreen
+import de.vereinsmanager.android.ui.SitzungDetailScreen
+import de.vereinsmanager.android.ui.SitzungFormScreen
+import de.vereinsmanager.android.ui.SitzungenScreen
 import de.vereinsmanager.android.ui.TerminDetailScreen
 import de.vereinsmanager.android.ui.TerminFormScreen
 import de.vereinsmanager.android.ui.TerminartenScreen
@@ -118,6 +121,10 @@ sealed interface Page {
     /** id == null: neuer Termin, tag = vorgewählter Tag */
     data class CalendarEdit(val id: String?, val tag: String?) : Page
     data object CalendarKinds : Page
+    data object Meetings : Page
+    data class Meeting(val id: String) : Page
+    /** id == null: neue Sitzung */
+    data class MeetingEdit(val id: String?) : Page
     data object Settings : Page
     /** folderId == null: oberste Ebene. Jeder Ordner ist eine eigene Seite auf dem Stapel. */
     data class Documents(val folderId: String?) : Page
@@ -165,6 +172,7 @@ class MainActivity : ComponentActivity() {
                         Ziel.KONTAKTE -> listOf(Page.Home, Page.Contacts)
                         Ziel.INVENTAR -> listOf(Page.Home, Page.Inventory)
                         Ziel.KALENDER -> listOf(Page.Home, Page.Calendar)
+                        Ziel.SITZUNGEN -> listOf(Page.Home, Page.Meetings)
                         Ziel.ANTRAEGE -> listOf(Page.Home, if (model.antragWartet != null) Page.AntragPruefen else Page.AntragAusfuellen)
                         Ziel.EINSTELLUNGEN -> listOf(Page.Home, Page.Settings)
                         else -> stack // noch nicht gebaut; das Menü zeigt dafür einen Hinweis
@@ -176,7 +184,7 @@ class MainActivity : ComponentActivity() {
                     MenueInhalt(model.clubName, aktivesZiel(page), onWahl = ::geheZu)
                 }
                 val inhalt: @Composable () -> Unit = {
-                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || (page is Page.Documents && page.folderId == null) || page is Page.Sepa || page is Page.Euer || page is Page.FinanzAuswertung || page is Page.Rechnungen || page is Page.Spenden || page is Page.Contacts || page is Page.Inventory || page is Page.Calendar || (page is Page.Settings && stack.size <= 2) || page is Page.Probes
+                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || (page is Page.Documents && page.folderId == null) || page is Page.Sepa || page is Page.Euer || page is Page.FinanzAuswertung || page is Page.Rechnungen || page is Page.Spenden || page is Page.Contacts || page is Page.Inventory || page is Page.Calendar || page is Page.Meetings || (page is Page.Settings && stack.size <= 2) || page is Page.Probes
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
                         topBar = {
@@ -225,6 +233,12 @@ class MainActivity : ComponentActivity() {
             is Page.TransactionEdit -> BuchungFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m, vorPartner = page.partner)
                             Page.Accounts -> KontenScreen(model, modifier = m)
                             Page.Sepa -> BeitragslaufScreen(model, onEinstellungen = { stack = stack + Page.Settings }, modifier = m)
+                            Page.Meetings -> SitzungenScreen(model, onOpen = { stack = stack + Page.Meeting(it) }, onNeu = { stack = stack + Page.MeetingEdit(null) }, modifier = m)
+                            is Page.Meeting -> SitzungDetailScreen(
+                                model, page.id, onEdit = { stack = stack + Page.MeetingEdit(page.id) },
+                                onDeleted = { stack = stack.filter { it !is Page.Meeting && it !is Page.MeetingEdit } }, modifier = m,
+                            )
+                            is Page.MeetingEdit -> SitzungFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
                             Page.Calendar -> KalenderScreen(
                                 model, onOpen = { stack = stack + Page.CalendarEvent(it) }, onNeu = { stack = stack + Page.CalendarEdit(null, it) },
                                 onArten = { stack = stack + Page.CalendarKinds }, modifier = m,
@@ -358,6 +372,9 @@ private fun seitenTitel(p: Page, model: AppModel): String = when (p) {
     Page.Contacts -> "Kontakte"
     is Page.Contact -> "Kontakt"
     is Page.ContactEdit -> if (p.id == null) "Neuer Kontakt" else "Kontakt bearbeiten"
+    Page.Meetings -> "Sitzungen"
+    is Page.Meeting -> "Sitzung"
+    is Page.MeetingEdit -> if (p.id == null) "Neue Sitzung" else "Sitzung bearbeiten"
     Page.Calendar -> "Kalender"
     is Page.CalendarEvent -> "Termin"
     is Page.CalendarEdit -> if (p.id == null) "Neuer Termin" else "Termin bearbeiten"
@@ -392,6 +409,7 @@ private fun aktivesZiel(p: Page): Ziel? = when (p) {
     Page.Contacts, is Page.Contact, is Page.ContactEdit, Page.KontaktImport -> Ziel.KONTAKTE
     Page.Inventory, is Page.InventoryItem, is Page.InventoryEdit -> Ziel.INVENTAR
     Page.Calendar, is Page.CalendarEvent, is Page.CalendarEdit, Page.CalendarKinds -> Ziel.KALENDER
+    Page.Meetings, is Page.Meeting, is Page.MeetingEdit -> Ziel.SITZUNGEN
     Page.Settings -> Ziel.EINSTELLUNGEN
     Page.AntragAusfuellen, Page.AntragPruefen -> Ziel.ANTRAEGE
     Page.Probes -> null
