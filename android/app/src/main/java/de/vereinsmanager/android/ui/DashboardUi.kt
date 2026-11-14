@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +22,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +32,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +44,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import de.vereinsmanager.android.AppModel
 import de.vereinsmanager.core.calendar.Kalender
 import de.vereinsmanager.core.contacts.Kontakte
@@ -78,7 +87,7 @@ fun DashboardScreen(model: AppModel, onZiel: (Ziel) -> Unit, onSchnell: (Schnell
     val reihen = remember(kacheln) { gruppiere(kacheln) }
 
     if (anpassen) AnpassenAnsicht(model, onFertig = { anpassen = false }, modifier)
-    else Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    else Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (model.clubName.isEmpty()) Text(
             "Noch keine Vereinsdaten – tragen Sie sie unter „Einstellungen“ ein oder spielen Sie dort eine Sicherung ein.",
             style = MaterialTheme.typography.bodyMedium,
@@ -86,12 +95,12 @@ fun DashboardScreen(model: AppModel, onZiel: (Ziel) -> Unit, onSchnell: (Schnell
         if (kacheln.isEmpty()) Text("Noch keine Kacheln ausgewählt. Unten können Sie welche hinzufügen.", style = MaterialTheme.typography.bodyMedium)
         reihen.forEach { reihe ->
             if (reihe.size == 2) {
-                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    reihe.forEach { k -> Box(Modifier.weight(1f).fillMaxHeight()) { KachelInhalt(model, daten, k, onZiel, onSchnell) } }
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    reihe.forEach { k -> Box(Modifier.weight(1f).fillMaxHeight()) { CompositionLocalProvider(LocalStil provides stilFuer(k.id)) { KachelInhalt(model, daten, k, onZiel, onSchnell) } } }
                 }
-            } else KachelInhalt(model, daten, reihe.first(), onZiel, onSchnell)
+            } else CompositionLocalProvider(LocalStil provides stilFuer(reihe.first().id)) { KachelInhalt(model, daten, reihe.first(), onZiel, onSchnell) }
         }
-        OutlinedButton(onClick = { anpassen = true }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) { Text("Dashboard anpassen") }
+        FilledTonalButton(onClick = { anpassen = true }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) { Text("Dashboard anpassen") }
     }
 }
 
@@ -122,18 +131,62 @@ private class DashboardRechner(val model: AppModel, val heute: LocalDate) {
 
 // ---------------------------------------------------------------- Bausteine
 
+/** Wie eine Kachel eingefärbt ist: kräftige Flächen für Kennzahlen, ruhige Karten mit Rand für Listen. */
+private enum class Stil { HELD, GELB, SALBEI, HELL, FLAECHE, RAND }
+
+private val LocalStil = compositionLocalOf { Stil.RAND }
+
+/** Welche Kachel welche Farbe bekommt (nur Optik; Inhalt und Anordnung bleiben unberührt). */
+private fun stilFuer(id: String): Stil = when (id) {
+    "total_liquidity" -> Stil.HELD
+    "members_kpi", "contacts_kpi", "documents_archive_kpi" -> Stil.GELB
+    "annual_balance", "invoices_kpi", "inventory_overview" -> Stil.SALBEI
+    "donations_summary", "meetings_kpi" -> Stil.HELL
+    "wgb_limit_monitor", "quick_actions" -> Stil.FLAECHE
+    else -> Stil.RAND
+}
+
 @Composable
 private fun Rahmen(titel: String, ziel: Ziel?, onZiel: (Ziel) -> Unit, inhalt: @Composable ColumnScope.() -> Unit) {
-    Card(Modifier.fillMaxSize().let { if (ziel != null) it.clickable { onZiel(ziel) } else it }) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(titel, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+    val stil = LocalStil.current
+    val s = MaterialTheme.colorScheme
+    val (flaeche, text) = when (stil) {
+        Stil.HELD -> s.primary to s.onPrimary
+        Stil.GELB -> s.tertiaryContainer to s.onTertiaryContainer
+        Stil.SALBEI -> s.secondaryContainer to s.onSecondaryContainer
+        Stil.HELL -> s.primaryContainer to s.onPrimaryContainer
+        Stil.FLAECHE -> s.surfaceContainer to s.onSurface
+        Stil.RAND -> s.surfaceContainerLowest to s.onSurface
+    }
+    val gross = 32.dp
+    val spitz = 10.dp
+    val form = when (stil) {
+        Stil.HELD -> RoundedCornerShape(gross, gross, gross, spitz)
+        Stil.GELB -> RoundedCornerShape(spitz, gross, gross, gross)
+        Stil.SALBEI -> RoundedCornerShape(gross, spitz, gross, gross)
+        Stil.HELL -> RoundedCornerShape(gross)
+        Stil.FLAECHE -> RoundedCornerShape(28.dp)
+        Stil.RAND -> RoundedCornerShape(28.dp)
+    }
+    Card(
+        Modifier.fillMaxSize().let { if (ziel != null) it.clickable { onZiel(ziel) } else it },
+        shape = form,
+        colors = CardDefaults.cardColors(containerColor = flaeche, contentColor = text),
+        border = if (stil == Stil.RAND) BorderStroke(1.5.dp, s.outlineVariant) else null,
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(titel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             inhalt()
         }
     }
 }
 
+/** Große Zahl einer Kennzahl-Kachel; wird bei langen Beträgen kleiner, damit sie nie abgeschnitten wird oder umbricht. */
 @Composable
-private fun Zahl(text: String) = Text(text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 1)
+private fun Zahl(text: String) {
+    val groesse = (244f / text.length.coerceAtLeast(1)).coerceIn(16f, 32f)
+    Text(text, style = MaterialTheme.typography.titleLarge, fontSize = groesse.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
+}
 
 @Composable
 private fun Klein(text: String, farbe: Color = Color.Unspecified) = Text(text, style = MaterialTheme.typography.bodySmall, color = farbe)
@@ -148,8 +201,28 @@ private fun Zeile(links: String, rechts: String, farbe: Color = Color.Unspecifie
 
 @Composable
 private fun Balken(anteil: Float, farbe: Color) {
-    Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.outlineVariant)) {
-        Box(Modifier.fillMaxWidth(anteil.coerceIn(0f, 1f)).height(8.dp).background(farbe))
+    Box(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.outlineVariant)) {
+        Box(Modifier.fillMaxWidth(anteil.coerceIn(0f, 1f)).height(10.dp).clip(RoundedCornerShape(5.dp)).background(farbe))
+    }
+}
+
+/** Runde Marke mit den Anfangsbuchstaben eines Namens, in wechselnden Farben und weichen Kieselformen. */
+@Composable
+private fun Marke(name: String, nr: Int) {
+    val s = MaterialTheme.colorScheme
+    val (flaeche, text) = when (nr % 3) {
+        0 -> s.primaryContainer to s.onPrimaryContainer
+        1 -> s.tertiaryContainer to s.onTertiaryContainer
+        else -> s.secondaryContainer to s.onSecondaryContainer
+    }
+    val form = when (nr % 3) {
+        0 -> RoundedCornerShape(topStartPercent = 58, topEndPercent = 42, bottomEndPercent = 55, bottomStartPercent = 45)
+        1 -> RoundedCornerShape(topStartPercent = 45, topEndPercent = 55, bottomEndPercent = 42, bottomStartPercent = 58)
+        else -> RoundedCornerShape(topStartPercent = 55, topEndPercent = 45, bottomEndPercent = 58, bottomStartPercent = 42)
+    }
+    val buchstaben = name.trim().split(' ').filter { it.isNotEmpty() }.let { w -> (w.firstOrNull()?.take(1).orEmpty() + (if (w.size > 1) w.last().take(1) else "")).uppercase() }
+    Box(Modifier.size(40.dp).clip(form).background(flaeche), contentAlignment = Alignment.Center) {
+        Text(buchstaben, color = text, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
     }
 }
 
@@ -168,7 +241,7 @@ private fun KachelInhalt(model: AppModel, d: DashboardRechner, k: Kachel, onZiel
             Klein("Was möchten Sie heute im Verein erfassen?")
             Schnell.entries.chunked(2).forEach { paar ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    paar.forEach { a -> OutlinedButton(onClick = { onSchnell(a) }, modifier = Modifier.weight(1f)) { Text(a.text, maxLines = 1) } }
+                    paar.forEach { a -> FilledTonalButton(onClick = { onSchnell(a) }, modifier = Modifier.weight(1f)) { Text(a.text, maxLines = 1) } }
                     if (paar.size == 1) Box(Modifier.weight(1f))
                 }
             }
@@ -204,11 +277,14 @@ private fun KachelInhalt(model: AppModel, d: DashboardRechner, k: Kachel, onZiel
             val a = d.mitglieder.anstehend
             Rahmen("Geburtstage & Jubiläen", Ziel.MITGLIEDER, onZiel) {
                 if (a.isEmpty()) Klein("In den nächsten ${Dashboard.VORSCHAU_TAGE} Tagen steht nichts an.")
-                a.forEach { b ->
+                a.forEachIndexed { nr, b ->
                     val tage = ChronoUnit.DAYS.between(d.heute, b.datum)
                     val wann = if (tage == 0L) "Heute!" else "in $tage T."
                     val was = if (b.art == "birthday") "${b.name} wird ${b.jahre}" else "${b.name}: ${b.jahre} Jahre im Verein"
-                    Zeile("${datumKurz(b.datum.toString())} $was", wann, if (tage == 0L) primaer else Color.Unspecified)
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Marke(b.name, nr)
+                        Box(Modifier.weight(1f)) { Zeile("${datumKurz(b.datum.toString())} $was", wann, if (tage == 0L) primaer else Color.Unspecified) }
+                    }
                 }
             }
         }

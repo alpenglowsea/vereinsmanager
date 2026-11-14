@@ -235,6 +235,13 @@ private fun Kachel(z: Ziel, nr: Int, aktiv: Boolean, onWahl: (Ziel) -> Unit) {
     }
 }
 
+/** Im Auswahlmenü der Leiste: die beiden „Auswertung“ unterscheiden sich durch den Bereich in Klammern. */
+private fun auswahlName(z: Ziel): String = when (z) {
+    Ziel.MITGLIEDER_AUSWERTUNG -> "Auswertung (Mitglieder)"
+    Ziel.FINANZ_AUSWERTUNG -> "Auswertung (Finanzen)"
+    else -> z.titel
+}
+
 /** Einstellungen → Allgemein: welche vier Ziele neben dem Mittelknopf stehen. Gilt nur für dieses Gerät. */
 @Composable
 fun LeisteAnpassenKarte(model: AppModel) {
@@ -260,7 +267,7 @@ fun LeisteAnpassenKarte(model: AppModel) {
                         DropdownMenu(expanded = offen, onDismissRequest = { offen = false }) {
                             Ziel.entries.filter { it.fertig }.forEach { w ->
                                 DropdownMenuItem(
-                                    text = { Text(w.titel, fontWeight = if (w == z) FontWeight.Bold else FontWeight.Normal) },
+                                    text = { Text(auswahlName(w), fontWeight = if (w == z) FontWeight.Bold else FontWeight.Normal) },
                                     leadingIcon = { Icon(w.icon, null, Modifier.size(20.dp)) },
                                     onClick = {
                                         offen = false
