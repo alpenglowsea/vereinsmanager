@@ -147,7 +147,7 @@ private fun Balken(anteil: Float, farbe: Color) {
     }
 }
 
-private fun euro(v: BigDecimal) = Geld.euro(v)
+private fun eur(v: BigDecimal) = Geld.euro(v)
 private fun datumKurz(iso: String) = Zeit.deutsch(iso).take(6)
 
 // ---------------------------------------------------------------- Kacheln
@@ -221,13 +221,13 @@ private fun KachelInhalt(model: AppModel, d: DashboardRechner, k: Kachel, onZiel
         }
         "total_liquidity" -> {
             val f = d.finanzen
-            Rahmen("Liquidität", Ziel.BUCHUNGEN, onZiel) { Zahl(euro(f.liquiditaet)); Klein("${f.kontenAnzahl} Konten & Kassen") }
+            Rahmen("Liquidität", Ziel.BUCHUNGEN, onZiel) { Zahl(eur(f.liquiditaet)); Klein("${f.kontenAnzahl} Konten & Kassen") }
         }
         "annual_balance" -> {
             val f = d.finanzen
             Rahmen("Jahres-Saldo ${f.jahr}", Ziel.EUER, onZiel) {
                 Zahl(Geld.euroMitVorzeichen(f.euer.ergebnis))
-                Klein("Einnahmen ${euro(f.euer.einnahmen)} · Ausgaben ${euro(f.euer.ausgaben)}")
+                Klein("Einnahmen ${eur(f.euer.einnahmen)} · Ausgaben ${eur(f.euer.ausgaben)}")
             }
         }
         "wgb_limit_monitor" -> {
@@ -235,24 +235,24 @@ private fun KachelInhalt(model: AppModel, d: DashboardRechner, k: Kachel, onZiel
             Rahmen("§ 64 AO ${d.finanzen.jahr}", Ziel.EUER, onZiel) {
                 if (g == null) Klein("Keine Daten") else {
                     val farbe = if (g.ueberschritten) fehler else if (g.warnung) warn else primaer
-                    Zahl("${euro(g.einnahmen)}")
-                    Klein("von ${euro(g.grenze)} im wirtschaftlichen Geschäftsbetrieb")
+                    Zahl("${eur(g.einnahmen)}")
+                    Klein("von ${eur(g.grenze)} im wirtschaftlichen Geschäftsbetrieb")
                     Balken((g.prozent / 100.0).toFloat(), farbe)
-                    Klein(if (g.ueberschritten) "Grenze überschritten" else "${euro(g.puffer)} Puffer", farbe)
+                    Klein(if (g.ueberschritten) "Grenze überschritten" else "${eur(g.puffer)} Puffer", farbe)
                 }
             }
         }
         "tax_spheres_overview" -> Rahmen("4 Steuerliche Sphären ${d.finanzen.jahr}", Ziel.EUER, onZiel) {
             d.finanzen.euer.sphaeren.forEach { s ->
                 Zeile(s.name, Geld.euroMitVorzeichen(s.ergebnis), if (s.ergebnis.signum() < 0) fehler else Color.Unspecified)
-                Klein("Einnahmen ${euro(s.einnahmen)} · Ausgaben ${euro(s.ausgaben)}")
+                Klein("Einnahmen ${eur(s.einnahmen)} · Ausgaben ${eur(s.ausgaben)}")
             }
         }
         "sepa_debit_monitor" -> {
             val s = d.sepa
             Rahmen("Beitragslauf (SEPA)", Ziel.BEITRAGSLAUF, onZiel) {
                 Zeile("Zahlen per SEPA", "${s.sepa} von ${s.aktive}")
-                Zeile("Jahres-Soll aller Beiträge", euro(s.jahresSoll))
+                Zeile("Jahres-Soll aller Beiträge", eur(s.jahresSoll))
                 Zeile("Gläubiger-ID", s.glaeubigerId.ifEmpty { "nicht hinterlegt" }, if (s.glaeubigerId.isEmpty()) warn else Color.Unspecified)
                 if (s.unvollstaendig > 0) Klein("${s.unvollstaendig} Mandat(e) unvollständig (IBAN oder Mandatsreferenz fehlt)", warn)
             }
@@ -266,7 +266,7 @@ private fun KachelInhalt(model: AppModel, d: DashboardRechner, k: Kachel, onZiel
         }
         "donations_summary" -> {
             val s = d.spenden
-            Rahmen("Spenden ${s.jahr}", Ziel.SPENDEN, onZiel) { Zahl(euro(s.summe)); Klein("${s.geld} Geld- · ${s.sach} Sachspenden") }
+            Rahmen("Spenden ${s.jahr}", Ziel.SPENDEN, onZiel) { Zahl(eur(s.summe)); Klein("${s.geld} Geld- · ${s.sach} Sachspenden") }
         }
         "cashflow_chart" -> Rahmen("Cashflow ${d.finanzen.jahr}", Ziel.FINANZ_AUSWERTUNG, onZiel) {
             val m = d.finanzen.monate
@@ -287,9 +287,9 @@ private fun KachelInhalt(model: AppModel, d: DashboardRechner, k: Kachel, onZiel
         "invoices_overview" -> {
             val r = d.rechnungen
             Rahmen("Rechnungen", Ziel.RECHNUNGEN, onZiel) {
-                Zeile("Offene Forderungen", euro(r.offen))
+                Zeile("Offene Forderungen", eur(r.offen))
                 Zeile("Überfällig", "${r.ueberfaellig} ${if (r.ueberfaellig == 1) "Beleg" else "Belege"}", if (r.ueberfaellig > 0) fehler else Color.Unspecified)
-                Zeile("Abgerechnet", euro(r.abgerechnet))
+                Zeile("Abgerechnet", eur(r.abgerechnet))
                 if (r.neueste.isNotEmpty()) HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 r.neueste.forEach { x ->
                     val status = when {
@@ -297,7 +297,7 @@ private fun KachelInhalt(model: AppModel, d: DashboardRechner, k: Kachel, onZiel
                         de.vereinsmanager.core.invoice.RechnungsRegeln.ueberfaellig(x.copy(status = "open"), d.heute) -> "überfällig"
                         else -> "offen"
                     }
-                    Zeile("${x.nummer} ${x.anzeigeName}", "${euro(x.brutto)} · $status")
+                    Zeile("${x.nummer} ${x.anzeigeName}", "${eur(x.brutto)} · $status")
                 }
                 Klein("${r.gesamt} Rechnungen, ${r.bezahlt} bezahlt" + if (r.entwuerfe > 0) ", ${r.entwuerfe} Entwurf" else "")
             }
@@ -305,7 +305,7 @@ private fun KachelInhalt(model: AppModel, d: DashboardRechner, k: Kachel, onZiel
         "invoices_kpi" -> {
             val r = d.rechnungen
             Rahmen("Forderungen", Ziel.RECHNUNGEN, onZiel) {
-                Zahl(euro(r.offen)); Klein("${r.offenAnzahl} offen" + if (r.ueberfaellig > 0) " · ${r.ueberfaellig} überfällig" else "", if (r.ueberfaellig > 0) fehler else Color.Unspecified)
+                Zahl(eur(r.offen)); Klein("${r.offenAnzahl} offen" + if (r.ueberfaellig > 0) " · ${r.ueberfaellig} überfällig" else "", if (r.ueberfaellig > 0) fehler else Color.Unspecified)
             }
         }
         "contacts_summary" -> {
@@ -346,7 +346,7 @@ private fun KachelInhalt(model: AppModel, d: DashboardRechner, k: Kachel, onZiel
         "inventory_overview" -> {
             val i = d.inventar
             Rahmen("Inventar", Ziel.INVENTAR, onZiel) {
-                Zahl(euro(i.wert)); Klein("${i.einheiten} Stück in ${i.positionen} Positionen")
+                Zahl(eur(i.wert)); Klein("${i.einheiten} Stück in ${i.positionen} Positionen")
                 if (i.reparatur > 0) Klein("${i.reparatur} mit Reparaturbedarf", warn)
             }
         }
