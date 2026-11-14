@@ -32,6 +32,9 @@ data class VereinsForm(
     /** Für den Briefkopf der Rechnungen */
     val email: String = "",
     val registernummer: String = "",
+    /** Wie am Desktop; nur zum Pflegen, die App verwendet sie sonst nirgends. */
+    val telefon: String = "",
+    val webseite: String = "",
 )
 
 /** Die Angaben, die ein SEPA-Lastschrifteinzug vom Verein braucht. */
@@ -62,6 +65,7 @@ object Vereinsdaten {
             freistellungsDatum = t(settings, "taxExemptionDate"), feststellungsDatum = t(settings, "taxStatementDate"),
             veranlagungszeitraum = t(settings, "taxAssessmentPeriod"), zweck = t(settings, "promotedPurposes"),
             email = t(settings, "email"), registernummer = t(settings, "associationNumber"),
+            telefon = t(settings, "phone"), webseite = t(settings, "website"),
         )
     }
 
@@ -110,6 +114,8 @@ object Vereinsdaten {
             m["promotedPurposes"] = JsonPrimitive(f.zweck.trim())
             m["email"] = JsonPrimitive(f.email.trim())
             m["associationNumber"] = JsonPrimitive(f.registernummer.trim())
+            m["phone"] = JsonPrimitive(f.telefon.trim())
+            m["website"] = JsonPrimitive(f.webseite.trim())
             m["updatedAt"] = JsonPrimitive(Zeit.stempel(now))
             store.put(BEREICH, ID, JsonObject(m))
         }

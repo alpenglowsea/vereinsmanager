@@ -24,21 +24,25 @@ import androidx.compose.ui.unit.dp
 import de.vereinsmanager.android.AppModel
 import de.vereinsmanager.core.settings.VereinsForm
 import de.vereinsmanager.core.settings.Vereinsdaten
+import de.vereinsmanager.core.settings.Vorstand
 
 /**
- * Einstellungen: Vereinsdaten, Briefpapier, Aufnahmeantrag, Unterschrift und die Datensicherung. Die Vereinsdaten (Name, Anschrift, Vorstand, Gläubiger-ID, Vereinskonto);
- * sie stehen im selben Dokument wie am Desktop und gehen mit der Sicherung mit.
+ * Einstellungen: Vereinsdaten, Vorstand, Sparten, Briefpapier, Aufnahmeantrag, Unterschrift, Datensicherung, Schnappschüsse,
+ * Löschen, Spenden-Link und Fehlerbericht. Die Vereinsdaten stehen im selben Dokument wie am Desktop und gehen mit der Sicherung mit.
+ * Vereinsdaten und Vorstand gelten erst mit „Speichern“; Sparten, Schnappschüsse und Löschen wirken sofort.
  */
 @Composable
 fun EinstellungenScreen(model: AppModel, onProbes: () -> Unit, modifier: Modifier = Modifier) {
     var f by remember(model.vereinsdaten) { mutableStateOf(model.vereinsdaten) }
+    var vorstand by remember(model.vorstand) { mutableStateOf(model.vorstand) }
     var zeigeFehler by remember { mutableStateOf(false) }
     var meldung by remember { mutableStateOf<String?>(null) }
     var unterschreiben by remember { mutableStateOf(false) }
     var sigMeldung by remember { mutableStateOf<String?>(null) }
     val fehler = Vereinsdaten.pruefen(f)
     fun fehlerFuer(k: String) = if (zeigeFehler) fehler[k] else null
-    val geaendert = f != model.vereinsdaten
+    val vorstandFehler = Vorstand.pruefen(vorstand)
+    val geaendert = f != model.vereinsdaten || vorstand != model.vorstand
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(Modifier.fillMaxWidth()) {
@@ -50,11 +54,13 @@ fun EinstellungenScreen(model: AppModel, onProbes: () -> Unit, modifier: Modifie
                 Feld("PLZ", f.plz, { f = f.copy(plz = it) })
                 Feld("Ort", f.ort, { f = f.copy(ort = it) })
                 Feld("E-Mail", f.email, { f = f.copy(email = it) }, keyboard = androidx.compose.ui.text.input.KeyboardType.Email, hinweis = "Steht im Briefkopf der Rechnungen")
+                Feld("Telefon", f.telefon, { f = f.copy(telefon = it) }, keyboard = androidx.compose.ui.text.input.KeyboardType.Phone, hinweis = "Wird nur hier gepflegt (wie am Desktop), die App druckt es nirgends")
+                Feld("Webseite", f.webseite, { f = f.copy(webseite = it) }, keyboard = androidx.compose.ui.text.input.KeyboardType.Uri, hinweis = "Wird nur hier gepflegt (wie am Desktop), die App druckt es nirgends")
                 Feld("Vereinsregister-Nr.", f.registernummer, { f = f.copy(registernummer = it) }, hinweis = "z. B. VR 12345 – steht in der Fußzeile der Rechnungen")
-                Feld("Vorsitzende/r", f.vorsitzender, { f = f.copy(vorsitzender = it) })
-                Feld("Kassenwart / Schatzmeister", f.kassenwart, { f = f.copy(kassenwart = it) }, hinweis = "Steht im Prüfprotokoll beim Lastschrifteinzug")
             }
         }
+        VorstandKarte(vorstand, { vorstand = it }, if (zeigeFehler) vorstandFehler else emptyMap())
+        SpartenKarte(model)
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Lastschrifteinzug (SEPA)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -94,15 +100,20 @@ fun EinstellungenScreen(model: AppModel, onProbes: () -> Unit, modifier: Modifie
                 if (sigMeldung != null) Text(sigMeldung!!, style = MaterialTheme.typography.bodySmall)
             }
         }
-        SicherungKarte(model, onProbes)
         if (meldung != null) Text(meldung!!, color = if (meldung == "Gespeichert.") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
         Button(
             onClick = {
-                if (fehler.isNotEmpty()) { zeigeFehler = true; meldung = null }
-                else model.vereinSpeichern(f) { e -> meldung = e ?: "Gespeichert." }
+                if (fehler.isNotEmpty() || vorstandFehler.isNotEmpty()) { zeigeFehler = true; meldung = null }
+                else model.vereinSpeichern(f, vorstand.takeIf { it != model.vorstand }) { e -> meldung = e ?: "Gespeichert." }
             },
             enabled = !model.busy && geaendert, modifier = Modifier.fillMaxWidth(),
         ) { Text("Speichern") }
+        SicherungKarte(model, onProbes)
+        SchnappschussKarte(model)
+        SchutzKarte()
+        UnterstuetzenKarte()
+        FehlerMeldenKarte()
+        LoeschenKarte(model)
     }
     if (unterschreiben) {
         UnterschriftDialog(

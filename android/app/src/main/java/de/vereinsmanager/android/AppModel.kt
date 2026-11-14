@@ -108,6 +108,14 @@ import de.vereinsmanager.core.sepa.LaufParameter
 import de.vereinsmanager.core.sepa.SepaItem
 import de.vereinsmanager.core.sepa.Verbucht
 import de.vereinsmanager.core.settings.Glaeubiger
+import de.vereinsmanager.core.settings.SchnappEintrag
+import de.vereinsmanager.core.settings.SchnappGrund
+import de.vereinsmanager.core.settings.Schnappschuesse
+import de.vereinsmanager.core.settings.Sparten
+import de.vereinsmanager.core.settings.SpartenVerwendung
+import de.vereinsmanager.core.settings.Vorstand
+import de.vereinsmanager.core.settings.Vorstandsmitglied
+import de.vereinsmanager.core.settings.Zuruecksetzen
 import de.vereinsmanager.core.settings.VereinsForm
 import de.vereinsmanager.core.settings.Vereinsdaten
 import de.vereinsmanager.core.finance.KontoForm
@@ -196,6 +204,13 @@ class AppModel(private val appContext: Context) {
         private set
     var vereinsdaten by mutableStateOf(VereinsForm())
         private set
+    var vorstand by mutableStateOf<List<Vorstandsmitglied>>(emptyList())
+        private set
+
+    /** Ein Schnappschuss im App-Ordner mit seiner Größe in Byte. */
+    class SchnappInfo(val eintrag: SchnappEintrag, val bytes: Long)
+    var schnappschuesse by mutableStateOf<List<SchnappInfo>>(emptyList())
+        private set
     /** Was für einen Lastschrifteinzug in den Einstellungen noch fehlt (null: alles da). */
     var lastschriftFehlt by mutableStateOf<String?>(null)
         private set
@@ -219,7 +234,11 @@ class AppModel(private val appContext: Context) {
     var stand by mutableStateOf(0)
         private set
 
-    init { reload() }
+    init {
+        schnappschussAltesUebernehmen()
+        reload()
+        automatischSichern()
+    }
 
     private fun post(block: () -> Unit) { main.post(block) }
 
@@ -244,12 +263,14 @@ class AppModel(private val appContext: Context) {
         inventarAusgegeben = Inventar.ausgegeben(store)
         vorlage = Vorlagen.lesen(store)
         vereinsdaten = Vereinsdaten.lesen(store.get("settings", "main"))
+        vorstand = Vorstand.lesen(store.get("settings", "main"))
+        schnappschuesse = schnappListe()
         lastschriftFehlt = Vereinsdaten.fehlt(store.get("settings", "main"))
         glaeubiger = Vereinsdaten.glaeubiger(store.get("settings", "main"))
         dateiText = dateiInfo()
         val settings = store.get("settings", "main")
         clubName = (settings?.get("clubName") as? JsonPrimitive)?.contentOrNull ?: ""
-        departments = (settings?.get("departments") as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList()
+        departments = Sparten.lesen(settings)
     }
 
     /** Erkennt Paket (ZIP) und JSON-Sicherung und ob ein Passwort nötig ist. */
@@ -278,22 +299,129 @@ class AppModel(private val appContext: Context) {
     private fun readText(uri: Uri): String =
         appContext.contentResolver.openInputStream(uri)!!.use { it.readBytes() }.toString(Charsets.UTF_8)
 
+    // ---- Schnappschüsse (vollständige Sicherungen im geschützten App-Ordner) ----
+
+    private val schnappDir get() = File(appContext.filesDir, "schnappschuesse").apply { mkdirs() }
+
+    private fun hatDaten() = store.count("members") + store.count("transactions") + store.count("settings") > 0
+
+    /** Übernimmt die Sicherheitskopien früherer Versionen („sicherheitskopien/vor_import_…“) in den neuen Ordner. */
+    private fun schnappschussAltesUebernehmen() {
+        val alt = File(appContext.filesDir, "sicherheitskopien")
+        if (!alt.isDirectory) return
+        try {
+            for (f in alt.listFiles().orEmpty()) {
+                val neuName = Schnappschuesse.ausAltemNamen(f.name)
+                if (neuName != null && !File(schnappDir, neuName).exists()) f.renameTo(File(schnappDir, neuName)) else if (neuName == null) f.delete()
+            }
+            alt.delete() // nur, wenn leer
+        } catch (e: Exception) { /* nicht schlimm, beim nächsten Start noch einmal */ }
+    }
+
+    private fun schnappListe(): List<SchnappInfo> =
+        Schnappschuesse.sortiert(schnappDir.list()?.toList().orEmpty()).map { SchnappInfo(it, File(schnappDir, it.name).length()) }
+
     /**
-     * Legt vor dem Einspielen eine Kopie des bisherigen Bestands samt Dateien als Paket (ZIP, ohne Passwort) im geschützten
-     * App-Ordner ab. Es bleiben die letzten zwei (die Dateien können groß sein).
+     * Schreibt den ganzen Bestand samt Dateien als Paket (ZIP, ohne Passwort) in den App-Ordner und räumt auf.
+     * Gibt den Dateinamen zurück, oder null, wenn es noch gar keine Daten gibt. Wirft bei einem Fehler.
+     * Zuerst in eine .tmp-Datei, damit nie ein halbes Paket als Schnappschuss erscheint.
      */
-    private fun sicherheitskopie(): String? {
-        if (store.count("members") + store.count("transactions") + store.count("settings") == 0) return null
-        return try {
-            val dir = File(appContext.filesDir, "sicherheitskopien").apply { mkdirs() }
-            val stamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.ROOT).format(Date())
-            val f = File(dir, "vor_import_$stamp.zip")
-            BackupPaket.schreiben(store, dateien, BufferedOutputStream(FileOutputStream(f), 64 * 1024))
-            dir.listFiles()?.sortedBy { it.name }?.dropLast(2)?.forEach { it.delete() }
-            f.name
+    private fun schnappschussSchreiben(grund: SchnappGrund): String? {
+        if (!hatDaten()) return null
+        val dir = schnappDir
+        val ziel = File(dir, Schnappschuesse.dateiname(java.time.ZonedDateTime.now(), grund))
+        val tmp = File(dir, ziel.name + ".tmp")
+        try {
+            BufferedOutputStream(FileOutputStream(tmp), 64 * 1024).use { BackupPaket.schreiben(store, dateien, it) }
+            if (ziel.exists()) ziel.delete()
+            if (!tmp.renameTo(ziel)) throw java.io.IOException("Die Datei ließ sich nicht umbenennen.")
         } catch (e: Exception) {
-            null
+            tmp.delete()
+            throw e
         }
+        dir.list()?.filter { it.endsWith(".tmp") && it != tmp.name }?.forEach { File(dir, it).delete() }
+        Schnappschuesse.ueberzaehlige(dir.list()?.toList().orEmpty()).forEach { File(dir, it).delete() }
+        return ziel.name
+    }
+
+    /** Wie [schnappschussSchreiben], nur ohne Ausnahme: für die Kopie vor dem Einspielen, die den Import nicht verhindern soll. */
+    private fun sicherheitskopie(grund: SchnappGrund = SchnappGrund.VOR_IMPORT): String? = try { schnappschussSchreiben(grund) } catch (e: Exception) { null }
+
+    /** Einmal pro Tag beim Start, wenn es Daten gibt und der letzte Schnappschuss alt genug ist. Läuft im Hintergrund, ohne die Bedienung zu sperren. */
+    private fun automatischSichern() {
+        thread {
+            try {
+                val namen = schnappDir.list()?.toList().orEmpty()
+                if (hatDaten() && Schnappschuesse.faellig(namen, java.time.LocalDateTime.now())) {
+                    schnappschussSchreiben(SchnappGrund.AUTOMATISCH)
+                    post { schnappschuesse = schnappListe() }
+                }
+            } catch (e: Exception) { /* der nächste Start versucht es wieder */ }
+        }
+    }
+
+    fun schnappschussAnlegen(done: (String?) -> Unit) = hintergrund({
+        schnappschussSchreiben(SchnappGrund.MANUELL) ?: throw IllegalStateException("Es gibt noch keine Daten, die man sichern könnte.")
+    }) { _, f -> done(f) }
+
+    fun schnappschussLoeschen(name: String) {
+        if (Schnappschuesse.lesen(name) == null) return
+        File(schnappDir, name).delete()
+        reload()
+    }
+
+    /** Spielt einen Schnappschuss ein und ersetzt dabei den ganzen Bestand. Vorher entsteht ein neuer Schnappschuss vom heutigen Stand. */
+    fun schnappschussWiederherstellen(name: String) {
+        val datei = File(schnappDir, name)
+        if (Schnappschuesse.lesen(name) == null || !datei.isFile) { message = "Der Schnappschuss ist nicht mehr da."; meldungNr += 1; return }
+        busy = true
+        message = "Schnappschuss wird eingespielt …"
+        thread {
+            val text = try {
+                var kopie: String? = null
+                val bericht = datei.inputStream().buffered().use { s ->
+                    PaketImport.paket(s, null, store, dateien, ImportMode.REPLACE, vorEinspielen = { kopie = sicherheitskopie() })
+                }
+                if (store.all("folders").isNotEmpty()) prefs.edit().putBoolean("standardOrdner", true).apply()
+                buildString {
+                    append("Schnappschuss eingespielt: Der Bestand ist jetzt wie am Tag der Sicherung.")
+                    append("\nDateien danach: ${dateiInfo()}")
+                    append(if (kopie != null) "\nDer Stand von vorher ist als Schnappschuss abgelegt." else "\nVon vorher gab es nichts zu sichern, oder es ließ sich nicht anlegen.")
+                    if (!bericht.import.ok) append("\nNICHT alles gespeichert: " + bericht.import.failed.joinToString("; "))
+                }
+            } catch (e: Exception) {
+                "Fehler: ${e.message ?: e::class.simpleName}"
+            }
+            post { reload(); message = text; meldungNr += 1; busy = false }
+        }
+    }
+
+    /**
+     * Löscht alle Daten und Dateien. Vorher wird ein Schnappschuss angelegt; gelingt das nicht, wird nichts gelöscht.
+     * Der Schnappschuss bleibt im App-Ordner liegen (bis die App deinstalliert wird oder neuere ihn verdrängen).
+     */
+    fun alleDatenLoeschen(done: (String?) -> Unit) = hintergrund({
+        schnappschussSchreiben(SchnappGrund.VOR_LOESCHEN)
+        Zuruecksetzen.alles(store, dateien)
+        prefs.edit().putBoolean("standardOrdner", false).apply()
+    }) { _, f -> done(f) }
+
+    // ---- Sparten und Vorstand ----
+
+    fun spartenVerwendung(name: String): SpartenVerwendung = Sparten.verwendung(store, name)
+
+    fun spartenHinzufuegen(name: String, done: (String?) -> Unit) =
+        hintergrund({ Sparten.hinzufuegen(store, name) }) { _, f -> done(f) }
+
+    fun spartenUmbenennen(alt: String, neu: String, done: (String?) -> Unit) =
+        hintergrund({ Sparten.umbenennen(store, alt, neu) }) { _, f -> done(f) }
+
+    fun spartenLoeschen(name: String, done: (String?) -> Unit) =
+        hintergrund({ Sparten.loeschen(store, name) }) { _, f -> done(f) }
+
+    fun spartenVerschieben(name: String, schritt: Int) {
+        Sparten.verschieben(store, name, schritt)
+        reload()
     }
 
     fun importBackup(uri: Uri, password: String, mode: ImportMode) {
@@ -572,8 +700,14 @@ class AppModel(private val appContext: Context) {
 
     // ---- Einstellungen und Beitragslauf ----
 
-    fun vereinSpeichern(form: VereinsForm, done: (String?) -> Unit) =
-        hintergrund({ Vereinsdaten.speichern(store, form) }) { _, f -> done(f) }
+    /** Speichert Vereinsdaten und, wenn [vorstand] nicht null ist, auch die Vorstandsliste (beides oder nichts). */
+    fun vereinSpeichern(form: VereinsForm, vorstand: List<Vorstandsmitglied>? = null, done: (String?) -> Unit) =
+        hintergrund({
+            store.transaction {
+                Vereinsdaten.speichern(store, form)
+                if (vorstand != null) Vorstand.speichern(store, vorstand)
+            }
+        }) { _, f -> done(f) }
 
     /** Erzeugt die SEPA-Datei und legt den Lauf in der Historie ab. */
     fun laufErzeugen(p: LaufParameter, posten: List<SepaItem>, done: (LaufErgebnis?, String?) -> Unit) {
