@@ -26,11 +26,11 @@ import de.vereinsmanager.core.settings.VereinsForm
 import de.vereinsmanager.core.settings.Vereinsdaten
 
 /**
- * Einstellungen. Fürs Erste nur die Vereinsdaten (Name, Anschrift, Vorstand, Gläubiger-ID, Vereinskonto);
+ * Einstellungen: Vereinsdaten, Briefpapier, Aufnahmeantrag, Unterschrift und die Datensicherung. Die Vereinsdaten (Name, Anschrift, Vorstand, Gläubiger-ID, Vereinskonto);
  * sie stehen im selben Dokument wie am Desktop und gehen mit der Sicherung mit.
  */
 @Composable
-fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
+fun EinstellungenScreen(model: AppModel, onProbes: () -> Unit, modifier: Modifier = Modifier) {
     var f by remember(model.vereinsdaten) { mutableStateOf(model.vereinsdaten) }
     var zeigeFehler by remember { mutableStateOf(false) }
     var meldung by remember { mutableStateOf<String?>(null) }
@@ -94,6 +94,7 @@ fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
                 if (sigMeldung != null) Text(sigMeldung!!, style = MaterialTheme.typography.bodySmall)
             }
         }
+        SicherungKarte(model, onProbes)
         if (meldung != null) Text(meldung!!, color = if (meldung == "Gespeichert.") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
         Button(
             onClick = {

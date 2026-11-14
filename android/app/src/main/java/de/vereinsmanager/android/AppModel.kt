@@ -186,6 +186,8 @@ class AppModel(private val appContext: Context) {
     /** Inventar und, je Gegenstand, wie viele Stück gerade an Mitglieder ausgegeben sind. */
     var termine by mutableStateOf<List<Termin>>(emptyList())
     var sitzungen by mutableStateOf<List<Sitzung>>(emptyList())
+    /** Die Anordnung der Dashboard-Kacheln (gleiche Datei-Struktur wie am Desktop). */
+    var dashboard by mutableStateOf(de.vereinsmanager.core.dashboard.Dashboard.standard())
     var terminarten by mutableStateOf<List<Terminart>>(emptyList())
     var inventar by mutableStateOf<List<Artikel>>(emptyList())
     var inventarAusgegeben by mutableStateOf<Map<String, Int>>(emptyMap())
@@ -236,6 +238,7 @@ class AppModel(private val appContext: Context) {
         kontakte = Kontakte.alle(store)
         termine = Kalender.alle(store)
         sitzungen = Sitzungen.alle(store)
+        dashboard = de.vereinsmanager.core.dashboard.Dashboard.lesen(store)
         terminarten = Kalender.arten(store)
         inventar = Inventar.alle(store)
         inventarAusgegeben = Inventar.ausgegeben(store)
@@ -605,6 +608,12 @@ class AppModel(private val appContext: Context) {
 
     fun spendeSpeichern(f: SpendeForm, opt: SpendeOptionen, done: (SpendeErgebnis?, String?) -> Unit) =
         hintergrund({ Spenden.speichern(store, dateien, f, opt, spendenPdf) }, done)
+
+    /** Speichert eine geänderte Kachel-Anordnung; die Anzeige ändert sich sofort. */
+    fun dashboardSpeichern(a: de.vereinsmanager.core.dashboard.Anordnung, done: (String?) -> Unit = {}) {
+        dashboard = a
+        hintergrund({ de.vereinsmanager.core.dashboard.Dashboard.speichern(store, a) }) { _, f -> done(f) }
+    }
 
     fun unterschriftSpeichern(u: Unterschrift?, done: (String?) -> Unit) =
         hintergrund({ Unterschriften.speichern(store, u) }) { _, f -> done(f) }

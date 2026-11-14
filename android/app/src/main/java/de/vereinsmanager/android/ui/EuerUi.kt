@@ -40,7 +40,7 @@ import de.vereinsmanager.core.finance.Geld
 import java.time.LocalDate
 
 /**
- * Einnahmen-Überschuss-Rechnung nach den vier steuerlichen Bereichen, je Geschäftsjahr, mit der Kachel zur 45.000-€-Grenze
+ * Einnahmen-Überschuss-Rechnung nach den vier steuerlichen Bereichen, je Geschäftsjahr, mit der Kachel zur Freigrenze (§ 64 AO)
  * und PDF-Ausgabe. Die Rechnung selbst steht in core (Berichte.euer), Bildschirm und PDF nutzen dieselbe.
  */
 @Composable
@@ -79,11 +79,11 @@ fun EuerScreen(model: AppModel, modifier: Modifier = Modifier) {
         val g = euer.grenze
         if (g != null) GrenzeKachel(g, gewaehlt ?: "", Modifier.padding(top = 8.dp))
         else Text(
-            "Die 45.000-€-Grenze für den wirtschaftlichen Geschäftsbetrieb gilt je Kalenderjahr. Wählen Sie oben ein Jahr, um sie zu sehen.",
+            "Die Besteuerungsgrenze für den wirtschaftlichen Geschäftsbetrieb gilt je Kalenderjahr. Wählen Sie oben ein Jahr, um sie zu sehen.",
             style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp),
         )
 
-        euer.sphaeren.forEach { s -> SphaereKarte(s, s.id in offen) { offen = if (s.id in offen) offen - s.id else offen + s.id } }
+        euer.sphaeren.forEach { s -> SphaereKarte(s, euer.jahr, s.id in offen) { offen = if (s.id in offen) offen - s.id else offen + s.id } }
         Text(
             "Auswertung der gebuchten Beträge, keine Steuerberatung. Ob und wie Beträge steuerlich zu behandeln sind, klären Sie bitte mit dem Finanzamt oder einer Steuerberatung.",
             style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 12.dp),
@@ -120,7 +120,7 @@ private fun GrenzeKachel(g: GrenzeStand, jahr: String, modifier: Modifier = Modi
             )
             Text(
                 "Einnahmen einschließlich Umsatzsteuer aus wirtschaftlichen Geschäftsbetrieben, die keine Zweckbetriebe sind (§ 64 Abs. 3 AO). " +
-                    "Bis einschließlich 45.000 € im Jahr bleiben sie körperschaft- und gewerbesteuerfrei. Keine Steuerberatung; gerechnet wird mit den gebuchten Beträgen.",
+                    "Bis einschließlich ${Geld.euro(g.grenze)} im Jahr $jahr bleiben sie körperschaft- und gewerbesteuerfrei. Keine Steuerberatung; gerechnet wird mit den gebuchten Beträgen.",
                 style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp),
             )
         }
@@ -128,7 +128,7 @@ private fun GrenzeKachel(g: GrenzeStand, jahr: String, modifier: Modifier = Modi
 }
 
 @Composable
-private fun SphaereKarte(s: EuerSphaere, aufgeklappt: Boolean, onToggle: () -> Unit) {
+private fun SphaereKarte(s: EuerSphaere, jahr: String?, aufgeklappt: Boolean, onToggle: () -> Unit) {
     Card(Modifier.fillMaxWidth().padding(top = 8.dp)) {
         Column {
             Row(Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -167,7 +167,7 @@ private fun SphaereKarte(s: EuerSphaere, aufgeklappt: Boolean, onToggle: () -> U
                     }
                 }
                 if (s.id == "wirtschaftlich") Text(
-                    "Einnahmen bis 45.000 € im Jahr bleiben ertragsteuerfrei (§ 64 Abs. 3 AO).",
+                    "Einnahmen bis ${Geld.euro(Berichte.wgbGrenze(jahr))} im Jahr bleiben ertragsteuerfrei (§ 64 Abs. 3 AO).",
                     style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(12.dp),
                 )
                 Box(Modifier.padding(bottom = 8.dp))

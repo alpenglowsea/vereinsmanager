@@ -66,7 +66,8 @@ import de.vereinsmanager.android.ui.Kopfzeile
 import de.vereinsmanager.android.ui.MenueInhalt
 import de.vereinsmanager.android.ui.Ziel
 import kotlinx.coroutines.launch
-import de.vereinsmanager.android.ui.HomeScreen
+import de.vereinsmanager.android.ui.DashboardScreen
+import de.vereinsmanager.android.ui.Schnell
 import de.vereinsmanager.android.ui.MemberDetailScreen
 import de.vereinsmanager.android.ui.MemberFormScreen
 import de.vereinsmanager.android.ui.MaterialOverviewScreen
@@ -201,8 +202,20 @@ class MainActivity : ComponentActivity() {
                       val seite: @Composable () -> Unit = {
                         val m = Modifier
                         when (page) {
-                            Page.Home -> HomeScreen(
-                                model, onMembers = { stack = stack + Page.Members }, onProbes = { stack = stack + Page.Probes }, modifier = m,
+                            Page.Home -> DashboardScreen(
+                                model, onZiel = ::geheZu,
+                                onSchnell = { a ->
+                                    stack = listOf(Page.Home) + when (a) {
+                                        Schnell.MITGLIED -> listOf(Page.Members, Page.MemberEdit(null))
+                                        Schnell.BUCHUNG -> listOf(Page.Transactions, Page.TransactionEdit(null))
+                                        Schnell.RECHNUNG -> listOf(Page.Rechnungen, Page.RechnungEdit(null))
+                                        Schnell.KONTAKT -> listOf(Page.Contacts, Page.ContactEdit(null))
+                                        Schnell.TERMIN -> listOf(Page.Calendar, Page.CalendarEdit(null, null))
+                                        Schnell.MATERIAL -> listOf(Page.Inventory, Page.InventoryEdit(null))
+                                        Schnell.DOKUMENT -> listOf(Page.Documents(null), Page.DocumentEdit(null, null))
+                                    }
+                                },
+                                modifier = m,
                             )
                             Page.Members -> MemberListScreen(
                                 model, onOpen = { stack = stack + Page.Member(it) }, onNew = { stack = stack + Page.MemberEdit(null) },
@@ -255,7 +268,7 @@ class MainActivity : ComponentActivity() {
                                 onDeleted = { stack = stack.filter { it !is Page.InventoryItem && it !is Page.InventoryEdit } }, modifier = m,
                             )
                             is Page.InventoryEdit -> InventarFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
-                            Page.Settings -> EinstellungenScreen(model, modifier = m)
+                            Page.Settings -> EinstellungenScreen(model, onProbes = { stack = stack + Page.Probes }, modifier = m)
                             Page.Euer -> EuerScreen(model, modifier = m)
                             Page.FinanzAuswertung -> FinanzAuswertungScreen(model, modifier = m)
                             Page.Rechnungen -> RechnungenScreen(

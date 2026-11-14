@@ -7,9 +7,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -29,7 +28,7 @@ import de.vereinsmanager.android.AppModel
 import de.vereinsmanager.core.backup.ImportMode
 
 @Composable
-fun HomeScreen(model: AppModel, onMembers: () -> Unit, onProbes: () -> Unit, modifier: Modifier = Modifier) {
+fun SicherungKarte(model: AppModel, onProbes: () -> Unit, modifier: Modifier = Modifier) {
     var pending by remember { mutableStateOf<Uri?>(null) }
     var pendingEncrypted by remember { mutableStateOf(false) }
     var importPassword by remember { mutableStateOf("") }
@@ -65,14 +64,8 @@ fun HomeScreen(model: AppModel, onMembers: () -> Unit, onProbes: () -> Unit, mod
         )
     }
 
-    Column(modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
-        Text("VereinsManager", style = MaterialTheme.typography.headlineMedium)
-        Text(if (model.clubName.isEmpty()) "Noch keine Vereinsdaten – spielen Sie zuerst eine Sicherung ein." else model.clubName)
-        HorizontalDivider(Modifier.padding(vertical = 12.dp))
-
-        Button(onClick = onMembers, modifier = Modifier.fillMaxWidth()) { Text("Mitglieder (${model.members.size})") }
-
-        HorizontalDivider(Modifier.padding(vertical = 12.dp))
+    Card(modifier.fillMaxWidth()) {
+      Column(Modifier.padding(12.dp)) {
         Text("Datensicherung", style = MaterialTheme.typography.titleMedium)
         Button(onClick = { openLauncher.launch(arrayOf("*/*")) }, enabled = !model.busy, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
             Text("Sicherung einspielen")
@@ -85,6 +78,7 @@ fun HomeScreen(model: AppModel, onMembers: () -> Unit, onProbes: () -> Unit, mod
 
         HorizontalDivider(Modifier.padding(vertical = 12.dp))
         TextButton(onClick = onProbes) { Text("Proben (Entwicklung)") }
+      }
     }
 
     val uri = pending

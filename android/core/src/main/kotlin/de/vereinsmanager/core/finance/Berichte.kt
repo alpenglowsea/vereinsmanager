@@ -26,9 +26,9 @@ data class EuerSphaere(
     val ergebnis get() = einnahmen - ausgaben
 }
 
-/** Stand der 45.000-€-Grenze für den wirtschaftlichen Geschäftsbetrieb (§ 64 Abs. 3 AO, Einnahmen einschließlich Umsatzsteuer). */
+/** Stand der Besteuerungsgrenze für den wirtschaftlichen Geschäftsbetrieb (§ 64 Abs. 3 AO, Einnahmen einschließlich Umsatzsteuer; bis 2025 45.000 €, ab 2026 50.000 €). */
 data class GrenzeStand(val einnahmen: BigDecimal, val grenze: BigDecimal) {
-    /** Die Grenze gilt als überschritten erst bei MEHR als 45.000,00 €; genau 45.000,00 € sind noch frei. */
+    /** Die Grenze gilt als überschritten erst bei MEHR als dem Grenzbetrag; genau der Grenzbetrag ist noch frei. */
     val ueberschritten get() = einnahmen > grenze
     /** Anteil in Prozent, unbegrenzt (kann über 100 liegen). */
     val prozent: Double get() = einnahmen.multiply(BigDecimal(100)).divide(grenze, 4, RoundingMode.HALF_UP).toDouble()
@@ -47,11 +47,18 @@ data class Euer(val jahr: String?, val sphaeren: List<EuerSphaere>) {
 
     /** Nur für ein einzelnes Jahr sinnvoll: die Grenze gilt je Kalenderjahr. */
     val grenze: GrenzeStand? get() = if (jahr == null) null else
-        GrenzeStand(sphaeren.first { it.id == "wirtschaftlich" }.einnahmen, Berichte.WGB_GRENZE)
+        GrenzeStand(sphaeren.first { it.id == "wirtschaftlich" }.einnahmen, Berichte.wgbGrenze(jahr))
 }
 
 object Berichte {
+    /** Grenze bis einschließlich 2025 (Stand der Rechtslage vor dem Gesetz vom 22.12.2025). */
     val WGB_GRENZE: BigDecimal = BigDecimal("45000.00")
+    /** Grenze ab dem Kalenderjahr 2026 (§ 64 Abs. 3 AO in der Fassung des Gesetzes vom 22.12.2025, BGBl. 2025 I Nr. 363). */
+    val WGB_GRENZE_AB_2026: BigDecimal = BigDecimal("50000.00")
+
+    /** Die Grenze für das Kalenderjahr [jahr] (vierstellig); bei unlesbarem Jahr die aktuelle. */
+    fun wgbGrenze(jahr: String?): BigDecimal =
+        if ((jahr?.toIntOrNull() ?: java.time.LocalDate.now().year) >= 2026) WGB_GRENZE_AB_2026 else WGB_GRENZE
     /** Geschützte Leerzeichen: der Zeilenumbruch der PDF-Tabelle würde gewöhnliche führende Leerzeichen entfernen. */
     private const val EINRUECKEN_1 = "\u00A0\u00A0\u00A0\u00A0"
     private const val EINRUECKEN_2 = "\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0"
@@ -139,7 +146,7 @@ object Berichte {
         fett.add(zeilen.size)
         zeilen.add(listOf("Gesamtergebnis") + summe(e.einnahmen, e.ausgaben))
         val g = e.grenze
-        val hinweis = if (g == null) "Die 45.000-€-Grenze gilt je Kalenderjahr und wird nur bei Wahl eines Jahres ausgewiesen."
+        val hinweis = if (g == null) "Die Besteuerungsgrenze für den wirtschaftlichen Geschäftsbetrieb gilt je Kalenderjahr und wird nur bei Wahl eines Jahres ausgewiesen."
         else "Wirtschaftlicher Geschäftsbetrieb ${e.jahr}: Einnahmen ${Geld.euro(g.einnahmen)} von ${Geld.euro(g.grenze)} (§ 64 Abs. 3 AO, einschl. USt)" +
             if (g.ueberschritten) " – Grenze überschritten." else "."
         return PdfTabelle(
