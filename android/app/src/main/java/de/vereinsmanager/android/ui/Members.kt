@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.mutableFloatStateOf
@@ -190,11 +191,12 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                     Text("Tipp: Mitglied lange antippen, um mehrere auszuwählen.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
                 }
                 Text("Mitglieder", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
-                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp).height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val sc = MaterialTheme.colorScheme
-                    StatKachel("Gesamt", "${stats.total}", "alle Mitglieder", sc.secondaryContainer, sc.onSecondaryContainer, Modifier.weight(1f))
-                    StatKachel("Aktiv", "${stats.active}", "${stats.activePercent} %", sc.primaryContainer, sc.onPrimaryContainer, Modifier.weight(1f))
-                    StatKachel("Passiv", "${stats.passive}", "${stats.passivePercent} %", sc.tertiaryContainer, sc.onTertiaryContainer, Modifier.weight(1f))
+                    val gleich = Modifier.weight(1f).fillMaxHeight()
+                    StatKachel("Gesamt", "${stats.total}", "alle Mitglieder", sc.secondaryContainer, sc.onSecondaryContainer, gleich)
+                    StatKachel("Aktiv", "${stats.active}", "${stats.activePercent} %", sc.primaryContainer, sc.onPrimaryContainer, gleich)
+                    StatKachel("Passiv", "${stats.passive}", "${stats.passivePercent} %", sc.tertiaryContainer, sc.onTertiaryContainer, gleich)
                 }
                 TextField(
                     filter.search, { filter = filter.copy(search = it) }, placeholder = { Text("Mitglied suchen …") },
@@ -304,11 +306,9 @@ private fun KopfKnopf(text: String, onClick: () -> Unit, modifier: Modifier = Mo
 /** Eine farbige Kennzahl-Kachel (Titel, große Zahl, optional eine Zeile darunter). */
 @Composable
 private fun StatKachel(titel: String, zahl: String, unter: String?, flaeche: Color, text: Color, modifier: Modifier = Modifier, groesse: androidx.compose.ui.unit.TextUnit = 30.sp) {
-    // Die Zahl wird bei vielen Stellen kleiner, damit nichts abgeschnitten wird.
-    val g = minOf(groesse.value, 150f / zahl.length.coerceAtLeast(1)).coerceAtLeast(16f)
-    Column(modifier.clip(RoundedCornerShape(22.dp)).background(flaeche).padding(horizontal = 14.dp, vertical = 10.dp)) {
+    Column(modifier.clip(RoundedCornerShape(22.dp)).background(flaeche).padding(horizontal = 10.dp, vertical = 10.dp)) {
         Text(titel, color = text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1)
-        Text(zahl, color = text, fontSize = g.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
+        Text(zahl, color = text, fontSize = groesse, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
         if (unter != null) Text(unter, color = text.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall, maxLines = 2)
     }
 }
@@ -440,15 +440,19 @@ private fun MemberDetailPage(model: AppModel, id: String, onEdit: () -> Unit, on
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(top = 14.dp).height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val gleich = Modifier.weight(1f).fillMaxHeight()
-            if (age != null) StatKachel("Alter", "$age", "Jahre", sc.secondaryContainer, sc.onSecondaryContainer, gleich)
-            if (m.entryDate.length >= 4) StatKachel("Dabei seit", m.entryDate.take(4), dauer?.takeIf { it.isNotBlank() }, sc.primaryContainer, sc.onPrimaryContainer, gleich)
-            if (beitrag == "beitragsfrei") StatKachel("Beitrag", "frei", "beitragsfrei", sc.tertiaryContainer, sc.onTertiaryContainer, gleich)
-            else StatKachel(
-                "Beitrag", euro(m.fee).removeSuffix("€").trim(), "€ " + (MemberLabels.FEE_PERIOD[m.feePeriod] ?: "").lowercase().trim(),
-                sc.tertiaryContainer, sc.onTertiaryContainer, gleich,
-            )
+        val beitragZahl = if (beitrag == "beitragsfrei") "frei" else euro(m.fee)
+        val beitragUnter = if (beitrag == "beitragsfrei") "beitragsfrei" else (MemberLabels.FEE_PERIOD[m.feePeriod] ?: "").lowercase().trim()
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 14.dp)) {
+            // Eine gemeinsame Schriftgröße für alle drei Zahlen, so groß wie die längste (meist der Beitrag mit €) noch in die Kachel passt.
+            val innen = (maxWidth - 16.dp) / 3 - 20.dp
+            val laengste = maxOf(age?.toString()?.length ?: 0, 4, beitragZahl.length)
+            val g = minOf(28f, innen.value / (laengste * 0.62f)).coerceAtLeast(14f).sp
+            Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val gleich = Modifier.weight(1f).fillMaxHeight()
+                StatKachel("Alter", age?.toString() ?: "–", "Jahre", sc.secondaryContainer, sc.onSecondaryContainer, gleich, g)
+                StatKachel("Dabei seit", m.entryDate.take(4).ifEmpty { "–" }, dauer?.takeIf { it.isNotBlank() }, sc.primaryContainer, sc.onPrimaryContainer, gleich, g)
+                StatKachel("Beitrag", beitragZahl, beitragUnter, sc.tertiaryContainer, sc.onTertiaryContainer, gleich, g)
+            }
         }
         Row(Modifier.padding(top = 12.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("Details", "Material", "Dokumente", "Historie").forEachIndexed { i, s -> TabChip(s, tab == i) { tab = i } }
