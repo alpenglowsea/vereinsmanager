@@ -1118,6 +1118,20 @@ class AppModel(private val appContext: Context) {
         hintergrund({ AntragEinstellungenStore.speichern(store, e) }) { _, fehler -> done(fehler) }
     }
 
+    /** Das hinterlegte PDF (Satzung oder Datenschutz-Vordruck) des Antrags; null, wenn keins hinterlegt ist. */
+    fun antragBeilage(b: AntragEinstellungenStore.Beilage) = AntragEinstellungenStore.beilage(store, b)
+
+    /** Legt die gewählte Datei als Satzung bzw. Datenschutz-Vordruck ab (nur PDF); [done] bekommt null oder den Fehlertext. */
+    fun antragBeilageHochladen(b: AntragEinstellungenStore.Beilage, uri: Uri, done: (String?) -> Unit) {
+        hintergrund({
+            val bytes = liesBegrenzt(uri)
+            AntragEinstellungenStore.beilageSetzen(store, dateien, b, bytes, anzeigeName(uri).orEmpty(), java.time.LocalDate.now())
+        }) { _, fehler -> done(fehler) }
+    }
+
+    fun antragBeilageEntfernen(b: AntragEinstellungenStore.Beilage, done: (String?) -> Unit) =
+        hintergrund({ AntragEinstellungenStore.beilageEntfernen(store, dateien, b) }) { _, fehler -> done(fehler) }
+
     /** Baut das PDF zu einem Antrag; a == null ergibt das leere Formular zum Ausdrucken. */
     private fun antragPdfBytes(a: Antrag?, nummer: String): ByteArray {
         val v0 = Vorlagen.lesen(store)

@@ -158,6 +158,27 @@ class AntragTest {
         assertEquals(0, Dokumente.dokumente(st).size)
     }
 
+    @Test fun satzungUndDatenschutzHinterlegenErsetzenEntfernen() {
+        val st = InMemoryDocumentStore(); val fs = InMemoryFileStore()
+        val sa = AntragEinstellungenStore.Beilage.SATZUNG; val ds = AntragEinstellungenStore.Beilage.DATENSCHUTZ
+        assertNull(AntragEinstellungenStore.beilage(st, sa)); assertEquals("", AntragEinstellungenStore.lesen(st).satzungDokId)
+        val d1 = AntragEinstellungenStore.beilageSetzen(st, fs, sa, pdfBytes, "satzung-2026.pdf", heute)
+        assertEquals("satzung", d1.kategorie); assertEquals("folder-satzung", d1.ordnerId); assertEquals("Satzung", d1.titel)
+        assertEquals(d1.id, AntragEinstellungenStore.lesen(st).satzungDokId)
+        val d2 = AntragEinstellungenStore.beilageSetzen(st, fs, ds, pdfBytes, "ds.pdf", heute)
+        assertEquals("folder-aufnahmeantraege", d2.ordnerId); assertEquals(d2.id, AntragEinstellungenStore.lesen(st).datenschutzDokId)
+        assertEquals(d1.id, AntragEinstellungenStore.beilage(st, sa)!!.id) // die zweite Beilage berührt die erste nicht
+        val zweite = "%PDF-1.7\nneu".toByteArray()
+        val d3 = AntragEinstellungenStore.beilageSetzen(st, fs, sa, zweite, "", heute)
+        assertEquals("Satzung.pdf", d3.dateiName); assertEquals(2, Dokumente.dokumente(st).size) // alte Satzung ist weg
+        assertEquals(d3.id, AntragEinstellungenStore.beilage(st, sa)!!.id)
+        AntragEinstellungenStore.beilageEntfernen(st, fs, sa)
+        assertNull(AntragEinstellungenStore.beilage(st, sa)); assertEquals(1, Dokumente.dokumente(st).size)
+        assertEquals(d2.id, AntragEinstellungenStore.beilage(st, ds)!!.id)
+        try { AntragEinstellungenStore.beilageSetzen(st, fs, sa, "kein pdf".toByteArray(), "x.pdf", heute); fail() } catch (x: Exception) { assertTrue(x.message!!.contains("PDF")) }
+        assertEquals(1, Dokumente.dokumente(st).size)
+    }
+
     // ---------- Aufnahme
 
     private val vorgabe = BeitragsVorgabe("18", "monthly")

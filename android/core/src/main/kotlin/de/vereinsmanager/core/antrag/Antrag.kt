@@ -52,6 +52,10 @@ data class AntragEinstellungen(
     val satzung: String,
     /** Kennung des Dokuments mit der eigenen Leervorlage; leer = das App-eigene leere Formular */
     val vorlageDokId: String = "",
+    /** Kennung des hinterlegten Satzungs-PDFs (leer = keins); das neue Mitglied kann es in Schritt 4 öffnen */
+    val satzungDokId: String = "",
+    /** Kennung des hinterlegten Datenschutz-Vordrucks (leer = keiner) */
+    val datenschutzDokId: String = "",
 ) {
     fun beitrag(art: String): BeitragsVorgabe = beitraege[art] ?: STANDARD_BEITRAEGE.getValue("full")
 
@@ -94,6 +98,8 @@ object AntragEinstellungenStore {
     const val K_DATENSCHUTZ = "applicationPrivacyText"
     const val K_SATZUNG = "applicationStatuteText"
     const val K_VORLAGE = "applicationTemplateDocId"
+    const val K_SATZUNG_DOK = "applicationStatuteDocId"
+    const val K_DATENSCHUTZ_DOK = "applicationPrivacyDocId"
     const val ORDNER_ID = "folder-aufnahmeantraege"
     const val MAX_VORLAGE = 10 * 1024 * 1024
 
@@ -111,6 +117,7 @@ object AntragEinstellungenStore {
         }
         return AntragEinstellungen(
             beitraege, t(settings, K_DATENSCHUTZ).ifBlank { std.datenschutz }, t(settings, K_SATZUNG).ifBlank { std.satzung }, t(settings, K_VORLAGE),
+            satzungDokId = t(settings, K_SATZUNG_DOK), datenschutzDokId = t(settings, K_DATENSCHUTZ_DOK),
         )
     }
 
@@ -190,6 +197,48 @@ object AntragEinstellungenStore {
     fun vorlageEntfernen(store: DocumentStore, files: FileStore) {
         val alt = vorlage(store)
         aendern(store) { it.remove(K_VORLAGE) }
+        if (alt != null) DokumentStore.loeschen(store, files, listOf(alt.id))
+    }
+
+    /** Zwei PDFs, die der Verein hinterlegt und die das neue Mitglied in Schritt 4 des Antrags öffnen kann. */
+    enum class Beilage(val schluessel: String, val titel: String, val kategorie: String, val tags: String, val dateiName: String) {
+        SATZUNG("applicationStatuteDocId", "Satzung", "satzung", "Satzung, Aufnahmeantrag", "Satzung.pdf"),
+        DATENSCHUTZ("applicationPrivacyDocId", "Datenschutz-Vordruck", "mitglieder", "Datenschutz, Aufnahmeantrag", "Datenschutz.pdf"),
+    }
+
+    /** Das hinterlegte Dokument, wenn es (noch) existiert. */
+    fun beilage(store: DocumentStore, b: Beilage): Dokument? {
+        val id = t(store.get(Vereinsdaten.BEREICH, Vereinsdaten.ID), b.schluessel).ifEmpty { return null }
+        return store.get(Dokumente.DOKUMENTE, id)?.let { Dokument.from(it) }
+    }
+
+    /**
+     * Hinterlegt eine Beilage (nur PDF). Sie liegt als Dokument im Archiv (Satzung unter „Satzung & Ordnungen“, der Datenschutz-Vordruck
+     * unter „Digitale Aufnahmeanträge“) und ist damit in der Sicherung. Eine frühere Datei wird ersetzt.
+     */
+    fun beilageSetzen(store: DocumentStore, files: FileStore, b: Beilage, bytes: ByteArray, dateiName: String, heute: LocalDate): Dokument {
+        if (bytes.size < 8 || String(bytes, 0, 5, Charsets.ISO_8859_1) != "%PDF-") throw DokumentException("Das ist keine PDF-Datei.")
+        if (bytes.size > MAX_VORLAGE) throw DokumentException("Die Datei ist zu groß (höchstens ${MAX_VORLAGE / 1024 / 1024} MB).")
+        val alt = beilage(store, b)
+        StandardOrdner.anlegenFehlende(store)
+        val ordner = when (b) {
+            Beilage.SATZUNG -> "folder-satzung".takeIf { store.get(Dokumente.ORDNER, it) != null }.orEmpty()
+            Beilage.DATENSCHUTZ -> ordnerKennung(store, files)
+        }
+        val form = DokumentForm(
+            id = DokumentStore.neueId(), titel = b.titel, kategorie = b.kategorie, ordnerId = ordner, datum = heute.toString(), tags = b.tags,
+            notiz = "Wird im Aufnahmeantrag dem neuen Mitglied zum Ansehen angeboten.",
+        )
+        val neu = DokumentStore.neu(store, files, bytes, dateiName.ifBlank { b.dateiName }, "application/pdf", form)
+        aendern(store) { it[b.schluessel] = JsonPrimitive(neu.id) }
+        if (alt != null) DokumentStore.loeschen(store, files, listOf(alt.id))
+        return neu
+    }
+
+    /** Entfernt die Beilage (das Dokument wird gelöscht). */
+    fun beilageEntfernen(store: DocumentStore, files: FileStore, b: Beilage) {
+        val alt = beilage(store, b)
+        aendern(store) { it.remove(b.schluessel) }
         if (alt != null) DokumentStore.loeschen(store, files, listOf(alt.id))
     }
 }

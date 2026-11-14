@@ -48,6 +48,7 @@ import de.vereinsmanager.android.export.rememberExporter
 import de.vereinsmanager.core.antrag.Antrag
 import de.vereinsmanager.core.antrag.AntragEinstellungen
 import de.vereinsmanager.core.antrag.AntragLayout
+import de.vereinsmanager.core.antrag.AntragEinstellungenStore
 import de.vereinsmanager.core.antrag.AntragRegeln
 import de.vereinsmanager.core.antrag.BeitragsVorgabe
 import de.vereinsmanager.core.donation.Unterschrift
@@ -155,26 +156,25 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
     var zeigeFehler by remember { mutableStateOf(false) }
     var abgegeben by remember { mutableStateOf(false) }
     var abbrechenFrage by remember { mutableStateOf(false) }
-    var satzungAnsicht by remember { mutableStateOf<String?>(null) }
+    var ansicht by remember { mutableStateOf<Pair<String, String>?>(null) } // Titel und Dokument-Kennung der gerade gezeigten Beilage
 
     // Gesperrt: Die Zurück-Geste tut nichts.
-    BackHandler(enabled = true) { if (satzungAnsicht != null) satzungAnsicht = null }
+    BackHandler(enabled = true) { if (ansicht != null) ansicht = null }
 
     val fehler = if (zeigeFehler) AntragRegeln.fehler(seite, a, heute, sparten) else emptyMap()
     val minder = AntragRegeln.minderjaehrig(a, heute)
-    val satzungDok = remember(model.dokumente) {
-        model.dokumente.firstOrNull { it.kategorie == "satzung" && it.dateiId != null && it.titel.contains("satzung", ignoreCase = true) }
-    }
+    val satzungDok = remember(model.dokumente) { model.antragBeilage(AntragEinstellungenStore.Beilage.SATZUNG) }
+    val datenschutzDok = remember(model.dokumente) { model.antragBeilage(AntragEinstellungenStore.Beilage.DATENSCHUTZ) }
 
     Surface(Modifier.fillMaxSize()) {
-        val sd = satzungAnsicht
-        if (sd != null) {
+        val gezeigt = ansicht
+        if (gezeigt != null) {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Satzung", Modifier.weight(1f).padding(start = 8.dp), style = MaterialTheme.typography.titleLarge)
-                    Button(onClick = { satzungAnsicht = null }) { Text("Schließen") }
+                    Text(gezeigt.first, Modifier.weight(1f).padding(start = 8.dp), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                    Button(onClick = { ansicht = null }) { Text("Schließen") }
                 }
-                DokumentAnsichtScreen(model, sd, Modifier.weight(1f))
+                DokumentAnsichtScreen(model, gezeigt.second, Modifier.weight(1f))
             }
             return@Surface
         }
@@ -299,13 +299,14 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
                         AntragRegeln.SEITE_ERKLAERUNG -> {
                             Ueberschrift("Einwilligung und Satzung")
                             Text(mitVerein(einst.datenschutz, verein), style = MaterialTheme.typography.bodyMedium)
+                            if (datenschutzDok != null) TextButton(onClick = { ansicht = "Datenschutz" to datenschutzDok.id }) { Text("Datenschutz-Vordruck ansehen") }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(a.datenschutz, { a = a.copy(datenschutz = it) })
                                 Text("Ich willige ein.", style = MaterialTheme.typography.bodyLarge)
                             }
                             if (fehler["datenschutz"] != null) Text(fehler["datenschutz"]!!, color = MaterialTheme.colorScheme.error)
                             Text(mitVerein(einst.satzung, verein), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
-                            if (satzungDok != null) TextButton(onClick = { satzungAnsicht = satzungDok.id }) { Text("Satzung ansehen") }
+                            if (satzungDok != null) TextButton(onClick = { ansicht = "Satzung" to satzungDok.id }) { Text("Satzung ansehen") }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(a.satzung, { a = a.copy(satzung = it) })
                                 Text("Ich erkenne die Satzung an.", style = MaterialTheme.typography.bodyLarge)
@@ -500,6 +501,7 @@ fun AntragEinstellungenKarten(model: AppModel) {
                 TextButton(onClick = { satzung = AntragEinstellungen.STANDARD_SATZUNG }) { Text("Standardtext wiederherstellen") }
             }
         }
+        BeilagenKarte(model, onMeldung = { meldung = it })
         Button(
             onClick = {
                 if (fehler.isNotEmpty()) { zeigeFehler = true; return@Button }
@@ -523,5 +525,63 @@ fun AntragEinstellungenKarten(model: AppModel) {
     }
     (meldung ?: info)?.let { text ->
         Aktionsdialog(titel = "Hinweis", onDismiss = { meldung = null; info = null }, inhalt = { Text(text) }, aktionen = { TextButton(onClick = { meldung = null; info = null }) { Text("OK") } })
+    }
+}
+
+/** Satzung und Datenschutz-Vordruck als PDF hinterlegen; das neue Mitglied öffnet sie in Schritt 4 des Antrags. */
+@Composable
+private fun BeilagenKarte(model: AppModel, onMeldung: (String) -> Unit) {
+    var waehle by remember { mutableStateOf<AntragEinstellungenStore.Beilage?>(null) }
+    var zeige by remember { mutableStateOf<Pair<String, String>?>(null) }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val b = waehle
+        if (uri != null && b != null) model.antragBeilageHochladen(b, uri) { f -> onMeldung(if (f == null) "${b.titel} hinterlegt." else "Die Datei lässt sich nicht übernehmen: $f") }
+        waehle = null
+    }
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Satzung und Datenschutz-Vordruck", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Beides als PDF (höchstens 10 MB). Das neue Mitglied kann die Dateien in Schritt 4 des Aufnahmeantrags öffnen. " +
+                    "Sie liegen im Dokumentenarchiv und sind in der Datensicherung enthalten.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            AntragEinstellungenStore.Beilage.entries.forEach { b ->
+                val dok = remember(model.dokumente) { model.antragBeilage(b) }
+                Text(b.titel, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+                Text(
+                    if (dok == null) "Noch nichts hinterlegt." else "Hinterlegt: ${dok.dateiName}",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { waehle = b; launcher.launch(arrayOf("application/pdf")) }, enabled = !model.busy, modifier = Modifier.weight(1f),
+                    ) { Text(if (dok == null) "PDF hochladen" else "Ersetzen", maxLines = 1) }
+                    if (dok != null) {
+                        OutlinedButton(onClick = { zeige = b.titel to dok.id }, modifier = Modifier.weight(1f)) { Text("Ansehen", maxLines = 1) }
+                        TextButton(
+                            onClick = { model.antragBeilageEntfernen(b) { f -> onMeldung(f ?: "${b.titel} entfernt.") } }, enabled = !model.busy,
+                        ) { Text("Entfernen", maxLines = 1) }
+                    }
+                }
+            }
+        }
+    }
+    val z = zeige
+    if (z != null) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { zeige = null },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+        ) {
+            Surface(Modifier.fillMaxSize()) {
+                Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+                    Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(z.first, Modifier.weight(1f).padding(start = 8.dp), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                        Button(onClick = { zeige = null }) { Text("Schließen") }
+                    }
+                    DokumentAnsichtScreen(model, z.second, Modifier.weight(1f))
+                }
+            }
+        }
     }
 }

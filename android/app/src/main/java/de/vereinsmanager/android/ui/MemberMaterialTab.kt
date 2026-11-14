@@ -66,9 +66,9 @@ fun MemberMaterialTab(model: AppModel, m: Member, onOverview: () -> Unit) {
         if (fehler.isNotEmpty()) Text(fehler, color = MaterialTheme.colorScheme.error)
         if (ausgaben.isEmpty()) Text("Keine Gegenstände verknüpft.", Modifier.padding(top = 8.dp))
         ausgaben.forEach { a ->
-            Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+            DetailKarte {
                 Row {
-                    Text(a.itemName, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                    Text(a.itemName, style = MaterialTheme.typography.titleSmall, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, modifier = Modifier.weight(1f))
                     Text(
                         if (a.returned) "zurückgegeben" else "ausgegeben", style = MaterialTheme.typography.labelLarge,
                         color = if (a.returned) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
@@ -86,7 +86,6 @@ fun MemberMaterialTab(model: AppModel, m: Member, onOverview: () -> Unit) {
                     TextButton(onClick = { entfernen = a }) { Text("Entfernen") }
                 }
             }
-            HorizontalDivider()
         }
     }
 
@@ -166,15 +165,14 @@ fun MemberHistoryTab(model: AppModel, m: Member) {
         Text("Lückenlose Revisions- und Änderungshistorie.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 8.dp))
         if (eintraege.isEmpty()) Text("Keine bisherigen Änderungsprotokolle für dieses Mitglied erfasst.", Modifier.padding(top = 8.dp))
         eintraege.forEach { e ->
-            Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                Text(e.summary, style = MaterialTheme.typography.titleSmall)
+            DetailKarte {
+                Text(e.summary, style = MaterialTheme.typography.titleSmall, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                 Text(MemberHistory.zeit(e.timestamp), style = MaterialTheme.typography.bodySmall)
                 Text("Bearbeitet durch: ${e.author}", style = MaterialTheme.typography.bodySmall)
                 e.changes.forEach { (label, alt, neu) ->
                     Text("$label: $alt → $neu", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp, top = 2.dp))
                 }
             }
-            HorizontalDivider()
         }
     }
 }

@@ -52,6 +52,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -190,7 +191,7 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                 Text("Mitglieder", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val sc = MaterialTheme.colorScheme
-                    StatKachel("Gesamt", "${stats.total}", null, sc.secondaryContainer, sc.onSecondaryContainer, Modifier.weight(1f))
+                    StatKachel("Gesamt", "${stats.total}", "alle Mitglieder", sc.secondaryContainer, sc.onSecondaryContainer, Modifier.weight(1f))
                     StatKachel("Aktiv", "${stats.active}", "${stats.activePercent} %", sc.primaryContainer, sc.onPrimaryContainer, Modifier.weight(1f))
                     StatKachel("Passiv", "${stats.passive}", "${stats.passivePercent} %", sc.tertiaryContainer, sc.onTertiaryContainer, Modifier.weight(1f))
                 }
@@ -299,14 +300,56 @@ private fun KopfKnopf(text: String, onClick: () -> Unit, modifier: Modifier = Mo
     else OutlinedButton(onClick = onClick, modifier = modifier.height(48.dp), enabled = enabled, contentPadding = rand, content = inhalt)
 }
 
-/** Eine farbige Kennzahl-Kachel unter dem Titel der Mitgliederliste. */
+/** Eine farbige Kennzahl-Kachel (Titel, große Zahl, optional eine Zeile darunter). */
 @Composable
-private fun StatKachel(titel: String, zahl: String, prozent: String?, flaeche: Color, text: Color, modifier: Modifier = Modifier) {
+private fun StatKachel(titel: String, zahl: String, unter: String?, flaeche: Color, text: Color, modifier: Modifier = Modifier, groesse: androidx.compose.ui.unit.TextUnit = 30.sp) {
     Column(modifier.clip(RoundedCornerShape(22.dp)).background(flaeche).padding(horizontal = 14.dp, vertical = 10.dp)) {
-        Text(titel, color = text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-        Text(zahl, color = text, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-        Text(prozent ?: "alle Mitglieder", color = text.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall, maxLines = 1)
+        Text(titel, color = text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(zahl, color = text, fontSize = groesse, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+        if (unter != null) Text(unter, color = text.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall, maxLines = 1)
     }
+}
+
+/** Das farbige Status-Schild (Aktiv, Passiv, Ehrenmitglied …) – in der Liste und in der Detailansicht gleich. */
+@Composable
+internal fun StatusSchild(status: String) {
+    val s = MaterialTheme.colorScheme
+    val (flaeche, text) = when (status) {
+        "active" -> s.primaryContainer to s.onPrimaryContainer
+        "honorary" -> s.tertiaryContainer to s.onTertiaryContainer
+        "terminated", "suspended" -> s.errorContainer to s.onErrorContainer
+        else -> s.secondaryContainer to s.onSecondaryContainer
+    }
+    Text(
+        MemberLabels.STATUS[status] ?: status, color = text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
+        maxLines = 1, softWrap = false,
+        modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(flaeche).padding(horizontal = 10.dp, vertical = 5.dp),
+    )
+}
+
+/** Weiche, umrandete Karte um einen Abschnitt der Mitglieder-Detailansicht; [titel] steht oben in der Hauptfarbe. */
+@Composable
+internal fun DetailKarte(titel: String? = null, modifier: Modifier = Modifier, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    val s = MaterialTheme.colorScheme
+    Surface(
+        shape = RoundedCornerShape(24.dp), color = s.surface, border = BorderStroke(1.5.dp, s.outlineVariant),
+        modifier = modifier.fillMaxWidth().padding(vertical = 5.dp),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            if (titel != null) Text(titel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = s.primary, modifier = Modifier.padding(bottom = 4.dp))
+            content()
+        }
+    }
+}
+
+@Composable
+private fun TabChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    val s = MaterialTheme.colorScheme
+    FilterChip(
+        selected = selected, onClick = onClick, label = { Text(text, maxLines = 1, softWrap = false) }, shape = RoundedCornerShape(12.dp),
+        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = s.primaryContainer, selectedLabelColor = s.onPrimaryContainer),
+        border = FilterChipDefaults.filterChipBorder(enabled = true, selected = selected, borderColor = s.outlineVariant, selectedBorderColor = s.primaryContainer),
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -336,17 +379,7 @@ private fun MemberRow(m: Member, nr: Int, erste: Boolean, letzte: Boolean, selec
                 val zahl = if (m.paymentMethod == "exempt") null else ZAHLART_KURZ[m.paymentMethod] ?: MemberLabels.PAYMENT[m.paymentMethod]
                 Text(fee + (zahl?.let { " · $it" } ?: ""), style = MaterialTheme.typography.bodySmall, color = s.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            val (schildFlaeche, schildText) = when (m.status) {
-                "active" -> s.primaryContainer to s.onPrimaryContainer
-                "honorary" -> s.tertiaryContainer to s.onTertiaryContainer
-                "terminated", "suspended" -> s.errorContainer to s.onErrorContainer
-                else -> s.secondaryContainer to s.onSecondaryContainer
-            }
-            Text(
-                MemberLabels.STATUS[m.status] ?: m.status, color = schildText, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
-                maxLines = 1, softWrap = false,
-                modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(schildFlaeche).padding(horizontal = 10.dp, vertical = 5.dp),
-            )
+            StatusSchild(m.status)
         }
     }
 }
@@ -385,26 +418,48 @@ private fun MemberDetailPage(model: AppModel, id: String, onEdit: () -> Unit, on
     val exporter = rememberExporter(model) { stammInfo = it }
     val m = model.members.firstOrNull { it.id == id }
     if (m == null) { Text("Mitglied nicht gefunden.", modifier.padding(16.dp)); return }
-    Column(modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
-        Text(listOf(m.firstName, m.lastName).filter { it.isNotEmpty() }.joinToString(" "), style = MaterialTheme.typography.headlineSmall)
-        val today = LocalDate.now()
-        val age = MemberList.age(m.birthDate, today)
-        val dauer = MemberList.membershipDuration(m.entryDate, today)
-        Text(listOfNotNull(MemberLabels.STATUS[m.status], MemberLabels.TYPE_DETAIL[m.type], dauer).joinToString(" · "))
-        Row(Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Details", "Material", "Dokumente", "Historie").forEachIndexed { i, s -> FilterChip(tab == i, { tab = i }, label = { Text(s, maxLines = 1, softWrap = false) }) }
+    val sc = MaterialTheme.colorScheme
+    val today = LocalDate.now()
+    val age = MemberList.age(m.birthDate, today)
+    val dauer = MemberList.membershipDuration(m.entryDate, today)
+    val bank = m.raw["bankDetails"] as? kotlinx.serialization.json.JsonObject
+    fun bk(k: String) = (bank?.get(k) as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
+    val beitrag = if (m.paymentMethod == "exempt" || m.feePeriod == "none") "beitragsfrei" else "${euro(m.fee)} ${MemberLabels.FEE_PERIOD[m.feePeriod] ?: ""}".trim()
+    val name = listOf(m.firstName, m.lastName).filter { it.isNotEmpty() }.joinToString(" ").ifEmpty { "(ohne Namen)" }
+    Column(modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Marke(name, (m.id.hashCode() and 0x7fffffff), 72.dp)
+            Column(Modifier.weight(1f).padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    StatusSchild(m.status)
+                    MemberLabels.TYPE_DETAIL[m.type]?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                }
+            }
         }
-        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (age != null) StatKachel("Alter", "$age", "Jahre", sc.secondaryContainer, sc.onSecondaryContainer, Modifier.weight(1f))
+            if (m.entryDate.length >= 4) StatKachel("Dabei seit", m.entryDate.take(4), dauer?.takeIf { it.isNotBlank() }, sc.primaryContainer, sc.onPrimaryContainer, Modifier.weight(1f))
+            if (beitrag == "beitragsfrei") StatKachel("Beitrag", "frei", "beitragsfrei", sc.tertiaryContainer, sc.onTertiaryContainer, Modifier.weight(1f))
+            else StatKachel("Beitrag", euro(m.fee), MemberLabels.FEE_PERIOD[m.feePeriod], sc.tertiaryContainer, sc.onTertiaryContainer, Modifier.weight(1f), 22.sp)
+        }
+        Row(Modifier.padding(top = 12.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Details", "Material", "Dokumente", "Historie").forEachIndexed { i, s -> TabChip(s, tab == i) { tab = i } }
+        }
+        Spacer(Modifier.height(6.dp))
         if (tab == 1) MemberMaterialTab(model, m, onMaterialOverview)
         if (tab == 2) {
             val docs = model.dokumente.filter { it.mitgliedId == m.id }.sortedByDescending { it.datum }
-            Text("Dokumente (${docs.size})", style = MaterialTheme.typography.titleMedium)
-            if (docs.isEmpty()) Text("Zu diesem Mitglied sind keine Dokumente abgelegt.", style = MaterialTheme.typography.bodyMedium)
+            Text("Dokumente (${docs.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            if (docs.isEmpty()) Text("Zu diesem Mitglied sind keine Dokumente abgelegt.", style = MaterialTheme.typography.bodyMedium, color = sc.onSurfaceVariant)
             docs.forEach { d ->
-                TextButton(onClick = { onOpenDoc(d.id) }, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth()) {
-                        Text(d.titel.ifEmpty { d.dateiName }, style = MaterialTheme.typography.bodyLarge)
-                        Text(listOf(if (d.datum.isNotEmpty()) deDate(d.datum) else "", d.dateiName).filter { it.isNotEmpty() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                Surface(
+                    shape = RoundedCornerShape(20.dp), color = sc.surface, border = BorderStroke(1.5.dp, sc.outlineVariant),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(20.dp)).clickable { onOpenDoc(d.id) },
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                        Text(d.titel.ifEmpty { d.dateiName }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(listOf(if (d.datum.isNotEmpty()) deDate(d.datum) else "", d.dateiName).filter { it.isNotEmpty() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
                     }
                 }
             }
@@ -412,28 +467,37 @@ private fun MemberDetailPage(model: AppModel, id: String, onEdit: () -> Unit, on
         if (tab == 3) MemberHistoryTab(model, m)
         if (tab == 0) {
             @Composable fun row(label: String, value: String) { if (value.isNotBlank()) Field(label, value) }
-            row("Mitgliedsnummer", m.number)
-            row("Sparte", m.department)
-            row("Eintritt", deDate(m.entryDate).takeIf { m.entryDate.isNotEmpty() } ?: "")
-            row("Austritt", deDate(m.exitDate).takeIf { m.exitDate.isNotEmpty() } ?: "")
-            row("Geburtsdatum", if (m.birthDate.isNotEmpty()) deDate(m.birthDate) + (age?.let { " ($it Jahre)" } ?: "") else "")
-            row("Geschlecht", MemberLabels.GENDER[m.gender] ?: "")
-            row("Anschrift", listOf("${m.street} ${m.houseNumber}".trim(), "${m.zip} ${m.city}".trim(), m.country).filter { it.isNotEmpty() }.joinToString("\n"))
-            KontaktLink("Telefon", m.phone, LinkArt.TELEFON)
-            KontaktLink("E-Mail", m.email, LinkArt.MAIL)
-            row("Beitrag", if (m.paymentMethod == "exempt" || m.feePeriod == "none") "beitragsfrei" else "${euro(m.fee)} ${MemberLabels.FEE_PERIOD[m.feePeriod] ?: ""}".trim())
-            row("Zahlart", MemberLabels.PAYMENT[m.paymentMethod] ?: "")
-            val bank = m.raw["bankDetails"] as? kotlinx.serialization.json.JsonObject
-            fun bk(k: String) = (bank?.get(k) as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
-            row("Kontoinhaber", bk("accountHolder"))
-            row("Kreditinstitut", bk("bankName"))
-            if (bk("iban").isNotBlank()) {
-                SelectionContainer { Field("IBAN (lang antippen zum Kopieren)", Iban.gruppiert(bk("iban"))) }
+            val anschrift = listOf("${m.street} ${m.houseNumber}".trim(), "${m.zip} ${m.city}".trim(), m.country).filter { it.isNotEmpty() }.joinToString("\n")
+            DetailKarte("Mitgliedschaft") {
+                row("Mitgliedsnummer", m.number)
+                row("Sparte", m.department)
+                row("Eintritt", deDate(m.entryDate).takeIf { m.entryDate.isNotEmpty() } ?: "")
+                row("Austritt", deDate(m.exitDate).takeIf { m.exitDate.isNotEmpty() } ?: "")
             }
-            row("BIC", bk("bic"))
-            row("Mandatsreferenz", bk("mandateReference"))
-            row("Mandatsdatum", if (bk("mandateDate").isNotEmpty()) deDate(bk("mandateDate")) else "")
-            row("Notizen", m.notes)
+            DetailKarte("Person") {
+                row("Geburtsdatum", if (m.birthDate.isNotEmpty()) deDate(m.birthDate) + (age?.let { " ($it Jahre)" } ?: "") else "")
+                row("Geschlecht", MemberLabels.GENDER[m.gender] ?: "")
+                row("Anschrift", anschrift)
+            }
+            if (m.phone.isNotBlank() || m.email.isNotBlank()) DetailKarte("Kontakt") {
+                KontaktLink("Telefon", m.phone, LinkArt.TELEFON)
+                KontaktLink("E-Mail", m.email, LinkArt.MAIL)
+            }
+            DetailKarte("Beitrag und Zahlung") {
+                row("Beitrag", beitrag)
+                row("Zahlart", MemberLabels.PAYMENT[m.paymentMethod] ?: "")
+            }
+            if (listOf("accountHolder", "bankName", "iban", "bic", "mandateReference", "mandateDate").any { bk(it).isNotBlank() }) DetailKarte("Bankverbindung") {
+                row("Kontoinhaber", bk("accountHolder"))
+                row("Kreditinstitut", bk("bankName"))
+                if (bk("iban").isNotBlank()) {
+                    SelectionContainer { Field("IBAN (lang antippen zum Kopieren)", Iban.gruppiert(bk("iban"))) }
+                }
+                row("BIC", bk("bic"))
+                row("Mandatsreferenz", bk("mandateReference"))
+                row("Mandatsdatum", if (bk("mandateDate").isNotEmpty()) deDate(bk("mandateDate")) else "")
+            }
+            if (m.notes.isNotBlank()) DetailKarte("Notizen") { Field("", m.notes) }
             if (stammInfo.isNotEmpty()) Text(stammInfo, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
             Aktionsleiste(
                 listOf(
@@ -444,7 +508,7 @@ private fun MemberDetailPage(model: AppModel, id: String, onEdit: () -> Unit, on
                         exporter.pdfSchreiber(d.dateiname) { out -> PdfWriter.stammblatt(d, out) }
                     }),
                 ),
-                Modifier.padding(top = 16.dp),
+                Modifier.padding(top = 12.dp, bottom = 16.dp),
             )
         }
     }
@@ -454,7 +518,7 @@ private fun MemberDetailPage(model: AppModel, id: String, onEdit: () -> Unit, on
 @Composable
 private fun Field(label: String, value: String) {
     Column(Modifier.padding(vertical = 4.dp)) {
-        Text(label, style = MaterialTheme.typography.labelMedium)
-        Text(value)
+        if (label.isNotEmpty()) Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyLarge)
     }
 }
