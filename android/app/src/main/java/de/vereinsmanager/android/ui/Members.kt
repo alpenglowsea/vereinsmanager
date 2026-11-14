@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
@@ -30,7 +31,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
@@ -42,7 +43,19 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -52,6 +65,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import de.vereinsmanager.android.AppModel
 import de.vereinsmanager.android.export.PdfWriter
@@ -84,6 +98,9 @@ internal fun FilterMenu(label: String, options: Map<String, String>, selected: S
     FilterChip(
         selected = selected != null, onClick = { open = true },
         label = { Text(if (selected == null) label else "$label: ${options[selected] ?: selected}", maxLines = 1, softWrap = false) },
+        shape = RoundedCornerShape(12.dp),
+        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primaryContainer, selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer),
+        border = FilterChipDefaults.filterChipBorder(enabled = true, selected = selected != null, borderColor = MaterialTheme.colorScheme.outlineVariant, selectedBorderColor = MaterialTheme.colorScheme.primaryContainer),
     )
     DropdownMenu(open, { open = false }) {
         DropdownMenuItem(text = { Text("Alle") }, onClick = { onSelect(null); open = false })
@@ -104,6 +121,7 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
     var bulkOpen by remember { mutableStateOf(false) }
     var deleteOpen by remember { mutableStateOf(false) }
     var info by remember { mutableStateOf("") }
+    var exportOpen by remember { mutableStateOf(false) }
 
     val stats = remember(model.members, model.departments) { MemberList.stats(model.members, model.departments) }
     val shown = remember(model.members, filter, sortKey, ascending) {
@@ -161,22 +179,28 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     KompaktKnopf("Neues Mitglied", onNew, Modifier.weight(1f), primaer = true)
                     KompaktKnopf("CSV-Import", onImport, Modifier.weight(1f))
+                    KompaktKnopf("Export", { exportOpen = true }, Modifier.weight(1f), enabled = !selecting)
                 }
                 if (!selecting && info.isEmpty() && model.members.isNotEmpty()) {
                     Text("Tipp: Mitglied lange antippen, um mehrere auszuwählen.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
                 }
-                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Column { Text("Mitglieder", style = MaterialTheme.typography.labelMedium); Text("${stats.total}", style = MaterialTheme.typography.titleLarge) }
-                    Column { Text("Aktiv", style = MaterialTheme.typography.labelMedium); Text("${stats.active} (${stats.activePercent} %)", style = MaterialTheme.typography.titleLarge) }
-                    Column { Text("Passiv", style = MaterialTheme.typography.labelMedium); Text("${stats.passive} (${stats.passivePercent} %)", style = MaterialTheme.typography.titleLarge) }
+                Text("Mitglieder", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val sc = MaterialTheme.colorScheme
+                    StatKachel("Gesamt", "${stats.total}", null, sc.secondaryContainer, sc.onSecondaryContainer, Modifier.weight(1f))
+                    StatKachel("Aktiv", "${stats.active}", "${stats.activePercent} %", sc.primaryContainer, sc.onPrimaryContainer, Modifier.weight(1f))
+                    StatKachel("Passiv", "${stats.passive}", "${stats.passivePercent} %", sc.tertiaryContainer, sc.onTertiaryContainer, Modifier.weight(1f))
                 }
-                Text(
-                    stats.departments.filter { it.count > 0 }.joinToString("  ·  ") { "${it.name} ${it.count}" },
-                    style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp),
-                )
-                OutlinedTextField(
-                    filter.search, { filter = filter.copy(search = it) }, label = { Text("Suchen") },
-                    singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                val sparten = stats.departments.filter { it.count > 0 }.joinToString("  ·  ") { "${it.name} ${it.count}" }
+                if (sparten.isNotEmpty()) Text(sparten, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+                TextField(
+                    filter.search, { filter = filter.copy(search = it) }, placeholder = { Text("Mitglied suchen …") },
+                    singleLine = true, shape = RoundedCornerShape(28.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer, unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 )
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterMenu("Status", MemberLabels.STATUS, filter.status) { filter = filter.copy(status = it) }
@@ -190,16 +214,6 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                     DropdownMenu(sortOpen, { sortOpen = false }) {
                         SORT_LABELS.forEach { (k, v) -> DropdownMenuItem(text = { Text(v) }, onClick = { sortKey = k; sortOpen = false }) }
                     }
-                }
-                if (!selecting) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    KompaktKnopf("CSV-Export", {
-                        val liste = shown
-                        exporter.csv("mitglieder_${Export.dateiname(model.vereinsname())}_$heute.csv") { Export.mitgliederCsv(liste) }
-                    })
-                    KompaktKnopf("PDF-Liste", {
-                        val liste = shown
-                        exporter.pdf("mitgliederliste_${Export.dateiname(model.vereinsname())}_$heute.pdf") { Export.mitgliederPdf(liste, model.vereinsname(), LocalDate.now()) }
-                    })
                 }
             }
         }
@@ -222,12 +236,12 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
             }
         }
         Text("${shown.size} von ${model.members.size} angezeigt (Export: die angezeigten)", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
-        HorizontalDivider(Modifier.padding(vertical = 4.dp))
+        Spacer(Modifier.height(6.dp))
         if (model.members.isEmpty()) Text("Keine Mitglieder. Spielen Sie auf der Startseite eine Sicherung ein.", Modifier.padding(top = 16.dp))
-        LazyColumn(state = listState) {
-            items(shown, key = { it.id }) { m ->
+        LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 96.dp)) {
+            itemsIndexed(shown, key = { _, m -> m.id }) { i, m ->
                 MemberRow(
-                    m, selecting = selecting, checked = m.id in selected,
+                    m, nr = i, erste = i == 0, letzte = i == shown.lastIndex, selecting = selecting, checked = m.id in selected,
                     onLongClick = { if (m.id !in selected) selected = selected + m.id; info = "" },
                 ) {
                     if (selecting) {
@@ -238,6 +252,27 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                 }
             }
         }
+    }
+    if (exportOpen) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { exportOpen = false },
+            title = { Text("Exportieren") },
+            text = { Text("${shown.size} angezeigte Mitglieder exportieren als:") },
+            confirmButton = {
+                TextButton({
+                    exportOpen = false
+                    val liste = shown
+                    exporter.csv("mitglieder_${Export.dateiname(model.vereinsname())}_$heute.csv") { Export.mitgliederCsv(liste) }
+                }) { Text("CSV (Tabelle)") }
+            },
+            dismissButton = {
+                TextButton({
+                    exportOpen = false
+                    val liste = shown
+                    exporter.pdf("mitgliederliste_${Export.dateiname(model.vereinsname())}_$heute.pdf") { Export.mitgliederPdf(liste, model.vereinsname(), LocalDate.now()) }
+                }) { Text("PDF (Liste)") }
+            },
+        )
     }
     val chosen = model.members.filter { it.id in selected }
     if (bulkOpen && chosen.isNotEmpty()) {
@@ -252,31 +287,55 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
     }
 }
 
+/** Eine farbige Kennzahl-Kachel unter dem Titel der Mitgliederliste. */
+@Composable
+private fun StatKachel(titel: String, zahl: String, prozent: String?, flaeche: Color, text: Color, modifier: Modifier = Modifier) {
+    Column(modifier.clip(RoundedCornerShape(22.dp)).background(flaeche).padding(horizontal = 14.dp, vertical = 10.dp)) {
+        Text(titel, color = text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+        Text(zahl, color = text, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+        Text(prozent ?: "alle Mitglieder", color = text.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall, maxLines = 1)
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MemberRow(m: Member, selecting: Boolean, checked: Boolean, onLongClick: () -> Unit, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+private fun MemberRow(m: Member, nr: Int, erste: Boolean, letzte: Boolean, selecting: Boolean, checked: Boolean, onLongClick: () -> Unit, onClick: () -> Unit) {
+    val s = MaterialTheme.colorScheme
+    // Karten liegen dicht übereinander: nur die erste und die letzte haben große Rundungen oben bzw. unten.
+    val form = RoundedCornerShape(topStart = if (erste) 28.dp else 10.dp, topEnd = if (erste) 28.dp else 10.dp, bottomStart = if (letzte) 28.dp else 10.dp, bottomEnd = if (letzte) 28.dp else 10.dp)
+    Surface(
+        shape = form, color = if (checked) s.primaryContainer.copy(alpha = 0.45f) else s.surface,
+        border = BorderStroke(1.5.dp, if (checked) s.primary else s.outlineVariant),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp).clip(form).combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
-    if (selecting) Checkbox(checked, { onClick() })
-    Column(Modifier.weight(1f)) {
-        Row {
-            Text(m.displayName.ifEmpty { "(ohne Namen)" }, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            Text(MemberLabels.STATUS[m.status] ?: m.status, style = MaterialTheme.typography.labelLarge)
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (selecting) Checkbox(checked, { onClick() })
+            else Marke(m.displayName, nr, 48.dp)
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(m.displayName.ifEmpty { "(ohne Namen)" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val line = listOf(
+                    m.number.takeIf { it.isNotEmpty() }?.let { "Nr. $it" },
+                    m.department.takeIf { it.isNotEmpty() },
+                    MemberLabels.TYPE_FILTER[m.type],
+                ).filterNotNull().joinToString(" · ")
+                if (line.isNotEmpty()) Text(line, style = MaterialTheme.typography.bodySmall, color = s.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val fee = if (m.paymentMethod == "exempt" || m.feePeriod == "none") "beitragsfrei"
+                else "${euro(m.fee)} ${MemberLabels.FEE_PERIOD_SHORT[m.feePeriod] ?: ""}".trim()
+                Text(fee + (MemberLabels.PAYMENT[m.paymentMethod]?.let { " · $it" } ?: ""), style = MaterialTheme.typography.bodySmall, color = s.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            val (schildFlaeche, schildText) = when (m.status) {
+                "active" -> s.primaryContainer to s.onPrimaryContainer
+                "honorary" -> s.tertiaryContainer to s.onTertiaryContainer
+                "terminated", "suspended" -> s.errorContainer to s.onErrorContainer
+                else -> s.secondaryContainer to s.onSecondaryContainer
+            }
+            Text(
+                MemberLabels.STATUS[m.status] ?: m.status, color = schildText, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
+                maxLines = 1, softWrap = false,
+                modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(schildFlaeche).padding(horizontal = 10.dp, vertical = 5.dp),
+            )
         }
-        val line = listOf(
-            m.number.takeIf { it.isNotEmpty() }?.let { "Nr. $it" },
-            m.department.takeIf { it.isNotEmpty() },
-            MemberLabels.TYPE_FILTER[m.type],
-        ).filterNotNull().joinToString(" · ")
-        Text(line, style = MaterialTheme.typography.bodySmall)
-        val fee = if (m.paymentMethod == "exempt" || m.feePeriod == "none") "beitragsfrei"
-        else "${euro(m.fee)} ${MemberLabels.FEE_PERIOD_SHORT[m.feePeriod] ?: ""}".trim()
-        Text(fee + (MemberLabels.PAYMENT[m.paymentMethod]?.let { " · $it" } ?: ""), style = MaterialTheme.typography.bodySmall)
     }
-    }
-    HorizontalDivider()
 }
 
 /** Detailansicht mit seitlichem Blättern durch die Mitglieder in der Reihenfolge der Liste. */

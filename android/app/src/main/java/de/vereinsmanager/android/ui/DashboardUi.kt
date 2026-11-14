@@ -208,7 +208,7 @@ private fun Balken(anteil: Float, farbe: Color) {
 
 /** Runde Marke mit den Anfangsbuchstaben eines Namens, in wechselnden Farben und weichen Kieselformen. */
 @Composable
-private fun Marke(name: String, nr: Int) {
+internal fun Marke(name: String, nr: Int, groesse: androidx.compose.ui.unit.Dp = 40.dp) {
     val s = MaterialTheme.colorScheme
     val (flaeche, text) = when (nr % 3) {
         0 -> s.primaryContainer to s.onPrimaryContainer
@@ -221,8 +221,8 @@ private fun Marke(name: String, nr: Int) {
         else -> RoundedCornerShape(topStartPercent = 55, topEndPercent = 45, bottomEndPercent = 58, bottomStartPercent = 42)
     }
     val buchstaben = name.trim().split(' ').filter { it.isNotEmpty() }.let { w -> (w.firstOrNull()?.take(1).orEmpty() + (if (w.size > 1) w.last().take(1) else "")).uppercase() }
-    Box(Modifier.size(40.dp).clip(form).background(flaeche), contentAlignment = Alignment.Center) {
-        Text(buchstaben, color = text, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+    Box(Modifier.size(groesse).clip(form).background(flaeche), contentAlignment = Alignment.Center) {
+        Text(buchstaben, color = text, fontWeight = FontWeight.ExtraBold, fontSize = (groesse.value * 0.375f).sp)
     }
 }
 
@@ -278,9 +278,11 @@ private fun Tagesblock(datum: LocalDate) {
 /** Eingefärbte Kennzahl-Fläche (z. B. Offen / Überfällig / Abgerechnet). */
 @Composable
 private fun Chip(label: String, wert: String, flaeche: Color, text: Color, modifier: Modifier = Modifier) {
-    Column(modifier.clip(RoundedCornerShape(18.dp)).background(flaeche).padding(horizontal = 10.dp, vertical = 9.dp)) {
+    // Drei Chips teilen sich die Breite; der Wert wird bei längeren Beträgen kleiner, damit „€“ nie abgeschnitten wird.
+    val groesse = (125f / wert.length.coerceAtLeast(1)).coerceIn(10f, 15f)
+    Column(modifier.clip(RoundedCornerShape(18.dp)).background(flaeche).padding(horizontal = 8.dp, vertical = 9.dp)) {
         Text(label, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = text, maxLines = 1)
-        Text(wert, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = text, maxLines = 1, softWrap = false)
+        Text(wert, fontSize = groesse.sp, fontWeight = FontWeight.ExtraBold, color = text, maxLines = 1, softWrap = false)
     }
 }
 
