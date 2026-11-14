@@ -53,11 +53,16 @@ private fun Kachel(titel: String, inhalt: @Composable () -> Unit) {
 
 /** Farbige Kennzahl-Kachel; alle Kacheln einer Zeile werden gleich hoch ([fillMaxHeight] in einer Zeile mit IntrinsicSize.Min). */
 @Composable
-private fun Kennzahl(titel: String, wert: String, unten: String, flaeche: Color, text: Color, modifier: Modifier = Modifier, groesse: TextUnit = 28.sp) {
-    Column(modifier.clip(RoundedCornerShape(22.dp)).background(flaeche).padding(horizontal = 12.dp, vertical = 10.dp)) {
-        Text(titel, color = text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 2)
-        Text(wert, color = text, fontSize = groesse, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
-        if (unten.isNotEmpty()) Text(unten, color = text.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall, maxLines = 2)
+private fun Kennzahl(titel: String, wert: String, unten: String, flaeche: Color, text: Color, modifier: Modifier = Modifier, groesse: TextUnit = 28.sp, mitte: Boolean = false) {
+    val ausrichtung = if (mitte) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start
+    Column(
+        modifier.clip(RoundedCornerShape(22.dp)).background(flaeche).padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalAlignment = if (mitte) Alignment.CenterHorizontally else Alignment.Start,
+        verticalArrangement = if (mitte) Arrangement.Center else Arrangement.Top,
+    ) {
+        Text(titel, color = text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 2, textAlign = ausrichtung)
+        Text(wert, color = text, fontSize = groesse, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false, textAlign = ausrichtung)
+        if (unten.isNotEmpty()) Text(unten, color = text.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall, maxLines = 2, textAlign = ausrichtung)
     }
 }
 
@@ -106,7 +111,7 @@ fun MemberAnalyticsScreen(model: AppModel, modifier: Modifier = Modifier) {
     val abtOptionen = remember(abteilungen) { linkedMapOf("" to "Alle Abteilungen").also { m -> abteilungen.forEach { m[it] = it } } }
 
     Column(modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
-        Text("Mitglieder-Auswertung", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
+        Text("Auswertung", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
         if (members.isEmpty()) Text("Keine Mitglieder vorhanden.")
 
         val sc = MaterialTheme.colorScheme
@@ -134,9 +139,9 @@ fun MemberAnalyticsScreen(model: AppModel, modifier: Modifier = Modifier) {
             Auswahl("Abteilung", abtOptionen, abteilung) { abteilung = it; limit = 5 }
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp).height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val gleich = Modifier.weight(1f).fillMaxHeight()
-                Kennzahl("Zugänge", "$zu", "", sc.primaryContainer, sc.onPrimaryContainer, gleich)
-                Kennzahl("Abgänge", "$ab", "", sc.errorContainer, sc.onErrorContainer, gleich)
-                Kennzahl("Netto", if (zu - ab > 0) "+${zu - ab}" else "${zu - ab}", "", sc.secondaryContainer, sc.onSecondaryContainer, gleich)
+                Kennzahl("Zugänge", "$zu", "", sc.primaryContainer, sc.onPrimaryContainer, gleich, mitte = true)
+                Kennzahl("Abgänge", "$ab", "", sc.errorContainer, sc.onErrorContainer, gleich, mitte = true)
+                Kennzahl("Netto", if (zu - ab > 0) "+${zu - ab}" else "${zu - ab}", "", sc.secondaryContainer, sc.onSecondaryContainer, gleich, mitte = true)
             }
             Text(if (jahr == "all") "Verlauf je Monat (alle Jahre zusammen)" else "Verlauf je Monat $jahr", style = MaterialTheme.typography.labelLarge)
             val maxWert = maxOf(1, monate.maxOf { maxOf(it.zugaenge, it.abgaenge) })
@@ -157,13 +162,29 @@ fun MemberAnalyticsScreen(model: AppModel, modifier: Modifier = Modifier) {
             }
             if (mehrjahr.isNotEmpty()) {
                 Text("Entwicklung der letzten Jahre (antippen zum Filtern)", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
-                mehrjahr.forEach { y ->
-                    Row(Modifier.fillMaxWidth().clickable { jahr = y.jahr.toString(); limit = 5 }.padding(vertical = 6.dp)) {
-                        Text("${y.jahr}", Modifier.width(56.dp), fontWeight = if (jahr == y.jahr.toString()) FontWeight.Bold else FontWeight.Normal)
-                        Text("+${y.zugaenge}", Modifier.weight(1f), color = MaterialTheme.colorScheme.primary)
-                        Text("−${y.abgaenge}", Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
-                        Text(if (y.saldo > 0) "Saldo +${y.saldo}" else "Saldo ${y.saldo}")
+                @Composable fun spalten(a: String, b: String, c: String, d: String, fett: Boolean = false, farbeB: Color = Color.Unspecified, farbeC: Color = Color.Unspecified, mod: Modifier = Modifier) {
+                    val w = if (fett) FontWeight.Bold else FontWeight.Normal
+                    Row(mod.fillMaxWidth().padding(vertical = 6.dp)) {
+                        Text(a, Modifier.width(52.dp), fontWeight = w)
+                        Text(b, Modifier.weight(1f), color = farbeB, fontWeight = w, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                        Text(c, Modifier.weight(1f), color = farbeC, fontWeight = w, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                        Text(d, Modifier.weight(1.3f), fontWeight = w, textAlign = androidx.compose.ui.text.style.TextAlign.End)
                     }
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    val k2 = MaterialTheme.typography.labelMedium
+                    Text("Jahr", Modifier.width(52.dp), style = k2, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Zugänge", Modifier.weight(1f), style = k2, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                    Text("Abgänge", Modifier.weight(1f), style = k2, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                    Text("Saldo", Modifier.weight(1.3f), style = k2, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                }
+                HorizontalDivider()
+                mehrjahr.forEach { y ->
+                    spalten(
+                        "${y.jahr}", "+${y.zugaenge}", "−${y.abgaenge}", if (y.saldo > 0) "+${y.saldo}" else "${y.saldo}", fett = jahr == y.jahr.toString(),
+                        farbeB = MaterialTheme.colorScheme.primary, farbeC = MaterialTheme.colorScheme.error,
+                        mod = Modifier.clickable { jahr = y.jahr.toString(); limit = 5 },
+                    )
                     HorizontalDivider()
                 }
             }
