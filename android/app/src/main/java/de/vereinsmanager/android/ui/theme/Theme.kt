@@ -27,18 +27,18 @@ private val HellSchema = lightColorScheme(
 )
 
 private val DunkelSchema = darkColorScheme(
-    primary = NachtGruen, onPrimary = NachtGruenText,
-    primaryContainer = NachtGruenFlaeche, onPrimaryContainer = WieseHell,
-    secondary = Color(0xFFB9CCB9), onSecondary = Color(0xFF243427),
-    secondaryContainer = NachtSalbei, onSecondaryContainer = NachtSalbeiText,
-    tertiary = NachtGelb, onTertiary = Color(0xFF3E2E00),
-    tertiaryContainer = NachtGelbFlaeche, onTertiaryContainer = Sonne,
-    background = NachtGrund, onBackground = NachtText,
-    surface = NachtGrund, onSurface = NachtText,
-    surfaceVariant = Color(0xFF3F4941), onSurfaceVariant = NachtGrau,
-    surfaceContainerLowest = Color(0xFF0A0F0C), surfaceContainerLow = Color(0xFF141B16),
-    surfaceContainer = Color(0xFF18201B), surfaceContainerHigh = Color(0xFF222B25), surfaceContainerHighest = Color(0xFF2D362F),
-    outline = Color(0xFF89938A), outlineVariant = Color(0xFF3F4941),
+    primary = Color(0xFF7FE0A6), onPrimary = Color(0xFF00391F),
+    primaryContainer = Color(0xFF17573C), onPrimaryContainer = WieseHell,
+    secondary = Color(0xFFA9D4B8), onSecondary = Color(0xFF0F3A24),
+    secondaryContainer = Color(0xFF2C4A39), onSecondaryContainer = Color(0xFFCDEBD8),
+    tertiary = Color(0xFFF2C94C), onTertiary = Color(0xFF3E2E00),
+    tertiaryContainer = Color(0xFFF2C94C), onTertiaryContainer = Color(0xFF3E2E00),
+    background = Color(0xFF0B130E), onBackground = Color(0xFFE2EDE5),
+    surface = Color(0xFF0B130E), onSurface = Color(0xFFE2EDE5),
+    surfaceVariant = Color(0xFF2F4638), onSurfaceVariant = Color(0xFFB5CDBC),
+    surfaceContainerLowest = Color(0xFF07100A), surfaceContainerLow = Color(0xFF101A14),
+    surfaceContainer = Color(0xFF14211A), surfaceContainerHigh = Color(0xFF1A2A21), surfaceContainerHighest = Color(0xFF1F3228),
+    outline = Color(0xFF6C8D78), outlineVariant = Color(0xFF2F4638),
 )
 
 /** Großzügige Rundungen: Karten und Felder sind weich, nicht eckig. */

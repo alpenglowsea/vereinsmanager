@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -66,9 +67,9 @@ fun leistenZiele(model: AppModel): List<Ziel> {
 private val ScrimFarbe = Color(0xFF1A2A1B).copy(alpha = 0.55f)
 
 /**
- * Die Navigationsleiste unten: zwei frei wählbare Ziele links, der Mittelknopf „Neu“, zwei Ziele rechts.
- * Der Mittelknopf ragt aus der Leiste heraus; bei geöffnetem Menü dreht sich sein Plus zum Kreuz, und der Streifen
- * neben ihm wird abgedunkelt wie der Inhalt darüber.
+ * Die Navigationsleiste unten: zwei frei wählbare Ziele links, der Mittelknopf „Neu“ in der Mitte, zwei Ziele rechts.
+ * Alles liegt innerhalb der Leiste (nichts ragt darüber hinaus), damit über der Leiste kein Streifen entsteht, durch den
+ * beim Scrollen der Hintergrund scheint. Bei geöffnetem Menü dreht sich das Plus des Knopfs zum Kreuz.
  */
 @Composable
 fun NavigationsLeiste(
@@ -79,29 +80,25 @@ fun NavigationsLeiste(
     onMitte: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val leiste = leistenFarbe()
     val text = leistenText()
     val dreh by animateFloatAsState(if (menueOffen) 45f else 0f, label = "plus")
-    val oben = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
-    Box(modifier.fillMaxWidth().background(if (menueOffen) ScrimFarbe else Color.Transparent)) {
-        Row(
-            Modifier.fillMaxWidth().padding(top = 26.dp).background(leiste, oben).windowInsetsPadding(WindowInsets.navigationBars)
-                .height(72.dp).padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            plaetze.take(2).forEach { z -> LeistenPlatz(z, z == aktiv, text, onZiel, Modifier.weight(1f)) }
-            Spacer(Modifier.weight(1f))
-            plaetze.drop(2).forEach { z -> LeistenPlatz(z, z == aktiv, text, onZiel, Modifier.weight(1f)) }
+    Row(
+        modifier.fillMaxWidth().background(leistenFarbe()).windowInsetsPadding(WindowInsets.navigationBars).height(76.dp).padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        plaetze.take(2).forEach { z -> LeistenPlatz(z, z == aktiv, text, onZiel, Modifier.weight(1f)) }
+        Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+            val knopf: Shape = RoundedCornerShape(20.dp)
+            Box(
+                Modifier.size(56.dp).background(MaterialTheme.colorScheme.tertiaryContainer, knopf)
+                    .clickable(role = Role.Button, onClick = onMitte)
+                    .semantics { contentDescription = if (menueOffen) "Menü schließen" else "Neu anlegen" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Lucide.Plus, null, Modifier.size(28.dp).rotate(dreh), tint = MaterialTheme.colorScheme.onTertiaryContainer)
+            }
         }
-        val knopf: Shape = RoundedCornerShape(22.dp)
-        Box(
-            Modifier.align(Alignment.TopCenter).size(64.dp).shadow(6.dp, knopf).background(MaterialTheme.colorScheme.tertiaryContainer, knopf)
-                .clickable(role = Role.Button, onClick = onMitte)
-                .semantics { contentDescription = if (menueOffen) "Menü schließen" else "Neu anlegen" },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Lucide.Plus, null, Modifier.size(30.dp).rotate(dreh), tint = MaterialTheme.colorScheme.onTertiaryContainer)
-        }
+        plaetze.drop(2).forEach { z -> LeistenPlatz(z, z == aktiv, text, onZiel, Modifier.weight(1f)) }
     }
 }
 
@@ -109,7 +106,7 @@ fun NavigationsLeiste(
 private fun LeistenPlatz(z: Ziel, aktiv: Boolean, textFarbe: Color, onZiel: (Ziel) -> Unit, modifier: Modifier) {
     val scheme = MaterialTheme.colorScheme
     Column(
-        modifier.padding(top = 10.dp).clickable(role = Role.Tab, onClick = { onZiel(z) }).semantics { selected = aktiv },
+        modifier.padding(top = 12.dp).clickable(role = Role.Tab, onClick = { onZiel(z) }).semantics { selected = aktiv },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
@@ -137,16 +134,15 @@ fun SchnellMenue(onWahl: (Schnell) -> Unit, onZu: () -> Unit, modifier: Modifier
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onZu),
         contentAlignment = Alignment.BottomCenter,
     ) {
-        Column(Modifier.padding(bottom = 36.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 24.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Die Symbole stehen genau untereinander in der Mitte (über dem Mittelknopf); die Beschriftung steht rechtsbündig links daneben.
             Schnell.entries.reversed().forEachIndexed { i, a ->
                 val gelb = i % 2 == 1
-                Row(
-                    Modifier.clickable { onWahl(a) },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 4.dp) {
-                        Text(a.lang, Modifier.padding(horizontal = 16.dp, vertical = 10.dp), style = MaterialTheme.typography.titleSmall)
+                Row(Modifier.fillMaxWidth().clickable { onWahl(a) }, verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f).padding(end = 10.dp), contentAlignment = Alignment.CenterEnd) {
+                        Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 4.dp) {
+                            Text(a.lang, Modifier.padding(horizontal = 16.dp, vertical = 10.dp), style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                        }
                     }
                     Box(
                         Modifier.size(52.dp).background(
@@ -157,6 +153,7 @@ fun SchnellMenue(onWahl: (Schnell) -> Unit, onZu: () -> Unit, modifier: Modifier
                     ) {
                         Icon(a.icon, null, Modifier.size(24.dp), tint = if (gelb) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onPrimaryContainer)
                     }
+                    Spacer(Modifier.weight(1f))
                 }
             }
         }
@@ -199,6 +196,13 @@ fun BereicheRaster(vereinsname: String, aktiv: Ziel?, onWahl: (Ziel) -> Unit, mo
     }
 }
 
+/** Namen für die Kacheln: kurz genug, dass kein Wort mitten im Wort umbricht (sonst würde „Mitgliederverwaltung“ zerrissen). */
+private fun rasterName(z: Ziel): String = when (z) {
+    Ziel.MITGLIEDER -> "Mitglieder"
+    Ziel.ANTRAEGE -> "Neues Mitglied aufnehmen"
+    else -> z.titel
+}
+
 @Composable
 private fun Kachel(z: Ziel, nr: Int, aktiv: Boolean, onWahl: (Ziel) -> Unit) {
     val s = MaterialTheme.colorScheme
@@ -218,7 +222,7 @@ private fun Kachel(z: Ziel, nr: Int, aktiv: Boolean, onWahl: (Ziel) -> Unit) {
             Box(Modifier.size(48.dp).background(flaeche, Kiesel[nr % Kiesel.size]), contentAlignment = Alignment.Center) {
                 Icon(z.icon, null, Modifier.size(24.dp), tint = inhalt)
             }
-            Text(z.titel, style = MaterialTheme.typography.titleSmall, maxLines = 2, minLines = 2)
+            Text(rasterName(z), style = MaterialTheme.typography.titleSmall, maxLines = 2, minLines = 2)
         }
     }
 }
