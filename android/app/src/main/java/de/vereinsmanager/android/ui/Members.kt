@@ -346,7 +346,7 @@ internal fun DetailKarte(titel: String? = null, modifier: Modifier = Modifier, c
 }
 
 @Composable
-private fun TabChip(text: String, selected: Boolean, onClick: () -> Unit) {
+internal fun TabChip(text: String, selected: Boolean, onClick: () -> Unit) {
     val s = MaterialTheme.colorScheme
     FilterChip(
         selected = selected, onClick = onClick, label = { Text(text, maxLines = 1, softWrap = false) }, shape = RoundedCornerShape(12.dp),

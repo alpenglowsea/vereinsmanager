@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -21,6 +22,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,34 +48,28 @@ import java.util.Locale
 
 @Composable
 private fun Kachel(titel: String, inhalt: @Composable () -> Unit) {
-    Card(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Column(Modifier.padding(16.dp)) {
-            Text(titel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Column(Modifier.padding(top = 10.dp)) { inhalt() }
-        }
-    }
+    DetailKarte(titel) { Column(Modifier.padding(top = 4.dp)) { inhalt() } }
 }
 
+/** Farbige Kennzahl-Kachel; alle Kacheln einer Zeile werden gleich hoch ([fillMaxHeight] in einer Zeile mit IntrinsicSize.Min). */
 @Composable
-private fun Kennzahl(titel: String, wert: String, unten: String, modifier: Modifier = Modifier, hoehe: Dp = 104.dp) {
-    Card(modifier.height(hoehe)) {
-        Column(Modifier.padding(12.dp)) {
-            Text(titel, style = MaterialTheme.typography.labelMedium, maxLines = 1)
-            Text(wert, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, maxLines = 1)
-            Text(unten, style = MaterialTheme.typography.bodySmall, maxLines = 2)
-        }
+private fun Kennzahl(titel: String, wert: String, unten: String, flaeche: Color, text: Color, modifier: Modifier = Modifier, groesse: TextUnit = 28.sp) {
+    Column(modifier.clip(RoundedCornerShape(22.dp)).background(flaeche).padding(horizontal = 12.dp, vertical = 10.dp)) {
+        Text(titel, color = text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 2)
+        Text(wert, color = text, fontSize = groesse, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
+        if (unten.isNotEmpty()) Text(unten, color = text.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall, maxLines = 2)
     }
 }
 
 @Composable
 private fun BalkenZeile(links: String, rechts: String, anteil: Int, farbe: Color) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
         Row {
-            Text(links, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            Text(rechts, style = MaterialTheme.typography.bodySmall)
+            Text(links, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text(rechts, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Box(Modifier.fillMaxWidth().height(8.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))) {
-            Box(Modifier.fillMaxWidth(anteil.coerceIn(0, 100) / 100f).fillMaxHeight().background(farbe, RoundedCornerShape(4.dp)))
+        Box(Modifier.fillMaxWidth().height(10.dp).background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(5.dp))) {
+            Box(Modifier.fillMaxWidth(anteil.coerceIn(0, 100) / 100f).fillMaxHeight().background(farbe, RoundedCornerShape(5.dp)))
         }
     }
 }
@@ -107,25 +106,37 @@ fun MemberAnalyticsScreen(model: AppModel, modifier: Modifier = Modifier) {
     val abtOptionen = remember(abteilungen) { linkedMapOf("" to "Alle Abteilungen").also { m -> abteilungen.forEach { m[it] = it } } }
 
     Column(modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
-        Text("Mitglieder-Auswertung", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+        Text("Mitglieder-Auswertung", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
         if (members.isEmpty()) Text("Keine Mitglieder vorhanden.")
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Kennzahl("Mitglieder gesamt", "${k.gesamt}", "${k.aktiv} aktiv · ${k.passiv} passiv", Modifier.weight(1f))
-            Kennzahl("Jahresbeiträge (Soll)", euro(k.jahresSoll), "Beitragsaufkommen pro Jahr", Modifier.weight(1f))
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Kennzahl("SEPA-Quote", "${k.sepaProzent} %", "${k.sepa} von ${k.gesamt} per Lastschrift", Modifier.weight(1f))
-            Kennzahl("Sparten", "${k.sparten}", "Größte: ${k.groessteSparte ?: "–"} (${k.groessteSparteAnzahl})", Modifier.weight(1f))
+        val sc = MaterialTheme.colorScheme
+        val werte = listOf("${k.gesamt}", euro(k.jahresSoll), "${k.sepaProzent} %", "${k.sparten}")
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            // Eine gemeinsame Schriftgröße, so groß wie der längste Wert (meist die Jahresbeiträge) noch in die Kachel passt.
+            val innen = (maxWidth - 8.dp) / 2 - 24.dp
+            val g = minOf(30f, innen.value / (werte.maxOf { it.length } * 0.62f)).coerceAtLeast(16f).sp
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val gleich = Modifier.weight(1f).fillMaxHeight()
+                    Kennzahl("Mitglieder gesamt", werte[0], "${k.aktiv} aktiv · ${k.passiv} passiv", sc.secondaryContainer, sc.onSecondaryContainer, gleich, g)
+                    Kennzahl("Jahresbeiträge (Soll)", werte[1], "Beitragsaufkommen pro Jahr", sc.tertiaryContainer, sc.onTertiaryContainer, gleich, g)
+                }
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val gleich = Modifier.weight(1f).fillMaxHeight()
+                    Kennzahl("SEPA-Quote", werte[2], "${k.sepa} von ${k.gesamt} per Lastschrift", sc.primaryContainer, sc.onPrimaryContainer, gleich, g)
+                    Kennzahl("Sparten", werte[3], "Größte: ${k.groessteSparte ?: "–"} (${k.groessteSparteAnzahl})", sc.secondaryContainer, sc.onSecondaryContainer, gleich, g)
+                }
+            }
         }
 
         Kachel("Zu- und Abgänge") {
             Auswahl("Jahr", jahrOptionen, jahr) { jahr = it; limit = 5 }
             Auswahl("Abteilung", abtOptionen, abteilung) { abteilung = it; limit = 5 }
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Kennzahl("Zugänge", "$zu", "", Modifier.weight(1f), 80.dp)
-                Kennzahl("Abgänge", "$ab", "", Modifier.weight(1f), 80.dp)
-                Kennzahl("Netto", if (zu - ab > 0) "+${zu - ab}" else "${zu - ab}", "", Modifier.weight(1f), 80.dp)
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp).height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val gleich = Modifier.weight(1f).fillMaxHeight()
+                Kennzahl("Zugänge", "$zu", "", sc.primaryContainer, sc.onPrimaryContainer, gleich)
+                Kennzahl("Abgänge", "$ab", "", sc.errorContainer, sc.onErrorContainer, gleich)
+                Kennzahl("Netto", if (zu - ab > 0) "+${zu - ab}" else "${zu - ab}", "", sc.secondaryContainer, sc.onSecondaryContainer, gleich)
             }
             Text(if (jahr == "all") "Verlauf je Monat (alle Jahre zusammen)" else "Verlauf je Monat $jahr", style = MaterialTheme.typography.labelLarge)
             val maxWert = maxOf(1, monate.maxOf { maxOf(it.zugaenge, it.abgaenge) })
@@ -133,8 +144,8 @@ fun MemberAnalyticsScreen(model: AppModel, modifier: Modifier = Modifier) {
                 monate.forEach { mo ->
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Row(Modifier.height(70.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-                            Box(Modifier.width(7.dp).height((70f * mo.zugaenge / maxWert).dp).background(MaterialTheme.colorScheme.primary))
-                            Box(Modifier.width(7.dp).height((70f * mo.abgaenge / maxWert).dp).background(MaterialTheme.colorScheme.error))
+                            Box(Modifier.width(7.dp).height((70f * mo.zugaenge / maxWert).dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)))
+                            Box(Modifier.width(7.dp).height((70f * mo.abgaenge / maxWert).dp).background(MaterialTheme.colorScheme.error, RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)))
                         }
                         Text(MemberAnalytics.MONATE[mo.index].take(2), style = MaterialTheme.typography.labelSmall)
                     }
@@ -157,11 +168,11 @@ fun MemberAnalyticsScreen(model: AppModel, modifier: Modifier = Modifier) {
                 }
             }
             Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(tab == 0, { tab = 0; limit = 5 }, label = { Text("Alle") })
-                FilterChip(tab == 1, { tab = 1; limit = 5 }, label = { Text("Eintritte") })
-                FilterChip(tab == 2, { tab = 2; limit = 5 }, label = { Text("Austritte") })
+                TabChip("Alle", tab == 0) { tab = 0; limit = 5 }
+                TabChip("Eintritte", tab == 1) { tab = 1; limit = 5 }
+                TabChip("Austritte", tab == 2) { tab = 2; limit = 5 }
             }
-            OutlinedTextField(suche, { suche = it; limit = 5 }, label = { Text("Suchen (Name, Nr., Sparte)") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+            OutlinedTextField(suche, { suche = it; limit = 5 }, label = { Text("Suchen (Name, Nr., Sparte)") }, singleLine = true, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
             if (ereignisse.isEmpty()) Text("Keine Ereignisse.", Modifier.padding(top = 8.dp))
             ereignisse.take(limit).forEach { e ->
                 Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
@@ -191,10 +202,7 @@ fun MemberAnalyticsScreen(model: AppModel, modifier: Modifier = Modifier) {
             val beschriftung = mapOf(GeschlechtFilter.M to "Männlich", GeschlechtFilter.W to "Weiblich", GeschlechtFilter.D to "Divers", GeschlechtFilter.KEIN to "Keine Angabe")
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 gl.forEach { (g, n) ->
-                    FilterChip(
-                        geschlecht == g, { geschlecht = if (geschlecht == g) GeschlechtFilter.ALLE else g },
-                        label = { Text("${beschriftung[g]} $n", maxLines = 1, softWrap = false) },
-                    )
+                    TabChip("${beschriftung[g]} $n", geschlecht == g) { geschlecht = if (geschlecht == g) GeschlechtFilter.ALLE else g }
                 }
             }
             val farben = listOf(MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.secondary, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.outline)
