@@ -3,7 +3,15 @@ package de.vereinsmanager.android.ui
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -54,7 +62,23 @@ private fun mitVerein(text: String, verein: String) = text.replace("{verein}", v
 // ------------------------------------------------------------------ Ausfüllen durch das neue Mitglied
 
 @Composable
-private fun Ueberschrift(text: String) = Text(text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+private fun Ueberschrift(text: String) = Text(text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 4.dp, bottom = 4.dp))
+
+/** Weiche Karte (Wiese-Stil) um einen Abschnitt; mit [farbe] als eingefärbte Fläche statt umrandeter Karte. */
+@Composable
+private fun Karte(modifier: Modifier = Modifier, farbe: Color? = null, content: @Composable ColumnScope.() -> Unit) {
+    val s = MaterialTheme.colorScheme
+    Surface(
+        shape = RoundedCornerShape(28.dp), color = farbe ?: s.surface, border = if (farbe == null) BorderStroke(1.5.dp, s.outlineVariant) else null,
+        modifier = modifier.fillMaxWidth().padding(vertical = 5.dp),
+    ) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp), content = content) }
+}
+
+@Composable
+private fun Abschnitt(titel: String, content: @Composable ColumnScope.() -> Unit) = Karte {
+    Text(titel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 4.dp))
+    content()
+}
 
 @Composable
 private fun Unterschriftsfeld(titel: String, u: Unterschrift?, fehler: String?, onNeu: (Unterschrift) -> Unit) {
@@ -83,34 +107,36 @@ private fun Zeile(name: String, wert: String) {
 @Composable
 private fun AntragUebersicht(a: Antrag, e: AntragEinstellungen, heute: LocalDate) {
     val minder = AntragRegeln.minderjaehrig(a, heute)
-    Ueberschrift("Person")
-    Zeile("Name", a.name)
-    Zeile("Geburtsdatum", if (a.geburtsdatum.isNotBlank()) deDate(a.geburtsdatum) else "")
-    Zeile("Anschrift", "${a.strasse} ${a.hausnummer}, ${a.plz} ${a.ort}")
-    Zeile("Telefon", a.telefon)
-    Zeile("E-Mail", a.email)
-    if (minder) {
-        Ueberschrift("Gesetzlicher Vertreter")
+    Abschnitt("Person") {
+        Zeile("Name", a.name)
+        Zeile("Geburtsdatum", if (a.geburtsdatum.isNotBlank()) deDate(a.geburtsdatum) else "")
+        Zeile("Anschrift", "${a.strasse} ${a.hausnummer}, ${a.plz} ${a.ort}")
+        Zeile("Telefon", a.telefon)
+        Zeile("E-Mail", a.email)
+    }
+    if (minder) Abschnitt("Gesetzlicher Vertreter") {
         Zeile("Name", a.vertreterName)
         Zeile("Beziehung", a.vertreterBeziehung)
         Zeile("Telefon", a.vertreterTelefon)
         Zeile("E-Mail", a.vertreterEmail)
     }
-    Ueberschrift("Mitgliedschaft")
-    Zeile("Sparte", a.sparte)
-    Zeile("Mitgliedsart", AntragEinstellungen.ARTEN[a.mitgliedsart] ?: a.mitgliedsart)
-    Zeile("Beitrag", AntragLayout.beitragText(e.beitrag(a.mitgliedsart)))
-    Zeile("Eintritt", if (a.eintritt.isNotBlank()) deDate(a.eintritt) else "")
-    Zeile("Frühere Vereine", a.vorverein)
-    Zeile("Anmerkung", a.notiz)
-    Ueberschrift("Zahlung")
-    if (a.sepa) {
-        Zeile("Zahlungsart", "Lastschrift (SEPA)")
-        Zeile("Kontoinhaber", a.kontoinhaber)
-        Zeile("IBAN", Iban.gruppiert(a.iban))
-        Zeile("BIC", a.bic)
-        Zeile("Bank", a.bankname)
-    } else Zeile("Zahlungsart", "Überweisung")
+    Abschnitt("Mitgliedschaft") {
+        Zeile("Sparte", a.sparte)
+        Zeile("Mitgliedsart", AntragEinstellungen.ARTEN[a.mitgliedsart] ?: a.mitgliedsart)
+        Zeile("Beitrag", AntragLayout.beitragText(e.beitrag(a.mitgliedsart)))
+        Zeile("Eintritt", if (a.eintritt.isNotBlank()) deDate(a.eintritt) else "")
+        Zeile("Frühere Vereine", a.vorverein)
+        Zeile("Anmerkung", a.notiz)
+    }
+    Abschnitt("Zahlung") {
+        if (a.sepa) {
+            Zeile("Zahlungsart", "Lastschrift (SEPA)")
+            Zeile("Kontoinhaber", a.kontoinhaber)
+            Zeile("IBAN", Iban.gruppiert(a.iban))
+            Zeile("BIC", a.bic)
+            Zeile("Bank", a.bankname)
+        } else Zeile("Zahlungsart", "Überweisung")
+    }
 }
 
 /**
@@ -153,35 +179,54 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
             return@Surface
         }
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        if (abgegeben) "Antrag abgegeben" else "Aufnahmeantrag",
-                        style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
-                    )
-                    if (!abgegeben) Text(
-                        "Schritt $seite von ${AntragRegeln.SEITE_ZUSAMMENFASSUNG}",
-                        style = MaterialTheme.typography.titleSmall, maxLines = 1, softWrap = false,
-                    )
-                }
+            Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (abgegeben) "Antrag abgegeben" else "Aufnahmeantrag",
+                    Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false,
+                )
                 if (!abgegeben) TextButton(onClick = { abbrechenFrage = true }) {
                     Text("Abbrechen\n(Vereinsvertreter)", style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 }
             }
-            HorizontalDivider()
+            if (!abgegeben) Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    for (i in AntragRegeln.SEITE_PERSON..AntragRegeln.SEITE_ZUSAMMENFASSUNG) {
+                        val farbe = when {
+                            i < seite -> MaterialTheme.colorScheme.primary
+                            i == seite -> MaterialTheme.colorScheme.tertiaryContainer
+                            else -> MaterialTheme.colorScheme.outlineVariant
+                        }
+                        Box(Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(4.dp)).background(farbe))
+                    }
+                }
+                Text(
+                    "Schritt $seite von ${AntragRegeln.SEITE_ZUSAMMENFASSUNG} · " + when (seite) {
+                        AntragRegeln.SEITE_PERSON -> "Person"; AntragRegeln.SEITE_MITGLIEDSCHAFT -> "Mitgliedschaft"
+                        AntragRegeln.SEITE_ZAHLUNG -> "Zahlung"; AntragRegeln.SEITE_ERKLAERUNG -> "Erklärungen"; else -> "Prüfen"
+                    },
+                    style = MaterialTheme.typography.titleSmall, maxLines = 1, softWrap = false, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 Column(
                     Modifier.widthIn(max = 640.dp).fillMaxSize().verticalScroll(rememberScrollState(), enabled = true).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    if (abgegeben) {
-                        Text("Vielen Dank!", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                    if (abgegeben) Karte(farbe = MaterialTheme.colorScheme.primaryContainer) {
+                        Text("Vielen Dank!", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         Text(
                             "Ihr Antrag ist ausgefüllt und unterschrieben. Bitte geben Sie das Gerät jetzt an den Vereinsvertreter zurück. " +
                                 "Er prüft den Antrag und nimmt Sie als Mitglied auf.",
-                            style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 8.dp),
+                            style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
-                    } else when (seite) {
+                    } else if (seite == AntragRegeln.SEITE_ZUSAMMENFASSUNG) {
+                        Ueberschrift("Bitte alles noch einmal prüfen")
+                        AntragUebersicht(a, einst, heute)
+                        Text(
+                            "Stimmt etwas nicht, gehen Sie mit „Zurück“ zu der Seite und ändern es. Mit „Antrag abgeben“ ist der Antrag fertig.",
+                            style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp),
+                        )
+                    } else Karte { when (seite) {
                         AntragRegeln.SEITE_PERSON -> {
                             Ueberschrift("Angaben zur Person")
                             Text("Felder mit * sind Pflicht.", style = MaterialTheme.typography.bodyMedium)
@@ -223,11 +268,9 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
                                 )
                                 TextButton(onClick = { a = a.copy(mitgliedsart = vorschlag) }) { Text("Diese Art übernehmen") }
                             }
-                            Card(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                                Column(Modifier.padding(12.dp)) {
-                                    Text("Ihr Beitrag", style = MaterialTheme.typography.labelLarge)
-                                    Text(AntragLayout.beitragText(einst.beitrag(a.mitgliedsart)), style = MaterialTheme.typography.titleLarge)
-                                }
+                            Column(Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.tertiaryContainer).padding(16.dp)) {
+                                Text("Ihr Beitrag", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                Text(AntragLayout.beitragText(einst.beitrag(a.mitgliedsart)), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onTertiaryContainer)
                             }
                             DatumFeld("Eintrittsdatum *", a.eintritt, error = fehler["eintritt"]) { a = a.copy(eintritt = it) }
                             Feld("Frühere Vereine (freiwillig)", a.vorverein, { a = a.copy(vorverein = it) })
@@ -283,24 +326,16 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
                                 ) { a = a.copy(kontoinhaberUnterschrift = it) }
                             }
                         }
-                        else -> {
-                            Ueberschrift("Bitte alles noch einmal prüfen")
-                            AntragUebersicht(a, einst, heute)
-                            Text(
-                                "Stimmt etwas nicht, gehen Sie mit „Zurück“ zu der Seite und ändern es. Mit „Antrag abgeben“ ist der Antrag fertig.",
-                                style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp),
-                            )
-                        }
-                    }
+                    } }
                 }
             }
             HorizontalDivider()
             Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (abgegeben) {
-                    Button(onClick = onFertig, modifier = Modifier.fillMaxWidth()) { Text("Weiter (Vereinsvertreter)") }
+                    Button(onClick = onFertig, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Weiter (Vereinsvertreter)") }
                 } else {
                     OutlinedButton(
-                        onClick = { zeigeFehler = false; seite -= 1 }, enabled = seite > AntragRegeln.SEITE_PERSON, modifier = Modifier.weight(1f),
+                        onClick = { zeigeFehler = false; seite -= 1 }, enabled = seite > AntragRegeln.SEITE_PERSON, modifier = Modifier.weight(1f).height(52.dp),
                     ) { Text("Zurück") }
                     Button(
                         onClick = {
@@ -318,7 +353,7 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
                                 seite += 1
                             }
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(52.dp),
                     ) { Text(if (seite == AntragRegeln.SEITE_ZUSAMMENFASSUNG) "Antrag abgeben" else "Weiter") }
                 }
             }
@@ -359,39 +394,41 @@ fun AntragPruefenScreen(model: AppModel, onAufgenommen: (String) -> Unit, onVerw
     val offen = AntragRegeln.fehler(AntragRegeln.SEITE_ZUSAMMENFASSUNG, a, heute, sparten)
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Antrag prüfen", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text("Antrag prüfen", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 4.dp))
         Text(
             "Die Angaben des Antragstellers sind hier nicht änderbar. Stimmt etwas nicht, nehmen Sie die Person auf und korrigieren sie " +
                 "danach im normalen Mitgliedsformular. Bei groben Fehlern: Antrag verwerfen und neu ausfüllen lassen.",
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp),
         )
         if (dubletten.isNotEmpty()) {
-            Card(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                Column(Modifier.padding(12.dp)) {
-                    Text("Achtung: möglicherweise schon Mitglied", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
-                    dubletten.forEach { Text("${it.firstName} ${it.lastName} (Nr. ${it.number})", style = MaterialTheme.typography.bodyMedium) }
-                }
+            Karte(farbe = MaterialTheme.colorScheme.errorContainer) {
+                Text("Achtung: möglicherweise schon Mitglied", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onErrorContainer)
+                dubletten.forEach { Text("${it.firstName} ${it.lastName} (Nr. ${it.number})", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer) }
             }
         }
         if (offen.isNotEmpty()) {
-            Text("Der Antrag ist unvollständig: ${offen.values.first()}", color = MaterialTheme.colorScheme.error)
+            Karte(farbe = MaterialTheme.colorScheme.errorContainer) {
+                Text("Der Antrag ist unvollständig: ${offen.values.first()}", color = MaterialTheme.colorScheme.onErrorContainer)
+            }
         }
         AntragUebersicht(a, einst, heute)
-        Ueberschrift("Unterschriften")
-        a.unterschrift?.let { Text("Antragsteller"); UnterschriftVorschau(it) }
-        a.vertreterUnterschrift?.let { Text("Gesetzlicher Vertreter"); UnterschriftVorschau(it) }
-        a.kontoinhaberUnterschrift?.let { Text("Kontoinhaber"); UnterschriftVorschau(it) }
-        Ueberschrift("Aufnahme")
-        Feld("Mitgliedsnummer", nummer, { nummer = it }, hinweis = "Vorschlag der App; Sie können sie ändern.")
+        if (a.unterschrift != null || a.vertreterUnterschrift != null || a.kontoinhaberUnterschrift != null) Abschnitt("Unterschriften") {
+            a.unterschrift?.let { Text("Antragsteller", style = MaterialTheme.typography.labelLarge); UnterschriftVorschau(it) }
+            a.vertreterUnterschrift?.let { Text("Gesetzlicher Vertreter", style = MaterialTheme.typography.labelLarge); UnterschriftVorschau(it) }
+            a.kontoinhaberUnterschrift?.let { Text("Kontoinhaber", style = MaterialTheme.typography.labelLarge); UnterschriftVorschau(it) }
+        }
+        Abschnitt("Aufnahme") {
+            Feld("Mitgliedsnummer", nummer, { nummer = it }, hinweis = "Vorschlag der App; Sie können sie ändern.")
+        }
         Button(
             onClick = {
                 model.antragAufnehmen(a, nummer) { r, f ->
                     if (r != null) onAufgenommen(r.mitgliedId) else meldung = f ?: "Die Aufnahme ist fehlgeschlagen."
                 }
             },
-            enabled = !model.busy && offen.isEmpty(), modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            enabled = !model.busy && offen.isEmpty(), modifier = Modifier.fillMaxWidth().height(52.dp).padding(top = 0.dp),
         ) { Text("Als Mitglied aufnehmen") }
-        OutlinedButton(onClick = { verwerfenFrage = true }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Antrag verwerfen") }
+        OutlinedButton(onClick = { verwerfenFrage = true }, enabled = !model.busy, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Antrag verwerfen") }
     }
     meldung?.let { text ->
         Aktionsdialog(titel = "Aufnahme nicht möglich", onDismiss = { meldung = null }, inhalt = { Text(text) }, aktionen = { TextButton(onClick = { meldung = null }) { Text("OK") } })

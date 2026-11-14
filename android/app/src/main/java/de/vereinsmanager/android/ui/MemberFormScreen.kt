@@ -22,6 +22,12 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -76,6 +82,10 @@ internal fun Feld(
         value = value, onValueChange = onChange, label = { Text(label) }, enabled = enabled, singleLine = singleLine,
         isError = error != null, keyboardOptions = KeyboardOptions(keyboardType = keyboard), visualTransformation = transformation,
         supportingText = if (unten != null) { { Text(unten) } } else null,
+        shape = RoundedCornerShape(16.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
+        ),
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
     )
 }
@@ -85,8 +95,13 @@ internal fun Auswahl(label: String, options: Map<String, String>, value: String,
     var open by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(label, style = MaterialTheme.typography.labelMedium)
-        OutlinedButton(onClick = { open = true }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
-            Text(options[value] ?: value.ifEmpty { "–" })
+        OutlinedButton(
+            onClick = { open = true }, enabled = enabled, modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+        ) {
+            Text(options[value] ?: value.ifEmpty { "–" }, Modifier.weight(1f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Icon(Lucide.ChevronDown, null, Modifier.size(18.dp))
         }
         DropdownMenu(open, { open = false }) {
             options.forEach { (k, v) -> DropdownMenuItem(text = { Text(v) }, onClick = { onChange(k); open = false }) }
@@ -101,7 +116,10 @@ internal fun DatumFeld(label: String, iso: String, error: String? = null, option
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(label, style = MaterialTheme.typography.labelMedium)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(onClick = { open = true }) { Text(if (iso.isEmpty()) "Datum wählen" else deDate(iso)) }
+            OutlinedButton(
+                onClick = { open = true }, modifier = Modifier.height(52.dp), shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+            ) { Text(if (iso.isEmpty()) "Datum wählen" else deDate(iso)) }
             if (optional && iso.isNotEmpty()) TextButton(onClick = { onChange("") }) { Text("Löschen") }
         }
         if (error != null) Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)

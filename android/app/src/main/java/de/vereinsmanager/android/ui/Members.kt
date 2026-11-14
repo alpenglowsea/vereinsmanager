@@ -86,6 +86,9 @@ private val SORT_LABELS = linkedMapOf(
     SortKey.ENTRY to "Eintritt", SortKey.CITY to "Ort", SortKey.FEE to "Beitrag", SortKey.PAYMENT to "Zahlart",
 )
 
+/** Kurze Zahlart für die Karten der Mitgliederliste, damit die Zeile nicht abgeschnitten wird. */
+private val ZAHLART_KURZ = mapOf("sepa" to "SEPA", "transfer" to "Überweisung", "cash" to "Bar", "standing_order" to "Dauerauftrag")
+
 fun euro(v: java.math.BigDecimal): String = NumberFormat.getCurrencyInstance(Locale.GERMANY).format(v)
 
 fun deDate(iso: String): String = try {
@@ -330,7 +333,8 @@ private fun MemberRow(m: Member, nr: Int, erste: Boolean, letzte: Boolean, selec
                 if (line.isNotEmpty()) Text(line, style = MaterialTheme.typography.bodySmall, color = s.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val fee = if (m.paymentMethod == "exempt" || m.feePeriod == "none") "beitragsfrei"
                 else "${euro(m.fee)} ${MemberLabels.FEE_PERIOD_SHORT[m.feePeriod] ?: ""}".trim()
-                Text(fee + (MemberLabels.PAYMENT[m.paymentMethod]?.let { " · $it" } ?: ""), style = MaterialTheme.typography.bodySmall, color = s.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val zahl = if (m.paymentMethod == "exempt") null else ZAHLART_KURZ[m.paymentMethod] ?: MemberLabels.PAYMENT[m.paymentMethod]
+                Text(fee + (zahl?.let { " · $it" } ?: ""), style = MaterialTheme.typography.bodySmall, color = s.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             val (schildFlaeche, schildText) = when (m.status) {
                 "active" -> s.primaryContainer to s.onPrimaryContainer
