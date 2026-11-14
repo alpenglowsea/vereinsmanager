@@ -242,11 +242,11 @@ fun SitzungDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelet
 
         if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
         if (fehltEinladung.isNotEmpty()) Text("Für die Einladung fehlt noch: ${fehltEinladung.joinToString(", ")}.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
-        if (auszugFehlt != null && Sitzungen.registerBeschluesse(s).isNotEmpty()) Text("Registerauszug: $auszugFehlt", style = MaterialTheme.typography.bodySmall)
+        if (auszugFehlt != null) Text("Registerauszug nicht möglich: $auszugFehlt", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
         AktionsZeilen(
             listOf(
-                listOf(Aktion("Einladung (PDF)", { pdfWaehlen(SitzungsPdf.EINLADUNG) }, enabled = fehltEinladung.isEmpty() && !model.busy), Aktion("Protokoll (PDF)", { pdfWaehlen(SitzungsPdf.PROTOKOLL) }, enabled = !model.busy)),
-                listOf(Aktion("Registerauszug (PDF)", { pdfWaehlen(SitzungsPdf.AUSZUG) }, enabled = auszugFehlt == null && !model.busy), Aktion("Per E-Mail …", { mail = true }, enabled = !model.busy)),
+                listOf(Aktion("Einladung (PDF)", { if (fehltEinladung.isEmpty()) pdfWaehlen(SitzungsPdf.EINLADUNG) else meldung = "Für die Einladung fehlt noch: ${fehltEinladung.joinToString(", ")}." }, enabled = !model.busy), Aktion("Protokoll (PDF)", { pdfWaehlen(SitzungsPdf.PROTOKOLL) }, enabled = !model.busy)),
+                listOf(Aktion("Registerauszug (PDF)", { if (auszugFehlt == null) pdfWaehlen(SitzungsPdf.AUSZUG) else meldung = "Registerauszug nicht möglich: $auszugFehlt" }, enabled = !model.busy), Aktion("Per E-Mail …", { mail = true }, enabled = !model.busy)),
                 listOf(Aktion("Bearbeiten", onEdit, primaer = true, enabled = !s.gesperrt), Aktion("Löschen", { loeschen = true })),
             ),
             Modifier.padding(top = 12.dp),

@@ -162,6 +162,26 @@ class SitzungenTest {
         assertEquals(2, s.count(Dokumente.DOKUMENTE))
     }
 
+    @Test fun protokollLandetImOrdnerZurSitzungsartAlsPdf() {
+        val s = InMemoryDocumentStore(); val files = InMemoryFileStore()
+        val pdfBytes = "%PDF-1.4 test".toByteArray()
+        fun archiviere(art: String): de.vereinsmanager.core.documents.Dokument {
+            val a = speichere(s, form().copy(id = null, art = art))
+            Sitzungen.unterschreiben(s, a.id, Sitzungen.ROLLE_LEITUNG, unterschrift, "x", now = jetzt)
+            Sitzungen.unterschreiben(s, a.id, Sitzungen.ROLLE_SCHRIFT, unterschrift, "x", now = jetzt)
+            return Sitzungen.archivieren(s, files, a.id, pdfBytes, jetzt)
+        }
+        val vorstand = archiviere("board")
+        assertEquals("folder-vorstand", vorstand.ordnerId)
+        assertTrue(vorstand.dateiName.endsWith(".pdf")); assertEquals("application/pdf", vorstand.dateiTyp)
+        assertTrue(String(files.open(vorstand.dateiId!!)!!.use { it.readBytes() }).startsWith("%PDF"))
+        assertEquals("folder-jhv", archiviere("general_assembly").ordnerId)
+        assertEquals("folder-jhv", archiviere("extraordinary_assembly").ordnerId)
+        assertEquals("folder-protokolle", archiviere("committee").ordnerId)
+        assertEquals("folder-protokolle", archiviere("other").ordnerId)
+        assertTrue(s.get(Dokumente.ORDNER, "folder-jhv") != null)
+    }
+
     @Test fun statistikUndBeschlussbuch() {
         val s = InMemoryDocumentStore()
         speichere(s, form(listOf(TopForm("t1", "A", beschluesse = listOf(beschluss("b1", register = true), beschluss("b2", ja = "2", nein = "6", ergebnis = "rejected", steuer = true), beschluss("b3", ja = "", nein = "", enth = "", ergebnis = "deferred"))))))

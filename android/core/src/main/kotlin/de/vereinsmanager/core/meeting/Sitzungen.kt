@@ -4,6 +4,7 @@ import de.vereinsmanager.core.documents.Dokument
 import de.vereinsmanager.core.documents.DokumentForm
 import de.vereinsmanager.core.documents.DokumentStore
 import de.vereinsmanager.core.documents.Dokumente
+import de.vereinsmanager.core.documents.StandardOrdner
 import de.vereinsmanager.core.donation.Unterschrift
 import de.vereinsmanager.core.files.FileStore
 import de.vereinsmanager.core.members.Member
@@ -435,14 +436,28 @@ object Sitzungen {
 
     fun imArchiv(store: DocumentStore, s: Sitzung): Boolean = s.dokumentId.isNotEmpty() && store.get(Dokumente.DOKUMENTE, s.dokumentId) != null
 
+    /** Der Standardordner für das Protokoll dieser Sitzungsart; fehlende Standardordner werden dabei angelegt. */
+    fun archivOrdnerId(art: String): String = when (art) {
+        "general_assembly", "extraordinary_assembly" -> "folder-jhv"
+        "board" -> "folder-vorstand"
+        else -> "folder-protokolle"
+    }
+
+    private fun archivOrdner(store: DocumentStore, art: String, now: ZonedDateTime): String {
+        val id = archivOrdnerId(art)
+        if (store.get(Dokumente.ORDNER, id) == null) StandardOrdner.anlegenFehlende(store, now)
+        return if (store.get(Dokumente.ORDNER, id) != null) id else ""
+    }
+
     /** Legt das unterschriebene Protokoll als PDF in der Kategorie „Protokolle & Versammlungen“ ab und merkt sich das Dokument an der Sitzung. */
     fun archivieren(store: DocumentStore, files: FileStore, id: String, pdf: ByteArray, now: ZonedDateTime = ZonedDateTime.now()): Dokument {
         val s = sitzung(store, id) ?: throw SitzungException("Die Sitzung gibt es nicht mehr.")
         if (!s.vollstaendigUnterschrieben) throw SitzungException("Ins Archiv kommt nur ein Protokoll mit beiden Unterschriften.")
         if (imArchiv(store, s)) throw SitzungException("Das Protokoll liegt schon im Archiv.")
+        val ordner = archivOrdner(store, s.art, now)
         val form = DokumentForm(
             id = DokumentStore.neueId(), titel = "Protokoll: ${s.titel} vom ${Zeit.deutsch(s.datum)}", kategorie = "protokolle",
-            datum = s.datum, tags = "Protokoll, ${artName(s.art)}",
+            ordnerId = ordner, datum = s.datum, tags = "Protokoll, ${artName(s.art)}",
         )
         return store.transaction {
             val d = DokumentStore.neu(store, files, pdf, dateiname("Protokoll", s), "application/pdf", form, now)
