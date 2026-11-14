@@ -163,8 +163,8 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
 
     val fehler = if (zeigeFehler) AntragRegeln.fehler(seite, a, heute, sparten) else emptyMap()
     val minder = AntragRegeln.minderjaehrig(a, heute)
-    val satzungDok = remember(model.dokumente) { model.antragBeilage(AntragEinstellungenStore.Beilage.SATZUNG) }
-    val datenschutzDok = remember(model.dokumente) { model.antragBeilage(AntragEinstellungenStore.Beilage.DATENSCHUTZ) }
+    val satzungDok = remember(model.dokumente, model.stand) { model.antragBeilage(AntragEinstellungenStore.Beilage.SATZUNG) }
+    val datenschutzDok = remember(model.dokumente, model.stand) { model.antragBeilage(AntragEinstellungenStore.Beilage.DATENSCHUTZ) }
 
     Surface(Modifier.fillMaxSize()) {
         val gezeigt = ansicht
@@ -543,25 +543,25 @@ private fun BeilagenKarte(model: AppModel, onMeldung: (String) -> Unit) {
             Text("Satzung und Datenschutz-Vordruck", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(
                 "Beides als PDF (höchstens 10 MB). Das neue Mitglied kann die Dateien in Schritt 4 des Aufnahmeantrags öffnen. " +
-                    "Sie liegen im Dokumentenarchiv und sind in der Datensicherung enthalten.",
+                    "Ein neuer Upload legt eine neue Fassung mit Datum im Titel im Dokumentenarchiv ab; frühere Fassungen bleiben dort erhalten.",
                 style = MaterialTheme.typography.bodySmall,
             )
             AntragEinstellungenStore.Beilage.entries.forEach { b ->
-                val dok = remember(model.dokumente) { model.antragBeilage(b) }
+                val dok = remember(model.dokumente, model.stand) { model.antragBeilage(b) }
                 Text(b.titel, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
                 Text(
-                    if (dok == null) "Noch nichts hinterlegt." else "Hinterlegt: ${dok.dateiName}",
+                    if (dok == null) "Noch nichts hinterlegt." else "Aktuell: ${dok.titel} (${dok.dateiName})",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick = { waehle = b; launcher.launch(arrayOf("application/pdf")) }, enabled = !model.busy, modifier = Modifier.weight(1f),
-                    ) { Text(if (dok == null) "PDF hochladen" else "Ersetzen", maxLines = 1) }
+                    ) { Text(if (dok == null) "PDF hochladen" else "Neue Fassung", maxLines = 1) }
                     if (dok != null) {
                         OutlinedButton(onClick = { zeige = b.titel to dok.id }, modifier = Modifier.weight(1f)) { Text("Ansehen", maxLines = 1) }
                         TextButton(
                             onClick = { model.antragBeilageEntfernen(b) { f -> onMeldung(f ?: "${b.titel} entfernt.") } }, enabled = !model.busy,
-                        ) { Text("Entfernen", maxLines = 1) }
+                        ) { Text("Nicht mehr anbieten", maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
                     }
                 }
             }

@@ -214,32 +214,30 @@ object AntragEinstellungenStore {
 
     /**
      * Hinterlegt eine Beilage (nur PDF). Sie liegt als Dokument im Archiv (Satzung unter „Satzung & Ordnungen“, der Datenschutz-Vordruck
-     * unter „Digitale Aufnahmeanträge“) und ist damit in der Sicherung. Eine frühere Datei wird ersetzt.
+     * unter „Digitale Aufnahmeanträge“) und ist damit in der Sicherung. Jede Fassung wird als neues Dokument mit Datum im Titel abgelegt;
+     * frühere Fassungen bleiben im Archiv erhalten (nachvollziehbar), nur die neue wird dem Antragsteller angeboten.
      */
     fun beilageSetzen(store: DocumentStore, files: FileStore, b: Beilage, bytes: ByteArray, dateiName: String, heute: LocalDate): Dokument {
         if (bytes.size < 8 || String(bytes, 0, 5, Charsets.ISO_8859_1) != "%PDF-") throw DokumentException("Das ist keine PDF-Datei.")
         if (bytes.size > MAX_VORLAGE) throw DokumentException("Die Datei ist zu groß (höchstens ${MAX_VORLAGE / 1024 / 1024} MB).")
-        val alt = beilage(store, b)
         StandardOrdner.anlegenFehlende(store)
         val ordner = when (b) {
             Beilage.SATZUNG -> "folder-satzung".takeIf { store.get(Dokumente.ORDNER, it) != null }.orEmpty()
             Beilage.DATENSCHUTZ -> ordnerKennung(store, files)
         }
         val form = DokumentForm(
-            id = DokumentStore.neueId(), titel = b.titel, kategorie = b.kategorie, ordnerId = ordner, datum = heute.toString(), tags = b.tags,
-            notiz = "Wird im Aufnahmeantrag dem neuen Mitglied zum Ansehen angeboten.",
+            id = DokumentStore.neueId(), titel = "${b.titel} vom ${"%02d.%02d.%04d".format(heute.dayOfMonth, heute.monthValue, heute.year)}",
+            kategorie = b.kategorie, ordnerId = ordner, datum = heute.toString(), tags = b.tags,
+            notiz = "Wird im Aufnahmeantrag dem neuen Mitglied zum Ansehen angeboten, solange es die aktuelle Fassung ist.",
         )
         val neu = DokumentStore.neu(store, files, bytes, dateiName.ifBlank { b.dateiName }, "application/pdf", form)
         aendern(store) { it[b.schluessel] = JsonPrimitive(neu.id) }
-        if (alt != null) DokumentStore.loeschen(store, files, listOf(alt.id))
         return neu
     }
 
-    /** Entfernt die Beilage (das Dokument wird gelöscht). */
-    fun beilageEntfernen(store: DocumentStore, files: FileStore, b: Beilage) {
-        val alt = beilage(store, b)
+    /** Der Antrag bietet die Beilage nicht mehr an. Das Dokument bleibt im Archiv (löschen geht dort). */
+    fun beilageEntfernen(store: DocumentStore, b: Beilage) {
         aendern(store) { it.remove(b.schluessel) }
-        if (alt != null) DokumentStore.loeschen(store, files, listOf(alt.id))
     }
 }
 

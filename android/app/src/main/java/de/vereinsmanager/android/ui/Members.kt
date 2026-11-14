@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.draw.clipToBounds
@@ -303,10 +304,12 @@ private fun KopfKnopf(text: String, onClick: () -> Unit, modifier: Modifier = Mo
 /** Eine farbige Kennzahl-Kachel (Titel, große Zahl, optional eine Zeile darunter). */
 @Composable
 private fun StatKachel(titel: String, zahl: String, unter: String?, flaeche: Color, text: Color, modifier: Modifier = Modifier, groesse: androidx.compose.ui.unit.TextUnit = 30.sp) {
+    // Die Zahl wird bei vielen Stellen kleiner, damit nichts abgeschnitten wird.
+    val g = minOf(groesse.value, 150f / zahl.length.coerceAtLeast(1)).coerceAtLeast(16f)
     Column(modifier.clip(RoundedCornerShape(22.dp)).background(flaeche).padding(horizontal = 14.dp, vertical = 10.dp)) {
         Text(titel, color = text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1)
-        Text(zahl, color = text, fontSize = groesse, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-        if (unter != null) Text(unter, color = text.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall, maxLines = 1)
+        Text(zahl, color = text, fontSize = g.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
+        if (unter != null) Text(unter, color = text.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall, maxLines = 2)
     }
 }
 
@@ -437,11 +440,15 @@ private fun MemberDetailPage(model: AppModel, id: String, onEdit: () -> Unit, on
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (age != null) StatKachel("Alter", "$age", "Jahre", sc.secondaryContainer, sc.onSecondaryContainer, Modifier.weight(1f))
-            if (m.entryDate.length >= 4) StatKachel("Dabei seit", m.entryDate.take(4), dauer?.takeIf { it.isNotBlank() }, sc.primaryContainer, sc.onPrimaryContainer, Modifier.weight(1f))
-            if (beitrag == "beitragsfrei") StatKachel("Beitrag", "frei", "beitragsfrei", sc.tertiaryContainer, sc.onTertiaryContainer, Modifier.weight(1f))
-            else StatKachel("Beitrag", euro(m.fee), MemberLabels.FEE_PERIOD[m.feePeriod], sc.tertiaryContainer, sc.onTertiaryContainer, Modifier.weight(1f), 22.sp)
+        Row(Modifier.fillMaxWidth().padding(top = 14.dp).height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val gleich = Modifier.weight(1f).fillMaxHeight()
+            if (age != null) StatKachel("Alter", "$age", "Jahre", sc.secondaryContainer, sc.onSecondaryContainer, gleich)
+            if (m.entryDate.length >= 4) StatKachel("Dabei seit", m.entryDate.take(4), dauer?.takeIf { it.isNotBlank() }, sc.primaryContainer, sc.onPrimaryContainer, gleich)
+            if (beitrag == "beitragsfrei") StatKachel("Beitrag", "frei", "beitragsfrei", sc.tertiaryContainer, sc.onTertiaryContainer, gleich)
+            else StatKachel(
+                "Beitrag", euro(m.fee).removeSuffix("€").trim(), "€ " + (MemberLabels.FEE_PERIOD[m.feePeriod] ?: "").lowercase().trim(),
+                sc.tertiaryContainer, sc.onTertiaryContainer, gleich,
+            )
         }
         Row(Modifier.padding(top = 12.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("Details", "Material", "Dokumente", "Historie").forEachIndexed { i, s -> TabChip(s, tab == i) { tab = i } }

@@ -1130,7 +1130,7 @@ class AppModel(private val appContext: Context) {
     }
 
     fun antragBeilageEntfernen(b: AntragEinstellungenStore.Beilage, done: (String?) -> Unit) =
-        hintergrund({ AntragEinstellungenStore.beilageEntfernen(store, dateien, b) }) { _, fehler -> done(fehler) }
+        hintergrund({ AntragEinstellungenStore.beilageEntfernen(store, b) }) { _, fehler -> done(fehler) }
 
     /** Baut das PDF zu einem Antrag; a == null ergibt das leere Formular zum Ausdrucken. */
     private fun antragPdfBytes(a: Antrag?, nummer: String): ByteArray {
