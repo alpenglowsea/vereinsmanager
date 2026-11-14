@@ -66,10 +66,14 @@ fun leistenZiele(model: AppModel): List<Ziel> {
 
 private val ScrimFarbe = Color(0xFF1A2A1B).copy(alpha = 0.55f)
 
+/** Höhe des festen Teils der Leiste (ohne den Rand der Systemleiste); so viel Platz reserviert die Hauptseite unter dem Inhalt. */
+val LeistenHoehe = 72.dp
+
 /**
- * Die Navigationsleiste unten: zwei frei wählbare Ziele links, der Mittelknopf „Neu“ in der Mitte, zwei Ziele rechts.
- * Alles liegt innerhalb der Leiste (nichts ragt darüber hinaus), damit über der Leiste kein Streifen entsteht, durch den
- * beim Scrollen der Hintergrund scheint. Bei geöffnetem Menü dreht sich das Plus des Knopfs zum Kreuz.
+ * Die Navigationsleiste unten: zwei frei wählbare Ziele links, der Mittelknopf „Neu“, zwei Ziele rechts.
+ * Der Mittelknopf ragt oben aus der Leiste heraus. Die Leiste wird über dem Inhalt eingeblendet (nicht als eigene Zeile darunter);
+ * der Bereich neben dem Knopf ist durchsichtig, sodass der Inhalt dort einfach weiterläuft. Bei geöffnetem Menü dreht sich
+ * das Plus des Knopfs zum Kreuz.
  */
 @Composable
 fun NavigationsLeiste(
@@ -80,25 +84,29 @@ fun NavigationsLeiste(
     onMitte: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val leiste = leistenFarbe()
     val text = leistenText()
     val dreh by animateFloatAsState(if (menueOffen) 45f else 0f, label = "plus")
-    Row(
-        modifier.fillMaxWidth().background(leistenFarbe()).windowInsetsPadding(WindowInsets.navigationBars).height(76.dp).padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        plaetze.take(2).forEach { z -> LeistenPlatz(z, z == aktiv, text, onZiel, Modifier.weight(1f)) }
-        Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
-            val knopf: Shape = RoundedCornerShape(20.dp)
-            Box(
-                Modifier.size(56.dp).background(MaterialTheme.colorScheme.tertiaryContainer, knopf)
-                    .clickable(role = Role.Button, onClick = onMitte)
-                    .semantics { contentDescription = if (menueOffen) "Menü schließen" else "Neu anlegen" },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Lucide.Plus, null, Modifier.size(28.dp).rotate(dreh), tint = MaterialTheme.colorScheme.onTertiaryContainer)
-            }
+    val oben = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
+    Box(modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().padding(top = 26.dp).background(leiste, oben).windowInsetsPadding(WindowInsets.navigationBars)
+                .height(LeistenHoehe).padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            plaetze.take(2).forEach { z -> LeistenPlatz(z, z == aktiv, text, onZiel, Modifier.weight(1f)) }
+            Spacer(Modifier.weight(1f))
+            plaetze.drop(2).forEach { z -> LeistenPlatz(z, z == aktiv, text, onZiel, Modifier.weight(1f)) }
         }
-        plaetze.drop(2).forEach { z -> LeistenPlatz(z, z == aktiv, text, onZiel, Modifier.weight(1f)) }
+        val knopf: Shape = RoundedCornerShape(22.dp)
+        Box(
+            Modifier.align(Alignment.TopCenter).size(64.dp).shadow(6.dp, knopf).background(MaterialTheme.colorScheme.tertiaryContainer, knopf)
+                .clickable(role = Role.Button, onClick = onMitte)
+                .semantics { contentDescription = if (menueOffen) "Menü schließen" else "Neu anlegen" },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Lucide.Plus, null, Modifier.size(30.dp).rotate(dreh), tint = MaterialTheme.colorScheme.onTertiaryContainer)
+        }
     }
 }
 
@@ -106,7 +114,7 @@ fun NavigationsLeiste(
 private fun LeistenPlatz(z: Ziel, aktiv: Boolean, textFarbe: Color, onZiel: (Ziel) -> Unit, modifier: Modifier) {
     val scheme = MaterialTheme.colorScheme
     Column(
-        modifier.padding(top = 12.dp).clickable(role = Role.Tab, onClick = { onZiel(z) }).semantics { selected = aktiv },
+        modifier.padding(top = 10.dp).clickable(role = Role.Tab, onClick = { onZiel(z) }).semantics { selected = aktiv },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
@@ -134,7 +142,7 @@ fun SchnellMenue(onWahl: (Schnell) -> Unit, onZu: () -> Unit, modifier: Modifier
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onZu),
         contentAlignment = Alignment.BottomCenter,
     ) {
-        Column(Modifier.fillMaxWidth().padding(bottom = 24.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 40.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             // Die Symbole stehen genau untereinander in der Mitte (über dem Mittelknopf); die Beschriftung steht rechtsbündig links daneben.
             Schnell.entries.reversed().forEachIndexed { i, a ->
                 val gelb = i % 2 == 1

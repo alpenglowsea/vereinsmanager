@@ -9,6 +9,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -21,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
@@ -62,6 +68,7 @@ import de.vereinsmanager.android.ui.KontaktFormScreen
 import de.vereinsmanager.android.ui.KontenScreen
 import de.vereinsmanager.android.ui.BereicheRaster
 import de.vereinsmanager.android.ui.Kopfzeile
+import de.vereinsmanager.android.ui.LeistenHoehe
 import de.vereinsmanager.android.ui.NavigationsLeiste
 import de.vereinsmanager.android.ui.SchnellMenue
 import de.vereinsmanager.android.ui.leistenZiele
@@ -204,6 +211,7 @@ class MainActivity : ComponentActivity() {
                 }
                 val inhalt: @Composable () -> Unit = {
                     val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || (page is Page.Documents && page.folderId == null) || page is Page.Sepa || page is Page.Euer || page is Page.FinanzAuswertung || page is Page.Rechnungen || page is Page.Spenden || page is Page.Contacts || page is Page.Inventory || page is Page.Calendar || page is Page.Meetings || (page is Page.Settings && stack.size <= 2) || page is Page.Probes
+                    Box(Modifier.fillMaxSize()) {
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
                         topBar = {
@@ -217,14 +225,9 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         bottomBar = {
-                            // Die Leiste steht nur auf den obersten Seiten (nicht in Formularen und Detailansichten) und nur am Handy.
-                            if (!breit && oberste) NavigationsLeiste(
-                                plaetze = leistenZiele(model),
-                                aktiv = aktivesZiel(page),
-                                menueOffen = schnellOffen,
-                                onZiel = ::geheZu,
-                                onMitte = { bereicheOffen = false; schnellOffen = !schnellOffen },
-                            )
+                            // Reserviert nur den Platz der Leiste; die Leiste selbst liegt unten über dem Inhalt (siehe unten),
+                            // damit der Mittelknopf über sie hinausragen kann, ohne dass ein Streifen entsteht.
+                            if (!breit && oberste) Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars).height(LeistenHoehe))
                         },
                     ) { inner ->
                       // Das Menü liegt unter der Kopfzeile, damit der Menü-Knopf zum Schließen sichtbar bleibt.
@@ -355,6 +358,17 @@ class MainActivity : ComponentActivity() {
                           }
                           if (!breit && schnellOffen) SchnellMenue(onWahl = ::schnell, onZu = { schnellOffen = false })
                       }
+                    }
+                    // Die Navigationsleiste liegt über dem Inhalt: Ihr Mittelknopf ragt nach oben hinaus, und der Inhalt scheint daneben durch.
+                    // Sie steht nur auf den obersten Seiten (nicht in Formularen und Detailansichten) und nur am Handy.
+                    if (!breit && oberste) NavigationsLeiste(
+                        plaetze = leistenZiele(model),
+                        aktiv = aktivesZiel(page),
+                        menueOffen = schnellOffen,
+                        onZiel = ::geheZu,
+                        onMitte = { bereicheOffen = false; schnellOffen = !schnellOffen },
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    )
                     }
                 }
 
