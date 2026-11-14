@@ -177,9 +177,9 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
         ) {
             Column {
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    KompaktKnopf("Neues Mitglied", onNew, Modifier.weight(1f), primaer = true)
-                    KompaktKnopf("CSV-Import", onImport, Modifier.weight(1f))
-                    KompaktKnopf("Export", { exportOpen = true }, Modifier.weight(1f), enabled = !selecting)
+                    KopfKnopf("Neues Mitglied", onNew, Modifier.weight(1f), primaer = true)
+                    KopfKnopf("CSV-Import", onImport, Modifier.weight(1f))
+                    KopfKnopf("Export", { exportOpen = true }, Modifier.weight(1f), enabled = !selecting)
                 }
                 if (!selecting && info.isEmpty() && model.members.isNotEmpty()) {
                     Text("Tipp: Mitglied lange antippen, um mehrere auszuwählen.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
@@ -191,8 +191,6 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                     StatKachel("Aktiv", "${stats.active}", "${stats.activePercent} %", sc.primaryContainer, sc.onPrimaryContainer, Modifier.weight(1f))
                     StatKachel("Passiv", "${stats.passive}", "${stats.passivePercent} %", sc.tertiaryContainer, sc.onTertiaryContainer, Modifier.weight(1f))
                 }
-                val sparten = stats.departments.filter { it.count > 0 }.joinToString("  ·  ") { "${it.name} ${it.count}" }
-                if (sparten.isNotEmpty()) Text(sparten, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
                 TextField(
                     filter.search, { filter = filter.copy(search = it) }, placeholder = { Text("Mitglied suchen …") },
                     singleLine = true, shape = RoundedCornerShape(28.dp),
@@ -285,6 +283,17 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
             deleteOpen = false; info = "${chosen.size} Mitglied(er) gelöscht."; selected = emptySet()
         })
     }
+}
+
+/** Knopf der obersten Zeile: gleich hoch und gleich breit, die Beschriftung darf auf zwei Zeilen umbrechen (nichts wird abgeschnitten). */
+@Composable
+private fun KopfKnopf(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, primaer: Boolean = false) {
+    val rand = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+    val inhalt: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {
+        Text(text, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.labelLarge, lineHeight = 16.sp)
+    }
+    if (primaer) Button(onClick = onClick, modifier = modifier.height(48.dp), enabled = enabled, contentPadding = rand, content = inhalt)
+    else OutlinedButton(onClick = onClick, modifier = modifier.height(48.dp), enabled = enabled, contentPadding = rand, content = inhalt)
 }
 
 /** Eine farbige Kennzahl-Kachel unter dem Titel der Mitgliederliste. */
