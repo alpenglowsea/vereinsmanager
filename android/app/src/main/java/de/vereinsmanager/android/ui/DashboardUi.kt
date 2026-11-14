@@ -226,6 +226,64 @@ private fun Marke(name: String, nr: Int) {
     }
 }
 
+/** Ein Eintrag in einer Listen-Kachel: Trennlinie, links Titel mit grauer Nebenzeile, rechts der Betrag in Fettdruck. */
+@Composable
+private fun Eintrag(
+    titel: String,
+    unter: String? = null,
+    rechts: String? = null,
+    rechtsFarbe: Color = Color.Unspecified,
+    rechtsUnten: String? = null,
+    rechtsUntenFarbe: Color = Color.Unspecified,
+    erster: Boolean = false,
+    vorn: (@Composable () -> Unit)? = null,
+    unten: (@Composable () -> Unit)? = null,
+) {
+    val grau = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(Modifier.fillMaxWidth()) {
+        if (!erster) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            vorn?.invoke()
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(titel, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                if (!unter.isNullOrBlank()) Text(unter, style = MaterialTheme.typography.bodySmall, color = grau, maxLines = 3)
+                unten?.invoke()
+            }
+            if (rechts != null) Column(horizontalAlignment = Alignment.End) {
+                Text(rechts, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = rechtsFarbe, maxLines = 1, softWrap = false)
+                if (rechtsUnten != null) Text(rechtsUnten, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = rechtsUntenFarbe, maxLines = 1)
+            }
+        }
+    }
+}
+
+/** Kleine Datumsmarke („15.11.“) vor einem Eintrag. */
+@Composable
+private fun Datumsmarke(text: String) {
+    Box(Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 10.dp, vertical = 4.dp)) {
+        Text(text, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSecondaryContainer, maxLines = 1)
+    }
+}
+
+/** Große Tageszahl mit Wochentag darunter, für Termine. */
+@Composable
+private fun Tagesblock(datum: LocalDate) {
+    val wochentag = datum.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.GERMAN).uppercase().take(2)
+    Column(Modifier.width(44.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("${datum.dayOfMonth}", fontSize = 24.sp, lineHeight = 26.sp, fontWeight = FontWeight.ExtraBold)
+        Text(wochentag, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Eingefärbte Kennzahl-Fläche (z. B. Offen / Überfällig / Abgerechnet). */
+@Composable
+private fun Chip(label: String, wert: String, flaeche: Color, text: Color, modifier: Modifier = Modifier) {
+    Column(modifier.clip(RoundedCornerShape(18.dp)).background(flaeche).padding(horizontal = 10.dp, vertical = 9.dp)) {
+        Text(label, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = text, maxLines = 1)
+        Text(wert, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = text, maxLines = 1, softWrap = false)
+    }
+}
+
 private fun eur(v: BigDecimal) = Geld.euro(v)
 private fun datumKurz(iso: String) = Zeit.deutsch(iso).take(6)
 
@@ -266,9 +324,8 @@ private fun KachelInhalt(model: AppModel, d: DashboardRechner, k: Kachel, onZiel
             val m = d.mitglieder
             Rahmen("Abteilungen & Sparten", Ziel.MITGLIEDER_AUSWERTUNG, onZiel) {
                 if (m.sparten.isEmpty()) Klein("Noch keine Mitglieder.")
-                m.sparten.forEach { s ->
-                    Zeile(s.name, "${s.anzahl} (${s.prozent} %)")
-                    Balken(s.prozent / 100f, primaer)
+                m.sparten.forEachIndexed { nr, sp ->
+                    Eintrag(sp.name, rechts = "${sp.anzahl} (${sp.prozent} %)", erster = nr == 0, unten = { Balken(sp.prozent / 100f, primaer) })
                 }
                 Klein("${m.spartenAnzahl} Sparten")
             }
@@ -280,24 +337,20 @@ private fun KachelInhalt(model: AppModel, d: DashboardRechner, k: Kachel, onZiel
                 a.forEachIndexed { nr, b ->
                     val tage = ChronoUnit.DAYS.between(d.heute, b.datum)
                     val wann = if (tage == 0L) "Heute!" else "in $tage T."
-                    val was = if (b.art == "birthday") "${b.name} wird ${b.jahre}" else "${b.name}: ${b.jahre} Jahre im Verein"
-                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Marke(b.name, nr)
-                        Box(Modifier.weight(1f)) { Zeile("${datumKurz(b.datum.toString())} $was", wann, if (tage == 0L) primaer else Color.Unspecified) }
-                    }
+                    val was = if (b.art == "birthday") "wird ${b.jahre}" else "${b.jahre} Jahre im Verein"
+                    Eintrag(b.name, "${datumKurz(b.datum.toString())} · $was", rechts = wann, rechtsFarbe = if (tage == 0L) primaer else Color.Unspecified, erster = nr == 0, vorn = { Marke(b.name, nr) })
                 }
             }
         }
         "recent_members" -> Rahmen("Neueste Mitglieder", Ziel.MITGLIEDER, onZiel) {
             val n = d.mitglieder.neueste
             if (n.isEmpty()) Klein("Noch keine Mitglieder.")
-            n.forEach { m -> Zeile("${m.firstName} ${m.lastName}".trim(), Zeit.deutsch(m.entryDate)); Klein(m.department.ifEmpty { "Hauptverein" }) }
+            n.forEachIndexed { nr, m -> Eintrag("${m.firstName} ${m.lastName}".trim(), m.department.ifEmpty { "Hauptverein" }, rechts = Zeit.deutsch(m.entryDate), erster = nr == 0) }
         }
         "demographics_distribution" -> Rahmen("Altersstruktur", Ziel.MITGLIEDER_AUSWERTUNG, onZiel) {
             val m = d.mitglieder
-            m.altersgruppen.forEach { g ->
-                Zeile(g.bezeichnung, "${g.anzahl} (${g.prozent} %)")
-                Balken(g.prozent / 100f, primaer)
+            m.altersgruppen.forEachIndexed { nr, g ->
+                Eintrag(g.bezeichnung, rechts = "${g.anzahl} (${g.prozent} %)", erster = nr == 0, unten = { Balken(g.prozent / 100f, primaer) })
             }
             Klein("Männlich ${m.maenner} · Weiblich ${m.frauen}" + if (m.divers > 0) " · Divers ${m.divers}" else "")
         }
@@ -325,25 +378,32 @@ private fun KachelInhalt(model: AppModel, d: DashboardRechner, k: Kachel, onZiel
             }
         }
         "tax_spheres_overview" -> Rahmen("4 Steuerliche Sphären ${d.finanzen.jahr}", Ziel.EUER, onZiel) {
-            d.finanzen.euer.sphaeren.forEach { s ->
-                Zeile(s.name, Geld.euroMitVorzeichen(s.ergebnis), if (s.ergebnis.signum() < 0) fehler else Color.Unspecified)
-                Klein("Einnahmen ${eur(s.einnahmen)} · Ausgaben ${eur(s.ausgaben)}")
+            d.finanzen.euer.sphaeren.forEachIndexed { nr, sp ->
+                Eintrag(
+                    sp.name, "Einnahmen ${eur(sp.einnahmen)} · Ausgaben ${eur(sp.ausgaben)}",
+                    rechts = Geld.euroMitVorzeichen(sp.ergebnis), rechtsFarbe = if (sp.ergebnis.signum() < 0) fehler else primaer, erster = nr == 0,
+                )
             }
         }
         "sepa_debit_monitor" -> {
-            val s = d.sepa
+            val sp = d.sepa
             Rahmen("Beitragslauf (SEPA)", Ziel.BEITRAGSLAUF, onZiel) {
-                Zeile("Zahlen per SEPA", "${s.sepa} von ${s.aktive}")
-                Zeile("Jahres-Soll aller Beiträge", eur(s.jahresSoll))
-                Zeile("Gläubiger-ID", s.glaeubigerId.ifEmpty { "nicht hinterlegt" }, if (s.glaeubigerId.isEmpty()) warn else Color.Unspecified)
-                if (s.unvollstaendig > 0) Klein("${s.unvollstaendig} Mandat(e) unvollständig (IBAN oder Mandatsreferenz fehlt)", warn)
+                Eintrag("Zahlen per SEPA", rechts = "${sp.sepa} von ${sp.aktive}", erster = true)
+                Eintrag("Jahres-Soll aller Beiträge", rechts = eur(sp.jahresSoll))
+                Eintrag("Gläubiger-ID", rechts = sp.glaeubigerId.ifEmpty { "nicht hinterlegt" }, rechtsFarbe = if (sp.glaeubigerId.isEmpty()) warn else Color.Unspecified)
+                if (sp.unvollstaendig > 0) Klein("${sp.unvollstaendig} Mandat(e) unvollständig (IBAN oder Mandatsreferenz fehlt)", warn)
             }
         }
         "recent_journal_transactions" -> Rahmen("Letzte Buchungen", Ziel.BUCHUNGEN, onZiel) {
             val l = d.finanzen.letzte
             if (l.isEmpty()) Klein("Noch keine Buchungen.")
-            l.forEach { b ->
-                Zeile("${datumKurz(b.datum)} ${Finance.titel(b)}", Geld.euroMitVorzeichen(b.betrag), if (b.betrag.signum() < 0) fehler else primaer)
+            l.forEachIndexed { nr, b ->
+                val voll = Finance.titel(b)
+                Eintrag(
+                    voll.substringBefore(" – "), voll.substringAfter(" – ", ""),
+                    rechts = Geld.euroMitVorzeichen(b.betrag), rechtsFarbe = if (b.betrag.signum() < 0) fehler else primaer,
+                    erster = nr == 0, vorn = { Datumsmarke(datumKurz(b.datum)) },
+                )
             }
         }
         "donations_summary" -> {
@@ -368,18 +428,21 @@ private fun KachelInhalt(model: AppModel, d: DashboardRechner, k: Kachel, onZiel
         }
         "invoices_overview" -> {
             val r = d.rechnungen
+            val sch = MaterialTheme.colorScheme
             Rahmen("Rechnungen", Ziel.RECHNUNGEN, onZiel) {
-                Zeile("Offene Forderungen", eur(r.offen))
-                Zeile("Überfällig", "${r.ueberfaellig} ${if (r.ueberfaellig == 1) "Beleg" else "Belege"}", if (r.ueberfaellig > 0) fehler else Color.Unspecified)
-                Zeile("Abgerechnet", eur(r.abgerechnet))
-                if (r.neueste.isNotEmpty()) HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                r.neueste.forEach { x ->
+                Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("Offen", eur(r.offen), sch.tertiaryContainer, sch.onTertiaryContainer, Modifier.weight(1f))
+                    Chip("Überfällig", "${r.ueberfaellig} ${if (r.ueberfaellig == 1) "Beleg" else "Belege"}", sch.errorContainer, sch.onErrorContainer, Modifier.weight(1f))
+                    Chip("Abgerechnet", eur(r.abgerechnet), sch.primaryContainer, sch.onPrimaryContainer, Modifier.weight(1f))
+                }
+                r.neueste.forEachIndexed { nr, x ->
+                    val ueberfaellig = de.vereinsmanager.core.invoice.RechnungsRegeln.ueberfaellig(x.copy(status = "open"), d.heute)
                     val status = when {
                         x.status == "paid" -> "bezahlt"; x.status == "cancelled" -> "storniert"; x.status == "draft" -> "Entwurf"
-                        de.vereinsmanager.core.invoice.RechnungsRegeln.ueberfaellig(x.copy(status = "open"), d.heute) -> "überfällig"
+                        ueberfaellig -> "überfällig"
                         else -> "offen"
                     }
-                    Zeile("${x.nummer} ${x.anzeigeName}", "${eur(x.brutto)} · $status")
+                    Eintrag(x.nummer, x.anzeigeName, rechts = eur(x.brutto), rechtsUnten = status, rechtsUntenFarbe = if (status == "überfällig") fehler else MaterialTheme.colorScheme.onSurfaceVariant, erster = nr == 0)
                 }
                 Klein("${r.gesamt} Rechnungen, ${r.bezahlt} bezahlt" + if (r.entwuerfe > 0) ", ${r.entwuerfe} Entwurf" else "")
             }
@@ -396,7 +459,7 @@ private fun KachelInhalt(model: AppModel, d: DashboardRechner, k: Kachel, onZiel
                 val arten = c.nachArt.filter { it.second > 0 }.joinToString(" · ") { "${Kontakte.TYPEN[it.first] ?: it.first} ${it.second}" }
                 if (arten.isNotEmpty()) Klein(arten)
                 if (c.zuletzt.isEmpty()) Klein("Noch keine Kontakte.")
-                c.zuletzt.forEach { k2 -> Zeile(k2.anzeigeName.ifEmpty { k2.firma }, k2.adresse.ort.ifEmpty { k2.email }) }
+                c.zuletzt.forEachIndexed { nr, k2 -> Eintrag(k2.anzeigeName.ifEmpty { k2.firma }, k2.adresse.ort.ifEmpty { k2.email }, erster = nr == 0) }
                 Klein("${c.gesamt} Kontakte insgesamt")
             }
         }
@@ -407,18 +470,20 @@ private fun KachelInhalt(model: AppModel, d: DashboardRechner, k: Kachel, onZiel
         "upcoming_events" -> Rahmen("Nächste Termine", Ziel.KALENDER, onZiel) {
             val t = d.termine
             if (t.isEmpty()) Klein("Keine anstehenden Termine.")
-            t.forEach { v ->
+            t.forEachIndexed { nr, v ->
                 val art = model.terminarten.firstOrNull { it.id == v.termin.art }?.name.orEmpty()
-                Zeile(v.termin.titel, Kalender.datumKurz(v.datum.toString()))
-                Klein(listOf(art, Kalender.zeitText(v.datum.toString(), v.termin.beginnZeit, v.ende.toString(), v.termin.endeZeit, v.termin.ganztaegig), v.termin.ort).filter { it.isNotBlank() }.joinToString(" · "))
+                val unter = listOf(art, Kalender.zeitText(v.datum.toString(), v.termin.beginnZeit, v.ende.toString(), v.termin.endeZeit, v.termin.ganztaegig), v.termin.ort).filter { it.isNotBlank() }.joinToString(" · ")
+                Eintrag(v.termin.titel, unter, erster = nr == 0, vorn = { Tagesblock(LocalDate.parse(v.datum.toString().take(10))) })
             }
         }
         "meetings_summary" -> {
-            val s = d.sitzungen
+            val sm = d.sitzungen
             Rahmen("Sitzungen & Beschlüsse", Ziel.SITZUNGEN, onZiel) {
-                if (s.anstehend.isEmpty()) Klein("Keine anstehenden Sitzungen.")
-                s.anstehend.forEach { x -> Zeile(x.titel, datumKurz(x.datum)); Klein("${Sitzungen.artName(x.art)} · ${Sitzungen.statusName(x.status)}") }
-                Klein("${s.offeneProtokolle} Protokoll(e) in Arbeit", if (s.offeneProtokolle > 0) warn else Color.Unspecified)
+                if (sm.anstehend.isEmpty()) Klein("Keine anstehenden Sitzungen.")
+                sm.anstehend.forEachIndexed { nr, x ->
+                    Eintrag(x.titel, "${Sitzungen.artName(x.art)} · ${Sitzungen.statusName(x.status)}", erster = nr == 0, vorn = { Datumsmarke(datumKurz(x.datum)) })
+                }
+                Klein("${sm.offeneProtokolle} Protokoll(e) in Arbeit", if (sm.offeneProtokolle > 0) warn else Color.Unspecified)
             }
         }
         "meetings_kpi" -> {
