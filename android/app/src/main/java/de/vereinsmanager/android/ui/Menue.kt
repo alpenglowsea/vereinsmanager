@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -39,17 +40,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /** Alle Menüpunkte. Reihenfolge, Namen und Piktogramme wie in der Desktop-Version. */
-enum class Ziel(val titel: String, val icon: ImageVector, val farbe: Farbe, val fertig: Boolean) {
-    START("Dashboard", Lucide.LayoutDashboard, Farbe.BLAU, true),
-    MITGLIEDER("Mitgliederverwaltung", Lucide.Users, Farbe.BLAU, true),
-    ANTRAEGE("Neues Mitglied aufnehmen", Lucide.FileSignature, Farbe.BLAU, true),
-    MITGLIEDER_AUSWERTUNG("Mitglieder-Auswertung", Lucide.BarChart3, Farbe.BLAU, true),
-    BUCHUNGEN("Buchungen & Journal", Lucide.Wallet, Farbe.GRUEN, true),
+enum class Ziel(val titel: String, val icon: ImageVector, val farbe: Farbe, val fertig: Boolean, val kurz: String = titel) {
+    START("Dashboard", Lucide.LayoutDashboard, Farbe.BLAU, true, "Start"),
+    MITGLIEDER("Mitgliederverwaltung", Lucide.Users, Farbe.BLAU, true, "Mitglieder"),
+    ANTRAEGE("Neues Mitglied aufnehmen", Lucide.FileSignature, Farbe.BLAU, true, "Antrag"),
+    MITGLIEDER_AUSWERTUNG("Mitglieder-Auswertung", Lucide.BarChart3, Farbe.BLAU, true, "Statistik"),
+    BUCHUNGEN("Buchungen & Journal", Lucide.Wallet, Farbe.GRUEN, true, "Buchungen"),
     BEITRAGSLAUF("Beitragslauf", Lucide.CreditCard, Farbe.GRUEN, true),
-    EUER("EÜR / GuV", Lucide.FileSpreadsheet, Farbe.GRUEN, true),
+    EUER("EÜR / GuV", Lucide.FileSpreadsheet, Farbe.GRUEN, true, "EÜR"),
     RECHNUNGEN("Rechnungen", Lucide.FileText, Farbe.GRUEN, true),
     SPENDEN("Spenden", Lucide.HeartHandshake, Farbe.GRUEN, true),
-    FINANZ_AUSWERTUNG("Finanz-Auswertungen", Lucide.PieChart, Farbe.GRUEN, true),
+    FINANZ_AUSWERTUNG("Finanz-Auswertungen", Lucide.PieChart, Farbe.GRUEN, true, "Auswertung"),
     KONTAKTE("Kontakte", Lucide.Contact, Farbe.TUERKIS, true),
     KALENDER("Kalender", Lucide.CalendarDays, Farbe.INDIGO, true),
     SITZUNGEN("Sitzungen", Lucide.ScrollText, Farbe.ROSE, true),
@@ -149,7 +150,7 @@ fun MenueInhalt(vereinsname: String, aktiv: Ziel?, onWahl: (Ziel) -> Unit) {
 
 /** Schmale Kopfzeile: links der Menü-Knopf, auf Unterseiten daneben der Zurück-Pfeil, dann der Seitenname. */
 @Composable
-fun Kopfzeile(titel: String, zurueck: Boolean, mitMenueKnopf: Boolean, onZurueck: () -> Unit, onMenue: () -> Unit) {
+fun Kopfzeile(titel: String, zurueck: Boolean, mitMenueKnopf: Boolean, onZurueck: () -> Unit, onMenue: () -> Unit, menueOffen: Boolean = false) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -161,7 +162,10 @@ fun Kopfzeile(titel: String, zurueck: Boolean, mitMenueKnopf: Boolean, onZurueck
     ) {
         // Das Menü ist auf jeder Seite erreichbar (außer am Tablet, wo es dauerhaft steht); der Zurück-Pfeil kommt auf Unterseiten dazu.
         if (mitMenueKnopf) {
-            IconButton(onClick = onMenue) { Icon(Lucide.Menu, "Menü öffnen", Modifier.size(24.dp)) }
+            IconButton(onClick = onMenue) {
+                if (menueOffen) Icon(Lucide.Plus, "Bereiche schließen", Modifier.size(24.dp).rotate(45f))
+                else Icon(Lucide.Menu, "Alle Bereiche", Modifier.size(24.dp))
+            }
         }
         if (zurueck) {
             IconButton(onClick = onZurueck) { Icon(Lucide.ArrowLeft, "Zurück", Modifier.size(24.dp)) }

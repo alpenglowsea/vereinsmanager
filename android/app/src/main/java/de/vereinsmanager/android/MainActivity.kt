@@ -5,23 +5,21 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PermanentDrawerSheet
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -62,10 +60,13 @@ import de.vereinsmanager.android.ui.TerminartenScreen
 import de.vereinsmanager.android.ui.KontaktDetailScreen
 import de.vereinsmanager.android.ui.KontaktFormScreen
 import de.vereinsmanager.android.ui.KontenScreen
+import de.vereinsmanager.android.ui.BereicheRaster
 import de.vereinsmanager.android.ui.Kopfzeile
+import de.vereinsmanager.android.ui.NavigationsLeiste
+import de.vereinsmanager.android.ui.SchnellMenue
+import de.vereinsmanager.android.ui.leistenZiele
 import de.vereinsmanager.android.ui.MenueInhalt
 import de.vereinsmanager.android.ui.Ziel
-import kotlinx.coroutines.launch
 import de.vereinsmanager.android.ui.DashboardScreen
 import de.vereinsmanager.android.ui.Schnell
 import de.vereinsmanager.android.ui.MemberDetailScreen
@@ -150,13 +151,14 @@ class MainActivity : ComponentActivity() {
             VereinsManagerTheme {
                 var stack by remember { mutableStateOf<List<Page>>(listOf(Page.Home)) }
                 val page = stack.last()
-                val drawerState = rememberDrawerState(DrawerValue.Closed)
-                val scope = rememberCoroutineScope()
-                // Ab 840 dp Breite (Tablet) steht das Menü dauerhaft als Spalte da, sonst fährt es von links ein.
+                // Ab 840 dp Breite (Tablet) steht das Menü dauerhaft als Spalte da; am Handy öffnet das Menü-Symbol das Bereichsraster.
+                var bereicheOffen by remember { mutableStateOf(false) }
+                var schnellOffen by remember { mutableStateOf(false) }
                 val breit = LocalConfiguration.current.screenWidthDp >= 840
 
                 BackHandler(enabled = stack.size > 1) { stack = stack.dropLast(1) }
-                BackHandler(enabled = drawerState.isOpen) { scope.launch { drawerState.close() } }
+                BackHandler(enabled = bereicheOffen) { bereicheOffen = false }
+                BackHandler(enabled = schnellOffen) { schnellOffen = false }
 
                 fun geheZu(z: Ziel) {
                     stack = when (z) {
@@ -178,7 +180,23 @@ class MainActivity : ComponentActivity() {
                         Ziel.EINSTELLUNGEN -> listOf(Page.Home, Page.Settings)
                         else -> stack // noch nicht gebaut; das Menü zeigt dafür einen Hinweis
                     }
-                    scope.launch { drawerState.close() }
+                    bereicheOffen = false
+                    schnellOffen = false
+                }
+
+                /** Die Schnellzugriffe: gehen auf den Bereich und öffnen dort gleich das Formular „Neu“. Dashboard und Mittelknopf nutzen dasselbe. */
+                fun schnell(a: Schnell) {
+                    stack = listOf(Page.Home) + when (a) {
+                        Schnell.MITGLIED -> listOf(Page.Members, Page.MemberEdit(null))
+                        Schnell.BUCHUNG -> listOf(Page.Transactions, Page.TransactionEdit(null))
+                        Schnell.RECHNUNG -> listOf(Page.Rechnungen, Page.RechnungEdit(null))
+                        Schnell.KONTAKT -> listOf(Page.Contacts, Page.ContactEdit(null))
+                        Schnell.TERMIN -> listOf(Page.Calendar, Page.CalendarEdit(null, null))
+                        Schnell.MATERIAL -> listOf(Page.Inventory, Page.InventoryEdit(null))
+                        Schnell.DOKUMENT -> listOf(Page.Documents(null), Page.DocumentEdit(null, null))
+                    }
+                    bereicheOffen = false
+                    schnellOffen = false
                 }
 
                 val menue: @Composable () -> Unit = {
@@ -190,11 +208,22 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         topBar = {
                             Kopfzeile(
-                                titel = seitenTitel(page, model),
-                                zurueck = !oberste,
+                                titel = if (bereicheOffen && !breit) "Bereiche" else seitenTitel(page, model),
+                                zurueck = !oberste && !(bereicheOffen && !breit),
                                 mitMenueKnopf = !breit,
                                 onZurueck = { stack = stack.dropLast(1) },
-                                onMenue = { scope.launch { if (drawerState.isOpen) drawerState.close() else drawerState.open() } },
+                                onMenue = { schnellOffen = false; bereicheOffen = !bereicheOffen },
+                                menueOffen = bereicheOffen && !breit,
+                            )
+                        },
+                        bottomBar = {
+                            // Die Leiste steht nur auf den obersten Seiten (nicht in Formularen und Detailansichten) und nur am Handy.
+                            if (!breit && oberste) NavigationsLeiste(
+                                plaetze = leistenZiele(model),
+                                aktiv = aktivesZiel(page),
+                                menueOffen = schnellOffen,
+                                onZiel = ::geheZu,
+                                onMitte = { bereicheOffen = false; schnellOffen = !schnellOffen },
                             )
                         },
                     ) { inner ->
@@ -204,17 +233,7 @@ class MainActivity : ComponentActivity() {
                         when (page) {
                             Page.Home -> DashboardScreen(
                                 model, onZiel = ::geheZu,
-                                onSchnell = { a ->
-                                    stack = listOf(Page.Home) + when (a) {
-                                        Schnell.MITGLIED -> listOf(Page.Members, Page.MemberEdit(null))
-                                        Schnell.BUCHUNG -> listOf(Page.Transactions, Page.TransactionEdit(null))
-                                        Schnell.RECHNUNG -> listOf(Page.Rechnungen, Page.RechnungEdit(null))
-                                        Schnell.KONTAKT -> listOf(Page.Contacts, Page.ContactEdit(null))
-                                        Schnell.TERMIN -> listOf(Page.Calendar, Page.CalendarEdit(null, null))
-                                        Schnell.MATERIAL -> listOf(Page.Inventory, Page.InventoryEdit(null))
-                                        Schnell.DOKUMENT -> listOf(Page.Documents(null), Page.DocumentEdit(null, null))
-                                    }
-                                },
+                                onSchnell = ::schnell,
                                 modifier = m,
                             )
                             Page.Members -> MemberListScreen(
@@ -324,15 +343,17 @@ class MainActivity : ComponentActivity() {
                             Page.Probes -> ProbeScreen(m)
                         }
                       }
-                      if (breit) {
-                          Box(Modifier.padding(inner)) { seite() }
-                      } else {
-                          ModalNavigationDrawer(
-                              drawerState = drawerState,
-                              modifier = Modifier.padding(inner),
-                              drawerContent = { ModalDrawerSheet(windowInsets = WindowInsets(0, 0, 0, 0)) { menue() } },
-                              content = seite,
-                          )
+                      Box(Modifier.padding(inner)) {
+                          // Die Seite bleibt darunter bestehen (auch bei offenem Raster), damit ein halb ausgefülltes Formular nichts verliert.
+                          seite()
+                          if (!breit && bereicheOffen) {
+                              BereicheRaster(
+                                  model.clubName, aktivesZiel(page), onWahl = ::geheZu,
+                                  modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)
+                                      .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {}),
+                              )
+                          }
+                          if (!breit && schnellOffen) SchnellMenue(onWahl = ::schnell, onZu = { schnellOffen = false })
                       }
                     }
                 }

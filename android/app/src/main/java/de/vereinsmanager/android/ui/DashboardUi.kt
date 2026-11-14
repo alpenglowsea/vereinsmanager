@@ -53,8 +53,14 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 /** Die Schnellzugriffe des Dashboards. */
-enum class Schnell(val text: String) {
-    MITGLIED("Mitglied"), BUCHUNG("Buchung"), RECHNUNG("Rechnung"), KONTAKT("Kontakt"), TERMIN("Termin"), MATERIAL("Material"), DOKUMENT("Dokument"),
+enum class Schnell(val text: String, val lang: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    MITGLIED("Mitglied", "Mitglied aufnehmen", Lucide.Users),
+    BUCHUNG("Buchung", "Buchung erfassen", Lucide.Wallet),
+    RECHNUNG("Rechnung", "Rechnung schreiben", Lucide.FileText),
+    KONTAKT("Kontakt", "Kontakt anlegen", Lucide.Contact),
+    TERMIN("Termin", "Termin anlegen", Lucide.CalendarDays),
+    MATERIAL("Material", "Gegenstand erfassen", Lucide.Package),
+    DOKUMENT("Dokument", "Dokument anlegen", Lucide.FolderArchive),
 }
 
 /**

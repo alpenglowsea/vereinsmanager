@@ -1073,6 +1073,15 @@ class AppModel(private val appContext: Context) {
 
     private val prefs get() = appContext.getSharedPreferences("vereinsmanager", Context.MODE_PRIVATE)
 
+    /** Die vier Plätze der Navigationsleiste als gespeicherter Text (nur dieses Gerät, nicht in der Sicherung). Leer = Voreinstellung. */
+    var leisteRoh by mutableStateOf(prefs.getString("leiste", "") ?: "")
+        private set
+
+    fun leisteSpeichern(plaetze: List<String>?) {
+        leisteRoh = if (plaetze == null) "" else de.vereinsmanager.core.settings.Leiste.kodieren(plaetze)
+        prefs.edit().putString("leiste", leisteRoh).apply()
+    }
+
     /** Legt beim ersten Öffnen der Dokumente die Standard-Ordner an (dieselben wie am Desktop); danach nie wieder von selbst. */
     fun standardOrdnerSicherstellen() {
         if (prefs.getBoolean("standardOrdner", false)) return

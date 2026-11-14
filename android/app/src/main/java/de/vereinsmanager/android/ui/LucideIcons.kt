@@ -19,6 +19,10 @@ object Lucide {
         "M 4 12 h 16",
         "M 4 19 h 16"
     ) }
+    val Plus: ImageVector by lazy { strich("Plus",
+        "M 5 12 h 14",
+        "M 12 5 v 14"
+    ) }
     val ArrowLeft: ImageVector by lazy { strich("ArrowLeft",
         "m 12 19 -7 -7 7 -7",
         "M 19 12 H 5"

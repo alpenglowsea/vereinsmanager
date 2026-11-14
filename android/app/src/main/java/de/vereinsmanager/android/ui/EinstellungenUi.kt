@@ -57,6 +57,7 @@ fun EinstellungenScreen(model: AppModel, onProbes: () -> Unit, modifier: Modifie
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             when (tab) {
                 0 -> {
+                LeisteAnpassenKarte(model)
                 BriefpapierKarte(model)
                 AntragEinstellungenKarten(model)
                 Card(Modifier.fillMaxWidth()) {
