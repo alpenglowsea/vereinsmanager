@@ -1,5 +1,8 @@
 package de.vereinsmanager.android.ui
 
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Box
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -52,8 +55,6 @@ import de.vereinsmanager.core.members.CsvTable
 import de.vereinsmanager.core.members.Zeit
 import de.vereinsmanager.core.skr42.Skr42
 
-private val IMPORT_SCHRITTE = listOf("1  Datei", "2  Spalten", "3  Vorschau")
-
 /**
  * Erster Schritt beider Importe: Datei wählen (CSV oder Excel) oder Text aus Excel/Google Sheets einfügen.
  * [onTabelle] bekommt Tabelle, Anzeigename und einen Hinweis (leer, wenn nichts zu sagen ist).
@@ -82,36 +83,39 @@ private fun DateiSchritt(
     }
 
     Column(Modifier.verticalScroll(rememberScrollState())) {
-        kopf()
-        Text(beschreibung)
-        Button(
-            onClick = {
-                oeffnen.launch(arrayOf("text/*", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel", "application/octet-stream"))
-            },
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-        ) { Text("Datei wählen (Excel oder CSV)") }
-        Text(
-            "Oder kopieren Sie die Zellen in Excel oder Google Sheets (mit der Überschriftenzeile) und fügen Sie sie hier ein:",
-            Modifier.padding(top = 16.dp), style = MaterialTheme.typography.bodyMedium,
-        )
-        Feld("Eingefügte Tabelle", eingefuegt, { eingefuegt = it }, singleLine = false)
-        Button(
-            onClick = {
-                val t = model.tabelleAusText(eingefuegt)
-                if (t.headers.isEmpty() || t.rows.isEmpty()) hinweis = "Im eingefügten Text fehlen die Überschriftenzeile oder die Datenzeilen."
-                else onTabelle(t, "Eingefügter Text", "")
-            },
-            enabled = eingefuegt.isNotBlank(), modifier = Modifier.fillMaxWidth(),
-        ) { Text("Eingefügten Text verwenden") }
-        OutlinedButton(onClick = { vorlage.launch(vorlageName) }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("Muster-Vorlage speichern") }
-        if (hinweis.isNotEmpty()) Text(hinweis, Modifier.padding(top = 12.dp))
-    }
-}
-
-@Composable
-private fun Schritte(step: Int) {
-    Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        IMPORT_SCHRITTE.forEachIndexed { i, s -> FilterChip(selected = i == step, onClick = {}, enabled = false, label = { Text(s) }) }
+        if (hinweis.isNotEmpty()) FormKarte { Text(hinweis, color = MaterialTheme.colorScheme.error) }
+        FormKarte {
+            KartenTitel("Datei wählen")
+            kopf()
+            Text(beschreibung)
+            Button(
+                onClick = {
+                    oeffnen.launch(arrayOf("text/*", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel", "application/octet-stream"))
+                },
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(52.dp),
+            ) { Text("Datei wählen (Excel oder CSV)") }
+        }
+        FormKarte {
+            KartenTitel("Aus Excel oder Google Sheets einfügen")
+            Text(
+                "Kopieren Sie die Zellen (mit der Überschriftenzeile) und fügen Sie sie hier ein:",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Feld("Eingefügte Tabelle", eingefuegt, { eingefuegt = it }, singleLine = false)
+            Button(
+                onClick = {
+                    val t = model.tabelleAusText(eingefuegt)
+                    if (t.headers.isEmpty() || t.rows.isEmpty()) hinweis = "Im eingefügten Text fehlen die Überschriftenzeile oder die Datenzeilen."
+                    else onTabelle(t, "Eingefügter Text", "")
+                },
+                enabled = eingefuegt.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp),
+            ) { Text("Eingefügten Text verwenden") }
+        }
+        FormKarte {
+            KartenTitel("Muster-Vorlage")
+            Text("Eine Datei mit den passenden Spaltenüberschriften zum Ausfüllen.", style = MaterialTheme.typography.bodyMedium)
+            OutlinedButton(onClick = { vorlage.launch(vorlageName) }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(48.dp)) { Text("Muster-Vorlage speichern") }
+        }
     }
 }
 
@@ -141,16 +145,14 @@ fun BuchungImportScreen(model: AppModel, onDone: () -> Unit, modifier: Modifier 
 
     BackHandler(enabled = step > 0 && ergebnis.isEmpty()) { step -= 1 }
 
-    Column(modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text("Buchungen importieren", style = MaterialTheme.typography.titleLarge)
-        Schritte(step)
+    Column(modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        ImportKopf("Buchungen importieren", step) { step = it }
         if (ergebnis.isNotEmpty()) {
-            Text(ergebnis, Modifier.padding(vertical = 8.dp))
-            Button(onClick = onDone) { Text("Fertig") }
+            ImportErgebnis(ergebnis, onDone)
         } else if (model.konten.isEmpty()) {
-            Text("Bitte legen Sie zuerst unter „Konten verwalten“ ein Konto an.")
+            FormKarte { Text("Bitte legen Sie zuerst unter „Konten verwalten“ ein Konto an.") }
         } else when (step) {
-            0 -> DateiSchritt(
+            0 -> Box(Modifier.weight(1f)) { DateiSchritt(
                 model, "Wählen Sie eine Excel-Datei (.xlsx) oder eine CSV-Datei, zum Beispiel den Kontoauszug aus dem Online-Banking. " +
                     "Die erste Zeile muss die Spaltenüberschriften enthalten.",
                 "Buchungen_Vorlage.csv", { BuchungImport.vorlage() },
@@ -161,7 +163,7 @@ fun BuchungImportScreen(model: AppModel, onDone: () -> Unit, modifier: Modifier 
                 kopf = {
                     Text("Woher kommt die Datei?", style = MaterialTheme.typography.labelMedium)
                     Row(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ImportQuelle.values().forEach { q -> FilterChip(quelle == q, { quelle = q }, label = { Text(if (q == ImportQuelle.BANK) "Bankauszug" else "Tabelle") }) }
+                        ImportQuelle.values().forEach { q -> TabChip(if (q == ImportQuelle.BANK) "Bankauszug" else "Tabelle", quelle == q) { quelle = q } }
                     }
                     Text(
                         if (quelle == ImportQuelle.BANK) "Bankauszug: Der steuerliche Bereich wird aus Stichwörtern geschätzt, Belegnummern lauten BK-<Jahr>-<laufend>."
@@ -169,7 +171,7 @@ fun BuchungImportScreen(model: AppModel, onDone: () -> Unit, modifier: Modifier 
                         style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 8.dp),
                     )
                 },
-            )
+            ) }
             1 -> {
                 val t = table
                 if (t != null) BuchungSpalten(
@@ -182,11 +184,13 @@ fun BuchungImportScreen(model: AppModel, onDone: () -> Unit, modifier: Modifier 
                         abgewaehlt = z.filter { it.duplikat != null || BuchungImport.fehler(it.form, model.konten).isNotEmpty() }.map { it.index }.toSet()
                         step = 2
                     },
+                    modifier = Modifier.weight(1f),
                 )
             }
             else -> BuchungVorschau(
                 model, quelle, zeilen, abgewaehlt,
                 onZeilen = { zeilen = it }, onAbgewaehlt = { abgewaehlt = it }, onBack = { step = 1 }, onFinished = { ergebnis = it },
+                modifier = Modifier.weight(1f),
             )
         }
     }
@@ -196,27 +200,28 @@ fun BuchungImportScreen(model: AppModel, onDone: () -> Unit, modifier: Modifier 
 private fun BuchungSpalten(
     model: AppModel, t: CsvTable, dateiName: String, hinweis: String, mapping: Map<BuchungFeld, String>, kontoId: String, sphaere: String,
     onMapping: (Map<BuchungFeld, String>) -> Unit, onKonto: (String) -> Unit, onSphaere: (String) -> Unit, onBack: () -> Unit, onNext: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val optionen = remember(t) { linkedMapOf("" to "– nicht zuordnen –").also { m -> t.headers.forEach { m[it] = it } } }
     val ok = mapping.containsKey(BuchungFeld.DATUM) && mapping.containsKey(BuchungFeld.BETRAG) &&
         (mapping.containsKey(BuchungFeld.TEXT) || mapping.containsKey(BuchungFeld.PARTNER))
-    Column(Modifier.verticalScroll(rememberScrollState())) {
-        Text("$dateiName: ${t.rows.size} Zeile(n), ${t.headers.size} Spalte(n).", style = MaterialTheme.typography.bodyMedium)
-        if (hinweis.isNotEmpty()) Text(hinweis, Modifier.padding(top = 4.dp))
-        Text(
-            "Die Zuordnung wurde anhand der Überschriften vorgeschlagen. Korrigieren Sie, was nicht stimmt.",
-            Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodySmall,
-        )
-        Auswahl("Finanzkonto (wenn die Datei keines angibt)", model.konten.associate { it.id to it.name }, kontoId) { onKonto(it) }
-        Auswahl("Steuerlicher Bereich (wenn nicht erkennbar)", FinanceLabels.SPHERE, sphaere) { onSphaere(it) }
-        BuchungFeld.values().forEach { f ->
-            Auswahl(f.label, optionen, mapping[f] ?: "") { v -> onMapping(if (v.isEmpty()) mapping - f else mapping + (f to v)) }
+    Column(modifier.verticalScroll(rememberScrollState())) {
+        FormKarte {
+            KartenTitel("Spalten zuordnen")
+            Text("$dateiName: ${t.rows.size} Zeile(n), ${t.headers.size} Spalte(n).", style = MaterialTheme.typography.bodyMedium)
+            if (hinweis.isNotEmpty()) Text(hinweis, Modifier.padding(top = 4.dp))
+            Text(
+                "Die Zuordnung wurde anhand der Überschriften vorgeschlagen. Korrigieren Sie, was nicht stimmt.",
+                Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodySmall,
+            )
+            Auswahl("Finanzkonto (wenn die Datei keines angibt)", model.konten.associate { it.id to it.name }, kontoId) { onKonto(it) }
+            Auswahl("Steuerlicher Bereich (wenn nicht erkennbar)", FinanceLabels.SPHERE, sphaere) { onSphaere(it) }
+            BuchungFeld.values().forEach { f ->
+                Auswahl(f.label, optionen, mapping[f] ?: "") { v -> onMapping(if (v.isEmpty()) mapping - f else mapping + (f to v)) }
+            }
+            if (!ok) Text("Nötig sind mindestens Datum, Betrag und Buchungstext oder Zahlungspartner.", Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.error)
         }
-        if (!ok) Text("Nötig sind mindestens Datum, Betrag und Buchungstext oder Zahlungspartner.", Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.error)
-        Row(Modifier.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onBack) { Text("Zurück") }
-            Button(onClick = onNext, enabled = ok) { Text("Weiter zur Vorschau") }
-        }
+        ZweiKnoepfe("Zurück", onBack, "Zur Vorschau", onNext, rechtsAktiv = ok, modifier = Modifier.padding(bottom = 12.dp))
     }
 }
 
@@ -224,6 +229,7 @@ private fun BuchungSpalten(
 private fun BuchungVorschau(
     model: AppModel, quelle: ImportQuelle, zeilen: List<BuchungsZeile>, abgewaehlt: Set<Int>,
     onZeilen: (List<BuchungsZeile>) -> Unit, onAbgewaehlt: (Set<Int>) -> Unit, onBack: () -> Unit, onFinished: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var filter by remember { mutableStateOf("alle") }
     var bearbeite by remember { mutableStateOf<Int?>(null) }
@@ -246,31 +252,34 @@ private fun BuchungVorschau(
 
     fun ersetze(neu: BuchungsZeile) { onZeilen(zeilen.map { if (it.index == neu.index) neu else it }) }
 
-    Column(Modifier.fillMaxSize()) {
-        Text("${zeilen.size} Zeile(n), ${gewaehlt.size} ausgewählt. $mitFehler mit Fehler, $duplikate mögliche Duplikate, $ohneKonto ausgewählte ohne Konto.")
-        if (mitFehler > 0) Text("Zeilen mit Fehler werden nicht importiert, bevor Sie sie berichtigt haben: antippen und korrigieren.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(filter == "alle", { filter = "alle" }, label = { Text("Alle") })
-            FilterChip(filter == "fehler", { filter = "fehler" }, label = { Text("Fehler") })
-            FilterChip(filter == "ohnekonto", { filter = "ohnekonto" }, label = { Text("Ohne Konto") })
-            FilterChip(filter == "duplikat", { filter = "duplikat" }, label = { Text("Duplikate") })
-        }
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            KompaktKnopf("Alle ohne Fehler", { onAbgewaehlt(zeilen.filter { !fehlerJe[it.index].isNullOrEmpty() }.map { it.index }.toSet()) })
-            KompaktKnopf("Keine", { onAbgewaehlt(zeilen.map { it.index }.toSet()) })
-            KompaktKnopf("Konto für Auswahl setzen", { sammel = true }, enabled = gewaehlt.isNotEmpty())
-        }
-        HorizontalDivider()
-        LazyColumn(Modifier.weight(1f, fill = true)) {
-            items(sichtbar, key = { it.index }) { z ->
+    Column(modifier.fillMaxSize()) {
+        LazyColumn(Modifier.weight(1f, fill = true), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 8.dp)) {
+            item {
+                ImportKacheln(listOf(Triple("Zeilen", zeilen.size.toString(), 0), Triple("Ausgewählt", gewaehlt.size.toString(), 1), Triple("Fehler", mitFehler.toString(), if (mitFehler > 0) 3 else 2)))
+                Text("$duplikate mögliche Duplikate, $ohneKonto ausgewählte ohne Konto.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 4.dp))
+                if (mitFehler > 0) Text("Zeilen mit Fehler werden nicht importiert, bevor Sie sie berichtigt haben: antippen und korrigieren.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 4.dp))
+                Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TabChip("Alle", filter == "alle") { filter = "alle" }
+                    TabChip("Fehler", filter == "fehler") { filter = "fehler" }
+                    TabChip("Ohne Konto", filter == "ohnekonto") { filter = "ohnekonto" }
+                    TabChip("Duplikate", filter == "duplikat") { filter = "duplikat" }
+                }
+                Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 4.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    KompaktKnopf("Alle ohne Fehler", { onAbgewaehlt(zeilen.filter { !fehlerJe[it.index].isNullOrEmpty() }.map { it.index }.toSet()) })
+                    KompaktKnopf("Keine", { onAbgewaehlt(zeilen.map { it.index }.toSet()) })
+                    KompaktKnopf("Konto für Auswahl setzen", { sammel = true }, enabled = gewaehlt.isNotEmpty())
+                }
+            }
+            itemsIndexed(sichtbar, key = { _, z -> z.index }) { i, z ->
                 val f = z.form
                 val fehler = fehlerJe[z.index].orEmpty()
-                Row(Modifier.fillMaxWidth().clickable { bearbeite = z.index }.padding(vertical = 6.dp), verticalAlignment = Alignment.Top) {
-                    Checkbox(z.index !in abgewaehlt && fehler.isEmpty(), { c -> onAbgewaehlt(if (c) abgewaehlt - z.index else abgewaehlt + z.index) }, enabled = fehler.isEmpty())
+                val an = z.index !in abgewaehlt && fehler.isEmpty()
+                ListenKarte(i == 0, i == sichtbar.lastIndex, an, onClick = { bearbeite = z.index }, onLongClick = {}) {
+                    Checkbox(an, { c -> onAbgewaehlt(if (c) abgewaehlt - z.index else abgewaehlt + z.index) }, enabled = fehler.isEmpty())
                     Column(Modifier.weight(1f)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("${datumAnzeige(f)} · ${f.partner.ifEmpty { "–" }}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f), maxLines = 1)
-                            Text(signiert(f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("${datumAnzeige(f)} · ${f.partner.ifEmpty { "–" }}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1)
+                            Text(signiert(f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold)
                         }
                         Text(f.text, style = MaterialTheme.typography.bodySmall, maxLines = 2)
                         val konto = if (f.art == "transfer") "Umbuchung" else if (f.skrKonto.isEmpty()) "Konto fehlt" else "${f.skrKonto} ${f.konto}"
@@ -287,22 +296,20 @@ private fun BuchungVorschau(
                         fehler.forEach { Text("⚠ $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                     }
                 }
-                HorizontalDivider()
             }
         }
-        if (fehlerText.isNotEmpty()) Text(fehlerText, color = MaterialTheme.colorScheme.error)
-        Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onBack, enabled = !model.busy) { Text("Zurück") }
-            Button(
-                enabled = !model.busy && gewaehlt.isNotEmpty(),
-                onClick = {
+        ImportLeiste(fehlerText) {
+            ZweiKnoepfe(
+                "Zurück", onBack, "${gewaehlt.size} importieren",
+                {
                     fehlerText = ""
                     model.importBuchungen(gewaehlt, quelle) { r, err ->
                         if (err != null || r == null) fehlerText = "Fehler: ${err ?: "unbekannt"}"
                         else onFinished("${r.angelegt} Buchung(en) importiert (Belege ${r.ersteNummer} bis ${r.letzteNummer}).")
                     }
                 },
-            ) { Text("${gewaehlt.size} importieren") }
+                rechtsAktiv = !model.busy && gewaehlt.isNotEmpty(), linksAktiv = !model.busy,
+            )
         }
     }
 
@@ -416,46 +423,45 @@ fun KontaktImportScreen(model: AppModel, onDone: () -> Unit, modifier: Modifier 
 
     BackHandler(enabled = step > 0 && ergebnis.isEmpty()) { step -= 1 }
 
-    Column(modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text("Kontakte importieren", style = MaterialTheme.typography.titleLarge)
-        Schritte(step)
+    Column(modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        ImportKopf("Kontakte importieren", step) { step = it }
         if (ergebnis.isNotEmpty()) {
-            Text(ergebnis, Modifier.padding(vertical = 8.dp))
-            Button(onClick = onDone) { Text("Fertig") }
+            ImportErgebnis(ergebnis, onDone)
         } else when (step) {
-            0 -> DateiSchritt(
+            0 -> Box(Modifier.weight(1f)) { DateiSchritt(
                 model, "Wählen Sie eine Excel-Datei (.xlsx) oder eine CSV-Datei mit Ihren Kontakten. Die erste Zeile muss die Spaltenüberschriften enthalten.",
                 "Kontakte_Vorlage.csv", { KontaktImport.vorlage() },
                 onTabelle = { t, name, h -> table = t; dateiName = name; hinweis = h; mapping = KontaktImport.erkenneSpalten(t.headers); step = 1 },
-            )
+            ) }
             1 -> table?.let { t ->
                 val optionen = remember(t) { linkedMapOf("" to "– nicht zuordnen –").also { m -> t.headers.forEach { m[it] = it } } }
                 val ok = mapping.containsKey(KontaktFeld.NAME) || mapping.containsKey(KontaktFeld.NACHNAME)
-                Column(Modifier.verticalScroll(rememberScrollState())) {
-                    Text("$dateiName: ${t.rows.size} Zeile(n), ${t.headers.size} Spalte(n).", style = MaterialTheme.typography.bodyMedium)
-                    if (hinweis.isNotEmpty()) Text(hinweis, Modifier.padding(top = 4.dp))
-                    Text("Die Zuordnung wurde anhand der Überschriften vorgeschlagen. Korrigieren Sie, was nicht stimmt.", Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodySmall)
-                    Auswahl("Art, wenn die Datei sie nicht angibt", ArtVorgabe.values().associate { it.name to it.text }, vorgabeArt.name) { vorgabeArt = ArtVorgabe.valueOf(it) }
-                    Auswahl("Kontakttyp, wenn die Datei keinen angibt", Kontakte.TYPEN, vorgabeTyp) { vorgabeTyp = it }
-                    KontaktFeld.values().forEach { f ->
-                        Auswahl(f.label, optionen, mapping[f] ?: "") { v -> mapping = if (v.isEmpty()) mapping - f else mapping + (f to v) }
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    FormKarte {
+                        KartenTitel("Spalten zuordnen")
+                        Text("$dateiName: ${t.rows.size} Zeile(n), ${t.headers.size} Spalte(n).", style = MaterialTheme.typography.bodyMedium)
+                        if (hinweis.isNotEmpty()) Text(hinweis, Modifier.padding(top = 4.dp))
+                        Text("Die Zuordnung wurde anhand der Überschriften vorgeschlagen. Korrigieren Sie, was nicht stimmt.", Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodySmall)
+                        Auswahl("Art, wenn die Datei sie nicht angibt", ArtVorgabe.values().associate { it.name to it.text }, vorgabeArt.name) { vorgabeArt = ArtVorgabe.valueOf(it) }
+                        Auswahl("Kontakttyp, wenn die Datei keinen angibt", Kontakte.TYPEN, vorgabeTyp) { vorgabeTyp = it }
+                        KontaktFeld.values().forEach { f ->
+                            Auswahl(f.label, optionen, mapping[f] ?: "") { v -> mapping = if (v.isEmpty()) mapping - f else mapping + (f to v) }
+                        }
+                        if (!ok) Text("Ohne Name oder Nachname kann nicht importiert werden.", Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.error)
                     }
-                    if (!ok) Text("Ohne Name oder Nachname kann nicht importiert werden.", Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.error)
-                    Row(Modifier.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { step = 0 }) { Text("Zurück") }
-                        Button(
-                            enabled = ok,
-                            onClick = {
-                                val z = KontaktImport.umwandeln(t.rows, mapping, vorgabeArt, vorgabeTyp, model.kontakte)
-                                zeilen = z
-                                abgewaehlt = z.filter { it.duplikat != null || it.fehler.isNotEmpty() }.map { it.index }.toSet()
-                                step = 2
-                            },
-                        ) { Text("Weiter zur Vorschau") }
-                    }
+                    ZweiKnoepfe(
+                        "Zurück", { step = 0 }, "Zur Vorschau",
+                        {
+                            val z = KontaktImport.umwandeln(t.rows, mapping, vorgabeArt, vorgabeTyp, model.kontakte)
+                            zeilen = z
+                            abgewaehlt = z.filter { it.duplikat != null || it.fehler.isNotEmpty() }.map { it.index }.toSet()
+                            step = 2
+                        },
+                        rechtsAktiv = ok, modifier = Modifier.padding(bottom = 12.dp),
+                    )
                 }
             }
-            else -> KontaktVorschau(model, zeilen, abgewaehlt, { zeilen = it }, { abgewaehlt = it }, { step = 1 }, { ergebnis = it })
+            else -> KontaktVorschau(model, zeilen, abgewaehlt, { zeilen = it }, { abgewaehlt = it }, { step = 1 }, { ergebnis = it }, Modifier.weight(1f))
         }
     }
 }
@@ -464,53 +470,58 @@ fun KontaktImportScreen(model: AppModel, onDone: () -> Unit, modifier: Modifier 
 private fun KontaktVorschau(
     model: AppModel, zeilen: List<KontaktZeile>, abgewaehlt: Set<Int>,
     onZeilen: (List<KontaktZeile>) -> Unit, onAbgewaehlt: (Set<Int>) -> Unit, onBack: () -> Unit, onFinished: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var fehlerText by remember { mutableStateOf("") }
     val gewaehlt = zeilen.filter { it.index !in abgewaehlt && it.fehler.isEmpty() }
-    Column(Modifier.fillMaxSize()) {
-        Text("${zeilen.size} Zeile(n), ${gewaehlt.size} ausgewählt, ${zeilen.count { it.duplikat != null }} bereits vorhanden, ${zeilen.count { it.fehler.isNotEmpty() }} nicht importierbar.")
-        Text("Bereits vorhandene Kontakte (gleiche Nummer oder gleicher Name) sind abgewählt. Wenn Sie sie anhaken, entsteht ein zweiter Kontakt mit neuer Nummer.", style = MaterialTheme.typography.bodySmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-            KompaktKnopf("Alle", { onAbgewaehlt(zeilen.filter { it.fehler.isNotEmpty() }.map { it.index }.toSet()) })
-            KompaktKnopf("Keine", { onAbgewaehlt(zeilen.map { it.index }.toSet()) })
-        }
-        LazyColumn(Modifier.weight(1f, fill = true)) {
-            items(zeilen, key = { it.index }) { z ->
+    val vorhanden = zeilen.count { it.duplikat != null }
+    val fehlerhaft = zeilen.count { it.fehler.isNotEmpty() }
+    Column(modifier.fillMaxSize()) {
+        LazyColumn(Modifier.weight(1f, fill = true), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 8.dp)) {
+            item {
+                ImportKacheln(listOf(Triple("Zeilen", zeilen.size.toString(), 0), Triple("Ausgewählt", gewaehlt.size.toString(), 1), Triple("Vorhanden", vorhanden.toString(), if (vorhanden > 0) 2 else 0)))
+                if (fehlerhaft > 0) Text("$fehlerhaft Zeile(n) nicht importierbar.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 4.dp))
+                Text("Bereits vorhandene Kontakte (gleiche Nummer oder gleicher Name) sind abgewählt. Wenn Sie sie anhaken, entsteht ein zweiter Kontakt mit neuer Nummer.", style = MaterialTheme.typography.bodySmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp, bottom = 10.dp)) {
+                    KompaktKnopf("Alle", { onAbgewaehlt(zeilen.filter { it.fehler.isNotEmpty() }.map { it.index }.toSet()) })
+                    KompaktKnopf("Keine", { onAbgewaehlt(zeilen.map { it.index }.toSet()) })
+                }
+            }
+            itemsIndexed(zeilen, key = { _, z -> z.index }) { i, z ->
                 val f = z.form
-                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
-                    Checkbox(z.index !in abgewaehlt && z.fehler.isEmpty(), { c -> onAbgewaehlt(if (c) abgewaehlt - z.index else abgewaehlt + z.index) }, enabled = z.fehler.isEmpty())
-                    Column(Modifier.weight(1f)) {
-                        Text(Kontakte.anzeigeName(f).ifBlank { "(ohne Namen)" }, style = MaterialTheme.typography.titleSmall)
+                val an = z.index !in abgewaehlt && z.fehler.isEmpty()
+                ListenKarte(i == 0, i == zeilen.lastIndex, an, onClick = { if (z.fehler.isEmpty()) onAbgewaehlt(if (an) abgewaehlt + z.index else abgewaehlt - z.index) }, onLongClick = {}) {
+                    Checkbox(an, null, enabled = z.fehler.isEmpty())
+                    Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                        Text(Kontakte.anzeigeName(f).ifBlank { "(ohne Namen)" }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                         Text(
                             listOf(f.nummer.ifEmpty { "Nummer wird vergeben" }, f.typen.joinToString(", ") { Kontakte.TYPEN[it] ?: it }, listOf(f.plz, f.ort).filter { it.isNotEmpty() }.joinToString(" "))
                                 .filter { it.isNotEmpty() }.joinToString(" · "),
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(f.art == "legal", { onZeilen(zeilen.map { if (it.index == z.index) KontaktImport.mitArt(it, "legal") else it }) }, label = { Text("Firma") })
-                            FilterChip(f.art == "natural", { onZeilen(zeilen.map { if (it.index == z.index) KontaktImport.mitArt(it, "natural") else it }) }, label = { Text("Privatperson") })
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+                            TabChip("Firma", f.art == "legal") { onZeilen(zeilen.map { if (it.index == z.index) KontaktImport.mitArt(it, "legal") else it }) }
+                            TabChip("Privatperson", f.art == "natural") { onZeilen(zeilen.map { if (it.index == z.index) KontaktImport.mitArt(it, "natural") else it }) }
                         }
                         if (z.duplikat != null) Text("Bereits vorhanden: ${z.duplikat}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                         z.hinweise.forEach { Text("Hinweis: $it", style = MaterialTheme.typography.bodySmall) }
                         z.fehler.forEach { Text("⚠ $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                     }
                 }
-                HorizontalDivider()
             }
         }
-        if (fehlerText.isNotEmpty()) Text(fehlerText, color = MaterialTheme.colorScheme.error)
-        Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onBack, enabled = !model.busy) { Text("Zurück") }
-            Button(
-                enabled = !model.busy && gewaehlt.isNotEmpty(),
-                onClick = {
+        ImportLeiste(fehlerText) {
+            ZweiKnoepfe(
+                "Zurück", onBack, "${gewaehlt.size} importieren",
+                {
                     fehlerText = ""
                     model.importKontakte(gewaehlt) { r, err ->
                         if (err != null || r == null) fehlerText = "Fehler: ${err ?: "unbekannt"}"
                         else onFinished("${r.angelegt} Kontakt(e) importiert (${r.ersteNummer} bis ${r.letzteNummer}).")
                     }
                 },
-            ) { Text("${gewaehlt.size} importieren") }
+                rechtsAktiv = !model.busy && gewaehlt.isNotEmpty(), linksAktiv = !model.busy,
+            )
         }
     }
 }

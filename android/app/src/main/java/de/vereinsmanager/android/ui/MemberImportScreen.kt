@@ -1,5 +1,9 @@
 package de.vereinsmanager.android.ui
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.horizontalScroll
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -38,8 +42,6 @@ import de.vereinsmanager.core.members.ImportField
 import de.vereinsmanager.core.members.ImportRow
 import de.vereinsmanager.core.members.MemberCsv
 import java.time.LocalDate
-
-private val SCHRITTE = listOf("1  Datei", "2  Spalten", "3  Vorschau")
 
 /** CSV-Import in drei Schritten: Datei wählen, Spalten zuordnen, Vorschau prüfen und importieren. */
 @Composable
@@ -80,27 +82,30 @@ fun MemberImportScreen(model: AppModel, onDone: () -> Unit, modifier: Modifier =
         if (uri != null) hinweis = model.writeCsvTemplate(uri)
     }
 
-    Column(modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text("Mitglieder aus CSV importieren", style = MaterialTheme.typography.titleLarge)
-        Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SCHRITTE.forEachIndexed { i, s -> FilterChip(selected = i == step, onClick = {}, enabled = false, label = { Text(s) }) }
-        }
+    Column(modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        ImportKopf("Mitglieder importieren", step) { step = it }
         if (ergebnis.isNotEmpty()) {
-            Text(ergebnis, Modifier.padding(vertical = 8.dp))
-            Button(onClick = onDone) { Text("Fertig") }
+            ImportErgebnis(ergebnis, onDone)
         } else when (step) {
-            0 -> Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text(
-                    "Wählen Sie eine CSV-Datei (z. B. aus Excel mit „Speichern unter → CSV“). Trennzeichen Semikolon, Komma oder Tabulator " +
-                        "werden erkannt. Die erste Zeile muss die Spaltenüberschriften enthalten.",
-                )
-                Button(onClick = { openLauncher.launch(arrayOf("text/*", "application/vnd.ms-excel", "application/octet-stream")) }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
-                    Text("CSV-Datei wählen")
+            0 -> Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                if (hinweis.isNotEmpty()) FormKarte { Text(hinweis, color = MaterialTheme.colorScheme.error) }
+                FormKarte {
+                    KartenTitel("CSV-Datei wählen")
+                    Text(
+                        "Wählen Sie eine CSV-Datei (z. B. aus Excel mit „Speichern unter → CSV“). Trennzeichen Semikolon, Komma oder Tabulator " +
+                            "werden erkannt. Die erste Zeile muss die Spaltenüberschriften enthalten.",
+                    )
+                    Button(onClick = { openLauncher.launch(arrayOf("text/*", "application/vnd.ms-excel", "application/octet-stream")) }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(52.dp)) {
+                        Text("CSV-Datei wählen")
+                    }
                 }
-                OutlinedButton(onClick = { vorlageLauncher.launch("Mitglieder_Vorlage.csv") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                    Text("Muster-Vorlage speichern")
+                FormKarte {
+                    KartenTitel("Muster-Vorlage")
+                    Text("Eine Datei mit den passenden Spaltenüberschriften zum Ausfüllen.", style = MaterialTheme.typography.bodyMedium)
+                    OutlinedButton(onClick = { vorlageLauncher.launch("Mitglieder_Vorlage.csv") }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(48.dp)) {
+                        Text("Muster-Vorlage speichern")
+                    }
                 }
-                if (hinweis.isNotEmpty()) Text(hinweis, Modifier.padding(top = 12.dp))
             }
             1 -> {
                 val t = table
@@ -108,6 +113,7 @@ fun MemberImportScreen(model: AppModel, onDone: () -> Unit, modifier: Modifier =
                     model, t, dateiName, hinweis, mapping, defaultDept,
                     onMapping = { mapping = it }, onDept = { defaultDept = it },
                     onBack = { step = 0 }, onNext = { step = 2; abgewaehlt = emptySet() },
+                    modifier = Modifier.weight(1f),
                 )
             }
             else -> {
@@ -116,6 +122,7 @@ fun MemberImportScreen(model: AppModel, onDone: () -> Unit, modifier: Modifier =
                     model, t, mapping, defaultDept, strategy, abgewaehlt, suche,
                     onStrategy = { strategy = it }, onAbgewaehlt = { abgewaehlt = it }, onSuche = { suche = it },
                     onBack = { step = 1 }, onFinished = { ergebnis = it },
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
@@ -125,31 +132,31 @@ fun MemberImportScreen(model: AppModel, onDone: () -> Unit, modifier: Modifier =
 @Composable
 private fun SpaltenSchritt(
     model: AppModel, t: CsvTable, dateiName: String, hinweis: String, mapping: ColumnMapping, defaultDept: String,
-    onMapping: (ColumnMapping) -> Unit, onDept: (String) -> Unit, onBack: () -> Unit, onNext: () -> Unit,
+    onMapping: (ColumnMapping) -> Unit, onDept: (String) -> Unit, onBack: () -> Unit, onNext: () -> Unit, modifier: Modifier = Modifier,
 ) {
     val optionen = remember(t) { linkedMapOf("" to "– nicht zuordnen –").also { m -> t.headers.forEach { m[it] = it } } }
     val hatName = mapping.containsKey(ImportField.NACHNAME) || mapping.containsKey(ImportField.VOLLNAME)
-    Column(Modifier.verticalScroll(rememberScrollState())) {
-        Text("$dateiName: ${t.rows.size} Zeile(n), ${t.headers.size} Spalte(n).", style = MaterialTheme.typography.bodyMedium)
-        if (hinweis.isNotEmpty()) Text(hinweis, Modifier.padding(top = 4.dp))
-        Text(
-            "Die Zuordnung wurde anhand der Überschriften vorgeschlagen. Korrigieren Sie, was nicht stimmt. " +
-                "Felder ohne Zuordnung bleiben leer bzw. werden beim Aktualisieren nicht verändert.",
-            Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodySmall,
-        )
-        if (model.departments.isNotEmpty()) {
-            Auswahl("Sparte, wenn die Datei keine angibt", linkedMapOf("" to "erste Sparte (${model.departments.first()})").also { m -> model.departments.forEach { m[it] = it } }, defaultDept) { onDept(it) }
-        }
-        ImportField.values().forEach { f ->
-            Auswahl(f.label, optionen, mapping[f] ?: "") { v ->
-                onMapping(if (v.isEmpty()) mapping - f else mapping + (f to v))
+    Column(modifier.verticalScroll(rememberScrollState())) {
+        FormKarte {
+            KartenTitel("Spalten zuordnen")
+            Text("$dateiName: ${t.rows.size} Zeile(n), ${t.headers.size} Spalte(n).", style = MaterialTheme.typography.bodyMedium)
+            if (hinweis.isNotEmpty()) Text(hinweis, Modifier.padding(top = 4.dp))
+            Text(
+                "Die Zuordnung wurde anhand der Überschriften vorgeschlagen. Korrigieren Sie, was nicht stimmt. " +
+                    "Felder ohne Zuordnung bleiben leer bzw. werden beim Aktualisieren nicht verändert.",
+                Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodySmall,
+            )
+            if (model.departments.isNotEmpty()) {
+                Auswahl("Sparte, wenn die Datei keine angibt", linkedMapOf("" to "erste Sparte (${model.departments.first()})").also { m -> model.departments.forEach { m[it] = it } }, defaultDept) { onDept(it) }
             }
+            ImportField.values().forEach { f ->
+                Auswahl(f.label, optionen, mapping[f] ?: "") { v ->
+                    onMapping(if (v.isEmpty()) mapping - f else mapping + (f to v))
+                }
+            }
+            if (!hatName) Text("Ohne Nachname oder vollständigen Namen kann nicht importiert werden.", Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.error)
         }
-        if (!hatName) Text("Ohne Nachname oder vollständigen Namen kann nicht importiert werden.", Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.error)
-        Row(Modifier.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onBack) { Text("Zurück") }
-            Button(onClick = onNext, enabled = hatName) { Text("Weiter zur Vorschau") }
-        }
+        ZweiKnoepfe("Zurück", onBack, "Zur Vorschau", onNext, rechtsAktiv = hatName, modifier = Modifier.padding(bottom = 12.dp))
     }
 }
 
@@ -158,7 +165,7 @@ private fun VorschauSchritt(
     model: AppModel, t: CsvTable, mapping: ColumnMapping, defaultDept: String, strategy: DuplicateStrategy,
     abgewaehlt: Set<Int>, suche: String,
     onStrategy: (DuplicateStrategy) -> Unit, onAbgewaehlt: (Set<Int>) -> Unit, onSuche: (String) -> Unit,
-    onBack: () -> Unit, onFinished: (String) -> Unit,
+    onBack: () -> Unit, onFinished: (String) -> Unit, modifier: Modifier = Modifier,
 ) {
     var fehler by remember { mutableStateOf("") }
     val rows: List<ImportRow> = remember(t, mapping, defaultDept, model.members) {
@@ -173,36 +180,45 @@ private fun VorschauSchritt(
             (r.form.firstName + " " + r.form.lastName + " " + r.form.number + " " + r.form.city).lowercase().contains(s)
         }
     }
-    Column(Modifier.fillMaxSize()) {
-        Text("${rows.size} Zeile(n), ${gewaehlt.size} ausgewählt, davon $dubletten bereits vorhanden, $mitWarnung mit Warnung.")
-        if (dubletten > 0) {
-            Text("Wenn ein Mitglied schon vorhanden ist (gleiche Nummer oder gleicher Name):", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.labelMedium)
-            Row(Modifier.padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(strategy == DuplicateStrategy.UPDATE, { onStrategy(DuplicateStrategy.UPDATE) }, label = { Text("Aktualisieren") })
-                FilterChip(strategy == DuplicateStrategy.SKIP, { onStrategy(DuplicateStrategy.SKIP) }, label = { Text("Überspringen") })
-                FilterChip(strategy == DuplicateStrategy.CREATE_ALWAYS, { onStrategy(DuplicateStrategy.CREATE_ALWAYS) }, label = { Text("Neu anlegen") })
+    Column(modifier.fillMaxSize()) {
+        // Alles außer den Knöpfen unten liegt in der Liste: so schrumpft sie bei geöffneter Tastatur nicht auf einen Streifen.
+        LazyColumn(Modifier.weight(1f, fill = true), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 8.dp)) {
+            item {
+                ImportKacheln(listOf(Triple("Zeilen", rows.size.toString(), 0), Triple("Ausgewählt", gewaehlt.size.toString(), 1), Triple("Vorhanden", dubletten.toString(), if (dubletten > 0) 2 else 0)))
+                if (mitWarnung > 0) Text("$mitWarnung Zeile(n) mit Warnung.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 8.dp))
             }
-            Text(
-                when (strategy) {
-                    DuplicateStrategy.UPDATE -> "Nur die Felder, die in der Datei ausgefüllt sind, werden überschrieben."
-                    DuplicateStrategy.SKIP -> "Vorhandene Mitglieder bleiben unverändert."
-                    DuplicateStrategy.CREATE_ALWAYS -> "Es entsteht ein zweites Mitglied mit neuer Mitgliedsnummer."
-                },
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-        OutlinedTextField(suche, onSuche, label = { Text("In der Vorschau suchen") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-            OutlinedButton(onClick = { onAbgewaehlt(emptySet()) }) { Text("Alle") }
-            OutlinedButton(onClick = { onAbgewaehlt(rows.map { it.index }.toSet()) }) { Text("Keine") }
-        }
-        LazyColumn(Modifier.weight(1f, fill = true)) {
-            items(sichtbar, key = { it.index }) { r ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(r.index !in abgewaehlt, { c -> onAbgewaehlt(if (c) abgewaehlt - r.index else abgewaehlt + r.index) })
-                    Column(Modifier.weight(1f)) {
+            if (dubletten > 0) item {
+                DetailKarte("Wenn ein Mitglied schon vorhanden ist") {
+                    Text("Gleiche Nummer oder gleicher Name.", style = MaterialTheme.typography.bodySmall)
+                    Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TabChip("Aktualisieren", strategy == DuplicateStrategy.UPDATE) { onStrategy(DuplicateStrategy.UPDATE) }
+                        TabChip("Überspringen", strategy == DuplicateStrategy.SKIP) { onStrategy(DuplicateStrategy.SKIP) }
+                        TabChip("Neu anlegen", strategy == DuplicateStrategy.CREATE_ALWAYS) { onStrategy(DuplicateStrategy.CREATE_ALWAYS) }
+                    }
+                    Text(
+                        when (strategy) {
+                            DuplicateStrategy.UPDATE -> "Nur die Felder, die in der Datei ausgefüllt sind, werden überschrieben."
+                            DuplicateStrategy.SKIP -> "Vorhandene Mitglieder bleiben unverändert."
+                            DuplicateStrategy.CREATE_ALWAYS -> "Es entsteht ein zweites Mitglied mit neuer Mitgliedsnummer."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+            item {
+                SuchFeld(suche, onSuche, "In der Vorschau suchen", Modifier.padding(vertical = 8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+                    KompaktKnopf("Alle", { onAbgewaehlt(emptySet()) })
+                    KompaktKnopf("Keine", { onAbgewaehlt(rows.map { it.index }.toSet()) })
+                }
+            }
+            itemsIndexed(sichtbar, key = { _, r -> r.index }) { i, r ->
+                val an = r.index !in abgewaehlt
+                ListenKarte(i == 0, i == sichtbar.lastIndex, an, onClick = { onAbgewaehlt(if (an) abgewaehlt + r.index else abgewaehlt - r.index) }, onLongClick = {}) {
+                    Checkbox(an, null)
+                    Column(Modifier.weight(1f).padding(start = 10.dp)) {
                         val name = listOf(r.form.firstName, r.form.lastName).filter { it.isNotEmpty() }.joinToString(" ")
-                        Text(name.ifEmpty { "(ohne Namen)" }, style = MaterialTheme.typography.titleSmall)
+                        Text(name.ifEmpty { "(ohne Namen)" }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                         Text(
                             listOf(r.form.number, r.form.department, listOf(r.form.zip, r.form.city).filter { it.isNotEmpty() }.joinToString(" "))
                                 .filter { it.isNotEmpty() }.joinToString(" · "),
@@ -212,15 +228,12 @@ private fun VorschauSchritt(
                         r.warnings.forEach { Text("⚠ $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                     }
                 }
-                HorizontalDivider()
             }
         }
-        if (fehler.isNotEmpty()) Text(fehler, color = MaterialTheme.colorScheme.error)
-        Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onBack, enabled = !model.busy) { Text("Zurück") }
-            Button(
-                enabled = !model.busy,
-                onClick = {
+        ImportLeiste(fehler) {
+            ZweiKnoepfe(
+                "Zurück", onBack, "${gewaehlt.size} importieren",
+                {
                     if (gewaehlt.isEmpty()) {
                         fehler = "Keine Mitglieder zum Importieren ausgewählt."
                     } else {
@@ -231,7 +244,8 @@ private fun VorschauSchritt(
                         }
                     }
                 },
-            ) { Text("${gewaehlt.size} importieren") }
+                rechtsAktiv = !model.busy, linksAktiv = !model.busy,
+            )
         }
     }
 }
