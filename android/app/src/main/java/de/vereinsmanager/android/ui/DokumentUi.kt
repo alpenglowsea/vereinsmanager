@@ -1,5 +1,7 @@
 package de.vereinsmanager.android.ui
 
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.layout.heightIn
 import android.content.Intent
 import android.os.Handler
 import android.os.Looper
@@ -369,22 +371,42 @@ private fun OrdnerDialog(model: AppModel, start: OrdnerForm, neu: Boolean, onDis
 
 @Composable
 private fun VerschiebenDialog(model: AppModel, anzahl: Int, onDismiss: () -> Unit, onWahl: (String?, String?) -> Unit) {
-    var ziel by remember { mutableStateOf<String?>(null) }
+    // Wie ein Dateimanager: man steht in einem Ordner, sieht nur dessen Unterordner und kann über die Brotkrumen zurück.
+    var aktuell by remember { mutableStateOf<String?>(null) }
     var uebernehmen by remember { mutableStateOf(true) }
-    val optionen = remember(model.ordner) {
-        listOf<Pair<String?, String>>(null to "(ohne Ordner)") +
-            model.ordner.map { it.id to Dokumente.pfadText(model.ordner, it.id) }.sortedBy { it.second.lowercase() }
-    }
-    val zielKategorie = ziel?.let { z -> model.ordner.firstOrNull { it.id == z }?.kategorie }?.takeIf { it in Kategorie.ALLE }
+    val weg = Dokumente.pfad(model.ordner, aktuell)
+    val unter = Dokumente.unterordner(model.ordner, aktuell)
+    val zielKategorie = weg.lastOrNull()?.kategorie?.takeIf { it in Kategorie.ALLE }
 
     Aktionsdialog(
         titel = "${dokumentZahl(anzahl)} verschieben",
         onDismiss = onDismiss,
         inhalt = {
-            optionen.forEach { (id, name) ->
-                Row(Modifier.fillMaxWidth().clickable { ziel = id }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = ziel == id, onClick = { ziel = id })
-                    Text(name)
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                TabChip("Alle Dokumente", aktuell == null, { aktuell = null })
+                weg.forEach { o ->
+                    Text("›", Modifier.padding(horizontal = 4.dp), style = MaterialTheme.typography.titleMedium)
+                    TabChip(o.name, o.id == aktuell, { aktuell = o.id })
+                }
+            }
+            Text(
+                if (aktuell == null) "Ziel: ohne Ordner" else "Ziel: ${Dokumente.pfadText(model.ordner, aktuell)}",
+                Modifier.padding(top = 8.dp, bottom = 4.dp),
+                style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary,
+            )
+            if (unter.isEmpty()) {
+                Text("Keine weiteren Unterordner.", Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodyMedium)
+            } else {
+                Column(Modifier.heightIn(max = 280.dp).verticalScroll(rememberScrollState())) {
+                    unter.forEach { o ->
+                        val tiefer = Dokumente.unterordner(model.ordner, o.id).size
+                        Row(Modifier.fillMaxWidth().clickable { aktuell = o.id }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(o.name, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                            if (tiefer > 0) Text("$tiefer Unterordner  ›", style = MaterialTheme.typography.labelMedium)
+                            else Text("›", style = MaterialTheme.typography.titleMedium)
+                        }
+                        HorizontalDivider()
+                    }
                 }
             }
             if (zielKategorie != null) {
@@ -395,7 +417,7 @@ private fun VerschiebenDialog(model: AppModel, anzahl: Int, onDismiss: () -> Uni
             }
         },
         aktionen = {
-            Button(onClick = { onWahl(ziel, if (zielKategorie != null && uebernehmen) zielKategorie else null) }, modifier = Modifier.fillMaxWidth()) { Text("Verschieben") }
+            Button(onClick = { onWahl(aktuell, if (zielKategorie != null && uebernehmen) zielKategorie else null) }, modifier = Modifier.fillMaxWidth()) { Text("Hierher verschieben") }
             TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Abbrechen") }
         },
     )
@@ -487,7 +509,7 @@ fun DokumentDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onAnze
         AktionsZeilen(
             listOf(
                 listOf(Aktion("Anzeigen", onAnzeigen, primaer = true, enabled = d.dateiId != null), Aktion("Weitergeben", { weitergeben() }, enabled = d.dateiId != null && !model.busy)),
-                listOf(Aktion("Speichern unter …", { speichern.launch(d.dateiName.ifEmpty { "Dokument" }) }, enabled = d.dateiId != null && !model.busy), Aktion("Bearbeiten", onEdit, enabled = !model.busy)),
+                listOf(Aktion("Speichern unter", { speichern.launch(d.dateiName.ifEmpty { "Dokument" }) }, enabled = d.dateiId != null && !model.busy), Aktion("Bearbeiten", onEdit, enabled = !model.busy)),
                 listOf(Aktion("Löschen", { loeschen = true }, enabled = !model.busy)),
             ),
             Modifier.padding(top = 12.dp, bottom = 16.dp),
@@ -721,8 +743,8 @@ private fun DateiWahl(model: AppModel, onAbbrechen: () -> Unit, modifier: Modifi
                     Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                         Text("Seite ${i + 1}" + if (s.edit.istUnveraendert) "" else " (bearbeitet)", style = MaterialTheme.typography.titleSmall)
                         Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            KompaktKnopf("Zuschneiden / Drehen", { model.fotoBearbeiten = i }, Modifier.weight(1f))
-                            OutlinedButton(onClick = { model.fotoEntfernen(i) }) { Text("Entfernen") }
+                            KompaktKnopf("Bearbeiten", { model.fotoBearbeiten = i }, Modifier.weight(1f))
+                            KompaktKnopf("Entfernen", { model.fotoEntfernen(i) }, Modifier.weight(1f))
                         }
                     }
                 }

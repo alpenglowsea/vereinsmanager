@@ -1,5 +1,10 @@
 package de.vereinsmanager.android.ui
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.width
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -47,9 +52,9 @@ fun VorstandKarte(liste: List<Vorstandsmitglied>, onChange: (List<Vorstandsmitgl
         if (j !in liste.indices) return
         onChange(liste.toMutableList().also { it.add(j, it.removeAt(i)) })
     }
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Vorstand", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    WieseKarte(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Vorstand", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
             Text(
                 "Wer als „Vorsitzende/r“ und „Kassenwart / Schatzmeister“ eingetragen ist, erscheint im Briefkopf der Rechnungen, im Lastschriftprotokoll und auf der Spendenbescheinigung. Die Funktion wird am Wortlaut erkannt, nicht an der Reihenfolge.",
                 style = MaterialTheme.typography.bodySmall,
@@ -67,8 +72,8 @@ fun VorstandKarte(liste: List<Vorstandsmitglied>, onChange: (List<Vorstandsmitgl
                     Feld("E-Mail", m.email, { v -> aendere(m.id) { it.copy(email = v) } }, keyboard = androidx.compose.ui.text.input.KeyboardType.Email)
                     Feld("Telefon", m.telefon, { v -> aendere(m.id) { it.copy(telefon = v) } }, keyboard = androidx.compose.ui.text.input.KeyboardType.Phone)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(onClick = { schiebe(i, -1) }, enabled = i > 0) { Text("▲ Nach oben") }
-                        TextButton(onClick = { schiebe(i, +1) }, enabled = i < liste.lastIndex) { Text("▼ Nach unten") }
+                        KompaktKnopf("▲", { schiebe(i, -1) }, Modifier.width(44.dp), enabled = i > 0)
+                        KompaktKnopf("▼", { schiebe(i, +1) }, Modifier.width(44.dp), enabled = i < liste.lastIndex)
                         TextButton(onClick = { onChange(liste.filter { it.id != m.id }) }) { Text("Entfernen") }
                     }
                 }
@@ -89,9 +94,9 @@ fun SpartenKarte(model: AppModel) {
     var dialogFehler by remember { mutableStateOf<String?>(null) }
     val liste = model.departments
 
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Sparten / Abteilungen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    WieseKarte(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Sparten / Abteilungen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
             Text(
                 "Änderungen hier gelten sofort. Eine Sparte, in der es noch Mitglieder, Buchungen oder Inventar gibt, lässt sich nicht löschen. „Umbenennen“ ändert den Namen überall mit. Es bleibt immer mindestens eine Sparte; bei einem Verein ohne Abteilungen z. B. „Hauptverein“.",
                 style = MaterialTheme.typography.bodySmall,
@@ -104,8 +109,8 @@ fun SpartenKarte(model: AppModel) {
                     Text(name, fontWeight = FontWeight.Medium)
                     if (v.gesamt > 0) Text(v.text(), style = MaterialTheme.typography.bodySmall)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(onClick = { model.spartenVerschieben(name, -1) }, enabled = i > 0 && !model.busy) { Text("▲") }
-                        TextButton(onClick = { model.spartenVerschieben(name, +1) }, enabled = i < liste.lastIndex && !model.busy) { Text("▼") }
+                        KompaktKnopf("▲", { model.spartenVerschieben(name, -1) }, Modifier.width(44.dp), enabled = i > 0 && !model.busy)
+                        KompaktKnopf("▼", { model.spartenVerschieben(name, +1) }, Modifier.width(44.dp), enabled = i < liste.lastIndex && !model.busy)
                         TextButton(onClick = { umbenennen = name; neuerName = name; dialogFehler = null }, enabled = !model.busy) { Text("Umbenennen") }
                         TextButton(onClick = { model.spartenLoeschen(name) { e -> meldung = e ?: "„$name“ gelöscht." } }, enabled = !model.busy) { Text("Löschen") }
                     }
@@ -145,9 +150,9 @@ private val ZEIT = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
 fun SchnappschussKarte(model: AppModel) {
     var meldung by remember { mutableStateOf<String?>(null) }
     var einspielen by remember { mutableStateOf<String?>(null) }
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Schnappschüsse (automatische Sicherung)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    WieseKarte(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Schnappschüsse (automatische Sicherung)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
             Text(
                 "Die App legt beim Start höchstens einmal am Tag eine vollständige Sicherung im geschützten App-Speicher an (die letzten 7 bleiben). " +
                     "Dazu kommen die Sicherungen, die vor dem Einspielen einer Sicherung, vor dem Löschen aller Daten und von Hand entstehen (die letzten 5 bleiben). " +
@@ -195,9 +200,9 @@ fun SchnappschussKarte(model: AppModel) {
 fun SchutzKarte() {
     val context = LocalContext.current
     var meldung by remember { mutableStateOf<String?>(null) }
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Schutz der Daten", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    WieseKarte(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Schutz der Daten", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
             Text(
                 "Die App hat keine eigene Sperre. Die Daten liegen im geschützten Speicher der App, den andere Apps nicht lesen können. " +
                     "Wer das entsperrte Handy in der Hand hat, kann die App aber öffnen. Richten Sie deshalb eine Bildschirmsperre (PIN, Muster oder Fingerabdruck) ein. " +
@@ -218,8 +223,8 @@ fun LoeschenKarte(model: AppModel) {
     var dialog by remember { mutableStateOf(false) }
     var eingabe by remember { mutableStateOf("") }
     var meldung by remember { mutableStateOf<String?>(null) }
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    WieseKarte(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Alle Daten löschen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
             Text(
                 "Entfernt Mitglieder, Finanzen, Belege, Dokumente, Einstellungen und alles andere von diesem Gerät. " +
@@ -256,9 +261,9 @@ fun LoeschenKarte(model: AppModel) {
 fun UnterstuetzenKarte() {
     val context = LocalContext.current
     var meldung by remember { mutableStateOf<String?>(null) }
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Projekt unterstützen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    WieseKarte(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Projekt unterstützen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
             Text(
                 "Der VereinsManager ist kostenlos und Open Source. Wer möchte, kann die Weiterentwicklung freiwillig über Liberapay unterstützen. Die Seite öffnet im Browser; die App selbst überträgt nichts.",
                 style = MaterialTheme.typography.bodySmall,
@@ -285,9 +290,9 @@ fun FehlerMeldenKarte() {
     val system = "VereinsManager Android $version, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}"
     val eingabe = Fehlerbericht.Eingabe(bereich, betreff, schwere, text)
 
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Fehler melden", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    WieseKarte(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Fehler melden", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
             Text(
                 "Die App schickt nichts selbst ab. Sie bereitet eine E-Mail an ${Fehlerbericht.EMPFAENGER} vor, die Sie in Ihrem Mailprogramm prüfen und selbst senden. " +
                     "Bitte keine Namen oder Daten von Mitgliedern in den Text schreiben.",
@@ -319,5 +324,14 @@ fun FehlerMeldenKarte() {
             }
             if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodySmall)
         }
+    }
+}
+
+/** Die Karte der Einstellungen im Wiese-Stil: weiche Ecken, heller Grund, feiner Rand. */
+@Composable
+internal fun WieseKarte(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    val s = MaterialTheme.colorScheme
+    Surface(modifier, shape = RoundedCornerShape(24.dp), color = s.surfaceContainerLowest, border = BorderStroke(1.5.dp, s.outlineVariant)) {
+        Column(content = content)
     }
 }

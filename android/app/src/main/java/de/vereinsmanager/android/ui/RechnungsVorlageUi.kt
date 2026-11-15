@@ -53,9 +53,9 @@ fun RechnungsVorlageScreen(model: AppModel, onDone: () -> Unit, modifier: Modifi
             "Das Briefpapier (Bild oder PDF und oberer Rand) gilt für Rechnungen und Aufnahmeanträge und steht jetzt in den Einstellungen.",
             style = MaterialTheme.typography.bodySmall,
         )
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Texte und Zahlungsziel", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        WieseKarte(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Texte und Zahlungsziel", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                 Text("Diese Vorgaben bekommt jede neue Rechnung; bestehende ändern sich nicht.", style = MaterialTheme.typography.bodySmall)
                 Feld("Zahlungsziel in Tagen", tage, { tage = it.filter { c -> c.isDigit() }.take(3) }, error = fehlerMap["tage"], keyboard = KeyboardType.Number)
                 Feld("Einleitungstext", v.einleitung, { v = v.copy(einleitung = it) }, singleLine = false)
@@ -63,9 +63,9 @@ fun RechnungsVorlageScreen(model: AppModel, onDone: () -> Unit, modifier: Modifi
                 Feld("Hinweis für Kleinunternehmer (§ 19 UStG)", v.kleinunternehmerHinweis, { v = v.copy(kleinunternehmerHinweis = it) }, singleLine = false)
             }
         }
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Aussehen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        WieseKarte(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Aussehen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                 Feld("Akzentfarbe", v.akzent, { v = v.copy(akzent = it) }, error = fehlerMap["akzent"], hinweis = "Als #rrggbb, z. B. #1e40af (Überschriften und Linien)")
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(v.faltmarken, { v = v.copy(faltmarken = it) })
@@ -130,9 +130,9 @@ fun BriefpapierKarte(model: AppModel) {
             android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)?.asImageBitmap()
         } catch (e: Exception) { null }
     }
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Briefpapier (Rechnungen und Anträge)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    WieseKarte(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Briefpapier (Rechnungen und Anträge)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
             Text(
                 "Mit eigenem Briefpapier (Bild oder PDF, am besten A4 hochkant) druckt die App keinen eigenen Briefkopf – er steht schon auf dem Papier, " +
                     "und der Text beginnt unter dem oberen Rand. Ohne Briefpapier druckt die App einen einfachen Briefkopf aus den Vereinsdaten. " +

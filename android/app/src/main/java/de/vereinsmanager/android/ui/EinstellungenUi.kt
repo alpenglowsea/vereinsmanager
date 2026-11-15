@@ -1,5 +1,6 @@
 package de.vereinsmanager.android.ui
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -60,18 +61,18 @@ fun EinstellungenScreen(model: AppModel, onProbes: () -> Unit, modifier: Modifie
     }
     val tabs = listOf("Allgemein", "Verein" + if (geaendert) " •" else "", "Datensicherung", "Unterstützen", "Fehler melden")
     Column(modifier.fillMaxSize()) {
-        ScrollableTabRow(selectedTabIndex = tab, edgePadding = 8.dp) {
-            tabs.forEachIndexed { i, t -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t) }) }
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            tabs.forEachIndexed { i, t -> TabChip(t, tab == i, { tab = i }) }
         }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             when (tab) {
                 0 -> {
                 LeisteAnpassenKarte(model)
                 BriefpapierKarte(model)
                 AntragEinstellungenKarten(model)
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Unterschrift für Zuwendungsbestätigungen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                WieseKarte(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Unterschrift für Zuwendungsbestätigungen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                         val u = model.unterschrift
                         if (u != null) UnterschriftVorschau(u) else Text("Noch keine Unterschrift hinterlegt.", style = MaterialTheme.typography.bodySmall)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -88,9 +89,9 @@ fun EinstellungenScreen(model: AppModel, onProbes: () -> Unit, modifier: Modifie
                     SchutzKarte()
                 }
                 1 -> {
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Verein", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                WieseKarte(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Verein", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                         Feld("Vereinsname *", f.name, { f = f.copy(name = it) }, error = fehlerFuer("name"))
                         Feld("Straße", f.strasse, { f = f.copy(strasse = it) })
                         Feld("Hausnummer", f.hausnummer, { f = f.copy(hausnummer = it) })
@@ -104,9 +105,9 @@ fun EinstellungenScreen(model: AppModel, onProbes: () -> Unit, modifier: Modifie
                 }
                 VorstandKarte(vorstand, { vorstand = it }, if (zeigeFehler) vorstandFehler else emptyMap())
                 SpartenKarte(model)
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Lastschrifteinzug (SEPA)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                WieseKarte(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Lastschrifteinzug (SEPA)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                         Feld("Gläubiger-ID", f.glaeubigerId, { f = f.copy(glaeubigerId = it) }, fokus = sprung == "creditorId", hinweis = "z. B. DE98ZZZ09999999999 – bekommt man bei der Bundesbank")
                         Feld("Vereinskonto IBAN", f.iban, { f = f.copy(iban = it) }, error = fehlerFuer("iban"), fokus = sprung == "creditorIban")
                         Feld("Vereinskonto BIC", f.bic, { f = f.copy(bic = it) }, error = fehlerFuer("bic"), fokus = sprung == "creditorBic")
@@ -114,9 +115,9 @@ fun EinstellungenScreen(model: AppModel, onProbes: () -> Unit, modifier: Modifie
                         if (fehlt != null) Text("Für den Beitragslauf noch nötig: $fehlt", style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Zuwendungsbestätigung (Spendenquittung)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                WieseKarte(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Zuwendungsbestätigung (Spendenquittung)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                         Feld("Finanzamt", f.finanzamt, { f = f.copy(finanzamt = it) })
                         Feld("Steuernummer", f.steuernummer, { f = f.copy(steuernummer = it) })
                         DatumFeld("Freistellungsbescheid vom", f.freistellungsDatum, optional = true) { f = f.copy(freistellungsDatum = it) }

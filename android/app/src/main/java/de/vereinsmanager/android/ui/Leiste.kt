@@ -247,9 +247,9 @@ private fun auswahlName(z: Ziel): String = when (z) {
 fun LeisteAnpassenKarte(model: AppModel) {
     val ziele = leistenZiele(model)
     val namen = listOf("Links außen", "Links innen", "Rechts innen", "Rechts außen")
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Navigationsleiste", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    WieseKarte(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Navigationsleiste", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
             Text(
                 "Wählen Sie die vier Bereiche, die am Handy unten in der Leiste stehen (auf dem Tablet steht stattdessen das Menü links). Alle anderen finden Sie über das Menü oben links. " +
                     "Wählen Sie einen Bereich, der schon in der Leiste steht, tauschen beide die Plätze. Die Wahl gilt nur für dieses Gerät und steht nicht in der Datensicherung.",

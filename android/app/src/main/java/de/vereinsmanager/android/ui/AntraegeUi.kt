@@ -466,9 +466,9 @@ fun AntragEinstellungenKarten(model: AppModel) {
     val exporter = rememberExporter(model) { info = it }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Beiträge je Mitgliedsart", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        WieseKarte(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Beiträge je Mitgliedsart", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                 Text(
                     "Diese Werte zeigt der Aufnahmeantrag dem neuen Mitglied und trägt sie beim Aufnehmen als Beitrag ein. Meist einmal bei der Ersteinrichtung festlegen.",
                     style = MaterialTheme.typography.bodySmall,
@@ -488,9 +488,9 @@ fun AntragEinstellungenKarten(model: AppModel) {
                 }
             }
         }
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Texte im Antrag", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        WieseKarte(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Texte im Antrag", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                 Text(
                     "„{verein}“ wird durch den Vereinsnamen ersetzt. Ich bin kein Rechtsanwalt: Bitte lassen Sie die Texte " +
                         "von jemandem prüfen, der sich mit Vereins- und Datenschutzrecht auskennt.",
@@ -510,9 +510,9 @@ fun AntragEinstellungenKarten(model: AppModel) {
             },
             enabled = geaendert && !model.busy, modifier = Modifier.fillMaxWidth(),
         ) { Text("Beiträge und Texte speichern") }
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Leeres Antragsformular", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        WieseKarte(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Leeres Antragsformular", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                 Text(
                     "Zum Ausdrucken, wenn jemand den Antrag lieber auf Papier ausfüllt. Mit Ihrem Briefpapier, falls oben hinterlegt.",
                     style = MaterialTheme.typography.bodySmall,
@@ -539,9 +539,9 @@ private fun BeilagenKarte(model: AppModel, onMeldung: (String) -> Unit) {
         if (uri != null && b != null) model.antragBeilageHochladen(b, uri) { f -> onMeldung(if (f == null) "${b.titel} hinterlegt." else "Die Datei lässt sich nicht übernehmen: $f") }
         waehle = null
     }
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Satzung und Datenschutz-Vordruck", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    WieseKarte(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Satzung und Datenschutz-Vordruck", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
             Text(
                 "Beides als PDF (höchstens 10 MB). Das neue Mitglied kann die Dateien in Schritt 4 des Aufnahmeantrags öffnen. " +
                     "Ein neuer Upload legt eine neue Fassung mit Datum im Titel im Dokumentenarchiv ab; frühere Fassungen bleiben dort erhalten.",

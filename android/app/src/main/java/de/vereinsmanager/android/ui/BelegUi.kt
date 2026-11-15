@@ -165,8 +165,8 @@ fun BelegAbschnitt(model: AppModel, buchung: Buchung, onAnzeigen: () -> Unit, mi
                             style = MaterialTheme.typography.titleSmall,
                         )
                         Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            KompaktKnopf("Zuschneiden / Drehen", { model.fotoBearbeiten = i }, Modifier.weight(1f))
-                            OutlinedButton(onClick = { model.fotoEntfernen(i) }) { Text("Entfernen") }
+                            KompaktKnopf("Bearbeiten", { model.fotoBearbeiten = i }, Modifier.weight(1f))
+                            KompaktKnopf("Entfernen", { model.fotoEntfernen(i) }, Modifier.weight(1f))
                         }
                     }
                 }

@@ -64,9 +64,9 @@ fun SicherungKarte(model: AppModel, onProbes: () -> Unit, modifier: Modifier = M
         )
     }
 
-    Card(modifier.fillMaxWidth()) {
-      Column(Modifier.padding(12.dp)) {
-        Text("Datensicherung", style = MaterialTheme.typography.titleMedium)
+    WieseKarte(modifier.fillMaxWidth()) {
+      Column(Modifier.padding(16.dp)) {
+        Text("Datensicherung", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
         Button(onClick = { openLauncher.launch(arrayOf("*/*")) }, enabled = !model.busy, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
             Text("Sicherung einspielen")
         }

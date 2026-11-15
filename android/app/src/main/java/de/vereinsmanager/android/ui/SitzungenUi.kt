@@ -474,8 +474,8 @@ fun SitzungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
                             Column(Modifier.padding(10.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text("TOP ${i + 1}", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                                    TextButton(onClick = { f = f.copy(tops = f.tops.toMutableList().also { l -> val x = l.removeAt(i); l.add(i - 1, x) }) }, enabled = !gesperrt && i > 0) { Text("↑", fontWeight = FontWeight.Bold) }
-                                    TextButton(onClick = { f = f.copy(tops = f.tops.toMutableList().also { l -> val x = l.removeAt(i); l.add(i + 1, x) }) }, enabled = !gesperrt && i < f.tops.lastIndex) { Text("↓", fontWeight = FontWeight.Bold) }
+                                    KompaktKnopf("↑", { f = f.copy(tops = f.tops.toMutableList().also { l -> val x = l.removeAt(i); l.add(i - 1, x) }) }, Modifier.width(44.dp), enabled = !gesperrt && i > 0)
+                                    KompaktKnopf("↓", { f = f.copy(tops = f.tops.toMutableList().also { l -> val x = l.removeAt(i); l.add(i + 1, x) }) }, Modifier.width(44.dp), enabled = !gesperrt && i < f.tops.lastIndex)
                                 }
                                 Feld("Titel *", t.titel, { top(i, t.copy(titel = it)) }, pruef["top$i"], enabled = !gesperrt)
                                 Feld("Berichterstatter", t.berichterstatter, { top(i, t.copy(berichterstatter = it)) }, enabled = !gesperrt)
