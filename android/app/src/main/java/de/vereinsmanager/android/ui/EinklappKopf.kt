@@ -15,24 +15,34 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Velocity
 import kotlin.math.roundToInt
 
 /**
- * Der Kopf über einer Liste schrumpft und verblasst im Takt des Scrollens (langsam beim Hinunterscrollen)
- * und kommt beim Hinaufscrollen mit doppelter Geschwindigkeit wieder. Gleiches Verhalten wie in der
- * Mitgliederliste; dort steht der Code noch einmal für sich.
+ * Der Kopf über einer Liste schrumpft und verblasst im Takt des Scrollens (langsam beim Hinunterscrollen).
+ * Beim Hinaufscrollen entscheidet die Geschwindigkeit: Wer langsam nach oben scrollt, will die Liste durchsehen –
+ * der Kopf bleibt eingeklappt. Wer deutlich schneller nach oben wischt, bekommt den Kopf zurück (mit doppelter Geschwindigkeit).
+ * Ist das Listenanfang erreicht, kommt der Kopf immer zurück. Die Schwelle steht in [SCHNELL_DP_PRO_SEKUNDE].
+ * Das Verhalten ist für alle Listen mit einklappbarem Kopf (Mitglieder, Buchungen) dasselbe.
  */
 @Stable
-class KopfZustand(private val liste: LazyListState) {
+class KopfZustand(private val liste: LazyListState, private val dichte: Float = 1f) {
     internal val hoehe = IntArray(1)
 
     /** 0 = ganz sichtbar, -Höhe = ganz eingeklappt */
     internal var versatz by mutableFloatStateOf(0f)
 
+    private var letzteZeit = 0L
+    private var tempo = 0f           // geglättete Geschwindigkeit nach oben in Pixel pro Sekunde (nur bei Wischen mit dem Finger)
+    private var schnellerWurf = false // ob der laufende Auslauf (Fling) mit hoher Anfangsgeschwindigkeit begann
+
+    private val schwelle get() = SCHNELL_DP_PRO_SEKUNDE * dichte
+
     val verfolgung: NestedScrollConnection = object : NestedScrollConnection {
         override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
             val dy = available.y
             if (dy < 0f) {
+                tempo = 0f; letzteZeit = 0L
                 if (versatz <= -hoehe[0]) return Offset.Zero
                 if (versatz == 0f && !liste.canScrollForward) return Offset.Zero
                 val neu = (versatz + dy).coerceAtLeast(-hoehe[0].toFloat())
@@ -41,6 +51,16 @@ class KopfZustand(private val liste: LazyListState) {
                 return Offset(0f, verbraucht)
             } else if (dy > 0f) {
                 if (versatz >= 0f) return Offset.Zero
+                val jetzt = System.nanoTime()
+                if (source == NestedScrollSource.UserInput) {
+                    if (letzteZeit != 0L) {
+                        val dt = (jetzt - letzteZeit) / 1_000_000_000f
+                        if (dt > 0.0005f) tempo = 0.6f * tempo + 0.4f * (dy / dt)
+                    }
+                    letzteZeit = jetzt
+                }
+                val schnell = if (source == NestedScrollSource.UserInput) tempo > schwelle else schnellerWurf
+                if (!schnell && liste.canScrollBackward) return Offset.Zero // langsam: Kopf bleibt eingeklappt, die Liste scrollt
                 val neu = (versatz + dy * 2f).coerceAtMost(0f)
                 val verbraucht = (neu - versatz) / 2f
                 versatz = neu
@@ -48,11 +68,25 @@ class KopfZustand(private val liste: LazyListState) {
             }
             return Offset.Zero
         }
+
+        override suspend fun onPreFling(available: Velocity): Velocity {
+            schnellerWurf = available.y > schwelle * 1.5f
+            tempo = 0f; letzteZeit = 0L
+            return Velocity.Zero
+        }
+    }
+
+    companion object {
+        /** Ab dieser Geschwindigkeit nach oben (dp pro Sekunde) gilt ein Wischen als „deutlich schneller“ und holt den Kopf zurück. */
+        const val SCHNELL_DP_PRO_SEKUNDE = 900f
     }
 }
 
 @Composable
-fun rememberKopfZustand(liste: LazyListState): KopfZustand = remember(liste) { KopfZustand(liste) }
+fun rememberKopfZustand(liste: LazyListState): KopfZustand {
+    val dichte = androidx.compose.ui.platform.LocalDensity.current.density
+    return remember(liste) { KopfZustand(liste, dichte) }
+}
 
 fun Modifier.einklappbar(z: KopfZustand): Modifier = this
     .clipToBounds()

@@ -366,12 +366,22 @@ private fun BuchungZeile(b: Buchung, kontoName: Map<String, String>, erste: Bool
 private fun Feld(label: String, wert: String) {
     if (wert.isBlank()) return
     Column(Modifier.padding(vertical = 4.dp)) {
-        Text(label, style = MaterialTheme.typography.labelMedium)
-        Text(wert)
+        if (label.isNotEmpty()) Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(wert, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
-/** Eine Buchung mit allen Angaben, dazu Bearbeiten und Löschen. */
+/** Kleines farbiges Schild (Art der Buchung, Belegnummer) – wie das Status-Schild bei Mitgliedern. */
+@Composable
+private fun Schild(text: String, flaeche: Color, schrift: Color) {
+    Text(
+        text, color = schrift, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
+        maxLines = 1, softWrap = false,
+        modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(flaeche).padding(horizontal = 10.dp, vertical = 5.dp),
+    )
+}
+
+/** Eine Buchung mit allen Angaben, dazu Bearbeiten und Löschen – im gleichen Aufbau wie die Mitglieder-Detailansicht. */
 @Composable
 fun BuchungDetailScreen(
     model: AppModel, id: String, onEdit: () -> Unit, onBeleg: () -> Unit, onDeleted: () -> Unit, modifier: Modifier = Modifier,
@@ -382,49 +392,79 @@ fun BuchungDetailScreen(
     val b = model.buchungen.firstOrNull { it.id == id }
     if (b == null) { Text("Buchung nicht gefunden.", modifier.padding(16.dp)); return }
     val kontoName = remember(model.konten) { model.konten.associate { it.id to it.name } }
-    Column(modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
-        Text(
-            betragText(b), color = betragFarbe(b), fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.headlineMedium,
-        )
-        Text(Finance.titel(b), style = MaterialTheme.typography.titleMedium)
-        HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        Feld("Datum", if (b.datum.isNotEmpty()) deDate(b.datum) else "")
-        Feld("Belegnummer", b.belegNummer)
-        Feld("Buchungsart", FinanceLabels.KIND[b.art] ?: b.art)
-        Feld(if (b.istUmbuchung) "Von Konto" else "Konto", kontoName[b.kontoId] ?: b.kontoId)
-        if (b.istUmbuchung) Feld("Auf Konto", kontoName[b.zielkontoId] ?: b.zielkontoId)
-        Feld("Zahlungspartner", b.partner)
-        Feld("Buchungstext", b.text)
-        if (!b.istUmbuchung) {
-            Feld("Steuerliche Sphäre", FinanceLabels.SPHERE[b.sphaere] ?: b.sphaere)
-            Feld("Nummernkreis", b.nummernkreis)
-            Feld("Konto (SKR 42)", b.konto.ifEmpty { b.kategorie })
-            Feld("Kontonummer", b.skrKonto)
-            Feld("Sparte", b.sparte)
-            if (!b.aufgeteilt) Feld("Umsatzsteuer", "${b.ust} %")
+    val sc = MaterialTheme.colorScheme
+    val (artFlaeche, artSchrift) = when {
+        b.istUmbuchung -> sc.secondaryContainer to sc.onSecondaryContainer
+        b.istAusgabe -> sc.errorContainer to sc.onErrorContainer
+        else -> sc.primaryContainer to sc.onPrimaryContainer
+    }
+    val datum = if (b.datum.isNotEmpty()) deDate(b.datum) else ""
+    val tag = if (datum.length >= 10) datum.take(6) else datum.ifEmpty { "–" }
+    val jahr = if (datum.length >= 10) datum.takeLast(4) else null
+    val betragKurz = betragText(b)
+    val belegZahl = when { b.beleg != null -> "ja"; b.istUmbuchung -> "–"; else -> "fehlt" }
+    val belegUnter = when { b.beleg != null -> groesse(b.beleg!!.groesse); b.istUmbuchung -> "nicht nötig"; else -> "noch anhängen" }
+    Column(modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+        Column(Modifier.fillMaxWidth().padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(Finance.titel(b), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Schild(FinanceLabels.KIND[b.art] ?: b.art, artFlaeche, artSchrift)
+                if (b.belegNummer.isNotBlank()) Text(b.belegNummer, style = MaterialTheme.typography.bodyMedium, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
-        Feld("Notiz", b.notiz)
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 14.dp)) {
+            // Drei Kacheln mit einer gemeinsamen Schriftgröße: so groß, wie der längste Wert (meist der Betrag) noch hineinpasst.
+            val gewichte = listOf(1.6f, 1f, 1f)
+            val summe = gewichte.sum()
+            val laengen = listOf(betragKurz.length, tag.length, belegZahl.length)
+            val g = gewichte.indices.minOf { i ->
+                val innen = (maxWidth - 16.dp) * (gewichte[i] / summe) - 20.dp
+                innen.value / (maxOf(laengen[i], 3) * 0.62f)
+            }.coerceIn(14f, 28f).sp
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatKachel("Betrag", betragKurz, if (b.aufgeteilt) "aufgeteilt" else if (b.istUmbuchung) "Umbuchung" else null, artFlaeche, artSchrift, Modifier.weight(1.6f).fillMaxHeight(), g)
+                StatKachel("Datum", tag, jahr, sc.secondaryContainer, sc.onSecondaryContainer, Modifier.weight(1f).fillMaxHeight(), g)
+                StatKachel("Beleg", belegZahl, belegUnter, sc.tertiaryContainer, sc.onTertiaryContainer, Modifier.weight(1f).fillMaxHeight(), g)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        DetailKarte("Buchung") {
+            Feld("Datum", datum)
+            Feld("Belegnummer", b.belegNummer)
+            Feld(if (b.istUmbuchung) "Von Konto" else "Konto", kontoName[b.kontoId] ?: b.kontoId)
+            if (b.istUmbuchung) Feld("Auf Konto", kontoName[b.zielkontoId] ?: b.zielkontoId)
+            Feld("Zahlungspartner", b.partner)
+            Feld("Buchungstext", b.text)
+        }
+        if (!b.istUmbuchung) {
+            DetailKarte("Zuordnung") {
+                Feld("Steuerliche Sphäre", FinanceLabels.SPHERE[b.sphaere] ?: b.sphaere)
+                Feld("Nummernkreis", b.nummernkreis)
+                Feld("Konto (SKR 42)", b.konto.ifEmpty { b.kategorie })
+                Feld("Kontonummer", b.skrKonto)
+                Feld("Sparte", b.sparte)
+                if (!b.aufgeteilt) Feld("Umsatzsteuer", "${b.ust} %")
+            }
+        }
         if (b.aufgeteilt) {
-            Text("Aufteilung", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-            b.teile.forEachIndexed { i, t ->
-                Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                    Column(Modifier.padding(12.dp)) {
-                        Row {
-                            Text("Teil ${i + 1}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-                            Text(Geld.euro(t.betrag.abs()), fontWeight = FontWeight.Bold)
-                        }
-                        Feld("Text", t.text)
-                        Feld("Sphäre", FinanceLabels.SPHERE[t.sphaere] ?: t.sphaere)
-                        Feld("Konto", listOf(t.skrKonto, t.konto.ifEmpty { t.kategorie }).filter { it.isNotEmpty() }.joinToString(" – "))
-                        Feld("Sparte", t.sparte)
-                        Feld("Umsatzsteuer", "${t.ust} %")
+            DetailKarte("Aufteilung (${b.teile.size} Teile)") {
+                b.teile.forEachIndexed { i, t ->
+                    if (i > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp), color = sc.outlineVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Teil ${i + 1}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        Text(Geld.euro(t.betrag.abs()), fontWeight = FontWeight.ExtraBold)
                     }
+                    Feld("Text", t.text)
+                    Feld("Sphäre", FinanceLabels.SPHERE[t.sphaere] ?: t.sphaere)
+                    Feld("Konto", listOf(t.skrKonto, t.konto.ifEmpty { t.kategorie }).filter { it.isNotEmpty() }.joinToString(" – "))
+                    Feld("Sparte", t.sparte)
+                    Feld("Umsatzsteuer", "${t.ust} %")
                 }
             }
         }
-        BelegAbschnitt(model, b, onAnzeigen = onBeleg)
-        if (fehler != null) Text(fehler!!, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
+        DetailKarte("Beleg") { BelegAbschnitt(model, b, onAnzeigen = onBeleg, mitTitel = false) }
+        if (b.notiz.isNotBlank()) DetailKarte("Notiz") { Feld("", b.notiz) }
+        if (fehler != null) Text(fehler!!, color = sc.error, modifier = Modifier.padding(top = 8.dp))
         val rechnung = model.rechnungen.firstOrNull { it.buchungId == b.id }
         val spende = model.spenden.firstOrNull { it.transactionId == b.id }
         Aktionsleiste(
@@ -434,7 +474,7 @@ fun BuchungDetailScreen(
                 rechnung?.let { r -> Aktion("Rechnung ${r.nummer} öffnen", { onRechnung(r.id) }) },
                 spende?.let { s -> Aktion("Bestätigung ${s.receiptNumber} öffnen", { onSpende(s.id) }) },
             ),
-            Modifier.padding(top = 16.dp),
+            Modifier.padding(top = 12.dp, bottom = 16.dp),
         )
     }
     if (loeschen) {

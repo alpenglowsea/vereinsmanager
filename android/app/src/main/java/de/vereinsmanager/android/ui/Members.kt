@@ -137,49 +137,15 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
     val heute = LocalDate.now().toString()
     val deptOptions = remember(model.departments) { model.departments.associateWith { it } }
 
-    // Der Kopf schrumpft und verblasst im Takt des Scrollens (langsam beim Hinunterscrollen) und kommt beim
-    // Hinaufscrollen schneller wieder (doppelte Geschwindigkeit).
+    // Einklappender Kopf (gemeinsames Verhalten für alle Listen, siehe EinklappKopf.kt).
     val listState = rememberLazyListState()
-    val kopfHoehe = remember { IntArray(1) }
-    var kopfVersatz by remember { mutableFloatStateOf(0f) } // 0 = ganz sichtbar, -Höhe = ganz eingeklappt
-    val scrollVerfolgung = remember(listState) {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                val dy = available.y
-                if (dy < 0f) {
-                    if (kopfVersatz <= -kopfHoehe[0]) return Offset.Zero
-                    if (kopfVersatz == 0f && !listState.canScrollForward) return Offset.Zero
-                    val neu = (kopfVersatz + dy).coerceAtLeast(-kopfHoehe[0].toFloat())
-                    val verbraucht = neu - kopfVersatz
-                    kopfVersatz = neu
-                    return Offset(0f, verbraucht)
-                } else if (dy > 0f) {
-                    if (kopfVersatz >= 0f) return Offset.Zero
-                    val neu = (kopfVersatz + dy * 2f).coerceAtMost(0f)
-                    val verbraucht = (neu - kopfVersatz) / 2f
-                    kopfVersatz = neu
-                    return Offset(0f, verbraucht)
-                }
-                return Offset.Zero
-            }
-        }
-    }
+    val kopf = rememberKopfZustand(listState)
     LaunchedEffect(shown) { model.ansicht = shown.map { it.id } }
 
-    Column(modifier.padding(horizontal = 16.dp).nestedScroll(scrollVerfolgung)) {
+    Column(modifier.padding(horizontal = 16.dp).nestedScroll(kopf.verfolgung)) {
         if (info.isNotEmpty()) Text(info, modifier = Modifier.padding(top = 8.dp))
         Box(
-            Modifier.clipToBounds()
-                .layout { measurable, constraints ->
-                    val p = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
-                    kopfHoehe[0] = p.height
-                    val sichtbar = (p.height + kopfVersatz).roundToInt().coerceIn(0, p.height)
-                    layout(p.width, sichtbar) { p.placeRelative(0, kopfVersatz.roundToInt().coerceIn(-p.height, 0)) }
-                }
-                .graphicsLayer {
-                    val h = kopfHoehe[0].coerceAtLeast(1)
-                    alpha = (1f + 1.5f * kopfVersatz / h).coerceIn(0f, 1f)
-                },
+            Modifier.einklappbar(kopf),
         ) {
             Column {
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -94,7 +94,7 @@ internal fun groesse(bytes: Long): String = when {
 
 /** Der Beleg einer Buchung: anhängen (Datei oder Foto), anzeigen, ersetzen, entfernen. */
 @Composable
-fun BelegAbschnitt(model: AppModel, buchung: Buchung, onAnzeigen: () -> Unit) {
+fun BelegAbschnitt(model: AppModel, buchung: Buchung, onAnzeigen: () -> Unit, mitTitel: Boolean = true) {
     var wahl by remember { mutableStateOf(false) }
     var entfernen by remember { mutableStateOf(false) }
     var meldung by remember { mutableStateOf<String?>(null) }
@@ -116,8 +116,8 @@ fun BelegAbschnitt(model: AppModel, buchung: Buchung, onAnzeigen: () -> Unit) {
         }
     }
 
-    Column(Modifier.padding(top = 12.dp)) {
-        Text("Beleg", style = MaterialTheme.typography.labelMedium)
+    Column(Modifier.padding(top = if (mitTitel) 12.dp else 0.dp)) {
+        if (mitTitel) Text("Beleg", style = MaterialTheme.typography.labelMedium)
         val beleg = buchung.beleg
         if (beleg != null) {
             Text("${beleg.name} (${groesse(beleg.groesse)})")
