@@ -1,6 +1,8 @@
 package de.vereinsmanager.android.ui
 
 import androidx.compose.foundation.Canvas
+import de.vereinsmanager.core.donation.Zeichnung
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -151,8 +153,10 @@ fun FinanzAuswertungScreen(model: AppModel, modifier: Modifier = Modifier) {
 private fun DiagrammKarte(d: Diagramm, modifier: Modifier = Modifier) {
     var gewaehlt by remember(d) { mutableStateOf<String?>(null) }
     var tabelle by remember(d) { mutableStateOf(false) }
-    // Weiße Fläche wie im PDF: die Zeichenbefehle aus dem Kern setzen helle Hintergründe voraus.
-    Surface(modifier.fillMaxWidth().padding(vertical = 2.dp), shape = RoundedCornerShape(24.dp), color = Color.White, contentColor = Color(0xFF1B2A1B), border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant)) {
+    // Die Zeichenbefehle aus dem Kern malen für das PDF auf Weiß; auf dem Bildschirm werden Fläche, Schrift und Linien in die Farben der App umgesetzt.
+    val sc = MaterialTheme.colorScheme
+    val befehle = remember(d, sc) { d.befehle.map { umfaerben(it, sc) } }
+    Surface(modifier.fillMaxWidth().padding(vertical = 2.dp), shape = RoundedCornerShape(24.dp), color = sc.surfaceContainer, contentColor = sc.onSurface, border = BorderStroke(1.5.dp, sc.outlineVariant)) {
         Column(Modifier.padding(10.dp)) {
             Canvas(
                 Modifier.fillMaxWidth().aspectRatio((d.breite / d.hoehe).toFloat())
@@ -169,13 +173,13 @@ private fun DiagrammKarte(d: Diagramm, modifier: Modifier = Modifier) {
                     val nc = c.nativeCanvas
                     nc.save()
                     nc.scale(proMm / (72f / 25.4f), proMm / (72f / 25.4f))
-                    PdfWriter.zeichneSeite(nc, d.befehle, begrenzen = false)
+                    PdfWriter.zeichneSeite(nc, befehle, begrenzen = false)
                     nc.restore()
                 }
             }
             if (d.leer == null) {
-                Text(gewaehlt ?: "Tippen Sie auf einen Balken oder eine Zeile für den genauen Betrag.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF3F4A3C), modifier = Modifier.padding(top = 4.dp))
-                TextButton(onClick = { tabelle = !tabelle }, colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = Color(0xFF2E6B2E))) { Text(if (tabelle) "Tabelle ausblenden" else "Tabelle anzeigen") }
+                Text(gewaehlt ?: "Tippen Sie auf einen Balken oder eine Zeile für den genauen Betrag.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+                TextButton(onClick = { tabelle = !tabelle }) { Text(if (tabelle) "Tabelle ausblenden" else "Tabelle anzeigen") }
             }
             if (tabelle) d.tabelle.forEachIndexed { i, z ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
@@ -189,5 +193,26 @@ private fun DiagrammKarte(d: Diagramm, modifier: Modifier = Modifier) {
                 }
             }
         }
+    }
+}
+
+/** Setzt die festen Farben der Diagramm-Befehle (Weiß, Schiefergrau) in die Farben der App um; Datenfarben (Grün, Rot, Blau) bleiben. */
+private fun umfaerben(z: Zeichnung, sc: androidx.compose.material3.ColorScheme): Zeichnung {
+    fun f(c: Int): Int = when (c) {
+        0xFFFFFFFF.toInt() -> sc.surfaceContainer.toArgb()
+        0xFFE2E8F0.toInt() -> sc.outlineVariant.toArgb()   // Raster
+        0xFFCBD5E1.toInt() -> sc.outlineVariant.toArgb()   // Rand
+        0xFF94A3B8.toInt() -> sc.outline.toArgb()          // Achse
+        0xFF334155.toInt(), 0xFF0F172A.toInt() -> sc.onSurface.toArgb()
+        0xFF64748B.toInt() -> sc.onSurfaceVariant.toArgb()
+        else -> c
+    }
+    return when (z) {
+        is Zeichnung.Text -> z.copy(farbe = z.farbe?.let { f(it) } ?: (if (z.grau) sc.onSurfaceVariant else sc.onSurface).toArgb())
+        is Zeichnung.Rechteck -> z.copy(fuellung = z.fuellung?.let { f(it) }, farbe = z.farbe?.let { f(it) })
+        is Zeichnung.Linie -> z.copy(farbe = z.farbe?.let { f(it) } ?: sc.outline.toArgb())
+        is Zeichnung.Linienzug -> z.copy(farbe = z.farbe?.let { f(it) } ?: sc.onSurface.toArgb())
+        is Zeichnung.Sektor -> z.copy(fuellung = f(z.fuellung))
+        else -> z
     }
 }

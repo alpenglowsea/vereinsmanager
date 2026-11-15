@@ -49,6 +49,15 @@ fun EinstellungenScreen(model: AppModel, onProbes: () -> Unit, modifier: Modifie
     val geaendert = f != model.vereinsdaten || vorstand != model.vorstand
 
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    // Sprung aus dem Beitragslauf: zum Reiter „Verein“ wechseln; das gesuchte Feld holt sich selbst den Cursor.
+    val sprung = model.einstellungenFokus
+    androidx.compose.runtime.LaunchedEffect(sprung) {
+        if (sprung != null) {
+            tab = 1
+            kotlinx.coroutines.delay(1500)
+            model.einstellungenFokus = null
+        }
+    }
     val tabs = listOf("Allgemein", "Verein" + if (geaendert) " •" else "", "Datensicherung", "Unterstützen", "Fehler melden")
     Column(modifier.fillMaxSize()) {
         ScrollableTabRow(selectedTabIndex = tab, edgePadding = 8.dp) {
@@ -98,9 +107,9 @@ fun EinstellungenScreen(model: AppModel, onProbes: () -> Unit, modifier: Modifie
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("Lastschrifteinzug (SEPA)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Feld("Gläubiger-ID", f.glaeubigerId, { f = f.copy(glaeubigerId = it) }, hinweis = "z. B. DE98ZZZ09999999999 – bekommt man bei der Bundesbank")
-                        Feld("Vereinskonto IBAN", f.iban, { f = f.copy(iban = it) }, error = fehlerFuer("iban"))
-                        Feld("Vereinskonto BIC", f.bic, { f = f.copy(bic = it) }, error = fehlerFuer("bic"))
+                        Feld("Gläubiger-ID", f.glaeubigerId, { f = f.copy(glaeubigerId = it) }, fokus = sprung == "creditorId", hinweis = "z. B. DE98ZZZ09999999999 – bekommt man bei der Bundesbank")
+                        Feld("Vereinskonto IBAN", f.iban, { f = f.copy(iban = it) }, error = fehlerFuer("iban"), fokus = sprung == "creditorIban")
+                        Feld("Vereinskonto BIC", f.bic, { f = f.copy(bic = it) }, error = fehlerFuer("bic"), fokus = sprung == "creditorBic")
                         val fehlt = model.lastschriftFehlt
                         if (fehlt != null) Text("Für den Beitragslauf noch nötig: $fehlt", style = MaterialTheme.typography.bodySmall)
                     }

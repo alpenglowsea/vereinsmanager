@@ -4,6 +4,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -81,9 +83,17 @@ internal val PAYMENT_ORDER = listOf("sepa", "transfer", "standing_order", "cash"
 internal fun Feld(
     label: String, value: String, onChange: (String) -> Unit, error: String? = null, enabled: Boolean = true,
     keyboard: KeyboardType = KeyboardType.Text, singleLine: Boolean = true, hinweis: String? = null,
-    transformation: VisualTransformation = VisualTransformation.None,
+    transformation: VisualTransformation = VisualTransformation.None, fokus: Boolean = false,
 ) {
     val unten = error ?: hinweis
+    // fokus = true: Das Feld wird beim Erscheinen in den sichtbaren Bereich geholt und bekommt den Cursor (Sprung aus anderen Seiten).
+    val anforderung = remember { androidx.compose.ui.focus.FocusRequester() }
+    val sichtbar = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    if (fokus) androidx.compose.runtime.LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(250)
+        try { sichtbar.bringIntoView() } catch (e: Exception) { }
+        try { anforderung.requestFocus() } catch (e: Exception) { }
+    }
     OutlinedTextField(
         value = value, onValueChange = onChange, label = { Text(label) }, enabled = enabled, singleLine = singleLine,
         isError = error != null, keyboardOptions = KeyboardOptions(keyboardType = keyboard), visualTransformation = transformation,
@@ -92,7 +102,8 @@ internal fun Feld(
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
         ),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            .then(if (fokus) Modifier.bringIntoViewRequester(sichtbar).focusRequester(anforderung) else Modifier),
     )
 }
 

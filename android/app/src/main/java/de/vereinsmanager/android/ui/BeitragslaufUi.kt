@@ -116,7 +116,7 @@ private fun NeuerLauf(model: AppModel, onEinstellungen: () -> Unit) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Vereinsdaten unvollständig", fontWeight = FontWeight.ExtraBold, color = sc.onErrorContainer)
                     Text("Für einen Lastschrifteinzug fehlt noch: ${model.lastschriftFehlt}", color = sc.onErrorContainer)
-                    OutlinedButton(onClick = onEinstellungen) { Text("Zu den Einstellungen") }
+                    OutlinedButton(onClick = { model.einstellungenFokus = model.lastschriftFeld; onEinstellungen() }) { Text("Fehlende Angabe eintragen") }
                 }
             }
         }

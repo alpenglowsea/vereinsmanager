@@ -214,6 +214,11 @@ class AppModel(private val appContext: Context) {
     /** Was für einen Lastschrifteinzug in den Einstellungen noch fehlt (null: alles da). */
     var lastschriftFehlt by mutableStateOf<String?>(null)
         private set
+    /** Das erste fehlende oder fehlerhafte Lastschrift-Feld ("creditorId", "creditorIban", "creditorBic"). */
+    var lastschriftFeld by mutableStateOf<String?>(null)
+        private set
+    /** Wohin die Einstellungen beim Öffnen springen sollen (Schlüssel wie bei [lastschriftFeld]); die Einstellungen leeren es wieder. */
+    var einstellungenFokus by mutableStateOf<String?>(null)
     var glaeubiger by mutableStateOf<Glaeubiger?>(null)
         private set
 
@@ -266,6 +271,7 @@ class AppModel(private val appContext: Context) {
         vorstand = Vorstand.lesen(store.get("settings", "main"))
         schnappschuesse = schnappListe()
         lastschriftFehlt = Vereinsdaten.fehlt(store.get("settings", "main"))
+        lastschriftFeld = Vereinsdaten.fehltFeld(store.get("settings", "main"))
         glaeubiger = Vereinsdaten.glaeubiger(store.get("settings", "main"))
         dateiText = dateiInfo()
         val settings = store.get("settings", "main")

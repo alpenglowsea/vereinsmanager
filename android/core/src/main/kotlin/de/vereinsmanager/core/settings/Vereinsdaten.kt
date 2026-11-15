@@ -129,6 +129,14 @@ object Vereinsdaten {
         kassenwart = t(settings, "treasurer"), anschrift = de.vereinsmanager.core.export.Stammblatt.vereinsAnschrift(settings),
     )
 
+    /** Das Feld, das für einen Lastschrifteinzug zuerst noch fehlt oder fehlerhaft ist: "creditorId", "creditorIban" oder "creditorBic" (null: alles da). */
+    fun fehltFeld(settings: JsonObject?): String? = when {
+        t(settings, "creditorId").isBlank() -> "creditorId"
+        t(settings, "creditorIban").isBlank() || !SepaService.validateIban(t(settings, "creditorIban")).isValid -> "creditorIban"
+        !SepaService.validateBic(t(settings, "creditorBic")) -> "creditorBic"
+        else -> null
+    }
+
     /** Was für einen Lastschrifteinzug in den Einstellungen noch fehlt (null: alles da). */
     fun fehlt(settings: JsonObject?): String? {
         if (t(settings, "creditorId").isBlank()) return "Die Gläubiger-ID fehlt."
