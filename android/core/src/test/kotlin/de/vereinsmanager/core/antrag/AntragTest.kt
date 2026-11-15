@@ -158,6 +158,17 @@ class AntragTest {
         assertEquals(0, Dokumente.dokumente(st).size)
     }
 
+    @Test fun zweiteFassungAmSelbenTagWirdGezaehlt() {
+        val st = InMemoryDocumentStore(); val fs = InMemoryFileStore()
+        val sa = AntragEinstellungenStore.Beilage.SATZUNG; val ds = AntragEinstellungenStore.Beilage.DATENSCHUTZ
+        val t1 = AntragEinstellungenStore.beilageSetzen(st, fs, sa, pdfBytes, "a.pdf", heute).titel
+        val t2 = AntragEinstellungenStore.beilageSetzen(st, fs, sa, pdfBytes, "a.pdf", heute).titel
+        val t3 = AntragEinstellungenStore.beilageSetzen(st, fs, sa, pdfBytes, "a.pdf", heute).titel
+        val d = AntragEinstellungenStore.beilageSetzen(st, fs, ds, pdfBytes, "d.pdf", heute).titel
+        assertEquals("Satzung vom 12.11.2026", t1); assertEquals("Satzung vom 12.11.2026 (2)", t2); assertEquals("Satzung vom 12.11.2026 (3)", t3)
+        assertEquals("Datenschutz-Vordruck vom 12.11.2026", d) // die andere Beilage zählt für sich
+    }
+
     @Test fun satzungUndDatenschutzHinterlegenNeueFassungBehaeltAlte() {
         val st = InMemoryDocumentStore(); val fs = InMemoryFileStore()
         val sa = AntragEinstellungenStore.Beilage.SATZUNG; val ds = AntragEinstellungenStore.Beilage.DATENSCHUTZ

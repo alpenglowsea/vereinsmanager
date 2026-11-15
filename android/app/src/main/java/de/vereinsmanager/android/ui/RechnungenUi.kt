@@ -151,7 +151,7 @@ fun RechnungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                     onLongClick = { if (!an) gewaehlt = gewaehlt + r.id; info = null },
                 ) {
                     if (waehlt) Checkbox(an, { gewaehlt = if (an) gewaehlt - r.id else gewaehlt + r.id })
-                    else Marke(r.anzeigeName.ifBlank { "?" }, i, 44.dp)
+                    else Marke(r.anzeigeName.ifBlank { "?" }, (r.id.hashCode() and 0x7fffffff), 44.dp)
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                         Text(r.anzeigeName.ifBlank { "(ohne Empfänger)" }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(

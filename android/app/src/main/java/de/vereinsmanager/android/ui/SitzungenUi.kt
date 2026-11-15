@@ -131,7 +131,7 @@ fun SitzungenScreen(model: AppModel, onOpen: (String) -> Unit, onNeu: () -> Unit
             if (tab == 0) {
                 itemsIndexed(liste, key = { _, s -> s.id }) { i, s ->
                     ListenKarte(erste = i == 0, letzte = i == liste.lastIndex, angehakt = false, onClick = { onOpen(s.id) }, onLongClick = {}) {
-                        Marke(s.titel.ifBlank { "?" }, i, 44.dp)
+                        Marke(s.titel.ifBlank { "?" }, (s.id.hashCode() and 0x7fffffff), 44.dp)
                         Column(Modifier.weight(1f).padding(start = 12.dp)) {
                             Text(s.titel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Text("${Sitzungen.artName(s.art)} · ${Sitzungen.statusName(s.status)}", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)

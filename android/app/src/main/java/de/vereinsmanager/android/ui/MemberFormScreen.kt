@@ -241,7 +241,10 @@ fun MemberFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
                     Feld("E-Mail", f.email, { f = f.copy(email = it) }, keyboard = KeyboardType.Email)
                 }
                 FormTab.MITGLIEDSCHAFT -> {
-                    Auswahl("Sparte", departmentOptions, f.department) { f = f.copy(department = it) }
+                    if (departmentOptions.isEmpty()) Text(
+                        "Es ist noch keine Sparte angelegt. Legen Sie zuerst unter Einstellungen → Verein eine an; danach lässt sie sich hier wählen.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(vertical = 6.dp),
+                    ) else Auswahl("Sparte", departmentOptions, f.department) { f = f.copy(department = it) }
                     Auswahl("Status", STATUS_FORM, f.status) { f = MemberRules.setStatus(f, it, today) }
                     Auswahl("Mitgliedschaftstyp", TYPE_FORM, f.type) { f = MemberRules.setType(f, it, today) }
                     DatumFeld("Eintrittsdatum *", f.entryDate, errors["entryDate"]) { f = f.copy(entryDate = it) }

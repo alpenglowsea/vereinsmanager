@@ -215,7 +215,7 @@ fun DokumenteScreen(
                     onLongClick = { auswahl = true; if (!an) gewaehlt = gewaehlt + d.id },
                 ) {
                     if (auswahl) Checkbox(checked = an, onCheckedChange = { gewaehlt = if (it) gewaehlt + d.id else gewaehlt - d.id })
-                    else Marke(d.titel.ifEmpty { d.dateiName }.ifBlank { "?" }, i, 44.dp)
+                    else Marke(d.titel.ifEmpty { d.dateiName }.ifBlank { "?" }, (d.id.hashCode() and 0x7fffffff), 44.dp)
                     Column(Modifier.weight(1f).padding(start = 12.dp)) {
                         Text(d.titel.ifEmpty { d.dateiName }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Text(

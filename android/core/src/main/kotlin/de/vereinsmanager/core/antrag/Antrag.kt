@@ -226,13 +226,22 @@ object AntragEinstellungenStore {
             Beilage.DATENSCHUTZ -> ordnerKennung(store, files)
         }
         val form = DokumentForm(
-            id = DokumentStore.neueId(), titel = "${b.titel} vom ${"%02d.%02d.%04d".format(heute.dayOfMonth, heute.monthValue, heute.year)}",
+            id = DokumentStore.neueId(), titel = freierTitel(store, "${b.titel} vom ${"%02d.%02d.%04d".format(heute.dayOfMonth, heute.monthValue, heute.year)}"),
             kategorie = b.kategorie, ordnerId = ordner, datum = heute.toString(), tags = b.tags,
             notiz = "Wird im Aufnahmeantrag dem neuen Mitglied zum Ansehen angeboten, solange es die aktuelle Fassung ist.",
         )
         val neu = DokumentStore.neu(store, files, bytes, dateiName.ifBlank { b.dateiName }, "application/pdf", form)
         aendern(store) { it[b.schluessel] = JsonPrimitive(neu.id) }
         return neu
+    }
+
+    /** Gibt es den Titel schon (zweite Fassung am selben Tag), wird gezählt: „… (2)“, „… (3)“. */
+    internal fun freierTitel(store: DocumentStore, basis: String): String {
+        val belegt = Dokumente.dokumente(store).map { it.titel }.toSet()
+        if (basis !in belegt) return basis
+        var n = 2
+        while ("$basis ($n)" in belegt) n++
+        return "$basis ($n)"
     }
 
     /** Der Antrag bietet die Beilage nicht mehr an. Das Dokument bleibt im Archiv (löschen geht dort). */

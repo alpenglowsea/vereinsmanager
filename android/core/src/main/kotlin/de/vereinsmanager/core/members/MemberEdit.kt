@@ -147,7 +147,8 @@ object MemberRules {
         id = "mem-${System.currentTimeMillis()}",
         number = number,
         entryDate = today.toString(),
-        department = departments.firstOrNull() ?: "Fußball",
+        // Ohne angelegte Sparte bleibt das Feld leer (kein erfundener Vorschlag); das Formular weist darauf hin.
+        department = departments.firstOrNull() ?: "",
         mandateDate = today.toString(),
         mandateReference = "MANDAT-$number-${today.year}",
         // Ein neues Mandat wurde noch nie eingezogen (Abweichung vom Desktop, der RCUR vorgibt und keine Auswahl bietet).

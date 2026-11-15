@@ -185,7 +185,7 @@ fun InventarScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit,
                     onLongClick = { if (!an) gewaehlt = gewaehlt + a.id; info = null },
                 ) {
                     if (waehlt) Checkbox(an, { gewaehlt = if (an) gewaehlt - a.id else gewaehlt + a.id })
-                    else Marke(a.name.ifBlank { "?" }, i, 44.dp)
+                    else Marke(a.name.ifBlank { "?" }, (a.id.hashCode() and 0x7fffffff), 44.dp)
                     Column(Modifier.weight(1f).padding(start = 12.dp)) {
                         Text(a.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(

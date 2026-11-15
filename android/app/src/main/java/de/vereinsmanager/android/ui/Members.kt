@@ -334,7 +334,7 @@ private fun MemberRow(m: Member, nr: Int, erste: Boolean, letzte: Boolean, selec
     ) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             if (selecting) Checkbox(checked, { onClick() })
-            else Marke(m.displayName, nr, 48.dp)
+            else Marke(m.displayName, (m.id.hashCode() and 0x7fffffff), 48.dp)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(m.displayName.ifEmpty { "(ohne Namen)" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val line = listOf(

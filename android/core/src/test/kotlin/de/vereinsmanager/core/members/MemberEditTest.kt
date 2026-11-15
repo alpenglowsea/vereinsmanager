@@ -414,4 +414,9 @@ class MemberEditTest {
             assertEquals("Mitglied nicht gefunden.", e.message)
         }
     }
+
+    @Test fun ohneSparteBleibtDasFeldLeer() {
+        assertEquals("", MemberRules.neu("M-0001", emptyList(), heute).department)
+        assertEquals("Chor", MemberRules.neu("M-0001", listOf("Chor", "Orchester"), heute).department)
+    }
 }

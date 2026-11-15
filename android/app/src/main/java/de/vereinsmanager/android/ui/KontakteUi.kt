@@ -176,7 +176,7 @@ fun KontakteScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit,
                     onLongClick = { if (!an) gewaehlt = gewaehlt + k.id; info = null },
                 ) {
                     if (waehlt) Checkbox(an, { gewaehlt = if (an) gewaehlt - k.id else gewaehlt + k.id })
-                    else Marke(k.anzeigeName.ifBlank { "?" }, i, 44.dp)
+                    else Marke(k.anzeigeName.ifBlank { "?" }, (k.id.hashCode() and 0x7fffffff), 44.dp)
                     Column(Modifier.weight(1f).padding(start = 12.dp)) {
                         Text(k.anzeigeName.ifBlank { "(ohne Name)" }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(

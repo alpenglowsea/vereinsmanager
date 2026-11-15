@@ -141,7 +141,7 @@ fun SpendenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, 
                     onLongClick = { if (!an) gewaehlt = gewaehlt + r.id; info = null },
                 ) {
                     if (waehlt) Checkbox(an, { gewaehlt = if (an) gewaehlt - r.id else gewaehlt + r.id })
-                    else Marke(r.donorName.ifBlank { "?" }, i, 44.dp)
+                    else Marke(r.donorName.ifBlank { "?" }, (r.id.hashCode() and 0x7fffffff), 44.dp)
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                         Text(r.donorName.ifBlank { "(ohne Name)" }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
