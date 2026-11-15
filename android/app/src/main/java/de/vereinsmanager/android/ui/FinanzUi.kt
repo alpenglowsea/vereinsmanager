@@ -1,6 +1,11 @@
 package de.vereinsmanager.android.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -70,38 +75,47 @@ fun FinanzAuswertungScreen(model: AppModel, modifier: Modifier = Modifier) {
     val filterText = Finanzauswertung.filterText(filter, model.konten)
     val spartenWahl = remember(model.departments) { linkedMapOf(Finanzauswertung.GESAMT to Finanzauswertung.GESAMT).also { m -> model.departments.forEach { m[it] = it } } }
 
+    val sc = MaterialTheme.colorScheme
     Column(modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            FilterMenu("Jahr", jahre.associateWith { it }, gewaehlt) { jahr = it }
-            FilterMenu("Bereich", FinanceLabels.SPHERE_SHORT, sphaere) { sphaere = it }
-            FilterMenu("Konto", model.konten.associate { it.id to it.name }, konto) { kontoId = it }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(filterText, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f).fillMaxHeight())
-            KompaktKnopf("CSV", {
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            KopfKnopf("CSV", {
                 val verein = model.vereinsname()
                 exporter.csv("${Finanzauswertung.dateiname(a, "csv").removeSuffix(".csv")}_${Export.dateiname(verein)}.csv") {
                     Finanzauswertung.csv(a, model.konten, Finanzauswertung.mix(a.posten, true), Finanzauswertung.mix(a.posten, false))
                 }
-            }, enabled = !a.keineBuchungen && !model.busy)
-            KompaktKnopf("PDF", {
+            }, Modifier.weight(1f), enabled = !a.keineBuchungen && !model.busy)
+            KopfKnopf("PDF", {
                 val verein = model.vereinsname()
                 exporter.pdfSchreiber("${Finanzauswertung.dateiname(a, "pdf").removeSuffix(".pdf")}_${Export.dateiname(verein)}.pdf") { out ->
                     PdfWriter.rechnung(Diagramme.pdfSeiten(a, verein, filterText, LocalDate.now()), null, out)
                 }
-            }, enabled = !a.keineBuchungen && !model.busy)
+            }, Modifier.weight(1f), enabled = !a.keineBuchungen && !model.busy)
+        }
+        Text("Auswertung", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 4.dp))
+        Text(filterText, style = MaterialTheme.typography.bodyMedium, color = sc.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            FilterMenu("Jahr", jahre.associateWith { it }, gewaehlt) { jahr = it }
+            FilterMenu("Bereich", FinanceLabels.SPHERE_SHORT, sphaere) { sphaere = it }
+            FilterMenu("Konto", model.konten.associate { it.id to it.name }, konto) { kontoId = it }
         }
         if (model.buchungen.isEmpty()) Text("Noch keine Buchungen. Legen Sie Buchungen an oder spielen Sie eine Sicherung ein.", Modifier.padding(top = 8.dp))
         else if (a.keineBuchungen) Text("Für diese Auswahl gibt es keine Buchungen. Umbuchungen zwischen Konten zählen nicht.", Modifier.padding(top = 8.dp))
 
         val k = a.kennzahlen
-        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Kachel("Einnahmen (ohne Spenden)", Geld.euro(k.einnahmen), Modifier.weight(1f).fillMaxHeight())
-            Kachel("Spenden", Geld.euro(k.spenden), Modifier.weight(1f).fillMaxHeight())
-        }
-        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Kachel("Ausgaben", Geld.euro(k.ausgaben), Modifier.weight(1f).fillMaxHeight())
-            Kachel("Saldo", Geld.euroMitVorzeichen(k.saldo), Modifier.weight(1f).fillMaxHeight())
+        val werte = listOf(Geld.euro(k.einnahmen), Geld.euro(k.spenden), Geld.euro(k.ausgaben), Geld.euroMitVorzeichen(k.saldo))
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val gr = kachelSchrift(maxWidth, listOf(1f, 1f), werte.map { it.length }, 26f)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatKachel("Einnahmen", werte[0], "ohne Spenden", sc.secondaryContainer, sc.onSecondaryContainer, Modifier.weight(1f).fillMaxHeight(), gr)
+                    StatKachel("Spenden", werte[1], "Nummernkreis 40400", sc.tertiaryContainer, sc.onTertiaryContainer, Modifier.weight(1f).fillMaxHeight(), gr)
+                }
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatKachel("Ausgaben", werte[2], null, sc.errorContainer, sc.onErrorContainer, Modifier.weight(1f).fillMaxHeight(), gr)
+                    if (k.saldo.signum() >= 0) StatKachel("Saldo", werte[3], "Überschuss", sc.primaryContainer, sc.onPrimaryContainer, Modifier.weight(1f).fillMaxHeight(), gr)
+                    else StatKachel("Saldo", werte[3], "Fehlbetrag", sc.errorContainer, sc.onErrorContainer, Modifier.weight(1f).fillMaxHeight(), gr)
+                }
+            }
         }
 
         val alle = gewaehlt == null
@@ -122,7 +136,7 @@ fun FinanzAuswertungScreen(model: AppModel, modifier: Modifier = Modifier) {
             "Umbuchungen zwischen Konten zählen nicht. Spenden sind Einnahmen auf dem Nummernkreis 40400; Ausgaben dort zählen als Ausgaben. " +
                 "Aufgeteilte Buchungen zählen Teil für Teil. Der Kontostand-Verlauf enthält den Anfangsbestand der Konten und gilt unabhängig vom Bereichsfilter. " +
                 "Auswertung der gebuchten Beträge, keine Steuerberatung.",
-            style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp),
+            style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
         )
     }
     val meldung = info
@@ -132,23 +146,14 @@ fun FinanzAuswertungScreen(model: AppModel, modifier: Modifier = Modifier) {
     )
 }
 
-@Composable
-private fun Kachel(titel: String, wert: String, modifier: Modifier = Modifier) {
-    Card(modifier) {
-        Column(Modifier.padding(12.dp)) {
-            Text(titel, style = MaterialTheme.typography.labelMedium)
-            Text(wert, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
-        }
-    }
-}
-
 /** Ein Diagramm aus dem Kern: gezeichnet mit denselben Befehlen wie im PDF; Antippen zeigt den Betrag, „Tabelle“ die Zahlen. */
 @Composable
 private fun DiagrammKarte(d: Diagramm, modifier: Modifier = Modifier) {
     var gewaehlt by remember(d) { mutableStateOf<String?>(null) }
     var tabelle by remember(d) { mutableStateOf(false) }
-    Card(modifier.fillMaxWidth()) {
-        Column(Modifier.padding(8.dp)) {
+    // Weiße Fläche wie im PDF: die Zeichenbefehle aus dem Kern setzen helle Hintergründe voraus.
+    Surface(modifier.fillMaxWidth().padding(vertical = 2.dp), shape = RoundedCornerShape(24.dp), color = Color.White, contentColor = Color(0xFF1B2A1B), border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Column(Modifier.padding(10.dp)) {
             Canvas(
                 Modifier.fillMaxWidth().aspectRatio((d.breite / d.hoehe).toFloat())
                     .pointerInput(d) {
@@ -169,8 +174,8 @@ private fun DiagrammKarte(d: Diagramm, modifier: Modifier = Modifier) {
                 }
             }
             if (d.leer == null) {
-                Text(gewaehlt ?: "Tippen Sie auf einen Balken oder eine Zeile für den genauen Betrag.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
-                TextButton(onClick = { tabelle = !tabelle }) { Text(if (tabelle) "Tabelle ausblenden" else "Tabelle anzeigen") }
+                Text(gewaehlt ?: "Tippen Sie auf einen Balken oder eine Zeile für den genauen Betrag.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF3F4A3C), modifier = Modifier.padding(top = 4.dp))
+                TextButton(onClick = { tabelle = !tabelle }, colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = Color(0xFF2E6B2E))) { Text(if (tabelle) "Tabelle ausblenden" else "Tabelle anzeigen") }
             }
             if (tabelle) d.tabelle.forEachIndexed { i, z ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {

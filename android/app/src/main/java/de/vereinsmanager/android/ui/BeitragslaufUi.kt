@@ -1,6 +1,14 @@
 package de.vereinsmanager.android.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -49,9 +57,9 @@ private fun maskiert(iban: String) = if (iban.isEmpty()) "keine IBAN" else iban.
 fun BeitragslaufScreen(model: AppModel, onEinstellungen: () -> Unit, modifier: Modifier = Modifier) {
     var tab by remember { mutableStateOf(0) }
     Column(modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = tab) {
-            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Neuer Lauf") })
-            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Historie (${model.laeufe.size})") })
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TabChip("Neuer Lauf", tab == 0) { tab = 0 }
+            TabChip("Historie (${model.laeufe.size})", tab == 1) { tab = 1 }
         }
         if (tab == 0) NeuerLauf(model, onEinstellungen) else Historie(model)
     }
@@ -101,71 +109,78 @@ private fun NeuerLauf(model: AppModel, onEinstellungen: () -> Unit) {
     val g = model.glaeubiger
     val kannErzeugen = !model.busy && g != null && aktive.isNotEmpty()
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val sc = MaterialTheme.colorScheme
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp)) {
         if (model.lastschriftFehlt != null) item {
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Vereinsdaten unvollständig", fontWeight = FontWeight.SemiBold)
-                    Text("Für einen Lastschrifteinzug fehlt noch: ${model.lastschriftFehlt}")
+            Surface(shape = RoundedCornerShape(24.dp), color = sc.errorContainer, modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Vereinsdaten unvollständig", fontWeight = FontWeight.ExtraBold, color = sc.onErrorContainer)
+                    Text("Für einen Lastschrifteinzug fehlt noch: ${model.lastschriftFehlt}", color = sc.onErrorContainer)
                     OutlinedButton(onClick = onEinstellungen) { Text("Zu den Einstellungen") }
                 }
             }
         }
         item {
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(12.dp)) {
-                    Auswahl("Zeitraum", Beitragslauf.FILTER_TEXT.entries.associate { it.key.wire to it.value }, filter.wire) {
-                        filter = SepaPeriodFilter.fromWire(it) ?: filter
-                    }
-                    val jahre = (heute.year - 1..heute.year + 1).associate { it.toString() to it.toString() }
-                    Auswahl("Jahr", jahre, jahr.toString()) { jahr = it.toInt() }
-                    when {
-                        Beitragslauf.istMonatlich(filter) ->
-                            Auswahl("Monat", (1..12).associate { it.toString() to Beitragslauf.monatsname(it) }, monat.toString()) { monat = it.toInt() }
-                        filter == SepaPeriodFilter.QUARTERLY ->
-                            Auswahl("Quartal", (1..4).associate { it.toString() to "Q$it" }, quartal.toString()) { quartal = it.toInt() }
-                        filter == SepaPeriodFilter.HALF_YEARLY ->
-                            Auswahl("Halbjahr", (1..2).associate { it.toString() to "H$it" }, halbjahr.toString()) { halbjahr = it.toInt() }
-                    }
-                    DatumFeld("Ausführungsdatum (Fälligkeit)", ausfuehrung) { ausfuehrung = it }
-                    Auswahl("Dateiformat", SepaFormat.entries.associate { it.wire to it.text }, format.wire) { format = SepaFormat.fromWire(it) ?: format }
-                    Feld("Titel", titel, { titel = it }, hinweis = "Leer lassen: ${Beitragslauf.titel(p.copy(titel = ""))}")
-                    Feld("Verwendungszweck", vorlage, { vorlage = it }, hinweis = "Platzhalter: {PERIOD} {month} {year} {MEMBER_NO} {NAME} {DEPT}")
+            val werte = listOf("${aktive.size} von ${posten.size}", euro(summe), ungueltig.toString())
+            BoxWithConstraints(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+                val gr = kachelSchrift(maxWidth, listOf(1f, 1.3f, 1f), werte.map { it.length }, 24f)
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatKachel("Posten", werte[0], "ausgewählt", sc.secondaryContainer, sc.onSecondaryContainer, Modifier.weight(1f).fillMaxHeight(), gr)
+                    StatKachel("Summe", werte[1], "dieser Lauf", sc.primaryContainer, sc.onPrimaryContainer, Modifier.weight(1.3f).fillMaxHeight(), gr)
+                    if (ungueltig > 0) StatKachel("Fehlerhaft", werte[2], "bitte prüfen", sc.errorContainer, sc.onErrorContainer, Modifier.weight(1f).fillMaxHeight(), gr)
+                    else StatKachel("Fehlerhaft", werte[2], "alles in Ordnung", sc.tertiaryContainer, sc.onTertiaryContainer, Modifier.weight(1f).fillMaxHeight(), gr)
                 }
             }
         }
         item {
-            Text(
-                "${aktive.size} von ${posten.size} Posten ausgewählt · Summe ${euro(summe)}" + if (ungueltig > 0) " · $ungueltig fehlerhaft" else "",
-                fontWeight = FontWeight.SemiBold,
-            )
+            DetailKarte("Zeitraum und Datei") {
+                Auswahl("Zeitraum", Beitragslauf.FILTER_TEXT.entries.associate { it.key.wire to it.value }, filter.wire) {
+                    filter = SepaPeriodFilter.fromWire(it) ?: filter
+                }
+                val jahre = (heute.year - 1..heute.year + 1).associate { it.toString() to it.toString() }
+                Auswahl("Jahr", jahre, jahr.toString()) { jahr = it.toInt() }
+                when {
+                    Beitragslauf.istMonatlich(filter) ->
+                        Auswahl("Monat", (1..12).associate { it.toString() to Beitragslauf.monatsname(it) }, monat.toString()) { monat = it.toInt() }
+                    filter == SepaPeriodFilter.QUARTERLY ->
+                        Auswahl("Quartal", (1..4).associate { it.toString() to "Q$it" }, quartal.toString()) { quartal = it.toInt() }
+                    filter == SepaPeriodFilter.HALF_YEARLY ->
+                        Auswahl("Halbjahr", (1..2).associate { it.toString() to "H$it" }, halbjahr.toString()) { halbjahr = it.toInt() }
+                }
+                DatumFeld("Ausführungsdatum (Fälligkeit)", ausfuehrung) { ausfuehrung = it }
+                Auswahl("Dateiformat", SepaFormat.entries.associate { it.wire to it.text }, format.wire) { format = SepaFormat.fromWire(it) ?: format }
+                Feld("Titel", titel, { titel = it }, hinweis = "Leer lassen: ${Beitragslauf.titel(p.copy(titel = ""))}")
+                Feld("Verwendungszweck", vorlage, { vorlage = it }, hinweis = "Platzhalter: {PERIOD} {month} {year} {MEMBER_NO} {NAME} {DEPT}")
+            }
         }
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Feld("Suchen (Name, Nummer, Kontoinhaber)", suche, { suche = it })
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.padding(top = 8.dp)) {
+                Text("Posten", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+                SuchFeld(suche, { suche = it }, "Mitglied suchen …", Modifier.padding(top = 8.dp))
+                Row(Modifier.padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterMenu("Status", linkedMapOf("gueltig" to "Nur gültige", "ungueltig" to "Nur fehlerhafte"), gueltigFilter) { gueltigFilter = it }
                     if (sparten.isNotEmpty()) FilterMenu("Sparte", sparten, sparte) { sparte = it }
                 }
             }
         }
-        if (posten.isEmpty()) item { Text("Für diesen Zeitraum gibt es keine Mitglieder mit Lastschrift.") }
-        items(sichtbar, key = { it.memberId }) { i ->
-            Card(Modifier.fillMaxWidth()) {
-                Row(Modifier.padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = i.selected,
-                        onCheckedChange = { an -> abgewaehlt = if (an) abgewaehlt - i.memberId else abgewaehlt + i.memberId },
-                        enabled = i.isValid,
-                    )
-                    Column(Modifier.weight(1f).clickable(enabled = i.isValid) { betragFuer = i }.padding(vertical = 8.dp)) {
-                        Text("${i.memberNumber} · ${i.memberName}", fontWeight = FontWeight.SemiBold)
-                        Text("${i.accountHolder} · ${maskiert(i.iban)}", style = MaterialTheme.typography.bodySmall)
-                        if (i.mandateReference.isNotEmpty()) Text("Mandat ${i.mandateReference} · ${i.sequenceType}", style = MaterialTheme.typography.bodySmall)
-                        if (!i.isValid) Text(i.validationErrors.joinToString("; "), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    }
-                    Text(euro(i.amount), fontWeight = FontWeight.Bold)
+        if (posten.isEmpty()) item { Text("Für diesen Zeitraum gibt es keine Mitglieder mit Lastschrift.", color = sc.onSurfaceVariant) }
+        itemsIndexed(sichtbar, key = { _, i -> i.memberId }) { n, i ->
+            ListenKarte(
+                erste = n == 0, letzte = n == sichtbar.lastIndex, angehakt = false,
+                onClick = { if (i.isValid) betragFuer = i }, onLongClick = {},
+            ) {
+                Checkbox(
+                    checked = i.selected,
+                    onCheckedChange = { an -> abgewaehlt = if (an) abgewaehlt - i.memberId else abgewaehlt + i.memberId },
+                    enabled = i.isValid,
+                )
+                Column(Modifier.weight(1f).padding(horizontal = 6.dp)) {
+                    Text("${i.memberNumber} · ${i.memberName}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("${i.accountHolder} · ${maskiert(i.iban)}", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (i.mandateReference.isNotEmpty()) Text("Mandat ${i.mandateReference} · ${i.sequenceType}", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (!i.isValid) Text(i.validationErrors.joinToString("; "), color = sc.error, style = MaterialTheme.typography.bodySmall)
                 }
+                Text(euro(i.amount), fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleSmall, maxLines = 1, softWrap = false)
             }
         }
         item {
@@ -188,7 +203,7 @@ private fun NeuerLauf(model: AppModel, onEinstellungen: () -> Unit) {
                 ) { Text("Prüfprotokoll (PDF)") }
                 Text(
                     "Beim Erstellen wird der Lauf in der Historie abgelegt. Die Mandatsfolge (Erst-/Folgelastschrift) wird dabei nicht verändert.",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant,
                 )
             }
         }
@@ -234,42 +249,40 @@ private fun Historie(model: AppModel) {
     val exporter = rememberExporter(model) { info = it }
     val g = model.glaeubiger
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (model.laeufe.isEmpty()) item { Text("Noch kein Lauf erstellt.") }
+    val sc = MaterialTheme.colorScheme
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp)) {
+        if (model.laeufe.isEmpty()) item { Text("Noch kein Lauf erstellt.", color = sc.onSurfaceVariant) }
         items(model.laeufe, key = { it.id }) { l ->
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(l.titel, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "Ausführung ${deDate(l.ausfuehrung)} · ${l.aktive.size} Posten · ${euro(l.summe)}",
-                        style = MaterialTheme.typography.bodySmall,
+            DetailKarte(l.titel) {
+                Text(
+                    "Ausführung ${deDate(l.ausfuehrung)} · ${l.aktive.size} Posten · ${euro(l.summe)}",
+                    style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    "Erstellt ${l.erstellt.take(10).let { deDate(it) }}" +
+                        if (l.gebucht) " · verbucht" + (model.konten.firstOrNull { it.id == l.gebuchtAufKonto }?.let { " auf ${it.name}" } ?: "") else " · nicht verbucht",
+                    style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant,
+                )
+                Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    KompaktKnopf(
+                        "XML", { exporter.xml(Beitragslauf.xmlDateiname(l.titel, l.ausfuehrung)) { l.xml.orEmpty() } },
+                        Modifier.weight(1f), enabled = !l.xml.isNullOrEmpty() && !model.busy,
                     )
-                    Text(
-                        "Erstellt ${l.erstellt.take(10).let { deDate(it) }}" +
-                            if (l.gebucht) " · verbucht" + (model.konten.firstOrNull { it.id == l.gebuchtAufKonto }?.let { " auf ${it.name}" } ?: "") else " · nicht verbucht",
-                        style = MaterialTheme.typography.bodySmall,
+                    KompaktKnopf(
+                        "Protokoll",
+                        {
+                            if (g == null) info = "Für das Protokoll fehlen Vereinsdaten: ${model.lastschriftFehlt ?: "bitte in den Einstellungen ergänzen"}."
+                            else {
+                                val proto = Beitragslauf.protokoll(Beitragslauf.parameterVon(l), l.posten, g)
+                                exporter.pdfSchreiber(proto.dateiname) { out -> PdfWriter.sepaProtokoll(proto, out) }
+                            }
+                        },
+                        Modifier.weight(1f), enabled = !model.busy,
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        KompaktKnopf(
-                            "XML", { exporter.xml(Beitragslauf.xmlDateiname(l.titel, l.ausfuehrung)) { l.xml.orEmpty() } },
-                            Modifier.weight(1f), enabled = !l.xml.isNullOrEmpty() && !model.busy,
-                        )
-                        KompaktKnopf(
-                            "Protokoll",
-                            {
-                                if (g == null) info = "Für das Protokoll fehlen Vereinsdaten: ${model.lastschriftFehlt ?: "bitte in den Einstellungen ergänzen"}."
-                                else {
-                                    val proto = Beitragslauf.protokoll(Beitragslauf.parameterVon(l), l.posten, g)
-                                    exporter.pdfSchreiber(proto.dateiname) { out -> PdfWriter.sepaProtokoll(proto, out) }
-                                }
-                            },
-                            Modifier.weight(1f), enabled = !model.busy,
-                        )
-                        KompaktKnopf("Löschen", { loeschen = l }, Modifier.weight(1f), enabled = !model.busy)
-                    }
-                    if (!l.gebucht && l.aktive.isNotEmpty()) {
-                        Button(onClick = { verbuchen = l }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Als Einnahmen verbuchen …") }
-                    }
+                    KompaktKnopf("Löschen", { loeschen = l }, Modifier.weight(1f), enabled = !model.busy)
+                }
+                if (!l.gebucht && l.aktive.isNotEmpty()) {
+                    Button(onClick = { verbuchen = l }, enabled = !model.busy, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Als Einnahmen verbuchen …") }
                 }
             }
         }

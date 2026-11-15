@@ -123,7 +123,7 @@ fun RechnungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                     StatKachel("Bezahlt", werte[2], "${bezahlt.size} Rechnungen", sc.primaryContainer, sc.onPrimaryContainer, gleich, g)
                 }
             }
-            SuchFeld(suche, { suche = it }, "Nummer, Empfänger oder Betreff suchen …", Modifier.padding(top = 12.dp))
+            SuchFeld(suche, { suche = it }, "Rechnung suchen …", Modifier.padding(top = 12.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 FilterMenu("Status", STATI, status) { status = it }
                 FilterMenu("Jahr", jahre.associateWith { it }, jahr) { jahr = it }

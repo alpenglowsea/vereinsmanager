@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.sp
 internal fun SuchFeld(wert: String, onChange: (String) -> Unit, platzhalter: String, modifier: Modifier = Modifier) {
     val sc = MaterialTheme.colorScheme
     TextField(
-        wert, onChange, placeholder = { Text(platzhalter) }, singleLine = true, shape = RoundedCornerShape(28.dp),
+        wert, onChange, placeholder = { Text(platzhalter, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }, singleLine = true, shape = RoundedCornerShape(28.dp),
         colors = TextFieldDefaults.colors(
             focusedContainerColor = sc.surfaceContainer, unfocusedContainerColor = sc.surfaceContainer,
             focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,

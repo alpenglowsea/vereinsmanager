@@ -114,7 +114,7 @@ fun SpendenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, 
                 "Davon Aufwandsverzicht: ${Geld.euro(summe(verzicht))} (${verzicht.size} Stück)",
                 style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
             )
-            SuchFeld(suche, { suche = it }, "Spender, Nummer oder Notiz suchen …", Modifier.padding(top = 12.dp))
+            SuchFeld(suche, { suche = it }, "Spende suchen …", Modifier.padding(top = 12.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 FilterMenu("Art", ART, art) { art = it }
                 FilterMenu("Jahr", jahre.associateWith { it }, jahr) { jahr = it }
