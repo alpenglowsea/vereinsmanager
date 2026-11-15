@@ -4,6 +4,13 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -95,6 +102,8 @@ fun KalenderScreen(
     var zeigeJub by remember { mutableStateOf(true) }
     var info by remember { mutableStateOf<String?>(null) }
     var lesung by remember { mutableStateOf<TerminLesung?>(null) }
+    var exportOffen by remember { mutableStateOf(false) }
+    val sc = MaterialTheme.colorScheme
     val exporter = rememberExporter(model) { info = it }
     val dateiWahl = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) model.kalenderDateiLesen(uri) { l, f -> if (f != null) info = "Die Datei lässt sich nicht lesen: $f" else lesung = l }
@@ -112,6 +121,19 @@ fun KalenderScreen(
     val besondere = remember(model.members, von, bis, zeigeGeb, zeigeJub) {
         Kalender.besondere(model.members, von, bis).filter { (it.art == "birthday" && zeigeGeb) || (it.art == "anniversary" && zeigeJub) }
     }
+    // Kennzahlen: Termine heute, in dieser Woche (Mo–So) und in diesem Monat – ohne Suche und Filter.
+    val wocheVon = heute.minusDays((heute.dayOfWeek.value - 1).toLong())
+    val wocheBis = wocheVon.plusDays(6)
+    val monatVon = heute.withDayOfMonth(1)
+    val monatBis = heute.withDayOfMonth(heute.lengthOfMonth())
+    val zahlen = remember(model.termine, heute) {
+        val alle = Kalender.vorkommen(model.termine, minOf(monatVon, wocheVon), maxOf(monatBis, wocheBis))
+        listOf(
+            alle.count { it.datum == heute }.toString(),
+            alle.count { !it.datum.isBefore(wocheVon) && !it.datum.isAfter(wocheBis) }.toString(),
+            alle.count { !it.datum.isBefore(monatVon) && !it.datum.isAfter(monatBis) }.toString(),
+        )
+    }
 
     fun export(wort: String, ids: List<Termin>): List<Pair<String, () -> Unit>> {
         val teil = Export.dateiname(model.vereinsname())
@@ -121,19 +143,29 @@ fun KalenderScreen(
         )
     }
 
-    Column(modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            FilterChip(!liste, { liste = false }, { Text("Monat", maxLines = 1, softWrap = false) })
-            FilterChip(liste, { liste = true }, { Text("Liste", maxLines = 1, softWrap = false) })
-            KompaktKnopf("Neuer Termin", { onNeu((if (liste) heute else tag).toString()) }, primaer = true)
-            ExportMenue("Exportieren", export("alle", model.termine), kompakt = false)
-            KompaktKnopf("Importieren", { dateiWahl.launch(arrayOf("*/*")) }, enabled = !model.busy)
-            KompaktKnopf("Terminarten", onArten)
+    // Die ganze Seite scrollt; unten bleibt Platz für die Leiste.
+    Column(modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            KopfKnopf("Neuer Termin", { onNeu((if (liste) heute else tag).toString()) }, Modifier.weight(1f), primaer = true)
+            KopfKnopf("Import", { dateiWahl.launch(arrayOf("*/*")) }, Modifier.weight(1f), enabled = !model.busy)
+            KopfKnopf("Export", { exportOffen = true }, Modifier.weight(1f))
         }
-        OutlinedTextField(
-            suche, { suche = it }, label = { Text("Termine, Orte, Teilnehmer suchen …") }, singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-        )
+        Text("Kalender", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+            val g = kachelSchrift(maxWidth, listOf(1f, 1f, 1f), zahlen.map { maxOf(it.length, 3) }, 40f)
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val gleich = Modifier.weight(1f).fillMaxHeight()
+                StatKachel("Heute", zahlen[0], null, sc.primaryContainer, sc.onPrimaryContainer, gleich, g)
+                StatKachel("Woche", zahlen[1], null, sc.secondaryContainer, sc.onSecondaryContainer, gleich, g)
+                StatKachel("Monat", zahlen[2], null, sc.tertiaryContainer, sc.onTertiaryContainer, gleich, g)
+            }
+        }
+        Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            TabChip("Monat", !liste) { liste = false }
+            TabChip("Liste", liste) { liste = true }
+            TabChip("Terminarten", false) { onArten() }
+        }
+        SuchFeld(suche, { suche = it }, "Termin suchen …", Modifier.padding(top = 10.dp))
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             FilterMenu("Terminart", model.terminarten.associate { it.id to it.name }, art) { art = it }
             FilterMenu("Sparte", spartenMap(model).filterKeys { it != Kalender.ALLE_SPARTEN }, sparte) { sparte = it }
@@ -143,74 +175,83 @@ fun KalenderScreen(
         if (info != null) Text(info!!, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 4.dp))
 
         // Zeitraum wählen
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KompaktKnopf("‹", { if (liste) listeStart = listeStart.minusDays(30) else monat = monat.minusMonths(1) })
-            Text(
-                if (liste) "ab ${dt(listeStart)}" else "${Kalender.MONATE[monat.monthValue - 1]} ${monat.year}",
-                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, maxLines = 1, modifier = Modifier.weight(1f),
-            )
-            KompaktKnopf("›", { if (liste) listeStart = listeStart.plusDays(30) else monat = monat.plusMonths(1) })
-            KompaktKnopf("Heute", { monat = YearMonth.from(heute); tag = heute; listeStart = heute })
+        Surface(shape = RoundedCornerShape(28.dp), color = sc.surfaceContainer, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                KompaktKnopf("‹", { if (liste) listeStart = listeStart.minusDays(30) else monat = monat.minusMonths(1) })
+                Text(
+                    if (liste) "ab ${dt(listeStart)}" else "${Kalender.MONATE[monat.monthValue - 1]} ${monat.year}",
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center, maxLines = 1, modifier = Modifier.weight(1f),
+                )
+                KompaktKnopf("›", { if (liste) listeStart = listeStart.plusDays(30) else monat = monat.plusMonths(1) })
+                KompaktKnopf("Heute", { monat = YearMonth.from(heute); tag = heute; listeStart = heute })
+            }
         }
 
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            if (!liste) {
-                Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                    listOf("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So").forEach { Text(it, Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium) }
-                }
-                var d = rasterStart
-                while (!d.isAfter(rasterEnde)) {
+        if (!liste) {
+            Surface(shape = RoundedCornerShape(28.dp), color = sc.surface, border = BorderStroke(1.5.dp, sc.outlineVariant), modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                Column(Modifier.padding(8.dp)) {
                     Row(Modifier.fillMaxWidth()) {
-                        repeat(7) {
-                            val zelle = d
-                            val tagesTermine = Kalender.amTag(vorkommen, zelle)
-                            val punkte = tagesTermine.map { artFarbe(model.terminarten, it.termin.art) }.distinct().take(3)
-                            val feier = besondere.any { it.datum == zelle }
-                            val gewaehlt = zelle == tag
-                            Box(
-                                Modifier.weight(1f).height(50.dp).padding(1.dp)
-                                    .background(if (gewaehlt) MaterialTheme.colorScheme.primaryContainer else Color.Transparent, RoundedCornerShape(8.dp))
-                                    .clickable { tag = zelle },
-                                contentAlignment = Alignment.TopCenter,
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 4.dp)) {
-                                    Text(
-                                        zelle.dayOfMonth.toString(), style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = if (zelle == heute) FontWeight.ExtraBold else FontWeight.Normal,
-                                        color = when {
-                                            zelle == heute -> MaterialTheme.colorScheme.primary
-                                            YearMonth.from(zelle) != monat -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                                            else -> MaterialTheme.colorScheme.onSurface
-                                        },
-                                    )
-                                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(top = 2.dp).height(7.dp)) {
-                                        punkte.forEach { Box(Modifier.size(6.dp).background(it, CircleShape)) }
-                                        if (feier) Box(Modifier.size(6.dp).background(MaterialTheme.colorScheme.tertiary, CircleShape))
+                        listOf("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So").forEach { Text(it, Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium, color = sc.onSurfaceVariant) }
+                    }
+                    var d = rasterStart
+                    while (!d.isAfter(rasterEnde)) {
+                        Row(Modifier.fillMaxWidth()) {
+                            repeat(7) {
+                                val zelle = d
+                                val tagesTermine = Kalender.amTag(vorkommen, zelle)
+                                val punkte = tagesTermine.map { artFarbe(model.terminarten, it.termin.art) }.distinct().take(3)
+                                val feier = besondere.any { it.datum == zelle }
+                                val gewaehlt = zelle == tag
+                                val form = RoundedCornerShape(16.dp)
+                                Box(
+                                    Modifier.weight(1f).height(52.dp).padding(1.5.dp)
+                                        .clip(form)
+                                        .background(if (gewaehlt) sc.primary else Color.Transparent, form)
+                                        .then(if (zelle == heute && !gewaehlt) Modifier.border(1.5.dp, sc.primary, form) else Modifier)
+                                        .clickable { tag = zelle },
+                                    contentAlignment = Alignment.TopCenter,
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 6.dp)) {
+                                        Text(
+                                            zelle.dayOfMonth.toString(), style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = if (zelle == heute || gewaehlt) FontWeight.ExtraBold else FontWeight.Normal,
+                                            color = when {
+                                                gewaehlt -> sc.onPrimary
+                                                zelle == heute -> sc.primary
+                                                YearMonth.from(zelle) != monat -> sc.onSurface.copy(alpha = 0.4f)
+                                                else -> sc.onSurface
+                                            },
+                                        )
+                                        Row(horizontalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(top = 3.dp).height(7.dp)) {
+                                            punkte.forEach { Box(Modifier.size(6.dp).background(if (gewaehlt) sc.onPrimary else it, CircleShape)) }
+                                            if (feier) Box(Modifier.size(6.dp).background(if (gewaehlt) sc.onPrimary else sc.tertiary, CircleShape))
+                                        }
                                     }
                                 }
+                                d = d.plusDays(1)
                             }
-                            d = d.plusDays(1)
                         }
                     }
                 }
-                HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                Text("${Kalender.wochentagLang(tag)}, ${dt(tag)}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                TagesListe(model, Kalender.amTag(vorkommen, tag), besondere.filter { it.datum == tag }, onOpen)
-                if (model.termine.isEmpty()) Text("Noch keine Termine. Legen Sie mit „Neuer Termin“ den ersten an.", Modifier.padding(top = 8.dp))
-            } else {
-                val tage = (vorkommen.map { it.datum } + besondere.map { it.datum }).distinct().sorted()
-                if (tage.isEmpty()) Text("Keine Termine in diesem Zeitraum.", Modifier.padding(top = 12.dp))
-                tage.forEach { t ->
-                    Text(
-                        "${Kalender.wochentagLang(t)}, ${dt(t)}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
-                        color = if (t == heute) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 12.dp),
-                    )
-                    TagesListe(model, vorkommen.filter { it.datum == t }, besondere.filter { it.datum == t }, onOpen)
-                }
+            }
+            Text("${Kalender.wochentagLang(tag)}, ${dt(tag)}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
+            TagesListe(model, Kalender.amTag(vorkommen, tag), besondere.filter { it.datum == tag }, onOpen)
+            if (model.termine.isEmpty()) Text("Noch keine Termine. Legen Sie mit „Neuer Termin“ den ersten an.", Modifier.padding(top = 8.dp))
+        } else {
+            val tage = (vorkommen.map { it.datum } + besondere.map { it.datum }).distinct().sorted()
+            if (tage.isEmpty()) Text("Keine Termine in diesem Zeitraum.", Modifier.padding(top = 12.dp))
+            tage.forEach { t ->
+                Text(
+                    "${Kalender.wochentagLang(t)}, ${dt(t)}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold,
+                    color = if (t == heute) sc.primary else sc.onSurface, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp),
+                )
+                TagesListe(model, vorkommen.filter { it.datum == t }, besondere.filter { it.datum == t }, onOpen)
             }
         }
+        Spacer(Modifier.height(96.dp))
     }
 
+    if (exportOffen) ExportAuswahl("Alle ${model.termine.size} Termine exportieren als:", export("alle", model.termine), { exportOffen = false })
     lesung?.let { l ->
         AlertDialog(
             onDismissRequest = { lesung = null },
@@ -242,31 +283,29 @@ private fun dt(d: LocalDate) = de.vereinsmanager.core.members.Zeit.deutsch(d.toS
 
 @Composable
 private fun TagesListe(model: AppModel, termine: List<Vorkommen>, besondere: List<Besonderes>, onOpen: (String) -> Unit) {
-    if (termine.isEmpty() && besondere.isEmpty()) Text("Keine Termine.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 4.dp))
-    termine.forEach { v ->
-        Row(Modifier.fillMaxWidth().clickable { onOpen(v.termin.id) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(4.dp).height(36.dp).background(artFarbe(model.terminarten, v.termin.art), RoundedCornerShape(2.dp)))
-            Spacer(Modifier.width(8.dp))
-            Column(Modifier.weight(1f)) {
-                Text(v.termin.titel, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    val sc = MaterialTheme.colorScheme
+    val gesamt = termine.size + besondere.size
+    if (gesamt == 0) Text("Keine Termine.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, modifier = Modifier.padding(vertical = 4.dp))
+    termine.forEachIndexed { i, v ->
+        ListenKarte(erste = i == 0, letzte = i == gesamt - 1, angehakt = false, onClick = { onOpen(v.termin.id) }, onLongClick = {}) {
+            Box(Modifier.width(6.dp).height(40.dp).background(artFarbe(model.terminarten, v.termin.art), RoundedCornerShape(3.dp)))
+            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                Text(v.termin.titel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
                     listOf(uhrzeit(v) + if (v.ende != v.datum) " (bis ${dt(v.ende)})" else "", v.termin.ort).filter { it.isNotEmpty() }.joinToString(" · "),
-                    style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
         }
-        HorizontalDivider()
     }
-    besondere.forEach { b ->
-        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(4.dp).height(32.dp).background(MaterialTheme.colorScheme.tertiary, RoundedCornerShape(2.dp)))
-            Spacer(Modifier.width(8.dp))
-            Column(Modifier.weight(1f)) {
-                Text(b.titel, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
-                Text(b.details, style = MaterialTheme.typography.bodySmall)
+    besondere.forEachIndexed { j, b ->
+        ListenKarte(erste = termine.size + j == 0, letzte = termine.size + j == gesamt - 1, angehakt = false, onClick = {}, onLongClick = {}) {
+            Box(Modifier.width(6.dp).height(36.dp).background(sc.tertiary, RoundedCornerShape(3.dp)))
+            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                Text(b.titel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 2)
+                Text(b.details, style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
             }
         }
-        HorizontalDivider()
     }
 }
 
@@ -282,57 +321,69 @@ fun TerminDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
     val exporter = rememberExporter(model) { meldung = it }
     if (t == null) { Text("Den Termin gibt es nicht mehr.", modifier.padding(16.dp)); return }
     val art = model.terminarten.firstOrNull { it.id == t.art }
+    val sc = MaterialTheme.colorScheme
+    val farbe = artFarbe(model.terminarten, t.art)
+    val zeile: @Composable (String, String) -> Unit = { l, w -> DetailFeld(l, w) }
 
-    @Composable
-    fun Zeile(label: String, wert: String) {
-        if (wert.isBlank()) return
-        Column(Modifier.padding(vertical = 4.dp)) {
-            Text(label, style = MaterialTheme.typography.labelMedium)
-            Text(wert, style = MaterialTheme.typography.bodyLarge)
-        }
-    }
+    val datum = datumTagJahr(t.beginn)
+    val zeit = if (t.ganztaegig || t.beginnZeit.isEmpty()) "ganztägig" else t.beginnZeit
+    val zeitUnter = if (!t.ganztaegig && t.endeZeit.isNotEmpty()) "bis ${t.endeZeit}" else null
+    val anzahl = t.teilnehmer.size.toString()
 
-    Column(modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(12.dp).background(artFarbe(model.terminarten, t.art), CircleShape))
-            Text("  ${art?.name ?: "Allgemeiner Termin"}", style = MaterialTheme.typography.labelLarge)
-        }
-        Text(t.titel, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 4.dp))
-        HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        Zeile("Wann", Kalender.zeitText(t.beginn, t.beginnZeit, t.ende, t.endeZeit, t.ganztaegig))
-        t.serie?.let { Zeile("Wiederholung", Kalender.serieText(it)) }
-        Zeile("Sparte", if (t.sparte == Kalender.ALLE_SPARTEN) "Alle Sparten" else t.sparte)
-        if (t.ort.isNotBlank()) {
-            Column(Modifier.padding(vertical = 4.dp)) {
-                Text("Ort", style = MaterialTheme.typography.labelMedium)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable {
-                        // Die Karten-App des Geräts öffnet die Suche; unsere App schickt nichts ins Internet.
-                        try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(t.ort)))) } catch (e: Exception) { meldung = "Keine Karten-App gefunden." }
-                    },
-                ) {
-                    Icon(Lucide.MapPin, contentDescription = "Auf der Karte zeigen", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                    Text("  " + t.ort, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyLarge)
-                }
-                Text("Antippen öffnet die Karten-App.", style = MaterialTheme.typography.bodySmall)
+    Column(modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(10.dp).height(64.dp).background(farbe, RoundedCornerShape(5.dp)))
+            Column(Modifier.weight(1f).padding(start = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(t.titel, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+                Schild(art?.name ?: "Allgemeiner Termin", farbe.copy(alpha = 0.22f), sc.onSurface)
             }
         }
-        Zeile("Beschreibung", t.beschreibung)
-
-        if (t.teilnehmer.isNotEmpty()) {
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Text("Teilnehmer (${t.teilnehmer.size})", style = MaterialTheme.typography.titleMedium)
-            Text(Kalender.zusagen(t), style = MaterialTheme.typography.bodySmall)
-            t.teilnehmer.forEach { p ->
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 14.dp)) {
+            val g = kachelSchrift(maxWidth, listOf(1f, 1f, 1f), listOf(datum.first.length, zeit.length, anzahl.length), 26f)
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val gleich = Modifier.weight(1f).fillMaxHeight()
+                StatKachel("Datum", datum.first, datum.second, sc.primaryContainer, sc.onPrimaryContainer, gleich, g)
+                StatKachel("Uhrzeit", zeit, zeitUnter, sc.secondaryContainer, sc.onSecondaryContainer, gleich, g)
+                StatKachel("Teilnehmer", anzahl, null, sc.tertiaryContainer, sc.onTertiaryContainer, gleich, g)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        DetailKarte("Wann und wo") {
+            zeile("Wann", Kalender.zeitText(t.beginn, t.beginnZeit, t.ende, t.endeZeit, t.ganztaegig))
+            t.serie?.let { zeile("Wiederholung", Kalender.serieText(it)) }
+            if (t.ort.isNotBlank()) {
+                Column(Modifier.padding(vertical = 4.dp)) {
+                    Text("Ort", style = MaterialTheme.typography.labelMedium, color = sc.onSurfaceVariant)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable {
+                            // Die Karten-App des Geräts öffnet die Suche; unsere App schickt nichts ins Internet.
+                            try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(t.ort)))) } catch (e: Exception) { meldung = "Keine Karten-App gefunden." }
+                        },
+                    ) {
+                        Icon(Lucide.MapPin, contentDescription = "Auf der Karte zeigen", tint = sc.primary, modifier = Modifier.size(20.dp))
+                        Text("  " + t.ort, color = sc.primary, style = MaterialTheme.typography.bodyLarge)
+                    }
+                    Text("Antippen öffnet die Karten-App.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
+                }
+            }
+        }
+        if (t.sparte.isNotBlank() || t.beschreibung.isNotBlank()) DetailKarte("Einzelheiten") {
+            zeile("Sparte", if (t.sparte == Kalender.ALLE_SPARTEN) "Alle Sparten" else t.sparte)
+            zeile("Beschreibung", t.beschreibung)
+        }
+        if (t.teilnehmer.isNotEmpty()) DetailKarte("Teilnehmer (${t.teilnehmer.size})") {
+            Text(Kalender.zusagen(t), style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
+            t.teilnehmer.forEachIndexed { i, p ->
                 var offen by remember { mutableStateOf(false) }
-                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (i > 0) HorizontalDivider(color = sc.outlineVariant)
+                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(p.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(listOf(Kalender.ROLLEN[p.rolle] ?: p.rolle, p.sparte).filter { it.isNotEmpty() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                        Text(p.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(listOf(Kalender.ROLLEN[p.rolle] ?: p.rolle, p.sparte).filter { it.isNotEmpty() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
                     }
                     Box {
-                        OutlinedButton(onClick = { offen = true }, enabled = !model.busy) { Text(Kalender.STATUS[p.status] ?: p.status, maxLines = 1, softWrap = false) }
+                        OutlinedButton(onClick = { offen = true }, enabled = !model.busy, shape = RoundedCornerShape(20.dp)) { Text(Kalender.STATUS[p.status] ?: p.status, maxLines = 1, softWrap = false) }
                         DropdownMenu(offen, { offen = false }) {
                             Kalender.STATUS.forEach { (k, v) ->
                                 DropdownMenuItem(text = { Text(v) }, onClick = { offen = false; model.terminStatus(t.id, p.memberId, k) { f -> if (f != null) meldung = f } })
@@ -340,7 +391,6 @@ fun TerminDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
                         }
                     }
                 }
-                HorizontalDivider()
             }
         }
         if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
@@ -349,7 +399,7 @@ fun TerminDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
                 listOf(Aktion("Bearbeiten", onEdit, primaer = true), Aktion("Einladen", { einladen = true })),
                 listOf(Aktion("Löschen", { loeschen = true })),
             ),
-            Modifier.padding(top = 16.dp),
+            Modifier.padding(top = 12.dp, bottom = 16.dp),
         )
     }
 
@@ -395,6 +445,7 @@ fun TerminDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
     }
 }
 
+
 // ---------------------------------------------------------------- Termin anlegen / ändern
 
 /** Uhrzeit ohne Tippen: zwei Auswahllisten, damit keine ungültige Zeit entstehen kann. */
@@ -429,6 +480,11 @@ internal fun ZeitFeld(label: String, wert: String, fehler: String?, optional: Bo
     }
 }
 
+private val TERMIN_SCHRITTE = listOf("Termin", "Zeit", "Teilnehmer")
+
+/** In welchem Schritt eine Fehlermeldung steht (Schlüssel der Prüfung aus dem Kern). */
+private fun terminFehlerSchritt(schluessel: String): Int = if (schluessel == "titel") 0 else 1
+
 @Composable
 fun TerminFormScreen(model: AppModel, id: String?, tag: String?, onDone: () -> Unit, modifier: Modifier = Modifier) {
     val vorhanden = id?.let { i -> model.termine.firstOrNull { it.id == i } }
@@ -438,87 +494,102 @@ fun TerminFormScreen(model: AppModel, id: String?, tag: String?, onDone: () -> U
             else model.terminNeu(tag?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()),
         )
     }
-    var zeigeFehler by remember { mutableStateOf(false) }
+    var schritt by remember { mutableStateOf(0) }
+    // Nach dem ersten Speichern-Versuch wird laufend neu geprüft: Behobene Fehler verschwinden sofort.
+    var versucht by remember { mutableStateOf(false) }
     var fehler by remember { mutableStateOf<String?>(null) }
     var mitglied by remember { mutableStateOf(false) }
     var sparteWahl by remember { mutableStateOf(false) }
-    val pruef = if (zeigeFehler) model.terminPruefen(f) else emptyMap()
+    val pruef = if (versucht) model.terminPruefen(f) else emptyMap()
     val sparten = remember(model.departments, model.members, f.sparte) { spartenMap(model, f.sparte) }
     val arten = remember(model.terminarten, f.art) {
         LinkedHashMap<String, String>().also { m -> model.terminarten.forEach { m[it.id] = it.name }; m.putIfAbsent(f.art, "Allgemeiner Termin") }
     }
     val einheit = when (f.frequenz) { "daily" -> "Tage"; "weekly" -> "Wochen"; "monthly" -> "Monate"; else -> "Jahre" }
+    val sc = MaterialTheme.colorScheme
+    val fehlerNr = pruef.keys.minOfOrNull { terminFehlerSchritt(it) }
 
+    // Alles scrollt zusammen: Die Knöpfe stehen am Ende der Seite und sind bei geöffneter Tastatur durch Hinunterscrollen erreichbar.
     Column(modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-        Text(if (vorhanden == null) "Neuer Termin" else "Termin bearbeiten", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
-        Column(Modifier.padding(vertical = 8.dp)) {
-            Feld("Titel *", f.titel, { f = f.copy(titel = it) }, pruef["titel"])
-            Auswahl("Terminart", arten, f.art) { f = f.copy(art = it) }
-            Auswahl("Sparte", sparten, f.sparte) { f = f.copy(sparte = it) }
-            Feld("Beschreibung", f.beschreibung, { f = f.copy(beschreibung = it) }, singleLine = false)
-            Feld("Ort", f.ort, { f = f.copy(ort = it) }, hinweis = "Antippen im Termin öffnet die Karten-App")
-
-            Text("Datum und Uhrzeit", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(f.ganztaegig, { f = f.copy(ganztaegig = it) })
-                Text("  Ganztägig")
-            }
-            DatumFeld("Beginn *", f.beginn, pruef["beginn"]) { n -> f = f.copy(beginn = n, ende = if (f.ende.isEmpty() || f.ende < n) n else f.ende) }
-            if (!f.ganztaegig) ZeitFeld("Beginn Uhrzeit", f.beginnZeit, pruef["beginnZeit"]) { f = f.copy(beginnZeit = it) }
-            DatumFeld("Ende", f.ende, pruef["ende"]) { f = f.copy(ende = it) }
-            if (!f.ganztaegig) ZeitFeld("Ende Uhrzeit", f.endeZeit, pruef["endeZeit"], optional = true) { f = f.copy(endeZeit = it) }
-
-            Text("Wiederholung", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(f.serie, { f = f.copy(serie = it) })
-                Text("  Regelmäßig wiederholen")
-            }
-            if (f.serie) {
-                Auswahl("Wiederholung", Kalender.FREQUENZEN, f.frequenz) { f = f.copy(frequenz = it) }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Alle")
-                    Column(Modifier.width(96.dp)) { Feld("", f.intervall, { f = f.copy(intervall = it.filter { c -> c.isDigit() }.take(2)) }, pruef["intervall"], keyboard = KeyboardType.Number) }
-                    Text(einheit)
+        FormKopf(if (vorhanden == null) "Neuer Termin" else "Termin bearbeiten", TERMIN_SCHRITTE, schritt, fehlerNr) { schritt = it }
+        FormKarte {
+            when (schritt) {
+                0 -> {
+                    Feld("Titel *", f.titel, { f = f.copy(titel = it) }, pruef["titel"])
+                    Auswahl("Terminart", arten, f.art) { f = f.copy(art = it) }
+                    Auswahl("Sparte", sparten, f.sparte) { f = f.copy(sparte = it) }
+                    Feld("Beschreibung", f.beschreibung, { f = f.copy(beschreibung = it) }, singleLine = false)
+                    Feld("Ort", f.ort, { f = f.copy(ort = it) }, hinweis = "Antippen im Termin öffnet die Karten-App")
                 }
-                if (f.frequenz == "weekly") {
-                    Text("Wochentage", style = MaterialTheme.typography.labelMedium)
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Kalender.WOCHENTAGE.forEach { (n, name) ->
-                            FilterChip(n in f.wochentage, { f = f.copy(wochentage = if (n in f.wochentage) f.wochentage - n else f.wochentage + n) }, { Text(name, maxLines = 1, softWrap = false) })
+                1 -> {
+                    Text("Datum und Uhrzeit", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, color = sc.primary)
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+                        Switch(f.ganztaegig, { f = f.copy(ganztaegig = it) })
+                        Text("  Ganztägig")
+                    }
+                    DatumFeld("Beginn *", f.beginn, pruef["beginn"]) { n -> f = f.copy(beginn = n, ende = if (f.ende.isEmpty() || f.ende < n) n else f.ende) }
+                    if (!f.ganztaegig) ZeitFeld("Beginn Uhrzeit", f.beginnZeit, pruef["beginnZeit"]) { f = f.copy(beginnZeit = it) }
+                    DatumFeld("Ende", f.ende, pruef["ende"]) { f = f.copy(ende = it) }
+                    if (!f.ganztaegig) ZeitFeld("Ende Uhrzeit", f.endeZeit, pruef["endeZeit"], optional = true) { f = f.copy(endeZeit = it) }
+
+                    Text("Wiederholung", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, color = sc.primary, modifier = Modifier.padding(top = 14.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+                        Switch(f.serie, { f = f.copy(serie = it) })
+                        Text("  Regelmäßig wiederholen")
+                    }
+                    if (f.serie) {
+                        Auswahl("Wiederholung", Kalender.FREQUENZEN, f.frequenz) { f = f.copy(frequenz = it) }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Alle")
+                            Column(Modifier.width(96.dp)) { Feld("", f.intervall, { f = f.copy(intervall = it.filter { c -> c.isDigit() }.take(2)) }, pruef["intervall"], keyboard = KeyboardType.Number) }
+                            Text(einheit)
+                        }
+                        if (f.frequenz == "weekly") {
+                            Text("Wochentage", style = MaterialTheme.typography.labelMedium, color = sc.onSurfaceVariant)
+                            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Kalender.WOCHENTAGE.forEach { (n, name) ->
+                                    TabChip(name, n in f.wochentage) { f = f.copy(wochentage = if (n in f.wochentage) f.wochentage - n else f.wochentage + n) }
+                                }
+                            }
+                            pruef["wochentage"]?.let { Text(it, color = sc.error, style = MaterialTheme.typography.bodySmall) }
+                        }
+                        Auswahl("Ende der Serie", Kalender.ENDE_ARTEN, f.endeArt) { f = f.copy(endeArt = it) }
+                        if (f.endeArt == "until_date") DatumFeld("Letzter Termin spätestens am", f.bis, pruef["bis"]) { f = f.copy(bis = it) }
+                        if (f.endeArt == "count") Feld("Anzahl der Termine", f.anzahl, { f = f.copy(anzahl = it.filter { c -> c.isDigit() }.take(3)) }, pruef["anzahl"], keyboard = KeyboardType.Number)
+                    }
+                }
+                else -> {
+                    Text("Teilnehmer (${f.teilnehmer.size})", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, color = sc.primary)
+                    if (f.teilnehmer.isEmpty()) Text("Noch niemand eingeladen. Teilnehmer sind freiwillig.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, modifier = Modifier.padding(vertical = 4.dp))
+                    f.teilnehmer.forEachIndexed { i, p ->
+                        if (i > 0) HorizontalDivider(color = sc.outlineVariant)
+                        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(p.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(listOf(Kalender.ROLLEN[p.rolle] ?: p.rolle, Kalender.STATUS[p.status] ?: p.status).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
+                            }
+                            TextButton(onClick = { f = f.copy(teilnehmer = f.teilnehmer.filter { it.memberId != p.memberId }) }) { Text("Entfernen") }
                         }
                     }
-                    pruef["wochentage"]?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-                }
-                Auswahl("Ende der Serie", Kalender.ENDE_ARTEN, f.endeArt) { f = f.copy(endeArt = it) }
-                if (f.endeArt == "until_date") DatumFeld("Letzter Termin spätestens am", f.bis, pruef["bis"]) { f = f.copy(bis = it) }
-                if (f.endeArt == "count") Feld("Anzahl der Termine", f.anzahl, { f = f.copy(anzahl = it.filter { c -> c.isDigit() }.take(3)) }, pruef["anzahl"], keyboard = KeyboardType.Number)
-            }
-
-            Text("Teilnehmer (${f.teilnehmer.size})", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
-            f.teilnehmer.forEach { p ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(p.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(listOf(Kalender.ROLLEN[p.rolle] ?: p.rolle, Kalender.STATUS[p.status] ?: p.status).joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                    Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        KompaktKnopf("Mitglied hinzufügen", { mitglied = true })
+                        KompaktKnopf("Ganze Sparte", { sparteWahl = true })
                     }
-                    TextButton(onClick = { f = f.copy(teilnehmer = f.teilnehmer.filter { it.memberId != p.memberId }) }) { Text("Entfernen") }
                 }
-                HorizontalDivider()
-            }
-            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                KompaktKnopf("Mitglied hinzufügen", { mitglied = true })
-                KompaktKnopf("Ganze Sparte", { sparteWahl = true })
             }
         }
-        if (zeigeFehler && pruef.isNotEmpty()) Text("Bitte die markierten Angaben prüfen.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-        if (fehler != null) Text(fehler!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-        Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KompaktKnopf("Speichern", {
-                zeigeFehler = true
-                if (model.terminPruefen(f).isEmpty()) model.terminSpeichern(f) { _, e -> if (e == null) onDone() else fehler = e }
-            }, primaer = true, enabled = !model.busy)
-            KompaktKnopf("Abbrechen", onDone)
-        }
+        if (fehler != null) Text(fehler!!, color = sc.error)
+        if (pruef.isNotEmpty()) Text("Bitte die markierten Angaben prüfen.", color = sc.error)
+        FormFuss(
+            schritt, TERMIN_SCHRITTE.size, { schritt = it }, onDone,
+            {
+                versucht = true
+                val fm = model.terminPruefen(f)
+                if (fm.isNotEmpty()) schritt = fm.keys.minOf { terminFehlerSchritt(it) }
+                else { fehler = null; model.terminSpeichern(f) { _, e -> if (e == null) onDone() else fehler = e } }
+            },
+            !model.busy,
+        )
     }
 
     if (mitglied) MitgliedWahl(model, f.teilnehmer.map { it.memberId }.toSet(), onDismiss = { mitglied = false }) { m, rolle -> f = f.copy(teilnehmer = Kalender.teilnehmerHinzu(f.teilnehmer, m, rolle)) }
@@ -550,7 +621,7 @@ private fun MitgliedWahl(model: AppModel, schonDabei: Set<String>, onDismiss: ()
         onDismissRequest = onDismiss, title = { Text("Mitglieder hinzufügen") },
         text = {
             Column {
-                OutlinedTextField(suche, { suche = it }, label = { Text("Name oder Nummer") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                SuchFeld(suche, { suche = it }, "Name oder Nummer", Modifier.fillMaxWidth())
                 Auswahl("Rolle", Kalender.ROLLEN, rolle) { rolle = it }
                 Column(Modifier.height(260.dp).verticalScroll(rememberScrollState())) {
                     treffer.forEach { m ->
@@ -577,21 +648,23 @@ fun TerminartenScreen(model: AppModel, modifier: Modifier = Modifier) {
     var loeschen by remember { mutableStateOf<Terminart?>(null) }
     val benutzt = remember(model.termine) { model.termine.groupingBy { it.art }.eachCount() }
 
+    val sc = MaterialTheme.colorScheme
     Column(modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        Text("Terminarten und Farben", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
-        Row(Modifier.padding(vertical = 8.dp)) { KompaktKnopf("Neue Terminart", { neu = true }, primaer = true, enabled = !model.busy) }
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp)) { KopfKnopf("Neue Terminart", { neu = true }, Modifier.weight(1f), primaer = true, enabled = !model.busy) }
+        Text("Terminarten", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
+        Text("Antippen zum Bearbeiten. Die Farbe erscheint im Kalender und im Termin.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
         if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 4.dp))
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            model.terminarten.forEach { a ->
-                Row(Modifier.fillMaxWidth().clickable { bearbeiten = a }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(16.dp).background(hexFarbe(a.farbe), CircleShape))
-                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                        Text(a.name, style = MaterialTheme.typography.bodyLarge)
-                        Text(listOf(if (a.system) "Standardart" else "", "${benutzt[a.id] ?: 0} Termine").filter { it.isNotEmpty() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+            model.terminarten.forEachIndexed { i, a ->
+                ListenKarte(erste = i == 0, letzte = i == model.terminarten.lastIndex, angehakt = false, onClick = { bearbeiten = a }, onLongClick = {}) {
+                    Box(Modifier.size(40.dp).background(hexFarbe(a.farbe), CircleShape))
+                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                        Text(a.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(listOf(if (a.system) "Standardart" else "", "${benutzt[a.id] ?: 0} Termine").filter { it.isNotEmpty() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
                     }
                 }
-                HorizontalDivider()
             }
+            Spacer(Modifier.height(96.dp))
         }
     }
 
