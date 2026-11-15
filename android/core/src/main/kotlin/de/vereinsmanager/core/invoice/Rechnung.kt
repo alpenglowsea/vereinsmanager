@@ -193,6 +193,17 @@ object RechnungsRegeln {
     }
 
     /** Fällig = Rechnungsdatum + Zahlungsziel in Tagen (leer bei ungültigem Datum). */
+    /**
+     * Ändert sich das Zahlungsziel, soll der Schlusstext mitgehen: Steht darin „innerhalb von <alt> Tagen“ (oder „… Tag“),
+     * wird die Zahl durch [neu] ersetzt. Eigene Formulierungen ohne diese Wendung oder mit einer anderen Zahl bleiben unberührt.
+     */
+    fun schlussMitZiel(schluss: String, alt: Int, neu: Int): String {
+        if (alt == neu) return schluss
+        val re = Regex("""(innerhalb\s+von\s+)$alt(\s+Tag(?:en)?)\b""", RegexOption.IGNORE_CASE)
+        if (!re.containsMatchIn(schluss)) return schluss
+        return re.replace(schluss) { m -> m.groupValues[1] + neu + (if (neu == 1) " Tag" else " Tagen") }
+    }
+
     fun faellig(datum: String, tage: Int): String = try { java.time.LocalDate.parse(datum).plusDays(tage.toLong()).toString() } catch (e: Exception) { "" }
 
     /** Offen und Fälligkeitsdatum vor [heute]. */

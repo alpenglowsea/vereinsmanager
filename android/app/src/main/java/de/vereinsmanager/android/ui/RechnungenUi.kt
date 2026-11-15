@@ -459,7 +459,7 @@ fun RechnungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifie
                     DatumFeld("Leistungsdatum", f.leistungsdatum, optional = true) { f = f.copy(leistungsdatum = it) }
                     Feld("Zahlungsziel in Tagen", tageText, {
                         tageText = it.filter { c -> c.isDigit() }.take(3)
-                        tageText.toIntOrNull()?.let { t -> f = f.copy(zahlungszielTage = t, faellig = RechnungsRegeln.faellig(f.datum, t).ifEmpty { f.faellig }) }
+                        tageText.toIntOrNull()?.let { t -> f = f.copy(zahlungszielTage = t, faellig = RechnungsRegeln.faellig(f.datum, t).ifEmpty { f.faellig }, schluss = RechnungsRegeln.schlussMitZiel(f.schluss, f.zahlungszielTage, t)) }
                     }, keyboard = KeyboardType.Number)
                     DatumFeld("Fällig am", f.faellig) { f = f.copy(faellig = it) }
                     Auswahl("Steuerlicher Bereich (Sphäre)", SPHAEREN, f.sphaere) { f = f.copy(sphaere = it) }

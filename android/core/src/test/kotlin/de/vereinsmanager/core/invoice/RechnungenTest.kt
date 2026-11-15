@@ -90,6 +90,18 @@ class RechnungenTest {
         assertEquals("RE-2027-001", RechnungsRegeln.naechsteNummer(listOf("RE-2026-001"), 2027))
     }
 
+    @Test fun schlusstextFolgtDemZahlungsziel() {
+        val v = Vorlage().schluss
+        assertTrue(RechnungsRegeln.schlussMitZiel(v, 14, 30).contains("innerhalb von 30 Tagen"))
+        assertTrue(RechnungsRegeln.schlussMitZiel(v, 14, 1).contains("innerhalb von 1 Tag "))
+        // Eigener Text ohne die Wendung oder mit anderer Zahl bleibt unverändert.
+        assertEquals("Zahlbar sofort.", RechnungsRegeln.schlussMitZiel("Zahlbar sofort.", 14, 30))
+        assertEquals("Bitte innerhalb von 7 Tagen zahlen.", RechnungsRegeln.schlussMitZiel("Bitte innerhalb von 7 Tagen zahlen.", 14, 30))
+        // 14 darf nicht in 140 stecken.
+        assertEquals("innerhalb von 140 Tagen", RechnungsRegeln.schlussMitZiel("innerhalb von 140 Tagen", 14, 30))
+        assertEquals(v, RechnungsRegeln.schlussMitZiel(v, 14, 14))
+    }
+
     @Test fun faelligUndUeberfaellig() {
         assertEquals("2026-11-24", RechnungsRegeln.faellig("2026-11-10", 14))
         val u = umgebung()
