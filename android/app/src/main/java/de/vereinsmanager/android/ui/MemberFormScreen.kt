@@ -172,7 +172,8 @@ fun MemberFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
     val reiter = TAB_NAMES.keys.toList()
     val nr = reiter.indexOf(tab)
     val fehlerReiter = MemberRules.ersterFehlerReiter(errors)
-    Column(modifier.padding(horizontal = 16.dp)) {
+    // Alles scrollt zusammen: Die Knöpfe stehen am Ende der Seite und sind bei geöffneter Tastatur durch Hinunterscrollen erreichbar.
+    Column(modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Text(
             if (existing == null) "Neues Mitglied" else "Mitglied bearbeiten",
             style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
@@ -196,7 +197,7 @@ fun MemberFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
             style = MaterialTheme.typography.titleSmall, color = if (fehlerReiter != null && fehlerReiter != tab) sc.error else sc.onSurfaceVariant,
             modifier = Modifier.padding(top = 2.dp, bottom = 6.dp),
         )
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 8.dp)) {
+        Column(Modifier.padding(bottom = 8.dp)) {
           Surface(shape = RoundedCornerShape(28.dp), color = sc.surface, border = BorderStroke(1.5.dp, sc.outlineVariant), modifier = Modifier.fillMaxWidth()) {
            Column(Modifier.padding(16.dp)) {
             when (tab) {
