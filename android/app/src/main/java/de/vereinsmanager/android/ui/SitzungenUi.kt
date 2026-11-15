@@ -2,6 +2,20 @@ package de.vereinsmanager.android.ui
 
 import android.content.Intent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -69,66 +83,81 @@ fun SitzungenScreen(model: AppModel, onOpen: (String) -> Unit, onNeu: () -> Unit
     val st = remember(model.sitzungen) { Sitzungen.statistik(model.sitzungen) }
     val liste = remember(model.sitzungen, suche, art, status) { Sitzungen.filtern(model.sitzungen, suche, art, status) }
     val buch = remember(model.sitzungen, suche, kennz) { Sitzungen.beschlussbuch(model.sitzungen, kennz, suche) }
+    val sc = MaterialTheme.colorScheme
+    val lazy = rememberLazyListState()
+    val kopf = rememberKopfZustand(lazy)
 
-    Column(modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            FilterChip(tab == 0, { tab = 0 }, { Text("Sitzungen", maxLines = 1, softWrap = false) })
-            FilterChip(tab == 1, { tab = 1 }, { Text("Beschlussbuch (${st.angenommen + st.abgelehnt + st.vertagt})", maxLines = 1, softWrap = false) })
-            KompaktKnopf("Neue Sitzung", onNeu, primaer = true)
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KpiKachel("Sitzungen", st.gesamt.toString(), "${st.vorstand} Vorstand · ${st.versammlungen} Versammlungen", Modifier.weight(1f))
-            KpiKachel("Beschlüsse", st.angenommen.toString(), "angenommen · ${st.abgelehnt} abgelehnt · ${st.vertagt} vertagt", Modifier.weight(1f))
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KpiKachel("Finanzamt", st.steuer.toString(), "angenommene Beschlüsse", Modifier.weight(1f))
-            KpiKachel("Vereinsregister", st.register.toString(), "angenommene Beschlüsse", Modifier.weight(1f))
-        }
-        OutlinedTextField(
-            suche, { suche = it }, label = { Text(if (tab == 0) "Sitzungen, Orte, Tagesordnung suchen …" else "Beschlüsse und Anträge suchen …") },
-            singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        )
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (tab == 0) {
-                FilterMenu("Art", Sitzungen.ARTEN, art) { art = it }
-                FilterMenu("Status", Sitzungen.STATUS, status) { status = it }
-            } else {
-                FilterChip(kennz == null, { kennz = null }, { Text("Alle", maxLines = 1, softWrap = false) })
-                FilterChip(kennz == "tax", { kennz = "tax" }, { Text("Finanzamt", maxLines = 1, softWrap = false) })
-                FilterChip(kennz == "register", { kennz = "register" }, { Text("Vereinsregister", maxLines = 1, softWrap = false) })
+    Column(modifier.fillMaxSize().padding(horizontal = 16.dp).nestedScroll(kopf.verfolgung)) {
+        Column(Modifier.einklappbar(kopf)) {
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp)) { KopfKnopf("Neue Sitzung", onNeu, Modifier.weight(1f), primaer = true) }
+            Text("Sitzungen", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
+            val werte = listOf(st.gesamt.toString(), st.angenommen.toString(), (st.abgelehnt + st.vertagt).toString())
+            BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                val g = kachelSchrift(maxWidth, listOf(1f, 1f, 1f), werte.map { maxOf(it.length, 3) }, 40f)
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val gleich = Modifier.weight(1f).fillMaxHeight()
+                    StatKachel("Sitzungen", werte[0], null, sc.primaryContainer, sc.onPrimaryContainer, gleich, g)
+                    StatKachel("Beschlüsse", werte[1], null, sc.secondaryContainer, sc.onSecondaryContainer, gleich, g)
+                    StatKachel("Offen", werte[2], null, sc.tertiaryContainer, sc.onTertiaryContainer, gleich, g)
+                }
+            }
+            Text(
+                "${st.vorstand} Vorstand · ${st.versammlungen} Versammlungen. Beschlüsse = angenommen; Offen = abgelehnt (${st.abgelehnt}) oder vertagt (${st.vertagt}). " +
+                    "Angenommen mit Finanzamt-Kennzeichen: ${st.steuer}, mit Registerkennzeichen: ${st.register}.",
+                style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
+            )
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                TabChip("Sitzungen", tab == 0) { tab = 0 }
+                TabChip("Beschlussbuch (${st.angenommen + st.abgelehnt + st.vertagt})", tab == 1) { tab = 1 }
+            }
+            SuchFeld(suche, { suche = it }, if (tab == 0) "Sitzung suchen …" else "Beschluss suchen …", Modifier.padding(top = 10.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (tab == 0) {
+                    FilterMenu("Art", Sitzungen.ARTEN, art) { art = it }
+                    FilterMenu("Status", Sitzungen.STATUS, status) { status = it }
+                } else {
+                    FilterChip(kennz == null, { kennz = null }, { Text("Alle", maxLines = 1, softWrap = false) })
+                    FilterChip(kennz == "tax", { kennz = "tax" }, { Text("Finanzamt", maxLines = 1, softWrap = false) })
+                    FilterChip(kennz == "register", { kennz = "register" }, { Text("Vereinsregister", maxLines = 1, softWrap = false) })
+                }
             }
         }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+        Spacer(Modifier.height(6.dp))
+        if (tab == 0) {
+            if (model.sitzungen.isEmpty()) Text("Noch keine Sitzungen. Legen Sie mit „Neue Sitzung“ die erste an.", Modifier.padding(top = 12.dp))
+            else if (liste.isEmpty()) Text("Keine Sitzung passt zu Suche und Filter.", Modifier.padding(top = 12.dp))
+        } else if (buch.isEmpty()) Text("Keine Beschlüsse gefunden.", Modifier.padding(top = 12.dp))
+        LazyColumn(state = lazy, contentPadding = PaddingValues(bottom = 96.dp)) {
             if (tab == 0) {
-                if (model.sitzungen.isEmpty()) Text("Noch keine Sitzungen. Legen Sie mit „Neue Sitzung“ die erste an.", Modifier.padding(top = 12.dp))
-                else if (liste.isEmpty()) Text("Keine Sitzung passt zu Suche und Filter.", Modifier.padding(top = 12.dp))
-                liste.forEach { s ->
-                    Card(Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onOpen(s.id) }) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text(s.titel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            Text("${Sitzungen.artName(s.art)} · ${Sitzungen.statusName(s.status)}", style = MaterialTheme.typography.bodySmall)
-                            Text(listOf(zeitraum(s), s.ort).filter { it.isNotEmpty() }.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
+                itemsIndexed(liste, key = { _, s -> s.id }) { i, s ->
+                    ListenKarte(erste = i == 0, letzte = i == liste.lastIndex, angehakt = false, onClick = { onOpen(s.id) }, onLongClick = {}) {
+                        Marke(s.titel.ifBlank { "?" }, i, 44.dp)
+                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                            Text(s.titel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text("${Sitzungen.artName(s.art)} · ${Sitzungen.statusName(s.status)}", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(listOf(zeitraum(s), s.ort).filter { it.isNotEmpty() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             val hinweise = listOfNotNull(
-                                "${s.tops.size} Tagesordnungspunkte", s.beschluesse.size.takeIf { it > 0 }?.let { "$it Beschlüsse" },
+                                "${s.tops.size} TOPs", s.beschluesse.size.takeIf { it > 0 }?.let { "$it Beschlüsse" },
                                 if (s.gesperrt) "${s.signaturen.size}/2 unterschrieben" else null,
                             )
-                            Text(hinweise.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                            Text(hinweise.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
             } else {
-                if (buch.isEmpty()) Text("Keine Beschlüsse gefunden.", Modifier.padding(top = 12.dp))
-                buch.forEach { e ->
+                itemsIndexed(buch, key = { i, e -> "${e.sitzung.id}/${e.beschluss.id}/$i" }) { i, e ->
                     val b = e.beschluss
-                    Card(Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onOpen(e.sitzung.id) }) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text("${dd(e.sitzung.datum)} · ${e.sitzung.titel} · ${e.top.nummer}", style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            Text(b.titel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                            Text(b.antrag, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                            Text("${stimmen(b)} → ${Sitzungen.ERGEBNISSE[b.ergebnis] ?: b.ergebnis}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
+                    val farbe = when (b.ergebnis) { "accepted" -> sc.primary; "rejected" -> sc.error; else -> sc.outline }
+                    ListenKarte(erste = i == 0, letzte = i == buch.lastIndex, angehakt = false, onClick = { onOpen(e.sitzung.id) }, onLongClick = {}) {
+                        Box(Modifier.width(6.dp).height(64.dp).background(farbe, RoundedCornerShape(3.dp)))
+                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                            Text("${dd(e.sitzung.datum)} · ${e.sitzung.titel} · ${e.top.nummer}", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(b.titel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(b.antrag, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text("${stimmen(b)} → ${Sitzungen.ERGEBNISSE[b.ergebnis] ?: b.ergebnis}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = farbe, modifier = Modifier.padding(top = 2.dp))
                             val z = listOfNotNull(if (b.steuer) "Finanzamt" else null, if (b.register) "Vereinsregister" else null,
                                 (b.verantwortlich + if (b.frist.isNotBlank()) " bis ${dd(b.frist)}" else "").trim().takeIf { it.isNotEmpty() })
-                            if (z.isNotEmpty()) Text(z.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                            if (z.isNotEmpty()) Text(z.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -163,93 +192,114 @@ fun SitzungDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelet
     val auszugFehlt = Sitzungen.auszugFehlt(s)
     val imArchiv = model.sitzungImArchiv(s)
 
-    @Composable
-    fun Zeile(label: String, wert: String) {
-        if (wert.isBlank()) return
-        Column(Modifier.padding(vertical = 3.dp)) { Text(label, style = MaterialTheme.typography.labelMedium); Text(wert, style = MaterialTheme.typography.bodyLarge) }
+    val sc = MaterialTheme.colorScheme
+    val zeile: @Composable (String, String) -> Unit = { l, w -> DetailFeld(l, w) }
+    val datum = datumTagJahr(s.datum)
+    val uhr = s.beginn.ifBlank { "–" }
+    val uhrUnter = if (s.beginn.isNotBlank() && s.ende.isNotBlank()) "bis ${s.ende}" else null
+    val bescheide = s.beschluesse.size.toString()
+    val (stFl, stTx) = when (s.status) {
+        "approved" -> sc.primaryContainer to sc.onPrimaryContainer
+        "cancelled" -> sc.errorContainer to sc.onErrorContainer
+        else -> sc.secondaryContainer to sc.onSecondaryContainer
     }
 
-    Column(modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
-        Text("${Sitzungen.artName(s.art)} · ${Sitzungen.statusName(s.status)}", style = MaterialTheme.typography.labelLarge)
-        Text(s.titel, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 4.dp))
-        HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        Zeile("Wann", zeitraum(s)); Zeile("Ort", s.ort); Zeile("Leitung", s.leitung); Zeile("Protokoll", s.schrift)
-        Zeile("Protokollart", Sitzungen.PROTOKOLLARTEN[s.protokollart].orEmpty())
-        Zeile("Einladung", if (s.einladungOk) "form- und fristgerecht" + listOf(dd(s.einladungsDatum), s.einladungsWeg).filter { it.isNotBlank() }.let { if (it.isEmpty()) "" else " (" + it.joinToString(", ") + ")" } else "nicht als ordnungsgemäß bestätigt")
-        Zeile("Beschlussfähigkeit", if (s.beschlussfaehig) "festgestellt" + (s.stimmberechtigteWirksam?.let { " ($it stimmberechtigte Anwesende)" } ?: "") else "nicht festgestellt")
-
-        if (s.teilnehmer.isNotEmpty()) {
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Text("Teilnehmer (${s.teilnehmer.count { it.anwesend }} anwesend von ${s.teilnehmer.size})", style = MaterialTheme.typography.titleMedium)
+    Column(modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Marke(s.titel.ifBlank { "?" }, (s.id.hashCode() and 0x7fffffff), 72.dp)
+            Column(Modifier.weight(1f).padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(s.titel, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Schild(Sitzungen.statusName(s.status), stFl, stTx)
+                    Text(Sitzungen.artName(s.art), style = MaterialTheme.typography.bodyMedium, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 14.dp)) {
+            val g = kachelSchrift(maxWidth, listOf(1f, 1f, 1f), listOf(datum.first.length, uhr.length, bescheide.length), 26f)
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val gleich = Modifier.weight(1f).fillMaxHeight()
+                StatKachel("Datum", datum.first, datum.second, sc.primaryContainer, sc.onPrimaryContainer, gleich, g)
+                StatKachel("Beginn", uhr, uhrUnter, sc.secondaryContainer, sc.onSecondaryContainer, gleich, g)
+                StatKachel("Beschlüsse", bescheide, null, sc.tertiaryContainer, sc.onTertiaryContainer, gleich, g)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        DetailKarte("Eckdaten") {
+            zeile("Wann", zeitraum(s)); zeile("Ort", s.ort); zeile("Leitung", s.leitung); zeile("Protokoll", s.schrift)
+            zeile("Protokollart", Sitzungen.PROTOKOLLARTEN[s.protokollart].orEmpty())
+            zeile("Einladung", if (s.einladungOk) "form- und fristgerecht" + listOf(dd(s.einladungsDatum), s.einladungsWeg).filter { it.isNotBlank() }.let { if (it.isEmpty()) "" else " (" + it.joinToString(", ") + ")" } else "nicht als ordnungsgemäß bestätigt")
+            zeile("Beschlussfähigkeit", if (s.beschlussfaehig) "festgestellt" + (s.stimmberechtigteWirksam?.let { " ($it stimmberechtigte Anwesende)" } ?: "") else "nicht festgestellt")
+        }
+        if (s.teilnehmer.isNotEmpty()) DetailKarte("Teilnehmer (${s.teilnehmer.count { it.anwesend }} anwesend von ${s.teilnehmer.size})") {
             s.teilnehmer.forEach { a ->
                 Text("• ${a.name}" + listOfNotNull(a.rolle.takeIf { it.isNotBlank() }, if (!a.anwesend) "nicht anwesend" else null, if (a.anwesend && !a.stimmrecht) "ohne Stimmrecht" else null).let { if (it.isEmpty()) "" else " (" + it.joinToString(", ") + ")" }, style = MaterialTheme.typography.bodyMedium)
             }
         }
-        if (s.tops.isNotEmpty()) {
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Text("Tagesordnung", style = MaterialTheme.typography.titleMedium)
-            s.tops.forEach { t ->
-                Text("${t.nummer}  ${t.titel}", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
-                if (t.berichterstatter.isNotBlank()) Text("Berichterstatter: ${t.berichterstatter}", style = MaterialTheme.typography.bodySmall)
+        if (s.tops.isNotEmpty()) DetailKarte("Tagesordnung") {
+            s.tops.forEachIndexed { i, t ->
+                if (i > 0) HorizontalDivider(Modifier.padding(top = 8.dp), color = sc.outlineVariant)
+                Text("${t.nummer}  ${t.titel}", fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 8.dp))
+                if (t.berichterstatter.isNotBlank()) Text("Berichterstatter: ${t.berichterstatter}", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
                 if (t.notizen.isNotBlank()) Text(t.notizen, style = MaterialTheme.typography.bodyMedium)
                 t.beschluesse.forEach { b ->
-                    Card(Modifier.fillMaxWidth().padding(top = 6.dp)) {
-                        Column(Modifier.padding(10.dp)) {
-                            Text("Beschluss: ${b.titel}", fontWeight = FontWeight.SemiBold)
+                    Surface(shape = RoundedCornerShape(16.dp), color = sc.surfaceContainer, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text("Beschluss: ${b.titel}", fontWeight = FontWeight.Bold)
                             Text(b.antrag, style = MaterialTheme.typography.bodyMedium)
                             Text("${stimmen(b)} → ${Sitzungen.ERGEBNISSE[b.ergebnis] ?: b.ergebnis}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                             val z = listOfNotNull(if (b.steuer) "Finanzamt" else null, if (b.register) "Vereinsregister" else null,
                                 (b.verantwortlich + if (b.frist.isNotBlank()) " bis ${dd(b.frist)}" else "").trim().takeIf { it.isNotEmpty() })
-                            if (z.isNotEmpty()) Text(z.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                            if (z.isNotEmpty()) Text(z.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
                         }
                     }
                 }
             }
         }
-        if (s.notizen.isNotBlank()) { HorizontalDivider(Modifier.padding(vertical = 8.dp)); Zeile("Allgemeine Anmerkungen", s.notizen) }
+        if (s.notizen.isNotBlank()) DetailKarte("Allgemeine Anmerkungen") { zeile("", s.notizen) }
 
-        HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        Text("Unterschriften", style = MaterialTheme.typography.titleMedium)
-        for ((rolle, titel, name) in listOf(Triple(Sitzungen.ROLLE_LEITUNG, "Versammlungsleitung", s.leitung), Triple(Sitzungen.ROLLE_SCHRIFT, "Protokollführung", s.schrift))) {
-            val sig = s.signaturen.firstOrNull { if (rolle == Sitzungen.ROLLE_LEITUNG) it.istLeitung else it.istSchrift }
-            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("$titel: ${name.ifBlank { "(Name fehlt)" }}")
-                    if (sig != null) {
-                        val p = Sitzungen.pruefung(s, sig)
-                        Text(
-                            "unterschrieben ${signiertText(sig.zeit)}" + when (p) {
-                                Sitzungen.Pruefung.GUELTIG -> " · Text seither unverändert"
-                                Sitzungen.Pruefung.GEAENDERT -> " · ACHTUNG: Text seither geändert"
-                                Sitzungen.Pruefung.UNBEKANNT -> " · Fingerabdruck unbekannt (am Desktop erfasst)"
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (p == Sitzungen.Pruefung.GEAENDERT) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                        )
-                    } else Text("noch nicht unterschrieben", style = MaterialTheme.typography.bodySmall)
+        DetailKarte("Unterschriften") {
+            for ((rolle, titel, name) in listOf(Triple(Sitzungen.ROLLE_LEITUNG, "Versammlungsleitung", s.leitung), Triple(Sitzungen.ROLLE_SCHRIFT, "Protokollführung", s.schrift))) {
+                val sig = s.signaturen.firstOrNull { if (rolle == Sitzungen.ROLLE_LEITUNG) it.istLeitung else it.istSchrift }
+                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("$titel: ${name.ifBlank { "(Name fehlt)" }}", fontWeight = FontWeight.Bold)
+                        if (sig != null) {
+                            val p = Sitzungen.pruefung(s, sig)
+                            Text(
+                                "unterschrieben ${signiertText(sig.zeit)}" + when (p) {
+                                    Sitzungen.Pruefung.GUELTIG -> " · Text seither unverändert"
+                                    Sitzungen.Pruefung.GEAENDERT -> " · ACHTUNG: Text seither geändert"
+                                    Sitzungen.Pruefung.UNBEKANNT -> " · Fingerabdruck unbekannt (am Desktop erfasst)"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (p == Sitzungen.Pruefung.GEAENDERT) sc.error else sc.onSurfaceVariant,
+                            )
+                        } else Text("noch nicht unterschrieben", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
+                    }
+                    if (sig == null) TextButton(onClick = { unterschreibt = rolle }, enabled = !model.busy && name.isNotBlank() && s.status != "cancelled") { Text("Unterschreiben") }
                 }
-                if (sig == null) TextButton(onClick = { unterschreibt = rolle }, enabled = !model.busy && name.isNotBlank() && s.status != "cancelled") { Text("Unterschreiben") }
             }
-        }
-        if (s.gesperrt) {
-            Text("Das Protokoll ist unterschrieben und gesperrt. Zum Ändern müssen die Unterschriften erst entfernt werden.", style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = { entsperren = true }, enabled = !model.busy) { Text("Unterschriften entfernen …") }
-        } else Text("Mit der Unterschrift beider Personen wird das Protokoll „Genehmigt“ und gesperrt.", style = MaterialTheme.typography.bodySmall)
-        if (s.vollstaendigUnterschrieben) {
-            if (imArchiv) Text("Liegt im Dokumentenarchiv (Protokolle & Versammlungen).", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
-            else TextButton(onClick = { model.sitzungArchivieren(s.id) { _, f -> meldung = f ?: "Das Protokoll liegt jetzt im Dokumentenarchiv." } }, enabled = !model.busy) { Text("Im Archiv ablegen") }
+            if (s.gesperrt) {
+                Text("Das Protokoll ist unterschrieben und gesperrt. Zum Ändern müssen die Unterschriften erst entfernt werden.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
+                TextButton(onClick = { entsperren = true }, enabled = !model.busy) { Text("Unterschriften entfernen …") }
+            } else Text("Mit der Unterschrift beider Personen wird das Protokoll „Genehmigt“ und gesperrt.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
+            if (s.vollstaendigUnterschrieben) {
+                if (imArchiv) Text("Liegt im Dokumentenarchiv (Protokolle & Versammlungen).", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
+                else TextButton(onClick = { model.sitzungArchivieren(s.id) { _, f -> meldung = f ?: "Das Protokoll liegt jetzt im Dokumentenarchiv." } }, enabled = !model.busy) { Text("Im Archiv ablegen") }
+            }
         }
 
         if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
-        if (fehltEinladung.isNotEmpty()) Text("Für die Einladung fehlt noch: ${fehltEinladung.joinToString(", ")}.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
-        if (auszugFehlt != null) Text("Registerauszug nicht möglich: $auszugFehlt", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+        if (fehltEinladung.isNotEmpty()) Text("Für die Einladung fehlt noch: ${fehltEinladung.joinToString(", ")}.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+        if (auszugFehlt != null) Text("Registerauszug nicht möglich: $auszugFehlt", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         AktionsZeilen(
             listOf(
                 listOf(Aktion("Einladung (PDF)", { if (fehltEinladung.isEmpty()) pdfWaehlen(SitzungsPdf.EINLADUNG) else meldung = "Für die Einladung fehlt noch: ${fehltEinladung.joinToString(", ")}." }, enabled = !model.busy), Aktion("Protokoll (PDF)", { pdfWaehlen(SitzungsPdf.PROTOKOLL) }, enabled = !model.busy)),
                 listOf(Aktion("Registerauszug (PDF)", { if (auszugFehlt == null) pdfWaehlen(SitzungsPdf.AUSZUG) else meldung = "Registerauszug nicht möglich: $auszugFehlt" }, enabled = !model.busy), Aktion("Per E-Mail …", { mail = true }, enabled = !model.busy)),
                 listOf(Aktion("Bearbeiten", onEdit, primaer = true, enabled = !s.gesperrt), Aktion("Löschen", { loeschen = true })),
             ),
-            Modifier.padding(top = 12.dp),
+            Modifier.padding(top = 12.dp, bottom = 16.dp),
         )
     }
 
@@ -351,6 +401,14 @@ private fun MailDialog(model: AppModel, s: Sitzung, onDismiss: () -> Unit, onFeh
 
 // ---------------------------------------------------------------- Sitzung anlegen / ändern
 
+/** In welchem Schritt eine Fehlermeldung steht (Schlüssel der Prüfung aus dem Kern). */
+private fun sitzungFehlerSchritt(schluessel: String): Int = when {
+    schluessel.startsWith("top") || schluessel.startsWith("beschluss") -> 1
+    schluessel == "einladungsDatum" || schluessel == "stimmberechtigte" -> 2
+    schluessel.startsWith("teilnehmer") -> 3
+    else -> 0
+}
+
 @Composable
 fun SitzungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier: Modifier = Modifier) {
     val vorhanden = id?.let { i -> model.sitzungen.firstOrNull { it.id == i } }
@@ -361,6 +419,8 @@ fun SitzungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
     var mitglieder by remember { mutableStateOf(false) }
     var gast by remember { mutableStateOf("") }
     val pruef = if (zeigeFehler) model.sitzungPruefen(f) else emptyMap()
+    val sc = MaterialTheme.colorScheme
+    val fehlerNr = pruef.keys.minOfOrNull { sitzungFehlerSchritt(it) }
     val gesperrt = vorhanden?.gesperrt == true
     val statusWahl = remember(f.status) { LinkedHashMap(Sitzungen.STATUS_WAHL).also { it.putIfAbsent(f.status, Sitzungen.statusName(f.status)) } }
     val stimmenZaehlung = f.teilnehmer.count { it.anwesend && it.stimmrecht }
@@ -388,14 +448,9 @@ fun SitzungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
     fun ziffern(t: String) = t.filter { it.isDigit() }.take(5)
 
     Column(modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-        Text(if (vorhanden == null) "Neue Sitzung" else "Sitzung bearbeiten", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("1 Stammdaten", "2 Tagesordnung (${f.tops.size})", "3 Nachweise", "4 Teilnehmer (${f.teilnehmer.size})").forEachIndexed { i, t ->
-                FilterChip(tab == i, { tab = i }, { Text(t, maxLines = 1, softWrap = false) })
-            }
-        }
+        FormKopf(if (vorhanden == null) "Neue Sitzung" else "Sitzung bearbeiten", listOf("Stammdaten", "Tagesordnung", "Nachweise", "Teilnehmer"), tab, fehlerNr) { tab = it }
         if (gesperrt) Text(Sitzungen.GESPERRT, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 4.dp))
-        Column(Modifier.padding(vertical = 8.dp)) {
+        FormKarte {
             when (tab) {
                 0 -> {
                     Auswahl("Art der Sitzung", Sitzungen.ARTEN, f.art, enabled = !gesperrt) { artWechseln(it) }
@@ -412,7 +467,7 @@ fun SitzungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
                 }
                 1 -> {
                     f.tops.forEachIndexed { i, t ->
-                        Card(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                        Surface(shape = RoundedCornerShape(20.dp), color = sc.surfaceContainer, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                             Column(Modifier.padding(10.dp)) {
                                 Text("TOP ${i + 1}", fontWeight = FontWeight.Bold)
                                 Feld("Titel *", t.titel, { top(i, t.copy(titel = it)) }, pruef["top$i"], enabled = !gesperrt)
@@ -461,7 +516,7 @@ fun SitzungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
                 }
                 else -> {
                     f.teilnehmer.forEachIndexed { i, a ->
-                        Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Surface(shape = RoundedCornerShape(20.dp), color = sc.surfaceContainer, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                             Column(Modifier.padding(10.dp)) {
                                 Text(a.name, fontWeight = FontWeight.SemiBold)
                                 pruef["teilnehmer$i"]?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
@@ -476,7 +531,7 @@ fun SitzungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
                     }
                     KompaktKnopf("Mitglieder hinzufügen", { mitglieder = true }, enabled = !gesperrt, modifier = Modifier.padding(top = 8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-                        OutlinedTextField(gast, { gast = it }, label = { Text("Gast oder Nichtmitglied (Name)") }, singleLine = true, modifier = Modifier.weight(1f), enabled = !gesperrt)
+                        Column(Modifier.weight(1f)) { Feld("Gast oder Nichtmitglied (Name)", gast, { gast = it }, enabled = !gesperrt) }
                         TextButton(
                             enabled = gast.isNotBlank() && !gesperrt,
                             onClick = { f = f.copy(teilnehmer = f.teilnehmer + AnwesenderForm("att-${System.currentTimeMillis()}-${f.teilnehmer.size}", name = gast.trim(), rolle = "Gast", stimmrecht = false)); gast = "" },
@@ -487,13 +542,16 @@ fun SitzungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
         }
         if (zeigeFehler && pruef.isNotEmpty()) Text("Bitte die markierten Angaben prüfen (${pruef.size}); sie stehen in den Abschnitten 1 bis 4.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         if (fehler != null) Text(fehler!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-        Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KompaktKnopf("Speichern", {
+        FormFuss(
+            tab, 4, { tab = it }, onDone,
+            {
                 zeigeFehler = true
-                if (model.sitzungPruefen(f).isEmpty()) model.sitzungSpeichern(f) { _, e -> if (e == null) onDone() else fehler = e }
-            }, primaer = true, enabled = !model.busy && !gesperrt)
-            KompaktKnopf("Abbrechen", onDone)
-        }
+                val fm = model.sitzungPruefen(f)
+                if (fm.isNotEmpty()) tab = fm.keys.minOf { sitzungFehlerSchritt(it) }
+                else { fehler = null; model.sitzungSpeichern(f) { _, e -> if (e == null) onDone() else fehler = e } }
+            },
+            !model.busy && !gesperrt,
+        )
     }
 
     if (mitglieder) {
@@ -507,7 +565,7 @@ fun SitzungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
             onDismissRequest = { mitglieder = false }, title = { Text("Mitglieder hinzufügen") },
             text = {
                 Column {
-                    OutlinedTextField(suche, { suche = it }, label = { Text("Name oder Nummer") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    SuchFeld(suche, { suche = it }, "Name oder Nummer", Modifier.fillMaxWidth())
                     Text("Rolle: $rolleVorgabe (änderbar in der Liste)", style = MaterialTheme.typography.bodySmall)
                     Column(Modifier.height(280.dp).verticalScroll(rememberScrollState())) {
                         treffer.forEach { m ->
