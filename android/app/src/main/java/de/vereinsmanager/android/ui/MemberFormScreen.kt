@@ -26,6 +26,12 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -160,19 +166,37 @@ fun MemberFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
         list.associateWith { it }
     }
 
+    val sc = MaterialTheme.colorScheme
+    val reiter = TAB_NAMES.keys.toList()
+    val nr = reiter.indexOf(tab)
+    val fehlerReiter = MemberRules.ersterFehlerReiter(errors)
     Column(modifier.padding(horizontal = 16.dp)) {
         Text(
             if (existing == null) "Neues Mitglied" else "Mitglied bearbeiten",
-            style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp),
+            style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
         )
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TAB_NAMES.forEach { (t, name) ->
-                val fehler = MemberRules.ersterFehlerReiter(errors) == t
-                FilterChip(selected = tab == t, onClick = { tab = t }, label = { Text(if (fehler) "$name ⚠" else name) })
+        // Fortschritt wie im Aufnahmeantrag; hier darf man jeden Abschnitt direkt antippen. Rot = hier fehlt etwas.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            reiter.forEachIndexed { i, t ->
+                val farbe = when {
+                    t == fehlerReiter -> sc.error
+                    i < nr -> sc.primary
+                    i == nr -> sc.tertiaryContainer
+                    else -> sc.outlineVariant
+                }
+                Box(Modifier.weight(1f).height(28.dp).clickable { tab = t }, contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(farbe))
+                }
             }
         }
-        HorizontalDivider()
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
+        Text(
+            "Schritt ${nr + 1} von ${reiter.size} · ${TAB_NAMES[tab]}" + if (fehlerReiter != null && fehlerReiter != tab) " · Angaben fehlen bei „${TAB_NAMES[fehlerReiter]}“" else "",
+            style = MaterialTheme.typography.titleSmall, color = if (fehlerReiter != null && fehlerReiter != tab) sc.error else sc.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp, bottom = 6.dp),
+        )
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 8.dp)) {
+          Surface(shape = RoundedCornerShape(28.dp), color = sc.surface, border = BorderStroke(1.5.dp, sc.outlineVariant), modifier = Modifier.fillMaxWidth()) {
+           Column(Modifier.padding(16.dp)) {
             when (tab) {
                 FormTab.BASIS -> {
                     Feld("Mitgliedsnummer *", f.number, { f = f.copy(number = it) }, errors["memberNumber"])
@@ -186,7 +210,7 @@ fun MemberFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
                         Text("Mitglied ist minderjährig")
                     }
                     if (f.isMinor) {
-                        Text("Gesetzlicher Vertreter", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+                        Text("Gesetzlicher Vertreter", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, color = sc.primary, modifier = Modifier.padding(top = 8.dp))
                         Feld("Name", f.guardianName, { f = f.copy(guardianName = it) })
                         Auswahl("Beziehung", RELATIONS, f.guardianRelation) { f = f.copy(guardianRelation = it) }
                         Feld("Telefon", f.guardianPhone, { f = f.copy(guardianPhone = it) }, keyboard = KeyboardType.Phone)
@@ -223,7 +247,7 @@ fun MemberFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
                     Text("Zahlungsart", style = MaterialTheme.typography.labelMedium)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         PAYMENT_ORDER.forEach { p ->
-                            FilterChip(f.paymentMethod == p, { f = MemberRules.setPayment(f, p) }, { Text(MemberLabels.PAYMENT[p] ?: p) })
+                            TabChip(MemberLabels.PAYMENT[p] ?: p, f.paymentMethod == p) { f = MemberRules.setPayment(f, p) }
                         }
                     }
                     if (f.paymentMethod == "exempt") {
@@ -234,7 +258,7 @@ fun MemberFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
                         TextButton(onClick = { f = MemberRules.setPayment(f, "sepa") }) { Text("Beitragspflicht wieder aktivieren (SEPA-Lastschrift)") }
                     }
                     if (f.paymentMethod == "sepa") {
-                        Text("SEPA-Lastschrift", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
+                        Text("SEPA-Lastschrift", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, color = sc.primary, modifier = Modifier.padding(top = 12.dp))
                         Feld("Kontoinhaber *", f.accountHolder, { f = f.copy(accountHolder = it) }, errors["accountHolder"])
                         Feld("Kreditinstitut / Bankname", f.bankName, { f = f.copy(bankName = it) })
                         Feld(
@@ -256,12 +280,20 @@ fun MemberFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
                     }
                 }
             }
+           }
+          }
         }
         if (saveError != null) Text(saveError!!, color = MaterialTheme.colorScheme.error)
         if (errors.isNotEmpty()) Text("Bitte die markierten Angaben ergänzen.", color = MaterialTheme.colorScheme.error)
-        Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { reiter.getOrNull(nr - 1)?.let { tab = it } }, enabled = nr > 0, modifier = Modifier.weight(1f).height(48.dp)) { Text("Zurück") }
+            OutlinedButton(onClick = { reiter.getOrNull(nr + 1)?.let { tab = it } }, enabled = nr < reiter.size - 1, modifier = Modifier.weight(1f).height(48.dp)) { Text("Weiter") }
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onDone, modifier = Modifier.weight(1f).height(52.dp)) { Text("Abbrechen") }
             Button(
                 enabled = !model.busy,
+                modifier = Modifier.weight(1f).height(52.dp),
                 onClick = {
                     val e = MemberRules.validate(f, others)
                     errors = e
@@ -274,7 +306,6 @@ fun MemberFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
                     }
                 },
             ) { Text("Speichern") }
-            OutlinedButton(onClick = onDone) { Text("Abbrechen") }
         }
     }
 }
@@ -284,8 +315,8 @@ private fun DueDay(f: MemberForm, onChange: (MemberForm) -> Unit) {
     Column(Modifier.padding(vertical = 4.dp)) {
         Text("Einzugstag beim monatlichen Beitrag", style = MaterialTheme.typography.labelMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(f.monthlyDueDay == 1, { onChange(f.copy(monthlyDueDay = 1)) }, { Text("1. des Monats") })
-            FilterChip(f.monthlyDueDay == 15, { onChange(f.copy(monthlyDueDay = 15)) }, { Text("15. des Monats") })
+            TabChip("1. des Monats", f.monthlyDueDay == 1) { onChange(f.copy(monthlyDueDay = 1)) }
+            TabChip("15. des Monats", f.monthlyDueDay == 15) { onChange(f.copy(monthlyDueDay = 15)) }
         }
     }
 }
