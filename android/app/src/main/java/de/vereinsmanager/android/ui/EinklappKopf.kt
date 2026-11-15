@@ -44,12 +44,12 @@ class KopfZustand(private val liste: LazyListState, private val dichte: Float = 
 
     private var anim: Job? = null
 
-    /** Klappt den Kopf weich auf (Einschieben und Einblenden über knapp eine halbe Sekunde) statt ihn springen zu lassen. */
+    /** Klappt den Kopf weich auf (Einschieben und Einblenden über knapp eine Sekunde) statt ihn springen zu lassen. */
     private fun ausklappenWeich() {
         if (anim?.isActive == true) return
         val sc = scope
         if (sc == null) { versatz = 0f; return }
-        anim = sc.launch { animate(versatz, 0f, animationSpec = tween(420, easing = FastOutSlowInEasing)) { v, _ -> versatz = v } }
+        anim = sc.launch { animate(versatz, 0f, animationSpec = tween(800, easing = FastOutSlowInEasing)) { v, _ -> versatz = v } }
     }
 
     private val schwelle get() = SCHNELL_DP_PRO_SEKUNDE * dichte

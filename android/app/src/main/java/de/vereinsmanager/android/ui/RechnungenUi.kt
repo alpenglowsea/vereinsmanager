@@ -1,6 +1,16 @@
 package de.vereinsmanager.android.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -66,7 +76,6 @@ private fun anzeigeStatus(r: Rechnung, heute: LocalDate): String =
 
 // ---------------------------------------------------------------- Liste
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RechnungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, onVorlage: () -> Unit, modifier: Modifier = Modifier) {
     val alle = model.rechnungen
@@ -75,6 +84,7 @@ fun RechnungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
     var status by remember { mutableStateOf<String?>(null) }
     var jahr by remember { mutableStateOf<String?>(null) }
     var gewaehlt by remember { mutableStateOf(setOf<String>()) }
+    var exportOffen by remember { mutableStateOf(false) }
     var info by remember { mutableStateOf<String?>(null) }
     val exporter = rememberExporter(model) { info = it }
     val jahre = remember(alle) { alle.map { jahrVon(it) }.filter { it.isNotEmpty() }.distinct().sortedDescending() }
@@ -86,28 +96,41 @@ fun RechnungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
         }
     }
     val waehlt = gewaehlt.isNotEmpty()
+    BackHandler(enabled = waehlt) { gewaehlt = emptySet() }
     fun summe(l: List<Rechnung>) = l.fold(BigDecimal.ZERO) { a, r -> a + r.brutto }
     val offen = alle.filter { it.status == "open" }
     val ueber = alle.filter { RechnungsRegeln.ueberfaellig(it, heute) }
     val bezahlt = alle.filter { it.status == "paid" }
+    val sc = MaterialTheme.colorScheme
+    val liste = rememberLazyListState()
+    val kopf = rememberKopfZustand(liste)
 
-    Column(modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KpiKachel("Offen", Geld.euro(summe(offen)), "${offen.size} Rechnungen", Modifier.weight(1f))
-            KpiKachel("Überfällig", Geld.euro(summe(ueber)), "${ueber.size} Rechnungen", Modifier.weight(1f))
-            KpiKachel("Bezahlt", Geld.euro(summe(bezahlt)), "${bezahlt.size} Rechnungen", Modifier.weight(1f))
+    Column(modifier.fillMaxSize().padding(horizontal = 16.dp).nestedScroll(kopf.verfolgung)) {
+        Column(Modifier.einklappbar(kopf)) {
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                KopfKnopf("Neue Rechnung", onNew, Modifier.weight(1f), primaer = true)
+                KopfKnopf("Vorlage", onVorlage, Modifier.weight(1f))
+                KopfKnopf("Export", { exportOffen = true }, Modifier.weight(1f), enabled = !waehlt)
+            }
+            Text("Rechnungen", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
+            val werte = listOf(Geld.euro(summe(offen)), Geld.euro(summe(ueber)), Geld.euro(summe(bezahlt)))
+            BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                val g = kachelSchrift(maxWidth, listOf(1f, 1f, 1f), werte.map { it.length }, 22f)
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val gleich = Modifier.weight(1f).fillMaxHeight()
+                    StatKachel("Offen", werte[0], "${offen.size} Rechnungen", sc.secondaryContainer, sc.onSecondaryContainer, gleich, g)
+                    StatKachel("Überfällig", werte[1], "${ueber.size} Rechnungen", sc.errorContainer, sc.onErrorContainer, gleich, g)
+                    StatKachel("Bezahlt", werte[2], "${bezahlt.size} Rechnungen", sc.primaryContainer, sc.onPrimaryContainer, gleich, g)
+                }
+            }
+            SuchFeld(suche, { suche = it }, "Nummer, Empfänger oder Betreff suchen …", Modifier.padding(top = 12.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                FilterMenu("Status", STATI, status) { status = it }
+                FilterMenu("Jahr", jahre.associateWith { it }, jahr) { jahr = it }
+            }
         }
-        OutlinedTextField(
-            suche, { suche = it }, label = { Text("Nummer, Empfänger oder Betreff suchen") }, singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        )
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            FilterMenu("Status", STATI, status) { status = it }
-            FilterMenu("Jahr", jahre.associateWith { it }, jahr) { jahr = it }
-            KompaktKnopf("Neue Rechnung", onNew, primaer = true)
-            KompaktKnopf("Vorlage", onVorlage)
-            ExportMenue("Exportieren", rechnungenExport(model, exporter, shown, "angezeigte"), kompakt = false)
-        }
+        if (info != null) Text(info!!, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 4.dp))
+        Text("${shown.size} von ${alle.size} Rechnungen", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
         if (waehlt) {
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("${gewaehlt.size} gewählt", style = MaterialTheme.typography.labelLarge)
@@ -116,35 +139,36 @@ fun RechnungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                 ExportMenue("Exportieren", rechnungenExport(model, exporter, shown.filter { it.id in gewaehlt }, "gewählte"), kompakt = true)
             }
         }
-        if (info != null) Text(info!!, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 4.dp))
-        Text("${shown.size} von ${alle.size} Rechnungen", style = MaterialTheme.typography.bodySmall)
-        HorizontalDivider(Modifier.padding(vertical = 4.dp))
+        Spacer(Modifier.height(6.dp))
         if (alle.isEmpty()) Text("Noch keine Rechnungen. Legen Sie mit „Neue Rechnung“ die erste an.", Modifier.padding(top = 16.dp))
-        LazyColumn {
-            items(shown, key = { it.id }) { r ->
+        LazyColumn(state = liste, contentPadding = PaddingValues(bottom = 96.dp)) {
+            itemsIndexed(shown, key = { _, r -> r.id }) { i, r ->
                 val an = r.id in gewaehlt
-                Row(
-                    Modifier.fillMaxWidth().combinedClickable(
-                        onClick = { if (waehlt) gewaehlt = if (an) gewaehlt - r.id else gewaehlt + r.id else onOpen(r.id) },
-                        onLongClick = { if (!an) gewaehlt = gewaehlt + r.id; info = null },
-                    ).padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                val st = anzeigeStatus(r, heute)
+                ListenKarte(
+                    erste = i == 0, letzte = i == shown.lastIndex, angehakt = an,
+                    onClick = { if (waehlt) gewaehlt = if (an) gewaehlt - r.id else gewaehlt + r.id else onOpen(r.id) },
+                    onLongClick = { if (!an) gewaehlt = gewaehlt + r.id; info = null },
                 ) {
                     if (waehlt) Checkbox(an, { gewaehlt = if (an) gewaehlt - r.id else gewaehlt + r.id })
-                    Column(Modifier.weight(1f)) {
-                        Text(r.anzeigeName.ifBlank { "(ohne Empfänger)" }, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+                    else Marke(r.anzeigeName.ifBlank { "?" }, i, 44.dp)
+                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                        Text(r.anzeigeName.ifBlank { "(ohne Empfänger)" }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
-                            listOf(r.nummer, if (r.datum.isNotEmpty()) deDate(r.datum) else "", STATI[anzeigeStatus(r, heute)] ?: r.status).filter { it.isNotEmpty() }.joinToString(" · "),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (anzeigeStatus(r, heute) == "overdue") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                            listOf(r.nummer, if (r.datum.isNotEmpty()) deDate(r.datum) else "").filter { it.isNotEmpty() }.joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            STATI[st] ?: r.status, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold,
+                            color = when (st) { "overdue" -> sc.error; "paid" -> sc.primary; else -> sc.onSurfaceVariant },
                         )
                     }
-                    Text(Geld.euro(r.brutto), fontWeight = FontWeight.SemiBold)
+                    Text(Geld.euro(r.brutto), fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleSmall, maxLines = 1, softWrap = false)
                 }
-                HorizontalDivider()
             }
         }
     }
+    if (exportOffen) ExportAuswahl("${shown.size} angezeigte Rechnungen exportieren als:", rechnungenExport(model, exporter, shown, "angezeigte"), { exportOffen = false })
 }
 
 private fun rechnungenExport(model: AppModel, exporter: Exporter, liste: List<Rechnung>, wort: String): List<Pair<String, () -> Unit>> {
@@ -167,48 +191,70 @@ fun RechnungDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onAnse
     val heute = LocalDate.now()
     val buchung = r.buchungId?.let { bid -> model.buchungen.firstOrNull { it.id == bid } }
     val st = anzeigeStatus(r, heute)
-
-    @Composable
-    fun Zeile(label: String, wert: String) {
-        if (wert.isBlank()) return
-        Column(Modifier.padding(vertical = 4.dp)) {
-            Text(label, style = MaterialTheme.typography.labelMedium)
-            Text(wert, style = MaterialTheme.typography.bodyLarge)
-        }
+    val sc = MaterialTheme.colorScheme
+    val (stFlaeche, stSchrift) = when (st) {
+        "paid" -> sc.primaryContainer to sc.onPrimaryContainer
+        "overdue", "cancelled" -> sc.errorContainer to sc.onErrorContainer
+        "open" -> sc.tertiaryContainer to sc.onTertiaryContainer
+        else -> sc.secondaryContainer to sc.onSecondaryContainer
     }
+    val zeile: @Composable (String, String) -> Unit = { l, w -> DetailFeld(l, w) }
+    val betrag = Geld.euro(r.brutto)
+    val (tagD, jahrD) = datumTagJahr(r.datum)
+    val bezahltD = r.bezahltAm?.takeIf { it.isNotEmpty() }
+    val (tagF, jahrF) = datumTagJahr(bezahltD ?: r.faellig)
 
-    Column(modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
-        Text(Geld.euro(r.brutto), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineMedium)
-        Text("${r.nummer} · ${STATI[st] ?: r.status}", style = MaterialTheme.typography.titleMedium, color = if (st == "overdue") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
-        HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        Zeile("Empfänger", listOf(r.firma, r.name, r.ansprechpartner).filter { it.isNotBlank() }.joinToString("\n"))
-        Zeile("Anschrift", listOf("${r.adresse.street} ${r.adresse.houseNumber}".trim(), "${r.adresse.zip} ${r.adresse.city}".trim(), r.adresse.country).filter { it.isNotBlank() }.joinToString(", "))
-        Zeile("E-Mail / Telefon", listOf(r.email, r.telefon).filter { it.isNotBlank() }.joinToString(" · "))
-        Zeile("Rechnungsdatum", if (r.datum.isNotEmpty()) deDate(r.datum) else "")
-        Zeile("Leistungsdatum", if (r.leistungsdatum.isNotEmpty()) deDate(r.leistungsdatum) else "")
-        Zeile("Fällig am", if (r.faellig.isNotEmpty()) deDate(r.faellig) else "")
-        Zeile("Betreff", r.betreff)
-        Zeile("Steuerlicher Bereich", SPHAEREN[r.sphaere] ?: r.sphaere)
-        if (r.kleinunternehmer) Zeile("Umsatzsteuer", "Kleinunternehmer (§ 19 UStG): keine Umsatzsteuer")
-
-        Text("Positionen", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-        r.positionen.forEach { p ->
-            Column(Modifier.padding(vertical = 4.dp)) {
-                Text("${p.nummer}. ${p.text}")
-                Text(
-                    "${RechnungsRegeln.mengeText(p.menge)} ${p.einheit} × ${Geld.euro(p.preis)} · ${p.ust} % USt = ${Geld.euro(p.summe)}",
-                    style = MaterialTheme.typography.bodySmall,
-                )
+    Column(modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+        Column(Modifier.fillMaxWidth().padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(r.anzeigeName.ifBlank { "(ohne Empfänger)" }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Schild(STATI[st] ?: r.status, stFlaeche, stSchrift)
+                Text(r.nummer, style = MaterialTheme.typography.bodyMedium, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        HorizontalDivider(Modifier.padding(vertical = 6.dp))
-        Zeile("Netto", Geld.euro(r.netto))
-        r.ustJeSatz.filter { it.key > 0 }.forEach { (satz, b) -> Zeile("Umsatzsteuer $satz %", Geld.euro(b)) }
-        Zeile("Gesamtbetrag", Geld.euro(r.brutto))
-        Zeile("Bezahlt am", r.bezahltAm?.let { deDate(it) + (r.zahlart?.let { z -> " (${ZAHLARTEN[z] ?: z})" } ?: "") }.orEmpty())
-        Zeile("Verknüpfte Buchung", if (r.buchungId == null) "" else buchung?.let { "${it.belegNummer} · ${Geld.euro(it.betrag.abs())}" } ?: "Die Buchung gibt es nicht mehr")
-        Zeile("PDF im Dokumentenarchiv", if (r.dokumentId == null) "Nicht abgelegt" else "Abgelegt (Belege ${jahrVon(r)} → Ausgangsrechnungen)")
-        Zeile("Notiz", r.notiz)
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 14.dp)) {
+            val g = kachelSchrift(maxWidth, listOf(1.6f, 1f, 1f), listOf(betrag.length, tagD.length, tagF.length), 28f)
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatKachel("Betrag", betrag, if (r.kleinunternehmer) "ohne USt" else "brutto", stFlaeche, stSchrift, Modifier.weight(1.6f).fillMaxHeight(), g)
+                StatKachel("Datum", tagD, jahrD, sc.secondaryContainer, sc.onSecondaryContainer, Modifier.weight(1f).fillMaxHeight(), g)
+                StatKachel(if (bezahltD != null) "Bezahlt" else "Fällig", tagF, jahrF, sc.tertiaryContainer, sc.onTertiaryContainer, Modifier.weight(1f).fillMaxHeight(), g)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        DetailKarte("Empfänger") {
+            zeile("Name", listOf(r.firma, r.name, r.ansprechpartner).filter { it.isNotBlank() }.joinToString("\n"))
+            zeile("Anschrift", listOf("${r.adresse.street} ${r.adresse.houseNumber}".trim(), "${r.adresse.zip} ${r.adresse.city}".trim(), r.adresse.country).filter { it.isNotBlank() }.joinToString("\n"))
+            KontaktLink("E-Mail", r.email, LinkArt.MAIL)
+            KontaktLink("Telefon", r.telefon, LinkArt.TELEFON)
+        }
+        DetailKarte("Rechnung") {
+            zeile("Betreff", r.betreff)
+            zeile("Rechnungsdatum", if (r.datum.isNotEmpty()) deDate(r.datum) else "")
+            zeile("Leistungsdatum", if (r.leistungsdatum.isNotEmpty()) deDate(r.leistungsdatum) else "")
+            zeile("Fällig am", if (r.faellig.isNotEmpty()) deDate(r.faellig) else "")
+            zeile("Steuerlicher Bereich", SPHAEREN[r.sphaere] ?: r.sphaere)
+            if (r.kleinunternehmer) zeile("Umsatzsteuer", "Kleinunternehmer (§ 19 UStG): keine Umsatzsteuer")
+        }
+        DetailKarte("Positionen (${r.positionen.size})") {
+            r.positionen.forEachIndexed { i, p ->
+                if (i > 0) HorizontalDivider(Modifier.padding(vertical = 6.dp), color = sc.outlineVariant)
+                Text("${p.nummer}. ${p.text}", fontWeight = FontWeight.Bold)
+                Text(
+                    "${RechnungsRegeln.mengeText(p.menge)} ${p.einheit} × ${Geld.euro(p.preis)} · ${p.ust} % USt = ${Geld.euro(p.summe)}",
+                    style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant,
+                )
+            }
+            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = sc.outlineVariant)
+            zeile("Netto", Geld.euro(r.netto))
+            r.ustJeSatz.filter { it.key > 0 }.forEach { (satz, b) -> zeile("Umsatzsteuer $satz %", Geld.euro(b)) }
+            Text("Gesamtbetrag  $betrag", fontWeight = FontWeight.ExtraBold, color = sc.primary, modifier = Modifier.padding(top = 4.dp))
+        }
+        DetailKarte("Zahlung und Ablage") {
+            zeile("Bezahlt am", r.bezahltAm?.let { deDate(it) + (r.zahlart?.let { z -> " (${ZAHLARTEN[z] ?: z})" } ?: "") }.orEmpty())
+            zeile("Verknüpfte Buchung", if (r.buchungId == null) "Keine" else buchung?.let { "${it.belegNummer} · ${Geld.euro(it.betrag.abs())}" } ?: "Die Buchung gibt es nicht mehr")
+            zeile("PDF im Dokumentenarchiv", if (r.dokumentId == null) "Nicht abgelegt" else "Abgelegt (Belege ${jahrVon(r)} → Ausgangsrechnungen)")
+        }
+        if (r.notiz.isNotBlank()) DetailKarte("Notiz") { zeile("", r.notiz) }
         if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
 
         val offen = r.status != "paid" && r.status != "cancelled"
@@ -225,7 +271,7 @@ fun RechnungDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onAnse
                     Aktion("PDF speichern", { exporter.pdfSchreiber(RechnungsExport.pdfDateiname(r)) { out -> model.rechnungPdfSchreiben(r, out) } }, enabled = !model.busy),
                 ),
             ),
-            Modifier.padding(top = 16.dp),
+            Modifier.padding(top = 12.dp, bottom = 16.dp),
         )
     }
 

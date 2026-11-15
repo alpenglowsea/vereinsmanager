@@ -373,7 +373,7 @@ private fun Feld(label: String, wert: String) {
 
 /** Kleines farbiges Schild (Art der Buchung, Belegnummer) – wie das Status-Schild bei Mitgliedern. */
 @Composable
-private fun Schild(text: String, flaeche: Color, schrift: Color) {
+internal fun Schild(text: String, flaeche: Color, schrift: Color) {
     Text(
         text, color = schrift, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
         maxLines = 1, softWrap = false,

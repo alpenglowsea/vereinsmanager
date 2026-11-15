@@ -1,6 +1,16 @@
 package de.vereinsmanager.android.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -55,7 +65,6 @@ private fun jahrVon(r: DonationReceipt) = r.date.take(4)
 
 // ---------------------------------------------------------------- Liste
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SpendenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, modifier: Modifier = Modifier) {
     val alle = model.spenden
@@ -63,6 +72,7 @@ fun SpendenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, 
     var art by remember { mutableStateOf<String?>(null) }
     var jahr by remember { mutableStateOf<String?>(null) }
     var gewaehlt by remember { mutableStateOf(setOf<String>()) }
+    var exportOffen by remember { mutableStateOf(false) }
     var info by remember { mutableStateOf<String?>(null) }
     val exporter = rememberExporter(model) { info = it }
     val jahre = remember(alle) { alle.map { jahrVon(it) }.filter { it.isNotEmpty() }.distinct().sortedDescending() }
@@ -74,30 +84,44 @@ fun SpendenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, 
         }
     }
     val waehlt = gewaehlt.isNotEmpty()
+    BackHandler(enabled = waehlt) { gewaehlt = emptySet() }
     fun summe(l: List<DonationReceipt>) = l.fold(BigDecimal.ZERO) { a, r -> a + r.amount }
     val geld = shown.filter { it.type == "money" }
     val sach = shown.filter { it.type == "goods" }
     val verzicht = shown.filter { it.isWaiverOfRefund }
+    val sc = MaterialTheme.colorScheme
+    val liste = rememberLazyListState()
+    val kopf = rememberKopfZustand(liste)
 
-    Column(modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KpiKachel("Gesamt", Geld.euro(summe(shown)), "${shown.size} Bestätigungen", Modifier.weight(1f))
-            KpiKachel("Geldspenden", Geld.euro(summe(geld)), "${geld.size} Stück", Modifier.weight(1f))
+    Column(modifier.fillMaxSize().padding(horizontal = 16.dp).nestedScroll(kopf.verfolgung)) {
+        Column(Modifier.einklappbar(kopf)) {
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                KopfKnopf("Neue Bestätigung", onNew, Modifier.weight(1f), primaer = true)
+                KopfKnopf("Export", { exportOffen = true }, Modifier.weight(1f), enabled = !waehlt)
+            }
+            Text("Spenden", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
+            val werte = listOf(Geld.euro(summe(shown)), Geld.euro(summe(geld)), Geld.euro(summe(sach)))
+            BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                val g = kachelSchrift(maxWidth, listOf(1f, 1f, 1f), werte.map { it.length }, 22f)
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val gleich = Modifier.weight(1f).fillMaxHeight()
+                    StatKachel("Gesamt", werte[0], "${shown.size} Bestätigungen", sc.primaryContainer, sc.onPrimaryContainer, gleich, g)
+                    StatKachel("Geldspenden", werte[1], "${geld.size} Stück", sc.secondaryContainer, sc.onSecondaryContainer, gleich, g)
+                    StatKachel("Sachspenden", werte[2], "${sach.size} Stück", sc.tertiaryContainer, sc.onTertiaryContainer, gleich, g)
+                }
+            }
+            if (verzicht.isNotEmpty()) Text(
+                "Davon Aufwandsverzicht: ${Geld.euro(summe(verzicht))} (${verzicht.size} Stück)",
+                style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
+            )
+            SuchFeld(suche, { suche = it }, "Spender, Nummer oder Notiz suchen …", Modifier.padding(top = 12.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                FilterMenu("Art", ART, art) { art = it }
+                FilterMenu("Jahr", jahre.associateWith { it }, jahr) { jahr = it }
+            }
         }
-        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KpiKachel("Sachspenden", Geld.euro(summe(sach)), "${sach.size} Stück", Modifier.weight(1f))
-            KpiKachel("Aufwandsverzicht", Geld.euro(summe(verzicht)), "${verzicht.size} Stück", Modifier.weight(1f))
-        }
-        OutlinedTextField(
-            suche, { suche = it }, label = { Text("Spender, Nummer oder Notiz suchen") }, singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        )
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            FilterMenu("Art", ART, art) { art = it }
-            FilterMenu("Jahr", jahre.associateWith { it }, jahr) { jahr = it }
-            KompaktKnopf("Neue Bestätigung", onNew, primaer = true)
-            ExportMenue("Exportieren", spendenExport(model, exporter, shown, "angezeigte"), kompakt = false)
-        }
+        if (info != null) Text(info!!, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 4.dp))
+        Text("${shown.size} von ${alle.size} Bestätigungen", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
         if (waehlt) {
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("${gewaehlt.size} gewählt", style = MaterialTheme.typography.labelLarge)
@@ -106,34 +130,35 @@ fun SpendenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, 
                 ExportMenue("Exportieren", spendenExport(model, exporter, shown.filter { it.id in gewaehlt }, "gewählte"), kompakt = true)
             }
         }
-        if (info != null) Text(info!!, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 4.dp))
-        Text("${shown.size} von ${alle.size} Bestätigungen", style = MaterialTheme.typography.bodySmall)
-        HorizontalDivider(Modifier.padding(vertical = 4.dp))
+        Spacer(Modifier.height(6.dp))
         if (alle.isEmpty()) Text("Noch keine Zuwendungsbestätigungen. Legen Sie mit „Neue Bestätigung“ die erste an.", Modifier.padding(top = 16.dp))
-        LazyColumn {
-            items(shown, key = { it.id }) { r ->
+        LazyColumn(state = liste, contentPadding = PaddingValues(bottom = 96.dp)) {
+            itemsIndexed(shown, key = { _, r -> r.id }) { i, r ->
                 val an = r.id in gewaehlt
-                Row(
-                    Modifier.fillMaxWidth().combinedClickable(
-                        onClick = { if (waehlt) gewaehlt = if (an) gewaehlt - r.id else gewaehlt + r.id else onOpen(r.id) },
-                        onLongClick = { if (!an) gewaehlt = gewaehlt + r.id; info = null },
-                    ).padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                ListenKarte(
+                    erste = i == 0, letzte = i == shown.lastIndex, angehakt = an,
+                    onClick = { if (waehlt) gewaehlt = if (an) gewaehlt - r.id else gewaehlt + r.id else onOpen(r.id) },
+                    onLongClick = { if (!an) gewaehlt = gewaehlt + r.id; info = null },
                 ) {
                     if (waehlt) Checkbox(an, { gewaehlt = if (an) gewaehlt - r.id else gewaehlt + r.id })
-                    Column(Modifier.weight(1f)) {
-                        Text(r.donorName.ifBlank { "(ohne Name)" }, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+                    else Marke(r.donorName.ifBlank { "?" }, i, 44.dp)
+                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                        Text(r.donorName.ifBlank { "(ohne Name)" }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
-                            listOf(r.receiptNumber, if (r.date.isNotEmpty()) deDate(r.date) else "", ART[r.type] ?: r.type).filter { it.isNotEmpty() }.joinToString(" · "),
-                            style = MaterialTheme.typography.bodySmall,
+                            listOf(r.receiptNumber, if (r.date.isNotEmpty()) deDate(r.date) else "").filter { it.isNotEmpty() }.joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            listOfNotNull(ART[r.type] ?: r.type, if (r.isWaiverOfRefund) "Aufwandsverzicht" else null).joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    Text(Geld.euro(r.amount), fontWeight = FontWeight.SemiBold)
+                    Text(Geld.euro(r.amount), fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleSmall, maxLines = 1, softWrap = false)
                 }
-                HorizontalDivider()
             }
         }
     }
+    if (exportOffen) ExportAuswahl("${shown.size} angezeigte Bestätigungen exportieren als:", spendenExport(model, exporter, shown, "angezeigte"), { exportOffen = false })
 }
 
 @Composable
@@ -168,41 +193,62 @@ fun SpendeDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onAnsehe
     val exporter = rememberExporter(model) { meldung = it }
     if (r == null) { Text("Die Bestätigung gibt es nicht mehr.", modifier.padding(16.dp)); return }
     val buchung = r.transactionId?.let { tid -> model.buchungen.firstOrNull { it.id == tid } }
+    val sc = MaterialTheme.colorScheme
+    val zeile: @Composable (String, String) -> Unit = { l, w -> DetailFeld(l, w) }
+    val betrag = Geld.euro(r.amount)
+    val (tag, jahrD) = datumTagJahr(r.date)
+    val buchungZahl = if (r.transactionId == null) "–" else "ja"
+    val buchungUnter = if (r.transactionId == null) "keine" else buchung?.belegNummer ?: "fehlt"
 
-    @Composable
-    fun Zeile(label: String, wert: String) {
-        if (wert.isBlank()) return
-        Column(Modifier.padding(vertical = 4.dp)) {
-            Text(label, style = MaterialTheme.typography.labelMedium)
-            Text(wert, style = MaterialTheme.typography.bodyLarge)
+    Column(modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Marke(r.donorName.ifBlank { "?" }, (r.id.hashCode() and 0x7fffffff), 72.dp)
+            Column(Modifier.weight(1f).padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(r.donorName.ifBlank { "(ohne Name)" }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Schild(ART[r.type] ?: r.type, if (r.type == "money") sc.primaryContainer else sc.tertiaryContainer, if (r.type == "money") sc.onPrimaryContainer else sc.onTertiaryContainer)
+                    Text(r.receiptNumber, style = MaterialTheme.typography.bodyMedium, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
         }
-    }
-
-    Column(modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
-        Text(Geld.euro(r.amount), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineMedium)
-        Text("${ART[r.type] ?: r.type} · ${r.receiptNumber}", style = MaterialTheme.typography.titleMedium)
-        HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        Zeile("Datum der Zuwendung", if (r.date.isNotEmpty()) deDate(r.date) else "")
-        Zeile("Spender", r.donorName + if (r.donorType == "member") " (Mitglied)" else "")
-        Zeile("Anschrift", listOf("${r.donorAddress.street} ${r.donorAddress.houseNumber}".trim(), "${r.donorAddress.zip} ${r.donorAddress.city}".trim(), r.donorAddress.country).filter { it.isNotBlank() }.joinToString(", "))
-        Zeile("Betrag in Worten", r.amountInWords)
-        if (r.type == "money") Zeile("Verzicht auf Erstattung von Aufwendungen", if (r.isWaiverOfRefund) "Ja" else "Nein")
-        if (r.type == "goods") {
-            Zeile("Sachspende", r.goodsDescription.orEmpty())
-            Zeile("Herkunft", if (r.goodsOrigin == "business") "Betriebsvermögen" else "Privatvermögen")
-            Zeile("Wertermittlung", r.goodsValuationBasis.orEmpty())
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 14.dp)) {
+            val g = kachelSchrift(maxWidth, listOf(1.6f, 1f, 1f), listOf(betrag.length, tag.length, buchungZahl.length), 28f)
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatKachel(if (r.type == "money") "Betrag" else "Wert", betrag, if (r.isWaiverOfRefund) "Aufwandsverzicht" else null, sc.primaryContainer, sc.onPrimaryContainer, Modifier.weight(1.6f).fillMaxHeight(), g)
+                StatKachel("Datum", tag, jahrD, sc.secondaryContainer, sc.onSecondaryContainer, Modifier.weight(1f).fillMaxHeight(), g)
+                StatKachel("Buchung", buchungZahl, buchungUnter, sc.tertiaryContainer, sc.onTertiaryContainer, Modifier.weight(1f).fillMaxHeight(), g)
+            }
         }
-        Zeile("Finanzamt", r.taxOffice)
-        Zeile("Steuernummer", r.taxNumber)
-        Zeile("Freistellungsbescheid vom", if (r.exemptionDate.isNotEmpty()) deDate(r.exemptionDate) else "")
-        Zeile("Veranlagungszeitraum", r.assessmentPeriod)
-        Zeile("Zweck", r.promotedPurpose)
-        Zeile("Ausgestellt von", r.issuedBy)
-        Zeile("Ort und Datum", r.cityAndDate)
-        Zeile("Notiz", r.notes.orEmpty())
-        Zeile("Unterschrift im PDF", if (r.signed) (if (model.unterschrift != null) "Ja" else "Ja, aber es ist keine Unterschrift mehr hinterlegt") else "Nein")
-        Zeile("Verknüpfte Buchung", if (r.transactionId == null) "Keine" else buchung?.let { "${it.belegNummer} · ${Geld.euro(it.betrag.abs())}" } ?: "Die Buchung gibt es nicht mehr")
-        Zeile("PDF im Dokumentenarchiv", if (r.documentId == null) "Nicht abgelegt" else "Abgelegt (Belege ${jahrVon(r)} → Spendenbescheinigungen)")
+        Spacer(Modifier.height(8.dp))
+        DetailKarte("Spender") {
+            zeile("Name", r.donorName + if (r.donorType == "member") " (Mitglied)" else "")
+            zeile("Anschrift", listOf("${r.donorAddress.street} ${r.donorAddress.houseNumber}".trim(), "${r.donorAddress.zip} ${r.donorAddress.city}".trim(), r.donorAddress.country).filter { it.isNotBlank() }.joinToString("\n"))
+        }
+        DetailKarte("Zuwendung") {
+            zeile("Datum der Zuwendung", if (r.date.isNotEmpty()) deDate(r.date) else "")
+            zeile("Betrag in Worten", r.amountInWords)
+            if (r.type == "money") zeile("Verzicht auf Erstattung von Aufwendungen", if (r.isWaiverOfRefund) "Ja" else "Nein")
+            if (r.type == "goods") {
+                zeile("Sachspende", r.goodsDescription.orEmpty())
+                zeile("Herkunft", if (r.goodsOrigin == "business") "Betriebsvermögen" else "Privatvermögen")
+                zeile("Wertermittlung", r.goodsValuationBasis.orEmpty())
+            }
+        }
+        DetailKarte("Angaben des Vereins") {
+            zeile("Finanzamt", r.taxOffice)
+            zeile("Steuernummer", r.taxNumber)
+            zeile("Freistellungsbescheid vom", if (r.exemptionDate.isNotEmpty()) deDate(r.exemptionDate) else "")
+            zeile("Veranlagungszeitraum", r.assessmentPeriod)
+            zeile("Zweck", r.promotedPurpose)
+            zeile("Ausgestellt von", r.issuedBy)
+            zeile("Ort und Datum", r.cityAndDate)
+        }
+        DetailKarte("PDF und Ablage") {
+            zeile("Unterschrift im PDF", if (r.signed) (if (model.unterschrift != null) "Ja" else "Ja, aber es ist keine Unterschrift mehr hinterlegt") else "Nein")
+            zeile("Verknüpfte Buchung", if (r.transactionId == null) "Keine" else buchung?.let { "${it.belegNummer} · ${Geld.euro(it.betrag.abs())}" } ?: "Die Buchung gibt es nicht mehr")
+            zeile("PDF im Dokumentenarchiv", if (r.documentId == null) "Nicht abgelegt" else "Abgelegt (Belege ${jahrVon(r)} → Spendenbescheinigungen)")
+        }
+        if (!r.notes.isNullOrBlank()) DetailKarte("Notiz") { zeile("", r.notes.orEmpty()) }
         if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
         AktionsZeilen(
             listOf(
@@ -212,7 +258,7 @@ fun SpendeDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onAnsehe
                     Aktion("PDF speichern", { exporter.pdfSchreiber(DonationExport.pdfDateinamen(listOf(r)).first()) { out -> model.spendePdfSchreiben(r, out) } }, enabled = !model.busy),
                 ),
             ),
-            Modifier.padding(top = 16.dp),
+            Modifier.padding(top = 12.dp, bottom = 16.dp),
         )
     }
     if (loeschen) {
