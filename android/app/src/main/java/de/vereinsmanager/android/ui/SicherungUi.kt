@@ -1,5 +1,6 @@
 package de.vereinsmanager.android.ui
 
+import androidx.compose.ui.text.font.FontWeight
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
