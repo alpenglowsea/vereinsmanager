@@ -292,6 +292,7 @@ fun SpendeFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
     val vorhanden = id?.let { i -> model.spenden.firstOrNull { it.id == i } }
     var f by remember { mutableStateOf(if (vorhanden != null) model.spendeFormular(vorhanden) else model.spendeNeu()) }
     var zeigeFehler by remember { mutableStateOf(false) }
+    var schritt by remember { mutableStateOf(0) }
     var fehler by remember { mutableStateOf<String?>(null) }
     var pdfAblegen by remember { mutableStateOf(vorhanden?.documentId != null || vorhanden == null) }
     var buchungAnlegen by remember { mutableStateOf(false) }
@@ -316,80 +317,89 @@ fun SpendeFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
         }
     }
 
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (fehlend.isNotEmpty()) Text("In den Einstellungen fehlt noch: ${fehlend.joinToString(", ")}. Die Angaben können hier trotzdem ergänzt werden.", style = MaterialTheme.typography.bodySmall)
-        Auswahl("Art der Zuwendung", ART, f.art) { f = f.copy(art = it) }
-        Feld("Nummer", f.nummer, { f = f.copy(nummer = it) })
-        DatumFeld("Datum der Zuwendung *", f.datum) { f = f.copy(datum = it) }
+    val namen = listOf("Spender", "Betrag", "Verein", "Speichern")
+    val sc = MaterialTheme.colorScheme
+    fun fehlerSchritt(m: String) = if ("Betrag" in m || "Sachspende" in m) 1 else 0
+    val fehlerNr = pruef?.let { fehlerSchritt(it) }
 
-        Text("Spender", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-        Auswahl("Spender ist", mapOf("external" to "Externe Person", "member" to "Mitglied"), f.quelle) { f = f.copy(quelle = it, mitgliedId = if (it == "member") f.mitgliedId else "") }
-        if (f.quelle == "member") {
-            OutlinedButton(onClick = { mitgliedWahl = true }) { Text(if (f.mitgliedId.isEmpty()) "Mitglied wählen" else "Anderes Mitglied wählen") }
-        }
-        Feld("Name *", f.name, { f = f.copy(name = it) })
-        Feld("Straße", f.strasse, { f = f.copy(strasse = it) })
-        Feld("Hausnummer", f.hausnummer, { f = f.copy(hausnummer = it) })
-        Feld("PLZ", f.plz, { f = f.copy(plz = it) })
-        Feld("Ort", f.ort, { f = f.copy(ort = it) })
-        Feld("Land", f.land, { f = f.copy(land = it) })
-
-        Text(if (geld) "Betrag" else "Wert", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-        Feld("Betrag in € *", f.betrag, { f = f.copy(betrag = it, inWorten = Spenden.inWorten(it)) }, keyboard = KeyboardType.Decimal)
-        Feld("Betrag in Worten", f.inWorten, { f = f.copy(inWorten = it) })
-        if (geld) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(f.verzicht, { f = f.copy(verzicht = it) })
-                Text("  Verzicht auf Erstattung von Aufwendungen", Modifier.weight(1f))
+    // Alles scrollt zusammen: Die Knöpfe stehen am Ende der Seite und sind bei geöffneter Tastatur durch Hinunterscrollen erreichbar.
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+        FormKopf(if (vorhanden == null) "Neue Bestätigung" else "Bestätigung bearbeiten", namen, schritt, fehlerNr) { schritt = it.coerceIn(0, namen.lastIndex) }
+        FormKarte {
+            when (schritt) {
+                0 -> {
+                    Auswahl("Art der Zuwendung", ART, f.art) { f = f.copy(art = it) }
+                    Feld("Nummer", f.nummer, { f = f.copy(nummer = it) })
+                    DatumFeld("Datum der Zuwendung *", f.datum) { f = f.copy(datum = it) }
+                    Text("Spender", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, color = sc.primary, modifier = Modifier.padding(top = 8.dp))
+                    Auswahl("Spender ist", mapOf("external" to "Externe Person", "member" to "Mitglied"), f.quelle) { f = f.copy(quelle = it, mitgliedId = if (it == "member") f.mitgliedId else "") }
+                    if (f.quelle == "member") {
+                        OutlinedButton(onClick = { mitgliedWahl = true }) { Text(if (f.mitgliedId.isEmpty()) "Mitglied wählen" else "Anderes Mitglied wählen") }
+                    }
+                    Feld("Name *", f.name, { f = f.copy(name = it) })
+                    Feld("Straße", f.strasse, { f = f.copy(strasse = it) })
+                    Feld("Hausnummer", f.hausnummer, { f = f.copy(hausnummer = it) })
+                    Feld("PLZ", f.plz, { f = f.copy(plz = it) })
+                    Feld("Ort", f.ort, { f = f.copy(ort = it) })
+                    Feld("Land", f.land, { f = f.copy(land = it) })
+                }
+                1 -> {
+                    Feld("Betrag in € *", f.betrag, { f = f.copy(betrag = it, inWorten = Spenden.inWorten(it)) }, keyboard = KeyboardType.Decimal)
+                    Feld("Betrag in Worten", f.inWorten, { f = f.copy(inWorten = it) })
+                    if (geld) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Switch(f.verzicht, { f = f.copy(verzicht = it) })
+                            Text("  Verzicht auf Erstattung von Aufwendungen", Modifier.weight(1f))
+                        }
+                    } else {
+                        Feld("Genaue Bezeichnung der Sachspende *", f.sachBeschreibung, { f = f.copy(sachBeschreibung = it) }, singleLine = false)
+                        Auswahl("Herkunft", mapOf("private" to "Privatvermögen", "business" to "Betriebsvermögen"), f.sachHerkunft) { f = f.copy(sachHerkunft = it) }
+                        Feld("Unterlagen zur Wertermittlung", f.sachUnterlagen, { f = f.copy(sachUnterlagen = it) })
+                    }
+                }
+                2 -> {
+                    if (fehlend.isNotEmpty()) Text("In den Einstellungen fehlt noch: ${fehlend.joinToString(", ")}. Die Angaben können hier trotzdem ergänzt werden.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
+                    Feld("Finanzamt", f.finanzamt, { f = f.copy(finanzamt = it) })
+                    Feld("Steuernummer", f.steuernummer, { f = f.copy(steuernummer = it) })
+                    DatumFeld("Freistellungsbescheid vom", f.freistellung, optional = true) { f = f.copy(freistellung = it) }
+                    DatumFeld("Feststellung der Satzungszwecke vom", f.feststellung, optional = true) { f = f.copy(feststellung = it) }
+                    Feld("Veranlagungszeitraum", f.veranlagung, { f = f.copy(veranlagung = it) })
+                    Feld("Gemeinnütziger Zweck", f.zweck, { f = f.copy(zweck = it) }, singleLine = false)
+                    Feld("Ausgestellt von", f.aussteller, { f = f.copy(aussteller = it) })
+                    Feld("Ort und Datum der Ausstellung", f.ortDatum, { f = f.copy(ortDatum = it) })
+                }
+                else -> {
+                    Feld("Notiz (erscheint nicht im PDF)", f.notiz, { f = f.copy(notiz = it) }, singleLine = false)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(pdfAblegen, { pdfAblegen = it })
+                        Text("  PDF im Dokumentenarchiv ablegen (Belege ${f.datum.take(4).ifEmpty { "…" }} → Spendenbescheinigungen)", Modifier.weight(1f))
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(f.unterschrift && model.unterschrift != null, { f = f.copy(unterschrift = it) }, enabled = model.unterschrift != null)
+                        Text("  Unterschrift ins PDF setzen", Modifier.weight(1f))
+                    }
+                    if (model.unterschrift == null) Text("Dafür zuerst in den Einstellungen unterschreiben.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
+                    if (geld && !verknuepft) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Switch(buchungAnlegen, { buchungAnlegen = it }, enabled = model.konten.isNotEmpty())
+                            Text("  Einnahme auf Konto 40450 Geldspenden buchen", Modifier.weight(1f))
+                        }
+                        if (buchungAnlegen) Auswahl("Eingegangen auf", model.konten.associate { it.id to it.name }, kontoId) { kontoId = it }
+                        if (model.konten.isEmpty()) Text("Es gibt noch kein Konto oder keine Kasse, auf die gebucht werden könnte.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
+                    }
+                    if (verknuepft) Text("Zu dieser Bestätigung gehört schon eine Buchung.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
+                }
             }
-        } else {
-            Feld("Genaue Bezeichnung der Sachspende *", f.sachBeschreibung, { f = f.copy(sachBeschreibung = it) }, singleLine = false)
-            Auswahl("Herkunft", mapOf("private" to "Privatvermögen", "business" to "Betriebsvermögen"), f.sachHerkunft) { f = f.copy(sachHerkunft = it) }
-            Feld("Unterlagen zur Wertermittlung", f.sachUnterlagen, { f = f.copy(sachUnterlagen = it) })
         }
-
-        Text("Angaben des Vereins", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-        Feld("Finanzamt", f.finanzamt, { f = f.copy(finanzamt = it) })
-        Feld("Steuernummer", f.steuernummer, { f = f.copy(steuernummer = it) })
-        DatumFeld("Freistellungsbescheid vom", f.freistellung, optional = true) { f = f.copy(freistellung = it) }
-        DatumFeld("Feststellung der Satzungszwecke vom", f.feststellung, optional = true) { f = f.copy(feststellung = it) }
-        Feld("Veranlagungszeitraum", f.veranlagung, { f = f.copy(veranlagung = it) })
-        Feld("Gemeinnütziger Zweck", f.zweck, { f = f.copy(zweck = it) }, singleLine = false)
-        Feld("Ausgestellt von", f.aussteller, { f = f.copy(aussteller = it) })
-        Feld("Ort und Datum der Ausstellung", f.ortDatum, { f = f.copy(ortDatum = it) })
-        Feld("Notiz (erscheint nicht im PDF)", f.notiz, { f = f.copy(notiz = it) }, singleLine = false)
-
-        Text("Beim Speichern", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Switch(pdfAblegen, { pdfAblegen = it })
-            Text("  PDF im Dokumentenarchiv ablegen (Belege ${f.datum.take(4).ifEmpty { "…" }} → Spendenbescheinigungen)", Modifier.weight(1f))
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Switch(f.unterschrift && model.unterschrift != null, { f = f.copy(unterschrift = it) }, enabled = model.unterschrift != null)
-            Text("  Unterschrift ins PDF setzen", Modifier.weight(1f))
-        }
-        if (model.unterschrift == null) Text("Dafür zuerst in den Einstellungen unterschreiben.", style = MaterialTheme.typography.bodySmall)
-        if (geld && !verknuepft) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(buchungAnlegen, { buchungAnlegen = it }, enabled = model.konten.isNotEmpty())
-                Text("  Einnahme auf Konto 40450 Geldspenden buchen", Modifier.weight(1f))
-            }
-            if (buchungAnlegen) Auswahl("Eingegangen auf", model.konten.associate { it.id to it.name }, kontoId) { kontoId = it }
-            if (model.konten.isEmpty()) Text("Es gibt noch kein Konto oder keine Kasse, auf die gebucht werden könnte.", style = MaterialTheme.typography.bodySmall)
-        }
-        if (verknuepft) Text("Zu dieser Bestätigung gehört schon eine Buchung.", style = MaterialTheme.typography.bodySmall)
-
         val anzeige = pruef ?: fehler
-        if (anzeige != null) Text(anzeige, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
-        Button(
-            onClick = {
-                fehler = null
-                if (model.spendePruefen(f) != null) zeigeFehler = true
-                else if (model.spendeBuchungBetroffen(f)) rueckfrage = true
-                else speichern(false)
-            },
-            enabled = !model.busy, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        ) { Text("Speichern") }
+        if (anzeige != null) Text(anzeige, color = sc.error, modifier = Modifier.padding(top = 4.dp))
+        FormFuss(schritt, namen.size, { schritt = it.coerceIn(0, namen.lastIndex) }, onDone, {
+            fehler = null
+            val m = model.spendePruefen(f)
+            if (m != null) { zeigeFehler = true; schritt = fehlerSchritt(m) }
+            else if (model.spendeBuchungBetroffen(f)) rueckfrage = true
+            else speichern(false)
+        }, !model.busy)
     }
 
     if (mitgliedWahl) {

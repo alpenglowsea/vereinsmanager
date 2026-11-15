@@ -43,8 +43,11 @@ import java.math.BigDecimal
 fun BuchungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier: Modifier = Modifier, vorPartner: String? = null) {
     val vorhanden: Buchung? = remember(id) { id?.let { i -> model.buchungen.firstOrNull { it.id == i } } }
     var f by remember(id) { mutableStateOf(vorhanden?.let { BuchungRegeln.von(it) } ?: model.neueBuchung().let { n -> if (vorPartner.isNullOrBlank()) n else n.copy(partner = vorPartner) }) }
-    var fehler by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var versucht by remember { mutableStateOf(false) }
+    var schrittRoh by remember { mutableStateOf(0) }
     var speicherFehler by remember { mutableStateOf<String?>(null) }
+    // Nach dem ersten Speichern-Versuch wird laufend neu geprüft: Behobene Fehler verschwinden sofort.
+    val fehler = if (versucht) BuchungRegeln.pruefen(f, model.konten) else emptyMap()
     val skr = Skr42.standard
 
     val kontoAuswahl = remember(model.konten) { model.konten.associate { it.id to it.name } }
@@ -59,109 +62,109 @@ fun BuchungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
             .map { it.trim() }.filter { it.isNotEmpty() }.distinct()
     }
 
+    val namen = if (f.art == "transfer") listOf("Grunddaten", "Notiz") else listOf("Grunddaten", "Zuordnung", "Notiz")
+    val schritt = schrittRoh.coerceAtMost(namen.lastIndex)
+    val fehlerNr = fehler.keys.minOfOrNull { if (it == "teile" && f.art != "transfer") 1 else 0 }
+    val sc = MaterialTheme.colorScheme
+
+    // Alles scrollt zusammen: Die Knöpfe stehen am Ende der Seite und sind bei geöffneter Tastatur durch Hinunterscrollen erreichbar.
     Column(modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-        Text(
-            if (vorhanden == null) "Neue Buchung" else "Buchung bearbeiten",
-            style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp),
-        )
-        Column(Modifier.padding(vertical = 8.dp)) {
-            Text("Buchungsart", style = MaterialTheme.typography.labelMedium)
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FinanceLabels.KIND.forEach { (k, v) ->
-                    FilterChip(f.art == k, { f = BuchungRegeln.mitArt(f, k, skr) }, { Text(v) })
-                }
-            }
-            DatumFeld("Datum *", f.datum, fehler["datum"]) { f = f.copy(datum = it) }
-            Feld("Betrag (€) *", f.betrag, { f = f.copy(betrag = it) }, fehler["betrag"], keyboard = KeyboardType.Decimal)
-            Auswahl(if (f.art == "transfer") "Von Konto *" else "Konto *", kontoAuswahl, f.kontoId) { f = f.copy(kontoId = it) }
-            if (fehler["konto"] != null) Fehlertext(fehler["konto"]!!)
-            if (f.art == "transfer") {
-                Auswahl("Auf Konto *", kontoAuswahl, f.zielkontoId) { f = f.copy(zielkontoId = it) }
-                if (fehler["zielkonto"] != null) Fehlertext(fehler["zielkonto"]!!)
-            }
-            Feld("Belegnummer *", f.belegNummer, { f = f.copy(belegNummer = it) }, fehler["belegNummer"])
-            Feld("Buchungstext *", f.text, { f = f.copy(text = it) }, fehler["text"])
-            if (f.art != "transfer") {
-                Feld("Zahlungspartner *", f.partner, { f = f.copy(partner = it) }, fehler["partner"])
-                val q = f.partner.trim()
-                val treffer = if (q.length < 2) emptyList()
-                else vorschlaege.filter { it.contains(q, ignoreCase = true) && !it.equals(q, ignoreCase = true) }.take(5)
-                if (treffer.isNotEmpty()) {
+        FormKopf(if (vorhanden == null) "Neue Buchung" else "Buchung bearbeiten", namen, schritt, fehlerNr) { schrittRoh = it.coerceIn(0, namen.lastIndex) }
+        FormKarte {
+            when (namen[schritt]) {
+                "Grunddaten" -> {
+                    Text("Buchungsart", style = MaterialTheme.typography.labelMedium, color = sc.onSurfaceVariant)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        treffer.forEach { AssistChip(onClick = { f = f.copy(partner = it) }, label = { Text(it) }) }
+                        FinanceLabels.KIND.forEach { (k, v) -> TabChip(v, f.art == k) { f = BuchungRegeln.mitArt(f, k, skr) } }
                     }
-                }
-                HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(f.aufgeteilt, { an -> f = if (an) BuchungRegeln.aufteilen(f, skr) else f.copy(aufgeteilt = false) })
-                    Text("Splittbuchung (auf mehrere Konten aufteilen)")
-                }
-                if (!f.aufgeteilt) {
-                    Zuordnung(
-                        sphaere = f.sphaere, sparte = f.sparte, nummernkreis = f.nummernkreis, konto = f.konto, ust = f.ust,
-                        art = f.art, sparten = sparten, skr = skr,
-                        onSphaere = { f = f.copy(sphaere = it) }, onSparte = { f = f.copy(sparte = it) },
-                        onNummernkreis = { f = BuchungRegeln.mitNummernkreis(f, it) },
-                        onKonto = { f = BuchungRegeln.mitKonto(f, it) }, onUst = { f = f.copy(ust = it) },
-                    )
-                } else {
-                    f.teile.forEachIndexed { i, t ->
-                        Card(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                            Column(Modifier.padding(12.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("Teil ${i + 1}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                                    if (f.teile.size > 2) {
-                                        TextButton(onClick = { f = f.copy(teile = f.teile.filterIndexed { j, _ -> j != i }) }) { Text("Entfernen") }
-                                    }
-                                }
-                                fun setze(neu: TeilForm) { f = f.copy(teile = f.teile.mapIndexed { j, x -> if (j == i) neu else x }) }
-                                Feld("Teilbetrag (€)", t.betrag, { f = BuchungRegeln.teilBetragSetzen(f, i, it) }, keyboard = KeyboardType.Decimal)
-                                Feld("Text", t.text, { setze(t.copy(text = it)) })
-                                Zuordnung(
-                                    sphaere = t.sphaere, sparte = t.sparte, nummernkreis = t.nummernkreis, konto = t.konto, ust = t.ust,
-                                    art = f.art, sparten = sparten, skr = skr,
-                                    onSphaere = { setze(t.copy(sphaere = it)) }, onSparte = { setze(t.copy(sparte = it)) },
-                                    onNummernkreis = { setze(BuchungRegeln.teilMitNummernkreis(t, it)) },
-                                    onKonto = { setze(BuchungRegeln.teilMitKonto(t, it)) }, onUst = { setze(t.copy(ust = it)) },
-                                )
+                    DatumFeld("Datum *", f.datum, fehler["datum"]) { f = f.copy(datum = it) }
+                    Feld("Betrag (€) *", f.betrag, { f = f.copy(betrag = it) }, fehler["betrag"], keyboard = KeyboardType.Decimal)
+                    Auswahl(if (f.art == "transfer") "Von Konto *" else "Konto *", kontoAuswahl, f.kontoId) { f = f.copy(kontoId = it) }
+                    if (fehler["konto"] != null) Fehlertext(fehler["konto"]!!)
+                    if (f.art == "transfer") {
+                        Auswahl("Auf Konto *", kontoAuswahl, f.zielkontoId) { f = f.copy(zielkontoId = it) }
+                        if (fehler["zielkonto"] != null) Fehlertext(fehler["zielkonto"]!!)
+                    }
+                    Feld("Belegnummer *", f.belegNummer, { f = f.copy(belegNummer = it) }, fehler["belegNummer"])
+                    Feld("Buchungstext *", f.text, { f = f.copy(text = it) }, fehler["text"])
+                    if (f.art != "transfer") {
+                        Feld("Zahlungspartner *", f.partner, { f = f.copy(partner = it) }, fehler["partner"])
+                        val q = f.partner.trim()
+                        val treffer = if (q.length < 2) emptyList()
+                        else vorschlaege.filter { it.contains(q, ignoreCase = true) && !it.equals(q, ignoreCase = true) }.take(5)
+                        if (treffer.isNotEmpty()) {
+                            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                treffer.forEach { AssistChip(onClick = { f = f.copy(partner = it) }, label = { Text(it) }) }
                             }
                         }
                     }
-                    OutlinedButton(onClick = {
-                        f = f.copy(teile = f.teile + BuchungRegeln.neuerTeil("split-${System.currentTimeMillis()}-${f.teile.size + 1}", f.sphaere, skr))
-                    }) { Text("Teilbuchung hinzufügen") }
-                    val gesamt = BuchungRegeln.parseBetrag(f.betrag) ?: BigDecimal.ZERO
-                    val summe = BuchungRegeln.teilSumme(f)
-                    Text(
-                        "Summe der Teile ${Geld.euro(summe)} von ${Geld.euro(gesamt)}",
-                        style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold,
-                        color = if (summe.compareTo(gesamt) == 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                    if (fehler["teile"] != null) Fehlertext(fehler["teile"]!!)
+                }
+                "Zuordnung" -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(f.aufgeteilt, { an -> f = if (an) BuchungRegeln.aufteilen(f, skr) else f.copy(aufgeteilt = false) })
+                        Text("Splittbuchung (auf mehrere Konten aufteilen)", Modifier.weight(1f))
+                    }
+                    if (!f.aufgeteilt) {
+                        Zuordnung(
+                            sphaere = f.sphaere, sparte = f.sparte, nummernkreis = f.nummernkreis, konto = f.konto, ust = f.ust,
+                            art = f.art, sparten = sparten, skr = skr,
+                            onSphaere = { f = f.copy(sphaere = it) }, onSparte = { f = f.copy(sparte = it) },
+                            onNummernkreis = { f = BuchungRegeln.mitNummernkreis(f, it) },
+                            onKonto = { f = BuchungRegeln.mitKonto(f, it) }, onUst = { f = f.copy(ust = it) },
+                        )
+                    } else {
+                        f.teile.forEachIndexed { i, t ->
+                            if (i > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp), color = sc.outlineVariant)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Teil ${i + 1}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, color = sc.primary, modifier = Modifier.weight(1f))
+                                if (f.teile.size > 2) {
+                                    TextButton(onClick = { f = f.copy(teile = f.teile.filterIndexed { j, _ -> j != i }) }) { Text("Entfernen") }
+                                }
+                            }
+                            fun setze(neu: TeilForm) { f = f.copy(teile = f.teile.mapIndexed { j, x -> if (j == i) neu else x }) }
+                            Feld("Teilbetrag (€)", t.betrag, { f = BuchungRegeln.teilBetragSetzen(f, i, it) }, keyboard = KeyboardType.Decimal)
+                            Feld("Text", t.text, { setze(t.copy(text = it)) })
+                            Zuordnung(
+                                sphaere = t.sphaere, sparte = t.sparte, nummernkreis = t.nummernkreis, konto = t.konto, ust = t.ust,
+                                art = f.art, sparten = sparten, skr = skr,
+                                onSphaere = { setze(t.copy(sphaere = it)) }, onSparte = { setze(t.copy(sparte = it)) },
+                                onNummernkreis = { setze(BuchungRegeln.teilMitNummernkreis(t, it)) },
+                                onKonto = { setze(BuchungRegeln.teilMitKonto(t, it)) }, onUst = { setze(t.copy(ust = it)) },
+                            )
+                        }
+                        OutlinedButton(onClick = {
+                            f = f.copy(teile = f.teile + BuchungRegeln.neuerTeil("split-${System.currentTimeMillis()}-${f.teile.size + 1}", f.sphaere, skr))
+                        }, modifier = Modifier.padding(top = 8.dp)) { Text("Teilbuchung hinzufügen") }
+                        val gesamt = BuchungRegeln.parseBetrag(f.betrag) ?: BigDecimal.ZERO
+                        val summe = BuchungRegeln.teilSumme(f)
+                        Text(
+                            "Summe der Teile ${Geld.euro(summe)} von ${Geld.euro(gesamt)}",
+                            style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold,
+                            color = if (summe.compareTo(gesamt) == 0) sc.onSurface else sc.error,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                        if (fehler["teile"] != null) Fehlertext(fehler["teile"]!!)
+                    }
+                }
+                else -> {
+                    Feld("Notiz", f.notiz, { f = f.copy(notiz = it) }, singleLine = false)
+                    if (vorhanden?.beleg != null) {
+                        Text("Der angehängte Beleg bleibt unverändert erhalten.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
+                    }
                 }
             }
-            Feld("Notiz", f.notiz, { f = f.copy(notiz = it) }, singleLine = false)
-            if (vorhanden?.beleg != null) {
-                Text("Der angehängte Beleg bleibt unverändert erhalten.", style = MaterialTheme.typography.bodySmall)
+        }
+        if (speicherFehler != null) Text(speicherFehler!!, color = sc.error)
+        if (fehler.isNotEmpty()) Text("Bitte die markierten Angaben prüfen.", color = sc.error)
+        FormFuss(schritt, namen.size, { schrittRoh = it.coerceIn(0, namen.lastIndex) }, onDone, {
+            versucht = true
+            val e = BuchungRegeln.pruefen(f, model.konten)
+            if (e.isNotEmpty()) schrittRoh = e.keys.minOf { if (it == "teile" && f.art != "transfer") 1 else 0 }
+            else {
+                speicherFehler = null
+                model.saveBuchung(f) { err -> if (err == null) onDone() else speicherFehler = "Speichern fehlgeschlagen: $err" }
             }
-        }
-        if (speicherFehler != null) Text(speicherFehler!!, color = MaterialTheme.colorScheme.error)
-        if (fehler.isNotEmpty()) Text("Bitte die markierten Angaben prüfen.", color = MaterialTheme.colorScheme.error)
-        Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                enabled = !model.busy,
-                onClick = {
-                    val e = BuchungRegeln.pruefen(f, model.konten)
-                    fehler = e
-                    if (e.isEmpty()) {
-                        speicherFehler = null
-                        model.saveBuchung(f) { err -> if (err == null) onDone() else speicherFehler = "Speichern fehlgeschlagen: $err" }
-                    }
-                },
-            ) { Text("Speichern") }
-            OutlinedButton(onClick = onDone) { Text("Abbrechen") }
-        }
+        }, !model.busy)
     }
 }
 

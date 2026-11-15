@@ -400,6 +400,7 @@ fun RechnungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifie
     }
     var tageText by remember { mutableStateOf(f.zahlungszielTage.toString()) }
     var zeigeFehler by remember { mutableStateOf(false) }
+    var schritt by remember { mutableStateOf(0) }
     var fehler by remember { mutableStateOf<String?>(null) }
     var pdfAblegen by remember { mutableStateOf(vorhanden == null || vorhanden.dokumentId != null) }
     var mitgliedWahl by remember { mutableStateOf(false) }
@@ -421,109 +422,118 @@ fun RechnungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifie
     fun datumGeaendert(d: String) { f = f.copy(datum = d, faellig = RechnungsRegeln.faellig(d, f.zahlungszielTage).ifEmpty { f.faellig }) }
     fun position(i: Int, p: PositionForm) { f = f.copy(positionen = f.positionen.toMutableList().also { it[i] = p }) }
 
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Empfänger", style = MaterialTheme.typography.titleMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { mitgliedWahl = true }) { Text("Mitglied wählen") }
-            OutlinedButton(onClick = { kontaktWahl = true }, enabled = model.rechnungKontakte().isNotEmpty()) { Text("Kontakt wählen") }
-        }
-        Feld("Name *", f.name, { f = f.copy(name = it, empfaengerArt = if (f.empfaengerId.isEmpty()) "custom" else f.empfaengerArt) })
-        Feld("Firma / Organisation", f.firma, { f = f.copy(firma = it) })
-        Feld("Ansprechpartner", f.ansprechpartner, { f = f.copy(ansprechpartner = it) })
-        Feld("Straße", f.strasse, { f = f.copy(strasse = it) })
-        Feld("Hausnummer", f.hausnummer, { f = f.copy(hausnummer = it) })
-        Feld("PLZ", f.plz, { f = f.copy(plz = it) })
-        Feld("Ort", f.ort, { f = f.copy(ort = it) })
-        Feld("Land", f.land, { f = f.copy(land = it) })
-        Feld("E-Mail", f.email, { f = f.copy(email = it) }, keyboard = KeyboardType.Email)
-        Feld("Telefon", f.telefon, { f = f.copy(telefon = it) }, keyboard = KeyboardType.Phone)
+    val namen = listOf("Empfänger", "Rechnung", "Positionen", "Abschluss")
+    val sc = MaterialTheme.colorScheme
+    // Die Prüfung nennt nur eine Meldung; aus ihrem Text ergibt sich, in welchem Schritt der Fehler steht.
+    fun fehlerSchritt(m: String) = when {
+        "Empfänger" in m -> 0
+        "Rechnungsdatum" in m || "Rechnungsnummer" in m -> 1
+        else -> 2
+    }
+    val fehlerNr = pruef?.let { fehlerSchritt(it) }
 
-        Text("Rechnung", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-        Feld("Rechnungsnummer", f.nummer, { f = f.copy(nummer = it) })
-        DatumFeld("Rechnungsdatum *", f.datum) { datumGeaendert(it) }
-        DatumFeld("Leistungsdatum", f.leistungsdatum, optional = true) { f = f.copy(leistungsdatum = it) }
-        Feld("Zahlungsziel in Tagen", tageText, {
-            tageText = it.filter { c -> c.isDigit() }.take(3)
-            tageText.toIntOrNull()?.let { t -> f = f.copy(zahlungszielTage = t, faellig = RechnungsRegeln.faellig(f.datum, t).ifEmpty { f.faellig }) }
-        }, keyboard = KeyboardType.Number)
-        DatumFeld("Fällig am", f.faellig) { f = f.copy(faellig = it) }
-        Auswahl("Steuerlicher Bereich (Sphäre)", SPHAEREN, f.sphaere) { f = f.copy(sphaere = it) }
-        if (bezahlt) Text("Diese Rechnung ist bezahlt. Den Status ändern Sie in der Ansicht mit „Auf offen zurücksetzen“.", style = MaterialTheme.typography.bodySmall)
-        else Auswahl("Status", linkedMapOf("draft" to "Entwurf", "open" to "Offen", "cancelled" to "Storniert"), f.status) { f = f.copy(status = it) }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Switch(f.kleinunternehmer, { an ->
-                f = f.copy(
-                    kleinunternehmer = an,
-                    positionen = f.positionen.map { p -> if (an) p.copy(ust = 0) else if (p.ust == 0) p.copy(ust = 19) else p },
-                )
-            })
-            Text("  Kleinunternehmer (§ 19 UStG): ohne Umsatzsteuer", Modifier.weight(1f))
-        }
-        if (f.kleinunternehmer) Text("Alle Positionen stehen auf 0 %. Auf der Rechnung erscheint der Hinweis aus der Vorlage.", style = MaterialTheme.typography.bodySmall)
-
-        Feld("Überschrift", f.titel, { f = f.copy(titel = it) })
-        Feld("Betreff", f.betreff, { f = f.copy(betreff = it) })
-        Feld("Einleitung", f.einleitung, { f = f.copy(einleitung = it) }, singleLine = false)
-
-        Text("Positionen", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-        f.positionen.forEachIndexed { i, p ->
-            Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Position ${i + 1}", style = MaterialTheme.typography.labelLarge)
-                    Feld("Bezeichnung *", p.text, { position(i, p.copy(text = it)) }, singleLine = false)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Column(Modifier.weight(1f)) { Feld("Menge", p.menge, { position(i, p.copy(menge = it)) }, keyboard = KeyboardType.Decimal) }
-                        Column(Modifier.weight(1f)) { Feld("Einheit", p.einheit, { position(i, p.copy(einheit = it)) }) }
+    // Alles scrollt zusammen: Die Knöpfe stehen am Ende der Seite und sind bei geöffneter Tastatur durch Hinunterscrollen erreichbar.
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+        FormKopf(if (vorhanden == null) "Neue Rechnung" else "Rechnung bearbeiten", namen, schritt, fehlerNr) { schritt = it.coerceIn(0, namen.lastIndex) }
+        FormKarte {
+            when (schritt) {
+                0 -> {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { mitgliedWahl = true }) { Text("Mitglied wählen") }
+                        OutlinedButton(onClick = { kontaktWahl = true }, enabled = model.rechnungKontakte().isNotEmpty()) { Text("Kontakt wählen") }
                     }
-                    Feld("Einzelpreis in € *", p.preis, { position(i, p.copy(preis = it)) }, keyboard = KeyboardType.Decimal)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("USt", style = MaterialTheme.typography.labelMedium)
-                        RechnungsRegeln.UST_SAETZE.forEach { s ->
-                            FilterChip((if (f.kleinunternehmer) 0 else p.ust) == s, { position(i, p.copy(ust = s)) }, { Text("$s %") }, enabled = !f.kleinunternehmer)
+                    Feld("Name *", f.name, { f = f.copy(name = it, empfaengerArt = if (f.empfaengerId.isEmpty()) "custom" else f.empfaengerArt) })
+                    Feld("Firma / Organisation", f.firma, { f = f.copy(firma = it) })
+                    Feld("Ansprechpartner", f.ansprechpartner, { f = f.copy(ansprechpartner = it) })
+                    Feld("Straße", f.strasse, { f = f.copy(strasse = it) })
+                    Feld("Hausnummer", f.hausnummer, { f = f.copy(hausnummer = it) })
+                    Feld("PLZ", f.plz, { f = f.copy(plz = it) })
+                    Feld("Ort", f.ort, { f = f.copy(ort = it) })
+                    Feld("Land", f.land, { f = f.copy(land = it) })
+                    Feld("E-Mail", f.email, { f = f.copy(email = it) }, keyboard = KeyboardType.Email)
+                    Feld("Telefon", f.telefon, { f = f.copy(telefon = it) }, keyboard = KeyboardType.Phone)
+                }
+                1 -> {
+                    Feld("Rechnungsnummer", f.nummer, { f = f.copy(nummer = it) })
+                    DatumFeld("Rechnungsdatum *", f.datum) { datumGeaendert(it) }
+                    DatumFeld("Leistungsdatum", f.leistungsdatum, optional = true) { f = f.copy(leistungsdatum = it) }
+                    Feld("Zahlungsziel in Tagen", tageText, {
+                        tageText = it.filter { c -> c.isDigit() }.take(3)
+                        tageText.toIntOrNull()?.let { t -> f = f.copy(zahlungszielTage = t, faellig = RechnungsRegeln.faellig(f.datum, t).ifEmpty { f.faellig }) }
+                    }, keyboard = KeyboardType.Number)
+                    DatumFeld("Fällig am", f.faellig) { f = f.copy(faellig = it) }
+                    Auswahl("Steuerlicher Bereich (Sphäre)", SPHAEREN, f.sphaere) { f = f.copy(sphaere = it) }
+                    if (bezahlt) Text("Diese Rechnung ist bezahlt. Den Status ändern Sie in der Ansicht mit „Auf offen zurücksetzen“.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
+                    else Auswahl("Status", linkedMapOf("draft" to "Entwurf", "open" to "Offen", "cancelled" to "Storniert"), f.status) { f = f.copy(status = it) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(f.kleinunternehmer, { an ->
+                            f = f.copy(
+                                kleinunternehmer = an,
+                                positionen = f.positionen.map { p -> if (an) p.copy(ust = 0) else if (p.ust == 0) p.copy(ust = 19) else p },
+                            )
+                        })
+                        Text("  Kleinunternehmer (§ 19 UStG): ohne Umsatzsteuer", Modifier.weight(1f))
+                    }
+                    if (f.kleinunternehmer) Text("Alle Positionen stehen auf 0 %. Auf der Rechnung erscheint der Hinweis aus der Vorlage.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
+                    Feld("Überschrift", f.titel, { f = f.copy(titel = it) })
+                    Feld("Betreff", f.betreff, { f = f.copy(betreff = it) })
+                    Feld("Einleitung", f.einleitung, { f = f.copy(einleitung = it) }, singleLine = false)
+                }
+                2 -> {
+                    f.positionen.forEachIndexed { i, p ->
+                        if (i > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp), color = sc.outlineVariant)
+                        Text("Position ${i + 1}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, color = sc.primary)
+                        Feld("Bezeichnung *", p.text, { position(i, p.copy(text = it)) }, singleLine = false)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(Modifier.weight(1f)) { Feld("Menge", p.menge, { position(i, p.copy(menge = it)) }, keyboard = KeyboardType.Decimal) }
+                            Column(Modifier.weight(1f)) { Feld("Einheit", p.einheit, { position(i, p.copy(einheit = it)) }) }
+                        }
+                        Feld("Einzelpreis in € *", p.preis, { position(i, p.copy(preis = it)) }, keyboard = KeyboardType.Decimal)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("USt", style = MaterialTheme.typography.labelMedium)
+                            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                RechnungsRegeln.UST_SAETZE.forEach { u ->
+                                    FilterChip((if (f.kleinunternehmer) 0 else p.ust) == u, { position(i, p.copy(ust = u)) }, { Text("$u %") }, enabled = !f.kleinunternehmer)
+                                }
+                            }
+                        }
+                        val summe = summen.positionen.getOrNull(i)?.summe
+                        if (summe != null) Text("Summe: ${Geld.euro(summe)}", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
+                        Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            KompaktKnopf("Nach oben", {
+                                if (i > 0) f = f.copy(positionen = f.positionen.toMutableList().also { l -> val t = l[i]; l[i] = l[i - 1]; l[i - 1] = t })
+                            }, enabled = i > 0)
+                            KompaktKnopf("Nach unten", {
+                                if (i < f.positionen.size - 1) f = f.copy(positionen = f.positionen.toMutableList().also { l -> val t = l[i]; l[i] = l[i + 1]; l[i + 1] = t })
+                            }, enabled = i < f.positionen.size - 1)
+                            KompaktKnopf("Entfernen", { f = f.copy(positionen = f.positionen.filterIndexed { j, _ -> j != i }) }, enabled = f.positionen.size > 1)
                         }
                     }
-                    val summe = summen.positionen.getOrNull(i)?.summe
-                    if (summe != null) Text("Summe: ${Geld.euro(summe)}", style = MaterialTheme.typography.bodySmall)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        KompaktKnopf("Nach oben", {
-                            if (i > 0) f = f.copy(positionen = f.positionen.toMutableList().also { l -> val t = l[i]; l[i] = l[i - 1]; l[i - 1] = t })
-                        }, enabled = i > 0)
-                        KompaktKnopf("Nach unten", {
-                            if (i < f.positionen.size - 1) f = f.copy(positionen = f.positionen.toMutableList().also { l -> val t = l[i]; l[i] = l[i + 1]; l[i + 1] = t })
-                        }, enabled = i < f.positionen.size - 1)
-                        KompaktKnopf("Entfernen", { f = f.copy(positionen = f.positionen.filterIndexed { j, _ -> j != i }) }, enabled = f.positionen.size > 1)
+                    OutlinedButton(onClick = { f = f.copy(positionen = f.positionen + Rechnungen.neuePositionFuer(f)) }, modifier = Modifier.padding(top = 8.dp)) { Text("Position hinzufügen") }
+                    HorizontalDivider(Modifier.padding(vertical = 10.dp), color = sc.outlineVariant)
+                    Text("Netto: ${Geld.euro(summen.netto)}")
+                    summen.ustJeSatz.filter { it.key > 0 }.forEach { (u, b) -> Text("Umsatzsteuer $u %: ${Geld.euro(b)}") }
+                    Text("Gesamtbetrag: ${Geld.euro(summen.brutto)}", fontWeight = FontWeight.ExtraBold, color = sc.primary)
+                }
+                else -> {
+                    Feld("Schlusstext", f.schluss, { f = f.copy(schluss = it) }, singleLine = false)
+                    Feld("Notiz (erscheint nicht im PDF)", f.notiz, { f = f.copy(notiz = it) }, singleLine = false)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(pdfAblegen, { pdfAblegen = it })
+                        Text("  PDF im Dokumentenarchiv ablegen (Belege ${f.datum.take(4).ifEmpty { "…" }} → Ausgangsrechnungen)", Modifier.weight(1f))
                     }
                 }
             }
         }
-        OutlinedButton(onClick = { f = f.copy(positionen = f.positionen + Rechnungen.neuePositionFuer(f)) }) { Text("Position hinzufügen") }
-
-        Card(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-            Column(Modifier.padding(10.dp)) {
-                Text("Netto: ${Geld.euro(summen.netto)}")
-                summen.ustJeSatz.filter { it.key > 0 }.forEach { (s, b) -> Text("Umsatzsteuer $s %: ${Geld.euro(b)}") }
-                Text("Gesamtbetrag: ${Geld.euro(summen.brutto)}", fontWeight = FontWeight.Bold)
-            }
-        }
-
-        Feld("Schlusstext", f.schluss, { f = f.copy(schluss = it) }, singleLine = false)
-        Feld("Notiz (erscheint nicht im PDF)", f.notiz, { f = f.copy(notiz = it) }, singleLine = false)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Switch(pdfAblegen, { pdfAblegen = it })
-            Text("  PDF im Dokumentenarchiv ablegen (Belege ${f.datum.take(4).ifEmpty { "…" }} → Ausgangsrechnungen)", Modifier.weight(1f))
-        }
-
         val anzeige = pruef ?: fehler
-        if (anzeige != null) Text(anzeige, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
-        Button(
-            onClick = {
-                fehler = null
-                if (model.rechnungPruefen(f) != null) zeigeFehler = true
-                else if (model.rechnungBuchungBetroffen(f)) rueckfrage = true
-                else speichern(false)
-            },
-            enabled = !model.busy, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        ) { Text("Speichern") }
+        if (anzeige != null) Text(anzeige, color = sc.error, modifier = Modifier.padding(top = 4.dp))
+        FormFuss(schritt, namen.size, { schritt = it.coerceIn(0, namen.lastIndex) }, onDone, {
+            fehler = null
+            val m = model.rechnungPruefen(f)
+            if (m != null) { zeigeFehler = true; schritt = fehlerSchritt(m) }
+            else if (model.rechnungBuchungBetroffen(f)) rueckfrage = true
+            else speichern(false)
+        }, !model.busy)
     }
 
     if (mitgliedWahl) {

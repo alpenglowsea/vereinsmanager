@@ -139,12 +139,12 @@ fun KontakteScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit,
             Text("Kontakte", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
             val werte = listOf(alle.size.toString(), firmen.toString(), (alle.size - firmen).toString())
             BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                val g = kachelSchrift(maxWidth, listOf(1f, 1f, 1f), werte.map { it.length }, 28f)
+                val g = kachelSchrift(maxWidth, listOf(1f, 1f, 1f), werte.map { maxOf(it.length, 3) }, 40f)
                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val gleich = Modifier.weight(1f).fillMaxHeight()
-                    StatKachel("Gesamt", werte[0], "${shown.size} angezeigt", sc.primaryContainer, sc.onPrimaryContainer, gleich, g)
-                    StatKachel("Firmen", werte[1], "Organisationen", sc.secondaryContainer, sc.onSecondaryContainer, gleich, g)
-                    StatKachel("Privat", werte[2], "Personen", sc.tertiaryContainer, sc.onTertiaryContainer, gleich, g)
+                    StatKachel("Gesamt", werte[0], null, sc.primaryContainer, sc.onPrimaryContainer, gleich, g)
+                    StatKachel("Firmen", werte[1], null, sc.secondaryContainer, sc.onSecondaryContainer, gleich, g)
+                    StatKachel("Privat", werte[2], null, sc.tertiaryContainer, sc.onTertiaryContainer, gleich, g)
                 }
             }
             SuchFeld(suche, { suche = it }, "Kontakt suchen …", Modifier.padding(top = 12.dp))
@@ -240,7 +240,7 @@ fun KontaktDetailScreen(
         BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 14.dp)) {
             val g = kachelSchrift(maxWidth, listOf(0.8f, 1.2f, 1.2f), listOf(bilanz.anzahl.toString().length, einn.length, ausg.length), 26f)
             Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatKachel("Buchungen", bilanz.anzahl.toString(), "zugeordnet", sc.secondaryContainer, sc.onSecondaryContainer, Modifier.weight(0.8f).fillMaxHeight(), g)
+                StatKachel("Buchungen", bilanz.anzahl.toString(), null, sc.secondaryContainer, sc.onSecondaryContainer, Modifier.weight(0.8f).fillMaxHeight(), g)
                 StatKachel("Einnahmen", einn, null, sc.primaryContainer, sc.onPrimaryContainer, Modifier.weight(1.2f).fillMaxHeight(), g)
                 StatKachel("Ausgaben", ausg, null, sc.errorContainer, sc.onErrorContainer, Modifier.weight(1.2f).fillMaxHeight(), g)
             }
