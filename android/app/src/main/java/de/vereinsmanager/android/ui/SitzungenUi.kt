@@ -387,7 +387,7 @@ fun SitzungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
     }
     fun ziffern(t: String) = t.filter { it.isDigit() }.take(5)
 
-    Column(modifier.padding(horizontal = 16.dp)) {
+    Column(modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Text(if (vorhanden == null) "Neue Sitzung" else "Sitzung bearbeiten", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("1 Stammdaten", "2 Tagesordnung (${f.tops.size})", "3 Nachweise", "4 Teilnehmer (${f.teilnehmer.size})").forEachIndexed { i, t ->
@@ -395,7 +395,7 @@ fun SitzungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
             }
         }
         if (gesperrt) Text(Sitzungen.GESPERRT, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 4.dp))
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
+        Column(Modifier.padding(vertical = 8.dp)) {
             when (tab) {
                 0 -> {
                     Auswahl("Art der Sitzung", Sitzungen.ARTEN, f.art, enabled = !gesperrt) { artWechseln(it) }

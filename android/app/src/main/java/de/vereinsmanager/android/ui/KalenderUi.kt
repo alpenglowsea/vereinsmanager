@@ -449,9 +449,9 @@ fun TerminFormScreen(model: AppModel, id: String?, tag: String?, onDone: () -> U
     }
     val einheit = when (f.frequenz) { "daily" -> "Tage"; "weekly" -> "Wochen"; "monthly" -> "Monate"; else -> "Jahre" }
 
-    Column(modifier.padding(horizontal = 16.dp)) {
+    Column(modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Text(if (vorhanden == null) "Neuer Termin" else "Termin bearbeiten", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
+        Column(Modifier.padding(vertical = 8.dp)) {
             Feld("Titel *", f.titel, { f = f.copy(titel = it) }, pruef["titel"])
             Auswahl("Terminart", arten, f.art) { f = f.copy(art = it) }
             Auswahl("Sparte", sparten, f.sparte) { f = f.copy(sparte = it) }

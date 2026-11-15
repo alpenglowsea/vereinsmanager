@@ -377,9 +377,9 @@ fun InventarFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifie
         if (uri != null) model.artikelFotoGewaehlt(uri) { url, fehl -> if (url != null) f = f.copy(foto = url) else fehler = fehl }
     }
 
-    Column(modifier.padding(horizontal = 16.dp)) {
+    Column(modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Text(if (vorhanden == null) "Neuer Gegenstand" else "Gegenstand bearbeiten", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
+        Column(Modifier.padding(vertical = 8.dp)) {
             Text("Grunddaten", style = MaterialTheme.typography.titleMedium)
             Feld("Bezeichnung *", f.name, { f = f.copy(name = it) }, pruef["name"])
             Feld("Inventarnummer *", f.nummer, { f = f.copy(nummer = it) }, pruef["nummer"], hinweis = "Wird vorgeschlagen; jede Nummer nur einmal")

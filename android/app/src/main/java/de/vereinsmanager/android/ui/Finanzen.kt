@@ -1,6 +1,17 @@
 package de.vereinsmanager.android.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -115,6 +126,7 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
     // Zurück-Geste beendet zuerst die Auswahl.
     BackHandler(enabled = waehlt) { gewaehlt = emptySet() }
     var sammelOffen by remember { mutableStateOf(false) }
+    var exportOffen by remember { mutableStateOf(false) }
     var loeschenOffen by remember { mutableStateOf(false) }
     var info by remember { mutableStateOf<String?>(null) }
     val exporter = rememberExporter(model) { info = it }
@@ -136,42 +148,70 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
     Column(modifier.padding(horizontal = 16.dp).nestedScroll(kopf.verfolgung)) {
         Column(Modifier.einklappbar(kopf)) {
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                KompaktKnopf("Neue Buchung", onNew, Modifier.weight(1f), primaer = true)
-                KompaktKnopf("Konten verwalten", onKonten, Modifier.weight(1f))
+                KopfKnopf("Neue Buchung", onNew, Modifier.weight(1f), primaer = true)
+                KopfKnopf("Import", onImport, Modifier.weight(1f))
+                KopfKnopf("Export", { exportOffen = true }, Modifier.weight(1f), enabled = !waehlt)
             }
-            KompaktKnopf("Importieren (Bank, Excel, CSV)", onImport, Modifier.fillMaxWidth().padding(top = 8.dp))
+            Text("Buchungen", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
+            val sc = MaterialTheme.colorScheme
+            val werte = listOf(Geld.euro(summen.einnahmen), Geld.euro(summen.ausgaben), Geld.euro(summen.saldo))
+            BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                // Eine gemeinsame Schriftgröße, so groß wie der längste Betrag noch in die Kachel passt.
+                val innen = (maxWidth - 16.dp) / 3 - 20.dp
+                val g = minOf(22f, innen.value / (werte.maxOf { it.length } * 0.62f)).coerceAtLeast(12f).sp
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val gleich = Modifier.weight(1f).fillMaxHeight()
+                    StatKachel("Einnahmen", werte[0], null, sc.primaryContainer, sc.onPrimaryContainer, gleich, g)
+                    StatKachel("Ausgaben", werte[1], null, sc.errorContainer, sc.onErrorContainer, gleich, g)
+                    StatKachel("Saldo", werte[2], null, sc.secondaryContainer, sc.onSecondaryContainer, gleich, g)
+                }
+            }
             Row(
-                Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp),
+                Modifier.horizontalScroll(rememberScrollState()).padding(top = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Card(Modifier.width(168.dp).height(88.dp)) {
+                Surface(Modifier.width(168.dp).height(88.dp), shape = RoundedCornerShape(22.dp), color = sc.tertiaryContainer) {
                     Column(Modifier.padding(12.dp)) {
-                        Text("Gesamt-Liquidität", style = MaterialTheme.typography.labelMedium, maxLines = 1)
-                        Text(Geld.euro(liquiditaet), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
-                        Text("${konten.size} Konten & Kassen", style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                        Text("Gesamt-Liquidität", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = sc.onTertiaryContainer, maxLines = 1)
+                        Text(Geld.euro(liquiditaet), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = sc.onTertiaryContainer, maxLines = 1)
+                        Text("${konten.size} Konten & Kassen", style = MaterialTheme.typography.bodySmall, color = sc.onTertiaryContainer, maxLines = 1)
                     }
                 }
                 konten.forEach { k ->
                     val gewaehlt = filter.kontoId == k.id
-                    Card(
-                        Modifier.width(168.dp).height(88.dp).clickable { filter = filter.copy(kontoId = if (gewaehlt) null else k.id) },
-                        colors = if (gewaehlt) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else CardDefaults.cardColors(),
+                    Surface(
+                        Modifier.width(168.dp).height(88.dp).clip(RoundedCornerShape(22.dp)).clickable { filter = filter.copy(kontoId = if (gewaehlt) null else k.id) },
+                        shape = RoundedCornerShape(22.dp), color = if (gewaehlt) sc.primaryContainer else sc.surface,
+                        border = BorderStroke(1.5.dp, if (gewaehlt) sc.primary else sc.outlineVariant),
                     ) {
                         Column(Modifier.padding(12.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(Modifier.size(10.dp).clip(CircleShape).background(kontoFarbe(k.farbe)))
                                 Spacer(Modifier.width(6.dp))
-                                Text(k.name, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                                Text(k.name, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1)
                             }
-                            Text(Geld.euro(staende[k.id] ?: k.anfangsbestand), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
-                            Text(k.artText, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                            Text(Geld.euro(staende[k.id] ?: k.anfangsbestand), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                            Text(k.artText, style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 1)
                         }
                     }
                 }
+                Surface(
+                    Modifier.width(140.dp).height(88.dp).clip(RoundedCornerShape(22.dp)).clickable(onClick = onKonten),
+                    shape = RoundedCornerShape(22.dp), color = sc.surface, border = BorderStroke(1.5.dp, sc.outlineVariant),
+                ) {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text("Konten verwalten ›", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = sc.primary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    }
+                }
             }
-            OutlinedTextField(
-                filter.suche, { filter = filter.copy(suche = it) }, label = { Text("Suchen") },
-                singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            TextField(
+                filter.suche, { filter = filter.copy(suche = it) }, placeholder = { Text("Buchung suchen …") },
+                singleLine = true, shape = RoundedCornerShape(28.dp),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = sc.surfaceContainer, unfocusedContainerColor = sc.surfaceContainer,
+                    focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
+                ),
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             )
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterMenu("Jahr", jahre.associateWith { it }, filter.jahr) { filter = filter.copy(jahr = it) }
@@ -185,7 +225,6 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 KompaktKnopf("Sortiert nach ${SORTIERUNG[sortierung]}", { sortOffen = true })
                 KompaktKnopf(if (aufsteigend) "aufsteigend ↑" else "absteigend ↓", { aufsteigend = !aufsteigend })
-                ExportMenue("Exportieren", exportPunkte(model, exporter, shown, "angezeigte"), kompakt = false)
                 DropdownMenu(sortOffen, { sortOffen = false }) {
                     SORTIERUNG.forEach { (k, v) -> DropdownMenuItem(text = { Text(v) }, onClick = { sortierung = k; sortOffen = false }) }
                 }
@@ -194,10 +233,6 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
         Text(
             "${shown.size} von ${buchungen.size} Buchungen",
             style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp),
-        )
-        Text(
-            "Einnahmen ${Geld.euro(summen.einnahmen)} · Ausgaben ${Geld.euro(summen.ausgaben)} · Saldo ${Geld.euro(summen.saldo)}",
-            style = MaterialTheme.typography.bodySmall,
         )
         if (waehlt) {
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -209,12 +244,12 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
                 ExportMenue("Exportieren", exportPunkte(model, exporter, shown.filter { it.id in gewaehlt }, "gewählte"), kompakt = true)
             }
         }
-        HorizontalDivider(Modifier.padding(vertical = 4.dp))
+        Spacer(Modifier.height(6.dp))
         if (buchungen.isEmpty()) Text("Keine Buchungen. Legen Sie eine an oder spielen Sie auf der Startseite eine Sicherung ein.", Modifier.padding(top = 16.dp))
-        LazyColumn(state = liste) {
-            items(shown, key = { it.id }) { b ->
+        LazyColumn(state = liste, contentPadding = PaddingValues(bottom = 96.dp)) {
+            itemsIndexed(shown, key = { _, b -> b.id }) { i, b ->
                 BuchungZeile(
-                    b, kontoName, waehlt = waehlt, angehakt = b.id in gewaehlt,
+                    b, kontoName, erste = i == 0, letzte = i == shown.lastIndex, waehlt = waehlt, angehakt = b.id in gewaehlt,
                     onLongClick = { if (b.id !in gewaehlt) gewaehlt = gewaehlt + b.id; info = null },
                     onClick = { if (waehlt) gewaehlt = if (b.id in gewaehlt) gewaehlt - b.id else gewaehlt + b.id else onOpen(b.id) },
                 )
@@ -222,6 +257,16 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
         }
     }
 
+    if (exportOffen) {
+        val punkte = exportPunkte(model, exporter, shown, "angezeigte")
+        AlertDialog(
+            onDismissRequest = { exportOffen = false },
+            title = { Text("Exportieren") },
+            text = { Text("${shown.size} angezeigte Buchungen exportieren als:") },
+            confirmButton = { TextButton({ exportOffen = false; punkte[0].second() }) { Text("CSV (Tabelle)") } },
+            dismissButton = { TextButton({ exportOffen = false; punkte[1].second() }) { Text("PDF (Journal)") } },
+        )
+    }
     val ids = gewaehlt.filter { id -> buchungen.any { it.id == id } }
     if (sammelOffen && ids.isNotEmpty()) {
         BuchungSammelDialog(model, ids.size, ids, onDismiss = { sammelOffen = false }, onDone = { sammelOffen = false; info = it; gewaehlt = emptySet() })
@@ -272,38 +317,49 @@ internal fun ExportMenue(titel: String, punkte: List<Pair<String, () -> Unit>>, 
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun BuchungZeile(b: Buchung, kontoName: Map<String, String>, waehlt: Boolean, angehakt: Boolean, onLongClick: () -> Unit, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+private fun BuchungZeile(b: Buchung, kontoName: Map<String, String>, erste: Boolean, letzte: Boolean, waehlt: Boolean, angehakt: Boolean, onLongClick: () -> Unit, onClick: () -> Unit) {
+    val s = MaterialTheme.colorScheme
+    // Karten liegen dicht übereinander: nur die erste und die letzte haben große Rundungen oben bzw. unten.
+    val form = RoundedCornerShape(topStart = if (erste) 28.dp else 10.dp, topEnd = if (erste) 28.dp else 10.dp, bottomStart = if (letzte) 28.dp else 10.dp, bottomEnd = if (letzte) 28.dp else 10.dp)
+    Surface(
+        shape = form, color = if (angehakt) s.primaryContainer.copy(alpha = 0.45f) else s.surface,
+        border = BorderStroke(1.5.dp, if (angehakt) s.primary else s.outlineVariant),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp).clip(form).combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
-        if (waehlt) Checkbox(angehakt, { onClick() })
-        Column(Modifier.weight(1f)) {
-            Text(Finance.titel(b), style = MaterialTheme.typography.bodyLarge, maxLines = 2)
-            val konto = if (b.istUmbuchung) "${kontoName[b.kontoId] ?: "?"} → ${kontoName[b.zielkontoId] ?: "?"}" else kontoName[b.kontoId]
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (waehlt) Checkbox(angehakt, { onClick() })
+            else {
+                val (flaeche, text, zeichen) = when {
+                    b.istUmbuchung -> Triple(s.secondaryContainer, s.onSecondaryContainer, "⇄")
+                    b.istAusgabe -> Triple(s.errorContainer, s.onErrorContainer, "−")
+                    else -> Triple(s.primaryContainer, s.onPrimaryContainer, "+")
+                }
+                Box(Modifier.size(44.dp).clip(CircleShape).background(flaeche), contentAlignment = Alignment.Center) {
+                    Text(zeichen, color = text, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
+                }
+            }
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(Finance.titel(b), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                val konto = if (b.istUmbuchung) "${kontoName[b.kontoId] ?: "?"} → ${kontoName[b.zielkontoId] ?: "?"}" else kontoName[b.kontoId]
+                Text(
+                    listOfNotNull(deDate(b.datum).takeIf { b.datum.isNotEmpty() }, b.belegNummer.takeIf { it.isNotEmpty() }, konto).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall, color = s.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    listOfNotNull(
+                        if (b.istUmbuchung) "Umbuchung" else FinanceLabels.SPHERE_SHORT[b.sphaere],
+                        if (b.aufgeteilt) "aufgeteilt" else null,
+                        if (b.beleg != null) "Beleg" else null,
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall, color = s.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
             Text(
-                listOfNotNull(
-                    deDate(b.datum).takeIf { b.datum.isNotEmpty() },
-                    b.belegNummer.takeIf { it.isNotEmpty() },
-                    konto,
-                ).joinToString(" · "),
-                style = MaterialTheme.typography.bodySmall, maxLines = 1,
-            )
-            Text(
-                listOfNotNull(
-                    if (b.istUmbuchung) "Umbuchung" else FinanceLabels.SPHERE_SHORT[b.sphaere],
-                    if (b.aufgeteilt) "aufgeteilt" else null,
-                    if (b.beleg != null) "Beleg" else null,
-                ).joinToString(" · "),
-                style = MaterialTheme.typography.bodySmall, maxLines = 1,
+                betragText(b), color = betragFarbe(b), fontWeight = FontWeight.ExtraBold,
+                style = MaterialTheme.typography.titleSmall, maxLines = 1, softWrap = false,
             )
         }
-        Text(
-            betragText(b), color = betragFarbe(b), fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 8.dp), maxLines = 1,
-        )
     }
-    HorizontalDivider()
 }
 
 @Composable

@@ -292,9 +292,9 @@ fun KontaktFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
     }
     val rechtsformen = remember { linkedMapOf("" to "–").also { m -> Kontakte.RECHTSFORMEN.forEach { m[it] = it } } }
 
-    Column(modifier.padding(horizontal = 16.dp)) {
+    Column(modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Text(if (vorhanden == null) "Neuer Kontakt" else "Kontakt bearbeiten", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
+        Column(Modifier.padding(vertical = 8.dp)) {
             Text("Art des Kontakts", style = MaterialTheme.typography.labelMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(f.art == "legal", { f = f.copy(art = "legal") }, { Text("Firma / Organisation") })

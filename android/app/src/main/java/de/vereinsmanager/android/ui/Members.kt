@@ -294,7 +294,7 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
 
 /** Knopf der obersten Zeile: gleich hoch und gleich breit, die Beschriftung darf auf zwei Zeilen umbrechen (nichts wird abgeschnitten). */
 @Composable
-private fun KopfKnopf(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, primaer: Boolean = false) {
+internal fun KopfKnopf(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, primaer: Boolean = false) {
     val rand = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
     val inhalt: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {
         Text(text, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.labelLarge, lineHeight = 16.sp)
@@ -305,7 +305,7 @@ private fun KopfKnopf(text: String, onClick: () -> Unit, modifier: Modifier = Mo
 
 /** Eine farbige Kennzahl-Kachel (Titel, große Zahl, optional eine Zeile darunter). */
 @Composable
-private fun StatKachel(titel: String, zahl: String, unter: String?, flaeche: Color, text: Color, modifier: Modifier = Modifier, groesse: androidx.compose.ui.unit.TextUnit = 30.sp) {
+internal fun StatKachel(titel: String, zahl: String, unter: String?, flaeche: Color, text: Color, modifier: Modifier = Modifier, groesse: androidx.compose.ui.unit.TextUnit = 30.sp) {
     Column(modifier.clip(RoundedCornerShape(22.dp)).background(flaeche).padding(horizontal = 10.dp, vertical = 10.dp)) {
         Text(titel, color = text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1)
         Text(zahl, color = text, fontSize = groesse, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
