@@ -156,10 +156,12 @@ fun MemberFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
         )
     }
     var tab by remember { mutableStateOf(FormTab.BASIS) }
-    var errors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    // Nach dem ersten Speichern-Versuch wird laufend neu geprüft: Behobene Fehler verschwinden sofort.
+    var versucht by remember { mutableStateOf(false) }
     var saveError by remember { mutableStateOf<String?>(null) }
     val today = LocalDate.now()
     val others = remember(id, model.members) { model.members.filter { it.id != id }.map { it.number } }
+    val errors = if (versucht) MemberRules.validate(f, others) else emptyMap()
     val departmentOptions = remember(model.departments, f.department) {
         val list = model.departments.toMutableList()
         if (f.department.isNotEmpty() && f.department !in list) list.add(f.department)
@@ -295,9 +297,8 @@ fun MemberFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
                 enabled = !model.busy,
                 modifier = Modifier.weight(1f).height(52.dp),
                 onClick = {
-                    val e = MemberRules.validate(f, others)
-                    errors = e
-                    val ziel = MemberRules.ersterFehlerReiter(e)
+                    versucht = true
+                    val ziel = MemberRules.ersterFehlerReiter(MemberRules.validate(f, others))
                     if (ziel != null) {
                         tab = ziel
                     } else {

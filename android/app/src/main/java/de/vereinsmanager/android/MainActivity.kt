@@ -10,7 +10,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -147,6 +151,7 @@ sealed interface Page {
     data object Probes : Page
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 class MainActivity : ComponentActivity() {
     private lateinit var model: AppModel
 
@@ -210,6 +215,8 @@ class MainActivity : ComponentActivity() {
                     MenueInhalt(model.clubName, aktivesZiel(page), onWahl = ::geheZu)
                 }
                 val inhalt: @Composable () -> Unit = {
+                    // Bei geöffneter Tastatur entfällt die Leiste, und der Inhalt endet über der Tastatur (nichts wird verdeckt).
+                    val tastatur = WindowInsets.isImeVisible
                     val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || (page is Page.Documents && page.folderId == null) || page is Page.Sepa || page is Page.Euer || page is Page.FinanzAuswertung || page is Page.Rechnungen || page is Page.Spenden || page is Page.Contacts || page is Page.Inventory || page is Page.Calendar || page is Page.Meetings || (page is Page.Settings && stack.size <= 2) || page is Page.Probes
                     Box(Modifier.fillMaxSize()) {
                     Scaffold(
@@ -227,7 +234,7 @@ class MainActivity : ComponentActivity() {
                         bottomBar = {
                             // Reserviert nur den Platz der Leiste; die Leiste selbst liegt unten über dem Inhalt (siehe unten),
                             // damit der Mittelknopf über sie hinausragen kann, ohne dass ein Streifen entsteht.
-                            if (!breit && oberste) Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars).height(LeistenHoehe))
+                            if (!breit && oberste && !tastatur) Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars).height(LeistenHoehe))
                         },
                     ) { inner ->
                       // Das Menü liegt unter der Kopfzeile, damit der Menü-Knopf zum Schließen sichtbar bleibt.
@@ -346,7 +353,7 @@ class MainActivity : ComponentActivity() {
                             Page.Probes -> ProbeScreen(m)
                         }
                       }
-                      Box(Modifier.padding(inner)) {
+                      Box(Modifier.padding(inner).consumeWindowInsets(inner).imePadding()) {
                           // Die Seite bleibt darunter bestehen (auch bei offenem Raster), damit ein halb ausgefülltes Formular nichts verliert.
                           seite()
                           if (!breit && bereicheOffen) {
@@ -361,7 +368,7 @@ class MainActivity : ComponentActivity() {
                     }
                     // Die Navigationsleiste liegt über dem Inhalt: Ihr Mittelknopf ragt nach oben hinaus, und der Inhalt scheint daneben durch.
                     // Sie steht nur auf den obersten Seiten (nicht in Formularen und Detailansichten) und nur am Handy.
-                    if (!breit && oberste) NavigationsLeiste(
+                    if (!breit && oberste && !tastatur) NavigationsLeiste(
                         plaetze = leistenZiele(model),
                         aktiv = aktivesZiel(page),
                         menueOffen = schnellOffen,
