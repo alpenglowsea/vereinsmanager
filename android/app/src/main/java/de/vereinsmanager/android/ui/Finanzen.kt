@@ -435,15 +435,16 @@ fun BuchungDetailScreen(
             if (b.istUmbuchung) Feld("Auf Konto", kontoName[b.zielkontoId] ?: b.zielkontoId)
             Feld("Zahlungspartner", b.partner)
             Feld("Buchungstext", b.text)
+            if (b.aufgeteilt) Feld("Nummernkreis", b.nummernkreis)
         }
-        if (!b.istUmbuchung) {
+        if (!b.istUmbuchung && !b.aufgeteilt) {
             DetailKarte("Zuordnung") {
                 Feld("Steuerliche Sphäre", FinanceLabels.SPHERE[b.sphaere] ?: b.sphaere)
                 Feld("Nummernkreis", b.nummernkreis)
                 Feld("Konto (SKR 42)", b.konto.ifEmpty { b.kategorie })
                 Feld("Kontonummer", b.skrKonto)
                 Feld("Sparte", b.sparte)
-                if (!b.aufgeteilt) Feld("Umsatzsteuer", "${b.ust} %")
+                Feld("Umsatzsteuer", "${b.ust} %")
             }
         }
         if (b.aufgeteilt) {

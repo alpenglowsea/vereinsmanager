@@ -1,6 +1,12 @@
 package de.vereinsmanager.android.ui
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.lazy.LazyListState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -26,7 +32,7 @@ import kotlin.math.roundToInt
  * Das Verhalten ist für alle Listen mit einklappbarem Kopf (Mitglieder, Buchungen) dasselbe.
  */
 @Stable
-class KopfZustand(private val liste: LazyListState, private val dichte: Float = 1f) {
+class KopfZustand(private val liste: LazyListState, private val dichte: Float = 1f, private val scope: CoroutineScope? = null) {
     internal val hoehe = IntArray(1)
 
     /** 0 = ganz sichtbar, -Höhe = ganz eingeklappt */
@@ -36,12 +42,23 @@ class KopfZustand(private val liste: LazyListState, private val dichte: Float = 
     private var tempo = 0f           // geglättete Geschwindigkeit nach oben in Pixel pro Sekunde (nur bei Wischen mit dem Finger)
     private var schnellerWurf = false // ob der laufende Auslauf (Fling) mit hoher Anfangsgeschwindigkeit begann
 
+    private var anim: Job? = null
+
+    /** Klappt den Kopf weich auf (Einschieben und Einblenden über knapp eine halbe Sekunde) statt ihn springen zu lassen. */
+    private fun ausklappenWeich() {
+        if (anim?.isActive == true) return
+        val sc = scope
+        if (sc == null) { versatz = 0f; return }
+        anim = sc.launch { animate(versatz, 0f, animationSpec = tween(420, easing = FastOutSlowInEasing)) { v, _ -> versatz = v } }
+    }
+
     private val schwelle get() = SCHNELL_DP_PRO_SEKUNDE * dichte
 
     val verfolgung: NestedScrollConnection = object : NestedScrollConnection {
         override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
             val dy = available.y
             if (dy < 0f) {
+                anim?.cancel()
                 tempo = 0f; letzteZeit = 0L
                 if (versatz <= -hoehe[0]) return Offset.Zero
                 if (versatz == 0f && !liste.canScrollForward) return Offset.Zero
@@ -60,7 +77,9 @@ class KopfZustand(private val liste: LazyListState, private val dichte: Float = 
                     letzteZeit = jetzt
                 }
                 val schnell = if (source == NestedScrollSource.UserInput) tempo > schwelle else schnellerWurf
-                if (!schnell && liste.canScrollBackward) return Offset.Zero // langsam: Kopf bleibt eingeklappt, die Liste scrollt
+                if (anim?.isActive == true) return Offset.Zero
+                if (schnell) { ausklappenWeich(); return Offset.Zero }
+                if (liste.canScrollBackward) return Offset.Zero // langsam: Kopf bleibt eingeklappt, die Liste scrollt
                 val neu = (versatz + dy * 2f).coerceAtMost(0f)
                 val verbraucht = (neu - versatz) / 2f
                 versatz = neu
@@ -85,7 +104,8 @@ class KopfZustand(private val liste: LazyListState, private val dichte: Float = 
 @Composable
 fun rememberKopfZustand(liste: LazyListState): KopfZustand {
     val dichte = androidx.compose.ui.platform.LocalDensity.current.density
-    return remember(liste) { KopfZustand(liste, dichte) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    return remember(liste) { KopfZustand(liste, dichte, scope) }
 }
 
 fun Modifier.einklappbar(z: KopfZustand): Modifier = this
