@@ -1,5 +1,6 @@
 package de.vereinsmanager.android.ui
 
+import androidx.compose.ui.draw.alpha
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -144,12 +145,17 @@ fun SchnellMenue(onWahl: (Schnell) -> Unit, onZu: () -> Unit, modifier: Modifier
     ) {
         Column(Modifier.fillMaxWidth().padding(bottom = 40.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             // Die Symbole stehen genau untereinander in der Mitte (über dem Mittelknopf); die Beschriftung steht rechtsbündig links daneben.
+            val breitester = Schnell.entries.maxByOrNull { it.lang.length }?.lang ?: ""
             Schnell.entries.reversed().forEachIndexed { i, a ->
                 val gelb = i % 2 == 1
                 Row(Modifier.fillMaxWidth().clickable { onWahl(a) }, verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f).padding(end = 10.dp), contentAlignment = Alignment.CenterEnd) {
                         Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 4.dp) {
-                            Text(a.lang, Modifier.padding(horizontal = 16.dp, vertical = 10.dp), style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                            // Alle Schilder so breit wie das längste: ein unsichtbarer Text mit der längsten Beschriftung gibt die Breite vor.
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(breitester, Modifier.padding(horizontal = 16.dp, vertical = 10.dp).alpha(0f), style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                                Text(a.lang, Modifier.padding(horizontal = 16.dp, vertical = 10.dp), style = MaterialTheme.typography.titleSmall, maxLines = 1, textAlign = TextAlign.Center)
+                            }
                         }
                     }
                     Box(

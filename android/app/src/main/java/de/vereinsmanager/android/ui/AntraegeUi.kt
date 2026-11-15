@@ -1,5 +1,7 @@
 package de.vereinsmanager.android.ui
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -482,7 +484,7 @@ fun AntragEinstellungenKarten(model: AppModel) {
                                 error = if (zeigeFehler) fehler["beitrag.$art"] else null, keyboard = KeyboardType.Decimal)
                         }
                         Box(Modifier.weight(1f)) {
-                            Auswahl("Zahlweise", AntragEinstellungen.PERIODEN, v.periode) { beitraege = beitraege + (art to v.copy(periode = it)) }
+                            AuswahlFeld("Zahlweise", AntragEinstellungen.PERIODEN, v.periode) { beitraege = beitraege + (art to v.copy(periode = it)) }
                         }
                     }
                 }
@@ -554,15 +556,14 @@ private fun BeilagenKarte(model: AppModel, onMeldung: (String) -> Unit) {
                     if (dok == null) "Noch nichts hinterlegt." else "Aktuell: ${dok.titel} (${dok.dateiName})",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = { waehle = b; launcher.launch(arrayOf("application/pdf")) }, enabled = !model.busy, modifier = Modifier.weight(1f),
-                    ) { Text(if (dok == null) "PDF hochladen" else "Neue Fassung", maxLines = 1) }
-                    if (dok != null) {
-                        OutlinedButton(onClick = { zeige = b.titel to dok.id }, modifier = Modifier.weight(1f)) { Text("Ansehen", maxLines = 1) }
-                        TextButton(
-                            onClick = { model.antragBeilageEntfernen(b) { f -> onMeldung(f ?: "${b.titel} entfernt.") } }, enabled = !model.busy,
-                        ) { Text("Nicht mehr anbieten", maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
+                KompaktKnopf(
+                    if (dok == null) "PDF hochladen" else "Neue Fassung hochladen",
+                    { waehle = b; launcher.launch(arrayOf("application/pdf")) }, Modifier.fillMaxWidth(), enabled = !model.busy,
+                )
+                if (dok != null) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        KompaktKnopf("Ansehen", { zeige = b.titel to dok.id }, Modifier.weight(1f))
+                        KompaktKnopf("Entfernen", { model.antragBeilageEntfernen(b) { f -> onMeldung(f ?: "${b.titel} entfernt.") } }, Modifier.weight(1f), enabled = !model.busy)
                     }
                 }
             }
@@ -583,6 +584,27 @@ private fun BeilagenKarte(model: AppModel, onMeldung: (String) -> Unit) {
                     DokumentAnsichtScreen(model, z.second, Modifier.weight(1f))
                 }
             }
+        }
+    }
+}
+
+/** Auswahlfeld, das wie ein Textfeld aussieht (gleiche Höhe, schwebende Beschriftung) – damit es neben einem [Feld] gleich groß ist. */
+@Composable
+private fun AuswahlFeld(label: String, options: Map<String, String>, value: String, onChange: (String) -> Unit) {
+    var offen by remember { mutableStateOf(false) }
+    Box {
+        androidx.compose.material3.OutlinedTextField(
+            value = options[value] ?: value, onValueChange = {}, readOnly = true, singleLine = true, label = { Text(label) },
+            trailingIcon = { androidx.compose.material3.Icon(Lucide.ChevronDown, null, Modifier.size(18.dp)) },
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary, unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
+            ),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        )
+        Box(Modifier.matchParentSize().clickable { offen = true })
+        androidx.compose.material3.DropdownMenu(offen, { offen = false }) {
+            options.forEach { (k, v) -> androidx.compose.material3.DropdownMenuItem(text = { Text(v) }, onClick = { onChange(k); offen = false }) }
         }
     }
 }

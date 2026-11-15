@@ -256,22 +256,63 @@ fun LoeschenKarte(model: AppModel) {
     }
 }
 
-/** Link zur Spendenseite des Projekts (öffnet im Browser). */
+/** Freiwillige Unterstützung des Projekts: Erklärung wie in der Desktop-Fassung, Link zur Spendenseite (öffnet im Browser). */
 @Composable
 fun UnterstuetzenKarte() {
     val context = LocalContext.current
+    val zwischenablage = LocalClipboardManager.current
+    val s = MaterialTheme.colorScheme
     var meldung by remember { mutableStateOf<String?>(null) }
-    WieseKarte(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Projekt unterstützen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
-            Text(
-                "Der VereinsManager ist kostenlos und Open Source. Wer möchte, kann die Weiterentwicklung freiwillig über Liberapay unterstützen. Die Seite öffnet im Browser; die App selbst überträgt nichts.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            OutlinedButton(onClick = {
-                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Fehlerbericht.SPENDEN_URL))) } catch (e: Exception) { meldung = "Kein Browser gefunden. Adresse: ${Fehlerbericht.SPENDEN_URL}" }
-            }) { Text("Liberapay öffnen") }
-            if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodySmall)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        WieseKarte(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Projekt und Weiterentwicklung unterstützen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = s.primary)
+                Text(
+                    "Der VereinsManager ist eine gemeinnützige Open-Source-Initiative. Er wurde gebaut, um Vereinen, Vorständen und Ehrenamtlichen eine moderne, " +
+                        "DSGVO-konforme und kostenfreie Verwaltung an die Hand zu geben. Ihre freiwillige Unterstützung sichert die Pflege und künftige Erweiterungen.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                KompaktKnopf("Liberapay öffnen", {
+                    try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Fehlerbericht.SPENDEN_URL))) } catch (e: Exception) { meldung = "Kein Browser gefunden. Adresse: ${Fehlerbericht.SPENDEN_URL}" }
+                }, Modifier.fillMaxWidth(), primaer = true)
+                KompaktKnopf("Adresse kopieren", {
+                    zwischenablage.setText(AnnotatedString(Fehlerbericht.SPENDEN_URL)); meldung = "Adresse kopiert: ${Fehlerbericht.SPENDEN_URL}"
+                }, Modifier.fillMaxWidth())
+                Text(
+                    "Die Seite öffnet im Browser; die App selbst überträgt nichts. Auf dem Desktop gibt es zusätzlich einen QR-Code zum Scannen mit dem Smartphone.",
+                    style = MaterialTheme.typography.bodySmall, color = s.onSurfaceVariant,
+                )
+                if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        WieseKarte(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Wofür wird Ihre Unterstützung verwendet?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = s.primary)
+                Text("Jeder Beitrag fließt in den Erhalt und die Weiterentwicklung der Software:", style = MaterialTheme.typography.bodySmall)
+                val punkte = listOf(
+                    Triple("Kontinuierliche Pflege", "Laufende Wartung, Fehlerbehebungen und Anpassungen an neue Systemstände.", s.primaryContainer to s.onPrimaryContainer),
+                    Triple("Datensicherheit und Stabilität", "Strikter Schutz sensibler Vereinsdaten, zuverlässige Speicherkonzepte und moderne Sicherheitsstandards.", s.tertiaryContainer to s.onTertiaryContainer),
+                    Triple("Infrastruktur und Bereitstellung", "Zuverlässige Bereitstellung, Vorlagen für Selbsthosting und praxisnahe Dokumentation für Administratoren.", s.secondaryContainer to s.onSecondaryContainer),
+                    Triple("Freier Zugang fürs Ehrenamt", "Das Projekt dauerhaft unabhängig und ohne Abo-Hürden für gemeinnützige Vereine halten.", s.primaryContainer to s.onPrimaryContainer),
+                )
+                punkte.forEach { (titel, text, farbe) ->
+                    androidx.compose.material3.Surface(Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), color = farbe.first) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(titel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = farbe.second)
+                            Text(text, style = MaterialTheme.typography.bodySmall, color = farbe.second)
+                        }
+                    }
+                }
+            }
+        }
+        WieseKarte(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Ein herzliches Dankeschön!", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = s.primary)
+                Text(
+                    "Ob 5 €, 15 € oder ein regelmäßiger Kaffeebeitrag: Jeder Beitrag stärkt die ehrenamtliche Arbeit und hilft dabei, Vereinsverwaltung für alle einfacher und verlässlicher zu machen.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
         }
     }
 }
