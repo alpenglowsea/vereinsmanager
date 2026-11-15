@@ -107,7 +107,8 @@ fun SpartenKarte(model: AppModel) {
                 HorizontalDivider()
                 Column {
                     Text(name, fontWeight = FontWeight.Medium)
-                    if (v.gesamt > 0) Text(v.text(), style = MaterialTheme.typography.bodySmall)
+                    if (v.gesamt > 0) Text("In Verwendung: ${v.text()}. Löschen ist erst möglich, wenn nichts mehr diese Sparte nutzt.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                    else if (liste.size == 1) Text("Die letzte Sparte lässt sich nicht löschen.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         KompaktKnopf("▲", { model.spartenVerschieben(name, -1) }, Modifier.width(44.dp), enabled = i > 0 && !model.busy)
                         KompaktKnopf("▼", { model.spartenVerschieben(name, +1) }, Modifier.width(44.dp), enabled = i < liste.lastIndex && !model.busy)
@@ -119,8 +120,11 @@ fun SpartenKarte(model: AppModel) {
             HorizontalDivider()
             Feld("Neue Sparte", neu, { neu = it })
             Button(onClick = { model.spartenHinzufuegen(neu) { e -> if (e == null) { neu = ""; meldung = "Sparte angelegt." } else { meldung = e } } }, enabled = !model.busy && neu.isNotBlank()) { Text("Sparte anlegen") }
-            if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodySmall)
         }
+    }
+    // Rückmeldung als Fenster: Sie steht sonst weit unten am Ende der Karte und wird übersehen.
+    meldung?.let { m ->
+        Aktionsdialog(titel = "Hinweis", onDismiss = { meldung = null }, inhalt = { Text(m) }, aktionen = { TextButton(onClick = { meldung = null }, modifier = Modifier.fillMaxWidth()) { Text("OK") } })
     }
     val alt = umbenennen
     if (alt != null) {
