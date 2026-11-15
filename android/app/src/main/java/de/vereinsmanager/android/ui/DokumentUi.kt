@@ -5,6 +5,16 @@ import android.os.Handler
 import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -117,98 +127,101 @@ fun DokumenteScreen(
         return
     }
 
-    LazyColumn(modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item {
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { onJump(emptyList()) }, enabled = folderId != null) { Text("Dokumente") }
+    val sc = MaterialTheme.colorScheme
+    val lazy = rememberLazyListState()
+    val kopf = rememberKopfZustand(lazy)
+    val baum = remember(alleDok, alleOrdner, folderId) { Dokumente.suchen(alleDok, alleOrdner, folderId, DokFilter()) }
+    val gesamtGroesse = groesse(baum.sumOf { it.groesse })
+    val zahlen = listOf(baum.size.toString(), unter.size.toString(), gesamtGroesse)
+    BackHandler(enabled = auswahl) { auswahl = false; gewaehlt = emptySet() }
+
+    Column(modifier.fillMaxSize().padding(horizontal = 16.dp).nestedScroll(kopf.verfolgung)) {
+        Column(Modifier.einklappbar(kopf)) {
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                KopfKnopf("Dokument hinzufügen", { onNewDoc(folderId) }, Modifier.weight(1f), primaer = true)
+                KopfKnopf("Neuer Ordner", { ordnerNeu = true; ordnerDialog = OrdnerForm(DokumentStore.neueOrdnerId(), parentId = folderId.orEmpty(), kategorie = aktuell?.kategorie.orEmpty()) }, Modifier.weight(1f))
+                if (aktuell != null) KopfKnopf("Ordner bearbeiten", { ordnerNeu = false; ordnerDialog = OrdnerForm.von(aktuell) }, Modifier.weight(1f))
+            }
+            Text(aktuell?.name ?: "Dokumente", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
+            BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                val g = kachelSchrift(maxWidth, listOf(1f, 1f, 1.2f), zahlen.map { maxOf(it.length, 3) }, 40f)
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatKachel("Dokumente", zahlen[0], null, sc.primaryContainer, sc.onPrimaryContainer, Modifier.weight(1f).fillMaxHeight(), g)
+                    StatKachel("Ordner", zahlen[1], null, sc.secondaryContainer, sc.onSecondaryContainer, Modifier.weight(1f).fillMaxHeight(), g)
+                    StatKachel("Größe", zahlen[2], null, sc.tertiaryContainer, sc.onTertiaryContainer, Modifier.weight(1.2f).fillMaxHeight(), g)
+                }
+            }
+            if (pfad.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { onJump(emptyList()) }) { Text("Dokumente") }
                 pfad.forEachIndexed { i, o ->
                     Text("›")
                     TextButton(onClick = { onJump(pfad.take(i + 1).map { it.id }) }, enabled = i < pfad.lastIndex) { Text(o.name) }
                 }
             }
-        }
-        item {
-            OutlinedTextField(
-                value = text, onValueChange = { text = it }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                label = { Text(if (folderId == null) "Dokumente suchen" else "In diesem Ordner suchen", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                placeholder = { Text("Titel, Datei, Notiz, Schlagwort", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            )
-        }
-        item {
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SuchFeld(text, { text = it }, if (folderId == null) "Dokument suchen …" else "In diesem Ordner suchen …", Modifier.padding(top = 8.dp))
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 FilterMenu(
                     "Format", DateiFormat.values().filter { it != DateiFormat.ALLE }.associate { it.name to it.titel },
                     if (format == DateiFormat.ALLE) null else format.name,
                 ) { format = it?.let { n -> DateiFormat.valueOf(n) } ?: DateiFormat.ALLE }
                 FilterMenu("Jahr", Dokumente.jahre(alleDok).associateWith { it }, jahr) { jahr = it }
                 Box {
-                    FilterChip(selected = false, onClick = { sortOffen = true }, label = { Text("Sortierung: ${sort.titel}") })
+                    FilterChip(selected = false, onClick = { sortOffen = true }, label = { Text("Sortierung: ${sort.titel}", maxLines = 1, softWrap = false) })
                     DropdownMenu(sortOffen, { sortOffen = false }) {
                         DokSortierung.values().forEach { s -> DropdownMenuItem(text = { Text(s.titel) }, onClick = { sort = s; sortOffen = false }) }
                     }
                 }
             }
         }
-        item {
-            if (auswahl) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("${gewaehlt.size} ausgewählt", style = MaterialTheme.typography.titleSmall)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { verschieben = true }, enabled = gewaehlt.isNotEmpty() && !model.busy) { Text("Verschieben") }
-                        OutlinedButton(onClick = { loeschen = true }, enabled = gewaehlt.isNotEmpty() && !model.busy) { Text("Löschen") }
-                        TextButton(onClick = { auswahl = false; gewaehlt = emptySet() }) { Text("Abbrechen") }
-                    }
-                }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { onNewDoc(folderId) }) { Text("Dokument hinzufügen") }
-                        OutlinedButton(onClick = { ordnerNeu = true; ordnerDialog = OrdnerForm(DokumentStore.neueOrdnerId(), parentId = folderId.orEmpty(), kategorie = aktuell?.kategorie.orEmpty()) }) { Text("Neuer Ordner") }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (aktuell != null) OutlinedButton(onClick = { ordnerNeu = false; ordnerDialog = OrdnerForm.von(aktuell) }) { Text("Ordner bearbeiten") }
-                        if (angezeigt.isNotEmpty()) OutlinedButton(onClick = { auswahl = true }) { Text("Auswählen") }
-                    }
-                }
+        if (auswahl) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("${gewaehlt.size} gewählt", style = MaterialTheme.typography.labelLarge)
+                KompaktKnopf("Alle angezeigten", { gewaehlt = angezeigt.map { it.id }.toSet() })
+                KompaktKnopf("Keine", { gewaehlt = emptySet() })
+                KompaktKnopf("Verschieben", { verschieben = true }, enabled = gewaehlt.isNotEmpty() && !model.busy)
+                KompaktKnopf("Löschen", { loeschen = true }, enabled = gewaehlt.isNotEmpty() && !model.busy)
+                KompaktKnopf("Abbrechen", { auswahl = false; gewaehlt = emptySet() })
             }
-        }
-        if (!filter.aktiv) {
-            items(unter, key = { "o-" + it.id }) { o ->
-                Card(Modifier.fillMaxWidth().clickable { onOpenFolder(o.id) }) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(Modifier.size(14.dp).clip(CircleShape).background(farbe(o.farbe)))
-                        Column(Modifier.weight(1f)) {
-                            Text(o.name, fontWeight = FontWeight.SemiBold)
+        } else if (angezeigt.isNotEmpty()) Text("Langer Tipp auf ein Dokument wählt mehrere aus.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+        Spacer(Modifier.height(6.dp))
+        LazyColumn(state = lazy, contentPadding = PaddingValues(bottom = 96.dp)) {
+            if (!filter.aktiv) {
+                itemsIndexed(unter, key = { _, o -> "o-" + o.id }) { i, o ->
+                    ListenKarte(erste = i == 0, letzte = i == unter.lastIndex, angehakt = false, onClick = { onOpenFolder(o.id) }, onLongClick = {}) {
+                        Box(Modifier.size(44.dp).clip(CircleShape).background(farbe(o.farbe)))
+                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                            Text(o.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             val unterAnzahl = Dokumente.unterordner(alleOrdner, o.id).size
                             Text(
                                 dokumentZahl(Dokumente.anzahl(alleDok, alleOrdner, o.id)) + if (unterAnzahl > 0) " · $unterAnzahl Unterordner" else "",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             )
-                            if (o.beschreibung.isNotEmpty()) Text(o.beschreibung, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            if (o.beschreibung.isNotEmpty()) Text(o.beschreibung, style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        Icon(Lucide.ChevronRight, null, Modifier.size(20.dp))
+                        Icon(Lucide.ChevronRight, null, Modifier.size(20.dp), tint = sc.onSurfaceVariant)
                     }
                 }
+                if (unter.isNotEmpty() && angezeigt.isNotEmpty()) item { Spacer(Modifier.height(8.dp)) }
             }
-        }
-        if (filter.aktiv) item { Text(if (angezeigt.isEmpty()) "Keine Treffer." else "${dokumentZahl(angezeigt.size)} gefunden", style = MaterialTheme.typography.titleSmall) }
-        if (!filter.aktiv && unter.isEmpty() && angezeigt.isEmpty()) item { Text("Dieser Ordner ist leer.") }
-        items(angezeigt, key = { "d-" + it.id }) { d ->
-            Card(
-                Modifier.fillMaxWidth().clickable {
-                    if (auswahl) gewaehlt = if (d.id in gewaehlt) gewaehlt - d.id else gewaehlt + d.id else onOpenDoc(d.id)
-                },
-            ) {
-                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (auswahl) Checkbox(checked = d.id in gewaehlt, onCheckedChange = { gewaehlt = if (it) gewaehlt + d.id else gewaehlt - d.id })
-                    Column(Modifier.weight(1f)) {
-                        Text(d.titel.ifEmpty { d.dateiName }, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (filter.aktiv) item { Text(if (angezeigt.isEmpty()) "Keine Treffer." else "${dokumentZahl(angezeigt.size)} gefunden", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 6.dp)) }
+            if (!filter.aktiv && unter.isEmpty() && angezeigt.isEmpty()) item { Text("Dieser Ordner ist leer.", Modifier.padding(top = 12.dp)) }
+            itemsIndexed(angezeigt, key = { _, d -> "d-" + d.id }) { i, d ->
+                val an = d.id in gewaehlt
+                ListenKarte(
+                    erste = i == 0, letzte = i == angezeigt.lastIndex, angehakt = an,
+                    onClick = { if (auswahl) gewaehlt = if (an) gewaehlt - d.id else gewaehlt + d.id else onOpenDoc(d.id) },
+                    onLongClick = { auswahl = true; if (!an) gewaehlt = gewaehlt + d.id },
+                ) {
+                    if (auswahl) Checkbox(checked = an, onCheckedChange = { gewaehlt = if (it) gewaehlt + d.id else gewaehlt - d.id })
+                    else Marke(d.titel.ifEmpty { d.dateiName }.ifBlank { "?" }, i, 44.dp)
+                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                        Text(d.titel.ifEmpty { d.dateiName }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Text(
                             listOf(if (d.datum.isEmpty()) "ohne Datum" else deDate(d.datum), groesse(d.groesse), Kategorie.titel(d.kategorie)).joinToString(" · "),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                         if (filter.aktiv && d.ordnerId != null) {
-                            Text(Dokumente.pfadText(alleOrdner, d.ordnerId), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(Dokumente.pfadText(alleOrdner, d.ordnerId), style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -434,25 +447,51 @@ fun DokumentDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onAnze
         }
     }
 
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        Text(d.titel.ifEmpty { d.dateiName }, style = MaterialTheme.typography.headlineSmall)
-        Zeile("Datei", "${d.dateiName} (${groesse(d.groesse)})")
-        Zeile("Kategorie", Kategorie.titel(d.kategorie))
-        Zeile("Ordner", if (d.ordnerId == null) "(ohne Ordner)" else Dokumente.pfadText(model.ordner, d.ordnerId))
-        Zeile("Datum", if (d.datum.isEmpty()) "" else deDate(d.datum))
-        Zeile("Schlagworte", d.tags.joinToString(", "))
-        Zeile("Mitglied", d.mitgliedName)
-        Zeile("Buchung", d.buchungNummer)
-        Zeile("Notiz", d.notiz)
-        Button(onClick = onAnzeigen, enabled = d.dateiId != null, modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) { Text("Anzeigen") }
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KompaktKnopf("Weitergeben", { weitergeben() }, Modifier.weight(1f), enabled = d.dateiId != null && !model.busy)
-            KompaktKnopf("Speichern unter …", { speichern.launch(d.dateiName.ifEmpty { "Dokument" }) }, Modifier.weight(1f), enabled = d.dateiId != null && !model.busy)
+    val sc = MaterialTheme.colorScheme
+    val zeile: @Composable (String, String) -> Unit = { l, w -> DetailFeld(l, w) }
+    val datum = datumTagJahr(d.datum)
+    val groesseText = groesse(d.groesse)
+    val format = d.dateiName.substringAfterLast('.', "").uppercase().take(5).ifEmpty { "Datei" }
+
+    Column(modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Marke(d.titel.ifEmpty { d.dateiName }.ifBlank { "?" }, (d.id.hashCode() and 0x7fffffff), 72.dp)
+            Column(Modifier.weight(1f).padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(d.titel.ifEmpty { d.dateiName }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+                Schild(Kategorie.titel(d.kategorie), sc.secondaryContainer, sc.onSecondaryContainer)
+            }
         }
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KompaktKnopf("Bearbeiten", onEdit, Modifier.weight(1f), enabled = !model.busy)
-            KompaktKnopf("Löschen", { loeschen = true }, Modifier.weight(1f), enabled = !model.busy)
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 14.dp)) {
+            val g = kachelSchrift(maxWidth, listOf(1f, 1f, 1f), listOf(datum.first.length, format.length, groesseText.length), 26f)
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val gleich = Modifier.weight(1f).fillMaxHeight()
+                StatKachel("Datum", datum.first, datum.second, sc.primaryContainer, sc.onPrimaryContainer, gleich, g)
+                StatKachel("Format", format, null, sc.secondaryContainer, sc.onSecondaryContainer, gleich, g)
+                StatKachel("Größe", groesseText, null, sc.tertiaryContainer, sc.onTertiaryContainer, gleich, g)
+            }
         }
+        Spacer(Modifier.height(8.dp))
+        DetailKarte("Datei") {
+            zeile("Dateiname", d.dateiName)
+            zeile("Ordner", if (d.ordnerId == null) "(ohne Ordner)" else Dokumente.pfadText(model.ordner, d.ordnerId))
+            zeile("Kategorie", Kategorie.titel(d.kategorie))
+        }
+        if (d.mitgliedName.isNotBlank() || d.buchungNummer.isNotBlank()) DetailKarte("Verknüpfungen") {
+            zeile("Mitglied", d.mitgliedName)
+            zeile("Buchung", d.buchungNummer)
+        }
+        if (d.tags.isNotEmpty() || d.notiz.isNotBlank()) DetailKarte("Schlagworte und Notiz") {
+            zeile("Schlagworte", d.tags.joinToString(", "))
+            zeile("Notiz", d.notiz)
+        }
+        AktionsZeilen(
+            listOf(
+                listOf(Aktion("Anzeigen", onAnzeigen, primaer = true, enabled = d.dateiId != null), Aktion("Weitergeben", { weitergeben() }, enabled = d.dateiId != null && !model.busy)),
+                listOf(Aktion("Speichern unter …", { speichern.launch(d.dateiName.ifEmpty { "Dokument" }) }, enabled = d.dateiId != null && !model.busy), Aktion("Bearbeiten", onEdit, enabled = !model.busy)),
+                listOf(Aktion("Löschen", { loeschen = true }, enabled = !model.busy)),
+            ),
+            Modifier.padding(top = 12.dp, bottom = 16.dp),
+        )
     }
 
     if (loeschen) {
@@ -503,7 +542,7 @@ internal fun WahlDialog(titel: String, eintraege: List<Pair<String, String>>, on
         titel = titel,
         onDismiss = onDismiss,
         inhalt = {
-            OutlinedTextField(value = q, onValueChange = { q = it }, label = { Text("Suchen") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            SuchFeld(q, { q = it }, "Suchen …", Modifier.fillMaxWidth())
             if (treffer.isEmpty()) Text("Nichts gefunden.", Modifier.padding(top = 8.dp))
             treffer.take(30).forEach { (id, name) ->
                 TextButton(onClick = { onWahl(id) }, modifier = Modifier.fillMaxWidth()) {
@@ -558,47 +597,58 @@ fun DokumentFormScreen(model: AppModel, id: String?, ordnerVorgabe: String?, onD
         }
         val kategorien = remember { Kategorie.ALLE.associateWith { Kategorie.titel(it) } }
 
-        Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            if (entwurf != null) Text("Datei: ${entwurf.name} (${groesse(entwurf.bytes.size.toLong())})", style = MaterialTheme.typography.bodyMedium)
-            if (vorhanden != null) Text("Datei: ${vorhanden.dateiName} (${groesse(vorhanden.groesse)})", style = MaterialTheme.typography.bodyMedium)
-            Feld("Titel", f.titel, { f = f.copy(titel = it) })
-            Auswahl("Kategorie", kategorien, f.kategorie) { f = f.copy(kategorie = it) }
-            Auswahl("Ordner", ordnerAuswahl, f.ordnerId) { neuerOrdner ->
-                val kat = model.ordner.firstOrNull { it.id == neuerOrdner }?.kategorie?.takeIf { it in Kategorie.ALLE }
-                f = f.copy(ordnerId = neuerOrdner, kategorie = kat ?: f.kategorie)
-            }
-            DatumFeld("Datum", f.datum, optional = true) { f = f.copy(datum = it) }
-            Feld("Schlagworte", f.tags, { f = f.copy(tags = it) }, hinweis = "Mit Komma trennen")
-            Feld("Notiz", f.notiz, { f = f.copy(notiz = it) }, singleLine = false)
+        var schritt by remember { mutableStateOf(0) }
+        val schritte = listOf("Angaben", "Verknüpfung und Notiz")
+        val sc = MaterialTheme.colorScheme
 
-            Text("Mitglied (freiwillig)", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(f.mitgliedName.ifEmpty { "kein Mitglied verknüpft" }, Modifier.weight(1f))
-                OutlinedButton(onClick = { waehleMitglied = true }) { Text("Wählen") }
-                if (f.mitgliedId.isNotEmpty()) TextButton(onClick = { f = f.copy(mitgliedId = "", mitgliedName = "") }) { Text("Entfernen") }
+        Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+            FormKopf(if (vorhanden != null) "Dokument bearbeiten" else "Neues Dokument", schritte, schritt, if (fehler != null) 0 else null) { schritt = it }
+            FormKarte {
+                when (schritt) {
+                    0 -> {
+                        if (entwurf != null) Text("Datei: ${entwurf.name} (${groesse(entwurf.bytes.size.toLong())})", style = MaterialTheme.typography.bodyMedium, color = sc.onSurfaceVariant)
+                        if (vorhanden != null) Text("Datei: ${vorhanden.dateiName} (${groesse(vorhanden.groesse)})", style = MaterialTheme.typography.bodyMedium, color = sc.onSurfaceVariant)
+                        Feld("Titel", f.titel, { f = f.copy(titel = it) })
+                        Auswahl("Kategorie", kategorien, f.kategorie) { f = f.copy(kategorie = it) }
+                        Auswahl("Ordner", ordnerAuswahl, f.ordnerId) { neuerOrdner ->
+                            val kat = model.ordner.firstOrNull { it.id == neuerOrdner }?.kategorie?.takeIf { it in Kategorie.ALLE }
+                            f = f.copy(ordnerId = neuerOrdner, kategorie = kat ?: f.kategorie)
+                        }
+                        DatumFeld("Datum", f.datum, optional = true) { f = f.copy(datum = it) }
+                    }
+                    else -> {
+                        Feld("Schlagworte", f.tags, { f = f.copy(tags = it) }, hinweis = "Mit Komma trennen")
+                        Feld("Notiz", f.notiz, { f = f.copy(notiz = it) }, singleLine = false)
+                        Text("Mitglied (freiwillig)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, color = sc.primary, modifier = Modifier.padding(top = 10.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(f.mitgliedName.ifEmpty { "kein Mitglied verknüpft" }, Modifier.weight(1f))
+                            KompaktKnopf("Wählen", { waehleMitglied = true })
+                            if (f.mitgliedId.isNotEmpty()) TextButton(onClick = { f = f.copy(mitgliedId = "", mitgliedName = "") }) { Text("Entfernen") }
+                        }
+                        Text("Buchung (freiwillig)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, color = sc.primary, modifier = Modifier.padding(top = 10.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(if (f.buchungId.isEmpty()) "keine Buchung verknüpft" else f.buchungNummer.ifEmpty { "Buchung ohne Nummer" }, Modifier.weight(1f))
+                            KompaktKnopf("Wählen", { waehleBuchung = true })
+                            if (f.buchungId.isNotEmpty()) TextButton(onClick = { f = f.copy(buchungId = "", buchungNummer = "") }) { Text("Entfernen") }
+                        }
+                    }
+                }
             }
-            Text("Buchung (freiwillig)", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (f.buchungId.isEmpty()) "keine Buchung verknüpft" else f.buchungNummer.ifEmpty { "Buchung ohne Nummer" }, Modifier.weight(1f))
-                OutlinedButton(onClick = { waehleBuchung = true }) { Text("Wählen") }
-                if (f.buchungId.isNotEmpty()) TextButton(onClick = { f = f.copy(buchungId = "", buchungNummer = "") }) { Text("Entfernen") }
-            }
-
-            if (fehler != null) Text(fehler!!, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
-            Button(
-                onClick = {
+            if (fehler != null) Text(fehler!!, color = sc.error)
+            FormFuss(
+                schritt, schritte.size, { schritt = it }, onDone,
+                {
                     val problem = DokumentStore.pruefen(f)
                     if (problem != null) {
-                        fehler = problem
+                        fehler = problem; schritt = 0
                     } else {
                         fehler = null
                         val fertig: (String?) -> Unit = { e -> if (e == null) onDone() else fehler = e }
                         if (vorhanden != null) model.dokumentAendern(f, fertig) else model.dokumentSpeichern(f, fertig)
                     }
                 },
-                enabled = !model.busy, modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-            ) { Text(if (vorhanden != null) "Speichern" else "Dokument ablegen") }
-            OutlinedButton(onClick = onDone, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Abbrechen") }
+                !model.busy,
+            )
         }
 
         if (waehleMitglied) {
@@ -654,7 +704,7 @@ private fun DateiWahl(model: AppModel, onAbbrechen: () -> Unit, modifier: Modifi
     }
 
     Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Welche Datei soll abgelegt werden?", style = MaterialTheme.typography.titleMedium)
+        Text("Welche Datei soll abgelegt werden?", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 8.dp))
         Text("Jede Dateiart ist möglich, bis ${DokumentStore.MAX_GROESSE / 1024 / 1024} MB. Fotos werden verkleinert und zu einer PDF gemacht.")
         Button(onClick = { dateiLauncher.launch(arrayOf("*/*")) }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Datei wählen") }
         OutlinedButton(onClick = { model.fotosVerwerfen(); fotoMachen() }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Foto aufnehmen") }

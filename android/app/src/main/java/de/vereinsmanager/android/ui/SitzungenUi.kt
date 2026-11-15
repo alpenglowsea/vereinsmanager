@@ -239,7 +239,10 @@ fun SitzungDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelet
         if (s.tops.isNotEmpty()) DetailKarte("Tagesordnung") {
             s.tops.forEachIndexed { i, t ->
                 if (i > 0) HorizontalDivider(Modifier.padding(top = 8.dp), color = sc.outlineVariant)
-                Text("${t.nummer}  ${t.titel}", fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 8.dp))
+                Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Schild(t.nummer.ifBlank { "TOP ${i + 1}" }, sc.tertiaryContainer, sc.onTertiaryContainer)
+                    Text(t.titel, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                }
                 if (t.berichterstatter.isNotBlank()) Text("Berichterstatter: ${t.berichterstatter}", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
                 if (t.notizen.isNotBlank()) Text(t.notizen, style = MaterialTheme.typography.bodyMedium)
                 t.beschluesse.forEach { b ->
@@ -469,7 +472,11 @@ fun SitzungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
                     f.tops.forEachIndexed { i, t ->
                         Surface(shape = RoundedCornerShape(20.dp), color = sc.surfaceContainer, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                             Column(Modifier.padding(10.dp)) {
-                                Text("TOP ${i + 1}", fontWeight = FontWeight.Bold)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("TOP ${i + 1}", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                    TextButton(onClick = { f = f.copy(tops = f.tops.toMutableList().also { l -> val x = l.removeAt(i); l.add(i - 1, x) }) }, enabled = !gesperrt && i > 0) { Text("↑", fontWeight = FontWeight.Bold) }
+                                    TextButton(onClick = { f = f.copy(tops = f.tops.toMutableList().also { l -> val x = l.removeAt(i); l.add(i + 1, x) }) }, enabled = !gesperrt && i < f.tops.lastIndex) { Text("↓", fontWeight = FontWeight.Bold) }
+                                }
                                 Feld("Titel *", t.titel, { top(i, t.copy(titel = it)) }, pruef["top$i"], enabled = !gesperrt)
                                 Feld("Berichterstatter", t.berichterstatter, { top(i, t.copy(berichterstatter = it)) }, enabled = !gesperrt)
                                 Feld("Besprechung / Verlauf", t.notizen, { top(i, t.copy(notizen = it)) }, singleLine = false, enabled = !gesperrt)
@@ -495,7 +502,7 @@ fun SitzungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     KompaktKnopf("Beschluss hinzufügen", { top(i, t.copy(beschluesse = t.beschluesse + BeschlussForm("res-${System.currentTimeMillis()}-${t.beschluesse.size}"))) }, enabled = !gesperrt)
-                                    KompaktKnopf("TOP entfernen", { f = f.copy(tops = f.tops.filterIndexed { k, _ -> k != i }) }, enabled = !gesperrt)
+                                    KompaktKnopf("Entfernen", { f = f.copy(tops = f.tops.filterIndexed { k, _ -> k != i }) }, enabled = !gesperrt)
                                 }
                             }
                         }
