@@ -1,3 +1,4 @@
+import { nummerVergeben } from '../utils/nummern';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Member,
@@ -39,6 +40,8 @@ interface MemberFormModalProps {
   member: Member | null;
   departments: string[];
   nextMemberNumber: string;
+  /** Alle Mitglieder; damit wird eine doppelte Mitgliedsnummer abgelehnt. */
+  existingMembers?: Member[];
   onSave: (member: Member, attachedDoc?: ClubDocument) => void | Promise<void>;
   onClose: () => void;
 }
@@ -47,6 +50,7 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
   member,
   departments = DEFAULT_DEPARTMENTS,
   nextMemberNumber,
+  existingMembers = [],
   onSave,
   onClose
 }) => {
@@ -229,7 +233,19 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
-    if (!formData.memberNumber.trim()) newErrors.memberNumber = 'Mitgliedsnummer ist erforderlich.';
+    if (!formData.memberNumber.trim()) {
+      newErrors.memberNumber = 'Mitgliedsnummer ist erforderlich.';
+    } else if (
+      nummerVergeben(
+        formData.memberNumber,
+        existingMembers.map(m => ({ id: m.id, nummer: m.memberNumber })),
+        member?.id
+      )
+    ) {
+      // Zwei Mitglieder mit derselben Nummer lassen sich in Beitragslauf,
+      // Mandatsreferenz und Belegen nicht mehr auseinanderhalten (D-28).
+      newErrors.memberNumber = 'Diese Mitgliedsnummer ist schon vergeben.';
+    }
     if (!formData.firstName.trim()) newErrors.firstName = 'Vorname ist erforderlich.';
     if (!formData.lastName.trim()) newErrors.lastName = 'Nachname ist erforderlich.';
     if (!formData.entryDate) newErrors.entryDate = 'Eintrittsdatum ist erforderlich.';

@@ -1,3 +1,4 @@
+import { nummerVergeben } from '../utils/nummern';
 import React, { useState, useEffect } from 'react';
 import { InventoryItem, InventoryCategory, ItemCondition } from '../types';
 import { INVENTORY_CATEGORIES, CONDITION_OPTIONS, INVENTORY_UNITS } from '../data/inventoryCategories';
@@ -26,6 +27,10 @@ import {
 interface InventoryFormModalProps {
   item: InventoryItem | null; // null = neu anlegen
   departments: string[];
+  /** Vorschlag für die nächste Inventarnummer (fortlaufend im Schema des Bestands). */
+  nextItemNumber?: string;
+  /** Alle Gegenstände; damit wird eine doppelte Inventarnummer abgelehnt. */
+  existingItems?: InventoryItem[];
   onSave: (item: InventoryItem) => void;
   onClose: () => void;
 }
@@ -33,6 +38,8 @@ interface InventoryFormModalProps {
 export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
   item,
   departments,
+  nextItemNumber = 'INV-001',
+  existingItems = [],
   onSave,
   onClose
 }) => {
@@ -85,13 +92,13 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
       setLastCheckedDate(item.lastCheckedDate || '');
       setNextInspectionDate(item.nextInspectionDate || '');
     } else {
-      // Auto-generate next item number
-      const randomSuffix = Math.floor(100 + Math.random() * 900);
-      setItemNumber(`INV-${new Date().getFullYear()}-${randomSuffix}`);
+      // Fortlaufende Inventarnummer statt einer Zufallszahl (D-98). Der
+      // Vorschlag lässt sich im Feld ändern.
+      setItemNumber(nextItemNumber);
       setDepartment(departments[0] || 'Gesamtverein');
       setLocation('Geräteraum / Zentrallager');
     }
-  }, [item, departments]);
+  }, [item, departments, nextItemNumber]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,12 +114,24 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
       return;
     }
 
+    if (
+      nummerVergeben(
+        itemNumber,
+        existingItems.map(g => ({ id: g.id, nummer: g.itemNumber })),
+        item?.id
+      )
+    ) {
+      setErrorMsg('Diese Inventarnummer ist schon vergeben. Bitte eine andere Nummer eintragen.');
+      setActiveTab('general');
+      return;
+    }
+
     const priceNum = purchasePrice ? parseFloat(purchasePrice.replace(',', '.')) : undefined;
     const valueNum = currentValue ? parseFloat(currentValue.replace(',', '.')) : undefined;
 
     const newItem: InventoryItem = {
       id: item ? item.id : `inv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      itemNumber: itemNumber.trim() || `INV-${Date.now().toString().slice(-4)}`,
+      itemNumber: itemNumber.trim() || nextItemNumber,
       name: name.trim(),
       category,
       department: department || 'Gesamtverein',

@@ -1,3 +1,4 @@
+import { naechsteJahresNummer } from '../utils/nummern';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   X,
@@ -86,7 +87,11 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
 
   // Metadata for PDF header / Beleg
   const [docNumber, setDocNumber] = useState<string>(
-    prefillDocumentNumber || `BE-${new Date().getFullYear()}-${String(existingTransactions.length + 1).padStart(3, '0')}`
+    prefillDocumentNumber ||
+      naechsteJahresNummer(
+        'BE',
+        existingTransactions.map(t => t.documentNumber)
+      )
   );
   // Kein Bedienelement vorhanden: Der Wert steht beim Öffnen fest und lässt
   // sich nicht ändern. Die Änderungsfunktion ist deshalb entfernt — sie zu

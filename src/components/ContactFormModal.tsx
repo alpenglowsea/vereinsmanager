@@ -1,3 +1,4 @@
+import { nummerVergeben } from '../utils/nummern';
 import React, { useState, useEffect } from 'react';
 import { keepUnknownFields } from '../utils/keepUnknownFields';
 import {
@@ -27,6 +28,8 @@ interface ContactFormModalProps {
   contact: ClubContact | null;
   isOpen: boolean;
   nextContactNumber: string;
+  /** Alle Kontakte; damit wird eine doppelte Kontaktnummer abgelehnt. */
+  existingContacts?: ClubContact[];
   initialName?: string;
   initialType?: ContactType;
   initialIban?: string;
@@ -53,6 +56,7 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
   contact,
   isOpen,
   nextContactNumber,
+  existingContacts = [],
   initialName,
   initialType,
   initialIban,
@@ -182,6 +186,14 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
 
     if (!contactNumber.trim()) {
       newErrors.contactNumber = 'Kontaktnummer ist erforderlich';
+    } else if (
+      nummerVergeben(
+        contactNumber,
+        existingContacts.map(k => ({ id: k.id, nummer: k.contactNumber })),
+        contact?.id
+      )
+    ) {
+      newErrors.contactNumber = 'Diese Kontaktnummer ist schon vergeben';
     }
 
     if (personType === 'legal') {
@@ -726,6 +738,9 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
                   placeholder="z.B. K-1008"
                   className="w-full px-3 py-2 text-sm font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 dark:border-slate-700"
                 />
+                {errors.contactNumber && (
+                  <p className="text-xs text-rose-600 mt-1 dark:text-rose-400">{errors.contactNumber}</p>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">

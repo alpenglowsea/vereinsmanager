@@ -1,3 +1,4 @@
+import { naechsteJahresNummer } from '../utils/nummern';
 import Papa from 'papaparse';
 import { Transaction, TaxSphere } from '../types';
 
@@ -191,11 +192,15 @@ export const BankImportService = {
   convertToTransactions(
     rows: ParsedBankRow[],
     accountId: string,
-    startDocIndex = 1
+    vorhandeneBelegnummern: Array<string | null | undefined> = []
   ): Transaction[] {
-    const year = new Date().getFullYear();
+    // Belegnummern BK-<Jahr>-<n>: höchste vorhandene des Jahres plus eins.
+    // Vorher begann jeder Import wieder bei 1 und vergab dieselben Nummern
+    // erneut (D-66).
+    const vergeben: Array<string | null | undefined> = [...vorhandeneBelegnummern];
     return rows.filter(r => r.selected).map((r, i) => {
-      const docNum = `BK-${year}-${String(startDocIndex + i).padStart(3, '0')}`;
+      const docNum = naechsteJahresNummer('BK', vergeben);
+      vergeben.push(docNum);
       const isIncome = r.amount >= 0;
 
       return {

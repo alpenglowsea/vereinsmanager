@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { naechsteJahresNummer, naechsteKontaktNummer, naechsteNummerImSchema } from './utils/nummern';
 import { useState, useEffect, useRef } from 'react';
 import {
   Member,
@@ -503,20 +504,24 @@ export default function App() {
   }, []);
 
   // Compute Next Member Number & Next Doc Number
-  const nextMemberNumber = `M-${String(members.length + 101).padStart(4, '0')}`;
-  const nextDocNumber = `BE-${new Date().getFullYear()}-${String(transactions.length + 1).padStart(3, '0')}`;
+  // Alle Nummern: höchste vorhandene plus eins (src/utils/nummern.ts), nicht
+  // „Anzahl plus eins“ – das vergäbe nach dem Löschen eines Eintrags eine
+  // Nummer doppelt.
+  const nextMemberNumber = naechsteNummerImSchema(
+    members.map(m => m.memberNumber),
+    'M-0101'
+  );
+  const nextDocNumber = naechsteJahresNummer(
+    'BE',
+    transactions.map(t => t.documentNumber)
+  );
+  const nextInventoryNumber = naechsteNummerImSchema(
+    inventory.map(i => i.itemNumber),
+    'INV-001'
+  );
 
   // Nächste freie Kontaktnummer (Format K-1001, wie im Bestand).
-  // Bewusst aus der höchsten bereits vergebenen Nummer abgeleitet und
-  // nicht aus der Anzahl: Nach dem Löschen eines Kontakts würde eine
-  // anzahlbasierte Berechnung eine bereits vergebene Nummer erneut
-  // ausgeben.
-  const nextContactNumber = `K-${String(
-    contacts.reduce((max, c) => {
-      const parsed = Number.parseInt((c.contactNumber || '').replace(/\D/g, ''), 10);
-      return Number.isFinite(parsed) && parsed > max ? parsed : max;
-    }, 1000) + 1
-  ).padStart(4, '0')}`;
+  const nextContactNumber = naechsteKontaktNummer(contacts.map(c => c.contactNumber));
 
   // Member CRUD handlers
   const handleSaveMember = async (memberData: Member, attachedDoc?: ClubDocument) => {
@@ -836,7 +841,10 @@ export default function App() {
   };
 
   // Spenden & Zuwendungsbestätigungen (BMF) Handlers
-  const nextDonationReceiptNumber = `ZB-${new Date().getFullYear()}-${String(donations.length + 1).padStart(3, '0')}`;
+  const nextDonationReceiptNumber = naechsteJahresNummer(
+    'ZB',
+    donations.map(d => d.receiptNumber)
+  );
 
   const handleSaveDonationReceipt = async (
     receipt: DonationReceipt,
@@ -880,7 +888,10 @@ export default function App() {
   };
 
   // Invoicing CRUD Handlers (DIN 5008 & Blanko-Briefpapier)
-  const nextInvoiceNumber = `RE-${new Date().getFullYear()}-${String(invoices.length + 1).padStart(3, '0')}`;
+  const nextInvoiceNumber = naechsteJahresNummer(
+    'RE',
+    invoices.map(inv => inv.invoiceNumber)
+  );
 
   const handleSaveInvoice = async (invoice: ClubInvoice, saveToDocuments: boolean = true) => {
     const toSave: ClubInvoice = { ...invoice };
@@ -2114,6 +2125,7 @@ export default function App() {
           member={editingMember}
           departments={settings.departments}
           nextMemberNumber={nextMemberNumber}
+          existingMembers={members}
           onSave={handleSaveMember}
           onClose={() => {
             setMemberFormOpen(false);
@@ -2127,6 +2139,8 @@ export default function App() {
         <InventoryFormModal
           item={editingInventoryItem}
           departments={settings.departments}
+          nextItemNumber={nextInventoryNumber}
+          existingItems={inventory}
           onSave={handleSaveInventoryItem}
           onClose={() => {
             setInventoryFormOpen(false);
@@ -2189,6 +2203,7 @@ export default function App() {
           isOpen={contactFormOpen}
           contact={editingContact}
           nextContactNumber={nextContactNumber}
+          existingContacts={contacts}
           initialName={initialContactFormName}
           initialType={initialContactFormType}
           onSave={handleSaveContact}
@@ -2253,6 +2268,7 @@ export default function App() {
       {bankImportOpen && (
         <BankImportModal
           accounts={accounts}
+          existingTransactions={transactions}
           onImport={handleBankImport}
           onClose={() => setBankImportOpen(false)}
         />

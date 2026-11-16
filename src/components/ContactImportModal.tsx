@@ -1,3 +1,4 @@
+import { naechsteKontaktNummer } from '../utils/nummern';
 import { useState, useMemo, ChangeEvent, DragEvent, FC } from 'react';
 import { ClubContact, ContactPersonType, ContactType } from '../types';
 import Papa from 'papaparse';
@@ -192,6 +193,16 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
   const parsedContacts = useMemo((): ClubContact[] => {
     if (step < 2) return [];
 
+    // Kontaktnummern: höchste vorhandene plus eins, fortlaufend über die
+    // importierten Zeilen. Vorher aus der Anzahl gebildet; nach dem Löschen
+    // eines Kontakts entstand so dieselbe Nummer zweimal (D-59).
+    const vergebeneNummern: Array<string | undefined> = existingContacts.map(k => k.contactNumber);
+    const neueKontaktNummer = (): string => {
+      const nummer = naechsteKontaktNummer(vergebeneNummern);
+      vergebeneNummern.push(nummer);
+      return nummer;
+    };
+
     return rawRows.map((row, idx) => {
       const rawName = (mapping.displayName ? row[mapping.displayName] : '') || `Kontakt ${idx + 1}`;
       const rawType = (mapping.personType ? row[mapping.personType] : '')?.toLowerCase();
@@ -235,7 +246,7 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
 
       const contact: ClubContact = {
         id: `contact_imp_${Date.now()}_${idx}`,
-        contactNumber: `K-${1000 + existingContacts.length + idx + 1}`,
+        contactNumber: neueKontaktNummer(),
         personType,
         displayName: rawName.trim(),
         companyName: isLegal ? rawName.trim() : undefined,
@@ -267,7 +278,7 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
 
       return contact;
     });
-  }, [step, rawRows, mapping, defaultContactType, existingContacts.length]);
+  }, [step, rawRows, mapping, defaultContactType, existingContacts]);
 
   const filteredPreview = useMemo(() => {
     if (!searchPreview.trim()) return parsedContacts;

@@ -1,3 +1,4 @@
+import { naechsteTopNummer, nummeriereTopsNeu } from '../utils/nummern';
 import React, { useState, useMemo } from 'react';
 import {
   X,
@@ -162,12 +163,12 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
   };
 
   const handleAddTop = () => {
-    const nextNumber = agenda.length + 1;
     setAgenda([
       ...agenda,
       {
         id: `top-${Date.now()}`,
-        number: `TOP ${nextNumber}`,
+        // Höchste vorhandene TOP-Nummer plus eins (D-120)
+        number: naechsteTopNummer(agenda.map(top => top.number)),
         title: 'Neuer Tagesordnungspunkt',
         discussionNotes: ''
       }
@@ -181,7 +182,10 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
   };
 
   const handleRemoveTop = (index: number) => {
-    setAgenda(agenda.filter((_, i) => i !== index));
+    // Nach dem Entfernen lückenlos durchzählen (TOP 1, TOP 2, …), damit
+    // keine Nummer fehlt oder doppelt vergeben wird. Eigene Bezeichnungen
+    // wie „TOP 3a“ bleiben unangetastet (siehe nummeriereTopsNeu).
+    setAgenda(nummeriereTopsNeu(agenda.filter((_, i) => i !== index)));
   };
 
   const handleAddResolution = (topIndex: number) => {

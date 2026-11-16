@@ -14,12 +14,15 @@ import {
 
 interface BankImportModalProps {
   accounts: FinancialAccount[];
+  /** Vorhandene Buchungen, damit die Belegnummern (BK-…) fortgezählt werden. */
+  existingTransactions?: Transaction[];
   onImport: (transactions: Transaction[]) => void;
   onClose: () => void;
 }
 
 export const BankImportModal: React.FC<BankImportModalProps> = ({
   accounts,
+  existingTransactions = [],
   onImport,
   onClose
 }) => {
@@ -76,7 +79,11 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
       alert('Bitte wählen Sie mindestens eine Buchung zum Importieren aus.');
       return;
     }
-    const transactions = BankImportService.convertToTransactions(parsedRows, selectedAccountId);
+    const transactions = BankImportService.convertToTransactions(
+      parsedRows,
+      selectedAccountId,
+      existingTransactions.map(t => t.documentNumber)
+    );
     onImport(transactions);
     onClose();
   };
