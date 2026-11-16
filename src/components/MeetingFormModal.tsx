@@ -28,6 +28,7 @@ import {
 import { MeetingPdfService } from '../services/meetingPdfService';
 import { DEFAULT_MEETING_TEMPLATE } from '../data/initialMeetings';
 import { savePdfAs } from '../utils/fileExportHelper';
+import { keepUnknownFields } from '../utils/keepUnknownFields';
 
 interface MeetingFormModalProps {
   isOpen: boolean;
@@ -292,7 +293,12 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
         updatedAt: now
       };
 
-      await onSave(meetingData);
+      // keepUnknownFields: Unterschriften (signatures), das archivierte PDF
+      // (documentId), customTemplateUsed und alle weiteren Felder, die dieses
+      // Formular nicht kennt, bleiben beim Bearbeiten erhalten (D-116).
+      // Vorher verlor ein unterschriebenes Protokoll beim Speichern seine
+      // Unterschriften.
+      await onSave(keepUnknownFields(meetingToEdit, meetingData));
       onClose();
     } catch (err) {
       console.error('Failed to save meeting:', err);

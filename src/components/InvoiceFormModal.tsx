@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { keepUnknownFields } from '../utils/keepUnknownFields';
 import {
   ClubInvoice,
   InvoiceItem,
@@ -507,7 +508,10 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
 
   // Construct current invoice object
   const constructInvoiceData = (): ClubInvoice => {
-    return {
+    // keepUnknownFields: Zahlungsangaben (Zahldatum, Zahlart, verknüpfte
+    // Buchung), das abgelegte PDF und alle weiteren Felder, die dieses
+    // Formular nicht kennt, bleiben beim Bearbeiten erhalten (D-43).
+    const rebuilt: ClubInvoice = {
       id: invoice ? invoice.id : `inv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       invoiceNumber: invoiceNumber.trim() || nextInvoiceNumber,
       date,
@@ -553,6 +557,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
       createdAt: invoice ? invoice.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+    return keepUnknownFields(invoice, rebuilt, { nestedKeys: ['recipientAddress'] });
   };
 
   // Submit

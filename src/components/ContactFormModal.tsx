@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { keepUnknownFields } from '../utils/keepUnknownFields';
 import {
   ClubContact,
   ContactPersonType,
@@ -278,7 +279,28 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
       };
     }
 
-    onSave(newOrUpdated);
+    // keepUnknownFields: Felder, die dieses Formular nicht kennt, bleiben
+    // erhalten (D-60). Die unter managedKeys genannten Felder setzt das
+    // Formular nur je nach Personenart bzw. nur, wenn etwas eingetragen ist;
+    // fehlen sie hier, sollen sie wirklich weg sein (z. B. geleerte
+    // Bankverbindung, Wechsel von Firma zu Privatperson).
+    onSave(
+      keepUnknownFields(contact, newOrUpdated, {
+        managedKeys: [
+          'companyName',
+          'legalForm',
+          'taxId',
+          'commercialRegister',
+          'contactPerson',
+          'salutation',
+          'firstName',
+          'lastName',
+          'dateOfBirth',
+          'bankDetails'
+        ],
+        nestedKeys: ['address', 'bankDetails', 'contactPerson']
+      })
+    );
   };
 
   // Frühzeitiger Ausstieg MUSS unterhalb aller Hooks stehen: React

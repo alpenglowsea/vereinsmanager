@@ -43,6 +43,7 @@ import {
   Split
 } from 'lucide-react';
 import { ReceiptCameraScannerModal } from './ReceiptCameraScannerModal';
+import { keepUnknownFields } from '../utils/keepUnknownFields';
 
 interface TransactionFormModalProps {
   transaction: Transaction | null;
@@ -436,7 +437,9 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     
     if (isSplitBooking && formData.type !== 'transfer' && splitLines.length > 0) {
       const primarySplit = splitLines[0];
-      onSave({
+      // keepUnknownFields: Felder der gespeicherten Buchung, die dieses
+      // Formular nicht kennt, bleiben erhalten (D-13).
+      onSave(keepUnknownFields(transaction, {
         ...formData,
         amount: finalAmount,
         isSplit: true,
@@ -452,15 +455,15 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
         skrAccount: primarySplit.skrAccount,
         vatRate: primarySplit.vatRate,
         receipt: receiptFile || undefined
-      });
+      }));
     } else {
-      onSave({
+      onSave(keepUnknownFields(transaction, {
         ...formData,
         amount: finalAmount,
         isSplit: false,
         splits: undefined,
         receipt: receiptFile || undefined
-      });
+      }));
     }
   };
 
