@@ -38,6 +38,7 @@ import { DEFAULT_CALENDAR_CATEGORIES, INITIAL_CALENDAR_EVENTS } from '../data/in
 import { getDonationPdfDataUrl } from './donationService';
 import { getMembershipApplicationPdfDataUrl } from './membershipPdfService';
 import { AuthService } from './authService';
+import { customCategoryService } from './customCategoryService';
 import {
   STORES,
   SICHERUNGS_BEREICHE,
@@ -1900,24 +1901,43 @@ export const StorageService = {
   // Accounts
   async getAccounts(): Promise<FinancialAccount[]> {
     const accounts = await getAllFromStore<FinancialAccount>(STORES.ACCOUNTS);
-    try {
-      const orderJson = localStorage.getItem('vm_accounts_order');
-      if (orderJson) {
-        const orderIds: string[] = JSON.parse(orderJson);
-        accounts.sort((a, b) => {
-          const indexA = orderIds.indexOf(a.id);
-          const indexB = orderIds.indexOf(b.id);
-          if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-          if (indexA !== -1) return -1;
-          if (indexB !== -1) return 1;
-          return (a.order ?? 999) - (b.order ?? 999);
-        });
-      } else {
-        accounts.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+    const hatPlatz = (a: FinancialAccount): boolean => typeof a.order === 'number';
+
+    // Die Reihenfolge steht im Feld `order` jedes Kontos und damit in der
+    // Datenbank und in jeder Sicherung.
+    //
+    // Bis November 2026 galt stattdessen eine Liste im Browserspeicher
+    // (`vm_accounts_order`). Sie fehlte in der Sicherung, und nach dem
+    // Einspielen einer Sicherung von einem anderen Gerät galt weiter die
+    // alte Liste dieses Geräts (D-31). Sie wird nur noch gelesen, um einen
+    // Altbestand einmalig zu übernehmen: solange es Konten ohne `order` gibt.
+    if (accounts.length > 0 && !accounts.every(hatPlatz)) {
+      let alteListe: string[] = [];
+      try {
+        const roh = JSON.parse(localStorage.getItem('vm_accounts_order') || '[]');
+        if (Array.isArray(roh)) alteListe = roh.filter(x => typeof x === 'string');
+      } catch {
+        // localStorage fehlt oder ist unlesbar: dann ohne alte Liste
       }
-    } catch {
-      accounts.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+      const platz = (a: FinancialAccount): number => {
+        const i = alteListe.indexOf(a.id);
+        if (i !== -1) return i;
+        // nicht in der alten Liste: dahinter, nach `order`, sonst ans Ende
+        return alteListe.length + (hatPlatz(a) ? (a.order as number) : 100000);
+      };
+      accounts.sort((a, b) => platz(a) - platz(b) || (a.createdAt || '').localeCompare(b.createdAt || ''));
+      accounts.forEach((a, i) => {
+        a.order = i;
+      });
+      try {
+        for (const a of accounts) await putItemToStore(STORES.ACCOUNTS, a);
+      } catch (err) {
+        console.warn('Kontenreihenfolge konnte nicht übernommen werden:', err);
+      }
+      return accounts;
     }
+
+    accounts.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     return accounts;
   },
 
@@ -1925,6 +1945,16 @@ export const StorageService = {
     if (!account.id) {
       account.id = `acc-${Date.now()}`;
       account.createdAt = new Date().toISOString();
+    }
+    // Ohne eigenen Platz: ein vorhandenes Konto behält seinen, ein neues
+    // kommt ans Ende. Vorher fiel ein bearbeitetes Konto aus der Reihenfolge.
+    if (typeof account.order !== 'number') {
+      const vorhandene = await getAllFromStore<FinancialAccount>(STORES.ACCOUNTS);
+      const altes = vorhandene.find(a => a.id === account.id);
+      account.order =
+        typeof altes?.order === 'number'
+          ? altes.order
+          : vorhandene.reduce((max, a) => (typeof a.order === 'number' && a.order > max ? a.order : max), -1) + 1;
     }
     await putItemToStore(STORES.ACCOUNTS, account);
   },
@@ -1935,11 +1965,6 @@ export const StorageService = {
       order: index
     }));
     await saveAllToStore(STORES.ACCOUNTS, withOrder);
-    try {
-      localStorage.setItem('vm_accounts_order', JSON.stringify(withOrder.map(a => a.id)));
-    } catch {
-      // ignore
-    }
   },
 
   async deleteAccount(id: string): Promise<void> {
@@ -3145,7 +3170,12 @@ export const StorageService = {
       calendarCategories,
       onlineApplications,
       applicationSettings,
-      settings
+      // Die eigenen SKR-42-Konten liegen im Browserspeicher, nicht in der
+      // Datenbank, und fehlten deshalb bis November 2026 in der Sicherung
+      // (D-12). Sie reisen im Bereich `settings` mit: Die Android-Fassung
+      // kennt das Feld nicht, behält unbekannte Felder der Einstellungen
+      // aber bei.
+      settings: { ...settings, customSkr42Accounts: customCategoryService.getCustomAccounts() }
     };
 
     const backup = {
@@ -3362,9 +3392,26 @@ export const StorageService = {
       if (settings) {
         // Alte Sicherungen führen die SMTP-Zugangsdaten im Klartext mit.
         // Sie werden hier verworfen, statt sie wieder einzuspielen.
-        const { bereinigt: settingsBereinigt } = ohneVeralteteSmtpFelder(
+        const { bereinigt: settingsMitKonten } = ohneVeralteteSmtpFelder(
           settings as Record<string, unknown>
         );
+        // Eigene SKR-42-Konten (D-12) gehören nicht in die Vereinsstammdaten
+        // der Datenbank, sondern in den Browserspeicher; siehe
+        // customCategoryService. Fehlt das Feld (ältere Sicherung oder eine
+        // Sicherung vom Handy, die nie am Desktop war), bleiben die
+        // vorhandenen eigenen Konten unangetastet.
+        const { customSkr42Accounts: eigeneKonten, ...settingsBereinigt } = settingsMitKonten as Record<
+          string,
+          unknown
+        >;
+        if (eigeneKonten !== undefined) {
+          try {
+            if (art === 'ergaenzen') customCategoryService.ergaenzeAusSicherung(eigeneKonten);
+            else customCategoryService.ersetzeAusSicherung(eigeneKonten);
+          } catch (err) {
+            console.warn('Eigene SKR-42-Konten konnten nicht übernommen werden:', err);
+          }
+        }
         if (art === 'ergaenzen') {
           // Feldweise: Muster-Stammdaten eines frischen Geräts dürfen die
           // echten Angaben aus der Datei nicht verdrängen.

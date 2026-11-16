@@ -150,6 +150,83 @@ class CustomCategoryService {
     return this.loadStoredData();
   }
 
+  // -------------------------------------------------------------------------
+  // Datensicherung
+  //
+  // Die eigenen Konten liegen im Browserspeicher (localStorage), nicht in der
+  // Datenbank. Bis November 2026 fehlten sie deshalb in jeder Sicherung: Wer
+  // seinen Bestand auf einen anderen Rechner mitnahm, hatte dort Buchungen
+  // auf Konten, die es nicht mehr gab (D-12). Die Sicherung nimmt sie jetzt
+  // mit (im Bereich `settings`, Feld `customSkr42Accounts`).
+  // -------------------------------------------------------------------------
+
+  /** Bringt den Inhalt einer Sicherung in die erwartete Form; Unbrauchbares fällt heraus. */
+  private ausSicherung(roh: unknown): StoredCustomData {
+    const quelle = (typeof roh === 'object' && roh !== null ? roh : {}) as Record<string, unknown>;
+    const haupt = Array.isArray(quelle.customMainCategories) ? quelle.customMainCategories : [];
+    const unter = Array.isArray(quelle.customSubCategories) ? quelle.customSubCategories : [];
+    return {
+      customMainCategories: haupt.filter(
+        (m): m is Skr42MainCategory =>
+          typeof m === 'object' && m !== null && typeof m.code === 'string' && Array.isArray(m.subCategories)
+      ),
+      customSubCategories: unter.filter(
+        (u): u is StoredCustomData['customSubCategories'][number] =>
+          typeof u === 'object' &&
+          u !== null &&
+          typeof u.mainCatIdOrCode === 'string' &&
+          typeof u.subCategory === 'object' &&
+          u.subCategory !== null &&
+          typeof u.subCategory.code === 'string'
+      )
+    };
+  }
+
+  /** Entfernt alle eigenen Konten aus dem Kontenrahmen im Arbeitsspeicher. */
+  private entferneEigeneAusStruktur() {
+    for (let i = SKR42_STRUCTURE.length - 1; i >= 0; i--) {
+      const main = SKR42_STRUCTURE[i];
+      if (main.isCustom) {
+        SKR42_STRUCTURE.splice(i, 1);
+        continue;
+      }
+      for (let j = main.subCategories.length - 1; j >= 0; j--) {
+        if (main.subCategories[j].isCustom) main.subCategories.splice(j, 1);
+      }
+    }
+  }
+
+  /**
+   * Einspielen mit „Ersetzen“: Die eigenen Konten aus der Sicherung treten an
+   * die Stelle der vorhandenen.
+   */
+  public ersetzeAusSicherung(roh: unknown) {
+    const daten = this.ausSicherung(roh);
+    this.entferneEigeneAusStruktur();
+    this.saveStoredData(daten);
+  }
+
+  /**
+   * Einspielen mit „Ergänzen“: Vorhandene eigene Konten bleiben, aus der
+   * Sicherung kommt nur hinzu, was es hier noch nicht gibt (gleiche Kontonummer
+   * = schon vorhanden).
+   */
+  public ergaenzeAusSicherung(roh: unknown) {
+    const neu = this.ausSicherung(roh);
+    const daten = this.loadStoredData();
+    for (const main of neu.customMainCategories) {
+      const vorhanden = daten.customMainCategories.some(m => m.id === main.id || m.code === main.code);
+      if (!vorhanden) daten.customMainCategories.push(main);
+    }
+    for (const unter of neu.customSubCategories) {
+      const vorhanden = daten.customSubCategories.some(
+        u => u.mainCatIdOrCode === unter.mainCatIdOrCode && u.subCategory.code === unter.subCategory.code
+      );
+      if (!vorhanden) daten.customSubCategories.push(unter);
+    }
+    this.saveStoredData(daten);
+  }
+
   /**
    * Suggests the next available 5-digit SKR 42 account code
    */

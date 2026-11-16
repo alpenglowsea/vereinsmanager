@@ -1,3 +1,4 @@
+import { keepUnknownFields } from '../utils/keepUnknownFields';
 import React, { useState } from 'react';
 import { FinancialAccount, AccountType } from '../types';
 import {
@@ -60,17 +61,26 @@ export const AccountManageModal: React.FC<AccountManageModalProps> = ({
     e.preventDefault();
     if (!formData.name?.trim()) return;
 
-    const account: FinancialAccount = {
+    const accountType = formData.accountType || 'bank';
+    // IBAN und BIC gibt es nur beim Girokonto (nur dort zeigt das Formular
+    // die Felder). Wird ein Bankkonto zur Barkasse, sollen die alten
+    // Bankdaten nicht unsichtbar stehen bleiben.
+    const istBank = accountType === 'bank';
+    const rebuilt: FinancialAccount = {
       id: editingId || `acc-${Date.now()}`,
       name: formData.name.trim(),
-      accountType: formData.accountType || 'bank',
-      iban: formData.iban?.toUpperCase().replace(/\s/g, '') || '',
-      bic: formData.bic?.toUpperCase().trim() || '',
+      accountType,
+      iban: istBank ? formData.iban?.toUpperCase().replace(/\s/g, '') || '' : '',
+      bic: istBank ? formData.bic?.toUpperCase().trim() || '' : '',
       initialBalance: formData.initialBalance || 0,
       color: formData.color || 'blue',
       description: formData.description || '',
       createdAt: (formData as any).createdAt || new Date().toISOString()
     };
+    // Die Reihenfolge (`order`) und alle Felder, die dieses Formular nicht
+    // kennt, bleiben beim Bearbeiten erhalten. Vorher fiel das Konto nach
+    // dem Bearbeiten ans Ende der Liste (D-31).
+    const account = keepUnknownFields(accounts.find(a => a.id === editingId) ?? null, rebuilt);
 
     onSaveAccount(account);
     setIsCreating(false);
