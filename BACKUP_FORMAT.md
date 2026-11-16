@@ -88,6 +88,17 @@ Für den Austausch gilt:
 - Beträge, Datumsangaben und Aufzählungen werden so geschrieben, wie sie die
   Desktop-Fassung schreibt. Die Android-App erfindet keine eigenen Formate.
 
+### Ergänzungen vom 16.11.2026 (ohne neue Formatversion)
+
+- **`settings.customSkr42Accounts`** (nur Desktop): die selbst angelegten SKR-42-Konten,
+  `{ customMainCategories: [...], customSubCategories: [{ mainCatIdOrCode, subCategory }] }`. Das Feld ist freiwillig.
+  Beim Einspielen am Desktop: „Ersetzen“ ersetzt die eigenen Konten, „Ergänzen“ nimmt Fehlendes hinzu (gleiche
+  Kontonummer = vorhanden); fehlt das Feld, bleiben die vorhandenen eigenen Konten unangetastet. Die Android-Fassung
+  kennt das Feld nicht und führt keine eigenen Konten; sie behält unbekannte Felder der Einstellungen bei (im Code
+  nachgesehen, nicht auf dem Gerät geprüft).
+- **`accounts[].order`** ist die maßgebliche Reihenfolge der Konten (0, 1, 2 …), an Desktop und Android. Die frühere
+  Desktop-Liste im Browserspeicher (`vm_accounts_order`) gilt nicht mehr.
+
 ## 4. Einspielen (Import)
 
 Zwei Arten: **Ersetzen** und **Ergänzen**.
@@ -264,8 +275,14 @@ Dieses Format ändert sich **nur gemeinsam** für beide Fassungen:
 
 ## 8. Sicherungspaket (Format 1.3.0) – Entwurf, Stand 27.10.2026
 
-**Status:** auf Android im Kern umgesetzt und getestet (`BackupPaket`), am Desktop **noch nicht umgesetzt**. Bis dahin
-schreibt und liest die Desktop-Fassung nur die JSON-Sicherung nach den Abschnitten 1 bis 5. Die Android-App liest beides.
+**Status:** auf Android im Kern umgesetzt und getestet (`BackupPaket`). Am Desktop seit 16.11.2026 **lesbar**
+(`src/services/backupPaket.ts`, mit und ohne Passwort), aber **noch nicht schreibbar**: Die Desktop-Fassung schreibt weiterhin
+nur die JSON-Sicherung nach den Abschnitten 1 bis 5. Die Android-App liest beides.
+
+**Desktop beim Lesen:** Die Dateien werden aus dem ZIP geholt und als Data-URL wieder in die Einträge gesetzt (`file` → `dataUrl`,
+`receipt.file` → `receipt.dataUrl`, `avatarFile` → `avatarUrl`, `photoFile` → `photoUrl`); danach läuft der Einspielweg aus
+Abschnitt 4. `sicherung.json` wird am Namen gefunden und muss am Desktop nicht der erste Eintrag sein. Passwörter werden als UTF-8
+gelesen. Geprüft gegen selbst gebaute Testpakete (zlib und OpenSSL von Node) nach der Beschreibung unten.
 
 **Warum:** Belege, Dokumente und Fotos als Base64 im Text sprengen bei echten Beständen Speicher und Zeilengrenzen
 (Abschnitt 6). Im Paket liegen sie als eigene Dateien.
@@ -337,6 +354,6 @@ zu einer PDF (längere Seite höchstens 1600 Pixel, JPEG-Qualität 75, eine Seit
 
 ### Offene Punkte für den Desktop
 
-- Schreiben und Lesen von AES-ZIP im Browser bzw. unter Tauri (Bibliothek noch zu wählen, nicht geprüft).
+- Lesen von AES-ZIP: erledigt (eigener Code, keine Bibliothek). Schreiben: offen.
 - Umstellung von `Transaction.receipt` / `ClubDocument.dataUrl` auf Dateiverweise und Migration beim ersten Start.
 - Gemeinsame Gegenprobe: Paket von Android am Desktop öffnen und umgekehrt, mit und ohne Passwort.

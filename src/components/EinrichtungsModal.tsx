@@ -15,6 +15,7 @@ import { BereichsVergleich, ImportArt, SicherungsKopf } from '../services/backup
 import { BackupImportDialog } from './BackupImportDialog';
 import { BackupPasswordDialog } from './BackupPasswordDialog';
 import { istVerschluesselt, entschluessleSicherung } from '../services/backupCrypto';
+import { istPaket, istPaketVerschluesselt, lesePaket, paketFehlerText, paketHinweis } from '../services/backupPaket';
 
 /**
  * Erscheint nach erfolgreicher Anmeldung/Registrierung, wenn auf diesem Gerät
@@ -83,28 +84,47 @@ export const EinrichtungsModal: React.FC<EinrichtungsModalProps> = ({ onFertig }
   } | null>(null);
 
   // Verschlüsselte Sicherung: wartet auf das Passwort
-  const [passwortAbfrage, setPasswortAbfrage] = useState<{ dateiName: string; text: string } | null>(null);
+  // `paket` ist gesetzt, wenn die Datei ein passwortgeschütztes Sicherungspaket (ZIP) ist.
+  const [passwortAbfrage, setPasswortAbfrage] = useState<{ dateiName: string; text: string; paket?: Uint8Array } | null>(null);
+  // Hinweis aus dem Lesen eines Sicherungspakets (z. B. fehlende Dateien)
+  const [importHinweis, setImportHinweis] = useState<string | null>(null);
 
   const processBackupFile = async (file: File) => {
     setImportFehler(null);
 
-    if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') {
-      setImportFehler('Bitte wählen Sie eine gültige .json-Sicherungsdatei aus.');
+    const name = file.name.toLowerCase();
+    if (!name.endsWith('.json') && !name.endsWith('.zip') && file.type !== 'application/json') {
+      setImportFehler('Bitte wählen Sie eine Sicherungsdatei aus (.json oder Sicherungspaket .zip).');
       return;
     }
 
     setImporting(true);
+    setImportHinweis(null);
     try {
-      const text = await file.text();
-      if (istVerschluesselt(text)) {
-        setPasswortAbfrage({ dateiName: file.name, text });
-        return;
+      // JSON-Sicherung oder Sicherungspaket (ZIP, wie Android es schreibt);
+      // erkannt am Inhalt der Datei.
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let text: string;
+      if (istPaket(bytes)) {
+        if (istPaketVerschluesselt(bytes)) {
+          setPasswortAbfrage({ dateiName: file.name, text: '', paket: bytes });
+          return;
+        }
+        const gelesen = await lesePaket(bytes);
+        text = gelesen.jsonText;
+        setImportHinweis(paketHinweis(gelesen) ?? null);
+      } else {
+        text = new TextDecoder('utf-8').decode(bytes);
+        if (istVerschluesselt(text)) {
+          setPasswortAbfrage({ dateiName: file.name, text });
+          return;
+        }
       }
       const { kopf, vergleich } = await StorageService.analysiereSicherung(text);
       setImportVorschau({ dateiName: file.name, text, kopf, vergleich });
     } catch (err: any) {
       console.error('Import-Vorschau fehlgeschlagen:', err);
-      setImportFehler(err?.message || 'Die Datei konnte nicht gelesen werden.');
+      setImportFehler(paketFehlerText(err) || 'Die Datei konnte nicht gelesen werden.');
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -115,7 +135,14 @@ export const EinrichtungsModal: React.FC<EinrichtungsModalProps> = ({ onFertig }
   const entschluesseleSicherung = async (passwort: string): Promise<string | null> => {
     if (!passwortAbfrage) return 'Keine Datei ausgewählt.';
     try {
-      const klartext = await entschluessleSicherung(passwortAbfrage.text, passwort);
+      let klartext: string;
+      if (passwortAbfrage.paket) {
+        const gelesen = await lesePaket(passwortAbfrage.paket, passwort);
+        klartext = gelesen.jsonText;
+        setImportHinweis(paketHinweis(gelesen) ?? null);
+      } else {
+        klartext = await entschluessleSicherung(passwortAbfrage.text, passwort);
+      }
       const { kopf, vergleich } = await StorageService.analysiereSicherung(klartext);
       setImportVorschau({ dateiName: passwortAbfrage.dateiName, text: klartext, kopf, vergleich });
       setPasswortAbfrage(null);
@@ -301,6 +328,11 @@ export const EinrichtungsModal: React.FC<EinrichtungsModalProps> = ({ onFertig }
 
             {ansicht === 'import' && (
               <div className="space-y-4">
+                {importHinweis && (
+                  <div className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-xs text-amber-900 leading-relaxed dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                    {importHinweis}
+                  </div>
+                )}
                 {importFehler && (
                   <div className="flex items-start gap-2.5 p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-200">
                     <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5 dark:text-rose-400" />
@@ -334,7 +366,7 @@ export const EinrichtungsModal: React.FC<EinrichtungsModalProps> = ({ onFertig }
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".json,application/json"
+                    accept=".json,.zip,application/json,application/zip"
                     onChange={handleFileChange}
                     className="hidden"
                   />

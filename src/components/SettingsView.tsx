@@ -9,6 +9,7 @@ import { BackupImportDialog } from './BackupImportDialog';
 import { BackupExportDialog } from './BackupExportDialog';
 import { BackupPasswordDialog } from './BackupPasswordDialog';
 import { istVerschluesselt, verschluessleSicherung, entschluessleSicherung } from '../services/backupCrypto';
+import { istPaket, istPaketVerschluesselt, lesePaket, paketFehlerText, paketHinweis } from '../services/backupPaket';
 import { BereichsVergleich, ImportArt, SicherungsKopf } from '../services/backupContents';
 import { openExternalUrl } from '../utils/externalLink';
 import { saveBlobWithLocationPicker, saveDataUrlAs } from '../utils/fileExportHelper';
@@ -285,11 +286,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // beim Einspielen einer verschlüsselten Datei.
   const [exportDialogOffen, setExportDialogOffen] = useState(false);
   const [exportLaeuft, setExportLaeuft] = useState(false);
-  const [passwortAbfrage, setPasswortAbfrage] = useState<{ dateiName: string; text: string } | null>(null);
+  // `paket` ist gesetzt, wenn die Datei ein passwortgeschütztes Sicherungspaket
+  // (ZIP) ist; sonst steht in `text` die verschlüsselte JSON-Sicherung.
+  const [passwortAbfrage, setPasswortAbfrage] = useState<{ dateiName: string; text: string; paket?: Uint8Array } | null>(null);
   const [importFehler, setImportFehler] = useState<string | null>(null);
   const [importVorschau, setImportVorschau] = useState<{
     dateiName: string;
     text: string;
+    /** Hinweis aus dem Lesen eines Sicherungspakets (z. B. fehlende Dateien). */
+    hinweis?: string;
     kopf: SicherungsKopf;
     vergleich: BereichsVergleich[];
   } | null>(null);
@@ -880,19 +885,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     // dann, was tatsächlich passieren würde, und lässt die Wahl zwischen
     // Ersetzen und Ergänzen.
     try {
-      const text = await file.text();
-      if (istVerschluesselt(text)) {
-        // Erst das Passwort abfragen; danach geht es wie bei jeder Sicherung weiter.
-        setPasswortAbfrage({ dateiName: file.name, text });
-        return;
+      // Die Datei kann eine JSON-Sicherung sein oder ein Sicherungspaket
+      // (ZIP mit Belegen, Dokumenten und Fotos, wie Android es schreibt).
+      // Erkannt wird das am Inhalt, nicht an der Dateiendung.
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let text: string;
+      let hinweis: string | undefined;
+      if (istPaket(bytes)) {
+        if (istPaketVerschluesselt(bytes)) {
+          setPasswortAbfrage({ dateiName: file.name, text: '', paket: bytes });
+          return;
+        }
+        const gelesen = await lesePaket(bytes);
+        text = gelesen.jsonText;
+        hinweis = paketHinweis(gelesen);
+      } else {
+        text = new TextDecoder('utf-8').decode(bytes);
+        if (istVerschluesselt(text)) {
+          // Erst das Passwort abfragen; danach geht es wie bei jeder Sicherung weiter.
+          setPasswortAbfrage({ dateiName: file.name, text });
+          return;
+        }
       }
       const { kopf, vergleich } = await StorageService.analysiereSicherung(text);
-      setImportVorschau({ dateiName: file.name, text, kopf, vergleich });
+      setImportVorschau({ dateiName: file.name, text, kopf, vergleich, hinweis });
     } catch (err: any) {
       console.error('Sicherung konnte nicht gelesen werden:', err);
       setStatusMsg({
         type: 'error',
-        text: err?.message || 'Die Datei konnte nicht gelesen werden.'
+        text: paketFehlerText(err) || 'Die Datei konnte nicht gelesen werden.'
       });
     } finally {
       e.target.value = '';
@@ -903,9 +924,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const entschluesseleSicherung = async (passwort: string): Promise<string | null> => {
     if (!passwortAbfrage) return 'Keine Datei ausgewählt.';
     try {
-      const klartext = await entschluessleSicherung(passwortAbfrage.text, passwort);
+      let klartext: string;
+      let hinweis: string | undefined;
+      if (passwortAbfrage.paket) {
+        const gelesen = await lesePaket(passwortAbfrage.paket, passwort);
+        klartext = gelesen.jsonText;
+        hinweis = paketHinweis(gelesen);
+      } else {
+        klartext = await entschluessleSicherung(passwortAbfrage.text, passwort);
+      }
       const { kopf, vergleich } = await StorageService.analysiereSicherung(klartext);
-      setImportVorschau({ dateiName: passwortAbfrage.dateiName, text: klartext, kopf, vergleich });
+      setImportVorschau({ dateiName: passwortAbfrage.dateiName, text: klartext, kopf, vergleich, hinweis });
       setPasswortAbfrage(null);
       return null;
     } catch (err: any) {
@@ -915,6 +944,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const fuehreImportAus = async (art: ImportArt) => {
     if (!importVorschau) return;
+    const paketHinweisText = importVorschau.hinweis ? ` ${importVorschau.hinweis}` : '';
     setImportLaeuft(true);
     setImportFehler(null);
 
@@ -928,9 +958,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         : ' Achtung: Die Sicherheitskopie des vorherigen Bestands konnte nicht angelegt werden.';
       setStatusMsg({
         type: 'success',
-        text: `Sicherung erfolgreich ${art === 'ersetzen' ? 'eingespielt' : 'ergänzt'} (${result.membersCount} Mitglieder, ${result.transactionsCount} Buchungen).${hinweisKopie}`
+        text: `Sicherung erfolgreich ${art === 'ersetzen' ? 'eingespielt' : 'ergänzt'} (${result.membersCount} Mitglieder, ${result.transactionsCount} Buchungen).${hinweisKopie}${paketHinweisText}`
       });
-      setTimeout(() => setStatusMsg(null), 6000);
+      // Ein Hinweis auf fehlende Dateien bleibt länger stehen.
+      setTimeout(() => setStatusMsg(null), paketHinweisText ? 20000 : 6000);
     } catch (err: any) {
       console.error('Fehler beim Import:', err);
       const isQuota = err?.name === 'QuotaExceededError' || (err?.message && err.message.toLowerCase().includes('quota'));
@@ -2552,16 +2583,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div>
                 <h4 className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm flex items-center gap-2">
                   <Upload className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  <span>Datensicherung wiederherstellen (JSON)</span>
+                  <span>Datensicherung wiederherstellen (JSON oder ZIP-Paket)</span>
                 </h4>
                 <p className="text-2xs sm:text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
-                  Spielt eine zuvor erstellte JSON-Sicherungsdatei wieder in die lokale IndexedDB Ihres Browsers ein.
+                  Spielt eine zuvor erstellte Sicherung wieder ein: eine JSON-Sicherungsdatei oder ein Sicherungspaket (ZIP) aus der Android-App, auch mit Passwort.
                 </p>
               </div>
               <div className="relative shrink-0">
                 <input
                   type="file"
-                  accept=".json"
+                  accept=".json,.zip,application/json,application/zip"
                   onChange={handleImportBackup}
                   className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
                 />

@@ -49,6 +49,70 @@ neu auf. Alles, was das Formular nicht kennt, ging dabei verloren.
   geleerte Bankverbindung wird weiterhin entfernt.
 - Gemeinsame Hilfsfunktion `src/utils/keepUnknownFields.ts` mit acht Tests.
 
+### Paket 30, Teil 1 — Sicherungspaket der Android-App einspielen (D-06)
+
+- **Neu:** Unter Einstellungen → Datensicherung und im Einrichtungsfenster
+  lässt sich jetzt auch das Sicherungspaket der Android-App einspielen: eine
+  ZIP-Datei mit `sicherung.json` und den Belegen, Dokumenten und Fotos als
+  einzelnen Dateien (Format 1.3.0), **auch mit Passwort** (AES-256). Die
+  Datei wird am Inhalt erkannt, nicht an der Endung.
+- Beim Einlesen werden die Dateien wieder in die Einträge gesetzt (so
+  speichert der Desktop sie bisher). Danach läuft alles über den vorhandenen
+  Einspielweg mit Vorschau, Sicherheitskopie und der Wahl zwischen Ersetzen
+  und Ergänzen.
+- Falsches oder fehlendes Passwort und beschädigte Pakete werden mit einer
+  eigenen Meldung abgewiesen, bevor etwas am Bestand geändert wird. Fehlt im
+  Paket eine Datei, auf die ein Eintrag verweist, wird der Eintrag ohne Datei
+  übernommen und das gemeldet.
+- Eigener Code ohne neue Pakete: ZIP-Leser (`src/utils/zipReader.ts`),
+  Entpacken (`src/utils/inflate.ts`), AES für ZIP (`src/utils/aes.ts`),
+  Übersetzung (`src/services/backupPaket.ts`); 42 neue Tests, geprüft gegen
+  zlib und OpenSSL von Node.
+- **Noch nicht umgesetzt:** das Schreiben eines Pakets am Desktop. Der
+  Desktop sichert weiterhin als JSON-Datei.
+
+### Paket 03 — Sicherung vollständig (D-12, D-31)
+
+- **Eigene SKR-42-Konten in der Sicherung (D-12):** Selbst angelegte Konten
+  und Nummernkreise lagen nur im Browserspeicher und fehlten in jeder
+  Sicherung. Sie werden jetzt mitgesichert (im Bereich `settings`, Feld
+  `customSkr42Accounts`) und beim Einspielen wiederhergestellt: bei
+  „Ersetzen“ ersetzt, bei „Ergänzen“ um Fehlendes ergänzt. Enthält eine
+  Sicherung das Feld nicht (ältere Datei, Sicherung vom Handy), bleiben die
+  vorhandenen eigenen Konten unangetastet.
+- **Kontenreihenfolge (D-31):** Die Reihenfolge der Konten steht jetzt allein
+  am Konto selbst (Feld `order`) und damit in der Sicherung. Die frühere
+  Liste im Browserspeicher wird nur noch einmalig übernommen. Nach dem
+  Einspielen einer Sicherung gilt die Reihenfolge aus der Sicherung; ein
+  bearbeitetes Konto behält seinen Platz, ein neues kommt ans Ende.
+- **Bankkonto wird Barkasse:** IBAN und BIC werden dabei geleert, statt
+  unsichtbar am Konto stehen zu bleiben.
+- Fünf neue Tests für das Sichern und Einspielen der eigenen Konten.
+
+### Paket 04 — Nummernvergabe (D-07, D-28, D-48, D-59, D-61, D-66, D-98, D-120)
+
+Nummern wurden an vielen Stellen als „Anzahl der Einträge plus eins“
+vergeben. Nach dem Löschen eines Eintrags entstand so eine Nummer doppelt.
+Jetzt gilt überall: höchste vorhandene Nummer plus eins
+(`src/utils/nummern.ts`, 21 Tests).
+
+- **Belege, Rechnungen, Zuwendungsbestätigungen** (`BE-`, `RE-`, `ZB-`):
+  höchste Nummer des Jahres plus eins.
+- **Bankimport** (`BK-`): zählt die vorhandenen Nummern des Jahres weiter,
+  statt bei jedem Import wieder bei 1 zu beginnen.
+- **Kontakt-Import:** Kontaktnummern aus der höchsten vorhandenen
+  fortgezählt.
+- **Mitgliedsnummer:** Vorschlag aus der höchsten vergebenen Nummer im
+  Schema des Bestands (z. B. `M-0107` → `M-0108`).
+- **Inventarnummer:** fortlaufend im Schema des Bestands (`INV-001`,
+  `INV-002` … oder z. B. `INV-FB-003`) statt einer Zufallszahl.
+- **Tagesordnungspunkte:** neuer Punkt = höchste TOP-Nummer plus eins; nach
+  dem Entfernen eines Punkts wird lückenlos durchgezählt (nur wenn alle
+  Punkte die Form „TOP n“ haben), die Beschlüsse des Punkts ziehen mit.
+- **Doppelte Nummern werden abgelehnt:** Mitgliedsnummer, Kontaktnummer und
+  Inventarnummer, ohne Rücksicht auf Groß-/Kleinschreibung. Das
+  Kontaktformular zeigt Fehler an der Kontaktnummer jetzt auch an.
+
 ---
 
 ## [1.1.0] — 2026-10-05 — Vereinfachung auf eine einzige Betriebsart
