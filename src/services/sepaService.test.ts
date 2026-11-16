@@ -144,6 +144,21 @@ describe('calculateCollectionAmount', () => {
     expect(SepaService.calculateCollectionAmount(m, 'monthly_1')).toBe(10);
   });
 
+  it('rundet geteilte Beiträge kaufmännisch auf ganze Cent', () => {
+    // 100,00 € Jahresbeitrag im Monatslauf: 8,333… → 8,33
+    expect(
+      SepaService.calculateCollectionAmount(makeMember({ feeAmount: 100, feePeriod: 'yearly' }), 'monthly_all')
+    ).toBe(8.33);
+    // 0,30 € Jahresbeitrag im Quartalslauf: 7,5 Cent → 8 Cent (halber Cent wird aufgerundet)
+    expect(
+      SepaService.calculateCollectionAmount(makeMember({ feeAmount: 0.3, feePeriod: 'yearly' }), 'quarterly')
+    ).toBe(0.08);
+    // 33,35 € Monatsbeitrag im Jahreslauf: genau 400,20 €
+    expect(
+      SepaService.calculateCollectionAmount(makeMember({ feeAmount: 33.35, feePeriod: 'monthly' }), 'yearly')
+    ).toBe(400.2);
+  });
+
   it('ergibt null bei fehlendem Beitrag', () => {
     expect(SepaService.calculateCollectionAmount(makeMember({ feeAmount: 0 }), 'yearly')).toBe(0);
   });
@@ -239,10 +254,98 @@ describe('Verwendungszweck', () => {
 // --- XML-Erzeugung --------------------------------------------------------
 
 describe('generateSepaXml', () => {
-  it('erzeugt eine Datei nach pain.008.001.02', () => {
+  it('erzeugt ohne Formatangabe eine Datei nach pain.008.001.08', () => {
+    // Das neue Format ist der Standard: Die Bank des Vereins hat die alte
+    // Datei (.02) im November 2026 abgewiesen.
     const xml = SepaService.generateSepaXml(RUN_CONFIG, [makeItem()]);
-    expect(xml).toContain('urn:iso:std:iso:20022:tech:xsd:pain.008.001.02');
+    expect(xml).toContain('<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.008.001.08">');
     expect(xml).toContain('<PmtMtd>DD</PmtMtd>');
+    // Im neuen Format heißt das BIC-Element BICFI (Bank des Vereins und des Mitglieds).
+    expect(xml.match(/<BICFI>COBADEFFXXX<\/BICFI>/g)).toHaveLength(2);
+    expect(xml).not.toContain('<BIC>');
+  });
+
+  it('schreibt auf Wunsch das alte Format pain.008.001.02', () => {
+    const xml = SepaService.generateSepaXml({ ...RUN_CONFIG, format: 'pain.008.001.02' }, [makeItem()]);
+    expect(xml).toContain('<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.008.001.02">');
+    expect(xml.match(/<BIC>COBADEFFXXX<\/BIC>/g)).toHaveLength(2);
+    expect(xml).not.toContain('BICFI');
+  });
+
+  it('enthält in keinem Format eine schemaLocation-Angabe', () => {
+    for (const format of ['pain.008.001.08', 'pain.008.001.02'] as const) {
+      const xml = SepaService.generateSepaXml({ ...RUN_CONFIG, format }, [makeItem()]);
+      expect(xml).not.toContain('schemaLocation');
+    }
+  });
+
+  it('bildet je Mandatsfolge einen eigenen Zahlungsblock', () => {
+    // Vorher stand fest RCUR über allen Posten. Erst- und Folgelastschriften
+    // gehören in getrennte Blöcke, jeder mit eigener Anzahl und Summe.
+    const xml = SepaService.generateSepaXml(RUN_CONFIG, [
+      makeItem({ amount: 10, sequenceType: 'RCUR' }),
+      makeItem({ memberNumber: 'M-0002', amount: 20.5, sequenceType: 'FRST', endToEndId: 'E2E-2' }),
+      makeItem({ memberNumber: 'M-0003', amount: 30, sequenceType: 'RCUR', endToEndId: 'E2E-3' })
+    ]);
+    const bloecke = xml.split('<PmtInf>').slice(1);
+    expect(bloecke).toHaveLength(2);
+    // Reihenfolge: Erstlastschrift vor Folgelastschrift
+    expect(bloecke[0]).toContain('<SeqTp>FRST</SeqTp>');
+    expect(bloecke[0]).toContain('<NbOfTxs>1</NbOfTxs>');
+    expect(bloecke[0]).toContain('<CtrlSum>20.50</CtrlSum>');
+    expect(bloecke[0].match(/<DrctDbtTxInf>/g)).toHaveLength(1);
+    expect(bloecke[1]).toContain('<SeqTp>RCUR</SeqTp>');
+    expect(bloecke[1]).toContain('<NbOfTxs>2</NbOfTxs>');
+    expect(bloecke[1]).toContain('<CtrlSum>40.00</CtrlSum>');
+    expect(bloecke[1].match(/<DrctDbtTxInf>/g)).toHaveLength(2);
+    // Kopf: Gesamtzahl und Gesamtsumme über alle Blöcke
+    const kopf = xml.split('<PmtInf>')[0];
+    expect(kopf).toContain('<NbOfTxs>3</NbOfTxs>');
+    expect(kopf).toContain('<CtrlSum>60.50</CtrlSum>');
+    // Jeder Block braucht eine eigene Kennung
+    const ids = [...xml.matchAll(/<PmtInfId>([^<]+)<\/PmtInfId>/g)].map(m => m[1]);
+    expect(new Set(ids).size).toBe(2);
+    expect(ids[0].endsWith('-FRST')).toBe(true);
+    expect(ids[1].endsWith('-RCUR')).toBe(true);
+  });
+
+  it('behandelt eine unbekannte Mandatsfolge als Folgelastschrift', () => {
+    const xml = SepaService.generateSepaXml(RUN_CONFIG, [
+      makeItem({ sequenceType: undefined as unknown as 'RCUR' })
+    ]);
+    expect(xml).toContain('<SeqTp>RCUR</SeqTp>');
+  });
+
+  it('schreibt Kennungen ohne Unterstrich und mit höchstens 35 Zeichen', () => {
+    // Der Unterstrich (z. B. aus „monthly_15") gehört nicht zum Zeichensatz
+    // der Banken; 35 Zeichen sind die Obergrenze des Formats.
+    const xml = SepaService.generateSepaXml(
+      { ...RUN_CONFIG, periodFilter: 'monthly_15' },
+      [
+        makeItem({ sequenceType: 'FRST', endToEndId: 'E2E_M-0001_202610_' + 'X'.repeat(40) }),
+        makeItem({ memberNumber: 'M-0002', endToEndId: 'E2E-2' })
+      ]
+    );
+    const ids = [
+      ...xml.matchAll(/<(MsgId|PmtInfId|EndToEndId)>([^<]*)<\/\1>/g)
+    ].map(m => m[2]);
+    expect(ids).toHaveLength(5);
+    for (const id of ids) {
+      expect(id).not.toContain('_');
+      expect(id.length).toBeLessThanOrEqual(35);
+      expect(id.length).toBeGreaterThan(0);
+    }
+    expect(xml).toContain('<PmtInfId>PMT-monthly-15-2026-2026-10-01-FRST</PmtInfId>');
+  });
+
+  it('summiert viele Kleinbeträge ohne Gleitkomma-Abweichung', () => {
+    // 0,10 + 0,20 ergibt mit Kommazahlen 0,30000000000000004. In Cent
+    // gerechnet stimmt die Summe immer.
+    const items = Array.from({ length: 30 }, (_, n) =>
+      makeItem({ memberNumber: `M-${n}`, amount: n % 2 === 0 ? 0.1 : 0.2, endToEndId: `E2E-${n}` })
+    );
+    const xml = SepaService.generateSepaXml(RUN_CONFIG, items);
+    expect(xml.match(/<CtrlSum>4\.50<\/CtrlSum>/g)).toHaveLength(2);
   });
 
   it('meldet Anzahl und Kontrollsumme übereinstimmend', () => {

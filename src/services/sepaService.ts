@@ -6,9 +6,38 @@ import {
   ClubSettings,
   SepaCollectionItem,
   SepaRunConfig,
-  SepaPeriodFilter
+  SepaPeriodFilter,
+  SepaFormat
 } from '../types';
 import { saveBlobAs, savePdfAs } from '../utils/fileExportHelper';
+
+// Geldbeträge werden intern in ganzen Cent gerechnet. Mit Kommazahlen
+// (Gleitkomma) kann z. B. 0,1 + 0,2 = 0,30000000000000004 herauskommen;
+// bei vielen Posten oder beim Teilen eines Beitrags könnte die Rundung
+// dadurch um einen Cent danebenliegen, und die Bank weist eine Datei ab,
+// deren Kontrollsumme nicht zur Summe der Einzelbeträge passt.
+const toCents = (amount: number): number => Math.round(amount * 100);
+const centsToString = (cents: number): string => (cents / 100).toFixed(2);
+
+/** Die beiden unterstützten Dateiformate und worin sie sich unterscheiden. */
+export const SEPA_FORMATS: Record<SepaFormat, { namespace: string; bicElement: string; label: string }> = {
+  'pain.008.001.08': {
+    namespace: 'urn:iso:std:iso:20022:tech:xsd:pain.008.001.08',
+    bicElement: 'BICFI',
+    label: 'Neu (pain.008.001.08)'
+  },
+  'pain.008.001.02': {
+    namespace: 'urn:iso:std:iso:20022:tech:xsd:pain.008.001.02',
+    bicElement: 'BIC',
+    label: 'Alt (pain.008.001.02)'
+  }
+};
+export const DEFAULT_SEPA_FORMAT: SepaFormat = 'pain.008.001.08';
+
+// Reihenfolge der Zahlungsblöcke in der Datei: Erst-, einmalige, Folge-,
+// letzte Lastschrift.
+const SEQUENCE_TYPES = ['FRST', 'OOFF', 'RCUR', 'FNAL'] as const;
+type SequenceType = (typeof SEQUENCE_TYPES)[number];
 
 export const SepaService = {
   /**
@@ -160,36 +189,42 @@ export const SepaService = {
     const rawFee = member.feeAmount || 0;
     if (rawFee <= 0) return 0;
 
+    // Teilen und Vervielfachen in ganzen Cent, kaufmännisch gerundet
+    // (ab einem halben Cent aufwärts), wie in der Android-Fassung.
+    const feeCents = toCents(rawFee);
+    const div = (n: number): number => Math.round(feeCents / n) / 100;
+    const mul = (n: number): number => (feeCents * n) / 100;
+
     // If filter is for monthly collection (1st or 15th)
     if (filter === 'monthly_1' || filter === 'monthly_15' || filter === 'monthly_all') {
       if (member.feePeriod === 'monthly') return rawFee;
-      if (member.feePeriod === 'yearly') return parseFloat((rawFee / 12).toFixed(2));
-      if (member.feePeriod === 'quarterly') return parseFloat((rawFee / 3).toFixed(2));
-      if (member.feePeriod === 'half_yearly') return parseFloat((rawFee / 6).toFixed(2));
+      if (member.feePeriod === 'yearly') return div(12);
+      if (member.feePeriod === 'quarterly') return div(3);
+      if (member.feePeriod === 'half_yearly') return div(6);
     }
 
     // If filter is quarterly
     if (filter === 'quarterly') {
       if (member.feePeriod === 'quarterly') return rawFee;
-      if (member.feePeriod === 'yearly') return parseFloat((rawFee / 4).toFixed(2));
-      if (member.feePeriod === 'monthly') return parseFloat((rawFee * 3).toFixed(2));
-      if (member.feePeriod === 'half_yearly') return parseFloat((rawFee / 2).toFixed(2));
+      if (member.feePeriod === 'yearly') return div(4);
+      if (member.feePeriod === 'monthly') return mul(3);
+      if (member.feePeriod === 'half_yearly') return div(2);
     }
 
     // If filter is half-yearly
     if (filter === 'half_yearly') {
       if (member.feePeriod === 'half_yearly') return rawFee;
-      if (member.feePeriod === 'yearly') return parseFloat((rawFee / 2).toFixed(2));
-      if (member.feePeriod === 'monthly') return parseFloat((rawFee * 6).toFixed(2));
-      if (member.feePeriod === 'quarterly') return parseFloat((rawFee * 2).toFixed(2));
+      if (member.feePeriod === 'yearly') return div(2);
+      if (member.feePeriod === 'monthly') return mul(6);
+      if (member.feePeriod === 'quarterly') return mul(2);
     }
 
     // If filter is yearly
     if (filter === 'yearly') {
       if (member.feePeriod === 'yearly') return rawFee;
-      if (member.feePeriod === 'monthly') return parseFloat((rawFee * 12).toFixed(2));
-      if (member.feePeriod === 'quarterly') return parseFloat((rawFee * 4).toFixed(2));
-      if (member.feePeriod === 'half_yearly') return parseFloat((rawFee * 2).toFixed(2));
+      if (member.feePeriod === 'monthly') return mul(12);
+      if (member.feePeriod === 'quarterly') return mul(4);
+      if (member.feePeriod === 'half_yearly') return mul(2);
     }
 
     // Fallback: full nominal fee
@@ -360,7 +395,17 @@ export const SepaService = {
   },
 
   /**
-   * Generates a fully compliant SEPA pain.008.001.02 XML file (EPC & DK standard)
+   * Erzeugt die SEPA-Lastschriftdatei (Basislastschrift, CORE).
+   *
+   * Format: pain.008.001.08 (Standard) oder das frühere pain.008.001.02,
+   * je nach config.format. Die Sparkasse des Vereins hat die .02-Datei im
+   * November 2026 mit „XML-Dokument ist nicht gültig" abgewiesen und die
+   * .08-Datei der Android-Fassung angenommen. Der Aufbau hier folgt dieser
+   * Android-Datei (SepaService.kt).
+   *
+   * Je Mandatsfolge (Erst-, einmalige, Folge-, letzte Lastschrift) entsteht
+   * ein eigener Zahlungsblock. Vorher stand fest „RCUR" (Folgelastschrift)
+   * über allen Posten, egal was beim Mitglied eingetragen war.
    */
   generateSepaXml(config: SepaRunConfig, items: SepaCollectionItem[]): string {
     const activeItems = items.filter(i => i.selected && i.isValid && i.amount > 0);
@@ -368,11 +413,25 @@ export const SepaService = {
       throw new Error('Keine gültigen Lastschriftposten ausgewählt.');
     }
 
-    const totalAmount = activeItems.reduce((sum, item) => sum + item.amount, 0);
+    const fmt = SEPA_FORMATS[config.format ?? DEFAULT_SEPA_FORMAT] ?? SEPA_FORMATS[DEFAULT_SEPA_FORMAT];
+    const bicTag = fmt.bicElement;
+
+    const sumCents = (list: SepaCollectionItem[]): number =>
+      list.reduce((sum, item) => sum + toCents(item.amount), 0);
+
+    // Kennungen (Nachricht, Zahlungsblock, Posten): nur Zeichen aus dem
+    // Zeichensatz der Banken – insbesondere kein Unterstrich – und höchstens
+    // 35 Stellen. Ein Zusatz (z. B. „-FRST") bleibt beim Kürzen erhalten.
+    const kennung = (basis: string, zusatz = ''): string => {
+      const roh = basis.replace(/_/g, '-').replace(/[^A-Za-z0-9+?/:().,' -]/g, '');
+      return roh.slice(0, 35 - zusatz.length) + zusatz;
+    };
+
     const count = activeItems.length;
     const now = new Date();
+    const zwei = (n: number): string => n.toString().padStart(2, '0');
     const creDtTm = now.toISOString().split('.')[0]; // YYYY-MM-DDTHH:MM:SS
-    const msgId = `MSG-${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}-${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}-${Math.floor(Math.random() * 1000)}`;
+    const msgId = `MSG-${now.getFullYear()}${zwei(now.getMonth() + 1)}${zwei(now.getDate())}-${zwei(now.getHours())}${zwei(now.getMinutes())}${zwei(now.getSeconds())}-${Math.floor(Math.random() * 1000)}`;
     const pmtInfId = `PMT-${config.periodFilter}-${config.targetYear}-${config.executionDate}`;
 
     const cleanCreditorIban = config.creditorIban.toUpperCase().replace(/\s/g, '');
@@ -380,8 +439,7 @@ export const SepaService = {
     const cleanCreditorId = config.creditorId.toUpperCase().trim();
     const sanitizedClubName = this.sanitizeText(config.creditorName || 'Verein', 70);
 
-    // Build Transaction XML items
-    const txXmlParts = activeItems.map(item => {
+    const buildTx = (item: SepaCollectionItem): string => {
       const sanitizedDebtorName = this.sanitizeText(item.accountHolder, 70);
       const sanitizedRemittance = this.sanitizeText(item.remittanceInfo, 140);
       const cleanDebtorIban = item.iban.toUpperCase().replace(/\s/g, '');
@@ -389,9 +447,9 @@ export const SepaService = {
 
       return `      <DrctDbtTxInf>
         <PmtId>
-          <EndToEndId>${this.escapeXml(item.endToEndId)}</EndToEndId>
+          <EndToEndId>${this.escapeXml(kennung(item.endToEndId))}</EndToEndId>
         </PmtId>
-        <InstdAmt Ccy="EUR">${item.amount.toFixed(2)}</InstdAmt>
+        <InstdAmt Ccy="EUR">${centsToString(toCents(item.amount))}</InstdAmt>
         <DrctDbtTx>
           <MndtRltdInf>
             <MndtId>${this.escapeXml(item.mandateReference)}</MndtId>
@@ -400,7 +458,7 @@ export const SepaService = {
         </DrctDbtTx>
         <DbtrAgt>
           <FinInstnId>
-            ${cleanDebtorBic ? `<BIC>${cleanDebtorBic}</BIC>` : '<Othr><Id>NOTPROVIDED</Id></Othr>'}
+            ${cleanDebtorBic ? `<${bicTag}>${cleanDebtorBic}</${bicTag}>` : '<Othr><Id>NOTPROVIDED</Id></Othr>'}
           </FinInstnId>
         </DbtrAgt>
         <Dbtr>
@@ -415,26 +473,29 @@ export const SepaService = {
           <Ustrd>${this.escapeXml(sanitizedRemittance)}</Ustrd>
         </RmtInf>
       </DrctDbtTxInf>`;
-    });
+    };
 
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.008.001.02" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:iso:std:iso:20022:tech:xsd:pain.008.001.02 pain.008.001.02.xsd">
-  <CstmrDrctDbtInitn>
-    <GrpHdr>
-      <MsgId>${this.escapeXml(msgId)}</MsgId>
-      <CreDtTm>${creDtTm}</CreDtTm>
-      <NbOfTxs>${count}</NbOfTxs>
-      <CtrlSum>${totalAmount.toFixed(2)}</CtrlSum>
-      <InitgPty>
-        <Nm>${this.escapeXml(sanitizedClubName)}</Nm>
-      </InitgPty>
-    </GrpHdr>
-    <PmtInf>
-      <PmtInfId>${this.escapeXml(pmtInfId)}</PmtInfId>
+    // Posten nach Mandatsfolge gruppieren. Unbekannte oder fehlende Angaben
+    // gelten als Folgelastschrift (RCUR), wie bisher.
+    const folgeVon = (item: SepaCollectionItem): SequenceType => {
+      const f = (item.sequenceType || '').trim().toUpperCase() as SequenceType;
+      return SEQUENCE_TYPES.includes(f) ? f : 'RCUR';
+    };
+    const gruppen = new Map<SequenceType, SepaCollectionItem[]>();
+    for (const item of activeItems) {
+      const f = folgeVon(item);
+      gruppen.set(f, [...(gruppen.get(f) ?? []), item]);
+    }
+
+    const bloecke = SEQUENCE_TYPES.filter(f => gruppen.has(f)).map(f => {
+      const posten = gruppen.get(f)!;
+      const id = gruppen.size === 1 ? kennung(pmtInfId) : kennung(pmtInfId, `-${f}`);
+      return `    <PmtInf>
+      <PmtInfId>${this.escapeXml(id)}</PmtInfId>
       <PmtMtd>DD</PmtMtd>
       <BtchBookg>true</BtchBookg>
-      <NbOfTxs>${count}</NbOfTxs>
-      <CtrlSum>${totalAmount.toFixed(2)}</CtrlSum>
+      <NbOfTxs>${posten.length}</NbOfTxs>
+      <CtrlSum>${centsToString(sumCents(posten))}</CtrlSum>
       <PmtTpInf>
         <SvcLvl>
           <Cd>SEPA</Cd>
@@ -442,7 +503,7 @@ export const SepaService = {
         <LclInstrm>
           <Cd>CORE</Cd>
         </LclInstrm>
-        <SeqTp>RCUR</SeqTp>
+        <SeqTp>${f}</SeqTp>
       </PmtTpInf>
       <ReqdColltnDt>${this.formatDate(config.executionDate)}</ReqdColltnDt>
       <Cdtr>
@@ -455,7 +516,7 @@ export const SepaService = {
       </CdtrAcct>
       <CdtrAgt>
         <FinInstnId>
-          ${cleanCreditorBic ? `<BIC>${cleanCreditorBic}</BIC>` : '<Othr><Id>NOTPROVIDED</Id></Othr>'}
+          ${cleanCreditorBic ? `<${bicTag}>${cleanCreditorBic}</${bicTag}>` : '<Othr><Id>NOTPROVIDED</Id></Othr>'}
         </FinInstnId>
       </CdtrAgt>
       <CdtrSchmeId>
@@ -470,8 +531,25 @@ export const SepaService = {
           </PrvtId>
         </Id>
       </CdtrSchmeId>
-${txXmlParts.join('\n')}
-    </PmtInf>
+${posten.map(buildTx).join('\n')}
+    </PmtInf>`;
+    });
+
+    // Ohne xsi:schemaLocation: Die Angabe ist freiwillig, und die von der
+    // Bank angenommene Android-Datei enthält sie nicht.
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="${fmt.namespace}">
+  <CstmrDrctDbtInitn>
+    <GrpHdr>
+      <MsgId>${this.escapeXml(kennung(msgId))}</MsgId>
+      <CreDtTm>${creDtTm}</CreDtTm>
+      <NbOfTxs>${count}</NbOfTxs>
+      <CtrlSum>${centsToString(sumCents(activeItems))}</CtrlSum>
+      <InitgPty>
+        <Nm>${this.escapeXml(sanitizedClubName)}</Nm>
+      </InitgPty>
+    </GrpHdr>
+${bloecke.join('\n')}
   </CstmrDrctDbtInitn>
 </Document>`;
 
@@ -500,7 +578,7 @@ ${txXmlParts.join('\n')}
     // unterschiedliche Posten und Summen ausweisen, obwohl das Protokoll
     // genau der Freigabe zur Bankeinreichung dient.
     const activeItems = items.filter(i => i.selected && i.isValid && i.amount > 0);
-    const totalAmount = activeItems.reduce((s, i) => s + i.amount, 0);
+    const totalAmount = activeItems.reduce((s, i) => s + toCents(i.amount), 0) / 100;
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 

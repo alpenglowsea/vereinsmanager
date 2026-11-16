@@ -4,6 +4,53 @@ Alle relevanten Änderungen und Versionsstände des VereinsManagers werden in di
 
 ---
 
+## [Unveröffentlicht] — Fehlerbehebungen nach dem Abgleich mit der Android-Fassung
+
+Beim Bau der Android-App sind Fehler der Desktop-Fassung aufgefallen
+(Liste: `claude/desktop-aenderungen.md`, Reihenfolge:
+`claude/desktop-umsetzungsplan.md`). Sie werden paketweise behoben.
+
+### Paket 01 — SEPA-Datei (D-53, D-20)
+
+- **Neues Dateiformat pain.008.001.08 (D-53):** Die Lastschriftdatei wird
+  jetzt im aktuellen Format geschrieben. Die bisherige Datei
+  (pain.008.001.02) wurde von der Bank mit „XML-Dokument ist nicht gültig“
+  abgewiesen. Im Beitragslauf gibt es ein neues Feld „Dateiformat“; das alte
+  Format bleibt wählbar. Unterschiede: neuer Namensraum, `BICFI` statt `BIC`,
+  keine `schemaLocation`-Angabe mehr, Kennungen ohne Unterstrich und mit
+  höchstens 35 Zeichen (vorher z. B. `PMT-monthly_15-…`).
+- **Ein Zahlungsblock je Mandatsfolge (D-20):** Bisher stand über allen Posten
+  fest „Folgelastschrift“ (RCUR), egal was beim Mitglied eingetragen war.
+  Jetzt bilden Erst-, einmalige, Folge- und letzte Lastschriften je einen
+  eigenen Block mit eigener Anzahl und Kontrollsumme.
+- **Rechnen in ganzen Cent:** Kontrollsummen, das Prüfprotokoll und das
+  Teilen eines Beitrags (z. B. Jahresbeitrag im Monatslauf) rechnen in Cent
+  statt mit Kommazahlen; Rundungsabweichungen von einem Cent sind damit
+  ausgeschlossen.
+- Tests: sieben neue in `sepaService.test.ts` (Formate, Blöcke je Folge,
+  Kennungen, Rundung).
+- Nicht gegen die offizielle Schemadatei der Deutschen Kreditwirtschaft
+  geprüft; der Aufbau folgt der Android-Datei, die die Sparkasse des Vereins
+  am 10.11.2026 angenommen hat.
+
+### Paket 02 — Formulare verlieren nichts (D-13, D-43, D-60, D-116)
+
+Vier Formulare bauten den Datensatz beim Speichern aus ihren Eingabefeldern
+neu auf. Alles, was das Formular nicht kennt, ging dabei verloren.
+
+- **Sitzung (D-116):** Ein unterschriebenes Protokoll verlor beim Bearbeiten
+  seine Unterschriften, den Verweis auf das archivierte PDF und die Angabe
+  zur eigenen Vorlage. Sie bleiben jetzt erhalten.
+- **Rechnung (D-43):** Zahldatum, Zahlart, die verknüpfte Buchung und der
+  Verweis auf das abgelegte PDF bleiben beim Bearbeiten erhalten.
+- **Buchung (D-13) und Kontakt (D-60):** Felder, die das Formular nicht
+  kennt (etwa aus der Android-Fassung), bleiben erhalten. Beim Kontakt gilt
+  das auch für Adresse, Bankverbindung und Ansprechpartner. Eine vollständig
+  geleerte Bankverbindung wird weiterhin entfernt.
+- Gemeinsame Hilfsfunktion `src/utils/keepUnknownFields.ts` mit acht Tests.
+
+---
+
 ## [1.1.0] — 2026-10-05 — Vereinfachung auf eine einzige Betriebsart
 
 Grundlegende Umstellung: Statt drei Betriebsarten (lokal allein / lokal mit

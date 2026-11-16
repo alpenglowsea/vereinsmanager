@@ -6,9 +6,10 @@ import {
   SepaPeriodFilter,
   SepaCollectionItem,
   SepaRunConfig,
+  SepaFormat,
   SepaRunHistory
 } from '../types';
-import { SepaService } from '../services/sepaService';
+import { SepaService, SEPA_FORMATS, DEFAULT_SEPA_FORMAT } from '../services/sepaService';
 import { StorageService } from '../services/storage';
 import {
   CreditCard,
@@ -70,6 +71,10 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
   }, []);
 
   const [executionDate, setExecutionDate] = useState<string>(defaultExecDate);
+  // Dateiformat der Lastschriftdatei. Standard ist das neue Format, das die
+  // Banken seit November 2026 verlangen; das alte bleibt wählbar, falls eine
+  // Bank es noch erwartet.
+  const [sepaFormat, setSepaFormat] = useState<SepaFormat>(DEFAULT_SEPA_FORMAT);
   const [customTitle, setCustomTitle] = useState<string>('');
   const [remittanceTemplate, setRemittanceTemplate] = useState<string>(
     'Mitgliedsbeitrag {month}/{year} - {memberNumber}'
@@ -191,7 +196,8 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
     const invalidCount = items.filter(i => !i.isValid).length;
 
     const totalSelectedAmount = selectedItems.reduce((sum, i) => sum + i.amount, 0);
-    const validSelectedAmount = validSelected.reduce((sum, i) => sum + i.amount, 0);
+    // In ganzen Cent summieren (keine Gleitkomma-Reste in der Anzeige)
+    const validSelectedAmount = validSelected.reduce((sum, i) => sum + Math.round(i.amount * 100), 0) / 100;
 
     return {
       totalCount,
@@ -245,7 +251,8 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
     creditorIban: settings.creditorIban || '',
     creditorBic: settings.creditorBic,
     remittanceTemplate,
-    autoBook: false
+    autoBook: false,
+    format: sepaFormat
   });
 
   // Generate XML and trigger download
@@ -391,7 +398,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                 SEPA-Lastschrift & Beitragslauf
               </h1>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
-                pain.008.001.02 Standard
+                {sepaFormat}
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
@@ -679,6 +686,27 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                   onChange={e => setExecutionDate(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                 />
+              </div>
+
+              {/* Dateiformat */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
+                  Dateiformat
+                </label>
+                <select
+                  value={sepaFormat}
+                  onChange={e => setSepaFormat(e.target.value as SepaFormat)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
+                >
+                  {(Object.keys(SEPA_FORMATS) as SepaFormat[]).map(f => (
+                    <option key={f} value={f}>
+                      {SEPA_FORMATS[f].label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">
+                  Banken verlangen seit November 2026 das neue Format. Das alte nur wählen, wenn Ihre Bank die neue Datei ablehnt.
+                </p>
               </div>
 
               {/* Remittance Info Template */}
@@ -1189,7 +1217,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 text-sm dark:text-white">
-                    SEPA-XML Vorschau (pain.008.001.02)
+                    SEPA-XML Vorschau ({sepaFormat})
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     ISO 20022 XML-Dokument für {stats.validSelectedCount} Lastschriftposten

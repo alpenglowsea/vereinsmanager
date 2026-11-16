@@ -129,7 +129,7 @@ Rechtssichere und transparente Buchführung für den ehrenamtlichen Schatzmeiste
   * **Mauszeiger-Tooltips:** Dynamische Tooltips zeigen bei überlangen Kontobezeichnungen und IBANs den vollen Text direkt am Mauszeiger.
 * **Individuelle Sachkonten & Kategorien:**
   * Freie Anlage und Verwaltung von Buchungskategorien je Sphäre für eine präzise Kontierung.
-* **SEPA-Lastschriftlauf (pain.008.001.02 XML):**
+* **SEPA-Lastschriftlauf (pain.008.001.08 XML, altes Format .02 wählbar):**
   * Vollautomatischer Einzugslauf für Mitgliedsbeiträge nach ISO 20022.
   * Automatische Unterscheidung von Erst- (`FRST`), Folge- (`RCUR`) und Einmallastschriften (`OOFF`).
   * Automatische Anlage aller Buchungssätze im Journal nach erfolgreicher Generierung.
@@ -274,7 +274,7 @@ Der automatische Einzug von Mitgliedsbeiträgen erfolgt über den europäischen 
      * `FRST` (Erstlastschrift): Wenn zum Mandat noch keine vorherige Lastschrift verbucht wurde.
      * `RCUR` (Folgelastschrift): Für alle regulären, wiederkehrenden Einzüge.
      * `OOFF` (Einmallastschrift): Für einmalige Sonderbeiträge oder Aufnahmegebühren.
-  4. **XML-Erstellung (`pain.008.001.02`):** Es wird eine standardisierte XML-Datei nach ISO 20022 erzeugt, die direkt bei Sparkassen, Volksbanken, der Bundesbank oder im Online-Banking (z. B. per HBCI/FinTS) eingereicht werden kann.
+  4. **XML-Erstellung (`pain.008.001.08`, wahlweise das frühere `pain.008.001.02`):** Es wird eine standardisierte XML-Datei nach ISO 20022 erzeugt, die direkt bei Sparkassen, Volksbanken, der Bundesbank oder im Online-Banking (z. B. per HBCI/FinTS) eingereicht werden kann.
   5. **Auto-Buchung:** Auf Wunsch erzeugt das System automatisch die passenden Buchungssätze im Beitragsjournal für alle selektierten Mitglieder.
 
 ---

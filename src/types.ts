@@ -289,7 +289,7 @@ export interface SepaCollectionItem {
   bankName?: string;
   mandateReference: string;
   mandateDate: string;
-  sequenceType: 'RCUR' | 'FRST' | 'OOFF';
+  sequenceType: 'RCUR' | 'FRST' | 'OOFF' | 'FNAL';
   amount: number;
   feePeriod: FeePeriod;
   department?: string; // Abteilung des Mitglieds (Filter in der SEPA-Ansicht)
@@ -300,6 +300,11 @@ export interface SepaCollectionItem {
   validationErrors: string[];
   selected: boolean;
 }
+
+// Dateiformat der SEPA-Lastschriftdatei. „.08" ist das aktuelle Format
+// (von den Banken seit November 2026 verlangt), „.02" das frühere.
+// Die Schreibweise entspricht der Android-Fassung (SepaFormat.wire).
+export type SepaFormat = 'pain.008.001.08' | 'pain.008.001.02';
 
 export interface SepaRunConfig {
   runId: string;
@@ -317,6 +322,8 @@ export interface SepaRunConfig {
   remittanceTemplate: string;
   targetAccountId?: string;
   autoBook: boolean;
+  /** Fehlt die Angabe, wird das aktuelle Format pain.008.001.08 geschrieben. */
+  format?: SepaFormat;
 }
 
 export interface SepaRunHistory {
