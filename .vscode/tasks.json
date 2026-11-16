@@ -1,0 +1,44 @@
+{
+  // Aufgaben für Visual Studio Code.
+  // Aufruf: Menü „Terminal → Aufgabe ausführen…" und eine Aufgabe wählen.
+  // „Prüfen" ist die Standard-Testaufgabe: „Terminal → Testaufgabe ausführen".
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Prüfen (npm run check)",
+      "detail": "Typprüfung, ESLint und alle Tests – vor jedem Commit",
+      "type": "shell",
+      "command": "npm run check",
+      "group": { "kind": "test", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Nur Tests (npm run test)",
+      "detail": "Nur die Vitest-Tests, ohne Typprüfung und ESLint",
+      "type": "shell",
+      "command": "npm run test",
+      "group": "test",
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "App starten: Entwicklungsserver (npm run dev)",
+      "detail": "Startet den lokalen Server; läuft weiter, bis das Terminal geschlossen wird",
+      "type": "shell",
+      "command": "npm run dev",
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
+    },
+    {
+      "label": "App starten: Desktop-Fenster (npm run tauri dev)",
+      "detail": "Startet die Desktop-Fassung im Entwicklungsmodus; braucht die Rust-Werkzeuge",
+      "type": "shell",
+      "command": "npm run tauri dev",
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
+    }
+  ]
+}

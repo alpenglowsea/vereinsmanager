@@ -25,6 +25,10 @@ export default tseslint.config(
       'src-tauri/**',
       'public/**',
       'coverage/**',
+      // Android-Fassung: Kotlin-Projekt mit eigenen Prüfwerkzeugen. Sein
+      // Build-Ordner enthält erzeugte JavaScript-Dateien (Testberichte),
+      // die hier nichts zu suchen haben.
+      'android/**',
     ],
   },
 
