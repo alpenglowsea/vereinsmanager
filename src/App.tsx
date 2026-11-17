@@ -639,8 +639,14 @@ export default function App() {
 
   const handleDeleteTransaction = async (id: string) => {
     await StorageService.deleteTransaction(id);
-    const updated = await StorageService.getTransactions();
+    // Mit der Buchung verschwindet ihr Beleg aus der Dokumentenverwaltung;
+    // deshalb auch die Dokumente neu laden.
+    const [updated, updatedDocs] = await Promise.all([
+      StorageService.getTransactions(),
+      StorageService.getDocuments()
+    ]);
     setTransactions(updated);
+    setDocuments(updatedDocs);
   };
 
   const handleBulkUpdateTransactions = async (ids: string[], updates: TransactionBulkUpdates) => {
@@ -651,8 +657,12 @@ export default function App() {
 
   const handleBulkDeleteTransactions = async (ids: string[]) => {
     await StorageService.deleteMultipleTransactions(ids);
-    const updated = await StorageService.getTransactions();
+    const [updated, updatedDocs] = await Promise.all([
+      StorageService.getTransactions(),
+      StorageService.getDocuments()
+    ]);
     setTransactions(updated);
+    setDocuments(updatedDocs);
   };
 
   // Camera Receipt Scanner Handlers
@@ -720,10 +730,23 @@ export default function App() {
     setAccounts(updated);
   };
 
-  const handleDeleteAccount = async (id: string) => {
-    await StorageService.deleteAccount(id);
-    const updated = await StorageService.getAccounts();
+  /**
+   * Gibt null bei Erfolg zurück, sonst die Meldung für das Kontenfenster
+   * (z. B. wenn Buchungen am Konto hängen und kein Zielkonto gewählt ist).
+   */
+  const handleDeleteAccount = async (id: string, uebertragenAuf?: string): Promise<string | null> => {
+    try {
+      await StorageService.deleteAccount(id, uebertragenAuf);
+    } catch (err: any) {
+      return err?.message || 'Das Konto konnte nicht gelöscht werden.';
+    }
+    const [updated, updatedTxs] = await Promise.all([
+      StorageService.getAccounts(),
+      StorageService.getTransactions()
+    ]);
     setAccounts(updated);
+    setTransactions(updatedTxs);
+    return null;
   };
 
   const handleReorderAccounts = async (reordered: FinancialAccount[]) => {
@@ -742,7 +765,13 @@ export default function App() {
   };
 
   const handleDeleteInventoryItem = async (id: string) => {
-    await StorageService.deleteInventoryItem(id);
+    try {
+      await StorageService.deleteInventoryItem(id);
+    } catch (err) {
+      // Noch an Mitglieder ausgegeben: Die Inventaransicht sperrt das Löschen
+      // schon vorher und nennt den Grund; der Speicher lehnt es zusätzlich ab.
+      console.warn('Gegenstand wurde nicht gelöscht:', err);
+    }
     const updated = await StorageService.getInventory();
     setInventory(updated);
   };
@@ -2289,6 +2318,7 @@ export default function App() {
       {accountManageOpen && (
         <AccountManageModal
           accounts={accounts}
+          transactions={transactions}
           onSaveAccount={handleSaveAccount}
           onDeleteAccount={handleDeleteAccount}
           onClose={() => setAccountManageOpen(false)}

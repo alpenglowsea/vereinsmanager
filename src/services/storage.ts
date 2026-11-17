@@ -40,6 +40,13 @@ import { getMembershipApplicationPdfDataUrl } from './membershipPdfService';
 import { AuthService } from './authService';
 import { customCategoryService } from './customCategoryService';
 import {
+  belegDokumentId,
+  inventarSperrText,
+  offeneAusgaben,
+  planeKontoLoeschen,
+  teileInventarAuswahl
+} from '../utils/loeschRegeln';
+import {
   STORES,
   SICHERUNGS_BEREICHE,
   SicherungsDaten,
@@ -1967,8 +1974,25 @@ export const StorageService = {
     await saveAllToStore(STORES.ACCOUNTS, withOrder);
   },
 
-  async deleteAccount(id: string): Promise<void> {
+  /**
+   * Löscht ein Konto. Hängen Buchungen daran, müssen sie auf ein anderes
+   * Konto übertragen werden (`uebertragenAuf`); ohne das wirft die Funktion
+   * mit einer verständlichen Meldung und ändert nichts. Vorher blieben die
+   * Buchungen ohne Konto zurück (D-31). Regeln: `planeKontoLoeschen`.
+   */
+  async deleteAccount(id: string, uebertragenAuf?: string | null): Promise<{ uebertragen: number }> {
+    const [konten, buchungen] = await Promise.all([
+      getAllFromStore<FinancialAccount>(STORES.ACCOUNTS),
+      getAllFromStore<Transaction>(STORES.TRANSACTIONS)
+    ]);
+    const plan = planeKontoLoeschen(id, konten, buchungen, uebertragenAuf);
+    if (!plan.ok) throw new Error(plan.fehler || 'Das Konto kann nicht gelöscht werden.');
+    const now = new Date().toISOString();
+    for (const b of plan.geaendert) {
+      await putItemToStore(STORES.TRANSACTIONS, { ...b, updatedAt: now });
+    }
     await deleteItemFromStore(STORES.ACCOUNTS, id);
+    return { uebertragen: plan.geaendert.length };
   },
 
   // Transactions
@@ -2023,8 +2047,25 @@ export const StorageService = {
     return this.saveBatchTransactions(transactions);
   },
 
+  /**
+   * Entfernt das Beleg-Dokument, das `saveTransaction` zu einer Buchung in
+   * der Dokumentenverwaltung angelegt hat. Vorher blieb es nach dem Löschen
+   * der Buchung als Waise stehen (D-08). Gelöscht wird nur, was wirklich ein
+   * solcher Beleg ist; ein Dokument, das jemand von Hand abgelegt hat, bleibt.
+   */
+  async entferneBelegDokument(buchungsId: string): Promise<void> {
+    const docId = belegDokumentId(buchungsId);
+    const doc = await getItemFromStore<ClubDocument>(STORES.DOCUMENTS, docId);
+    if (doc && (doc.isReceipt || doc.transactionId === buchungsId)) {
+      await deleteItemFromStore(STORES.DOCUMENTS, docId);
+    }
+  },
+
   async deleteTransaction(id: string): Promise<void> {
     await deleteItemFromStore(STORES.TRANSACTIONS, id);
+    await this.entferneBelegDokument(id).catch(err =>
+      console.warn('Beleg-Dokument konnte nicht entfernt werden:', err)
+    );
   },
 
   async deleteMultipleTransactions(ids: string[]): Promise<number> {
@@ -2032,6 +2073,12 @@ export const StorageService = {
     const allTxs = await this.getTransactions();
     const remaining = allTxs.filter(t => !idSet.has(t.id));
     await saveAllToStore(STORES.TRANSACTIONS, remaining);
+    // Auch beim Sammellöschen die Beleg-Dokumente mitnehmen (D-30).
+    for (const id of ids) {
+      await this.entferneBelegDokument(id).catch(err =>
+        console.warn('Beleg-Dokument konnte nicht entfernt werden:', err)
+      );
+    }
     return ids.length;
   },
 
@@ -2138,16 +2185,43 @@ export const StorageService = {
     }
   },
 
+  /**
+   * Löscht einen Gegenstand. Ist er noch an Mitglieder ausgegeben, wirft die
+   * Funktion mit einer Meldung und löscht nichts; sonst blieben Ausgaben von
+   * Material zurück, das es nicht mehr gibt (D-104).
+   */
   async deleteInventoryItem(id: string): Promise<void> {
+    const ausgaben = await getAllFromStore<MemberInventoryAssignment>(STORES.MEMBER_INVENTORY);
+    const offen = offeneAusgaben(id, ausgaben);
+    if (offen.ausgaben > 0) {
+      const item = await getItemFromStore<InventoryItem>(STORES.INVENTORY, id);
+      throw new Error(inventarSperrText(item?.name || 'Der Gegenstand', offen));
+    }
     await deleteItemFromStore(STORES.INVENTORY, id);
   },
 
+  /**
+   * Sammellöschen: Gegenstände, die noch ausgegeben sind, werden übersprungen.
+   * Die Rückgabe ist die Zahl der tatsächlich gelöschten; wer wissen will,
+   * was übersprungen wurde, nutzt `deleteMultipleInventoryItemsMitBericht`.
+   */
   async deleteMultipleInventoryItems(ids: string[]): Promise<number> {
-    const idSet = new Set(ids);
-    const allItems = await this.getInventory();
+    return (await this.deleteMultipleInventoryItemsMitBericht(ids)).geloescht;
+  },
+
+  async deleteMultipleInventoryItemsMitBericht(
+    ids: string[]
+  ): Promise<{ geloescht: number; uebersprungen: string[] }> {
+    const [allItems, ausgaben] = await Promise.all([
+      this.getInventory(),
+      getAllFromStore<MemberInventoryAssignment>(STORES.MEMBER_INVENTORY)
+    ]);
+    const { loeschbar, gesperrt } = teileInventarAuswahl(ids, ausgaben);
+    const idSet = new Set(loeschbar);
     const remaining = allItems.filter(i => !idSet.has(i.id));
-    await saveAllToStore(STORES.INVENTORY, remaining);
-    return ids.length;
+    if (loeschbar.length > 0) await saveAllToStore(STORES.INVENTORY, remaining);
+    const namen = new Map<string, string>(allItems.map(i => [i.id, i.name] as [string, string]));
+    return { geloescht: loeschbar.length, uebersprungen: gesperrt.map(id => namen.get(id) || id) };
   },
 
   async bulkUpdateInventoryItems(
@@ -2769,11 +2843,15 @@ export const StorageService = {
     await saveAllToStore(STORES.MEETINGS, meetings);
   },
 
+  /**
+   * Löscht eine Sitzung. Ein archiviertes Protokoll (`documentId`, ein PDF in
+   * der Dokumentenverwaltung) bleibt dabei bewusst stehen, wie in der
+   * Android-Fassung: Das abgelegte, unterschriebene Protokoll ist ein eigenes
+   * Dokument des Vereins und soll nicht still mit verschwinden. Vorher wurde
+   * es ohne Rückfrage mitgelöscht (D-124). Wer es nicht mehr braucht, löscht
+   * es in der Dokumentenverwaltung.
+   */
   async deleteMeeting(id: string): Promise<void> {
-    const existing = await getItemFromStore<Meeting>(STORES.MEETINGS, id);
-    if (existing?.documentId) {
-      await this.deleteDocument(existing.documentId).catch(() => {});
-    }
     await deleteItemFromStore(STORES.MEETINGS, id);
   },
 

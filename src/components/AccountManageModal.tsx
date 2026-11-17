@@ -1,6 +1,7 @@
+import { buchungenAmKonto } from '../utils/loeschRegeln';
 import { keepUnknownFields } from '../utils/keepUnknownFields';
 import React, { useState } from 'react';
-import { FinancialAccount, AccountType } from '../types';
+import { FinancialAccount, AccountType, Transaction } from '../types';
 import {
   X,
   Building2,
@@ -13,17 +14,48 @@ import {
 
 interface AccountManageModalProps {
   accounts: FinancialAccount[];
+  /** Alle Buchungen; damit erkennt das Fenster, ob an einem Konto Buchungen hängen. */
+  transactions?: Transaction[];
   onSaveAccount: (account: FinancialAccount) => void;
-  onDeleteAccount: (id: string) => void;
+  /** Gibt null bei Erfolg zurück, sonst die Fehlermeldung. */
+  onDeleteAccount: (id: string, uebertragenAuf?: string) => Promise<string | null>;
   onClose: () => void;
 }
 
 export const AccountManageModal: React.FC<AccountManageModalProps> = ({
   accounts,
+  transactions = [],
   onSaveAccount,
   onDeleteAccount,
   onClose
 }) => {
+  // Löschen: Hängen Buchungen am Konto, fragt das Fenster, welches andere
+  // Konto sie übernimmt. Vorher blieben sie ohne Konto zurück (D-31).
+  const [loeschen, setLoeschen] = useState<{
+    konto: FinancialAccount;
+    betroffen: number;
+    zielId: string;
+    fehler: string | null;
+    laeuft: boolean;
+  } | null>(null);
+
+  const starteLoeschen = (acc: FinancialAccount) => {
+    const betroffen = buchungenAmKonto(acc.id, transactions).length;
+    const andere = accounts.filter(a => a.id !== acc.id);
+    setLoeschen({ konto: acc, betroffen, zielId: andere[0]?.id || '', fehler: null, laeuft: false });
+  };
+
+  const fuehreLoeschenAus = async () => {
+    if (!loeschen) return;
+    setLoeschen({ ...loeschen, laeuft: true, fehler: null });
+    const fehler = await onDeleteAccount(loeschen.konto.id, loeschen.betroffen > 0 ? loeschen.zielId : undefined);
+    if (fehler) {
+      setLoeschen({ ...loeschen, laeuft: false, fehler });
+    } else {
+      setLoeschen(null);
+    }
+  };
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -116,6 +148,65 @@ export const AccountManageModal: React.FC<AccountManageModalProps> = ({
 
         {/* Body */}
         <div className="p-6 overflow-y-auto space-y-6 max-h-[65vh]">
+          {/* Rückfrage vor dem Löschen eines Kontos */}
+          {loeschen && (
+            <div className="p-4 rounded-xl border border-rose-200 bg-rose-50 space-y-3 dark:border-rose-800/60 dark:bg-rose-950/40">
+              <p className="text-sm font-bold text-rose-900 dark:text-rose-100">
+                Konto „{loeschen.konto.name}“ löschen?
+              </p>
+              {loeschen.betroffen > 0 ? (
+                <>
+                  <p className="text-xs text-rose-900 leading-relaxed dark:text-rose-100">
+                    An diesem Konto {loeschen.betroffen === 1 ? 'hängt 1 Buchung' : `hängen ${loeschen.betroffen} Buchungen`}.
+                    Damit sie nicht ohne Konto zurückbleiben, werden sie auf ein anderes Konto übertragen. Die
+                    Kontostände ändern sich dadurch.
+                  </p>
+                  <label className="block text-xs font-semibold text-rose-900 dark:text-rose-100">
+                    Buchungen übertragen auf
+                    <select
+                      value={loeschen.zielId}
+                      onChange={e => setLoeschen({ ...loeschen, zielId: e.target.value, fehler: null })}
+                      className="mt-1 w-full px-3 py-2 border border-rose-300 rounded-lg text-sm bg-white text-slate-900 dark:border-rose-800 dark:bg-slate-800 dark:text-slate-100"
+                    >
+                      {accounts
+                        .filter(a => a.id !== loeschen.konto.id)
+                        .map(a => (
+                          <option key={a.id} value={a.id}>
+                            {a.name}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                </>
+              ) : (
+                <p className="text-xs text-rose-900 leading-relaxed dark:text-rose-100">
+                  An diesem Konto hängen keine Buchungen. Das Löschen lässt sich nicht rückgängig machen.
+                </p>
+              )}
+              {loeschen.fehler && (
+                <p className="text-xs font-semibold text-rose-700 dark:text-rose-300">{loeschen.fehler}</p>
+              )}
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLoeschen(null)}
+                  disabled={loeschen.laeuft}
+                  className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-medium bg-white hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="button"
+                  onClick={fuehreLoeschenAus}
+                  disabled={loeschen.laeuft || (loeschen.betroffen > 0 && !loeschen.zielId)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50"
+                >
+                  {loeschen.betroffen > 0 ? 'Übertragen und löschen' : 'Konto löschen'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Account List */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -184,9 +275,7 @@ export const AccountManageModal: React.FC<AccountManageModalProps> = ({
                             alert('Es muss mindestens ein Konto existieren.');
                             return;
                           }
-                          if (window.confirm(`Konto "${acc.name}" wirklich löschen?`)) {
-                            onDeleteAccount(acc.id);
-                          }
+                          starteLoeschen(acc);
                         }}
                         className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors dark:hover:text-rose-400 dark:hover:bg-rose-950/40"
                         title="Löschen"

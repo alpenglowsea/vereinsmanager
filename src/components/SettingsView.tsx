@@ -1,3 +1,4 @@
+import { spartenVerwendung, spartenSperrText } from '../utils/loeschRegeln';
 import React, { useState, useEffect, useRef } from 'react';
 import { ClubSettings, Address, BoardMember, ColorSchemeId, FontChoiceId } from '../types';
 import { COLOR_SCHEMES, FONT_CHOICES, DEFAULT_COLOR_SCHEME, DEFAULT_FONT_CHOICE } from '../utils/appearance';
@@ -811,9 +812,33 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setNewDepartment('');
   };
 
-  const handleRemoveDepartment = (dept: string) => {
+  const handleRemoveDepartment = async (dept: string) => {
     if (formData.departments.length <= 1) {
       alert('Mindestens eine Sparte/Abteilung muss vorhanden sein.');
+      return;
+    }
+    // Wird die Sparte noch verwendet? Dann bleibt sie. Vorher ließ sie sich
+    // einfach löschen, und ihr Name blieb als verwaister Text an Mitgliedern,
+    // Buchungen und Inventar stehen (D-146).
+    try {
+      const [mitglieder, buchungen, inventar] = await Promise.all([
+        StorageService.getMembers(),
+        StorageService.getTransactions(),
+        StorageService.getInventory()
+      ]);
+      const verwendung = spartenVerwendung(dept, mitglieder, buchungen, inventar);
+      if (verwendung.gesamt > 0) {
+        setStatusMsg({ type: 'error', text: spartenSperrText(dept, verwendung) });
+        setTimeout(() => setStatusMsg(null), 12000);
+        return;
+      }
+    } catch (err) {
+      console.error('Verwendung der Sparte konnte nicht geprüft werden:', err);
+      setStatusMsg({
+        type: 'error',
+        text: 'Es konnte nicht geprüft werden, ob die Sparte noch verwendet wird. Sie wurde deshalb nicht gelöscht.'
+      });
+      setTimeout(() => setStatusMsg(null), 8000);
       return;
     }
     setFormData(prev => ({

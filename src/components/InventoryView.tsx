@@ -1,3 +1,4 @@
+import { offeneAusgaben, inventarSperrText } from '../utils/loeschRegeln';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { InventoryItem, InventoryCategory, ClubSettings, InventoryBulkUpdates, Member, MemberInventoryAssignment } from '../types';
 import { INVENTORY_CATEGORIES, CONDITION_OPTIONS } from '../data/inventoryCategories';
@@ -361,6 +362,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   // Materialausgabe Modal & Assignments
   const [showIssuedModal, setShowIssuedModal] = useState(false);
   const [issuedAssignments, setIssuedAssignments] = useState<MemberInventoryAssignment[]>([]);
+  // Hinweis nach dem Sammellöschen, wenn Gegenstände übersprungen wurden
+  const [loeschHinweis, setLoeschHinweis] = useState<string | null>(null);
 
   const loadAssignments = async () => {
     try {
@@ -644,6 +647,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     if (ids.length === 0) return;
     setIsBulkProcessing(true);
     try {
+      // Gegenstände, die noch an Mitglieder ausgegeben sind, werden nicht
+      // gelöscht (D-104). Der Speicher überspringt sie ebenfalls; hier wird
+      // vorab festgestellt, welche das sind, um es anschließend zu sagen.
+      const aktuelleAusgaben = await StorageService.getMemberInventoryAssignments();
+      const gesperrt = inventory.filter(
+        g => ids.includes(g.id) && offeneAusgaben(g.id, aktuelleAusgaben).ausgaben > 0
+      );
       if (onBulkDeleteItems) {
         await onBulkDeleteItems(ids);
       } else {
@@ -651,6 +661,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       }
       setIsBulkDeleteConfirmOpen(false);
       handleClearSelection();
+      if (gesperrt.length > 0) {
+        const namen = gesperrt.slice(0, 5).map(g => `„${g.name}“`).join(', ');
+        const mehr = gesperrt.length > 5 ? ` und ${gesperrt.length - 5} weitere` : '';
+        setLoeschHinweis(
+          `${gesperrt.length === 1 ? 'Ein Gegenstand wurde' : `${gesperrt.length} Gegenstände wurden`} nicht gelöscht, weil ${gesperrt.length === 1 ? 'er' : 'sie'} noch an Mitglieder ausgegeben ${gesperrt.length === 1 ? 'ist' : 'sind'}: ${namen}${mehr}. Bitte zuerst die Rückgabe eintragen.`
+        );
+      }
     } catch (err) {
       console.error('Failed to bulk delete inventory items:', err);
     } finally {
@@ -1531,35 +1548,68 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       )}
 
       {/* Delete Confirmation Dialog */}
-      {deleteConfirmId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 dark:bg-slate-900 dark:border-slate-800">
-            <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mb-4 dark:bg-rose-950/40 dark:text-rose-400">
-              <Trash2 className="w-6 h-6" />
+      {deleteConfirmId &&
+        (() => {
+          // Noch an Mitglieder ausgegeben? Dann wird nicht gelöscht, sonst
+          // blieben Ausgaben von Material zurück, das es nicht mehr gibt (D-104).
+          const gegenstand = inventory.find(g => g.id === deleteConfirmId);
+          const offen = offeneAusgaben(deleteConfirmId, issuedAssignments);
+          const gesperrt = offen.ausgaben > 0;
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+              <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 dark:bg-slate-900 dark:border-slate-800">
+                <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mb-4 dark:bg-rose-950/40 dark:text-rose-400">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900 mb-2 dark:text-white">
+                  {gesperrt ? 'Gegenstand kann nicht gelöscht werden' : 'Gegenstand unwiderruflich löschen?'}
+                </h3>
+                <p className="text-xs text-slate-500 leading-relaxed mb-6 dark:text-slate-400">
+                  {gesperrt
+                    ? inventarSperrText(gegenstand?.name || 'Der Gegenstand', offen)
+                    : 'Möchten Sie diese Inventarposition wirklich aus der Vereinsdatenbank entfernen? Dieser Schritt kann nicht rückgängig gemacht werden.'}
+                </p>
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteConfirmId(null)}
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors dark:text-slate-300 dark:hover:bg-slate-700"
+                  >
+                    {gesperrt ? 'Schließen' : 'Abbrechen'}
+                  </button>
+                  {!gesperrt && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (deleteConfirmId) {
+                          onDeleteItem(deleteConfirmId);
+                          setDeleteConfirmId(null);
+                        }
+                      }}
+                      className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-xs"
+                    >
+                      Endgültig löschen
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-            <h3 className="text-base font-bold text-slate-900 mb-2 dark:text-white">Gegenstand unwiderruflich löschen?</h3>
-            <p className="text-xs text-slate-500 leading-relaxed mb-6 dark:text-slate-400">
-              Möchten Sie diese Inventarposition wirklich aus der Vereinsdatenbank entfernen? Dieser Schritt kann nicht rückgängig gemacht werden.
-            </p>
-            <div className="flex items-center justify-end gap-3">
+          );
+        })()}
+
+      {/* Hinweis nach dem Sammellöschen: übersprungene Gegenstände */}
+      {loeschHinweis && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+            <h3 className="text-base font-bold text-slate-900 mb-2 dark:text-white">Nicht alles wurde gelöscht</h3>
+            <p className="text-xs text-slate-600 leading-relaxed mb-6 dark:text-slate-300">{loeschHinweis}</p>
+            <div className="flex justify-end">
               <button
                 type="button"
-                onClick={() => setDeleteConfirmId(null)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors dark:text-slate-300 dark:hover:bg-slate-700"
+                onClick={() => setLoeschHinweis(null)}
+                className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl dark:bg-slate-700 dark:hover:bg-slate-600"
               >
-                Abbrechen
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (deleteConfirmId) {
-                    onDeleteItem(deleteConfirmId);
-                    setDeleteConfirmId(null);
-                  }
-                }}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-xs"
-              >
-                Endgültig löschen
+                Verstanden
               </button>
             </div>
           </div>

@@ -113,6 +113,30 @@ Jetzt gilt überall: höchste vorhandene Nummer plus eins
   Inventarnummer, ohne Rücksicht auf Groß-/Kleinschreibung. Das
   Kontaktformular zeigt Fehler an der Kontaktnummer jetzt auch an.
 
+### Paket 05 — Löschen räumt auf (D-08, D-30, D-31, D-104, D-124, D-146)
+
+Gelöscht wurde an mehreren Stellen ohne Rücksicht auf Verknüpfungen. Die
+Regeln stehen jetzt gesammelt in `src/utils/loeschRegeln.ts` (13 Tests) und
+entsprechen der Android-Fassung.
+
+- **Buchung löschen (D-08, D-30):** Das Beleg-Dokument der Buchung in der
+  Dokumentenverwaltung wird mitgelöscht, einzeln und beim Sammellöschen.
+  Vorher blieb es als Waise stehen.
+- **Konto löschen (D-31):** Hängen Buchungen am Konto, fragt das Kontenfenster,
+  welches andere Konto sie übernimmt, und überträgt sie. Läge dadurch eine
+  Umbuchung zwischen ein und demselben Konto, wird nichts geändert und der
+  Grund genannt. Vorher blieben die Buchungen ohne Konto zurück.
+- **Inventar löschen (D-104):** Ein Gegenstand, der noch an Mitglieder
+  ausgegeben ist, lässt sich nicht löschen; der Dialog nennt Mitglieder und
+  Stückzahl. Das Sammellöschen überspringt solche Gegenstände und zählt sie
+  anschließend auf.
+- **Sparte löschen (D-146):** wird verweigert, solange Mitglieder, Buchungen
+  (auch Teilbuchungen) oder Inventar sie verwenden; die Meldung nennt die
+  Anzahl.
+- **Sitzung löschen (D-124):** Ein archiviertes Protokoll in der
+  Dokumentenverwaltung bleibt beim Löschen der Sitzung erhalten (wie bei
+  Android). Vorher wurde es ohne Rückfrage mitgelöscht.
+
 ---
 
 ## [1.1.0] — 2026-10-05 — Vereinfachung auf eine einzige Betriebsart
