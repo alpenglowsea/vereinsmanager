@@ -1,3 +1,4 @@
+import { vergleicheDatumDannNummer, vergleicheNummerDannDatum } from '../utils/sortierung';
 import React, { useState, useMemo, useRef } from 'react';
 import {
   DonationReceipt,
@@ -38,6 +39,7 @@ import {
 } from 'lucide-react';
 
 type DonationSortField =
+  | 'receiptNumber'
   | 'date'
   | 'donor'
   | 'type'
@@ -65,7 +67,8 @@ const DONATION_TYPE_SORT_ORDER: Record<DonationReceipt['type'], number> = { mone
 const ACTION_COL_WIDTH = 130;
 const CHECKBOX_COL_WIDTH = 40;
 const DEFAULT_DONATION_COLUMN_WIDTHS: ColumnWidths = {
-  date: 130,
+  receiptNumber: 130,
+  date: 110,
   donor: 240,
   type: 180,
   purpose: 220,
@@ -98,7 +101,8 @@ const DONATION_DEFAULT_HIDDEN_COLUMNS = [
 ];
 
 const DONATION_COLUMN_LABELS: Record<string, string> = {
-  date: 'Nr. & Datum',
+  receiptNumber: 'Nr.',
+  date: 'Datum',
   donor: 'Zuwendender / Spender',
   type: 'Art & Muster',
   purpose: 'Zweck / Gegenstand',
@@ -157,7 +161,11 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
     handleColDragOver,
     handleColDrop,
     handleColDragEnd
-  } = useColumnOrder('vereinsmanager:colorder:donations', DONATION_COLUMN_KEYS);
+  } = useColumnOrder('vereinsmanager:colorder:donations', DONATION_COLUMN_KEYS, {
+    // Nummer und Datum standen früher in einer Spalte; die neue Spalte „Nr.“
+    // erscheint deshalb bei gespeicherter Reihenfolge direkt vor „Datum“.
+    receiptNumber: 'date'
+  });
 
   // Ein-/Ausblenden einzelner Spalten (unabhängig von Reihenfolge & Breite),
   // bedienbar per Rechtsklick auf einen beliebigen Spaltenkopf.
@@ -187,14 +195,30 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
   // Drop gewählten Reihenfolge (columnOrder) gerendert statt in fester
   // Quelltext-Reihenfolge.
   const donationHeaderDefs: Record<string, React.ReactNode> = {
+    receiptNumber: (
+      <SortableResizableTh
+        key="receiptNumber"
+        label="Nr."
+        active={sortBy === 'receiptNumber'}
+        direction={sortDirection}
+        onSort={() => handleSort('receiptNumber')}
+        sortTitle="Nach Nummer sortieren"
+        colKey="receiptNumber"
+        width={colWidths.receiptNumber}
+        onResizeStart={startResize('receiptNumber')}
+        onAutoFit={() => autoFit('receiptNumber')}
+        headerBg="bg-slate-50/80 dark:bg-slate-800/80"
+        {...dragProps('receiptNumber')}
+      />
+    ),
     date: (
       <SortableResizableTh
         key="date"
-        label="Nr. & Datum"
+        label="Datum"
         active={sortBy === 'date'}
         direction={sortDirection}
         onSort={() => handleSort('date')}
-        sortTitle="Nach Datum sortieren"
+        sortTitle="Nach Datum sortieren (bei gleichem Datum nach Nummer)"
         colKey="date"
         width={colWidths.date}
         onResizeStart={startResize('date')}
@@ -434,7 +458,16 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
     }).sort((a, b) => {
       let comparison = 0;
       if (sortBy === 'date') {
-        comparison = new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime();
+        // Bei gleichem Datum entscheidet die Nummer (ZB-2026-011 vor ZB-2026-012).
+        comparison = vergleicheDatumDannNummer(
+          { datum: a.date, nummer: a.receiptNumber },
+          { datum: b.date, nummer: b.receiptNumber }
+        );
+      } else if (sortBy === 'receiptNumber') {
+        comparison = vergleicheNummerDannDatum(
+          { datum: a.date, nummer: a.receiptNumber },
+          { datum: b.date, nummer: b.receiptNumber }
+        );
       } else if (sortBy === 'donor') {
         comparison = (a.donorName || '').localeCompare(b.donorName || '', 'de');
       } else if (sortBy === 'type') {
@@ -885,12 +918,16 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                       </td>
                       {(() => {
                         const donationCellDefs: Record<string, React.ReactNode> = {
-                          date: (
-                            <td key="date" data-col-content="date" className="py-3 px-4 overflow-hidden">
+                          receiptNumber: (
+                            <td key="receiptNumber" data-col-content="receiptNumber" className="py-3 px-4 overflow-hidden">
                               <div className="font-mono font-bold text-slate-900 dark:text-white">
                                 {receipt.receiptNumber}
                               </div>
-                              <div className="text-2xs text-slate-500 flex items-center gap-1 mt-0.5 dark:text-slate-400">
+                            </td>
+                          ),
+                          date: (
+                            <td key="date" data-col-content="date" className="py-3 px-4 overflow-hidden">
+                              <div className="text-xs text-slate-700 flex items-center gap-1 dark:text-slate-200">
                                 <Calendar className="w-3 h-3 text-slate-400" />
                                 <span>{new Date(receipt.date).toLocaleDateString('de-DE')}</span>
                               </div>

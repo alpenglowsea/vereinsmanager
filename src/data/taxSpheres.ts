@@ -48,7 +48,7 @@ export const TAX_SPHERES: Record<TaxSphere, TaxSphereInfo> = {
     id: 'wirtschaftlich',
     name: '4. Wirtschaftlicher Geschäftsbetrieb',
     subtitle: 'Voll steuerpflichtiger Bereich (Körperschaft- & Gewerbesteuer)',
-    description: 'Wirtschaftliche Tätigkeiten mit Gewinnerzielungsabsicht, die in Konkurrenz zu gewerblichen Anbietern stehen (Freigrenze 45.000 € Einnahmen gem. § 64 Abs. 3 AO).',
+    description: 'Wirtschaftliche Tätigkeiten mit Gewinnerzielungsabsicht, die in Konkurrenz zu gewerblichen Anbietern stehen (Freigrenze nach § 64 Abs. 3 AO: Einnahmen einschl. USt bis 45.000 € bis 2025, bis 50.000 € ab 2026).',
     color: 'rose',
     examples: [
       'Bandenwerbung / Trikotsponsoring (Konto 44100 / 44200)',

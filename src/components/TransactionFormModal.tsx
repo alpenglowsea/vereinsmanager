@@ -58,6 +58,31 @@ interface TransactionFormModalProps {
   onClose: () => void;
 }
 
+/**
+ * Vorgabe für die zweite Zeile einer neu aufgeteilten Buchung: Konto 68500
+ * „Bankgebühren & Zahlungsverkehr“, mit Nummernkreis und Bezeichnung so, wie
+ * sie im Kontenrahmen stehen. Vorher stand hier Konto 68100 mit dem alten
+ * Text „Bankspesen“; 68100 ist heute aber „Büromaterial & Druckkosten“
+ * (D-14). Auf Wunsch von Johannes (18.11.2026) in beiden Fassungen 68500.
+ */
+const ZWEITE_ZEILE_KONTO = '68500';
+
+function zweiteTeilbuchung(sphere: TaxSphere): TransactionSplit {
+  const main = SKR42_STRUCTURE.find(m => m.subCategories.some(s => s.code === ZWEITE_ZEILE_KONTO));
+  const sub = main?.subCategories.find(s => s.code === ZWEITE_ZEILE_KONTO);
+  return {
+    id: `split-${Date.now()}-2`,
+    amount: 0,
+    bookingText: '',
+    sphere,
+    mainCategory: main ? `${main.code} - ${main.name}` : '',
+    subCategory: sub?.label || '',
+    category: sub?.label || '',
+    skrAccount: sub?.code || '',
+    vatRate: sub?.vatRateDefault ?? 0
+  };
+}
+
 export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   transaction,
   accounts,
@@ -128,17 +153,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
         skrAccount: transaction?.skrAccount || initialSubObj?.code || '',
         vatRate: transaction?.vatRate ?? initialSubObj?.vatRateDefault ?? 0
       },
-      {
-        id: `split-${Date.now()}-2`,
-        amount: 0,
-        bookingText: '',
-        sphere: initialSphere,
-        mainCategory: 'HK-68000-IDE',
-        subCategory: '68100 - Nebenkosten des Geldverkehrs & Bankspesen',
-        category: '68100 - Nebenkosten des Geldverkehrs & Bankspesen',
-        skrAccount: '68100',
-        vatRate: 0
-      }
+      zweiteTeilbuchung(initialSphere)
     ];
   });
 
@@ -343,6 +358,17 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
       ...prev,
       type
     }));
+    // Wechsel Einnahme ↔ Ausgabe: Passt der gewählte Nummernkreis nicht zur
+    // neuen Art (z. B. ein Einnahmekonto bei einer Ausgabe), springt die
+    // Auswahl auf den ersten passenden (D-15, wie bei Android). Ein
+    // passender Nummernkreis bleibt stehen.
+    if (type !== 'transfer') {
+      const aktuell = SKR42_STRUCTURE.find(m => m.id === selectedMainCatId);
+      if (!aktuell || aktuell.type !== type) {
+        const erster = getAllSkr42MainCategories(type, skr42)[0];
+        if (erster) handleMainCatChange(erster.id);
+      }
+    }
   };
 
   const handleMainCatChange = (mainCatId: string) => {
@@ -406,7 +432,10 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     if (!formData.partner.trim() && formData.type !== 'transfer') newErrors.partner = 'Zahlungspartner ist erforderlich.';
     if (!formData.amount || formData.amount <= 0) newErrors.amount = 'Betrag muss größer als 0 sein.';
     if (!formData.documentNumber.trim()) newErrors.documentNumber = 'Belegnummer ist erforderlich.';
-    if (formData.type === 'transfer' && formData.accountId === formData.targetAccountId) {
+    if (formData.type === 'transfer' && !formData.targetAccountId) {
+      // Vorher bestand eine Umbuchung ohne Zielkonto die Prüfung (D-11).
+      newErrors.targetAccountId = 'Bitte ein Zielkonto wählen.';
+    } else if (formData.type === 'transfer' && formData.accountId === formData.targetAccountId) {
       newErrors.targetAccountId = 'Zielkonto muss sich vom Quellkonto unterscheiden.';
     }
 

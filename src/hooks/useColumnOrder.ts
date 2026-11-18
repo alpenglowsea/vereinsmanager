@@ -9,8 +9,17 @@ import { useCallback, useRef, useState } from 'react';
  * weg; neue Spalten, die es beim letzten Speichern noch nicht gab, werden
  * hinten angehängt, statt zu verschwinden. Doppelte Einträge in den
  * gespeicherten Daten werden nur beim ersten Vorkommen berücksichtigt.
+ *
+ * `einfuegenVor` legt für einzelne neue Spalten fest, VOR welcher Spalte sie
+ * erscheinen sollen (z. B. eine neue Spalte „Nr.“ vor „Datum“). Steht die
+ * genannte Spalte in der gespeicherten Reihenfolge, kommt die neue direkt
+ * davor; sonst ans Ende wie alle übrigen neuen Spalten.
  */
-export function mergeStoredOrder(defaultOrder: string[], saved: string[]): string[] {
+export function mergeStoredOrder(
+  defaultOrder: string[],
+  saved: string[],
+  einfuegenVor: Record<string, string> = {}
+): string[] {
   const seen = new Set<string>();
   const knownSaved = saved.filter(key => {
     if (!defaultOrder.includes(key) || seen.has(key)) return false;
@@ -18,7 +27,15 @@ export function mergeStoredOrder(defaultOrder: string[], saved: string[]): strin
     return true;
   });
   const missing = defaultOrder.filter(key => !seen.has(key));
-  return [...knownSaved, ...missing];
+  const result = [...knownSaved];
+  const hinten: string[] = [];
+  for (const key of missing) {
+    const anker = einfuegenVor[key];
+    const stelle = anker ? result.indexOf(anker) : -1;
+    if (stelle >= 0) result.splice(stelle, 0, key);
+    else hinten.push(key);
+  }
+  return [...result, ...hinten];
 }
 
 /**
@@ -59,14 +76,18 @@ export function reorderColumns(order: string[], fromKey: string, toKey: string):
  * im Browser gespeichert (localStorage) — dauerhaft auf diesem Gerät/
  * Browser, aber nicht in der Cloud.
  */
-export function useColumnOrder(storageKey: string, defaultOrder: string[]) {
+export function useColumnOrder(
+  storageKey: string,
+  defaultOrder: string[],
+  einfuegenVor: Record<string, string> = {}
+) {
   const [order, setOrder] = useState<string[]>(() => {
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) {
         const saved = JSON.parse(raw) as string[];
         if (Array.isArray(saved)) {
-          return mergeStoredOrder(defaultOrder, saved);
+          return mergeStoredOrder(defaultOrder, saved, einfuegenVor);
         }
       }
     } catch {

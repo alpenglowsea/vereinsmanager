@@ -1,3 +1,4 @@
+import { sammelHinweis, SammelBericht } from '../utils/buchungSammel';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Transaction,
@@ -131,7 +132,7 @@ interface FinanceViewProps {
   onOpenCreateTx: () => void;
   onOpenEditTx: (tx: Transaction) => void;
   onDeleteTx: (id: string) => void;
-  onBulkUpdateTransactions?: (ids: string[], updates: TransactionBulkUpdates) => Promise<void>;
+  onBulkUpdateTransactions?: (ids: string[], updates: TransactionBulkUpdates) => Promise<SammelBericht | void>;
   onBulkDeleteTransactions?: (ids: string[]) => Promise<void>;
   onOpenBankImport: () => void;
   onOpenTransactionImport?: () => void;
@@ -179,6 +180,8 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
   const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+  // Hinweis nach der Sammelbearbeitung, wenn Buchungen übersprungen wurden (D-30)
+  const [sammelMeldung, setSammelMeldung] = useState<string | null>(null);
 
   // Accounts ordering state & Drag and Drop
   const [localAccounts, setLocalAccounts] = useState<FinancialAccount[]>(accounts);
@@ -544,9 +547,12 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
       }
 
       if (selectedType !== 'all') {
-        if (selectedType === 'income' && t.amount < 0) return false;
-        if (selectedType === 'expense' && t.amount >= 0) return false;
-        if (selectedType === 'transfer' && t.type !== 'transfer') return false;
+        // Nach der Buchungsart filtern, nicht nach dem Vorzeichen: Eine
+        // Umbuchung hat einen positiven Betrag und erschien deshalb vorher
+        // unter „Nur Einnahmen“ (D-11). Nur sehr alte Einträge ohne Art
+        // werden noch am Vorzeichen erkannt.
+        const art = t.type || (t.amount < 0 ? 'expense' : 'income');
+        if (art !== selectedType) return false;
       }
 
       if (receiptFilter === 'has_receipt' && !t.receipt) return false;
@@ -664,13 +670,13 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
     if (ids.length === 0) return;
     setIsBulkProcessing(true);
     try {
-      if (onBulkUpdateTransactions) {
-        await onBulkUpdateTransactions(ids, updates);
-      } else {
-        await StorageService.bulkUpdateTransactions(ids, updates);
-      }
+      const ergebnis = onBulkUpdateTransactions
+        ? await onBulkUpdateTransactions(ids, updates)
+        : await StorageService.bulkUpdateTransactions(ids, updates);
       setIsBulkEditOpen(false);
       handleClearSelection();
+      const hinweis = ergebnis ? sammelHinweis(ergebnis) : null;
+      if (hinweis) setSammelMeldung(hinweis);
     } catch (err) {
       console.error('Failed to bulk update transactions:', err);
     } finally {
@@ -1420,7 +1426,10 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                           type="button"
                           onClick={e => {
                             e.stopPropagation();
-                            if (window.confirm(`Buchung ${tx.documentNumber} (${tx.bookingText}) wirklich löschen?`)) {
+                            const belegHinweis = tx.receipt
+                              ? '\n\nDer angehängte Beleg wird dabei auch aus der Dokumentenverwaltung gelöscht.'
+                              : '';
+                            if (window.confirm(`Buchung ${tx.documentNumber} (${tx.bookingText}) wirklich löschen?${belegHinweis}`)) {
                               onDeleteTx(tx.id);
                             }
                           }}
@@ -1509,6 +1518,25 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
         />
       )}
 
+      {/* Hinweis nach der Sammelbearbeitung: übersprungene Buchungen */}
+      {sammelMeldung && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+            <h3 className="text-base font-bold text-slate-900 mb-2 dark:text-white">Nicht alles wurde geändert</h3>
+            <p className="text-xs text-slate-600 leading-relaxed mb-6 dark:text-slate-300">{sammelMeldung}</p>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSammelMeldung(null)}
+                className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl dark:bg-slate-700 dark:hover:bg-slate-600"
+              >
+                Verstanden
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Transaction Bulk Delete Confirmation Modal */}
       {isBulkDeleteConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
@@ -1524,6 +1552,16 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                 <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
                   Diese Aktion kann nicht rückgängig gemacht werden. Die Löschungen werden im Revisionsprotokoll archiviert.
                 </p>
+                {(() => {
+                  const mitBeleg = selectedTransactions.filter(t => t.receipt).length;
+                  return mitBeleg > 0 ? (
+                    <p className="text-xs font-semibold text-rose-700 mt-1 dark:text-rose-300">
+                      {mitBeleg === 1
+                        ? 'Eine dieser Buchungen hat einen Beleg. Er wird auch aus der Dokumentenverwaltung gelöscht.'
+                        : `${mitBeleg} dieser Buchungen haben einen Beleg. Diese Belege werden auch aus der Dokumentenverwaltung gelöscht.`}
+                    </p>
+                  ) : null;
+                })()}
               </div>
             </div>
 

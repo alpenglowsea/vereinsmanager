@@ -52,6 +52,10 @@ const COMMON_LEGAL_FORMS = [
   'Sonstige'
 ];
 
+// Reihenfolge der Pflichtfelder im Formular, von oben nach unten; das
+// Speichern springt zum ersten fehlerhaften.
+const KONTAKT_FEHLER_REIHENFOLGE = ['types', 'companyName', 'natLastName', 'contactNumber'];
+
 export const ContactFormModal: React.FC<ContactFormModalProps> = ({
   contact,
   isOpen,
@@ -151,7 +155,7 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
   const [notes, setNotes] = useState(contact?.notes || '');
   const [tagsInput, setTagsInput] = useState(contact?.tags?.join(', ') || '');
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [gemeldeteFehler, setErrors] = useState<Record<string, string>>({});
 
   // Sync if initial values change
   useEffect(() => {
@@ -181,7 +185,8 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
     });
   };
 
-  const validate = (): boolean => {
+  /** Prüft das Formular und gibt die Fehler zurück (leer = alles in Ordnung). */
+  const pruefeFehler = (): Record<string, string> => {
     const newErrors: Record<string, string> = {};
 
     if (!contactNumber.trim()) {
@@ -210,13 +215,37 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
       newErrors.types = 'Bitte mindestens einen Kontakttyp auswählen';
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return newErrors;
+  };
+
+  // Nach einem misslungenen Speichern werden die Fehler bei jeder Eingabe neu
+  // berechnet: Eine rote Markierung verschwindet, sobald das Feld stimmt,
+  // statt bis zum nächsten Speichern stehen zu bleiben (wie bei Android).
+  const errors = Object.keys(gemeldeteFehler).length > 0 ? pruefeFehler() : gemeldeteFehler;
+
+  /** Prüft das Formular, zeigt die Fehler an und gibt sie zurück. */
+  const validate = (): Record<string, string> => {
+    const gefunden = pruefeFehler();
+    setErrors(gefunden);
+    return gefunden;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
+    const gefunden = validate();
+    if (Object.keys(gefunden).length > 0) {
+      // Zum ersten fehlerhaften Feld scrollen: Der Speichern-Knopf sitzt unten
+      // in der festen Fußleiste, die Meldung oft weit oben im Formular (T-18).
+      const erstesFeld = KONTAKT_FEHLER_REIHENFOLGE.find(feld => gefunden[feld]);
+      if (erstesFeld) {
+        window.setTimeout(() => {
+          document
+            .querySelector(`[data-kontakt-feld="${erstesFeld}"]`)
+            ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 0);
+      }
+      return;
+    }
 
     const actualLegalForm =
       legalForm === 'Sonstige' ? customLegalForm.trim() || 'Sonstige' : legalForm;
@@ -459,7 +488,7 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
               })}
             </div>
             {errors.types && (
-              <p className="text-xs text-rose-600 mt-1 flex items-center gap-1 dark:text-rose-400">
+              <p data-kontakt-feld="types" className="text-xs text-rose-600 mt-1 flex items-center gap-1 dark:text-rose-400">
                 <AlertCircle className="w-3.5 h-3.5" />
                 <span>{errors.types}</span>
               </p>
@@ -489,7 +518,7 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
                     className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:border-slate-700"
                   />
                   {errors.companyName && (
-                    <p className="text-xs text-rose-600 mt-1 dark:text-rose-400">
+                    <p data-kontakt-feld="companyName" className="text-xs text-rose-600 mt-1 dark:text-rose-400">
                       {errors.companyName}
                     </p>
                   )}
@@ -689,7 +718,7 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
                     className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 dark:border-slate-700"
                   />
                   {errors.natLastName && (
-                    <p className="text-xs text-rose-600 mt-1 dark:text-rose-400">
+                    <p data-kontakt-feld="natLastName" className="text-xs text-rose-600 mt-1 dark:text-rose-400">
                       {errors.natLastName}
                     </p>
                   )}
@@ -739,7 +768,7 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
                   className="w-full px-3 py-2 text-sm font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 dark:border-slate-700"
                 />
                 {errors.contactNumber && (
-                  <p className="text-xs text-rose-600 mt-1 dark:text-rose-400">{errors.contactNumber}</p>
+                  <p data-kontakt-feld="contactNumber" className="text-xs text-rose-600 mt-1 dark:text-rose-400">{errors.contactNumber}</p>
                 )}
               </div>
               <div>
@@ -1017,6 +1046,17 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
           >
             Abbrechen
           </button>
+
+          {/* Hinweis neben dem Knopf: Die Fehlermeldung selbst steht oft
+              außerhalb des sichtbaren Bereichs (T-18). */}
+          {Object.keys(errors).length > 0 && (
+            <p className="ml-auto mr-3 text-xs font-semibold text-rose-600 flex items-center gap-1 dark:text-rose-400">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                {KONTAKT_FEHLER_REIHENFOLGE.map(feld => errors[feld]).find(Boolean) || 'Bitte die rot markierten Angaben prüfen.'}
+              </span>
+            </p>
+          )}
 
           <button
             type="button"

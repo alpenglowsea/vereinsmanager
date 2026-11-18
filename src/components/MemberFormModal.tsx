@@ -46,6 +46,20 @@ interface MemberFormModalProps {
   onClose: () => void;
 }
 
+// Auf welchem Reiter steht welches Feld? Damit zeigt jeder Reiter an, ob er
+// einen Fehler enthält, und das Speichern springt zum ersten davon (wie in der
+// Android-Fassung).
+type MitgliedReiter = 'base' | 'contact' | 'membership' | 'payment' | 'notes';
+const REITER_REIHENFOLGE: MitgliedReiter[] = ['base', 'contact', 'membership', 'payment', 'notes'];
+const FEHLER_REITER: Record<string, MitgliedReiter> = {
+  memberNumber: 'base',
+  firstName: 'base',
+  lastName: 'base',
+  entryDate: 'membership',
+  iban: 'payment',
+  accountHolder: 'payment'
+};
+
 export const MemberFormModal: React.FC<MemberFormModalProps> = ({
   member,
   departments = DEFAULT_DEPARTMENTS,
@@ -216,7 +230,10 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
   const isFeeLocked = formData.status === 'terminated' || formData.membershipType === 'ausgetreten' || formData.feePeriod === 'none';
   const isPeriodLocked = formData.status === 'terminated' || formData.membershipType === 'ausgetreten';
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [gemeldeteFehler, setErrors] = useState<Record<string, string>>({});
+  /** Enthält der Reiter ein Feld mit Fehler? (für den roten Punkt am Reiter) */
+  const reiterHatFehler = (reiter: MitgliedReiter): boolean =>
+    Object.keys(errors).some(feld => FEHLER_REITER[feld] === reiter);
 
   useEffect(() => {
     // Keep account holder in sync with name if empty
@@ -231,7 +248,8 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
     }
   }, [formData.firstName, formData.lastName]);
 
-  const validate = (): boolean => {
+  /** Prüft das Formular und gibt die Fehler zurück (leer = alles in Ordnung). */
+  const pruefeFehler = (): Record<string, string> => {
     const newErrors: Record<string, string> = {};
     if (!formData.memberNumber.trim()) {
       newErrors.memberNumber = 'Mitgliedsnummer ist erforderlich.';
@@ -259,8 +277,19 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
       }
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return newErrors;
+  };
+
+  // Nach einem misslungenen Speichern werden die Fehler bei jeder Eingabe neu
+  // berechnet: Eine rote Markierung verschwindet, sobald das Feld stimmt,
+  // statt bis zum nächsten Speichern stehen zu bleiben (wie bei Android).
+  const errors = Object.keys(gemeldeteFehler).length > 0 ? pruefeFehler() : gemeldeteFehler;
+
+  /** Prüft das Formular, zeigt die Fehler an und gibt sie zurück. */
+  const validate = (): Record<string, string> => {
+    const gefunden = pruefeFehler();
+    setErrors(gefunden);
+    return gefunden;
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -296,10 +325,15 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) {
-      // Switch to tab with error
-      if (errors.firstName || errors.lastName || errors.memberNumber) setActiveTab('base');
-      else if (errors.iban || errors.accountHolder) setActiveTab('payment');
+    const gefunden = validate();
+    if (Object.keys(gefunden).length > 0) {
+      // Zum ersten Reiter mit einem Fehler springen. Vorher wurde hier der
+      // Fehlerstand des VORIGEN Versuchs ausgewertet; beim ersten Fehlschlag
+      // blieb man deshalb auf dem falschen Reiter und sah die Meldung nicht.
+      const ersterReiter = REITER_REIHENFOLGE.find(reiter =>
+        Object.keys(gefunden).some(feld => FEHLER_REITER[feld] === reiter)
+      );
+      if (ersterReiter) setActiveTab(ersterReiter);
       return;
     }
 
@@ -370,49 +404,77 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
             type="button"
             onClick={() => setActiveTab('base')}
             className={`pb-3 px-3 border-b-2 flex items-center gap-1.5 transition-colors whitespace-nowrap ${
-              activeTab === 'base'
+              reiterHatFehler('base')
+                ? activeTab === 'base'
+                  ? 'border-rose-600 text-rose-600 font-semibold dark:text-rose-400'
+                  : 'border-transparent text-rose-600 dark:text-rose-400'
+                : activeTab === 'base'
                 ? 'border-blue-600 text-blue-600 font-semibold dark:text-blue-400'
                 : 'border-transparent hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <User className="w-4 h-4" />
             1. Stammdaten
+            {reiterHatFehler('base') && (
+              <span className="w-2 h-2 rounded-full bg-rose-600 inline-block" title="Dieser Reiter enthält einen Fehler" />
+            )}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('contact')}
             className={`pb-3 px-3 border-b-2 flex items-center gap-1.5 transition-colors whitespace-nowrap ${
-              activeTab === 'contact'
+              reiterHatFehler('contact')
+                ? activeTab === 'contact'
+                  ? 'border-rose-600 text-rose-600 font-semibold dark:text-rose-400'
+                  : 'border-transparent text-rose-600 dark:text-rose-400'
+                : activeTab === 'contact'
                 ? 'border-blue-600 text-blue-600 font-semibold dark:text-blue-400'
                 : 'border-transparent hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <MapPin className="w-4 h-4" />
             2. Adresse & Kontakt
+            {reiterHatFehler('contact') && (
+              <span className="w-2 h-2 rounded-full bg-rose-600 inline-block" title="Dieser Reiter enthält einen Fehler" />
+            )}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('membership')}
             className={`pb-3 px-3 border-b-2 flex items-center gap-1.5 transition-colors whitespace-nowrap ${
-              activeTab === 'membership'
+              reiterHatFehler('membership')
+                ? activeTab === 'membership'
+                  ? 'border-rose-600 text-rose-600 font-semibold dark:text-rose-400'
+                  : 'border-transparent text-rose-600 dark:text-rose-400'
+                : activeTab === 'membership'
                 ? 'border-blue-600 text-blue-600 font-semibold dark:text-blue-400'
                 : 'border-transparent hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <Building2 className="w-4 h-4" />
             3. Mitgliedschaft & Status
+            {reiterHatFehler('membership') && (
+              <span className="w-2 h-2 rounded-full bg-rose-600 inline-block" title="Dieser Reiter enthält einen Fehler" />
+            )}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('payment')}
             className={`pb-3 px-3 border-b-2 flex items-center gap-1.5 transition-colors whitespace-nowrap ${
-              activeTab === 'payment'
+              reiterHatFehler('payment')
+                ? activeTab === 'payment'
+                  ? 'border-rose-600 text-rose-600 font-semibold dark:text-rose-400'
+                  : 'border-transparent text-rose-600 dark:text-rose-400'
+                : activeTab === 'payment'
                 ? 'border-blue-600 text-blue-600 font-semibold dark:text-blue-400'
                 : 'border-transparent hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <CreditCard className="w-4 h-4" />
             4. Bank & SEPA-Lastschrift
+            {reiterHatFehler('payment') && (
+              <span className="w-2 h-2 rounded-full bg-rose-600 inline-block" title="Dieser Reiter enthält einen Fehler" />
+            )}
           </button>
           <button
             type="button"
@@ -871,6 +933,7 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
                       onChange={e => setFormData({ ...formData, entryDate: e.target.value })}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-slate-700"
                     />
+                    {errors.entryDate && <p className="text-xs text-rose-600 mt-1 dark:text-rose-400">{errors.entryDate}</p>}
                   </div>
 
                   <div>

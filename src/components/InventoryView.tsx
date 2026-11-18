@@ -1,3 +1,4 @@
+import { vergleicheNummern } from '../utils/sortierung';
 import { offeneAusgaben, inventarSperrText } from '../utils/loeschRegeln';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { InventoryItem, InventoryCategory, ClubSettings, InventoryBulkUpdates, Member, MemberInventoryAssignment } from '../types';
@@ -44,6 +45,7 @@ import {
 import { saveBlobAs } from '../utils/fileExportHelper';
 
 type InventorySortField =
+  | 'itemNumber'
   | 'name'
   | 'category'
   | 'department'
@@ -74,7 +76,8 @@ const CONDITION_SORT_ORDER: Record<InventoryItem['condition'], number> = {
 const CHECKBOX_COL_WIDTH = 40;
 const ACTION_COL_WIDTH = 90;
 const DEFAULT_INVENTORY_COLUMN_WIDTHS: ColumnWidths = {
-  name: 240,
+  itemNumber: 120,
+  name: 220,
   category: 150,
   department: 140,
   quantity: 90,
@@ -97,7 +100,8 @@ const INVENTORY_COLUMN_KEYS = Object.keys(DEFAULT_INVENTORY_COLUMN_WIDTHS);
 const INVENTORY_DEFAULT_HIDDEN_COLUMNS: string[] = [];
 
 const INVENTORY_COLUMN_LABELS: Record<string, string> = {
-  name: 'Inventar-Nr. & Gegenstand',
+  itemNumber: 'Inventar-Nr.',
+  name: 'Gegenstand',
   category: 'Art des Materials',
   department: 'Sparte / Abteilung',
   quantity: 'Menge',
@@ -165,7 +169,11 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     handleColDragOver,
     handleColDrop,
     handleColDragEnd
-  } = useColumnOrder('vereinsmanager:colorder:inventory', INVENTORY_COLUMN_KEYS);
+  } = useColumnOrder('vereinsmanager:colorder:inventory', INVENTORY_COLUMN_KEYS, {
+    // Nummer und Bezeichnung standen früher in einer Spalte; die neue Spalte
+    // erscheint deshalb bei gespeicherter Reihenfolge direkt vor „Gegenstand“.
+    itemNumber: 'name'
+  });
 
   // Ein-/Ausblenden einzelner Spalten (unabhängig von Reihenfolge & Breite),
   // bedienbar per Rechtsklick auf einen beliebigen Spaltenkopf.
@@ -195,10 +203,26 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   // Drop gewählten Reihenfolge (columnOrder) gerendert statt in fester
   // Quelltext-Reihenfolge.
   const inventoryHeaderDefs: Record<string, React.ReactNode> = {
+    itemNumber: (
+      <SortableResizableTh
+        key="itemNumber"
+        label="Inventar-Nr."
+        active={sortBy === 'itemNumber'}
+        direction={sortDirection}
+        onSort={() => handleSort('itemNumber')}
+        sortTitle="Nach Inventarnummer sortieren"
+        colKey="itemNumber"
+        width={colWidths.itemNumber}
+        onResizeStart={startResize('itemNumber')}
+        onAutoFit={() => autoFit('itemNumber')}
+        headerBg="bg-slate-50/80 dark:bg-slate-800/80"
+        {...dragProps('itemNumber')}
+      />
+    ),
     name: (
       <SortableResizableTh
         key="name"
-        label="Inventar-Nr. & Gegenstand"
+        label="Gegenstand"
         active={sortBy === 'name'}
         direction={sortDirection}
         onSort={() => handleSort('name')}
@@ -445,7 +469,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       return true;
     }).sort((a, b) => {
       let comparison = 0;
-      if (sortBy === 'name') {
+      if (sortBy === 'itemNumber') {
+        // Zahlen in der Nummer zählen als Zahlen (INV-9 vor INV-10)
+        comparison = vergleicheNummern(a.itemNumber, b.itemNumber) || a.name.localeCompare(b.name, 'de');
+      } else if (sortBy === 'name') {
         comparison = a.name.localeCompare(b.name, 'de');
       } else if (sortBy === 'category') {
         const catA = INVENTORY_CATEGORIES.find(c => c.id === a.category)?.shortLabel || a.category;
@@ -1160,15 +1187,17 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                       </td>
                       {(() => {
                         const inventoryCellDefs: Record<string, React.ReactNode> = {
+                          itemNumber: (
+                            <td key="itemNumber" data-col-content="itemNumber" className="py-3 px-4 overflow-hidden">
+                              <div className="font-mono font-bold text-slate-900 text-xs dark:text-white">{item.itemNumber}</div>
+                            </td>
+                          ),
                           name: (
                             <td key="name" data-col-content="name" className="py-3 px-4 overflow-hidden">
                               <div className="font-bold text-slate-900 text-sm leading-snug dark:text-white">{item.name}</div>
-                              <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500 font-mono dark:text-slate-400">
-                                <span>{item.itemNumber}</span>
-                                {item.serialNumber && (
-                                  <span className="text-slate-400">• SN: {item.serialNumber}</span>
-                                )}
-                              </div>
+                              {item.serialNumber && (
+                                <div className="mt-0.5 text-[11px] text-slate-400 font-mono">SN: {item.serialNumber}</div>
+                              )}
                               {item.notes && (
                                 <div className="text-[10px] text-slate-400 italic truncate mt-0.5" title={item.notes}>
                                   {item.notes}

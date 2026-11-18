@@ -233,6 +233,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   }, [settings, currentTheme]);
 
   const [newDepartment, setNewDepartment] = useState('');
+  // Meldung direkt bei der Spartenliste (die allgemeine Statusmeldung steht
+  // oben auf der Seite und war beim Löschen einer Sparte nicht zu sehen, T-31).
+  const [spartenMeldung, setSpartenMeldung] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<{
     type: 'success' | 'error' | 'info';
     text: string;
@@ -828,19 +831,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       ]);
       const verwendung = spartenVerwendung(dept, mitglieder, buchungen, inventar);
       if (verwendung.gesamt > 0) {
-        setStatusMsg({ type: 'error', text: spartenSperrText(dept, verwendung) });
-        setTimeout(() => setStatusMsg(null), 12000);
+        setSpartenMeldung(spartenSperrText(dept, verwendung));
         return;
       }
     } catch (err) {
       console.error('Verwendung der Sparte konnte nicht geprüft werden:', err);
-      setStatusMsg({
-        type: 'error',
-        text: 'Es konnte nicht geprüft werden, ob die Sparte noch verwendet wird. Sie wurde deshalb nicht gelöscht.'
-      });
-      setTimeout(() => setStatusMsg(null), 8000);
+      setSpartenMeldung('Es konnte nicht geprüft werden, ob die Sparte noch verwendet wird. Sie wurde deshalb nicht gelöscht.');
       return;
     }
+    setSpartenMeldung(null);
     setFormData(prev => ({
       ...prev,
       departments: prev.departments.filter(d => d !== dept)
@@ -2240,6 +2239,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Ziehen Sie Sparten per Drag & Drop mit der Maus, um die Reihenfolge festzulegen. Diese Reihenfolge wird in Formularen und Dropdowns verwendet.
                 </p>
+                {spartenMeldung && (
+                  <div className="mt-2 p-2.5 rounded-xl border border-rose-200 bg-rose-50 text-xs text-rose-800 flex items-start gap-2 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200">
+                    <span className="flex-1 leading-relaxed">{spartenMeldung}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSpartenMeldung(null)}
+                      className="shrink-0 font-bold text-rose-700 hover:text-rose-900 dark:text-rose-300"
+                      aria-label="Meldung schließen"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Add New Department Form Inline */}

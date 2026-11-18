@@ -27,6 +27,16 @@ describe('mergeStoredOrder', () => {
   it('fällt bei leeren gespeicherten Daten auf die Standardreihenfolge zurück', () => {
     expect(mergeStoredOrder(defaults, [])).toEqual(defaults);
   });
+
+  it('setzt eine neue Spalte vor die angegebene Spalte, statt sie hinten anzuhängen', () => {
+    // gespeichert, als es die Spalte "nr" noch nicht gab
+    const mitNr = ['nr', 'date', 'name', 'amount'];
+    expect(mergeStoredOrder(mitNr, ['name', 'date', 'amount'], { nr: 'date' })).toEqual(['name', 'nr', 'date', 'amount']);
+    // ist die Ankerspalte nicht gespeichert, landet die neue Spalte hinten
+    expect(mergeStoredOrder(mitNr, ['name', 'amount'], { nr: 'date' })).toEqual(['name', 'amount', 'nr', 'date']);
+    // eine schon gespeicherte Spalte wird nicht verschoben
+    expect(mergeStoredOrder(mitNr, ['date', 'nr', 'name', 'amount'], { nr: 'date' })).toEqual(['date', 'nr', 'name', 'amount']);
+  });
 });
 
 describe('reorderColumns', () => {

@@ -1,3 +1,12 @@
+import {
+  berechneEuer,
+  buchungsCsvZeilen,
+  journalSummen,
+  betragMitVorzeichen,
+  istUmbuchung,
+  istAufgeteilt,
+  SPHAEREN
+} from './buchungsBerichte';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Papa from 'papaparse';
@@ -7,7 +16,6 @@ import {
   Transaction,
   FinancialAccount,
   ClubSettings,
-  TaxSphere,
   ClubContact,
   InventoryItem,
   MemberInventoryAssignment
@@ -276,24 +284,9 @@ export const ExportService = {
 
   // 4. Transactions CSV Export
   exportTransactionsCSV(transactions: Transaction[], accounts: FinancialAccount[], filename = 'buchungen.csv'): void {
-    const accMap = new Map(accounts.map(a => [a.id, a.name]));
-
-    const data = transactions.map(t => ({
-      'Buchungs-ID': t.id,
-      'Datum': t.date,
-      'Belegnummer': t.documentNumber,
-      'Buchungstext': t.bookingText,
-      'Zahlungspartner': t.partner,
-      'Konto': accMap.get(t.accountId) || t.accountId,
-      'Steuerliche Sphäre': TAX_SPHERES[t.sphere]?.name || t.sphere,
-      'Kategorie': t.category,
-      'Betrag (EUR)': t.amount.toFixed(2),
-      'Typ': t.type === 'income' ? 'Einnahme' : t.type === 'expense' ? 'Ausgabe' : 'Umbuchung',
-      'USt-Satz (%)': t.vatRate,
-      'Beleg vorhanden': t.receipt ? 'Ja' : 'Nein',
-      'Notizen': (t.notes || '').replace(/(\r\n|\n|\r)/gm, ' ')
-    }));
-
+    // Spalten und Regeln in buchungsBerichte.ts (D-36): mit SKR-Konto, Sparte
+    // und Zielkonto; aufgeteilte Buchungen als eine Zeile je Teil.
+    const data = buchungsCsvZeilen(transactions, accounts);
     const csv = Papa.unparse(data, { delimiter: ';' });
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     void saveBlobAs(blob, filename);
@@ -332,25 +325,39 @@ export const ExportService = {
     doc.setLineWidth(0.5);
     doc.line(14, 24, 283, 24);
 
-    let totalAmount = 0;
+    // Summen ohne Umbuchungen, Einnahmen und Ausgaben getrennt (D-35). Vorher
+    // wurde jeder Betrag addiert, auch Umbuchungen zwischen eigenen Konten.
+    const summen = journalSummen(transactions);
     const tableRows = transactions.map(t => {
-      totalAmount += t.amount;
-      const isIncome = t.amount >= 0;
-      const amountStr = `${isIncome ? '+' : ''}${t.amount.toFixed(2)} €`;
-      const sphereName = TAX_SPHERES[t.sphere]?.name || t.sphere;
+      const umbuchung = istUmbuchung(t);
+      const betrag = betragMitVorzeichen(t);
+      const amountStr = umbuchung ? `${betrag.toFixed(2)} €` : `${betrag >= 0 ? '+' : ''}${betrag.toFixed(2)} €`;
+      const sphereName = umbuchung
+        ? 'Umbuchung'
+        : istAufgeteilt(t)
+          ? 'mehrere'
+          : TAX_SPHERES[t.sphere]?.name || t.sphere;
+      const kontoText = umbuchung
+        ? `${accMap.get(t.accountId) || t.accountId} → ${accMap.get(t.targetAccountId || '') || t.targetAccountId || '–'}`
+        : accMap.get(t.accountId) || t.accountId;
+      const kategorie = istAufgeteilt(t) ? `aufgeteilt (${t.splits!.length} Teile)` : t.category || '–';
 
       return [
         new Date(t.date).toLocaleDateString('de-DE'),
         t.documentNumber || '–',
         t.partner || '–',
         t.bookingText || '–',
-        accMap.get(t.accountId) || t.accountId,
+        kontoText,
         sphereName,
-        t.category || '–',
+        kategorie,
         t.receipt ? 'Ja' : 'Nein',
         amountStr
       ];
     });
+    const fussZeile = (text: string, wert: string, farbe: [number, number, number] = [15, 23, 42]) => [
+      { content: text, colSpan: 8, styles: { fontStyle: 'bold' as const, halign: 'right' as const, fillColor: [241, 245, 249] as [number, number, number], textColor: [15, 23, 42] as [number, number, number] } },
+      { content: wert, styles: { fontStyle: 'bold' as const, halign: 'right' as const, fillColor: [241, 245, 249] as [number, number, number], textColor: farbe } }
+    ];
 
     autoTable(doc, {
       startY: 27,
@@ -384,11 +391,17 @@ export const ExportService = {
         8: { cellWidth: 24, halign: 'right', fontStyle: 'bold' }
       },
       foot: [
-        [
-          { content: `GESAMTSUMME (${transactions.length} Buchungen):`, colSpan: 8, styles: { fontStyle: 'bold', halign: 'right', fillColor: [241, 245, 249], textColor: [15, 23, 42] } },
-          { content: `${totalAmount >= 0 ? '+' : ''}${totalAmount.toFixed(2)} €`, styles: { fontStyle: 'bold', halign: 'right', fillColor: [241, 245, 249], textColor: totalAmount >= 0 ? [16, 185, 129] : [225, 29, 72] } }
-        ]
+        fussZeile('Einnahmen:', `${summen.einnahmen.toFixed(2)} €`),
+        fussZeile('Ausgaben:', `${summen.ausgaben.toFixed(2)} €`),
+        fussZeile(
+          summen.umbuchungen > 0
+            ? `Saldo (ohne ${summen.umbuchungen} Umbuchung${summen.umbuchungen === 1 ? '' : 'en'}):`
+            : 'Saldo:',
+          `${summen.saldo >= 0 ? '+' : ''}${summen.saldo.toFixed(2)} €`,
+          summen.saldo >= 0 ? [16, 185, 129] : [225, 29, 72]
+        )
       ],
+      showFoot: 'lastPage',
       didDrawPage: (data) => {
         doc.setFontSize(7.5);
         doc.setTextColor(148, 163, 184);
@@ -560,10 +573,15 @@ export const ExportService = {
   ): void {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-    // Filter transactions if year provided
-    const txs = yearFilter && yearFilter !== 'all'
-      ? transactions.filter(t => t.date.startsWith(yearFilter))
-      : transactions;
+    // Dieselbe Rechnung wie die EÜR-Seite (D-34): aufgeteilte Buchungen Teil
+    // für Teil, gegliedert nach Sphäre, Nummernkreis und Konto.
+    const jahr = yearFilter && yearFilter !== 'all' ? yearFilter : null;
+    const euer = berechneEuer(transactions, jahr);
+    const geld = (n: number) => `${n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+    const mitVorzeichen = (n: number) => `${n > 0 ? '+' : ''}${geld(n)}`;
+    // Geschützte Leerzeichen: Gewöhnliche führende Leerzeichen entfernt die Tabelle.
+    const EINRUECKEN_1 = '\u00A0\u00A0\u00A0\u00A0';
+    const EINRUECKEN_2 = '\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0';
 
     const titlePeriod = yearFilter && yearFilter !== 'all' ? `Geschäftsjahr ${yearFilter}` : 'Gesamter Zeitraum';
 
@@ -592,88 +610,52 @@ export const ExportService = {
     doc.setTextColor(148, 163, 184);
     doc.text(`Erstellt am: ${new Date().toLocaleDateString('de-DE')}`, 196, 38, { align: 'right' });
 
-    // Calculate totals for each sphere
-    const spheres: TaxSphere[] = ['ideell', 'vermoegen', 'zweckbetrieb', 'wirtschaftlich'];
-    const sphereResults: Record<TaxSphere, { income: number; expense: number; net: number; details: Record<string, { income: number; expense: number }> }> = {
-      ideell: { income: 0, expense: 0, net: 0, details: {} },
-      vermoegen: { income: 0, expense: 0, net: 0, details: {} },
-      zweckbetrieb: { income: 0, expense: 0, net: 0, details: {} },
-      wirtschaftlich: { income: 0, expense: 0, net: 0, details: {} }
-    };
-
-    txs.forEach(t => {
-      if (t.type === 'transfer') return; // Skip internal transfers in GuV
-      const sph = t.sphere || 'ideell';
-      if (!sphereResults[sph].details[t.category]) {
-        sphereResults[sph].details[t.category] = { income: 0, expense: 0 };
-      }
-
-      if (t.amount >= 0) {
-        sphereResults[sph].income += t.amount;
-        sphereResults[sph].details[t.category].income += t.amount;
-      } else {
-        sphereResults[sph].expense += Math.abs(t.amount);
-        sphereResults[sph].details[t.category].expense += Math.abs(t.amount);
-      }
-      sphereResults[sph].net = sphereResults[sph].income - sphereResults[sph].expense;
-    });
-
-    let totalIncome = 0;
-    let totalExpense = 0;
-    spheres.forEach(s => {
-      totalIncome += sphereResults[s].income;
-      totalExpense += sphereResults[s].expense;
-    });
-    const totalNet = totalIncome - totalExpense;
-
     // Table rows
     const rows: any[] = [];
+    const fett = { fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [15, 23, 42] };
 
-    spheres.forEach(sph => {
-      const info = TAX_SPHERES[sph];
-      const res = sphereResults[sph];
-
-      // Sphere Header row
+    SPHAEREN.forEach(sph => {
+      const res = euer.spheres[sph];
       rows.push([
-        { content: info.name, colSpan: 3, styles: { fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [15, 23, 42] } },
-        { content: `${res.net >= 0 ? '+' : ''}${res.net.toFixed(2)} €`, styles: { fontStyle: 'bold', fillColor: [241, 245, 249], halign: 'right', textColor: res.net >= 0 ? [16, 185, 129] : [225, 29, 72] } }
+        { content: TAX_SPHERES[sph].name, styles: fett },
+        { content: geld(res.income), styles: { ...fett, halign: 'right' } },
+        { content: geld(res.expense), styles: { ...fett, halign: 'right' } },
+        { content: mitVorzeichen(res.net), styles: { ...fett, halign: 'right', textColor: res.net >= 0 ? [16, 185, 129] : [225, 29, 72] } }
       ]);
-
-      // Category breakdown
-      const categories = Object.keys(res.details);
-      if (categories.length === 0) {
-        rows.push(['', '  (Keine Buchungen in dieser Periode)', '', '0,00 €']);
-      } else {
-        categories.forEach(cat => {
-          const c = res.details[cat];
-          if (c.income > 0) {
-            rows.push(['', `  + Einnahme: ${cat}`, `${c.income.toFixed(2)} €`, '']);
-          }
-          if (c.expense > 0) {
-            rows.push(['', `  - Ausgabe: ${cat}`, `-${c.expense.toFixed(2)} €`, '']);
-          }
-        });
+      const kreise = Object.values(res.mainCategories);
+      if (kreise.length === 0) {
+        rows.push([`${EINRUECKEN_1}(keine Buchungen)`, '', '', '']);
       }
-
-      // Sphere Subtotal
-      rows.push([
-        '',
-        { content: `Zwischensumme ${info.name}:`, styles: { fontStyle: 'italic', textColor: [100, 116, 139] } },
-        { content: `Einn: ${res.income.toFixed(2)} € | Ausg: ${res.expense.toFixed(2)} €`, styles: { fontStyle: 'italic', textColor: [100, 116, 139] } },
-        { content: `Saldo: ${res.net.toFixed(2)} €`, styles: { fontStyle: 'bold', halign: 'right' } }
-      ]);
+      kreise.forEach(kreis => {
+        rows.push([
+          EINRUECKEN_1 + [kreis.code, kreis.name].filter(Boolean).join(' '),
+          geld(kreis.income),
+          geld(kreis.expense),
+          mitVorzeichen(kreis.income - kreis.expense)
+        ]);
+        Object.values(kreis.subCategories).forEach(konto => {
+          const name = konto.skrCode && !konto.name.startsWith(konto.skrCode) ? `${konto.skrCode} ${konto.name}` : konto.name;
+          rows.push([
+            { content: EINRUECKEN_2 + name, styles: { textColor: [71, 85, 105] } },
+            { content: geld(konto.income), styles: { textColor: [71, 85, 105] } },
+            { content: geld(konto.expense), styles: { textColor: [71, 85, 105] } },
+            { content: mitVorzeichen(konto.income - konto.expense), styles: { textColor: [71, 85, 105] } }
+          ]);
+        });
+      });
     });
 
-    // Grand Total Row
+    const dunkel = { fontStyle: 'bold', fillColor: [30, 41, 59], textColor: [255, 255, 255], fontSize: 9 };
     rows.push([
-      { content: 'GESAMTERGEBNIS (JAHRESÜBERSCHUSS / FEHLBETRAG)', colSpan: 2, styles: { fontStyle: 'bold', fillColor: [30, 41, 59], textColor: [255, 255, 255], fontSize: 9 } },
-      { content: `E: ${totalIncome.toFixed(2)} € | A: ${totalExpense.toFixed(2)} €`, styles: { fontStyle: 'bold', fillColor: [30, 41, 59], textColor: [255, 255, 255], fontSize: 8.5 } },
-      { content: `${totalNet >= 0 ? '+' : ''}${totalNet.toFixed(2)} €`, styles: { fontStyle: 'bold', fillColor: [30, 41, 59], textColor: [255, 255, 255], halign: 'right', fontSize: 10 } }
+      { content: 'GESAMTERGEBNIS (JAHRESÜBERSCHUSS / FEHLBETRAG)', styles: dunkel },
+      { content: geld(euer.income), styles: { ...dunkel, halign: 'right' } },
+      { content: geld(euer.expense), styles: { ...dunkel, halign: 'right' } },
+      { content: mitVorzeichen(euer.net), styles: { ...dunkel, halign: 'right', fontSize: 10 } }
     ]);
 
     autoTable(doc, {
       startY: 42,
-      head: [['Sphäre', 'Kategorie / Posten', 'Teilbetrag', 'Saldo']],
+      head: [['Bereich / Nummernkreis / Konto', 'Einnahmen', 'Ausgaben', 'Ergebnis']],
       body: rows,
       theme: 'grid',
       headStyles: {
@@ -687,10 +669,10 @@ export const ExportService = {
         cellPadding: 1.8
       },
       columnStyles: {
-        0: { cellWidth: 42 },
-        1: { cellWidth: 78 },
-        2: { cellWidth: 36, halign: 'right' },
-        3: { cellWidth: 26, halign: 'right' }
+        0: { cellWidth: 96 },
+        1: { cellWidth: 29, halign: 'right' },
+        2: { cellWidth: 29, halign: 'right' },
+        3: { cellWidth: 28, halign: 'right' }
       },
       didDrawPage: (data) => {
         doc.setFontSize(8);
@@ -703,7 +685,21 @@ export const ExportService = {
       }
     });
 
-    const finalY = (doc as any).lastAutoTable.finalY + 14;
+    // Hinweis zur Besteuerungsgrenze (§ 64 Abs. 3 AO), nur bei einem Jahr
+    const g = euer.grenze;
+    const grenzHinweis = g
+      ? `Wirtschaftlicher Geschäftsbetrieb ${jahr}: Einnahmen ${geld(g.einnahmen)} von ${geld(g.grenze)} (§ 64 Abs. 3 AO, einschl. USt)${g.ueberschritten ? ' – Grenze überschritten.' : '.'} Keine Steuerberatung.`
+      : 'Die Besteuerungsgrenze für den wirtschaftlichen Geschäftsbetrieb (§ 64 Abs. 3 AO) gilt je Kalenderjahr und wird nur bei Wahl eines Jahres ausgewiesen.';
+    let hinweisY = (doc as any).lastAutoTable.finalY + 7;
+    if (hinweisY > 280) {
+      doc.addPage();
+      hinweisY = 20;
+    }
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(doc.splitTextToSize(grenzHinweis, 182), 14, hinweisY);
+
+    const finalY = hinweisY + 12;
     if (finalY < 260) {
       doc.setFontSize(8.5);
       doc.setTextColor(71, 85, 105);

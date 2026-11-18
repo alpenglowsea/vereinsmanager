@@ -39,6 +39,8 @@ import { getDonationPdfDataUrl } from './donationService';
 import { getMembershipApplicationPdfDataUrl } from './membershipPdfService';
 import { AuthService } from './authService';
 import { customCategoryService } from './customCategoryService';
+import { planeBelegOrdner } from '../utils/belegOrdner';
+import { wendeSammelAn } from '../utils/buchungSammel';
 import {
   belegDokumentId,
   inventarSperrText,
@@ -2013,7 +2015,13 @@ export const StorageService = {
     // Automatische Synchronisation des Belegs in die Dokumentenverwaltung
     if (transaction.receipt && transaction.receipt.dataUrl) {
       const docId = `doc-receipt-${transaction.id}`;
+      // Ablage im Ordner „Buchhaltungsbelege & Finanzen / Belege <Jahr>“ wie
+      // bei Android (D-16). Hat jemand den Beleg schon in einen anderen
+      // Ordner verschoben, bleibt er dort.
+      const bisher = await getItemFromStore<ClubDocument>(STORES.DOCUMENTS, docId);
+      const folderId = bisher?.folderId || (await this.belegOrdnerFuer(transaction.date));
       const doc: ClubDocument = {
+        ...(bisher ?? {}),
         id: docId,
         title: `Beleg: ${transaction.documentNumber} - ${transaction.bookingText || transaction.partner}`,
         fileName: transaction.receipt.name || `Beleg_${transaction.documentNumber}.pdf`,
@@ -2028,7 +2036,8 @@ export const StorageService = {
         transactionId: transaction.id,
         transactionDocNumber: transaction.documentNumber,
         isReceipt: true,
-        createdAt: transaction.createdAt || now,
+        folderId,
+        createdAt: bisher?.createdAt || transaction.createdAt || now,
         updatedAt: now
       };
       await putItemToStore(STORES.DOCUMENTS, doc);
@@ -2082,70 +2091,36 @@ export const StorageService = {
     return ids.length;
   },
 
+  /**
+   * Sammelbearbeitung. Regeln in `wendeSammelAn` (D-30): Bei Umbuchungen und
+   * aufgeteilten Buchungen bleiben Sphäre, Sparte, Konto des Kontenrahmens
+   * und Umsatzsteuer unverändert; eine Umbuchung wird nicht auf ihr eigenes
+   * Zielkonto umgestellt. Die Rückgabe sagt, wie oft das geschah.
+   */
   async bulkUpdateTransactions(
     ids: string[],
     updates: TransactionBulkUpdates
-  ): Promise<{ updatedCount: number; updatedTransactions: Transaction[] }> {
+  ): Promise<{
+    updatedCount: number;
+    updatedTransactions: Transaction[];
+    geaendert: number;
+    ohneZuordnung: number;
+    kontoUebersprungen: number;
+  }> {
     const allTxs = await this.getTransactions();
     const idSet = new Set(ids);
     const now = new Date().toISOString();
     const updatedList: Transaction[] = [];
+    let ohneZuordnung = 0;
+    let kontoUebersprungen = 0;
 
     for (const tx of allTxs) {
       if (!idSet.has(tx.id)) continue;
-      const copy = { ...tx };
-      let changed = false;
-
-      if (updates.accountId !== undefined && copy.accountId !== updates.accountId) {
-        copy.accountId = updates.accountId;
-        changed = true;
-      }
-      if (updates.sphere !== undefined && copy.sphere !== updates.sphere) {
-        copy.sphere = updates.sphere;
-        changed = true;
-      }
-      if (updates.category !== undefined && copy.category !== updates.category) {
-        copy.category = updates.category;
-        changed = true;
-      }
-      if (updates.mainCategory !== undefined && copy.mainCategory !== updates.mainCategory) {
-        copy.mainCategory = updates.mainCategory;
-        changed = true;
-      }
-      if (updates.subCategory !== undefined && copy.subCategory !== updates.subCategory) {
-        copy.subCategory = updates.subCategory;
-        changed = true;
-      }
-      if (updates.skrAccount !== undefined && copy.skrAccount !== updates.skrAccount) {
-        copy.skrAccount = updates.skrAccount;
-        changed = true;
-      }
-      if (updates.vatRate !== undefined && copy.vatRate !== updates.vatRate) {
-        copy.vatRate = updates.vatRate;
-        changed = true;
-      }
-      if (updates.partner !== undefined && updates.partner.trim() && copy.partner !== updates.partner.trim()) {
-        copy.partner = updates.partner.trim();
-        changed = true;
-      }
-      if (updates.date !== undefined && copy.date !== updates.date) {
-        copy.date = updates.date;
-        changed = true;
-      }
-      if (updates.department !== undefined && copy.department !== updates.department) {
-        copy.department = updates.department;
-        changed = true;
-      }
-      if (updates.notesAction === 'replace') {
-        copy.notes = updates.notesValue || '';
-        changed = true;
-      } else if (updates.notesAction === 'append' && updates.notesValue && updates.notesValue.trim()) {
-        copy.notes = copy.notes ? `${copy.notes}\n${updates.notesValue.trim()}` : updates.notesValue.trim();
-        changed = true;
-      }
-
-      if (changed) {
-        copy.updatedAt = now;
+      const r = wendeSammelAn(tx, updates);
+      if (r.ohneZuordnung) ohneZuordnung++;
+      if (r.kontoUebersprungen) kontoUebersprungen++;
+      if (r.geaendert) {
+        const copy = { ...r.buchung, updatedAt: now };
         await putItemToStore(STORES.TRANSACTIONS, copy);
         updatedList.push(copy);
       }
@@ -2153,7 +2128,10 @@ export const StorageService = {
 
     return {
       updatedCount: updatedList.length,
-      updatedTransactions: updatedList
+      updatedTransactions: updatedList,
+      geaendert: updatedList.length,
+      ohneZuordnung,
+      kontoUebersprungen
     };
   },
 
@@ -2417,8 +2395,34 @@ export const StorageService = {
   },
 
   // Documents Management
+  /**
+   * Kennung des Ordners „Buchhaltungsbelege & Finanzen / Belege <Jahr>“ für
+   * einen Beleg mit diesem Datum; fehlende Ordner werden angelegt
+   * (Regeln: `planeBelegOrdner`).
+   */
+  async belegOrdnerFuer(datum: string | undefined): Promise<string> {
+    const vorhandene = await this.getFolders();
+    const { zielId, neu } = planeBelegOrdner(vorhandene, datum);
+    for (const ordner of neu) await putItemToStore(STORES.FOLDERS, ordner);
+    return zielId;
+  },
+
   async getDocuments(): Promise<ClubDocument[]> {
     const docs = await getAllFromStore<ClubDocument>(STORES.DOCUMENTS);
+    // Einmalige Nacharbeit: Belege, die der Desktop früher ohne Ordner
+    // abgelegt hat (D-16), kommen in „Belege <Jahr>“. Betroffen sind nur
+    // Belege OHNE Ordner; was jemand selbst einsortiert hat, bleibt.
+    const ohneOrdner = docs.filter(d => d.isReceipt && d.transactionId && !d.folderId);
+    if (ohneOrdner.length > 0) {
+      try {
+        for (const d of ohneOrdner) {
+          d.folderId = await this.belegOrdnerFuer(d.date);
+          await putItemToStore(STORES.DOCUMENTS, d);
+        }
+      } catch (err) {
+        console.warn('Belege konnten nicht in ihre Ordner einsortiert werden:', err);
+      }
+    }
     return docs.sort((a, b) => new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime());
   },
 

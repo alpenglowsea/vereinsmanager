@@ -155,7 +155,7 @@ class BuchungEditTest {
         assertEquals("100", f.teile[0].betrag)
         assertEquals(gut().konto, f.teile[0].konto)
         assertEquals("", f.teile[1].betrag)
-        assertEquals("68100", f.teile[1].skrKonto)
+        assertEquals("68500", f.teile[1].skrKonto)
         assertEquals("68000", f.teile[1].nummernkreis.substringBefore(" - "))
         assertEquals(f, BuchungRegeln.aufteilen(f, nummer = "u").copy())
     }
@@ -233,7 +233,7 @@ class BuchungEditTest {
         assertEquals(d("-100.5"), b.betrag)
         assertEquals(d("60"), b.teile[0].betrag)
         assertEquals(d("40.5"), b.teile[1].betrag)
-        assertEquals("68100", b.teile[1].skrKonto)
+        assertEquals("68500", b.teile[1].skrKonto)
         // oben stehen die Angaben der ersten Zeile
         assertEquals(f.teile[0].skrKonto, doc["skrAccount"]!!.jsonPrimitive.content)
         val zurueck = BuchungRegeln.von(b)

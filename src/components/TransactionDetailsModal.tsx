@@ -91,7 +91,10 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
   };
 
   const handleDelete = () => {
-    const confirmMsg = `Möchten Sie die Buchung ${transaction.documentNumber} (${transaction.bookingText}) über ${Math.abs(transaction.amount).toFixed(2)} € wirklich unwiderruflich löschen?`;
+    const belegHinweis = transaction.receipt
+      ? '\n\nDer angehängte Beleg wird dabei auch aus der Dokumentenverwaltung gelöscht.'
+      : '';
+    const confirmMsg = `Möchten Sie die Buchung ${transaction.documentNumber} (${transaction.bookingText}) über ${Math.abs(transaction.amount).toFixed(2)} € wirklich unwiderruflich löschen?${belegHinweis}`;
     if (window.confirm(confirmMsg)) {
       onDelete(transaction.id);
       onClose();

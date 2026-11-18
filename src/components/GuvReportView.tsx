@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Transaction, ClubSettings, TaxSphere } from '../types';
-import { TAX_SPHERES, findSkr42MainForSub } from '../data/taxSpheres';
+import { TAX_SPHERES } from '../data/taxSpheres';
 import { ExportService } from '../services/exportService';
+import { berechneEuer, SPHAEREN } from '../services/buchungsBerichte';
 import {
   FileDown,
   Calendar,
@@ -39,162 +40,35 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
   });
   const [expandedMainCats, setExpandedMainCats] = useState<Record<string, boolean>>({});
 
-  // Filter transactions by year (ignore internal transfers)
-  const filteredTxs = transactions.filter(t => {
-    if (t.type === 'transfer') return false;
-    if (selectedYear === 'all') return true;
-    return t.date.startsWith(selectedYear);
-  });
-
-  // Spheres
-  const spheres: TaxSphere[] = ['ideell', 'vermoegen', 'zweckbetrieb', 'wirtschaftlich'];
-
-  // Hierarchical reporting data: Sphere -> Main Category -> Sub Category
-  interface SubCatData {
-    name: string;
-    skrCode?: string;
-    income: number;
-    expense: number;
-    txCount: number;
-  }
-
-  interface MainCatData {
-    id: string;
-    code: string;
-    name: string;
-    income: number;
-    expense: number;
-    txCount: number;
-    subCategories: Record<string, SubCatData>;
-  }
-
-  const reportData: Record<TaxSphere, {
-    income: number;
-    expense: number;
-    net: number;
-    mainCategories: Record<string, MainCatData>;
-  }> = {
-    ideell: { income: 0, expense: 0, net: 0, mainCategories: {} },
-    vermoegen: { income: 0, expense: 0, net: 0, mainCategories: {} },
-    zweckbetrieb: { income: 0, expense: 0, net: 0, mainCategories: {} },
-    wirtschaftlich: { income: 0, expense: 0, net: 0, mainCategories: {} }
-  };
-
-  const processBookingLine = (
-    sph: TaxSphere,
-    mainCatRaw: string | undefined,
-    subCatRaw: string | undefined,
-    skrAccountRaw: string | undefined,
-    amt: number,
-    isExpense: boolean
-  ) => {
-    const subCatName = subCatRaw || 'Sonstige Buchung';
-    let mainCatKey = mainCatRaw;
-    let mainCode: string;
-    let mainName: string;
-
-    if (mainCatKey) {
-      const parts = mainCatKey.split(' - ');
-      mainCode = parts[0] || '';
-      mainName = parts[1] || mainCatKey;
-    } else {
-      const detected = findSkr42MainForSub(subCatName);
-      if (detected) {
-        mainCatKey = `${detected.code} - ${detected.name}`;
-        mainCode = detected.code;
-        mainName = detected.name;
-      } else {
-        mainCatKey = `Allgemein (${sph})`;
-        mainCode = '';
-        mainName = `Allgemeine Erlöse/Kosten ${sph}`;
-      }
-    }
-
-    if (!reportData[sph].mainCategories[mainCatKey]) {
-      reportData[sph].mainCategories[mainCatKey] = {
-        id: mainCatKey,
-        code: mainCode,
-        name: mainName,
-        income: 0,
-        expense: 0,
-        txCount: 0,
-        subCategories: {}
-      };
-    }
-
-    const mainObj = reportData[sph].mainCategories[mainCatKey];
-    mainObj.txCount++;
-
-    if (!mainObj.subCategories[subCatName]) {
-      mainObj.subCategories[subCatName] = {
-        name: subCatName,
-        skrCode: skrAccountRaw,
-        income: 0,
-        expense: 0,
-        txCount: 0
-      };
-    }
-    const subObj = mainObj.subCategories[subCatName];
-    subObj.txCount++;
-
-    if (!isExpense) {
-      reportData[sph].income += amt;
-      mainObj.income += amt;
-      subObj.income += amt;
-    } else {
-      reportData[sph].expense += amt;
-      mainObj.expense += amt;
-      subObj.expense += amt;
-    }
-    reportData[sph].net = reportData[sph].income - reportData[sph].expense;
-  };
-
-  filteredTxs.forEach(t => {
-    const isExpense = t.amount < 0 || t.type === 'expense';
-
-    if (t.isSplit && t.splits && t.splits.length > 0) {
-      t.splits.forEach(split => {
-        const splitAmt = Math.abs(split.amount || 0);
-        processBookingLine(
-          split.sphere || t.sphere || 'ideell',
-          split.mainCategory || t.mainCategory,
-          split.subCategory || split.category || t.subCategory || t.category,
-          split.skrAccount || t.skrAccount,
-          splitAmt,
-          isExpense
-        );
-      });
-    } else {
-      const absAmt = Math.abs(t.amount);
-      processBookingLine(
-        t.sphere || 'ideell',
-        t.mainCategory,
-        t.subCategory || t.category,
-        t.skrAccount,
-        absAmt,
-        isExpense
-      );
-    }
-  });
-
-  let totalIncome = 0;
-  let totalExpense = 0;
-  spheres.forEach(s => {
-    totalIncome += reportData[s].income;
-    totalExpense += reportData[s].expense;
-  });
-  const totalNet = totalIncome - totalExpense;
+  // Die Rechnung steht in services/buchungsBerichte.ts und ist dieselbe wie
+  // im EÜR-PDF (D-34): Umbuchungen zählen nicht, aufgeteilte Buchungen Teil
+  // für Teil, gegliedert nach Sphäre, Nummernkreis und Konto.
+  const euer = berechneEuer(transactions, selectedYear === 'all' ? null : selectedYear);
+  const spheres: TaxSphere[] = SPHAEREN;
+  const reportData = euer.spheres;
+  const totalIncome = euer.income;
+  const totalExpense = euer.expense;
+  const totalNet = euer.net;
 
   // =========================================================================
-  // 45.000 € Besteuerungsgrenze (§ 64 Abs. 3 AO / Kleinunternehmerregelung)
+  // Besteuerungsgrenze wirtschaftlicher Geschäftsbetrieb (§ 64 Abs. 3 AO)
+  //
+  // Gilt je Kalenderjahr (bis 2025: 45.000 €, ab 2026: 50.000 €, Einnahmen
+  // einschließlich Umsatzsteuer); bei „Alle Geschäftsjahre“ gibt es deshalb
+  // keine Kachel (D-37). Überschritten ist sie erst bei MEHR als dem
+  // Grenzbetrag. Mit der Kleinunternehmerregelung (§ 19 UStG) hat sie nichts
+  // zu tun; die Kachel war früher so beschriftet (D-09).
   // =========================================================================
-  const WGB_LIMIT = 45000.00;
+  const grenze = euer.grenze;
+  const WGB_LIMIT = grenze?.grenze ?? 0;
+  const grenzText = WGB_LIMIT.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const grenzTextKurz = WGB_LIMIT.toLocaleString('de-DE');
   const wgbIncome = reportData.wirtschaftlich.income;
-  const wgbPercent = Math.min(100, (wgbIncome / WGB_LIMIT) * 100);
-  const wgbExactPercent = (wgbIncome / WGB_LIMIT) * 100;
-  const wgbBuffer = Math.max(0, WGB_LIMIT - wgbIncome);
-  const isOverLimit = wgbIncome >= WGB_LIMIT;
-  const isWarningLimit = wgbPercent >= 75 && !isOverLimit;
+  const wgbExactPercent = grenze?.prozent ?? 0;
+  const wgbPercent = Math.min(100, wgbExactPercent);
+  const wgbBuffer = grenze?.puffer ?? 0;
+  const isOverLimit = grenze?.ueberschritten ?? false;
+  const isWarningLimit = grenze?.warnung ?? false;
 
   const toggleSphere = (sph: TaxSphere) => {
     setExpandedSpheres(prev => ({ ...prev, [sph]: !prev[sph] }));
@@ -257,8 +131,10 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
       </div>
 
       {/* =========================================================================
-          ANFORDERUNG 3: KACHEL ZUR 45.000 € GRENZE IM WIRTSCHAFTLICHEN GESCHÄFTSBETRIEB
+          KACHEL ZUR BESTEUERUNGSGRENZE IM WIRTSCHAFTLICHEN GESCHÄFTSBETRIEB
+          (nur bei einem einzelnen Jahr, siehe oben)
           ========================================================================= */}
+      {grenze ? (
       <div className={`p-5 rounded-xl border shadow-xs transition-all ${
         isOverLimit
           ? 'bg-rose-50/80 border-rose-300 dark:bg-rose-950/80 dark:border-rose-700/60'
@@ -276,7 +152,7 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
                   ? 'bg-amber-500 text-white'
                   : 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-800/60'
               }`}>
-                § 64 Abs. 3 AO Besteuerungsgrenze / Kleinunternehmerregelung
+                § 64 Abs. 3 AO Besteuerungsgrenze wirtschaftlicher Geschäftsbetrieb
               </span>
               <span className={`text-xs font-semibold ${isOverLimit ? 'text-rose-900 dark:text-rose-100' : isWarningLimit ? 'text-amber-900 dark:text-amber-100' : 'text-slate-500 dark:text-slate-400'}`}>
                 Wirtschaftlicher Geschäftsbetrieb ({selectedYear})
@@ -290,12 +166,12 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
                 {wgbIncome.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
               </h3>
               <span className={`text-sm font-semibold ${isOverLimit ? 'text-rose-700 dark:text-rose-300' : isWarningLimit ? 'text-amber-800 dark:text-amber-200' : 'text-slate-500 dark:text-slate-400'}`}>
-                von 45.000,00 € Freigrenze
+                von {grenzText} € Besteuerungsgrenze
               </span>
             </div>
 
             <p className={`text-xs leading-relaxed ${isOverLimit ? 'text-rose-800 dark:text-rose-200' : isWarningLimit ? 'text-amber-900 dark:text-amber-100' : 'text-slate-600 dark:text-slate-300'}`}>
-              Einnahmen (inkl. USt) aus wirtschaftlichen Geschäftsbetrieben (Kiosk, Sponsoring, Feste) bleiben bis zu <strong>45.000 € im Kalenderjahr</strong> körperschaft- und gewerbesteuerfrei.
+              Einnahmen (inkl. USt) aus wirtschaftlichen Geschäftsbetrieben (Kiosk, Sponsoring, Feste) bleiben bis zu <strong>{grenzTextKurz} € im Kalenderjahr {selectedYear}</strong> körperschaft- und gewerbesteuerfrei (bis 2025: 45.000 €, ab 2026: 50.000 €). Keine Steuerberatung.
             </p>
           </div>
 
@@ -351,12 +227,18 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
                 {isOverLimit ? 'Steuerpflicht greift' : isWarningLimit ? 'Vorstandswarnung beachten' : 'Gemeinnützigkeit sicher'}
               </span>
               <span className={isOverLimit ? 'text-rose-700 dark:text-rose-300' : isWarningLimit ? 'text-amber-800 dark:text-amber-200' : 'text-slate-500 dark:text-slate-400'}>
-                45.000 € (Grenze)
+                {grenzTextKurz} € (Grenze)
               </span>
             </div>
           </div>
         </div>
       </div>
+      ) : (
+        <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300">
+          Die Besteuerungsgrenze für den wirtschaftlichen Geschäftsbetrieb (§ 64 Abs. 3 AO) gilt je Kalenderjahr. Bitte oben
+          ein Geschäftsjahr wählen, um den Stand zu sehen.
+        </div>
+      )}
 
       {/* Summary KPI Result Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -548,7 +430,7 @@ export const GuvReportView: React.FC<GuvReportViewProps> = ({
                   <div className="mt-3 pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-slate-500 dark:border-slate-800 dark:text-slate-400">
                     <span>
                       {sph === 'wirtschaftlich'
-                        ? 'Hinweis: Einnahmen unter 45.000 €/Jahr bleiben ertragsteuerfrei gem. § 64 Abs. 3 AO.'
+                        ? 'Hinweis: Einnahmen bis 45.000 € (bis 2025) bzw. 50.000 € (ab 2026) im Jahr, einschließlich USt, bleiben ertragsteuerfrei gem. § 64 Abs. 3 AO.'
                         : sph === 'ideell'
                         ? 'Hinweis: Mittel des ideellen Bereichs unterliegen der zeitnahen Mittelverwendung gem. § 55 Abs. 1 Nr. 5 AO.'
                         : 'Ordnungsgemäße Buchführung nach DATEV SKR 42 Standard.'}

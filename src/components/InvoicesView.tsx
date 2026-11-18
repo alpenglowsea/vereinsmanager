@@ -1,3 +1,4 @@
+import { vergleicheDatumDannNummer, vergleicheNummerDannDatum } from '../utils/sortierung';
 import React, { useState, useMemo, useRef } from 'react';
 import {
   ClubInvoice,
@@ -36,6 +37,7 @@ import { saveBlobAs, savePdfAs } from '../utils/fileExportHelper';
 
 type InvoiceSortField =
   | 'status'
+  | 'invoiceNumber'
   | 'date'
   | 'recipient'
   | 'subject'
@@ -82,7 +84,8 @@ const CHECKBOX_COL_WIDTH = 40;
 const ACTION_COL_WIDTH = 150;
 const DEFAULT_INVOICE_COLUMN_WIDTHS: ColumnWidths = {
   status: 110,
-  date: 140,
+  invoiceNumber: 130,
+  date: 110,
   recipient: 220,
   subject: 220,
   sphere: 140,
@@ -114,7 +117,8 @@ const INVOICE_DEFAULT_HIDDEN_COLUMNS = [
 // Beschriftungen für das Ein-/Ausblenden-Menü.
 const INVOICE_COLUMN_LABELS: Record<string, string> = {
   status: 'Status',
-  date: 'Nr. & Datum',
+  invoiceNumber: 'Nr.',
+  date: 'Datum',
   recipient: 'Empfänger',
   subject: 'Betreff / Verwendung',
   sphere: 'Sphäre',
@@ -182,7 +186,11 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
     handleColDragOver,
     handleColDrop,
     handleColDragEnd
-  } = useColumnOrder('vereinsmanager:colorder:invoices', INVOICE_COLUMN_KEYS);
+  } = useColumnOrder('vereinsmanager:colorder:invoices', INVOICE_COLUMN_KEYS, {
+    // Nummer und Datum standen früher in einer Spalte; die neue Spalte „Nr.“
+    // erscheint deshalb bei gespeicherter Reihenfolge direkt vor „Datum“.
+    invoiceNumber: 'date'
+  });
 
   // Ein-/Ausblenden einzelner Spalten (unabhängig von Reihenfolge & Breite),
   // bedienbar per Rechtsklick auf einen beliebigen Spaltenkopf.
@@ -228,14 +236,30 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         {...dragProps('status')}
       />
     ),
+    invoiceNumber: (
+      <SortableResizableTh
+        key="invoiceNumber"
+        label="Nr."
+        active={sortBy === 'invoiceNumber'}
+        direction={sortDirection}
+        onSort={() => handleSort('invoiceNumber')}
+        sortTitle="Nach Rechnungsnummer sortieren"
+        colKey="invoiceNumber"
+        width={colWidths.invoiceNumber}
+        onResizeStart={startResize('invoiceNumber')}
+        onAutoFit={() => autoFit('invoiceNumber')}
+        headerBg="bg-slate-100 dark:bg-slate-700"
+        {...dragProps('invoiceNumber')}
+      />
+    ),
     date: (
       <SortableResizableTh
         key="date"
-        label="Nr. & Datum"
+        label="Datum"
         active={sortBy === 'date'}
         direction={sortDirection}
         onSort={() => handleSort('date')}
-        sortTitle="Nach Rechnungsdatum sortieren"
+        sortTitle="Nach Rechnungsdatum sortieren (bei gleichem Datum nach Nummer)"
         colKey="date"
         width={colWidths.date}
         onResizeStart={startResize('date')}
@@ -514,7 +538,16 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
     }).sort((a, b) => {
       let comparison = 0;
       if (sortBy === 'date') {
-        comparison = new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime();
+        // Bei gleichem Datum entscheidet die Nummer (RE-2026-011 vor RE-2026-012).
+        comparison = vergleicheDatumDannNummer(
+          { datum: a.date, nummer: a.invoiceNumber },
+          { datum: b.date, nummer: b.invoiceNumber }
+        );
+      } else if (sortBy === 'invoiceNumber') {
+        comparison = vergleicheNummerDannDatum(
+          { datum: a.date, nummer: a.invoiceNumber },
+          { datum: b.date, nummer: b.invoiceNumber }
+        );
       } else if (sortBy === 'dueDate') {
         comparison = new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime();
       } else if (sortBy === 'recipient') {
@@ -1117,12 +1150,16 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                               {renderStatusBadge(inv)}
                             </td>
                           ),
-                          date: (
-                            <td key="date" data-col-content="date" className="px-3 py-3 overflow-hidden">
+                          invoiceNumber: (
+                            <td key="invoiceNumber" data-col-content="invoiceNumber" className="px-3 py-3 overflow-hidden">
                               <div className="font-mono font-bold text-slate-900 group-hover:text-blue-700 transition-colors dark:text-white dark:group-hover:text-blue-300">
                                 {inv.invoiceNumber}
                               </div>
-                              <div className="text-[11px] text-slate-400">
+                            </td>
+                          ),
+                          date: (
+                            <td key="date" data-col-content="date" className="px-3 py-3 overflow-hidden">
+                              <div className="text-xs text-slate-700 dark:text-slate-200">
                                 {new Date(inv.date).toLocaleDateString('de-DE')}
                               </div>
                             </td>

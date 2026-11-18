@@ -137,6 +137,83 @@ entsprechen der Android-Fassung.
   Dokumentenverwaltung bleibt beim Löschen der Sitzung erhalten (wie bei
   Android). Vorher wurde es ohne Rückfrage mitgelöscht.
 
+### Paket 07 — EÜR und Berichte (D-09, D-34, D-35, D-36, D-37, D-132)
+
+- **Gemeinsame Rechnung:** EÜR-Seite und EÜR-PDF rechnen jetzt an derselben
+  Stelle (`src/services/buchungsBerichte.ts`, 16 Tests), in ganzen Cent.
+- **EÜR-PDF (D-34):** löst aufgeteilte Buchungen Teil für Teil auf und
+  gliedert wie die EÜR-Seite nach Sphäre, Nummernkreis und Konto, jeweils mit
+  Einnahmen, Ausgaben und Ergebnis. Vorher zählte eine aufgeteilte Buchung
+  ganz zur Sphäre der ersten Zeile, und gegliedert wurde nur nach dem Textfeld
+  „Kategorie“. Unter der Tabelle steht der Stand der Besteuerungsgrenze.
+- **Besteuerungsgrenze § 64 Abs. 3 AO (D-09, D-37, D-132):** je Kalenderjahr
+  45.000 € bis 2025 und 50.000 € ab 2026 (Einnahmen einschließlich
+  Umsatzsteuer). Überschritten erst bei MEHR als dem Grenzbetrag; genau
+  50.000,00 € sind noch frei. Bei „Alle Geschäftsjahre“ keine Kachel, sondern
+  ein Hinweis. Die Kachel heißt nicht mehr „Kleinunternehmerregelung“ (das ist
+  § 19 UStG und etwas anderes).
+- **Buchungsjournal-PDF (D-35):** Umbuchungen stehen in der Liste (mit
+  „Konto → Zielkonto“), zählen aber nicht in den Summen. Am Ende stehen
+  Einnahmen, Ausgaben und Saldo getrennt statt einer Gesamtsumme aller Beträge.
+- **Buchungs-CSV (D-36):** Spalten wie in der Android-Fassung, neu mit Teil,
+  Zielkonto, Sparte und SKR-Konto. Aufgeteilte Buchungen erscheinen als eine
+  Zeile je Teil (z. B. „2/3“), mit dem Vorzeichen der Buchung, sodass die
+  Summe der Betragsspalte stimmt.
+- **Aufgeteilte Buchung:** Die vorgegebene zweite Zeile ist jetzt Konto 68500
+  „Bankgebühren & Zahlungsverkehr“ statt 68100 (heißt im Kontenrahmen
+  „Büromaterial & Druckkosten“); ebenso in der Android-Fassung.
+
+### Paket 06 — Buchungsformular und -liste (D-11, D-14, D-15, D-30)
+
+- **Filter „Nur Einnahmen“ / „Nur Ausgaben“ (D-11):** filtert nach der
+  Buchungsart statt nach dem Vorzeichen. Umbuchungen erscheinen dort nicht
+  mehr.
+- **Umbuchung ohne Zielkonto (D-11):** wird beim Speichern abgelehnt.
+- **Wechsel Einnahme ↔ Ausgabe (D-15):** Passt der gewählte Nummernkreis nicht
+  zur neuen Art, springt die Auswahl auf den ersten passenden.
+- **Aufgeteilte Buchung (D-14):** Die vorgegebene zweite Zeile (Konto 68100)
+  trägt Nummernkreis und Bezeichnung jetzt so, wie sie im Kontenrahmen stehen,
+  statt eines veralteten festen Textes.
+- **Sammelbearbeitung (D-30):** Bei Umbuchungen und aufgeteilten Buchungen
+  bleiben Sphäre, Sparte, Konto des Kontenrahmens und Umsatzsteuer unverändert;
+  eine Umbuchung wird nicht auf ihr eigenes Zielkonto umgestellt. Ein Hinweis
+  nennt anschließend, wie viele Buchungen übersprungen wurden. Regeln in
+  `src/utils/buchungSammel.ts` (8 Tests), wie bei Android.
+
+### Nachbesserungen aus der Prüfung von P02 bis P05
+
+- **Sitzung bearbeiten (T-01):** Das Sitzungsformular übernahm seine Werte nur
+  beim allerersten Anzeigen. Beim Bearbeiten erschienen deshalb die Angaben
+  einer zuvor geöffneten Sitzung oder die Musterwerte (z. B. bei Leitung und
+  Protokollführung), und das Speichern schrieb sie in die bearbeitete Sitzung.
+  Das Formular wird jetzt bei jedem Öffnen neu aufgebaut.
+- **Spenden und Rechnungen (T-15):** Nummer und Datum stehen in getrennten
+  Spalten. Sortieren nach Datum ordnet Belege desselben Tages nach ihrer
+  Nummer; die Nummer ist auch für sich sortierbar (Zahlen als Zahlen, also
+  RE-2026-9 vor RE-2026-10).
+- **Inventar (T-19):** Inventarnummer und Bezeichnung in getrennten, einzeln
+  sortierbaren Spalten.
+- **Neue Spalten erscheinen an ihrem Platz:** Wer die Spaltenreihenfolge
+  einer Tabelle selbst festgelegt hat, bekommt die neue Spalte „Nr.“ direkt
+  vor „Datum“ (bzw. „Inventar-Nr.“ vor „Gegenstand“), nicht am Tabellenende.
+- **Mitgliedsformular (T-17):** Reiter mit einem Fehler sind rot markiert; das
+  Speichern springt zum ersten davon (vorher wertete es den Fehlerstand des
+  vorigen Versuchs aus). Der Fehler am Eintrittsdatum wird jetzt angezeigt.
+- **Kontaktformular (T-18):** Das Speichern springt zum ersten fehlerhaften
+  Feld; neben dem Knopf steht die Meldung.
+- In beiden Formularen verschwindet eine rote Markierung, sobald das Feld
+  stimmt.
+- **Belege im Ordner (T-23, D-16):** Der Beleg einer Buchung wird in
+  „Buchhaltungsbelege & Finanzen / Belege <Jahr>“ abgelegt (fehlende Ordner
+  werden angelegt, wie bei Android). Früher ohne Ordner abgelegte Belege
+  werden einmalig dorthin einsortiert; selbst einsortierte bleiben, wo sie
+  sind. Regeln in `src/utils/belegOrdner.ts` (6 Tests).
+- **Löschen einer Buchung mit Beleg:** Die Rückfrage sagt, dass der Beleg aus
+  der Dokumentenverwaltung mitgelöscht wird (einzeln und beim Sammellöschen).
+- **Sparte in Verwendung (T-31):** Die Meldung erscheint jetzt direkt bei der
+  Spartenliste statt oben auf der Seite.
+- Sortierhilfen in `src/utils/sortierung.ts` (5 Tests).
+
 ---
 
 ## [1.1.0] — 2026-10-05 — Vereinfachung auf eine einzige Betriebsart

@@ -23,7 +23,7 @@ data class TeilForm(
     val sparte: String = "",
     /** Wie am Desktop gespeichert: "40400 - Name" */
     val nummernkreis: String = "",
-    /** Beschriftung des Kontos, z. B. "68100 - Nebenkosten …" */
+    /** Beschriftung des Kontos, z. B. "68500 - Bankgebühren & Zahlungsverkehr" */
     val konto: String = "",
     val skrKonto: String = "",
     val ust: Int = 0,
@@ -182,10 +182,13 @@ object BuchungRegeln {
         return f.copy(aufgeteilt = true, teile = listOf(erste, neuerTeil("split-$nummer-2", f.sphaere, skr)))
     }
 
-    /** Eine weitere Zeile; Vorgabe wie am Desktop: Konto 68100 (Bankspesen), Betrag leer. */
+    /**
+     * Eine weitere Zeile; Vorgabe wie am Desktop: Konto 68500 „Bankgebühren & Zahlungsverkehr“, Betrag leer.
+     * (Bis 18.11.2026 war es 68100, das im Kontenrahmen aber „Büromaterial & Druckkosten“ heißt; Wunsch Johannes.)
+     */
     fun neuerTeil(id: String, sphaere: String, skr: List<Skr42Main> = Skr42.standard): TeilForm {
-        val main = Skr42.findMainForSub("68100", skr)
-        val sub = main?.subCategories?.firstOrNull { it.code == "68100" }
+        val main = Skr42.findMainForSub("68500", skr)
+        val sub = main?.subCategories?.firstOrNull { it.code == "68500" }
         return TeilForm(
             id = id, sphaere = sphaere, nummernkreis = main?.let(::nummernkreisText) ?: "",
             konto = sub?.label ?: "", skrKonto = sub?.code ?: "", ust = sub?.vatRateDefault ?: 0,

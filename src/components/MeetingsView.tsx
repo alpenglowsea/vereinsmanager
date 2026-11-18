@@ -980,15 +980,25 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
       )}
 
       {/* Modals */}
-      <MeetingFormModal
-        isOpen={isFormModalOpen}
-        onClose={() => setIsFormModalOpen(false)}
-        meetingToEdit={meetingToEdit}
-        members={members}
-        clubSettings={clubSettings}
-        templateSettings={templateSettings}
-        onSave={onSaveMeeting}
-      />
+      {/*
+        Das Formular wird bei jedem Öffnen neu aufgebaut (bedingte Anzeige
+        und `key`). Vorher blieb es dauerhaft eingehängt und übernahm seine
+        Werte nur beim allerersten Anzeigen: Beim Bearbeiten erschienen die
+        Angaben einer zuvor geöffneten Sitzung oder die Musterwerte, und das
+        Speichern schrieb sie in die bearbeitete Sitzung (T-01).
+      */}
+      {isFormModalOpen && (
+        <MeetingFormModal
+          key={meetingToEdit?.id ?? 'neue-sitzung'}
+          isOpen={isFormModalOpen}
+          onClose={() => setIsFormModalOpen(false)}
+          meetingToEdit={meetingToEdit}
+          members={members}
+          clubSettings={clubSettings}
+          templateSettings={templateSettings}
+          onSave={onSaveMeeting}
+        />
+      )}
 
       <MeetingTemplateModal
         isOpen={isTemplateModalOpen}

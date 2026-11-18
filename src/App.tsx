@@ -629,10 +629,26 @@ export default function App() {
   };
 
   // Transaction CRUD handlers
+  /**
+   * Nach dem Speichern einer Buchung mit Beleg: Der Beleg steht auch in der
+   * Dokumentenverwaltung, und dafür wurde womöglich ein Ordner „Belege <Jahr>“
+   * angelegt. Beides neu laden, sonst zeigt die Dokumentenansicht bis zum
+   * nächsten Start den alten Stand.
+   */
+  const ladeBuchungenUndBelegeNeu = async () => {
+    const [updated, updatedDocs, updatedFolders] = await Promise.all([
+      StorageService.getTransactions(),
+      StorageService.getDocuments(),
+      StorageService.getFolders()
+    ]);
+    setTransactions(updated);
+    setDocuments(updatedDocs);
+    setFolders(updatedFolders);
+  };
+
   const handleSaveTransaction = async (txData: Transaction) => {
     await StorageService.saveTransaction(txData);
-    const updated = await StorageService.getTransactions();
-    setTransactions(updated);
+    await ladeBuchungenUndBelegeNeu();
     setTxFormOpen(false);
     setEditingTx(null);
   };
@@ -650,9 +666,11 @@ export default function App() {
   };
 
   const handleBulkUpdateTransactions = async (ids: string[], updates: TransactionBulkUpdates) => {
-    await StorageService.bulkUpdateTransactions(ids, updates);
+    const bericht = await StorageService.bulkUpdateTransactions(ids, updates);
     const updated = await StorageService.getTransactions();
     setTransactions(updated);
+    // FinanceView meldet damit übersprungene Umbuchungen und aufgeteilte Buchungen
+    return bericht;
   };
 
   const handleBulkDeleteTransactions = async (ids: string[]) => {
@@ -675,8 +693,7 @@ export default function App() {
       updatedAt: new Date().toISOString()
     };
     await StorageService.saveTransaction(updatedTx);
-    const updated = await StorageService.getTransactions();
-    setTransactions(updated);
+    await ladeBuchungenUndBelegeNeu();
     setReceiptScannerOpen(false);
     setScannerTargetTx(null);
   };
