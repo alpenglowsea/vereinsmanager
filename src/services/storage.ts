@@ -36,10 +36,11 @@ import { getInitialDocuments } from '../data/initialDocuments';
 import { getInitialFolders } from '../data/initialFolders';
 import { DEFAULT_CALENDAR_CATEGORIES, INITIAL_CALENDAR_EVENTS } from '../data/initialEvents';
 import { getDonationPdfDataUrl } from './donationService';
+import { spendenBuchung, gleicheBuchungAn } from './spendenBuchung';
 import { getMembershipApplicationPdfDataUrl } from './membershipPdfService';
 import { AuthService } from './authService';
 import { customCategoryService } from './customCategoryService';
-import { planeBelegOrdner } from '../utils/belegOrdner';
+import { planeBelegOrdner, planeUnterordner, belegArtVon, sollEinsortiertWerden, BelegArt } from '../utils/belegOrdner';
 import { wendeSammelAn } from '../utils/buchungSammel';
 import {
   belegDokumentId,
@@ -2407,12 +2408,53 @@ export const StorageService = {
     return zielId;
   },
 
+  /**
+   * Ordner „Belege <Jahr> / Spendenbescheinigungen“ bzw. „… / Ausgangsrechnungen“
+   * (D-40, D-47, wie Android); fehlende Ordner werden angelegt.
+   */
+  async belegUnterordnerFuer(datum: string | undefined, art: BelegArt): Promise<string> {
+    const vorhandene = await this.getFolders();
+    const { zielId, neu } = planeUnterordner(vorhandene, datum, art);
+    for (const ordner of neu) await putItemToStore(STORES.FOLDERS, ordner);
+    return zielId;
+  },
+
+  /**
+   * Legt das PDF einer Rechnung ab. Es gibt je Rechnung genau ein Dokument:
+   * ein erneutes Ablegen ersetzt es (D-47). Vorher entstand bei jedem
+   * Speichern mit „PDF ablegen“ ein weiteres Dokument. Liegt es schon in
+   * einem selbst gewählten Ordner, bleibt es dort.
+   */
+  async saveInvoicePdfDocument(invoice: ClubInvoice, doc: ClubDocument): Promise<ClubDocument> {
+    const vorhandeneId = invoice.documentId
+      ? (await getItemFromStore<ClubDocument>(STORES.DOCUMENTS, invoice.documentId))?.id
+      : undefined;
+    const id = vorhandeneId || `doc-inv-${invoice.id}`;
+    const bisher = await getItemFromStore<ClubDocument>(STORES.DOCUMENTS, id);
+    const ordner = await this.getFolders();
+    const folderId =
+      bisher?.folderId && !sollEinsortiertWerden(bisher.folderId, ordner)
+        ? bisher.folderId
+        : await this.belegUnterordnerFuer(invoice.date, 'rechnungen');
+    const now = new Date().toISOString();
+    const neu: ClubDocument = {
+      ...(bisher ?? {}),
+      ...doc,
+      id,
+      folderId,
+      createdAt: bisher?.createdAt || doc.createdAt || now,
+      updatedAt: now
+    };
+    await putItemToStore(STORES.DOCUMENTS, neu);
+    return neu;
+  },
+
   async getDocuments(): Promise<ClubDocument[]> {
     const docs = await getAllFromStore<ClubDocument>(STORES.DOCUMENTS);
     // Einmalige Nacharbeit: Belege, die der Desktop früher ohne Ordner
     // abgelegt hat (D-16), kommen in „Belege <Jahr>“. Betroffen sind nur
     // Belege OHNE Ordner; was jemand selbst einsortiert hat, bleibt.
-    const ohneOrdner = docs.filter(d => d.isReceipt && d.transactionId && !d.folderId);
+    const ohneOrdner = docs.filter(d => d.isReceipt && d.transactionId && !d.folderId && !belegArtVon(d.id));
     if (ohneOrdner.length > 0) {
       try {
         for (const d of ohneOrdner) {
@@ -2422,6 +2464,22 @@ export const StorageService = {
       } catch (err) {
         console.warn('Belege konnten nicht in ihre Ordner einsortiert werden:', err);
       }
+    }
+    // Ebenso einmalig: Zuwendungsbestätigungen und Rechnungs-PDFs in ihre
+    // Unterordner (D-40, D-47). Betroffen sind nur solche ohne Ordner oder im
+    // Haupt- bzw. Jahresordner; selbst verschobene bleiben, wo sie sind.
+    try {
+      const ordner = await this.getFolders();
+      for (const d of docs) {
+        const art = belegArtVon(d.id);
+        if (!art || !sollEinsortiertWerden(d.folderId, ordner)) continue;
+        const ziel = await this.belegUnterordnerFuer(d.date, art);
+        if (d.folderId === ziel) continue;
+        d.folderId = ziel;
+        await putItemToStore(STORES.DOCUMENTS, d);
+      }
+    } catch (err) {
+      console.warn('Spenden- und Rechnungs-PDFs konnten nicht einsortiert werden:', err);
     }
     return docs.sort((a, b) => new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime());
   },
@@ -2637,6 +2695,8 @@ export const StorageService = {
       autoArchiveDoc?: boolean;
       autoCreateTx?: boolean;
       targetAccountId?: string;
+      /** Die schon verknüpfte Buchung an Betrag, Datum und Name angleichen (D-39). */
+      buchungAnpassen?: boolean;
     }
   ): Promise<{ receipt: DonationReceipt; document?: ClubDocument; transaction?: Transaction }> {
     const now = new Date().toISOString();
@@ -2652,28 +2712,23 @@ export const StorageService = {
     let createdTx: Transaction | undefined;
     let createdDoc: ClubDocument | undefined;
 
-    // 1. Auto-create booking in financial accounting if requested (for Geldspenden)
+    // Verknüpfung nur behalten, wenn es die Buchung noch gibt
+    const verknuepft = toSave.transactionId
+      ? await getItemFromStore<Transaction>(STORES.TRANSACTIONS, toSave.transactionId)
+      : null;
+    if (!verknuepft) delete toSave.transactionId;
+
+    // 1. Einnahmebuchung zur Geldspende: Konto 40450, eindeutige SP-Nummer
+    //    (D-10, D-38; wie Android). Nur, solange noch keine verknüpft ist.
     if (options?.autoCreateTx && options.targetAccountId && toSave.type === 'money' && !toSave.transactionId) {
-      const docNum = `SP-${new Date(toSave.date).getFullYear()}-${toSave.receiptNumber.replace(/[^0-9]/g, '').slice(-3) || Math.floor(100 + Math.random() * 900)}`;
-      const tx: Transaction = {
-        id: `tx-don-${toSave.id}-${Date.now()}`,
-        date: toSave.date,
-        amount: toSave.amount, // Income (positive)
-        type: 'income',
-        accountId: options.targetAccountId,
-        documentNumber: docNum,
-        bookingText: `Spende / Zuwendung: ${toSave.donorName} (${toSave.receiptNumber})`,
-        partner: toSave.donorName,
-        sphere: 'ideell',
-        category: 'Spenden / Schenkungen',
-        vatRate: 0,
-        notes: `Zuwendungsbestätigung ${toSave.receiptNumber} nach amtl. BMF-Muster. ${toSave.notes || ''}`.trim(),
-        createdAt: now,
-        updatedAt: now
-      };
+      const vorhandene = (await this.getTransactions()).map(t => t.documentNumber);
+      const tx = spendenBuchung(toSave, options.targetAccountId, vorhandene, now, `tx-don-${toSave.id}-${Date.now()}`);
       await this.saveTransaction(tx);
       createdTx = tx;
       toSave.transactionId = tx.id;
+    } else if (options?.buchungAnpassen && verknuepft) {
+      // Verknüpfte Buchung nachführen, wenn der Anwender das gewählt hat (D-39)
+      await this.saveTransaction(gleicheBuchungAn(verknuepft, toSave, now));
     }
 
     // 2. Auto-generate PDF & archive in document storage
@@ -2682,8 +2737,17 @@ export const StorageService = {
         const pdfDataUrl = getDonationPdfDataUrl(toSave, settings);
         const docId = toSave.documentId || `doc-don-${toSave.id}`;
         const isGoods = toSave.type === 'goods';
+        // Ablage unter „Belege <Jahr> / Spendenbescheinigungen“ (D-40, wie
+        // Android); ein selbst gewählter Ordner bleibt.
+        const bisher = await getItemFromStore<ClubDocument>(STORES.DOCUMENTS, docId);
+        const folderId =
+          bisher?.folderId && !sollEinsortiertWerden(bisher.folderId, await this.getFolders())
+            ? bisher.folderId
+            : await this.belegUnterordnerFuer(toSave.date, 'spenden');
         const doc: ClubDocument = {
+          ...(bisher ?? {}),
           id: docId,
+          folderId,
           title: `Zuwendungsbestätigung: ${toSave.receiptNumber} - ${toSave.donorName}`,
           fileName: `Zuwendungsbestaetigung_${toSave.receiptNumber}_${toSave.donorName.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,
           fileType: 'application/pdf',
@@ -2698,7 +2762,7 @@ export const StorageService = {
           memberId: toSave.memberId,
           memberName: toSave.donorName,
           isReceipt: true,
-          createdAt: now,
+          createdAt: bisher?.createdAt || now,
           updatedAt: now
         };
         await this.saveDocument(doc);
@@ -2714,12 +2778,21 @@ export const StorageService = {
     return { receipt: toSave, document: createdDoc, transaction: createdTx };
   },
 
-  async deleteDonationReceipt(id: string): Promise<void> {
+  /**
+   * Löscht eine Bestätigung samt abgelegtem PDF. Die verknüpfte Buchung wird
+   * nur mitgelöscht, wenn der Anwender das gewählt hat (D-39, wie Android);
+   * vorher blieb sie immer stehen, ohne dass es jemand erfuhr.
+   */
+  async deleteDonationReceipt(id: string, buchungMitLoeschen = false): Promise<void> {
     const existing = await getItemFromStore<DonationReceipt>(STORES.DONATIONS, id);
     if (existing?.documentId) {
       await this.deleteDocument(existing.documentId).catch(() => {});
     }
     await deleteItemFromStore(STORES.DONATIONS, id);
+    if (buchungMitLoeschen && existing?.transactionId) {
+      const tx = await getItemFromStore<Transaction>(STORES.TRANSACTIONS, existing.transactionId);
+      if (tx) await this.deleteTransaction(tx.id);
+    }
   },
 
   // ----------------------------------------------------

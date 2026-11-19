@@ -4,8 +4,13 @@ import {
   DonationType,
   Member,
   FinancialAccount,
-  ClubSettings
+  ClubSettings,
+  Transaction
 } from '../types';
+import { keepUnknownFields } from '../utils/keepUnknownFields';
+import { leseUnterschrift } from '../utils/unterschrift';
+import { buchungWeichtAb } from '../services/spendenBuchung';
+import { BestaetigungsDialog } from './BestaetigungsDialog';
 import {
   numberToGermanWords,
   downloadDonationReceiptPdf,
@@ -37,9 +42,14 @@ interface DonationFormModalProps {
       autoArchiveDoc: boolean;
       autoCreateTx: boolean;
       targetAccountId?: string;
+      buchungAnpassen?: boolean;
     }
   ) => Promise<void>;
   editingReceipt: DonationReceipt | null;
+  /** Buchungen, um die verknüpfte Buchung zu finden (D-39). */
+  transactions?: Transaction[];
+  /** Vorhandene Bestätigungen, um doppelte Nummern abzulehnen. */
+  existingReceipts?: DonationReceipt[];
   members: Member[];
   accounts: FinancialAccount[];
   settings: ClubSettings;
@@ -54,7 +64,9 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
   members,
   accounts,
   settings,
-  nextReceiptNumber
+  nextReceiptNumber,
+  transactions = [],
+  existingReceipts = []
 }) => {
   const [type, setType] = useState<DonationType>('money');
   const [receiptNumber, setReceiptNumber] = useState(nextReceiptNumber);
@@ -94,6 +106,13 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
   const [targetAccountId, setTargetAccountId] = useState(accounts[0]?.id || 'acc-1');
 
   const [isSaving, setIsSaving] = useState(false);
+  // Hinterlegte Unterschrift ins PDF setzen (D-41)
+  const hatUnterschrift = leseUnterschrift(settings.signature) !== null;
+  const [signed, setSigned] = useState(false);
+  // Warum nicht gespeichert wurde; steht neben dem Knopf statt in alert() (D-147)
+  const [formFehler, setFormFehler] = useState<string | null>(null);
+  // Rückfrage, ob die verknüpfte Buchung angeglichen werden soll (D-39)
+  const [buchungFrage, setBuchungFrage] = useState<DonationReceipt | null>(null);
 
   useEffect(() => {
     if (editingReceipt) {
@@ -123,6 +142,7 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
       setIssuedBy(editingReceipt.issuedBy || '');
       setCityAndDate(editingReceipt.cityAndDate || '');
       setNotes(editingReceipt.notes || '');
+      setSigned(editingReceipt.signed ?? false);
       setAutoCreateTx(false); // don't duplicate on edit
     } else {
       // Reset for new receipt
@@ -163,10 +183,14 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
       setIssuedBy(`${settings.treasurer || 'Schatzmeister'} (Vorstand)`);
       setCityAndDate(standardOrtUndDatum(settings));
       setNotes('');
+      // Neue Bestätigung: unterschreiben, wenn eine Unterschrift hinterlegt ist (wie Android)
+      setSigned(leseUnterschrift(settings.signature) !== null);
       setAutoArchiveDoc(true);
       setAutoCreateTx(true);
       setTargetAccountId(accounts[0]?.id || 'acc-1');
     }
+    setFormFehler(null);
+    setBuchungFrage(null);
   }, [editingReceipt, isOpen, nextReceiptNumber, settings]);
 
   // Handle member select
@@ -198,19 +222,26 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
     e.preventDefault();
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
-      alert('Bitte geben Sie einen gültigen Betrag größer 0 € ein.');
+      setFormFehler('Bitte einen gültigen Betrag größer 0 € eingeben.');
       return;
     }
     if (!donorName.trim()) {
-      alert('Bitte geben Sie den Namen des Spenders ein.');
+      setFormFehler('Bitte den Namen des Spenders eingeben.');
       return;
     }
     if (type === 'goods' && !goodsDescription.trim()) {
-      alert('Bitte geben Sie die genaue Bezeichnung der Sachspende ein.');
+      setFormFehler('Bitte die genaue Bezeichnung der Sachspende eingeben.');
       return;
     }
+    // Doppelte Nummer ablehnen (wie Android; Groß-/Kleinschreibung egal)
+    const nummer = (receiptNumber.trim() || nextReceiptNumber).toLowerCase();
+    if (existingReceipts.some(r => r.id !== editingReceipt?.id && (r.receiptNumber || '').trim().toLowerCase() === nummer)) {
+      setFormFehler(`Die Nummer ${receiptNumber.trim() || nextReceiptNumber} gibt es schon. Bitte eine andere wählen.`);
+      return;
+    }
+    setFormFehler(null);
 
-    const receipt: DonationReceipt = {
+    const neuAufgebaut: DonationReceipt = {
       id: editingReceipt?.id || `don-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       receiptNumber: receiptNumber.trim() || nextReceiptNumber,
       type,
@@ -241,21 +272,38 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
       issuedBy: issuedBy.trim(),
       cityAndDate: cityAndDate.trim(),
       notes: notes.trim(),
+      signed: signed && hatUnterschrift,
       createdAt: editingReceipt?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+    // Was das Formular nicht kennt (verknüpfte Buchung, abgelegtes PDF, Felder
+    // der Android-Fassung), bleibt erhalten. Vorher ging beim Bearbeiten die
+    // Verknüpfung zur Buchung verloren.
+    const receipt = keepUnknownFields(editingReceipt, neuAufgebaut, { nestedKeys: ['donorAddress'] });
 
+    // Weicht die verknüpfte Buchung danach ab, fragen, ob sie mitgehen soll (D-39)
+    const verknuepft = receipt.transactionId ? transactions.find(t => t.id === receipt.transactionId) : undefined;
+    if (editingReceipt && verknuepft && buchungWeichtAb(receipt, verknuepft)) {
+      setBuchungFrage(receipt);
+      return;
+    }
+    await speichern(receipt, false);
+  };
+
+  const speichern = async (receipt: DonationReceipt, buchungAnpassen: boolean) => {
+    setBuchungFrage(null);
     setIsSaving(true);
     try {
       await onSave(receipt, {
         autoArchiveDoc,
-        autoCreateTx: type === 'money' ? autoCreateTx : false,
-        targetAccountId
+        autoCreateTx: receipt.type === 'money' ? autoCreateTx : false,
+        targetAccountId,
+        buchungAnpassen
       });
       onClose();
     } catch (err) {
       console.error(err);
-      alert('Fehler beim Speichern der Zuwendungsbestätigung.');
+      setFormFehler('Die Zuwendungsbestätigung konnte nicht gespeichert werden.');
     } finally {
       setIsSaving(false);
     }
@@ -293,6 +341,7 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
       isDirectlyPromoted: true,
       issuedBy,
       cityAndDate,
+      signed: signed && hatUnterschrift,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -665,6 +714,25 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
               </label>
             </div>
 
+            <div className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                id="signedPdf"
+                checked={signed && hatUnterschrift}
+                disabled={!hatUnterschrift}
+                onChange={e => setSigned(e.target.checked)}
+                className="mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 disabled:opacity-40 dark:border-slate-700 dark:text-emerald-400"
+              />
+              <label htmlFor="signedPdf" className={`text-xs font-medium ${hatUnterschrift ? 'text-slate-700 cursor-pointer dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`}>
+                Hinterlegte Unterschrift ins PDF setzen
+                {!hatUnterschrift && (
+                  <span className="block text-2xs font-normal">
+                    Keine Unterschrift hinterlegt (Einstellungen → Vereinsdaten → Unterschrift).
+                  </span>
+                )}
+              </label>
+            </div>
+
             {type === 'money' && (
               <div className="space-y-2 pt-1 border-t border-slate-200 dark:border-slate-800">
                 <div className="flex items-center gap-2">
@@ -852,6 +920,9 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
             </button>
 
             <div className="flex items-center gap-2">
+              {formFehler && (
+                <span className="max-w-xs text-xs font-semibold text-rose-600 dark:text-rose-400">{formFehler}</span>
+              )}
               <button
                 type="button"
                 onClick={onClose}
@@ -871,6 +942,17 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
           </div>
         </form>
       </div>
+      {buchungFrage && (
+        <BestaetigungsDialog
+          titel="Verknüpfte Buchung angleichen?"
+          text="Zu dieser Bestätigung gehört eine Buchung. Betrag, Datum oder Name stimmen nach der Änderung nicht mehr überein. Soll die Buchung angeglichen werden?"
+          bestaetigenText="Buchung angleichen"
+          alternativText="Buchung unverändert lassen"
+          onBestaetigen={() => speichern(buchungFrage, true)}
+          onAlternative={() => speichern(buchungFrage, false)}
+          onAbbrechen={() => setBuchungFrage(null)}
+        />
+      )}
     </div>
   );
 };

@@ -1,77 +1,95 @@
 import jsPDF from 'jspdf';
 import { DonationReceipt, ClubSettings } from '../types';
 import { savePdfAs } from '../utils/fileExportHelper';
+import { leseUnterschrift, unterschriftImPdf } from '../utils/unterschrift';
+
+const EINER = ['', 'ein', 'zwei', 'drei', 'vier', 'fünf', 'sechs', 'sieben', 'acht', 'neun'];
+const ZEHNER_BIS_19 = ['zehn', 'elf', 'zwölf', 'dreizehn', 'vierzehn', 'fünfzehn', 'sechzehn', 'siebzehn', 'achtzehn', 'neunzehn'];
+const ZEHNER = ['', 'zehn', 'zwanzig', 'dreißig', 'vierzig', 'fünfzig', 'sechzig', 'siebzig', 'achtzig', 'neunzig'];
+
+/** `eins`: wie eine allein stehende 1 am Ende heißt („eins“, vor „tausend“ „ein“, vor „Millionen“ „eine“). */
+function unter100(n: number, eins: string): string {
+  if (n === 0) return '';
+  if (n === 1) return eins;
+  if (n < 10) return EINER[n];
+  if (n < 20) return ZEHNER_BIS_19[n - 10];
+  const e = n % 10;
+  const z = Math.floor(n / 10);
+  if (e === 0) return ZEHNER[z];
+  if (e === 1) return 'einund' + ZEHNER[z];
+  return EINER[e] + 'und' + ZEHNER[z];
+}
+
+function unter1000(n: number, eins: string): string {
+  if (n === 0) return '';
+  const h = Math.floor(n / 100);
+  const rest = n % 100;
+  let s = '';
+  if (h > 0) s += (h === 1 ? 'ein' : EINER[h]) + 'hundert';
+  if (rest > 0) s += unter100(rest, eins);
+  return s;
+}
+
+function zahlInWorten(n: number): string {
+  if (n === 0) return 'null';
+  const millionen = Math.floor(n / 1_000_000);
+  const tausender = Math.floor((n % 1_000_000) / 1000);
+  const rest = n % 1000;
+  let s = '';
+  if (millionen > 0) s += millionen === 1 ? 'eine Million ' : unter1000(millionen, 'eine') + ' Millionen ';
+  if (tausender > 0) s += tausender === 1 ? 'eintausend' : unter1000(tausender, 'ein') + 'tausend';
+  if (rest > 0) s += unter1000(rest, 'eins');
+  return s.trim();
+}
 
 /**
- * Wandelt einen Geldbetrag in deutsche Worte um (z.B. 1500 -> "Eintausendfünfhundert Euro")
+ * Betrag in Worten für die Zuwendungsbestätigung, z. B. 1500 → „Eintausendfünfhundert Euro“.
+ *
+ * Wie die Android-Fassung (`DonationService.numberToGermanWords`). Vorher
+ * (D-03): „Eins Euro“ statt „Ein Euro“, „Einhundertein“ statt
+ * „Einhunderteins“ und „eins Cent“ statt „ein Cent“. Gerechnet wird in ganzen
+ * Cent, damit 0,29 nicht als 28 Cent herauskommt.
  */
 export function numberToGermanWords(amount: number): string {
-  if (isNaN(amount) || amount <= 0) return 'Null Euro';
+  if (!Number.isFinite(amount) || amount <= 0) return 'Null Euro';
+  const cent = Math.round(amount * 100);
+  const euro = Math.floor(cent / 100);
+  const rest = cent % 100;
+  const worteEuro = euro === 1 ? 'ein' : zahlInWorten(euro);
+  let ergebnis = `${worteEuro.charAt(0).toUpperCase()}${worteEuro.slice(1)} Euro`;
+  if (rest > 0) ergebnis += ` und ${rest === 1 ? 'ein' : zahlInWorten(rest)} Cent`;
+  return ergebnis;
+}
 
-  const euros = Math.floor(amount);
-  const cents = Math.round((amount - euros) * 100);
-
-  const units = ['', 'ein', 'zwei', 'drei', 'vier', 'fünf', 'sechs', 'sieben', 'acht', 'neun'];
-  const teens = ['zehn', 'elf', 'zwölf', 'dreizehn', 'vierzehn', 'fünfzehn', 'sechzehn', 'siebzehn', 'achtzehn', 'neunzehn'];
-  const tens = ['', 'zehn', 'zwanzig', 'dreißig', 'vierzig', 'fünfzig', 'sechzig', 'siebzig', 'achtzig', 'neunzig'];
-
-  function convertBelowHundred(n: number, isDirectUnit = false): string {
-    if (n === 0) return '';
-    if (n === 1 && isDirectUnit) return 'eins';
-    if (n < 10) return units[n];
-    if (n >= 10 && n < 20) return teens[n - 10];
-    const unitDigit = n % 10;
-    const tenDigit = Math.floor(n / 10);
-    if (unitDigit === 0) return tens[tenDigit];
-    if (unitDigit === 1) return 'und' + tens[tenDigit] === '' ? 'eins' : 'einund' + tens[tenDigit];
-    return units[unitDigit] + 'und' + tens[tenDigit];
+/**
+ * Den Betrag in Worten in das einzeilige Feld des Vordrucks bringen (D-42).
+ * Wie Android: die Schrift von 10 pt in Viertelpunkten bis 5,5 pt
+ * verkleinern; passt es dann immer noch nicht, zwei Zeilen in 6 pt.
+ * `messe` liefert die Breite eines Textes in mm bei einer Schriftgröße.
+ */
+export function passeWorteInFeld(
+  text: string,
+  breite: number,
+  messe: (s: string, pt: number) => number
+): { groesse: number; zeilen: string[] } {
+  let groesse = 10;
+  while (messe(text, groesse) > breite && groesse > 5.5) groesse -= 0.25;
+  if (messe(text, groesse) <= breite) return { groesse, zeilen: [text] };
+  // Zwei Zeilen in 6 pt, an Leerzeichen getrennt
+  const woerter = text.split(/\s+/).filter(Boolean);
+  const zeilen: string[] = [];
+  let zeile = '';
+  for (const w of woerter) {
+    const versuch = zeile ? `${zeile} ${w}` : w;
+    if (zeile && messe(versuch, 6) > breite) {
+      zeilen.push(zeile);
+      zeile = w;
+    } else {
+      zeile = versuch;
+    }
   }
-
-  function convertBelowThousand(n: number): string {
-    if (n === 0) return '';
-    let result = '';
-    const hundredDigit = Math.floor(n / 100);
-    const rest = n % 100;
-    if (hundredDigit > 0) {
-      result += (hundredDigit === 1 ? 'ein' : units[hundredDigit]) + 'hundert';
-    }
-    if (rest > 0) {
-      result += convertBelowHundred(rest, hundredDigit === 0);
-    }
-    return result;
-  }
-
-  function convertNumber(n: number): string {
-    if (n === 0) return 'null';
-    if (n === 1) return 'eins';
-    let str = '';
-
-    const millions = Math.floor(n / 1000000);
-    const thousands = Math.floor((n % 1000000) / 1000);
-    const remainder = n % 1000;
-
-    if (millions > 0) {
-      str += (millions === 1 ? 'eine Million ' : convertBelowThousand(millions) + ' Millionen ');
-    }
-    if (thousands > 0) {
-      str += (thousands === 1 ? 'eintausend' : convertBelowThousand(thousands) + 'tausend');
-    }
-    if (remainder > 0) {
-      str += convertBelowThousand(remainder);
-    }
-    return str.trim();
-  }
-
-  let wordEuro = convertNumber(euros);
-  // Capitalize first letter
-  wordEuro = wordEuro.charAt(0).toUpperCase() + wordEuro.slice(1);
-
-  let result = `${wordEuro} Euro`;
-  if (cents > 0) {
-    const wordCents = convertNumber(cents);
-    result += ` und ${wordCents} Cent`;
-  }
-  return result;
+  if (zeile) zeilen.push(zeile);
+  return { groesse: 6, zeilen: zeilen.slice(0, 2) };
 }
 
 /** Eine Textzeile aus der Vereinsadresse (Objekt oder Freitext) → bis zu zwei Zeilen. */
@@ -238,8 +256,18 @@ export function generateBmfDonationReceiptPdf(receipt: DonationReceipt, settings
     maximumFractionDigits: 2
   });
   text(`${betrag}€`, 60.3, 84.7, 10, false, { align: 'right' });
-  const inWorten = doc.splitTextToSize(receipt.amountInWords || numberToGermanWords(receipt.amount), 87)[0] || '';
-  text(inWorten, 62.2, 84.7, 10);
+  // Betrag in Worten: vorher einzeilig in 10 pt, ein zu langer Text wurde
+  // einfach abgeschnitten (D-42).
+  const worte = passeWorteInFeld(receipt.amountInWords || numberToGermanWords(receipt.amount), 87, (t, pt) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(pt);
+    return doc.getTextWidth(t);
+  });
+  if (worte.zeilen.length === 1) {
+    text(worte.zeilen[0], 62.2, 84.7, worte.groesse);
+  } else {
+    worte.zeilen.forEach((z, i) => text(z, 62.2, 84.7 + (i - 1) * 3.0 + 0.2, worte.groesse));
+  }
   text(datumFuerFormular(receipt.date), 152.9, 84.7, 10);
 
   // 5. Verzicht auf Erstattung (Geld) bzw. Angaben zur Sache (Sach)
@@ -328,6 +356,19 @@ export function generateBmfDonationReceiptPdf(receipt: DonationReceipt, settings
   doc.setLineWidth(0.25);
   doc.line(L, sigY + 1.8, L + BW, sigY + 1.8);
   text('(Ort, Datum und Unterschrift des Zuwendungsempfängers)', TX - 1, sigY + 4.8, 8);
+  // Hinterlegte Unterschrift, wenn sie für diese Bestätigung gewählt ist (D-41, wie Android)
+  const unterschrift = leseUnterschrift(settings.signature);
+  if (receipt.signed && unterschrift) {
+    doc.setLineWidth(0.5);
+    doc.setLineCap('round');
+    doc.setLineJoin('round');
+    for (const zug of unterschriftImPdf(unterschrift, L + 100, sigY + 1.2)) {
+      for (let i = 1; i < zug.length; i++) doc.line(zug[i - 1][0], zug[i - 1][1], zug[i][0], zug[i][1]);
+    }
+    doc.setLineWidth(0.25);
+    doc.setLineCap('butt');
+    doc.setLineJoin('miter');
+  }
 
   // 10. Hinweis
   const hy = sigY + 10.2;

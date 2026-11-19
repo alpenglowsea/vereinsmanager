@@ -214,8 +214,7 @@ export default function App() {
     chairman: 'Dr. Michael Sommer',
     treasurer: 'Sabine Weber',
     email: '',
-    departments: ['Fußball', 'Tennis', 'Turnen', 'Leichtathletik', 'Schwimmen', 'Volleyball'],
-    currency: 'EUR'
+    departments: ['Fußball', 'Tennis', 'Turnen', 'Leichtathletik', 'Schwimmen', 'Volleyball']
   });
 
   // Farbschema und Schrift des Vereins. Bis die Vereinsdaten geladen sind,
@@ -338,9 +337,11 @@ export default function App() {
   } | null>(null);
 
   // Load initial data from local IndexedDB
-  const loadData = async () => {
+  // `leise`: ohne Ladebildschirm neu laden, damit die gerade offene Seite
+  // stehen bleibt (z. B. nach dem Umbenennen einer Sparte, T-82).
+  const loadData = async (leise = false) => {
     try {
-      setLoading(true);
+      if (leise !== true) setLoading(true);
       await StorageService.init();
       const [
         loadedMembers,
@@ -898,6 +899,7 @@ export default function App() {
       autoArchiveDoc: boolean;
       autoCreateTx: boolean;
       targetAccountId?: string;
+      buchungAnpassen?: boolean;
     }
   ) => {
     await StorageService.saveDonationReceipt(receipt, options);
@@ -913,14 +915,16 @@ export default function App() {
     setEditingDonation(null);
   };
 
-  const handleDeleteDonationReceipt = async (id: string) => {
-    await StorageService.deleteDonationReceipt(id);
-    const [updatedDonations, updatedDocs] = await Promise.all([
+  const handleDeleteDonationReceipt = async (id: string, buchungMitLoeschen = false) => {
+    await StorageService.deleteDonationReceipt(id, buchungMitLoeschen);
+    const [updatedDonations, updatedDocs, updatedTxs] = await Promise.all([
       StorageService.getDonations(),
-      StorageService.getDocuments()
+      StorageService.getDocuments(),
+      StorageService.getTransactions()
     ]);
     setDonations(updatedDonations);
     setDocuments(updatedDocs);
+    setTransactions(updatedTxs);
   };
 
   const handleEditDonationReceipt = (receipt: DonationReceipt) => {
@@ -943,9 +947,10 @@ export default function App() {
     const toSave: ClubInvoice = { ...invoice };
     if (saveToDocuments) {
       try {
+        // Ein Dokument je Rechnung, im Ordner „Belege <Jahr> / Ausgangsrechnungen“ (D-47)
         const doc = await createDocumentFromInvoice(invoice, settings, invoiceTemplateSettings);
-        await StorageService.saveDocument(doc);
-        toSave.documentId = doc.id;
+        const abgelegt = await StorageService.saveInvoicePdfDocument(invoice, doc);
+        toSave.documentId = abgelegt.id;
       } catch (docErr) {
         console.warn('Could not auto-archive invoice document:', docErr);
       }
@@ -964,8 +969,13 @@ export default function App() {
 
   const handleDeleteInvoice = async (id: string) => {
     await StorageService.deleteInvoice(id);
-    const updatedInvoices = await StorageService.getInvoices();
+    // Das PDF wird mitgelöscht; die Dokumentenliste deshalb ebenfalls neu laden
+    const [updatedInvoices, updatedDocs] = await Promise.all([
+      StorageService.getInvoices(),
+      StorageService.getDocuments()
+    ]);
     setInvoices(updatedInvoices);
+    setDocuments(updatedDocs);
     if (detailsInvoice?.id === id) {
       setDetailsInvoice(null);
     }
@@ -975,8 +985,12 @@ export default function App() {
     for (const id of ids) {
       await StorageService.deleteInvoice(id);
     }
-    const updatedInvoices = await StorageService.getInvoices();
+    const [updatedInvoices, updatedDocs] = await Promise.all([
+      StorageService.getInvoices(),
+      StorageService.getDocuments()
+    ]);
     setInvoices(updatedInvoices);
+    setDocuments(updatedDocs);
   };
 
 
@@ -2076,7 +2090,7 @@ export default function App() {
               <SettingsView
                 settings={settings}
                 onSaveSettings={handleSaveSettings}
-                onDataReload={loadData}
+                onDataReload={(leise?: boolean) => loadData(leise)}
                 currentTheme={theme}
                 onThemeChange={(newTheme) => setTheme(newTheme)}
                 initialTab={settingsActiveTab}
@@ -2172,6 +2186,7 @@ export default function App() {
           departments={settings.departments}
           nextMemberNumber={nextMemberNumber}
           existingMembers={members}
+          beitragsVorgaben={settings.membershipFeeDefaults}
           onSave={handleSaveMember}
           onClose={() => {
             setMemberFormOpen(false);
@@ -2302,6 +2317,8 @@ export default function App() {
           accounts={accounts}
           settings={settings}
           nextReceiptNumber={nextDonationReceiptNumber}
+          transactions={transactions}
+          existingReceipts={donations}
           onSave={handleSaveDonationReceipt}
           onClose={() => {
             setDonationFormOpen(false);

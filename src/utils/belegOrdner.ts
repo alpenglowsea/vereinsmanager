@@ -82,3 +82,76 @@ export function planeBelegOrdner(
   neu.push(unter);
   return { zielId: unter.id, neu };
 }
+
+/**
+ * Unterordner unter „Belege <Jahr>“ für Spendenbescheinigungen und
+ * Ausgangsrechnungen (D-40, D-47), wie Android (`Belege.unterordner`):
+ * gefunden wird ein vorhandener Unterordner am Namen.
+ */
+export type BelegArt = 'spenden' | 'rechnungen';
+
+const UNTERORDNER: Record<BelegArt, { name: string; schluessel: string; beschreibung: string }> = {
+  spenden: {
+    name: 'Spendenbescheinigungen',
+    schluessel: 'spendenbescheinigungen',
+    beschreibung: 'Zuwendungsbestätigungen (Spendenquittungen) dieses Geschäftsjahres'
+  },
+  rechnungen: {
+    name: 'Ausgangsrechnungen',
+    schluessel: 'ausgangsrechnungen',
+    beschreibung: 'Ausgangsrechnungen des Geschäftsjahres'
+  }
+};
+
+export function planeUnterordner(
+  vorhandene: DocumentFolder[],
+  datum: string | null | undefined,
+  art: BelegArt,
+  jetzt: string = new Date().toISOString(),
+  neueKennung: () => string = () => `folder-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+): { zielId: string; neu: DocumentFolder[] } {
+  const jahr = planeBelegOrdner(vorhandene, datum, jetzt, neueKennung);
+  // Ohne gültiges Datum gibt es keinen Jahresordner; dann bleibt es beim Hauptordner.
+  if (!jahrAus(datum)) return jahr;
+  const alle = [...vorhandene, ...jahr.neu];
+  const u = UNTERORDNER[art];
+  const vorhanden = alle.find(o => elternVon(o) === jahr.zielId && o.name === u.name);
+  if (vorhanden) return { zielId: vorhanden.id, neu: jahr.neu };
+  const belegt = new Set(alle.map(o => o.id));
+  const wunsch = `${jahr.zielId}-${u.schluessel}`;
+  const ordner: DocumentFolder = {
+    id: belegt.has(wunsch) ? neueKennung() : wunsch,
+    name: u.name,
+    parentId: jahr.zielId,
+    category: 'belege',
+    color: FARBE,
+    description: u.beschreibung,
+    createdAt: jetzt,
+    updatedAt: jetzt
+  };
+  return { zielId: ordner.id, neu: [...jahr.neu, ordner] };
+}
+
+/** Welcher Art ist ein automatisch abgelegtes PDF? (an der Kennung erkannt) */
+export function belegArtVon(dokumentId: string): BelegArt | null {
+  if (dokumentId.startsWith('doc-don-')) return 'spenden';
+  if (dokumentId.startsWith('doc-inv-')) return 'rechnungen';
+  return null;
+}
+
+/**
+ * Soll ein automatisch abgelegtes PDF (neu) einsortiert werden? Ja, wenn es
+ * noch in keinem Ordner liegt oder nur im Hauptordner bzw. im Jahresordner
+ * „Belege <Jahr>“ (dorthin hat sie die Nacharbeit aus D-16 gelegt). Was
+ * jemand in einen anderen Ordner verschoben hat, bleibt dort.
+ */
+export function sollEinsortiertWerden(folderId: string | null | undefined, vorhandene: DocumentFolder[]): boolean {
+  if (!folderId) return true;
+  const o = vorhandene.find(f => f.id === folderId);
+  if (!o) return true; // Ordner gibt es nicht mehr
+  const haupt = vorhandene.find(f => f.id === BELEG_HAUPTORDNER_ID) ??
+    vorhandene.find(f => f.name === BELEG_HAUPTORDNER_NAME && elternVon(f) === null);
+  if (!haupt) return false;
+  if (o.id === haupt.id) return true;
+  return elternVon(o) === haupt.id && /^Belege \d{4}$/.test(o.name);
+}

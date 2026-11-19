@@ -259,9 +259,12 @@ export interface ClubSettings {
   theme?: 'light' | 'dark' | 'system';
   colorScheme?: ColorSchemeId; // Farbschema des Vereins, Standard 'blau'
   fontChoice?: FontChoiceId; // Schrift des Vereins, Standard 'system'
-  currency?: string;
-  dateFormat?: string;
-  fiscalYearStart?: string;
+  // Beitragsvorgaben je Mitgliedsart (D-94), z. B. { full: { amount: 18, period: 'monthly' } }.
+  // Gleiches Feld wie in der Android-Fassung; gelesen über utils/beitragsVorgaben.
+  // Hinterlegte Unterschrift für Zuwendungsbestätigungen (D-41), Format wie Android:
+  // Linienzüge mit Punkten [x, y] auf 0..1 bezogen, aspect = Breite / Höhe der Zeichenfläche.
+  signature?: { aspect: number; strokes: number[][][] };
+  membershipFeeDefaults?: Partial<Record<'full' | 'reduced' | 'youth' | 'family' | 'supporting', { amount: number | string; period: string }>>;
   taxOffice?: string; // z.B. 'Finanzamt Musterstadt'
   taxExemptionDate?: string; // z.B. '10.01.2024'
   taxStatementDate?: string; // Datum des Feststellungsbescheids nach § 60a AO, z.B. '24.07.2025'
@@ -494,6 +497,8 @@ export interface DonationReceipt {
   transactionId?: string;
   documentId?: string;
   notes?: string;
+  /** Hinterlegte Unterschrift ins PDF setzen (D-41, wie Android) */
+  signed?: boolean;
   createdAt: string;
   updatedAt: string;
 }

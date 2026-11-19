@@ -1,4 +1,6 @@
 import { nummerVergeben } from '../utils/nummern';
+import { leseVorgaben, vorgabeFuer } from '../utils/beitragsVorgaben';
+import type { ClubSettings } from '../types';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Member,
@@ -42,6 +44,8 @@ interface MemberFormModalProps {
   nextMemberNumber: string;
   /** Alle Mitglieder; damit wird eine doppelte Mitgliedsnummer abgelehnt. */
   existingMembers?: Member[];
+  /** Beitragsvorgaben je Mitgliedsart aus den Einstellungen (D-94). */
+  beitragsVorgaben?: ClubSettings['membershipFeeDefaults'];
   onSave: (member: Member, attachedDoc?: ClubDocument) => void | Promise<void>;
   onClose: () => void;
 }
@@ -65,9 +69,12 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
   departments = DEFAULT_DEPARTMENTS,
   nextMemberNumber,
   existingMembers = [],
+  beitragsVorgaben,
   onSave,
   onClose
 }) => {
+  // Beitragsvorgaben je Mitgliedsart; fehlen sie, gelten die Startwerte
+  const vorgaben = leseVorgaben(beitragsVorgaben);
   const [activeTab, setActiveTab] = useState<'base' | 'contact' | 'membership' | 'payment' | 'notes'>('base');
 
   const [formData, setFormData] = useState<Member>({
@@ -97,8 +104,9 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
     status: member?.status || 'active',
     department: member?.department || departments[0] || 'Fußball',
     membershipType: member?.membershipType || 'full',
-    feeAmount: member?.feeAmount ?? 120.00,
-    feePeriod: member?.feePeriod || 'yearly',
+    // Neues Mitglied: Vorgabe für Vollmitglieder (die Art, mit der das Formular startet)
+    feeAmount: member?.feeAmount ?? vorgaben.full.amount,
+    feePeriod: member?.feePeriod || vorgaben.full.period,
     paymentMethod: member?.paymentMethod || 'sepa',
     bankDetails: {
       iban: member?.bankDetails?.iban || '',
@@ -201,10 +209,21 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
         paymentMethod: 'exempt'
       }));
     } else {
+      // Nur bei einem neuen Mitglied Betrag und Zahlweise aus den Vorgaben
+      // übernehmen. Bei bestehenden Mitgliedern bleibt der vereinbarte Beitrag
+      // stehen (Wunsch 18.11.2026, D-94).
+      const vorgabe = member ? null : vorgabeFuer(vorgaben, newType);
       setFormData(prev => ({
         ...prev,
         membershipType: newType,
-        status: prev.status === 'terminated' ? 'active' : prev.status
+        status: prev.status === 'terminated' ? 'active' : prev.status,
+        ...(vorgabe
+          ? {
+              feeAmount: vorgabe.amount,
+              feePeriod: vorgabe.period,
+              paymentMethod: prev.paymentMethod === 'exempt' ? 'sepa' : prev.paymentMethod
+            }
+          : {})
       }));
     }
   };

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { planeBelegOrdner, BELEG_HAUPTORDNER_ID } from './belegOrdner';
+import { planeBelegOrdner, BELEG_HAUPTORDNER_ID, planeUnterordner, belegArtVon, sollEinsortiertWerden } from './belegOrdner';
 import type { DocumentFolder } from '../types';
 
 const ordner = (o: Partial<DocumentFolder>): DocumentFolder =>
@@ -46,5 +46,39 @@ describe('Ordner für Buchungsbelege', () => {
   it('legt Belege ohne gültiges Datum in den Hauptordner', () => {
     expect(planeBelegOrdner([HAUPT, B2026], '')).toEqual({ zielId: 'folder-belege', neu: [] });
     expect(planeBelegOrdner([HAUPT], 'unbekannt').zielId).toBe('folder-belege');
+  });
+});
+
+describe('Unterordner für Spenden und Rechnungen (D-40, D-47)', () => {
+  const haupt: DocumentFolder = { id: 'folder-belege', name: 'Buchhaltungsbelege & Finanzen', parentId: null, category: 'belege', createdAt: '', updatedAt: '' } as DocumentFolder;
+  const jahr: DocumentFolder = { id: 'folder-belege-2026', name: 'Belege 2026', parentId: 'folder-belege', category: 'belege', createdAt: '', updatedAt: '' } as DocumentFolder;
+
+  it('legt „Spendenbescheinigungen“ unter dem Jahresordner an', () => {
+    const r = planeUnterordner([haupt, jahr], '2026-05-01', 'spenden', 'jetzt');
+    expect(r.zielId).toBe('folder-belege-2026-spendenbescheinigungen');
+    expect(r.neu.map(o => [o.name, o.parentId])).toEqual([['Spendenbescheinigungen', 'folder-belege-2026']]);
+  });
+
+  it('legt bei Bedarf alle drei Ebenen an und findet Vorhandenes am Namen', () => {
+    const r = planeUnterordner([], '2027-01-02', 'rechnungen', 'jetzt');
+    expect(r.neu.map(o => o.name)).toEqual(['Buchhaltungsbelege & Finanzen', 'Belege 2027', 'Ausgangsrechnungen']);
+    const vomHandy = { id: 'folder-xyz', name: 'Ausgangsrechnungen', parentId: 'folder-belege-2026' } as DocumentFolder;
+    expect(planeUnterordner([haupt, jahr, vomHandy], '2026-03-03', 'rechnungen').zielId).toBe('folder-xyz');
+  });
+
+  it('erkennt die Art an der Kennung', () => {
+    expect(belegArtVon('doc-don-don-1')).toBe('spenden');
+    expect(belegArtVon('doc-inv-inv-1-abc')).toBe('rechnungen');
+    expect(belegArtVon('doc-receipt-tx-1')).toBeNull();
+  });
+
+  it('sortiert nur ein, was ohne Ordner, im Haupt- oder Jahresordner liegt', () => {
+    const eigener = { id: 'f-eigen', name: 'Sponsoring', parentId: 'folder-belege-2026' } as DocumentFolder;
+    const alle = [haupt, jahr, eigener];
+    expect(sollEinsortiertWerden(undefined, alle)).toBe(true);
+    expect(sollEinsortiertWerden('folder-belege', alle)).toBe(true);
+    expect(sollEinsortiertWerden('folder-belege-2026', alle)).toBe(true);
+    expect(sollEinsortiertWerden('f-eigen', alle)).toBe(false);
+    expect(sollEinsortiertWerden('gibt-es-nicht', alle)).toBe(true);
   });
 });

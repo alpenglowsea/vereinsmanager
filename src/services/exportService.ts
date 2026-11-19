@@ -338,7 +338,8 @@ export const ExportService = {
           ? 'mehrere'
           : TAX_SPHERES[t.sphere]?.name || t.sphere;
       const kontoText = umbuchung
-        ? `${accMap.get(t.accountId) || t.accountId} → ${accMap.get(t.targetAccountId || '') || t.targetAccountId || '–'}`
+        ? // „->“ statt „→“: Die Standardschrift des PDF kennt den Pfeil nicht (T-66)
+          `${accMap.get(t.accountId) || t.accountId} -> ${accMap.get(t.targetAccountId || '') || t.targetAccountId || '–'}`
         : accMap.get(t.accountId) || t.accountId;
       const kategorie = istAufgeteilt(t) ? `aufgeteilt (${t.splits!.length} Teile)` : t.category || '–';
 

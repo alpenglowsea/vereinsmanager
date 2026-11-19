@@ -13,6 +13,11 @@ import { istVerschluesselt, verschluessleSicherung, entschluessleSicherung } fro
 import { istPaket, istPaketVerschluesselt, lesePaket, paketFehlerText, paketHinweis } from '../services/backupPaket';
 import { BereichsVergleich, ImportArt, SicherungsKopf } from '../services/backupContents';
 import { openExternalUrl } from '../utils/externalLink';
+import { VORSTAND_FUNKTIONEN, vorsitzAus, kasseAus, vorstandHinweise, vorstandFehler, vorstandBereinigt } from '../utils/vorstand';
+import { VORGABE_ARTEN, VORGABE_PERIODEN, VorgabeArt, VorgabePeriode, leseVorgaben } from '../utils/beitragsVorgaben';
+import { spartenNameFehler, ersetzeSparte, ersetzeSparteInBuchung, ersetzeInListe } from '../utils/sparteUmbenennen';
+import { BestaetigungsDialog } from './BestaetigungsDialog';
+import { UnterschriftFeld } from './UnterschriftFeld';
 import { saveBlobWithLocationPicker, saveDataUrlAs } from '../utils/fileExportHelper';
 
 import QRCode from 'qrcode';
@@ -52,7 +57,6 @@ import {
   X,
   Maximize2,
   Bug,
-  Send,
   MessageSquare,
   HelpCircle,
   Info,
@@ -63,7 +67,8 @@ import {
   GripVertical,
   Plus,
   Lock,
-  FileText
+  FileText,
+  Pencil
 } from 'lucide-react';
 
 /**
@@ -84,7 +89,8 @@ const PROJECT_SUPPORT_URL = 'https://liberapay.com/alpenglowsea/';
 interface SettingsViewProps {
   settings: ClubSettings;
   onSaveSettings: (settings: ClubSettings) => void;
-  onDataReload?: () => void;
+  /** Daten neu laden; `leise`: ohne Ladebildschirm, die Seite bleibt stehen (T-82). */
+  onDataReload?: (leise?: boolean) => void;
   currentTheme: 'light' | 'dark' | 'system';
   onThemeChange: (theme: 'light' | 'dark' | 'system') => void;
   initialTab?: SettingsTab;
@@ -133,6 +139,32 @@ export const formatClubAddress = (addr: Address | string | undefined): string =>
 
 export const formatIbanWithSpaces = (iban: string = ''): string => {
   return iban.replace(/\s+/g, '').replace(/(.{4})/g, '$1 ').trim();
+};
+
+/**
+ * Währung, Datumsformat und Geschäftsjahresbeginn ließen sich früher
+ * einstellen, wurden aber nirgends ausgewertet (D-144). Die Felder sind
+ * entfernt; in älteren Daten vorhandene Werte werden beim nächsten Speichern
+ * weggelassen.
+ */
+const ohneAlteAnzeigeFelder = (s: ClubSettings): ClubSettings => {
+  const kopie: Record<string, unknown> = { ...s };
+  delete kopie.currency;
+  delete kopie.dateFormat;
+  delete kopie.fiscalYearStart;
+  return kopie as unknown as ClubSettings;
+};
+
+type VorgabenEingabe = Record<VorgabeArt, { amount: string; period: VorgabePeriode }>;
+
+/** Beitragsvorgaben als Eingabetexte (Komma statt Punkt). */
+const vorgabenAlsEingabe = (s: ClubSettings): VorgabenEingabe => {
+  const v = leseVorgaben(s.membershipFeeDefaults);
+  const e = {} as VorgabenEingabe;
+  for (const { art } of VORGABE_ARTEN) {
+    e[art] = { amount: String(v[art].amount).replace('.', ','), period: v[art].period };
+  }
+  return e;
 };
 
 export const getInitialBoardMembers = (s: ClubSettings): BoardMember[] => {
@@ -194,12 +226,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // Form State for Club & General Settings
   const [formData, setFormData] = useState<ClubSettings>({
-    ...settings,
-    currency: settings.currency || 'EUR',
-    dateFormat: settings.dateFormat || 'DD.MM.YYYY',
-    fiscalYearStart: settings.fiscalYearStart || '01-01',
+    ...ohneAlteAnzeigeFelder(settings),
     theme: currentTheme || settings.theme || 'light'
   });
+
+  // Beitragsvorgaben je Mitgliedsart (D-94), als Texte, damit „7,50“ tippbar ist
+  const [vorgaben, setVorgaben] = useState<VorgabenEingabe>(() => vorgabenAlsEingabe(settings));
+  const [vorgabenFehler, setVorgabenFehler] = useState<Partial<Record<VorgabeArt, string>>>({});
+
+  // Fehler je Vorstandseintrag (Schlüssel: id) und Meldung zur Vorstandsliste
+  const [vorstandFehlerListe, setVorstandFehlerListe] = useState<Record<string, string>>({});
+  const [vorstandMeldung, setVorstandMeldung] = useState<string | null>(null);
+
+  // Sparte, die gerade umbenannt wird
+  const [sparteUmbenennen, setSparteUmbenennen] = useState<{ alt: string; neu: string } | null>(null);
+  const [sparteWirdUmbenannt, setSparteWirdUmbenannt] = useState(false);
+
+  // Eigener Rückfragedialog statt window.confirm() (D-147)
+  const [rueckfrage, setRueckfrage] = useState<{
+    titel: string;
+    text: string;
+    bestaetigenText: string;
+    gefahr?: boolean;
+    bestaetigungsWort?: string;
+    aktion: () => void | Promise<void>;
+  } | null>(null);
 
   // Dynamic Board Members State
   const [boardMembers, setBoardMembers] = useState<BoardMember[]>(() =>
@@ -218,24 +269,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [isSavingClub, setIsSavingClub] = useState(false);
   const [clubSaveSuccess, setClubSaveSuccess] = useState(false);
   const [clubSaveFeedbackText, setClubSaveFeedbackText] = useState<string | null>(null);
+  // Warum nicht gespeichert wurde; steht neben dem Knopf, weil die Meldung
+  // oben auf der Seite beim Speichern nicht zu sehen ist (T-73, T-74).
+  const [clubSaveFehler, setClubSaveFehler] = useState<string | null>(null);
 
   useEffect(() => {
     setFormData(prev => ({
-      ...prev,
-      ...settings,
-      currency: settings.currency || prev.currency || 'EUR',
-      dateFormat: settings.dateFormat || prev.dateFormat || 'DD.MM.YYYY',
-      fiscalYearStart: settings.fiscalYearStart || prev.fiscalYearStart || '01-01',
+      ...ohneAlteAnzeigeFelder({ ...prev, ...settings }),
       theme: currentTheme || settings.theme || prev.theme || 'light'
     }));
     setClubAddress(parseClubAddress(settings.clubAddress || settings.address));
     setBoardMembers(getInitialBoardMembers(settings));
+    setVorgaben(vorgabenAlsEingabe(settings));
   }, [settings, currentTheme]);
 
   const [newDepartment, setNewDepartment] = useState('');
   // Meldung direkt bei der Spartenliste (die allgemeine Statusmeldung steht
   // oben auf der Seite und war beim Löschen einer Sparte nicht zu sehen, T-31).
   const [spartenMeldung, setSpartenMeldung] = useState<string | null>(null);
+  const [spartenErfolg, setSpartenErfolg] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<{
     type: 'success' | 'error' | 'info';
     text: string;
@@ -324,9 +376,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [bugContactEmail, setBugContactEmail] = useState('');
   const [bugIncludeSystemInfo, setBugIncludeSystemInfo] = useState(true);
   const [bugCopied, setBugCopied] = useState(false);
-  const [isSubmittingBug, setIsSubmittingBug] = useState(false);
-  const [bugSuccessMessage, setBugSuccessMessage] = useState<string | null>(null);
-  const [submittedTicket, setSubmittedTicket] = useState<{ ticketId: string; timestamp: string; message: string; delivered: boolean } | null>(null);
 
   const generateBugReportText = () => {
     const severityLabels = {
@@ -367,130 +416,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     return report;
   };
 
-  // Direct In-App Submission without requiring an external email program
-  const handleDirectSubmitBugReport = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!bugSubject.trim()) {
-      setStatusMsg({ type: 'error', text: 'Bitte geben Sie eine kurze Betreffzeile für das Problem an.' });
-      return;
-    }
-    if (!bugDescription.trim()) {
-      setStatusMsg({ type: 'error', text: 'Bitte beschreiben Sie das aufgetretene Problem im Freitextfeld.' });
-      return;
-    }
-
-    setIsSubmittingBug(true);
-    setBugSuccessMessage(null);
-
-    const ticketId = `VM-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const timestamp = new Date().toLocaleString('de-DE');
-
-    const clientInfo = bugIncludeSystemInfo
-      ? `App v${CURRENT_APP_VERSION} | UA: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'n/a'} | Screen: ${typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'n/a'}`
-      : 'Keine Diagnosedaten';
-
-    let sent = false;
-    // Warum der Versand nicht geklappt hat — wird dem Anwender angezeigt, damit
-    // er nicht raten muss.
-    let failReason = '';
-    // Was der Anwender dagegen tun kann.
-    let failHint = '';
-
-    try {
-      // Versand direkt aus dem App-Fenster an den Mail-Dienst FormSubmit. Das
-      // ist bewusst kein Weg über den lokalen Server: FormSubmit nimmt nur
-      // Anfragen an, die aus einer Webseite kommen (Origin-Kopfzeile), und
-      // weist Server-Anfragen ab.
-      try {
-        const formSubmitPayload = {
-          _subject: `[VereinsManager #${ticketId} - ${bugArea}] ${bugSubject.trim()}`,
-          _template: 'table',
-          _captcha: 'false',
-          Ticket_ID: ticketId,
-          Bereich: bugArea,
-          Betreff: bugSubject.trim(),
-          Schweregrad: bugSeverity,
-          Beschreibung: bugDescription.trim(),
-          Absender_Name: bugContactName.trim() || 'Anonym / Nicht angegeben',
-          Absender_Email: bugContactEmail.trim() || 'Keine Angabe',
-          App_Version: `v${CURRENT_APP_VERSION}`,
-          Betriebsmodus: 'Lokal',
-          System_Info: clientInfo,
-          Eingangszeit: timestamp,
-        };
-
-        const directRes = await fetch('https://formsubmit.co/ajax/vereinsmanager@ik.me', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-          body: JSON.stringify(formSubmitPayload),
-        });
-
-        const rawDirect = await directRes.text();
-        let directJson: any = null;
-        try {
-          directJson = JSON.parse(rawDirect);
-        } catch {
-          directJson = null;
-        }
-
-        if (directRes.ok && (directJson?.success === true || directJson?.success === 'true')) {
-          sent = true;
-        } else {
-          failReason = directJson?.message || `Antwort des Mail-Dienstes: Status ${directRes.status}`;
-        }
-      } catch (directErr: any) {
-        // Die Verbindung kam gar nicht zustande: kein Internet, oder ein Filter
-        // im Netz (Router, Pi-hole, VPN) sperrt formsubmit.co.
-        failReason = `Keine Verbindung zum Mail-Dienst (${directErr?.message || 'nicht erreichbar'})`;
-        failHint =
-          'Häufige Ursache: Ein Filter in Ihrem Netzwerk (z. B. Router wie die Fritzbox, Pi-hole oder ein VPN) blockiert die Adresse „formsubmit.co". Tragen Sie sie dort als Ausnahme ein oder prüfen Sie Ihre Internetverbindung.';
-      }
-
-      if (sent) {
-        setSubmittedTicket({
-          ticketId,
-          timestamp,
-          delivered: true,
-          message: 'Ihr Fehlerbericht wurde an den Mail-Dienst übergeben.',
-        });
-        setBugSuccessMessage(`Fehlerbericht an den Mail-Dienst übergeben. Ticket-Nr: #${ticketId}`);
-        setStatusMsg({
-          type: 'success',
-          text: `Fehlerbericht an den Mail-Dienst übergeben (Ticket #${ticketId}). Ob die Mail ankommt, lässt sich von hier aus nicht prüfen.`,
-        });
-      } else {
-        // If neither method succeeded (e.g. completely offline in local mode or no internet access):
-        // Gracefully register ticket locally and prompt the user to use 1-click email or clipboard
-        setSubmittedTicket({
-          ticketId,
-          timestamp,
-          delivered: false,
-          message: `Der Bericht konnte NICHT direkt versendet werden${failReason ? `: ${failReason}` : '.'}${failHint ? ` ${failHint}` : ''} Bitte nutzen Sie bis dahin den Button "E-Mail-App" oder "Kopieren".`,
-        });
-        setStatusMsg({
-          type: 'error',
-          text: `Ticket #${ticketId} wurde nicht versendet${failReason ? ` (${failReason})` : ''}. Bitte den Bericht per E-Mail-App senden oder kopieren.`
-        });
-      }
-    } catch (err: any) {
-      console.error('Fehler bei Fehlerbericht-Verarbeitung:', err);
-      const cleanMsg = err?.message && !err.message.includes('expected pattern')
-        ? err.message
-        : 'Offline-Modus aktiv';
-      setStatusMsg({
-        type: 'error',
-        text: `Direkter Versand nicht möglich (${cleanMsg}). Bitte nutzen Sie den Button "E-Mail-App" oder "Kopieren".`
-      });
-    } finally {
-      setIsSubmittingBug(false);
-    }
-  };
-
-  // Fallback: Open local mail program
-  const handleOpenInMailClient = () => {
+  // Fehlerbericht im E-Mail-Programm öffnen. Der frühere Direktversand über
+  // den Dienst formsubmit.co ist entfernt (D-148): Er schickte Name, E-Mail,
+  // Beschreibung und Systemangaben an einen Drittanbieter. Jetzt verlässt
+  // nichts die Anwendung, ohne dass der Anwender es selbst abschickt.
+  const handleOpenInMailClient = (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!bugSubject.trim()) {
       setStatusMsg({ type: 'error', text: 'Bitte geben Sie eine kurze Betreffzeile an.' });
       return;
@@ -553,8 +484,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setBugArea('Dashboard (Übersicht)');
     setBugDescription('');
     setBugSeverity('normal');
-    setBugSuccessMessage(null);
-    setSubmittedTicket(null);
   };
 
   const handleChangeDevicePassword = async (e: React.FormEvent) => {
@@ -585,30 +514,53 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleSaveClub = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Vorstand prüfen: Name und Funktion je Eintrag, E-Mail-Format, keine
+    // doppelten Einträge (wie Android, Vorstand.kt).
+    const fehlerVorstand = vorstandFehler(boardMembers);
+    setVorstandFehlerListe(fehlerVorstand);
+    // Beitragsvorgaben prüfen: Betrag 0 oder mehr, Komma oder Punkt
+    const fehlerVorgaben: Partial<Record<VorgabeArt, string>> = {};
+    const vorgabenWerte = {} as Record<VorgabeArt, { amount: number; period: VorgabePeriode }>;
+    for (const { art } of VORGABE_ARTEN) {
+      const roh = vorgaben[art].amount.trim().replace(',', '.');
+      const zahl = Number(roh);
+      if (!roh || !Number.isFinite(zahl) || zahl < 0) {
+        fehlerVorgaben[art] = 'Bitte einen Betrag von 0 oder mehr eingeben.';
+      } else {
+        vorgabenWerte[art] = { amount: Math.round(zahl * 100) / 100, period: vorgaben[art].period };
+      }
+    }
+    setVorgabenFehler(fehlerVorgaben);
+    if (Object.keys(fehlerVorstand).length > 0 || Object.keys(fehlerVorgaben).length > 0) {
+      setClubSaveFehler(
+        Object.keys(fehlerVorstand).length > 0
+          ? 'Nicht gespeichert: Bitte die rot markierten Angaben beim Vorstand prüfen.'
+          : 'Nicht gespeichert: Bitte die rot markierten Beitragsvorgaben prüfen.'
+      );
+      return;
+    }
+    setClubSaveFehler(null);
+
     setIsSavingClub(true);
     setClubSaveSuccess(false);
 
-    // Sync backwards-compatible chairman and treasurer fields for external services & reports
-    const chairmanMember = boardMembers.find(bm => 
-      bm.role.toLowerCase().includes('vorsitz') || bm.role.toLowerCase().includes('vorstand')
-    ) || boardMembers[0];
-    const treasurerMember = boardMembers.find(bm => 
-      bm.role.toLowerCase().includes('kasse') || bm.role.toLowerCase().includes('schatz') || bm.role.toLowerCase().includes('finanz')
-    ) || boardMembers[1] || boardMembers[0];
-
-    const finalChairman = chairmanMember ? chairmanMember.name.trim() : (formData.chairman || '');
-    const finalTreasurer = treasurerMember ? treasurerMember.name.trim() : (formData.treasurer || '');
-
+    // Vorsitz und Kassenwart nur nach der Funktion ableiten, nie nach der
+    // Stelle in der Liste (D-143). Ohne Treffer bleibt das Feld leer; die
+    // Seite zeigt dazu einen Hinweis.
+    const vorstand = vorstandBereinigt(boardMembers);
     const formattedAddress = formatClubAddress(clubAddress);
     const updated: ClubSettings = {
-      ...formData,
+      ...ohneAlteAnzeigeFelder(formData),
       address: formattedAddress,
       clubAddress: clubAddress,
-      chairman: finalChairman,
-      treasurer: finalTreasurer,
-      boardMembers: boardMembers,
+      chairman: vorsitzAus(vorstand),
+      treasurer: kasseAus(vorstand),
+      boardMembers: vorstand,
+      membershipFeeDefaults: vorgabenWerte,
     };
     setFormData(updated);
+    setBoardMembers(vorstand.length > 0 ? vorstand : getInitialBoardMembers({ ...updated, boardMembers: [] }));
 
     try {
       await onSaveSettings(updated);
@@ -652,10 +604,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleRemoveBoardMember = (id: string) => {
     if (boardMembers.length <= 1) {
-      alert('Mindestens ein Vorstandsmitglied muss hinterlegt sein.');
+      setVorstandMeldung('Mindestens ein Vorstandsmitglied muss hinterlegt sein.');
       return;
     }
+    setVorstandMeldung(null);
     setBoardMembers(prev => prev.filter(bm => bm.id !== id));
+    setVorstandFehlerListe(prev => {
+      const rest = { ...prev };
+      delete rest[id];
+      return rest;
+    });
   };
 
   // Board Member Drag and Drop Handlers
@@ -786,27 +744,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     reader.onload = (event) => {
       const result = event.target?.result as string;
       if (result) {
-        const updated = { ...formData, clubLogoUrl: result };
-        setFormData(updated);
-        onSaveSettings(updated);
-        setStatusMsg({ type: 'success', text: 'Vereinslogo erfolgreich hochgeladen & als App-Logo übernommen!' });
-        setTimeout(() => setStatusMsg(null), 3500);
+        // Nur ins Formular übernehmen. Vorher wurde sofort gespeichert, und
+        // dabei gingen auch alle anderen noch nicht gespeicherten Eingaben mit
+        // (D-145). Jetzt gilt das Logo erst nach „Speichern“.
+        setFormData(prev => ({ ...prev, clubLogoUrl: result }));
+        setStatusMsg({ type: 'info', text: 'Logo ausgewählt. Es wird übernommen, sobald Sie unten auf „Speichern“ klicken.' });
+        setTimeout(() => setStatusMsg(null), 5000);
       }
     };
     reader.readAsDataURL(file);
   };
 
   const handleRemoveLogo = () => {
-    const updated = { ...formData, clubLogoUrl: undefined };
-    setFormData(updated);
-    onSaveSettings(updated);
-    setStatusMsg({ type: 'success', text: 'Vereinslogo entfernt. Standard App-Logo wird wieder verwendet.' });
-    setTimeout(() => setStatusMsg(null), 3500);
+    setFormData(prev => ({ ...prev, clubLogoUrl: undefined }));
+    setStatusMsg({ type: 'info', text: 'Logo entfernt. Das Standard-Logo gilt, sobald Sie unten auf „Speichern“ klicken.' });
+    setTimeout(() => setStatusMsg(null), 5000);
   };
 
   const handleAddDepartment = () => {
     if (!newDepartment.trim()) return;
-    if (formData.departments.includes(newDepartment.trim())) return;
+    // Gleiche Sparte ohne Rücksicht auf Groß-/Kleinschreibung ablehnen (wie Android)
+    const fehler = spartenNameFehler(newDepartment, formData.departments);
+    if (fehler) {
+      setSpartenMeldung(fehler);
+      return;
+    }
+    setSpartenMeldung(null);
     const updatedDepts = [...formData.departments, newDepartment.trim()];
     setFormData(prev => ({
       ...prev,
@@ -817,7 +780,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleRemoveDepartment = async (dept: string) => {
     if (formData.departments.length <= 1) {
-      alert('Mindestens eine Sparte/Abteilung muss vorhanden sein.');
+      setSpartenMeldung('Mindestens eine Sparte/Abteilung muss vorhanden sein.');
       return;
     }
     // Wird die Sparte noch verwendet? Dann bleibt sie. Vorher ließ sie sich
@@ -844,6 +807,66 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       ...prev,
       departments: prev.departments.filter(d => d !== dept)
     }));
+  };
+
+  /**
+   * Sparte umbenennen: Der neue Name wird an allen Mitgliedern, Buchungen
+   * (auch Teilbuchungen), Inventarstücken und Terminen nachgezogen und die
+   * Spartenliste sofort gespeichert. Sofort, weil die Datensätze schon
+   * geändert sind; sonst passten Liste und Datensätze nicht mehr zusammen.
+   * Gespeichert wird dabei nur die Spartenliste, nicht der Rest des Formulars.
+   */
+  const handleRenameDepartment = async () => {
+    if (!sparteUmbenennen) return;
+    const { alt, neu } = sparteUmbenennen;
+    const fehler = spartenNameFehler(neu, formData.departments, alt);
+    if (fehler) {
+      setSpartenMeldung(fehler);
+      return;
+    }
+    setSparteWirdUmbenannt(true);
+    try {
+      const [mitglieder, buchungen, inventar, termine] = await Promise.all([
+        StorageService.getMembers(),
+        StorageService.getTransactions(),
+        StorageService.getInventory(),
+        StorageService.getCalendarEvents()
+      ]);
+      const neueMitglieder = mitglieder.map(m => ersetzeSparte(m, alt, neu)).filter(<T,>(x: T | null): x is T => x !== null);
+      const neueBuchungen = buchungen.map(b => ersetzeSparteInBuchung(b, alt, neu)).filter(<T,>(x: T | null): x is T => x !== null);
+      const neuesInventar = inventar.map(i => ersetzeSparte(i, alt, neu)).filter(<T,>(x: T | null): x is T => x !== null);
+      const neueTermine = termine.map(t => ersetzeSparte(t, alt, neu)).filter(<T,>(x: T | null): x is T => x !== null);
+
+      for (const m of neueMitglieder) await StorageService.saveMember(m);
+      if (neueBuchungen.length > 0) await StorageService.saveBatchTransactions(neueBuchungen);
+      for (const i of neuesInventar) await StorageService.saveInventoryItem(i);
+      for (const t of neueTermine) await StorageService.saveCalendarEvent(t);
+
+      // Gespeicherte Liste: aus den gespeicherten Einstellungen; ist die Sparte
+      // dort noch nicht (gerade erst hinzugefügt), genügt das Formular.
+      const gespeichert = settings.departments || [];
+      if (gespeichert.includes(alt)) {
+        await onSaveSettings({ ...settings, departments: ersetzeInListe(gespeichert, alt, neu) });
+      }
+      setFormData(prev => ({ ...prev, departments: ersetzeInListe(prev.departments, alt, neu) }));
+      setSparteUmbenennen(null);
+      const teile = [
+        neueMitglieder.length ? `${neueMitglieder.length} Mitglied${neueMitglieder.length === 1 ? '' : 'er'}` : '',
+        neueBuchungen.length ? `${neueBuchungen.length} Buchung${neueBuchungen.length === 1 ? '' : 'en'}` : '',
+        neuesInventar.length ? `${neuesInventar.length} Inventarstück${neuesInventar.length === 1 ? '' : 'e'}` : '',
+        neueTermine.length ? `${neueTermine.length} Termin${neueTermine.length === 1 ? '' : 'e'}` : ''
+      ].filter(Boolean);
+      setSpartenErfolg(`Sparte „${alt}“ heißt jetzt „${neu.trim()}“.${teile.length ? ` Mitgeändert: ${teile.join(', ')}.` : ' Sie war noch nirgends eingetragen.'}`);
+      setSpartenMeldung(null);
+      // Ohne Ladebildschirm neu laden. Mit Ladebildschirm wurde die Seite neu
+      // aufgebaut und die Meldung ging verloren (T-82).
+      onDataReload?.(true);
+    } catch (err: any) {
+      console.error('Sparte konnte nicht umbenannt werden:', err);
+      setSpartenMeldung(`Die Sparte konnte nicht vollständig umbenannt werden: ${err?.message || 'unbekannter Fehler'}. Bitte erneut versuchen; bereits geänderte Einträge tragen schon den neuen Namen.`);
+    } finally {
+      setSparteWirdUmbenannt(false);
+    }
   };
 
   // Full Backup Export with destination folder selection.
@@ -1001,21 +1024,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   // Wipe All
-  const handleWipeAll = async () => {
-    if (window.confirm('ACHTUNG: Möchten Sie wirklich ALLE Mitglieder, Buchungen und Konten löschen? Diese Aktion kann nicht rückgängig gemacht werden!')) {
-      try {
-        await StorageService.clearAllData();
-        onDataReload?.();
-        setStatusMsg({ type: 'success', text: 'Alle lokalen Daten wurden gelöscht.' });
-      } catch (err: any) {
-        console.error('Fehler beim Löschen aller Daten:', err);
-        setStatusMsg({
-          type: 'error',
-          text: `Nicht alles konnte gelöscht werden: ${err?.message || 'unbekannter Fehler'}. Bitte erneut versuchen.`
-        });
-      }
-      setTimeout(() => setStatusMsg(null), 4000);
+  const handleWipeAll = () => {
+    setRueckfrage({
+      titel: 'Alle Daten löschen?',
+      text: 'Alle Mitglieder, Buchungen, Konten und übrigen Daten auf diesem Gerät werden gelöscht. Das lässt sich nicht rückgängig machen. Legen Sie vorher eine Datensicherung an.',
+      bestaetigenText: 'Endgültig löschen',
+      gefahr: true,
+      bestaetigungsWort: 'LÖSCHEN',
+      aktion: wipeAllBestaetigt
+    });
+  };
+
+  const wipeAllBestaetigt = async () => {
+    try {
+      await StorageService.clearAllData();
+      onDataReload?.();
+      setStatusMsg({ type: 'success', text: 'Alle lokalen Daten wurden gelöscht.' });
+    } catch (err: any) {
+      console.error('Fehler beim Löschen aller Daten:', err);
+      setStatusMsg({
+        type: 'error',
+        text: `Nicht alles konnte gelöscht werden: ${err?.message || 'unbekannter Fehler'}. Bitte erneut versuchen.`
+      });
     }
+    setTimeout(() => setStatusMsg(null), 4000);
   };
 
   // Auto-Snapshots: Zustand und Handler
@@ -1080,10 +1112,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const handleRestoreSnapshot = async (snapId: string, label: string) => {
-    if (!window.confirm(`Möchten Sie diesen Snapshot ("${label}") wirklich wiederherstellen? Aktuelle Daten werden auf diesen Stand zurückgesetzt.`)) {
-      return;
-    }
+  const handleRestoreSnapshot = (snapId: string, label: string) => {
+    setRueckfrage({
+      titel: 'Schnappschuss wiederherstellen?',
+      text: `Die aktuellen Daten werden auf den Stand „${label}“ zurückgesetzt. Was seitdem eingegeben wurde, geht verloren.`,
+      bestaetigenText: 'Wiederherstellen',
+      gefahr: true,
+      aktion: () => restoreSnapshotBestaetigt(snapId)
+    });
+  };
+
+  const restoreSnapshotBestaetigt = async (snapId: string) => {
     try {
       const res = await SnapshotService.restoreSnapshot(snapId);
       if (res.success && res.counts) {
@@ -1103,17 +1142,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const handleDeleteSnapshot = async (snapId: string) => {
-    if (!window.confirm('Möchten Sie diesen Snapshot wirklich löschen?')) return;
-    await SnapshotService.deleteSnapshot(snapId);
-    loadSnapshotsList();
+  const handleDeleteSnapshot = (snapId: string) => {
+    setRueckfrage({
+      titel: 'Schnappschuss löschen?',
+      text: 'Dieser Schnappschuss wird gelöscht und steht danach nicht mehr zur Wiederherstellung bereit.',
+      bestaetigenText: 'Löschen',
+      gefahr: true,
+      aktion: async () => {
+        await SnapshotService.deleteSnapshot(snapId);
+        loadSnapshotsList();
+      }
+    });
   };
 
   // Theme selection handler
   const handleSelectTheme = (theme: 'light' | 'dark' | 'system') => {
     onThemeChange(theme);
     setFormData(prev => ({ ...prev, theme }));
-    onSaveSettings({ ...formData, theme });
+    // Auf Grundlage der gespeicherten Daten, nicht des Formulars: sonst würden
+    // nicht gespeicherte Eingaben mitgespeichert (wie beim Logo, D-145).
+    onSaveSettings({ ...settings, theme });
     setStatusMsg({
       type: 'success',
       text: `Designmodus auf "${theme === 'dark' ? 'Dunkel (Dark Mode)' : theme === 'light' ? 'Hell (Light Mode)' : 'System'}" gesetzt.`
@@ -1125,7 +1173,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // Vereinsdaten gespeichert und sofort angewendet (App.tsx).
   const handleSelectColorScheme = (colorScheme: ColorSchemeId) => {
     setFormData(prev => ({ ...prev, colorScheme }));
-    onSaveSettings({ ...formData, colorScheme });
+    onSaveSettings({ ...settings, colorScheme });
     const name = COLOR_SCHEMES.find(c => c.id === colorScheme)?.name || colorScheme;
     setStatusMsg({ type: 'success', text: `Farbschema auf "${name}" gesetzt.` });
     setTimeout(() => setStatusMsg(null), 3000);
@@ -1133,7 +1181,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleSelectFont = (fontChoice: FontChoiceId) => {
     setFormData(prev => ({ ...prev, fontChoice }));
-    onSaveSettings({ ...formData, fontChoice });
+    onSaveSettings({ ...settings, fontChoice });
     const name = FONT_CHOICES.find(f => f.id === fontChoice)?.name || fontChoice;
     setStatusMsg({ type: 'success', text: `Schriftart auf "${name}" gesetzt.` });
     setTimeout(() => setStatusMsg(null), 3000);
@@ -1485,57 +1533,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Regionale Anzeige & Standardeinstellungen
+                  Standardeinstellungen
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Währung, Datumsformate und Standardwerte für die tägliche Vereinsarbeit.
+                  Standardwerte für die tägliche Vereinsarbeit.
                 </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Hauptwährung
-                </label>
-                <select
-                  value={formData.currency || 'EUR'}
-                  onChange={e => setFormData({ ...formData, currency: e.target.value })}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="EUR">Euro (€ - EUR)</option>
-                  <option value="CHF">Schweizer Franken (CHF)</option>
-                  <option value="USD">US Dollar ($ - USD)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Datumsformat
-                </label>
-                <select
-                  value={formData.dateFormat || 'DD.MM.YYYY'}
-                  onChange={e => setFormData({ ...formData, dateFormat: e.target.value })}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="DD.MM.YYYY">TT.MM.JJJJ (z.B. 28.08.2026)</option>
-                  <option value="YYYY-MM-DD">JJJJ-MM-TT (z.B. 2026-08-28)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Geschäftsjahresbeginn
-                </label>
-                <select
-                  value={formData.fiscalYearStart || '01-01'}
-                  onChange={e => setFormData({ ...formData, fiscalYearStart: e.target.value })}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="01-01">01. Januar (Kalenderjahr)</option>
-                  <option value="07-01">01. Juli (Saisonjahr Sport)</option>
-                  <option value="10-01">01. Oktober (Herbststart)</option>
-                </select>
               </div>
             </div>
 
@@ -1745,6 +1747,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <p className="text-2xs text-slate-500 dark:text-slate-400 mt-1 max-w-md">
                       Ersetzt das Standard-Logo oben links in der Menüleiste neben dem Schriftzug „VereinsManager“. Unterstützt PNG, JPG, SVG und WebP (max. 5 MB).
                     </p>
+                    {(formData.clubLogoUrl || '') !== (settings.clubLogoUrl || '') && (
+                      <p className="text-2xs font-semibold text-amber-700 dark:text-amber-300 mt-1">
+                        Noch nicht gespeichert – das Logo gilt erst nach „Speichern“ unten auf der Seite.
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -2003,6 +2010,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <input
                           type="text"
                           value={bm.role}
+                          list="vorstand-funktionen"
                           onChange={e => handleUpdateBoardMember(bm.id, 'role', e.target.value)}
                           placeholder="z.B. 1. Vorsitzender, Sportwart, Schriftführer"
                           className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
@@ -2049,11 +2057,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       </div>
                     </div>
 
+                    {vorstandFehlerListe[bm.id] && (
+                      <p className="text-2xs font-semibold text-rose-600 dark:text-rose-400">{vorstandFehlerListe[bm.id]}</p>
+                    )}
+
                     {/* Quick suggestion chips for role if empty */}
                     {!bm.role && (
                       <div className="flex flex-wrap items-center gap-1 pt-1 text-[11px] text-slate-400">
                         <span className="text-[10px] font-medium mr-1">Vorschläge:</span>
-                        {['1. Vorsitzender', '2. Vorsitzender', 'Schatzmeister', 'Kassenwart', 'Schriftführer', 'Sportwart', 'Jugendleiter', 'Beisitzer'].map(suggestion => (
+                        {VORSTAND_FUNKTIONEN.map(suggestion => (
                           <button
                             key={suggestion}
                             type="button"
@@ -2069,6 +2081,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 );
               })}
               </div>
+              <datalist id="vorstand-funktionen">
+                {VORSTAND_FUNKTIONEN.map(f => (
+                  <option key={f} value={f} />
+                ))}
+              </datalist>
+              {vorstandMeldung && (
+                <div className="p-2.5 rounded-xl border border-rose-200 bg-rose-50 text-xs text-rose-800 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200">
+                  {vorstandMeldung}
+                </div>
+              )}
+              {vorstandHinweise(boardMembers).map(h => (
+                <div key={h} className="p-2.5 rounded-xl border border-amber-200 bg-amber-50 text-xs text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
+                  {h}
+                </div>
+              ))}
+              <p className="text-2xs text-slate-500 dark:text-slate-400">
+                Wer Vorsitz und Kasse führt, erkennt die App an der Funktion (z. B. „1. Vorsitzende/r“, „Kassenwart / Schatzmeister“), nicht an der Reihenfolge. Die Namen erscheinen auf Rechnungen, Zuwendungsbestätigungen und im Lastschriftprotokoll.
+              </p>
           </div>
 
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
@@ -2237,8 +2267,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <span>Abteilungen & Sparten ({formData.departments.length})</span>
                 </label>
                 <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Ziehen Sie Sparten per Drag & Drop mit der Maus, um die Reihenfolge festzulegen. Diese Reihenfolge wird in Formularen und Dropdowns verwendet.
+                  Ziehen Sie Sparten per Drag & Drop mit der Maus, um die Reihenfolge festzulegen. Diese Reihenfolge wird in Formularen und Dropdowns verwendet. Mit dem Stift benennen Sie eine Sparte um; der neue Name wird sofort an allen Mitgliedern, Buchungen, Inventarstücken und Terminen übernommen.
                 </p>
+                {spartenErfolg && !spartenMeldung && (
+                  <div className="mt-2 p-2.5 rounded-xl border border-emerald-200 bg-emerald-50 text-xs text-emerald-800 flex items-start gap-2 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-200">
+                    <span className="flex-1 leading-relaxed">{spartenErfolg}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSpartenErfolg(null)}
+                      className="shrink-0 font-bold text-emerald-700 hover:text-emerald-900 dark:text-emerald-300"
+                      aria-label="Meldung schließen"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
                 {spartenMeldung && (
                   <div className="mt-2 p-2.5 rounded-xl border border-rose-200 bg-rose-50 text-xs text-rose-800 flex items-start gap-2 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200">
                     <span className="flex-1 leading-relaxed">{spartenMeldung}</span>
@@ -2296,7 +2339,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 return (
                   <div
                     key={dept}
-                    draggable
+                    draggable={sparteUmbenennen?.alt !== dept}
                     onDragStart={e => handleDeptDragStart(e, index)}
                     onDragOver={e => handleDeptDragOver(e, index)}
                     onDragEnter={e => {
@@ -2325,12 +2368,66 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <span className="w-5 h-5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-mono font-bold flex items-center justify-center shrink-0 pointer-events-none">
                         {index + 1}
                       </span>
-                      <span className="text-xs font-semibold text-slate-900 dark:text-white truncate pointer-events-none">
-                        {dept}
-                      </span>
+                      {sparteUmbenennen?.alt === dept ? (
+                        <input
+                          type="text"
+                          autoFocus
+                          value={sparteUmbenennen.neu}
+                          disabled={sparteWirdUmbenannt}
+                          onChange={e => setSparteUmbenennen({ alt: dept, neu: e.target.value })}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleRenameDepartment();
+                            }
+                            if (e.key === 'Escape') setSparteUmbenennen(null);
+                          }}
+                          className="min-w-0 flex-1 px-2 py-1 border border-blue-400 bg-white dark:bg-slate-900 rounded-lg text-xs text-slate-900 dark:text-white"
+                          aria-label={`Neuer Name für ${dept}`}
+                        />
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-900 dark:text-white truncate pointer-events-none">
+                          {dept}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-0.5 shrink-0 ml-2">
+                      {sparteUmbenennen?.alt === dept ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={handleRenameDepartment}
+                            disabled={sparteWirdUmbenannt}
+                            className="p-1 text-emerald-600 hover:text-emerald-700 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer disabled:opacity-40"
+                            title="Neuen Namen übernehmen (ändert alle Mitglieder, Buchungen, Inventar und Termine dieser Sparte)"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSparteUmbenennen(null)}
+                            disabled={sparteWirdUmbenannt}
+                            className="p-1 text-slate-400 hover:text-slate-600 rounded-md cursor-pointer"
+                            title="Abbrechen"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSpartenMeldung(null);
+                            setSparteUmbenennen({ alt: dept, neu: dept });
+                          }}
+                          className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-pointer transition-colors"
+                          title="Sparte umbenennen"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {sparteUmbenennen?.alt !== dept && (
                       <button
                         type="button"
                         onClick={() => handleRemoveDepartment(dept)}
@@ -2339,6 +2436,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -2346,10 +2444,78 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-4">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Unterschrift für Zuwendungsbestätigungen</h3>
+              <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Wird auf Wunsch je Bestätigung rechts neben Ort und Datum ins PDF gesetzt. Dasselbe Format wie in der Handy-App; eine dort gezeichnete Unterschrift kommt mit der Sicherung hierher.
+              </p>
+              {JSON.stringify(formData.signature ?? null) !== JSON.stringify(settings.signature ?? null) && (
+                <p className="text-2xs font-semibold text-amber-700 dark:text-amber-300 mt-1">
+                  Noch nicht gespeichert – gilt erst nach „Speichern“ unten auf der Seite.
+                </p>
+              )}
+            </div>
+            <UnterschriftFeld
+              wert={formData.signature}
+              onChange={u => setFormData(prev => ({ ...prev, signature: u }))}
+            />
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-4">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Beitragsvorgaben je Mitgliedsart</h3>
+              <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Wird beim Anlegen eines neuen Mitglieds vorgeschlagen, sobald Sie die Mitgliedsart wählen, und lässt sich dort ändern. Bestehende Mitglieder bleiben unverändert. Ehrenmitglieder zahlen keinen Beitrag.
+              </p>
+            </div>
+            <div className="space-y-2">
+              {VORGABE_ARTEN.map(({ art, label }) => (
+                <div key={art} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-start">
+                  <div className="sm:col-span-6 text-xs font-semibold text-slate-700 dark:text-slate-300 pt-2">{label}</div>
+                  <div className="sm:col-span-3">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={vorgaben[art].amount}
+                        onChange={e => setVorgaben(prev => ({ ...prev, [art]: { ...prev[art], amount: e.target.value } }))}
+                        aria-label={`Beitrag ${label}`}
+                        className={`w-full pl-3 pr-7 py-2 bg-white dark:bg-slate-800 border rounded-xl text-xs text-right text-slate-900 dark:text-white ${
+                          vorgabenFehler[art] ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700'
+                        }`}
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">€</span>
+                    </div>
+                    {vorgabenFehler[art] && <p className="text-2xs text-rose-600 dark:text-rose-400 mt-0.5">{vorgabenFehler[art]}</p>}
+                  </div>
+                  <div className="sm:col-span-3">
+                    <select
+                      value={vorgaben[art].period}
+                      onChange={e => setVorgaben(prev => ({ ...prev, [art]: { ...prev[art], period: e.target.value as VorgabePeriode } }))}
+                      aria-label={`Zahlweise ${label}`}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white"
+                    >
+                      {VORGABE_PERIODEN.map(pp => (
+                        <option key={pp.period} value={pp.period}>{pp.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
           <div className="pt-5 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             {/* Inline Feedback Banner directly in view of the user */}
             <div className="flex-1">
+              {clubSaveFehler && (
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 rounded-xl text-xs font-semibold flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                  <span>{clubSaveFehler}</span>
+                </div>
+              )}
               {clubSaveFeedbackText && (
                 <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 rounded-xl text-xs font-semibold flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-2 shadow-2xs">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
@@ -2879,83 +3045,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                  Haben Sie einen Fehler entdeckt oder funktioniert etwas nicht wie erwartet? Senden Sie Ihren Fehlerbericht direkt an das Support-Postfach.
+                  Haben Sie einen Fehler entdeckt oder funktioniert etwas nicht wie erwartet? Der Bericht wird in Ihrem E-Mail-Programm vorbereitet, Sie schicken ihn selbst ab.
                 </p>
               </div>
             </div>
           </div>
-
-          {/* Success Banner / Ticket Confirmation */}
-          {submittedTicket && !submittedTicket.delivered && (
-            <div className="p-5 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700/80 rounded-3xl text-xs text-amber-900 dark:text-amber-200 shadow-xs space-y-2" role="alert">
-              <div className="flex items-start justify-between gap-3">
-                <div className="font-bold text-sm">
-                  Fehlerbericht NICHT versendet <span className="font-mono">#{submittedTicket.ticketId}</span>
-                </div>
-                <button type="button" onClick={() => setSubmittedTicket(null)} className="p-1 cursor-pointer hover:opacity-80">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <p className="leading-relaxed">{submittedTicket.message}</p>
-            </div>
-          )}
-
-          {submittedTicket?.delivered && (
-            <div className="p-5 bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700/80 rounded-3xl text-xs text-emerald-900 dark:text-emerald-200 shadow-xs space-y-3 animate-in fade-in duration-200">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-emerald-500 text-white rounded-xl shadow-xs">
-                    <CheckCircle2 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-sm text-emerald-950 dark:text-emerald-100 flex items-center gap-2">
-                      <span>Fehlerbericht an den Mail-Dienst übergeben</span>
-                      <span className="px-2 py-0.5 rounded-md bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 text-2xs font-mono font-bold">
-                        #{submittedTicket.ticketId}
-                      </span>
-                    </div>
-                    <p className="text-2xs text-emerald-700 dark:text-emerald-300 mt-0.5">
-                      Übergeben am {submittedTicket.timestamp}. Wenn innerhalb eines Tages keine Antwort kommt, bitte zusätzlich per E-Mail-App senden.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSubmittedTicket(null)}
-                  className="text-emerald-700 dark:text-emerald-400 hover:opacity-80 p-1 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="pt-1 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleResetBugForm}
-                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-2xs font-bold transition-colors cursor-pointer"
-                >
-                  Weiteres Problem melden
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Regular Success Message if Mail Sent or Copied */}
-          {bugSuccessMessage && !submittedTicket && (
-            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl text-xs text-emerald-800 dark:text-emerald-300 flex items-start justify-between gap-3 animate-in fade-in duration-200">
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span className="font-medium">{bugSuccessMessage}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setBugSuccessMessage(null)}
-                className="text-emerald-700 dark:text-emerald-400 hover:opacity-80 p-1 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          )}
 
           {/* Main Grid: Left Form (7 cols), Right Guidelines & Diagnostics (5 cols) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -2967,11 +3061,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <span>Fehlerbericht verfassen</span>
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Füllen Sie die nachfolgenden Angaben aus. Der Bericht wird direkt aus der Anwendung heraus an das Support-Postfach übertragen.
+                  Füllen Sie die nachfolgenden Angaben aus. Der Bericht wird in Ihrem E-Mail-Programm geöffnet; Sie sehen ihn vor dem Absenden und schicken ihn selbst ab. Ohne E-Mail-Programm: „Text kopieren“ und in eine E-Mail an vereinsmanager@ik.me einfügen.
                 </p>
               </div>
 
-              <form onSubmit={handleDirectSubmitBugReport} className="space-y-5">
+              <form onSubmit={handleOpenInMailClient} className="space-y-5">
                 {/* 1. Betreffzeile */}
                 <div className="space-y-1.5">
                   <label htmlFor="bug-subject" className="block text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -3159,24 +3253,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                 {/* 4. Buttons zum Versenden des Reports */}
                 <div className="pt-2 space-y-3">
-                  {/* Primary Submit Button */}
+                  {/* Hauptknopf: im E-Mail-Programm öffnen */}
                   <button
                     id="btn-send-bugreport"
                     type="submit"
-                    disabled={isSubmittingBug}
-                    className="w-full py-3 px-5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-2xl text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-3 px-5 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    {isSubmittingBug ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>Wird übermittelt...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" />
-                        <span>Problem melden</span>
-                      </>
-                    )}
+                    <Mail className="w-4 h-4" />
+                    <span>Im E-Mail-Programm öffnen</span>
                   </button>
 
                   {/* Clean Horizontal Sub-Action Bar for Alternatives & Reset */}
@@ -3186,16 +3270,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <span>Alternative:</span>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1 sm:max-w-md">
-                        <button
-                          type="button"
-                          onClick={handleOpenInMailClient}
-                          className="h-8 px-3 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-2xs font-semibold border border-slate-200 dark:border-slate-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
-                        >
-                          <Mail className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                          <span>E-Mail-App</span>
-                        </button>
-
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 sm:max-w-sm">
                         <button
                           type="button"
                           onClick={handleCopyBugReport}
@@ -3206,7 +3281,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           }`}
                         >
                           {bugCopied ? <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5 shrink-0" />}
-                          <span>{bugCopied ? 'Kopiert!' : 'Kopieren'}</span>
+                          <span>{bugCopied ? 'Kopiert!' : 'Text kopieren'}</span>
                         </button>
 
                         <button
@@ -3233,7 +3308,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
                 <div className="p-4 bg-amber-50/70 dark:bg-amber-950/40 rounded-2xl border border-amber-200/80 dark:border-amber-800/60">
                   <p className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
-                    Alle Fehlerberichte und Feedback-Meldungen gehen direkt an das Support-Postfach und werden zeitnah gesichtet.
+                    Fehlerberichte und Rückmeldungen gehen per E-Mail an dieses Postfach. Die App selbst verschickt nichts.
                   </p>
                 </div>
               </div>
@@ -3280,7 +3355,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
 
                 <p className="text-2xs text-slate-400 leading-relaxed">
-                  Diese Parameter werden dem Fehlerbericht automatisch beigefügt, um die Fehlerursache ohne langes Nachfragen direkt eingrenzen zu können.
+                  Diese Angaben stehen im Text des Fehlerberichts (abschaltbar oben im Formular), um die Fehlerursache ohne langes Nachfragen direkt eingrenzen zu können.
                 </p>
               </div>
             </div>
@@ -3363,6 +3438,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {rueckfrage && (
+        <BestaetigungsDialog
+          titel={rueckfrage.titel}
+          text={rueckfrage.text}
+          bestaetigenText={rueckfrage.bestaetigenText}
+          gefahr={rueckfrage.gefahr}
+          bestaetigungsWort={rueckfrage.bestaetigungsWort}
+          onAbbrechen={() => setRueckfrage(null)}
+          onBestaetigen={async () => {
+            const aktion = rueckfrage.aktion;
+            setRueckfrage(null);
+            await aktion();
+          }}
+        />
       )}
 
       {/* External Link Confirmation Modal (Requirement 5) */}

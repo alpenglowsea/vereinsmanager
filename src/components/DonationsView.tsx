@@ -6,6 +6,7 @@ import {
   ClubDocument
 } from '../types';
 import { downloadDonationReceiptPdf } from '../services/donationService';
+import { BestaetigungsDialog } from './BestaetigungsDialog';
 import { exportiereSpendenCsv, exportiereSpendenXlsx, exportiereSpendenZip } from '../services/donationExport';
 import { TablePagination } from './TablePagination';
 import { AuswahlLeiste } from './AuswahlLeiste';
@@ -123,7 +124,8 @@ interface DonationsViewProps {
   documents: ClubDocument[];
   onOpenCreateModal: () => void;
   onEditReceipt: (receipt: DonationReceipt) => void;
-  onDeleteReceipt: (id: string) => void;
+  /** `buchungMitLoeschen`: die verknüpfte Buchung ebenfalls löschen (D-39). */
+  onDeleteReceipt: (id: string, buchungMitLoeschen?: boolean) => void;
   onViewDocument?: (doc: ClubDocument) => void;
 }
 
@@ -140,6 +142,8 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
+  // Bestätigung, deren Löschen gerade erfragt wird (eigener Dialog statt confirm(), D-39/D-147)
+  const [zuLoeschen, setZuLoeschen] = useState<DonationReceipt | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<'all' | 'money' | 'goods'>('all');
   const { sortBy, sortDirection, handleSort } = useSortableColumns<DonationSortField>('date', 'desc'); // neueste zuerst
@@ -1115,11 +1119,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                           {/* Delete */}
                           <button
                             type="button"
-                            onClick={() => {
-                              if (confirm(`Möchten Sie die Zuwendungsbestätigung ${receipt.receiptNumber} wirklich löschen?`)) {
-                                onDeleteReceipt(receipt.id);
-                              }
-                            }}
+                            onClick={() => setZuLoeschen(receipt)}
                             className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-colors dark:bg-rose-950/40 dark:hover:bg-rose-900/40 dark:text-rose-400"
                             title="Löschen"
                           >
@@ -1171,11 +1171,33 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
             Wird auf den Ersatz von Aufwendungen (z.B. Fahrtkosten, Schiedsrichterauslagen) verzichtet, muss ein zuvor schriftlich vereinbarter Rechtsanspruch bestanden haben. Dies wird auf der Bestätigung separat angekreuzt.
           </div>
           <div className="p-3 bg-white rounded-xl border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
-            <span className="font-bold text-slate-800 block mb-1 dark:text-slate-100">Revisionssichere Archivierung</span>
-            Alle erstellten Bestätigungen werden automatisch im PDF-Format im Ordner <span className="font-bold">Dokumente & Belege</span> hinterlegt und können für die Betriebsprüfung oder EÜR jederzeit nachgewiesen werden.
+            <span className="font-bold text-slate-800 block mb-1 dark:text-slate-100">Ablage als PDF</span>
+            Erstellte Bestätigungen werden auf Wunsch als PDF in den Dokumenten abgelegt, im Ordner <span className="font-bold">Buchhaltungsbelege & Finanzen → Belege &lt;Jahr&gt; → Spendenbescheinigungen</span>. Beim Löschen der Bestätigung wird das PDF mitgelöscht.
           </div>
         </div>
       </div>
+      {zuLoeschen && (
+        <BestaetigungsDialog
+          titel={`Zuwendungsbestätigung ${zuLoeschen.receiptNumber} löschen?`}
+          text={
+            zuLoeschen.transactionId
+              ? 'Zu dieser Bestätigung gehört eine Buchung. Soll sie mitgelöscht werden? Das abgelegte PDF wird in jedem Fall gelöscht.'
+              : 'Die Bestätigung und ihr abgelegtes PDF werden gelöscht.'
+          }
+          gefahr
+          bestaetigenText={zuLoeschen.transactionId ? 'Bestätigung und Buchung löschen' : 'Löschen'}
+          alternativText={zuLoeschen.transactionId ? 'Nur die Bestätigung löschen' : undefined}
+          onAlternative={() => {
+            onDeleteReceipt(zuLoeschen.id, false);
+            setZuLoeschen(null);
+          }}
+          onBestaetigen={() => {
+            onDeleteReceipt(zuLoeschen.id, Boolean(zuLoeschen.transactionId));
+            setZuLoeschen(null);
+          }}
+          onAbbrechen={() => setZuLoeschen(null)}
+        />
+      )}
     </div>
   );
 };

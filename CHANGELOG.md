@@ -137,6 +137,104 @@ entsprechen der Android-Fassung.
   Dokumentenverwaltung bleibt beim Löschen der Sitzung erhalten (wie bei
   Android). Vorher wurde es ohne Rückfrage mitgelöscht.
 
+### Paket 10 — Ablage im Ordner (D-40, D-47)
+
+- **Zuwendungsbestätigungen (D-40):** Das PDF liegt jetzt unter
+  „Buchhaltungsbelege & Finanzen → Belege <Jahr> → Spendenbescheinigungen“,
+  wie am Handy. Vorher lag es ohne Ordner (bzw. nach der Nacharbeit aus D-16
+  im Jahresordner). Beim Löschen der Bestätigung wird es weiterhin
+  mitgelöscht.
+- **Rechnungen (D-47):** Je Rechnung gibt es genau ein PDF-Dokument
+  (`doc-inv-<Rechnung>`); erneutes Speichern mit „PDF ablegen“ ersetzt es,
+  statt ein weiteres anzulegen. Ablage unter „Belege <Jahr> →
+  Ausgangsrechnungen“. Nach dem Löschen einer Rechnung verschwindet ihr PDF
+  jetzt auch sofort aus der Dokumentenliste.
+- **Vorhandene PDFs** werden einmalig in diese Ordner einsortiert, sofern sie
+  ohne Ordner, im Haupt- oder im Jahresordner liegen. Was jemand selbst in
+  einen anderen Ordner verschoben hat, bleibt dort. Die Ordner werden am
+  Namen erkannt; am Handy angelegte gleichnamige Ordner werden mitbenutzt.
+- Regeln in `src/utils/belegOrdner.ts` (4 neue Tests).
+
+### Paket 09 — Spenden (D-03, D-10, D-38, D-39, D-41, D-42)
+
+- **Betrag in Worten (D-03):** „Ein Euro“ statt „Eins Euro“, „Einhunderteins“
+  statt „Einhundertein“, „ein Cent“ statt „eins Cent“; gerechnet in ganzen
+  Cent. Wie die Android-Fassung. Bereits ausgestellte Bestätigungen werden
+  nicht nachgeprüft (Entscheidung E7).
+- **Worte passen ins Feld (D-42):** Ein langer Text wurde im einzeiligen Feld
+  des Vordrucks abgeschnitten. Jetzt wird die Schrift bis 5,5 pt verkleinert,
+  danach zweizeilig in 6 pt (wie Android).
+- **Einnahmebuchung auf Konto 40450 (D-10, D-38):** Nummernkreis 40400,
+  ideeller Bereich, 0 % Umsatzsteuer, Belegnummer `SP-<Jahr>-<Ziffern>` ohne
+  Doppel (bei Kollision `-2`, `-3` …) statt Zufallszahl. Vorher stand nur die
+  Kategorie „Spenden / Schenkungen“ ohne Konto an der Buchung; die
+  Finanz-Auswertung zählte sie deshalb nicht als Spende.
+- **Verknüpfte Buchung (D-39):** Beim Bearbeiten ging die Verknüpfung zur
+  Buchung verloren (das Formular baute die Bestätigung neu auf). Jetzt bleibt
+  sie, und wenn Betrag, Datum oder Name nicht mehr zur Buchung passen, fragt
+  die App: angleichen oder unverändert lassen. Beim Löschen: nur die
+  Bestätigung oder Bestätigung und Buchung.
+- **Unterschrift (D-41):** In den Vereinsdaten lässt sich eine Unterschrift
+  zeichnen (Maus, Stift oder Finger), gespeichert als Linienzüge im selben
+  Format wie am Handy. Je Bestätigung ein Häkchen „Unterschrift ins PDF
+  setzen“; sie steht dann rechts neben Ort und Datum.
+- **Formular:** doppelte Bestätigungsnummern werden abgelehnt; Meldungen
+  stehen neben dem Speichern-Knopf statt in Browserfenstern.
+- Tests: `betragInWorten.test.ts` (7), `spendenBuchung.test.ts` (5),
+  `unterschrift.test.ts` (4).
+
+### Nachbesserungen aus der Prüfung von P08
+
+- **Vorstand (T-73, T-74):** Die Meldung „nicht gespeichert“ steht jetzt
+  neben dem Knopf „Vereinsstammdaten speichern“ statt oben auf der Seite.
+- **Sparte umbenennen (T-82):** Die App lädt die Daten danach ohne
+  Ladebildschirm neu; die Seite bleibt stehen, und die Meldung erscheint
+  grün an der Spartenliste.
+
+### Paket 08 — Einstellungen und Datenschutz (D-143, D-144, D-145, D-146, D-147, D-148, D-94)
+
+- **Vorsitz und Kassenwart (D-143):** werden nur noch an der Funktion
+  erkannt, mit derselben Wortliste wie die Android-Fassung. Vorher wurde ein
+  „Kassenprüfer“ oder ein Schriftführer an Platz 2 zum Kassenwart und ein
+  „Stellv. Vorsitzender“ an Platz 1 zum Vorsitzenden; beides erschien auf
+  Zuwendungsbestätigungen, im Lastschriftprotokoll und im Briefkopf. Passt
+  niemand, bleibt das Feld leer und die Seite zeigt einen Hinweis.
+  Vorstandseinträge brauchen Name und Funktion, die E-Mail wird geprüft,
+  dieselbe Person mit derselben Funktion zweimal wird abgelehnt (zwei Ämter
+  für eine Person bleiben erlaubt). Ganz leere Zeilen werden beim Speichern
+  weggelassen. Funktionsvorschläge wie bei Android. Regeln in
+  `src/utils/vorstand.ts` (8 Tests).
+- **Währung, Datumsformat, Geschäftsjahresbeginn (D-144):** entfernt; sie
+  wurden gespeichert, aber nirgends ausgewertet. Vorhandene Werte entfallen
+  beim nächsten Speichern.
+- **Logo (D-145):** Auswählen oder Entfernen speichert nicht mehr sofort
+  (dabei gingen auch alle anderen ungespeicherten Eingaben mit), sondern erst
+  mit „Speichern“; bis dahin steht „Noch nicht gespeichert“ daneben. Ebenso
+  speichern Design, Farbschema und Schrift nur noch ihren eigenen Wert.
+- **Sparten (D-146, Rest):** lassen sich umbenennen; der neue Name wird an
+  allen Mitgliedern, Buchungen (auch Teilbuchungen), Inventarstücken und
+  Terminen übernommen. Gleiche Sparten werden ohne Rücksicht auf Groß- und
+  Kleinschreibung abgelehnt, mit Meldung. Regeln in
+  `src/utils/sparteUmbenennen.ts` (5 Tests).
+- **Eigene Rückfragen statt `alert()`/`confirm()` (D-147):** neues Fenster
+  `BestaetigungsDialog`. „Alle Daten löschen“ verlangt wie bei Android das
+  Eintippen von LÖSCHEN; Schnappschuss wiederherstellen und löschen fragen im
+  selben Fenster nach. Die Meldungen zu Vorstand und Sparten stehen jetzt
+  direkt bei der Liste.
+- **Fehlerbericht ohne Drittanbieter (D-148):** Der Direktversand über
+  formsubmit.co ist entfernt. Er übertrug Name, E-Mail, Beschreibung,
+  Browserkennung und Fenstergröße an einen fremden Dienst. Jetzt öffnet der
+  Bericht das E-Mail-Programm; ohne E-Mail-Programm hilft „Text kopieren“.
+- **Beitragsvorgaben je Mitgliedsart (D-94):** neue Karte in den
+  Vereinsdaten (Vollmitglied, ermäßigt, Kinder/Jugend, Familie, Fördermitglied:
+  Betrag und Zahlweise), gespeichert wie bei Android unter
+  `membershipFeeDefaults`, Startwerte 18/12/10/30/25 € monatlich. Beim Anlegen
+  eines **neuen** Mitglieds werden Betrag und Zahlweise beim Wählen der Art
+  vorgeschlagen; bestehende Mitglieder bleiben unverändert. Regeln in
+  `src/utils/beitragsVorgaben.ts` (4 Tests).
+- **Telefon und Webseite des Vereins (D-149):** bleiben; sie werden in
+  Paket 11 in Briefkopf bzw. Fußzeile der Rechnung gedruckt.
+
 ### Paket 07 — EÜR und Berichte (D-09, D-34, D-35, D-36, D-37, D-132)
 
 - **Gemeinsame Rechnung:** EÜR-Seite und EÜR-PDF rechnen jetzt an derselben
@@ -153,7 +251,8 @@ entsprechen der Android-Fassung.
   ein Hinweis. Die Kachel heißt nicht mehr „Kleinunternehmerregelung“ (das ist
   § 19 UStG und etwas anderes).
 - **Buchungsjournal-PDF (D-35):** Umbuchungen stehen in der Liste (mit
-  „Konto → Zielkonto“), zählen aber nicht in den Summen. Am Ende stehen
+  „Konto -> Zielkonto“; die Standardschrift des PDF kennt den Pfeil „→“ nicht
+  und druckte stattdessen „!'“, T-66), zählen aber nicht in den Summen. Am Ende stehen
   Einnahmen, Ausgaben und Saldo getrennt statt einer Gesamtsumme aller Beträge.
 - **Buchungs-CSV (D-36):** Spalten wie in der Android-Fassung, neu mit Teil,
   Zielkonto, Sparte und SKR-Konto. Aufgeteilte Buchungen erscheinen als eine
