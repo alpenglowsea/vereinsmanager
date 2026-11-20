@@ -32,6 +32,7 @@ import {
   Info
 } from 'lucide-react';
 import { saveBlobAs } from '../utils/fileExportHelper';
+import { melde } from '../utils/dialoge';
 
 interface TransactionImportModalProps {
   existingTransactions: Transaction[];
@@ -288,7 +289,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
   // Final Import Action
   const handleExecuteImport = () => {
     if (selectedRows.length === 0) {
-      alert('Bitte markieren Sie mindestens eine Buchung zum Importieren.');
+      void melde('Bitte markieren Sie mindestens eine Buchung zum Importieren.');
       return;
     }
 

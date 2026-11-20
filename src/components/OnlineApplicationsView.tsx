@@ -22,6 +22,7 @@ import { ApplicationTemplateModal } from './ApplicationTemplateModal';
 import { PublicApplicationForm } from './PublicApplicationForm';
 import { generateMembershipApplicationPdf } from '../services/membershipPdfService';
 import { savePdfAs } from '../utils/fileExportHelper';
+import { bestaetige } from '../utils/dialoge';
 
 interface OnlineApplicationsViewProps {
   applications: OnlineMembershipApplication[];
@@ -104,7 +105,7 @@ export const OnlineApplicationsView: React.FC<OnlineApplicationsViewProps> = ({
   // Delete with confirm
   const handleDelete = async (appId: string, name: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm(`Möchten Sie den Antrag von ${name} wirklich löschen?`)) {
+    if (await bestaetige(`Möchten Sie den Antrag von ${name} wirklich löschen?`)) {
       await onDeleteApplication(appId);
     }
   };

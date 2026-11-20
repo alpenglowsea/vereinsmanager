@@ -35,6 +35,7 @@ import { AuswahlLeiste } from './AuswahlLeiste';
 import { usePagination } from '../hooks/usePagination';
 import { ermittleSeitenStatus, wechsleSeite, waehleAlleGefilterten } from '../utils/tableSelection';
 import { saveBlobAs, savePdfAs } from '../utils/fileExportHelper';
+import { bestaetige } from '../utils/dialoge';
 
 type InvoiceSortField =
   | 'status'
@@ -620,7 +621,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   const handleBulkDelete = async () => {
     if (!onBulkDeleteInvoices || selectedIds.size === 0) return;
     if (
-      window.confirm(
+      await bestaetige(
         `Möchten Sie die ${selectedIds.size} ausgewählten Rechnungen wirklich unwiderruflich löschen? Ihre PDFs werden mitgelöscht, verknüpfte Buchungen bleiben stehen.`
       )
     ) {

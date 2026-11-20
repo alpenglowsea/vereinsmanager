@@ -90,6 +90,9 @@ object Austausch {
                     r += if (t.ganztaegig || t.beginnZeit.isEmpty()) ";UNTIL=${tagText(s.bis)}" else ";UNTIL=${tagText(s.bis)}T235959"
                 } else if (s.endeArt == "count" && s.anzahl > 0) r += ";COUNT=${s.anzahl}"
                 z += r
+                // Ausgenommene Tage in derselben Form wie DTSTART
+                if (s.ausnahmen.isNotEmpty()) z += if (t.ganztaegig || t.beginnZeit.isEmpty()) "EXDATE;VALUE=DATE:" + s.ausnahmen.joinToString(",") { tagText(it) }
+                else "EXDATE:" + s.ausnahmen.joinToString(",") { zeitText(it, t.beginnZeit) }
             }
             if (mitTeilnehmern) for (p in t.teilnehmer) {
                 if (!p.email.contains('@')) continue
@@ -220,7 +223,12 @@ object Austausch {
                         serie = JsonObject(m)
                     }
                 }
-                if (erste("EXDATE") != null) hinweise += "„$titel“: Ausgenommene Tage (EXDATE) werden nicht übernommen."
+                // Ausgenommene Tage (EXDATE, auch mehrfach und mit Komma getrennt)
+                val ausnahmen = p.filter { it.first[0].uppercase() == "EXDATE" }
+                    .flatMap { (kopf, w) -> w.split(',').mapNotNull { zeitpunkt(kopf, it)?.datum } }.distinct().sorted()
+                if (ausnahmen.isNotEmpty() && serie != null) {
+                    serie = JsonObject(serie!! + ("exceptionDates" to JsonArray(ausnahmen.map { JsonPrimitive(it) })))
+                }
                 val geo = erste("GEO")?.second?.split(';')?.let { g -> g.getOrNull(0)?.toDoubleOrNull()?.let { a -> g.getOrNull(1)?.toDoubleOrNull()?.let { b -> a to b } } }
                 val uid = erste("UID")?.second?.trim()?.removeSuffix(UID_ENDUNG)?.takeIf { it.isNotEmpty() }
                 val id = uid ?: "evt-import-${jetzt.toInstant().toEpochMilli()}-$nr"

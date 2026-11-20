@@ -88,7 +88,7 @@ private fun spartenMap(model: AppModel, aktuell: String = ""): LinkedHashMap<Str
 
 @Composable
 fun KalenderScreen(
-    model: AppModel, onOpen: (String) -> Unit, onNeu: (String) -> Unit, onArten: () -> Unit, modifier: Modifier = Modifier,
+    model: AppModel, onOpen: (String, String?) -> Unit, onNeu: (String) -> Unit, onArten: () -> Unit, modifier: Modifier = Modifier,
 ) {
     val heute = LocalDate.now()
     var liste by remember { mutableStateOf(false) }
@@ -282,12 +282,12 @@ fun KalenderScreen(
 private fun dt(d: LocalDate) = de.vereinsmanager.core.members.Zeit.deutsch(d.toString())
 
 @Composable
-private fun TagesListe(model: AppModel, termine: List<Vorkommen>, besondere: List<Besonderes>, onOpen: (String) -> Unit) {
+private fun TagesListe(model: AppModel, termine: List<Vorkommen>, besondere: List<Besonderes>, onOpen: (String, String?) -> Unit) {
     val sc = MaterialTheme.colorScheme
     val gesamt = termine.size + besondere.size
     if (gesamt == 0) Text("Keine Termine.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, modifier = Modifier.padding(vertical = 4.dp))
     termine.forEachIndexed { i, v ->
-        ListenKarte(erste = i == 0, letzte = i == gesamt - 1, angehakt = false, onClick = { onOpen(v.termin.id) }, onLongClick = {}) {
+        ListenKarte(erste = i == 0, letzte = i == gesamt - 1, angehakt = false, onClick = { onOpen(v.termin.id, v.datum.toString()) }, onLongClick = {}) {
             Box(Modifier.width(6.dp).height(40.dp).background(artFarbe(model.terminarten, v.termin.art), RoundedCornerShape(3.dp)))
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
                 Text(v.termin.titel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -312,9 +312,10 @@ private fun TagesListe(model: AppModel, termine: List<Vorkommen>, besondere: Lis
 // ---------------------------------------------------------------- Termin ansehen
 
 @Composable
-fun TerminDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDeleted: () -> Unit, modifier: Modifier = Modifier) {
+fun TerminDetailScreen(model: AppModel, id: String, tag: String?, onEdit: (String?) -> Unit, onDeleted: () -> Unit, modifier: Modifier = Modifier) {
     val t = model.termine.firstOrNull { it.id == id }
     var loeschen by remember { mutableStateOf(false) }
+    var bearbeiten by remember { mutableStateOf(false) }
     var einladen by remember { mutableStateOf(false) }
     var meldung by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
@@ -325,7 +326,9 @@ fun TerminDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
     val farbe = artFarbe(model.terminarten, t.art)
     val zeile: @Composable (String, String) -> Unit = { l, w -> DetailFeld(l, w) }
 
-    val datum = datumTagJahr(t.beginn)
+    // Bei einer Serie den angetippten Tag zeigen, nicht den ersten Termin der Serie
+    val datum = datumTagJahr(if (t.serie != null && tag != null) tag else t.beginn)
+    val einzelne = Kalender.einzelTermine(model.termine, t.id)
     val zeit = if (t.ganztaegig || t.beginnZeit.isEmpty()) "ganztägig" else t.beginnZeit
     val zeitUnter = if (!t.ganztaegig && t.endeZeit.isNotEmpty()) "bis ${t.endeZeit}" else null
     val anzahl = t.teilnehmer.size.toString()
@@ -350,7 +353,11 @@ fun TerminDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
         Spacer(Modifier.height(8.dp))
         DetailKarte("Wann und wo") {
             zeile("Wann", Kalender.zeitText(t.beginn, t.beginnZeit, t.ende, t.endeZeit, t.ganztaegig))
-            t.serie?.let { zeile("Wiederholung", Kalender.serieText(it)) }
+            t.serie?.let { zeile("Wiederholung", Kalender.serieText(it) + if (einzelne.isNotEmpty()) ", ${einzelne.size} einzeln geändert" else "") }
+            t.herkunft?.let { h ->
+                val s = model.termine.firstOrNull { it.id == h.terminId }
+                zeile("Aus Serie", "Einzeln geändert, ursprünglich am ${de.vereinsmanager.core.members.Zeit.deutsch(h.datum)}" + (s?.let { " („${it.titel}“)" } ?: ""))
+            }
             if (t.ort.isNotBlank()) {
                 Column(Modifier.padding(vertical = 4.dp)) {
                     Text("Ort", style = MaterialTheme.typography.labelMedium, color = sc.onSurfaceVariant)
@@ -396,7 +403,7 @@ fun TerminDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
         if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
         AktionsZeilen(
             listOf(
-                listOf(Aktion("Bearbeiten", onEdit, primaer = true), Aktion("Einladen", { einladen = true })),
+                listOf(Aktion("Bearbeiten", { if (t.serie != null && tag != null) bearbeiten = true else onEdit(null) }, primaer = true), Aktion("Einladen", { einladen = true })),
                 listOf(Aktion("Löschen", { loeschen = true })),
             ),
             Modifier.padding(top = 12.dp, bottom = 16.dp),
@@ -435,12 +442,47 @@ fun TerminDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDelete
             confirmButton = { TextButton(onClick = { einladen = false }) { Text("Schließen") } },
         )
     }
-    if (loeschen) {
+    if (bearbeiten) {
         AlertDialog(
-            onDismissRequest = { loeschen = false }, title = { Text("Termin löschen?") },
-            text = { Text("${t.titel} wird endgültig gelöscht" + if (t.serie != null) " – bei einer Serie alle Termine der Serie." else ".") },
-            confirmButton = { TextButton(onClick = { loeschen = false; model.terminLoeschen(t.id) { f -> if (f == null) onDeleted() else meldung = f } }) { Text("Löschen") } },
-            dismissButton = { TextButton(onClick = { loeschen = false }) { Text("Abbrechen") } },
+            onDismissRequest = { bearbeiten = false }, title = { Text("Serientermin ändern") },
+            text = { Text("Nur den Termin am ${de.vereinsmanager.core.members.Zeit.deutsch(tag!!)} ändern oder die ganze Serie? Ein einzeln geänderter Termin wird ein eigener Termin; die Serie lässt diesen Tag dann aus.") },
+            confirmButton = {
+                Column(horizontalAlignment = Alignment.End) {
+                    TextButton(onClick = { bearbeiten = false; onEdit(tag) }) { Text("Nur diesen Termin") }
+                    TextButton(onClick = { bearbeiten = false; onEdit(null) }) { Text("Ganze Serie") }
+                    TextButton(onClick = { bearbeiten = false }) { Text("Abbrechen") }
+                }
+            },
+        )
+    }
+    if (loeschen) {
+        // Bei Serien: nur den angetippten Tag herausnehmen (Ausnahme) oder die ganze Serie löschen
+        val einzeln = t.serie != null && tag != null
+        AlertDialog(
+            onDismissRequest = { loeschen = false }, title = { Text(if (t.serie != null) "Serientermin löschen?" else "Termin löschen?") },
+            text = {
+                Text(
+                    when {
+                        einzeln -> "„${t.titel}“ ist ein Serientermin. Nur den Termin am ${de.vereinsmanager.core.members.Zeit.deutsch(tag!!)} löschen oder die ganze Serie?" +
+                            (if (einzelne.isNotEmpty()) " Mit der Serie werden auch ${einzelne.size} einzeln geänderte Termine gelöscht." else "")
+                        t.serie != null -> "„${t.titel}“ wird mit allen Terminen der Serie endgültig gelöscht" +
+                            (if (einzelne.isNotEmpty()) ", auch ${einzelne.size} einzeln geänderte." else ".")
+                        else -> "„${t.titel}“ wird endgültig gelöscht."
+                    },
+                )
+            },
+            confirmButton = {
+                Column(horizontalAlignment = Alignment.End) {
+                    if (einzeln) TextButton(onClick = {
+                        loeschen = false
+                        model.terminAusnahme(t.id, tag!!) { f -> if (f == null) onDeleted() else meldung = f }
+                    }) { Text("Nur diesen Termin") }
+                    TextButton(onClick = { loeschen = false; model.terminLoeschen(t.id) { f -> if (f == null) onDeleted() else meldung = f } }) {
+                        Text(if (t.serie != null) "Ganze Serie löschen" else "Löschen", color = MaterialTheme.colorScheme.error)
+                    }
+                    TextButton(onClick = { loeschen = false }) { Text("Abbrechen") }
+                }
+            },
         )
     }
 }
@@ -486,11 +528,12 @@ private val TERMIN_SCHRITTE = listOf("Termin", "Zeit", "Teilnehmer")
 private fun terminFehlerSchritt(schluessel: String): Int = if (schluessel == "titel") 0 else 1
 
 @Composable
-fun TerminFormScreen(model: AppModel, id: String?, tag: String?, onDone: () -> Unit, modifier: Modifier = Modifier) {
+fun TerminFormScreen(model: AppModel, id: String?, tag: String?, einzeln: String?, onDone: () -> Unit, modifier: Modifier = Modifier) {
     val vorhanden = id?.let { i -> model.termine.firstOrNull { it.id == i } }
     var f by remember {
         mutableStateOf<TerminForm>(
-            if (vorhanden != null) model.terminFormular(vorhanden)
+            if (vorhanden != null && einzeln != null) Kalender.einzeln(vorhanden, einzeln)
+            else if (vorhanden != null) model.terminFormular(vorhanden)
             else model.terminNeu(tag?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()),
         )
     }
@@ -533,11 +576,18 @@ fun TerminFormScreen(model: AppModel, id: String?, tag: String?, onDone: () -> U
                     if (!f.ganztaegig) ZeitFeld("Ende Uhrzeit", f.endeZeit, pruef["endeZeit"], optional = true) { f = f.copy(endeZeit = it) }
 
                     Text("Wiederholung", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, color = sc.primary, modifier = Modifier.padding(top = 14.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+                    f.herkunft?.let { h ->
+                        // Ein einzeln geänderter Serientag bleibt ein Einzeltermin
+                        Text(
+                            "Einzeln geänderter Termin einer Serie (ursprünglich am ${de.vereinsmanager.core.members.Zeit.deutsch(h.datum)}). Änderungen gelten nur für diesen Termin.",
+                            style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, modifier = Modifier.padding(vertical = 4.dp),
+                        )
+                    }
+                    if (f.herkunft == null) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
                         Switch(f.serie, { f = f.copy(serie = it) })
                         Text("  Regelmäßig wiederholen")
                     }
-                    if (f.serie) {
+                    if (f.serie && f.herkunft == null) {
                         Auswahl("Wiederholung", Kalender.FREQUENZEN, f.frequenz) { f = f.copy(frequenz = it) }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("Alle")
@@ -556,6 +606,19 @@ fun TerminFormScreen(model: AppModel, id: String?, tag: String?, onDone: () -> U
                         Auswahl("Ende der Serie", Kalender.ENDE_ARTEN, f.endeArt) { f = f.copy(endeArt = it) }
                         if (f.endeArt == "until_date") DatumFeld("Letzter Termin spätestens am", f.bis, pruef["bis"]) { f = f.copy(bis = it) }
                         if (f.endeArt == "count") Feld("Anzahl der Termine", f.anzahl, { f = f.copy(anzahl = it.filter { c -> c.isDigit() }.take(3)) }, pruef["anzahl"], keyboard = KeyboardType.Number)
+                        if (f.ausnahmen.isNotEmpty()) {
+                            Text("Ausgenommene Tage (fallen aus)", style = MaterialTheme.typography.labelLarge, color = sc.onSurfaceVariant)
+                            val geaendert = f.id?.let { sid -> Kalender.einzelTermine(model.termine, sid).map { it.herkunft!!.datum }.toSet() } ?: emptySet()
+                            f.ausnahmen.forEach { tag ->
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(de.vereinsmanager.core.members.Zeit.deutsch(tag), modifier = Modifier.weight(1f))
+                                    // Ein einzeln geänderter Tag steht als eigener Termin im Kalender; ihn wieder
+                                    // aufzunehmen ergäbe den Termin doppelt.
+                                    if (tag in geaendert) Text("einzeln geändert", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, modifier = Modifier.padding(horizontal = 12.dp))
+                                    else TextButton(onClick = { f = f.copy(ausnahmen = f.ausnahmen - tag) }) { Text("Wieder aufnehmen") }
+                                }
+                            }
+                        }
                     }
                 }
                 else -> {

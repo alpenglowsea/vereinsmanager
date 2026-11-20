@@ -130,9 +130,11 @@ sealed interface Page {
     /** id == null: neuer Gegenstand */
     data class InventoryEdit(val id: String?) : Page
     data object Calendar : Page
-    data class CalendarEvent(val id: String) : Page
+    /** datum: der angetippte Tag bei Serien, damit „nur diesen Termin löschen“ weiß, welcher gemeint ist. */
+    data class CalendarEvent(val id: String, val datum: String? = null) : Page
     /** id == null: neuer Termin, tag = vorgewählter Tag */
-    data class CalendarEdit(val id: String?, val tag: String?) : Page
+    /** einzeln: Tag einer Serie, der als eigener Termin geändert wird („nur diesen Termin ändern“). */
+    data class CalendarEdit(val id: String?, val tag: String?, val einzeln: String? = null) : Page
     data object CalendarKinds : Page
     data object Meetings : Page
     data class Meeting(val id: String) : Page
@@ -282,14 +284,19 @@ class MainActivity : ComponentActivity() {
                             )
                             is Page.MeetingEdit -> SitzungFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
                             Page.Calendar -> KalenderScreen(
-                                model, onOpen = { stack = stack + Page.CalendarEvent(it) }, onNeu = { stack = stack + Page.CalendarEdit(null, it) },
+                                model, onOpen = { id, tag -> stack = stack + Page.CalendarEvent(id, tag) }, onNeu = { stack = stack + Page.CalendarEdit(null, it) },
                                 onArten = { stack = stack + Page.CalendarKinds }, modifier = m,
                             )
                             is Page.CalendarEvent -> TerminDetailScreen(
-                                model, page.id, onEdit = { stack = stack + Page.CalendarEdit(page.id, null) },
+                                model, page.id, page.datum, onEdit = { nurTag -> stack = stack + Page.CalendarEdit(page.id, null, nurTag) },
                                 onDeleted = { stack = stack.filter { it !is Page.CalendarEvent && it !is Page.CalendarEdit } }, modifier = m,
                             )
-                            is Page.CalendarEdit -> TerminFormScreen(model, page.id, page.tag, onDone = { stack = stack.dropLast(1) }, modifier = m)
+                            is Page.CalendarEdit -> TerminFormScreen(
+                                model, page.id, page.tag, page.einzeln,
+                                // Nach dem Speichern eines Einzeltermins zurück zum Kalender: die Detailseite zeigte die Serie.
+                                onDone = { stack = if (page.einzeln != null) stack.filter { it !is Page.CalendarEvent && it !is Page.CalendarEdit } else stack.dropLast(1) },
+                                modifier = m,
+                            )
                             Page.CalendarKinds -> TerminartenScreen(model, modifier = m)
                             Page.Inventory -> InventarScreen(model, onOpen = { stack = stack + Page.InventoryItem(it) }, onNew = { stack = stack + Page.InventoryEdit(null) }, modifier = m)
                             is Page.InventoryItem -> InventarDetailScreen(
@@ -432,7 +439,7 @@ private fun seitenTitel(p: Page, model: AppModel): String = when (p) {
     is Page.MeetingEdit -> if (p.id == null) "Neue Sitzung" else "Sitzung bearbeiten"
     Page.Calendar -> "Kalender"
     is Page.CalendarEvent -> "Termin"
-    is Page.CalendarEdit -> if (p.id == null) "Neuer Termin" else "Termin bearbeiten"
+    is Page.CalendarEdit -> if (p.id == null) "Neuer Termin" else if (p.einzeln != null) "Einzelnen Termin ändern" else "Termin bearbeiten"
     Page.CalendarKinds -> "Terminarten"
     Page.Inventory -> "Inventar"
     is Page.InventoryItem -> "Gegenstand"

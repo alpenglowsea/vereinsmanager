@@ -34,7 +34,11 @@ data class Teilnehmer(
  * Wiederholung eines Termins. [frequenz]: daily, weekly, monthly, yearly. Der Desktop kennt zusätzlich "biweekly";
  * das wird beim Lesen zu weekly mit doppeltem Intervall. [wochentage]: 0 = Sonntag … 6 = Samstag (wie am Desktop).
  */
-data class Wiederholung(val frequenz: String, val intervall: Int, val wochentage: List<Int>, val endeArt: String, val bis: String, val anzahl: Int)
+data class Wiederholung(
+    val frequenz: String, val intervall: Int, val wochentage: List<Int>, val endeArt: String, val bis: String, val anzahl: Int,
+    /** Ausgenommene Tage (JJJJ-MM-TT, Beginn des Vorkommens); gespeichert als "exceptionDates" wie am Desktop, im iCal als EXDATE. */
+    val ausnahmen: List<String> = emptyList(),
+)
 
 /** Ein Termin (Bereich "calendarEvents"); [raw] ist das gespeicherte Dokument mit allen, auch unbekannten, Feldern. */
 data class Termin(
@@ -52,6 +56,8 @@ data class Termin(
     val ort: String,
     val serie: Wiederholung?,
     val teilnehmer: List<Teilnehmer>,
+    /** Gesetzt, wenn dieser Termin ein einzeln geänderter Tag einer Serie ist ("seriesOrigin", wie am Desktop). */
+    val herkunft: SerienHerkunft? = null,
 ) {
     companion object {
         private fun t(o: JsonObject, k: String) = (o[k] as? JsonPrimitive)?.takeIf { it !is JsonNull }?.contentOrNull ?: ""
@@ -68,6 +74,8 @@ data class Termin(
                         wochentage = (r["daysOfWeek"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.doubleOrNull?.toInt() } ?: emptyList(),
                         endeArt = t(r, "endType").ifEmpty { "never" }, bis = t(r, "untilDate"),
                         anzahl = (r["count"] as? JsonPrimitive)?.doubleOrNull?.toInt() ?: 0,
+                        ausnahmen = (r["exceptionDates"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+                            ?.filter { runCatching { LocalDate.parse(it) }.isSuccess }?.distinct()?.sorted() ?: emptyList(),
                     )
                 }
             }
@@ -84,10 +92,16 @@ data class Termin(
                 art = t(o, "categoryId").ifEmpty { "cat-general" }, sparte = t(o, "department").ifEmpty { "all" },
                 beginn = beginn, beginnZeit = t(o, "startTime"), ende = t(o, "endDate").ifEmpty { beginn }, endeZeit = t(o, "endTime"),
                 ganztaegig = (o["isAllDay"] as? JsonPrimitive)?.contentOrNull == "true", ort = t(o, "location"), serie = rec, teilnehmer = tn,
+                herkunft = (o["seriesOrigin"] as? JsonObject)?.let { h ->
+                    SerienHerkunft(t(h, "eventId"), t(h, "date")).takeIf { it.terminId.isNotEmpty() && it.datum.isNotEmpty() }
+                },
             )
         }
     }
 }
+
+/** Woher ein einzeln geänderter Termin stammt: Serie [terminId], ursprünglich am [datum] (JJJJ-MM-TT). */
+data class SerienHerkunft(val terminId: String, val datum: String)
 
 /** Ein Auftreten eines Termins (bei Serien eines von vielen) im Zeitraum. [ende] ist das letzte Datum bei mehrtägigen Terminen. */
 data class Vorkommen(val termin: Termin, val datum: LocalDate, val ende: LocalDate, val ausSerie: Boolean)
@@ -126,6 +140,10 @@ data class TerminForm(
     val bis: String = "",
     val anzahl: String = "10",
     val teilnehmer: List<Teilnehmer> = emptyList(),
+    /** Nur bei einem einzeln geänderten Serientag: aus welcher Serie und von welchem Tag. */
+    val herkunft: SerienHerkunft? = null,
+    /** Ausgenommene Tage der Serie; im Formular lassen sie sich wieder aufnehmen. */
+    val ausnahmen: List<String> = emptyList(),
 ) {
     companion object {
         fun von(t: Termin) = TerminForm(
@@ -135,7 +153,7 @@ data class TerminForm(
             wochentage = t.serie?.wochentage?.toSet()?.takeIf { it.isNotEmpty() }
                 ?: runCatching { setOf(LocalDate.parse(t.beginn).dayOfWeek.value % 7) }.getOrDefault(emptySet()),
             endeArt = t.serie?.endeArt ?: "never", bis = t.serie?.bis ?: "", anzahl = (t.serie?.anzahl?.takeIf { it > 0 } ?: 10).toString(),
-            teilnehmer = t.teilnehmer,
+            teilnehmer = t.teilnehmer, ausnahmen = t.serie?.ausnahmen ?: emptyList(), herkunft = t.herkunft,
         )
     }
 }
@@ -328,7 +346,10 @@ object Kalender {
             val grenze = if (bisDatum != null && bisDatum.isBefore(bis)) bisDatum else bis
             var tage = serienTage(start, s, grenze)
             if (s.endeArt == "count") tage = tage.take(s.anzahl.coerceAtLeast(1))
+            // Ausgenommene Tage zählen bei "Ende nach n Mal" mit (wie iCal) und werden erst danach herausgenommen.
+            val aus = s.ausnahmen.toHashSet()
             for (d in tage.take(20_000)) {
+                if (d.toString() in aus) continue
                 val e = d.plusDays(dauer)
                 if (!d.isAfter(bis) && !e.isBefore(von)) out += Vorkommen(t, d, e, d != start)
             }
@@ -483,15 +504,56 @@ object Kalender {
             r["endType"] = JsonPrimitive(f.endeArt)
             if (f.endeArt == "until_date") r["untilDate"] = JsonPrimitive(f.bis)
             if (f.endeArt == "count") r["count"] = JsonPrimitive(f.anzahl.trim().toInt())
+            if (f.ausnahmen.isNotEmpty()) r["exceptionDates"] = JsonArray(f.ausnahmen.distinct().sorted().map { JsonPrimitive(it) })
             m["recurrence"] = JsonObject(r)
         } else m.remove("recurrence")
         m["participants"] = JsonArray(f.teilnehmer.map { teilnehmerJson(it) })
+        f.herkunft?.let { h -> m["seriesOrigin"] = JsonObject(mapOf("eventId" to JsonPrimitive(h.terminId), "date" to JsonPrimitive(h.datum))) }
         if (base == null) m["createdAt"] = JsonPrimitive(stamp)
         m["updatedAt"] = JsonPrimitive(stamp)
+        // Ein neu angelegter Einzeltermin aus einer Serie: Der ursprüngliche Tag fällt in der Serie aus,
+        // sonst stünde der Termin doppelt im Kalender. Beides in derselben Transaktion.
+        val h = f.herkunft
+        if (base == null && h != null) {
+            val s = termin(store, h.terminId)
+            if (s?.serie != null && h.datum !in s.serie.ausnahmen) {
+                val sf = TerminForm.von(s)
+                speichern(store, sf.copy(ausnahmen = (sf.ausnahmen + h.datum).distinct().sorted()), now)
+            }
+        }
         JsonObject(m).also { store.put(AREA, id, it) }
     }
 
-    fun loeschen(store: DocumentStore, id: String) = store.transaction { store.delete(AREA, id) }
+    /**
+     * Formular für "nur diesen Termin ändern": eine Kopie des Serientermins für den Tag [tag],
+     * ohne Wiederholung. Gespeichert wird sie als eigener Termin; der Tag fällt dann in der Serie aus.
+     */
+    fun einzeln(t: Termin, tag: String): TerminForm {
+        val dauer = runCatching { ChronoUnit.DAYS.between(LocalDate.parse(t.beginn), LocalDate.parse(t.ende)) }.getOrDefault(0L).coerceAtLeast(0L)
+        return TerminForm.von(t).copy(
+            id = null, serie = false, ausnahmen = emptyList(), beginn = tag,
+            ende = LocalDate.parse(tag).plusDays(dauer).toString(), herkunft = SerienHerkunft(t.id, tag),
+            teilnehmer = t.teilnehmer,
+        )
+    }
+
+    /** Einzeln geänderte Termine, die aus der Serie [serienId] stammen. */
+    fun einzelTermine(termine: List<Termin>, serienId: String): List<Termin> = termine.filter { it.herkunft?.terminId == serienId }
+
+    /** Löscht den Termin; bei einer Serie auch ihre einzeln geänderten Termine. */
+    fun loeschen(store: DocumentStore, id: String) = store.transaction {
+        store.all(AREA).map { Termin.from(it) }.filter { it.herkunft?.terminId == id }.forEach { store.delete(AREA, it.id) }
+        store.delete(AREA, id)
+    }
+
+    /** Nur einen Tag einer Serie löschen: Der Tag wird als Ausnahme vermerkt, die Serie bleibt. */
+    fun ausnahmeHinzu(store: DocumentStore, id: String, tag: String, now: ZonedDateTime = ZonedDateTime.now()) = store.transaction {
+        val t = termin(store, id) ?: throw IllegalArgumentException("Den Termin gibt es nicht mehr.")
+        require(t.serie != null) { "Der Termin ist kein Serientermin." }
+        require(datum(tag) != null) { "Ungültiges Datum." }
+        val f = TerminForm.von(t)
+        speichern(store, f.copy(ausnahmen = (f.ausnahmen + tag).distinct().sorted()), now)
+    }
 
     /** Den Status eines Teilnehmers ändern, ohne das ganze Formular zu öffnen. */
     fun teilnehmerStatus(store: DocumentStore, terminId: String, memberId: String, status: String, now: ZonedDateTime = ZonedDateTime.now()) = store.transaction {
@@ -568,10 +630,11 @@ object Kalender {
             "yearly" -> if (iv == 1) "jährlich" else "alle $iv Jahre"
             else -> s.frequenz
         }
+        val ohne = when (s.ausnahmen.size) { 0 -> ""; 1 -> ", ohne ${Zeit.deutsch(s.ausnahmen[0])}"; else -> ", ohne ${s.ausnahmen.size} Termine" }
         return grund + when (s.endeArt) {
             "until_date" -> if (s.bis.isNotEmpty()) ", bis ${Zeit.deutsch(s.bis)}" else ""
             "count" -> ", ${s.anzahl} Mal"
             else -> ""
-        }
+        } + ohne
     }
 }

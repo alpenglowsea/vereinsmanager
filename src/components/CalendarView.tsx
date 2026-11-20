@@ -16,6 +16,11 @@ import { CalendarImportModal } from './CalendarImportModal';
 import { CalendarExportModal } from './CalendarExportModal';
 import { CalendarInviteModal } from './CalendarInviteModal';
 import { OpenStreetMapModal } from './OpenStreetMapModal';
+import { monatVerschieben, amTag, normiereSerie, mitAusnahme, datumKurz, einzelnAusSerie, einzelTermine, serieText, plusTage, tageZwischen } from '../utils/kalenderRegeln';
+import { frageDreifach, bestaetige } from '../utils/dialoge';
+
+// Die Karte lädt Daten von OpenStreetMap; erst auf ausdrücklichen Klick (E8/D-115)
+const OSM_HINWEIS = 'Karte öffnen – dabei wird der Ort an OpenStreetMap übermittelt.';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -96,6 +101,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   });
 
   const [selectedDetailEvent, setSelectedDetailEvent] = useState<CalendarEvent | null>(null);
+  // Tag des angeklickten Vorkommens (bei Serien), für „nur diesen Termin löschen“
+  const [detailDatum, setDetailDatum] = useState<string | null>(null);
+  const zeigeDetails = (e: CalendarEvent, datum: string) => {
+    setSelectedDetailEvent(e);
+    setDetailDatum(datum);
+  };
 
   // Load Data
   const loadCalendarData = async () => {
@@ -218,11 +229,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   }, [events, rangeStart, rangeEnd]);
 
   // Compute Special Items (Birthdays & Anniversaries)
+  // Über den Zeitraum, nicht über das Jahr: Die Dezemberansicht zeigt auch
+  // die ersten Januartage mit ihren Geburtstagen (D-111)
   const specialItems = useMemo(() => {
-    const year = currentDate.getFullYear();
-    const all = CalendarService.getSpecialItems(members, year);
-    return all.filter((item) => item.date >= rangeStart && item.date <= rangeEnd);
-  }, [members, currentDate, rangeStart, rangeEnd]);
+    return CalendarService.getSpecialItemsRange(members, rangeStart, rangeEnd);
+  }, [members, rangeStart, rangeEnd]);
 
   // Filter Expanded Events by Search, Category, and Department
   const filteredEventInstances = useMemo(() => {
@@ -261,9 +272,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   // Navigation handlers
   const handlePrev = () => {
-    const newDate = new Date(currentDate);
+    let newDate = new Date(currentDate);
     if (viewMode === 'month') {
-      newDate.setMonth(newDate.getMonth() - 1);
+      // Vom 31. aus nicht über den kürzeren Nachbarmonat hinausspringen (D-107)
+      newDate = monatVerschieben(currentDate, -1);
     } else if (viewMode === 'week') {
       newDate.setDate(newDate.getDate() - 7);
     } else if (viewMode === 'day') {
@@ -275,9 +287,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   };
 
   const handleNext = () => {
-    const newDate = new Date(currentDate);
+    let newDate = new Date(currentDate);
     if (viewMode === 'month') {
-      newDate.setMonth(newDate.getMonth() + 1);
+      newDate = monatVerschieben(currentDate, 1);
     } else if (viewMode === 'week') {
       newDate.setDate(newDate.getDate() + 7);
     } else if (viewMode === 'day') {
@@ -294,11 +306,76 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   // CRUD Event handlers
   const handleSaveEvent = async (eventToSave: CalendarEvent) => {
-    await StorageService.saveCalendarEvent(eventToSave);
+    // Ein neu angelegter Einzeltermin aus einer Serie: Der ursprüngliche Tag
+    // fällt in der Serie aus, sonst stünde der Termin doppelt im Kalender.
+    // Beide werden zusammen gespeichert.
+    const h = eventToSave.seriesOrigin;
+    const serie = h && !events.some((x) => x.id === eventToSave.id) ? events.find((x) => x.id === h.eventId) : undefined;
+    if (h && serie && normiereSerie(serie.recurrence) && !(serie.recurrence?.exceptionDates || []).includes(h.date)) {
+      await StorageService.batchSaveCalendarEvents([mitAusnahme(serie, h.date), eventToSave]);
+    } else {
+      await StorageService.saveCalendarEvent(eventToSave);
+    }
     await loadCalendarData();
   };
 
+  /**
+   * Bearbeiten aus Liste oder Details: Bei einer Serie wählt man, ob nur
+   * dieser Tag (als eigener Termin) oder die ganze Serie geändert wird.
+   */
+  const bearbeiteVorkommen = async (e: CalendarEvent, datum: string | null) => {
+    if (normiereSerie(e.recurrence) && datum) {
+      const wahl = await frageDreifach({
+        titel: 'Serientermin ändern',
+        text: `„${e.title}“ ist ein Serientermin. Nur den Termin am ${datumKurz(datum)} ändern oder die ganze Serie?\n\nEin einzeln geänderter Termin wird ein eigener Termin; die Serie lässt diesen Tag dann aus.`,
+        alternativText: `Nur am ${datumKurz(datum)}`,
+        bestaetigenText: 'Ganze Serie'
+      });
+      if (wahl === 'alternative') {
+        setSelectedDetailEvent(null);
+        handleOpenEditEventModal(einzelnAusSerie(e, datum, `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`));
+      } else if (wahl === 'ja') {
+        setSelectedDetailEvent(null);
+        handleOpenEditEventModal(e);
+      }
+      return;
+    }
+    setSelectedDetailEvent(null);
+    handleOpenEditEventModal(e);
+  };
+
+  /**
+   * Löschen aus Liste oder Details: Bei einer Serie wählt man, ob nur dieser
+   * Tag (als Ausnahme) oder die ganze Serie wegfällt. Vorher löschte der Knopf
+   * in der Terminliste ohne Rückfrage die ganze Serie.
+   */
+  const loescheVorkommen = async (e: CalendarEvent, datum: string | null) => {
+    if (normiereSerie(e.recurrence) && datum) {
+      const wahl = await frageDreifach({
+        titel: 'Serientermin löschen',
+        text:
+          `„${e.title}“ ist ein Serientermin. Nur den Termin am ${datumKurz(datum)} löschen oder die ganze Serie?` +
+          (einzelTermine(events, e.id).length ? `\n\nMit der Serie werden auch ${einzelTermine(events, e.id).length} einzeln geänderte Termine gelöscht.` : ''),
+        alternativText: `Nur am ${datumKurz(datum)}`,
+        bestaetigenText: 'Ganze Serie löschen',
+        gefahr: true
+      });
+      if (wahl === 'alternative') {
+        const neu = mitAusnahme(e, datum);
+        await StorageService.saveCalendarEvent(neu);
+        if (selectedDetailEvent?.id === e.id) setSelectedDetailEvent(null);
+        await loadCalendarData();
+      } else if (wahl === 'ja') {
+        await handleDeleteEvent(e.id);
+      }
+      return;
+    }
+    if (await bestaetige(`Den Termin „${e.title}“ wirklich löschen?`)) await handleDeleteEvent(e.id);
+  };
+
+  // Löscht den Termin; bei einer Serie auch ihre einzeln geänderten Termine (wie Android)
   const handleDeleteEvent = async (id: string) => {
+    for (const x of einzelTermine(events, id)) await StorageService.deleteCalendarEvent(x.id);
     await StorageService.deleteCalendarEvent(id);
     if (selectedDetailEvent?.id === id) {
       setSelectedDetailEvent(null);
@@ -311,13 +388,26 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     await loadCalendarData();
   };
 
+  // Termine der gelöschten Terminart wechseln zu „Allgemeiner Termin“ bzw. zur
+  // ersten verbliebenen Art, statt mit unbekannter Art stehen zu bleiben (D-126, wie Android)
   const handleDeleteCategory = async (id: string) => {
+    const rest = categories.filter((c) => c.id !== id);
+    if (rest.length === 0) return; // die letzte Terminart bleibt
+    const ziel = (rest.find((c) => c.id === 'cat-general') || rest[0])?.id || 'cat-general';
+    const betroffen = events.filter((e) => e.categoryId === id).map((e) => ({ ...e, categoryId: ziel, updatedAt: new Date().toISOString() }));
+    if (betroffen.length) await StorageService.batchSaveCalendarEvents(betroffen);
     await StorageService.deleteCalendarCategory(id);
     await loadCalendarData();
   };
 
+  // Schon vorhandene Termine (gleiche Kennung oder gleicher Titel, Tag und
+  // Uhrzeit) werden nicht noch einmal angelegt (D-125)
   const handleImportSuccess = async (importedEvents: CalendarEvent[]) => {
-    await StorageService.batchSaveCalendarEvents(importedEvents);
+    const { neu } = CalendarService.trenneNeueTermine(importedEvents, events);
+    // Unbekannte Terminart (z. B. gelöschte „Allgemeiner Termin“) → erste vorhandene
+    const ersatz = (categories.find((c) => c.id === 'cat-general') || categories[0])?.id;
+    const mitArt = neu.map((e) => (ersatz && !categories.some((c) => c.id === e.categoryId) ? { ...e, categoryId: ersatz } : e));
+    if (mitArt.length) await StorageService.batchSaveCalendarEvents(mitArt);
     await loadCalendarData();
   };
 
@@ -368,7 +458,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       const isCurrentMonth = cur.getMonth() === curMonth;
       const isToday = dateStr === todayStr;
 
-      const dayEvents = filteredEventInstances.filter((e) => e.date === dateStr);
+      // Mehrtägige Termine an jedem ihrer Tage (D-110)
+      const dayEvents = filteredEventInstances.filter((e) => amTag(e, dateStr));
       const dayBirthdays = showBirthdays ? specialItems.filter((s) => s.type === 'birthday' && s.date === dateStr) : [];
       const dayAnniversaries = showAnniversaries ? specialItems.filter((s) => s.type === 'anniversary' && s.date === dateStr) : [];
 
@@ -411,7 +502,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       const dateStr = CalendarService.formatDate(d);
       const isToday = dateStr === todayStr;
 
-      const dayEvents = filteredEventInstances.filter((e) => e.date === dateStr);
+      // Mehrtägige Termine an jedem ihrer Tage (D-110)
+      const dayEvents = filteredEventInstances.filter((e) => amTag(e, dateStr));
       const dayBirthdays = showBirthdays ? specialItems.filter((s) => s.type === 'birthday' && s.date === dateStr) : [];
       const dayAnniversaries = showAnniversaries ? specialItems.filter((s) => s.type === 'anniversary' && s.date === dateStr) : [];
 
@@ -784,7 +876,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                           key={inst.instanceId}
                           onClick={(evt) => {
                             evt.stopPropagation();
-                            setSelectedDetailEvent(e);
+                            zeigeDetails(e, inst.date);
                           }}
                           className="px-1.5 py-1 rounded-md text-[11px] font-bold text-white truncate flex items-center justify-between gap-1 shadow-2xs hover:brightness-90 transition-all cursor-pointer"
                           style={{ backgroundColor: catColor }}
@@ -890,7 +982,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   return (
                     <div
                       key={inst.instanceId}
-                      onClick={() => setSelectedDetailEvent(e)}
+                      onClick={() => zeigeDetails(e, inst.date)}
                       className="p-2.5 rounded-xl text-white shadow-2xs hover:brightness-95 transition-all cursor-pointer space-y-1.5"
                       style={{ backgroundColor: catColor }}
                     >
@@ -1033,6 +1125,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                             <button
                               type="button"
                               onClick={() => handleOpenOpenStreetMap(e)}
+                              title={OSM_HINWEIS}
                               className="text-emerald-700 hover:text-emerald-800 font-bold underline flex items-center gap-0.5 ml-1 dark:text-emerald-300 dark:hover:text-emerald-200"
                             >
                               <Compass className="w-3 h-3" />
@@ -1057,7 +1150,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
                       <button
                         type="button"
-                        onClick={() => handleOpenEditEventModal(e)}
+                        onClick={() => bearbeiteVorkommen(e, inst.date)}
                         className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
                         title="Bearbeiten"
                       >
@@ -1066,7 +1159,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
                       <button
                         type="button"
-                        onClick={() => handleDeleteEvent(e.id)}
+                        onClick={() => loescheVorkommen(e, inst.date)}
                         className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition-colors dark:bg-red-950/40 dark:hover:bg-red-900/40 dark:text-red-400"
                         title="Löschen"
                       >
@@ -1146,6 +1239,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                           <button
                             type="button"
                             onClick={() => handleOpenOpenStreetMap(e)}
+                            title={OSM_HINWEIS}
                             className="text-emerald-700 hover:underline font-semibold ml-1 dark:text-emerald-300"
                           >
                             (Karte)
@@ -1166,14 +1260,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSelectedDetailEvent(e)}
+                      onClick={() => zeigeDetails(e, inst.date)}
                       className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
                     >
                       Details
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleOpenEditEventModal(e)}
+                      onClick={() => bearbeiteVorkommen(e, inst.date)}
                       className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
@@ -1222,10 +1316,29 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <Clock className="w-5 h-5 text-blue-600 shrink-0 dark:text-blue-400" />
                 <div>
                   <div className="text-sm font-bold text-blue-950">
-                    {selectedDetailEvent.startDate === selectedDetailEvent.endDate || !selectedDetailEvent.endDate
-                      ? selectedDetailEvent.startDate
-                      : `${selectedDetailEvent.startDate} bis ${selectedDetailEvent.endDate}`}
+                    {(() => {
+                      // Bei einer Serie den angeklickten Tag zeigen, nicht den ersten der Serie
+                      const ev = selectedDetailEvent;
+                      const von = normiereSerie(ev.recurrence) && detailDatum ? detailDatum : ev.startDate;
+                      const dauer = Math.max(0, tageZwischen(ev.startDate, ev.endDate || ev.startDate));
+                      return dauer ? `${datumKurz(von)} bis ${datumKurz(plusTage(von, dauer))}` : datumKurz(von);
+                    })()}
                   </div>
+                  {normiereSerie(selectedDetailEvent.recurrence) && (
+                    <div className="text-xs text-blue-800 dark:text-blue-200">
+                      Serie: {serieText(selectedDetailEvent.recurrence)}
+                      {einzelTermine(events, selectedDetailEvent.id).length > 0 && `, ${einzelTermine(events, selectedDetailEvent.id).length} einzeln geändert`}
+                    </div>
+                  )}
+                  {selectedDetailEvent.seriesOrigin && (
+                    <div className="text-xs text-blue-800 dark:text-blue-200">
+                      Einzeln geänderter Termin einer Serie, ursprünglich am {datumKurz(selectedDetailEvent.seriesOrigin.date)}
+                      {(() => {
+                        const s = events.find((x) => x.id === selectedDetailEvent.seriesOrigin?.eventId);
+                        return s ? ` („${s.title}“)` : '';
+                      })()}
+                    </div>
+                  )}
                   <div className="text-xs text-blue-800 font-medium dark:text-blue-200">
                     {selectedDetailEvent.isAllDay
                       ? 'Ganztägige Veranstaltung'
@@ -1245,6 +1358,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     <button
                       type="button"
                       onClick={() => handleOpenOpenStreetMap(selectedDetailEvent)}
+                      title={OSM_HINWEIS}
                       className="text-xs font-bold text-emerald-700 hover:text-emerald-900 underline flex items-center gap-1 dark:text-emerald-300 dark:hover:text-emerald-100"
                     >
                       <Compass className="w-3.5 h-3.5" />
@@ -1325,14 +1439,20 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    const evt = selectedDetailEvent;
-                    setSelectedDetailEvent(null);
-                    handleOpenEditEventModal(evt);
+                    void bearbeiteVorkommen(selectedDetailEvent, detailDatum);
                   }}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors shadow-xs"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                   <span>Bearbeiten</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => loescheVorkommen(selectedDetailEvent, detailDatum)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100 transition-colors dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-900/40"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Löschen</span>
                 </button>
                 <button
                   type="button"
@@ -1362,7 +1482,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           members={members}
           departments={availableDepartments}
           onSave={handleSaveEvent}
-          onDelete={editingEvent ? handleDeleteEvent : undefined}
+          onDelete={editingEvent && events.some((x) => x.id === editingEvent.id) ? handleDeleteEvent : undefined}
+          einzelTermine={editingEvent ? einzelTermine(events, editingEvent.id) : []}
           onOpenCategoriesManager={() => {
             setIsEventModalOpen(false);
             setIsCategoryModalOpen(true);
@@ -1377,6 +1498,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           isOpen={isCategoryModalOpen}
           onClose={() => setIsCategoryModalOpen(false)}
           categories={categories}
+          nutzung={(id) => events.filter((e) => e.categoryId === id).length}
           onSaveCategory={handleSaveCategory}
           onDeleteCategory={handleDeleteCategory}
         />
@@ -1388,6 +1510,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           isOpen={isImportModalOpen}
           onClose={() => setIsImportModalOpen(false)}
           categories={categories}
+          vorhandeneTermine={events}
           onImportSuccess={handleImportSuccess}
         />
       )}

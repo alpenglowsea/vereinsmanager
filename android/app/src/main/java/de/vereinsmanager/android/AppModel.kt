@@ -788,6 +788,7 @@ class AppModel(private val appContext: Context) {
     fun terminPruefen(f: TerminForm): Map<String, String> = Kalender.pruefen(f)
     fun terminSpeichern(f: TerminForm, done: (Termin?, String?) -> Unit) = hintergrund({ Termin.from(Kalender.speichern(store, f)) }, done)
     fun terminLoeschen(id: String, done: (String?) -> Unit) = hintergrund({ Kalender.loeschen(store, id) }) { _, e -> done(e) }
+    fun terminAusnahme(id: String, tag: String, done: (String?) -> Unit) = hintergrund({ Kalender.ausnahmeHinzu(store, id, tag) }) { _, e -> done(e) }
     fun terminStatus(terminId: String, memberId: String, status: String, done: (String?) -> Unit) =
         hintergrund({ Kalender.teilnehmerStatus(store, terminId, memberId, status) }) { _, e -> done(e) }
     fun terminartSpeichern(id: String?, name: String, farbe: Int, beschreibung: String, done: (String?) -> Unit) =

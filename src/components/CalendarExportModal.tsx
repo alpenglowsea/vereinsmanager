@@ -14,6 +14,7 @@ import {
   Square
 } from 'lucide-react';
 import { saveBlobAs } from '../utils/fileExportHelper';
+import { melde } from '../utils/dialoge';
 
 interface CalendarExportModalProps {
   isOpen: boolean;
@@ -30,7 +31,7 @@ export const CalendarExportModal: React.FC<CalendarExportModalProps> = ({
   events,
   categories,
   departments = [],
-  clubName = 'TSV Musterstadt 1890 e.V.'
+  clubName = ''
 }) => {
   const [format, setFormat] = useState<'ics' | 'csv'>('ics');
   const [dateRangeFilter, setDateRangeFilter] = useState<'all' | 'upcoming' | 'current_year' | 'next_90_days'>('all');
@@ -86,7 +87,7 @@ export const CalendarExportModal: React.FC<CalendarExportModalProps> = ({
 
   const handleDownload = async () => {
     if (filteredEvents.length === 0) {
-      alert('Keine Termine für die ausgewählten Filterkriterien vorhanden.');
+      void melde('Keine Termine für die ausgewählten Filterkriterien vorhanden.');
       return;
     }
 

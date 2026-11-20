@@ -6,6 +6,7 @@
  */
 
 import { createZip, ZipEntry } from './zipWriter';
+import { melde } from './dialoge';
 
 export interface FileSaveResult {
   success: boolean;
@@ -140,8 +141,8 @@ export async function saveBlobAs(blob: Blob, fileName: string): Promise<FileSave
   });
   if (!result.success && !result.cancelled) {
     console.error('Speichern fehlgeschlagen:', result.error);
-    if (typeof window !== 'undefined' && typeof window.alert === 'function') {
-      window.alert(`Die Datei „${fileName}“ konnte nicht gespeichert werden: ${result.error || 'unbekannter Fehler'}`);
+    if (typeof window !== 'undefined') {
+      void melde(`Die Datei „${fileName}“ konnte nicht gespeichert werden: ${result.error || 'unbekannter Fehler'}`);
     }
   }
   return result;
@@ -170,7 +171,7 @@ export async function saveDataUrlAs(dataUrl: string, fileName: string): Promise<
       fileName,
       error: err?.message || 'Die Datei konnte nicht gelesen werden'
     };
-    if (typeof window !== 'undefined') window.alert(`Die Datei „${fileName}“ konnte nicht gespeichert werden: ${result.error}`);
+    void melde(`Die Datei „${fileName}“ konnte nicht gespeichert werden: ${result.error}`);
     return result;
   }
 }
@@ -199,7 +200,7 @@ export async function saveDataUrlsAsZip(
     }
     return await saveBlobAs(new Blob([createZip(eintraege) as BlobPart], { type: 'application/zip' }), zipName);
   } catch (err: any) {
-    if (typeof window !== 'undefined') window.alert(`Die ZIP-Datei konnte nicht erstellt werden: ${err?.message || 'unbekannter Fehler'}`);
+    void melde(`Die ZIP-Datei konnte nicht erstellt werden: ${err?.message || 'unbekannter Fehler'}`);
     return { success: false, method: 'download', fileName: zipName, error: err?.message || 'ZIP-Fehler' };
   }
 }

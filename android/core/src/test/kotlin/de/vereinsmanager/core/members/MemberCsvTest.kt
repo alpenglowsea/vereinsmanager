@@ -206,7 +206,11 @@ class MemberCsvTest {
             assertEquals("$tag Typ", str(e, "membershipType"), f.type)
             // Bewusste Abweichung: "Ausgetreten" wird hier Gekündigt (Desktop: aktiv, mit Standardbeitrag).
             val statusUeberschrieben = f.status == "terminated" && str(e, "status") != "terminated"
-            if (!statusUeberschrieben) assertEquals("$tag Beitrag", 0, BigDecimal(s(e, "feeAmount")).compareTo(f.feeValue))
+            // Bewusste Abweichung (20.11.2026, wie die Buchungsimporte): "1.000" ist 1000 € mit Hinweis, nicht 1 €.
+            val rohBeitrag = mapping[ImportField.BEITRAG]?.let { table.rows[idx][it] }
+            val mehrdeutig = MemberCsv.betragMehrdeutig(rohBeitrag)
+            if (mehrdeutig) assertEquals("$tag Beitrag (Tausender)", 0, MemberCsv.betrag(rohBeitrag).compareTo(f.feeValue))
+            else if (!statusUeberschrieben) assertEquals("$tag Beitrag", 0, BigDecimal(s(e, "feeAmount")).compareTo(f.feeValue))
             assertEquals("$tag Zahlweise", str(e, "feePeriod"), f.feePeriod)
             assertEquals("$tag Zahlart", str(e, "paymentMethod"), f.paymentMethod)
             assertEquals("$tag IBAN", str(e, "iban"), f.iban)
@@ -221,7 +225,8 @@ class MemberCsvTest {
                 assertEquals("$tag Mandatsreferenz", str(e, "mandateReference"), f.mandateReference)
             }
             assertEquals("$tag Notizen", str(e, "notes"), f.notes)
-            assertEquals("$tag Warnungen", (e["warnings"] as JsonArray).map { (it as JsonPrimitive).content }, r.warnings)
+            assertEquals("$tag Warnungen", (e["warnings"] as JsonArray).map { (it as JsonPrimitive).content }, r.warnings.filterNot { mehrdeutig && it.contains("Tausenderpunkt") })
+            if (mehrdeutig) assertTrue("$tag Hinweis Tausender", r.warnings.any { it.contains("Tausenderpunkt") })
             if (explicitNumber) {
                 assertEquals("$tag Dublette", e["existingMemberId"]?.takeIf { it !is JsonNull }?.let { (it as JsonPrimitive).content }, r.duplicateOf)
             }
@@ -257,6 +262,10 @@ class MemberCsvTest {
         assertEquals(0, MemberCsv.betrag("abc").signum())
         assertEquals(0, MemberCsv.betrag("").signum())
         assertEquals(0, MemberCsv.betrag(null).signum())
+        // "1.250" ist 1250 € wie in den Buchungsimporten (vorher 1,25 €) und wird als mehrdeutig gemeldet
+        assertEquals(0, BigDecimal("1250").compareTo(MemberCsv.betrag("1.250")))
+        assertTrue(MemberCsv.betragMehrdeutig("1.250"))
+        assertFalse(MemberCsv.betragMehrdeutig("1.250,00"))
     }
 
     @Test fun namenTeilen() {

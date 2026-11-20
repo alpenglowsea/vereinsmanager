@@ -412,7 +412,8 @@ export function convertRowsToMembers(
     const zahl = leseBetrag(rohBeitrag);
     if (rohBeitrag && !zahl) warnings.push(`Beitrag „${rohBeitrag}“ ist nicht lesbar.`);
     if (zahl?.mehrdeutig) warnings.push(`Beitrag „${rohBeitrag}“ als ${euro(Math.abs(zahl.wert))} € gelesen (Tausenderpunkt) – bitte prüfen.`);
-    let feeAmount = zahl ? Math.abs(zahl.wert) : 0;
+    if (zahl && zahl.wert < 0) warnings.push(`Beitrag „${rohBeitrag}“ ist negativ und wurde nicht übernommen.`);
+    let feeAmount = zahl && zahl.wert > 0 ? zahl.wert : 0;
     let feePeriod = normalizeFeePeriod(zelle('feePeriod') || undefined);
     if (zelle('feePeriod')) vorhanden.add('feePeriod');
     if (feeAmount > 0) vorhanden.add('feeAmount');

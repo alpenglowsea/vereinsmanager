@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import { ReceiptCameraScannerModal } from './ReceiptCameraScannerModal';
 import { keepUnknownFields } from '../utils/keepUnknownFields';
+import { melde } from '../utils/dialoge';
 
 interface TransactionFormModalProps {
   transaction: Transaction | null;
@@ -406,7 +407,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
 
     // Limit 8MB
     if (file.size > 8 * 1024 * 1024) {
-      alert('Die Datei ist zu groß. Maximale Größe für lokale Belegarchivierung ist 8 MB.');
+      void melde('Die Datei ist zu groß. Maximale Größe für lokale Belegarchivierung ist 8 MB.');
       return;
     }
 

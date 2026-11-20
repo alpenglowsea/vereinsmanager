@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   AlertCircle
 } from 'lucide-react';
+import { BestaetigungsDialog } from './BestaetigungsDialog';
 
 interface CalendarCategoryModalProps {
   isOpen: boolean;
@@ -20,6 +21,8 @@ interface CalendarCategoryModalProps {
   categories: CalendarEventCategory[];
   onSaveCategory: (cat: CalendarEventCategory) => Promise<void>;
   onDeleteCategory: (id: string) => Promise<void>;
+  /** Wie viele Termine die Terminart benutzen (für die Rückfrage vor dem Löschen). */
+  nutzung?: (id: string) => number;
 }
 
 const PRESET_COLORS = [
@@ -40,7 +43,8 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
   onClose,
   categories,
   onSaveCategory,
-  onDeleteCategory
+  onDeleteCategory,
+  nutzung
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState<string>('');
@@ -49,6 +53,7 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
   const [isAddingNew, setIsAddingNew] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [zuLoeschen, setZuLoeschen] = useState<CalendarEventCategory | null>(null);
 
   if (!isOpen) return null;
 
@@ -108,15 +113,16 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
     }
   };
 
-  const handleDelete = async (cat: CalendarEventCategory) => {
-    if (cat.isSystem) {
-      alert('Standard-Systemkategorien können nicht gelöscht werden.');
-      return;
-    }
-    if (confirm(`Möchten Sie die Terminart "${cat.name}" wirklich löschen?`)) {
-      await onDeleteCategory(cat.id);
-    }
+  // Rückfrage mit eigenem Fenster; Termine dieser Art wechseln zu „Allgemeiner
+  // Termin“ (D-126). Wie Android lassen sich auch die Standardarten löschen,
+  // nur die letzte verbliebene Terminart nicht.
+  const handleDelete = (cat: CalendarEventCategory) => {
+    if (categories.length <= 1) return;
+    setZuLoeschen(cat);
   };
+
+  const anzahlTermine = zuLoeschen && nutzung ? nutzung(zuLoeschen.id) : 0;
+  const zielName = (categories.find((c) => c.id === 'cat-general' && c.id !== zuLoeschen?.id) || categories.find((c) => c.id !== zuLoeschen?.id))?.name || 'Allgemeiner Termin';
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -301,7 +307,7 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
-                    {!cat.isSystem && (
+                    {categories.length > 1 && (
                       <button
                         onClick={() => handleDelete(cat)}
                         className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors dark:hover:text-red-400 dark:hover:bg-red-950/40"
@@ -327,6 +333,25 @@ export const CalendarCategoryModal: React.FC<CalendarCategoryModalProps> = ({
           </button>
         </div>
       </div>
+      {zuLoeschen && (
+        <BestaetigungsDialog
+          titel="Terminart löschen?"
+          text={
+            (anzahlTermine > 0
+                ? `„${zuLoeschen.name}“ wird von ${anzahlTermine} Termin(en) benutzt. Diese wechseln zu „${zielName}“.`
+                : `„${zuLoeschen.name}“ wird von keinem Termin benutzt.`) +
+              (zuLoeschen.isSystem ? '\n\nEs ist eine der Standard-Terminarten. Sie kommt nicht von selbst wieder; bei Bedarf neu anlegen.' : '')
+          }
+          bestaetigenText="Löschen"
+          gefahr
+          onBestaetigen={async () => {
+            const id = zuLoeschen.id;
+            setZuLoeschen(null);
+            await onDeleteCategory(id);
+          }}
+          onAbbrechen={() => setZuLoeschen(null)}
+        />
+      )}
     </div>
   );
 };

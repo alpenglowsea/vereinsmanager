@@ -43,6 +43,7 @@ import {
   X,
   Split
 } from 'lucide-react';
+import { bestaetige } from '../utils/dialoge';
 
 export type TransactionSortField =
   | 'date'
@@ -1424,12 +1425,12 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                         </button>
                         <button
                           type="button"
-                          onClick={e => {
+                          onClick={async e => {
                             e.stopPropagation();
                             const belegHinweis = tx.receipt
                               ? '\n\nDer angehängte Beleg wird dabei auch aus der Dokumentenverwaltung gelöscht.'
                               : '';
-                            if (window.confirm(`Buchung ${tx.documentNumber} (${tx.bookingText}) wirklich löschen?${belegHinweis}`)) {
+                            if (await bestaetige(`Buchung ${tx.documentNumber} (${tx.bookingText}) wirklich löschen?${belegHinweis}`)) {
                               onDeleteTx(tx.id);
                             }
                           }}

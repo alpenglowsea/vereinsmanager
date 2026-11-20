@@ -210,18 +210,17 @@ object MemberCsv {
         return null
     }
 
-    /** Deutsche und englische Schreibweise ("1.250,50", "1,250.50", "€ 15,00"); nie negativ. Wie am Desktop: "1.250" ist 1,25. */
+    /**
+     * Deutsche und englische Schreibweise ("1.250,50", "1,250.50", "€ 15,00"); nie negativ (negativ oder unlesbar = 0).
+     * Liest wie die Buchungsimporte ([Tabellen.betrag]): "1.250" ist 1250 € (vorher 1,25 €), siehe [betragMehrdeutig].
+     */
     fun betrag(value: String?): BigDecimal {
-        if (value.isNullOrEmpty()) return BigDecimal.ZERO
-        var c = value.replace(Regex("[^0-9,.-]"), "").trim()
-        if (c.isEmpty()) return BigDecimal.ZERO
-        c = if (c.contains(',') && c.contains('.')) {
-            if (c.lastIndexOf(',') > c.lastIndexOf('.')) c.replace(".", "").replaceFirst(',', '.') else c.replace(",", "")
-        } else if (c.contains(',')) c.replaceFirst(',', '.') else c
-        val m = Regex("^[+-]?(\\d+\\.?\\d*|\\.\\d+)").find(c) ?: return BigDecimal.ZERO
-        val n = m.value.toBigDecimalOrNull() ?: return BigDecimal.ZERO
-        return if (n.signum() < 0) BigDecimal.ZERO else n
+        val z = de.vereinsmanager.core.importe.Tabellen.betrag(value) ?: return BigDecimal.ZERO
+        return if (z.wert.signum() < 0) BigDecimal.ZERO else z.wert
     }
+
+    /** "1.250" oder "1,250": als Tausender gelesen, bitte prüfen. */
+    fun betragMehrdeutig(value: String?): Boolean = de.vereinsmanager.core.importe.Tabellen.betrag(value)?.mehrdeutig == true
 
     fun namenTeilen(full: String): Pair<String, String> {
         val clean = full.trim()
@@ -375,6 +374,8 @@ object MemberCsv {
             if (mapped(ImportField.TYP)) present.add("type")
 
             var fee = betrag(cell(ImportField.BEITRAG))
+            if (cell(ImportField.BEITRAG).isNotBlank() && de.vereinsmanager.core.importe.Tabellen.betrag(cell(ImportField.BEITRAG)) == null) warnings.add("Beitrag „${cell(ImportField.BEITRAG)}“ ist nicht lesbar.")
+            if (betragMehrdeutig(cell(ImportField.BEITRAG))) warnings.add("Beitrag „${cell(ImportField.BEITRAG)}“ als ${MemberRules.formatFee(fee)} € gelesen (Tausenderpunkt) – bitte prüfen.")
             if (fee.signum() > 0) present.add("fee")
             if (fee.signum() == 0 && statusV == "active" && typeV != "honorary") {
                 fee = when (typeV) { "youth" -> BigDecimal("60"); "reduced" -> BigDecimal("80"); else -> BigDecimal("120") }

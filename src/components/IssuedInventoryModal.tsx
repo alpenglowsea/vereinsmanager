@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Member, InventoryItem, MemberInventoryAssignment, ClubSettings } from '../types';
 import { ExportService } from '../services/exportService';
+import { bestaetige } from '../utils/dialoge';
 
 interface IssuedInventoryModalProps {
   isOpen: boolean;
@@ -330,8 +331,8 @@ export const IssuedInventoryModal: React.FC<IssuedInventoryModalProps> = ({
                             {onDeleteAssignment && (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  if (window.confirm('Diese Materialzuweisung wirklich löschen?')) {
+                                onClick={async () => {
+                                  if (await bestaetige('Diese Materialzuweisung wirklich löschen?')) {
                                     onDeleteAssignment(item.id);
                                   }
                                 }}

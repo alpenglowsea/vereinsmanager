@@ -23,6 +23,7 @@ import {
   Search
 } from 'lucide-react';
 import { saveBlobAs } from '../utils/fileExportHelper';
+import { ohneDoppelteTeilnehmer } from '../utils/kalenderRegeln';
 
 interface CalendarInviteModalProps {
   isOpen: boolean;
@@ -41,7 +42,7 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
   categories,
   members,
   onUpdateEvent,
-  clubName = 'TSV Musterstadt 1890 e.V.'
+  clubName = ''
 }) => {
   const [participants, setParticipants] = useState<EventParticipant[]>(event.participants || []);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -129,7 +130,7 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
     try {
       const updatedEvent: CalendarEvent = {
         ...event,
-        participants
+        participants: ohneDoppelteTeilnehmer(participants)
       };
       await onUpdateEvent(updatedEvent);
       onClose();
@@ -218,7 +219,7 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
             <button
               onClick={handleSendEmail}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow-xs transition-colors"
-              title="E-Mail-Programm mit allen Teilnehmern im BCC und Einladungstext öffnen"
+              title="E-Mail-Programm öffnen: alle Teilnehmer in der Blindkopie, Text ohne Namen"
             >
               <Mail className="w-3.5 h-3.5" />
               <span>E-Mail-Einladung senden</span>
@@ -226,7 +227,7 @@ export const CalendarInviteModal: React.FC<CalendarInviteModalProps> = ({
             <button
               onClick={handleCopyShareText}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-blue-200 text-blue-800 text-xs font-semibold hover:bg-blue-100/50 shadow-xs transition-colors dark:bg-slate-900 dark:border-blue-800/60 dark:text-blue-200 dark:hover:bg-blue-900/50"
-              title="Einladungstext für WhatsApp, Vereinsgruppe oder Notizen kopieren"
+              title="Einladungstext kopieren (für Vereinsgruppe oder Newsletter). Er nennt keine Teilnehmer."
             >
               {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{isCopied ? 'Kopiert!' : 'Text kopieren'}</span>

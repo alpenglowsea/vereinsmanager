@@ -35,6 +35,7 @@ import { MeetingTemplateModal } from './MeetingTemplateModal';
 import { MeetingSignatureModal } from './MeetingSignatureModal';
 import { MeetingEmailModal } from './MeetingEmailModal';
 import { savePdfAs } from '../utils/fileExportHelper';
+import { melde, bestaetige } from '../utils/dialoge';
 
 interface MeetingsViewProps {
   meetings: Meeting[];
@@ -214,7 +215,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
       }
     } catch (err) {
       console.error('Failed to generate meeting PDF:', err);
-      alert('Fehler beim Erzeugen des Protokoll-PDFs.');
+      void melde('Fehler beim Erzeugen des Protokoll-PDFs.');
     } finally {
       setGeneratingPdfId(null);
       setDownloadChoice(null);
@@ -243,7 +244,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
       void savePdfAs(doc, `Einladung_${m.date}_${m.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
     } catch (err) {
       console.error('Failed to generate invitation PDF:', err);
-      alert('Fehler beim Erzeugen des Einladungs-PDFs.');
+      void melde('Fehler beim Erzeugen des Einladungs-PDFs.');
     } finally {
       setGeneratingInvitationId(null);
     }
@@ -587,8 +588,8 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
 
                         <button
                           type="button"
-                          onClick={() => {
-                            if (confirm(`Möchten Sie die Sitzung "${m.title}" wirklich löschen?`)) {
+                          onClick={async () => {
+                            if (await bestaetige(`Möchten Sie die Sitzung "${m.title}" wirklich löschen?`)) {
                               onDeleteMeeting(m.id);
                             }
                           }}

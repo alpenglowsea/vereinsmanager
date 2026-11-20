@@ -18,6 +18,7 @@ import {
   ExternalLink,
   Briefcase
 } from 'lucide-react';
+import { bestaetige } from '../utils/dialoge';
 
 interface ContactDetailsModalProps {
   contact: ClubContact | null;
@@ -440,9 +441,9 @@ export const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
         <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0 dark:bg-slate-800 dark:border-slate-800">
           <button
             type="button"
-            onClick={() => {
+            onClick={async () => {
               if (
-                window.confirm(
+                await bestaetige(
                   `Möchten Sie den Kontakt "${contact.displayName}" wirklich löschen?`
                 )
               ) {

@@ -32,6 +32,7 @@ import { TablePagination } from './TablePagination';
 import { AuswahlLeiste } from './AuswahlLeiste';
 import { usePagination } from '../hooks/usePagination';
 import { ermittleSeitenStatus, wechsleSeite, waehleAlleGefilterten } from '../utils/tableSelection';
+import { bestaetige } from '../utils/dialoge';
 
 type ContactSortField =
   | 'number'
@@ -607,7 +608,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
   const handleBulkDelete = async () => {
     if (!onBulkDeleteContacts || selectedIds.size === 0) return;
     if (
-      window.confirm(
+      await bestaetige(
         `Möchten Sie ${selectedIds.size} ausgewählte Kontakte wirklich unwiderruflich löschen?`
       )
     ) {
@@ -1368,9 +1369,9 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                           {/* Delete */}
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={async () => {
                               if (
-                                window.confirm(
+                                await bestaetige(
                                   `Möchten Sie den Kontakt "${contact.displayName}" wirklich löschen?`
                                 )
                               ) {

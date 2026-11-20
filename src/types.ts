@@ -528,6 +528,8 @@ export interface EventRecurrence {
   endType: 'never' | 'until_date' | 'count';
   untilDate?: string; // YYYY-MM-DD
   count?: number; // Total number of occurrences
+  /** Ausgenommene Tage (Beginn des jeweiligen Vorkommens, JJJJ-MM-TT); wie Android und iCal EXDATE. */
+  exceptionDates?: string[];
 }
 
 export type ParticipantRole = 'participant' | 'organizer' | 'helper' | 'trainer' | 'referee';
@@ -559,6 +561,8 @@ export interface CalendarEvent {
   locationLat?: number; // GPS Latitude for OpenStreetMap
   locationLng?: number; // GPS Longitude for OpenStreetMap
   recurrence?: EventRecurrence;
+  /** Einzeln geänderter Tag einer Serie: aus welcher Serie, ursprünglich an welchem Tag (wie Android). */
+  seriesOrigin?: { eventId: string; date: string };
   participants: EventParticipant[];
   maxParticipants?: number;
   color?: string; // Optional custom hex color override

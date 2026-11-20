@@ -11,6 +11,7 @@ import {
   Zap,
   CheckCheck
 } from 'lucide-react';
+import { melde } from '../utils/dialoge';
 
 export const AppVersionBadge: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -106,7 +107,7 @@ export const AppVersionBadge: React.FC = () => {
       }, 1500);
     } else {
       setIsUpdating(false);
-      alert('Update-Fehler: ' + (res.error || 'Unbekannter Fehler'));
+      void melde('Update-Fehler: ' + (res.error || 'Unbekannter Fehler'));
     }
   };
 

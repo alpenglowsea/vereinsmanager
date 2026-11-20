@@ -11,6 +11,7 @@ import {
 import { Skr42MainCategory, Skr42SubCategory } from '../types';
 import { SKR42_STRUCTURE } from '../data/taxSpheres';
 import { customCategoryService } from '../services/customCategoryService';
+import { bestaetige } from '../utils/dialoge';
 
 export interface CreateAccountModalProps {
   isOpen: boolean;
@@ -162,15 +163,15 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
     }
   };
 
-  const handleDeleteMain = (codeOrId: string) => {
-    if (confirm('Möchten Sie diesen selbst angelegten Nummernkreis wirklich löschen?')) {
+  const handleDeleteMain = async (codeOrId: string) => {
+    if (await bestaetige('Möchten Sie diesen selbst angelegten Nummernkreis wirklich löschen?')) {
       customCategoryService.deleteCustomMainCategory(codeOrId);
       reloadCustomData();
     }
   };
 
-  const handleDeleteSub = (mainCode: string, subCode: string) => {
-    if (confirm('Möchten Sie dieses selbst angelegte Konto wirklich löschen?')) {
+  const handleDeleteSub = async (mainCode: string, subCode: string) => {
+    if (await bestaetige('Möchten Sie dieses selbst angelegte Konto wirklich löschen?')) {
       customCategoryService.deleteCustomSubCategory(mainCode, subCode);
       reloadCustomData();
     }

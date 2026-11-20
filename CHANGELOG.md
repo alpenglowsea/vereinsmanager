@@ -137,6 +137,93 @@ entsprechen der Android-Fassung.
   Dokumentenverwaltung bleibt beim Löschen der Sitzung erhalten (wie bei
   Android). Vorher wurde es ohne Rückfrage mitgelöscht.
 
+### Pakete 19 und 20 — Kalender: Rechnen und Austausch (D-107 bis D-115, D-125, D-126)
+
+- **Monatsansicht (D-107):** Vor/Zurück vom 31. eines Monats springt nicht
+  mehr über den kürzeren Nachbarmonat hinweg.
+- **Serien (D-108):** Jedes Vorkommen wird aus dem ersten Termin berechnet.
+  Eine Monatsserie am 31. bleibt beim Monatsletzten (28./30./31.), eine
+  Jahresserie am 29.02. fällt in anderen Jahren auf den 28.02. Vorher
+  rutschte die Serie nach dem ersten kurzen Monat dauerhaft auf einen
+  anderen Tag.
+- **Intervall (D-109):** frei von 1 bis 99 für Tage, Wochen, Monate und
+  Jahre („alle 3 Wochen am Montag und Mittwoch“). Das alte „Alle 2 Wochen“
+  wird beim Öffnen zu „alle 2 Woche(n)“; bei mehreren Wochentagen war es
+  vorher falsch.
+- **Mehrtägige Termine (D-110)** stehen an jedem ihrer Tage, auch wenn sie im
+  Vormonat beginnen.
+- **Geburtstage und Jubiläen (D-111):** 29.02. in Jahren ohne Schalttag am
+  28.02.; über den Jahreswechsel sichtbar; „Jahre im Verein“ statt „Jahre TSV“.
+- **Terminformular (D-112):** prüft Ende vor Beginn, Uhrzeiten, Intervall und
+  Serienende; die Meldung steht neben dem Speichern-Knopf. Jeder Teilnehmer
+  nur einmal. „Heute“ in Ortszeit statt UTC.
+- **iCal-Export (D-113):** gültige Wiederholungsregeln (kein „BIWEEKLY“
+  mehr), keine erfundenen Teilnehmer-Adressen, lange Zeilen nach Norm
+  gefaltet, kein fester Vereinsname.
+- **iCal-Import (D-125):** Ganztägige Termine werden nicht mehr bei jedem
+  Hin und Zurück einen Tag länger; die Kennung wird ohne Endung übernommen;
+  Sonderzeichen werden richtig zurückgewandelt; Zeiten in UTC oder anderer
+  Zeitzone werden in Berliner Ortszeit umgerechnet. Schon vorhandene Termine
+  (gleiche Kennung oder gleicher Titel, Tag und Uhrzeit) werden in der
+  Vorschau gekennzeichnet und übersprungen. Wiederholungen, die der Kalender
+  nicht abbilden kann, und Teilnehmerlisten werden gemeldet.
+- **CSV-Import:** ungültige Daten werden gemeldet statt übernommen; Uhrzeiten
+  geprüft. CSV-Export: Wiederholung und Status auf Deutsch.
+- **Einladung (D-114):** Text ohne Namen und Zusagen der Teilnehmer, Datum
+  deutsch („Fr, 20.11.2026, 18:00–19:30 Uhr“), Vereinsname aus den
+  Einstellungen (kein „TSV Musterstadt“, kein „Mit sportlichen Grüßen“),
+  alle Empfänger in der Blindkopie.
+- **Karte (D-115, E8):** bleibt; die Anfrage an OpenStreetMap geht weiterhin
+  nur auf Klick hinaus, ein Hinweis sagt das jetzt.
+- **Terminart löschen (D-126):** Rückfrage nennt, wie viele Termine sie
+  benutzen; diese wechseln zu „Allgemeiner Termin“ statt mit unbekannter Art
+  stehen zu bleiben.
+- Regeln in `src/utils/kalenderRegeln.ts` (11 Tests), Austausch in
+  `calendarService.ts` (5 Tests, erstmals).
+
+### Nachtrag P19/P20 — Dialoge, Ausnahmetage, Terminarten
+
+- **Keine Browser-Fenster mehr:** Alle Rückfragen und Meldungen, die noch als
+  einfaches Browser-Fenster (`alert`/`confirm`) erschienen, kommen jetzt im
+  Stil der App (`src/utils/dialoge.ts`, `DialogHost.tsx`). Betroffen waren
+  42 Aufrufe in 25 Dateien: Sitzungen, SEPA-Lauf, Konten, Buchungen,
+  Kontakte, Mitglieder, Rechnungen, Inventar, Anträge, Kalender, Startseite.
+- **Einzelne Serientermine löschen (EXDATE), Desktop und Android:** Beim
+  Löschen eines Serientermins aus der Terminliste oder den Termindetails
+  fragt die App „Nur am …“ oder „Ganze Serie“. Der einzelne Tag wird als
+  Ausnahme in der Serie vermerkt (`recurrence.exceptionDates`, auf beiden
+  Fassungen gleich). Im Terminformular stehen die ausgenommenen Tage und
+  lassen sich wieder aufnehmen. Bei „Ende nach n Mal“ zählt ein
+  ausgenommener Tag mit (wie in iCal). Der iCal-Export schreibt sie als
+  `EXDATE`, der Import liest sie; der Hinweis „wird nicht übernommen“
+  entfällt. Vorher löschte der Knopf in der Terminliste ohne Rückfrage die
+  ganze Serie.
+- **Einzelnen Serientermin ändern, Desktop und Android:** „Bearbeiten“ bei
+  einem Serientermin fragt „Nur am …“ oder „Ganze Serie“. Der einzelne Tag
+  wird beim Speichern ein eigener Termin mit Verweis auf die Serie
+  (`seriesOrigin`, auf beiden Fassungen gleich); die Serie lässt den Tag
+  dann aus (Ausnahme wie beim Löschen). Die Details zeigen „einzeln
+  geändert, ursprünglich am …“. Ein solcher Tag lässt sich in der Serie nicht
+  wieder aufnehmen (sonst stünde er doppelt da). Wer die ganze Serie
+  löscht, löscht ihre einzeln geänderten Termine mit; die Rückfrage nennt
+  die Zahl. Die Termindetails zeigen bei Serien jetzt den angeklickten Tag
+  statt des ersten Termins der Serie. Im iCal-Export steht der geänderte
+  Termin als eigener Termin, die Serie mit dem Tag als `EXDATE`.
+- Terminformular (Desktop): Felder, die das Formular nicht kennt (z. B.
+  Farbe, Verweis auf die Serie), bleiben beim Speichern erhalten.
+- **Standard-Terminarten löschbar (Desktop, wie Android):** mit Hinweis; ihre
+  Termine wechseln zu „Allgemeiner Termin“ (bzw. der ersten verbleibenden
+  Art). Die letzte Terminart lässt sich nicht löschen.
+- Tests: zwei neu in `kalenderRegeln.test.ts`, einer in
+  `calendarService.test.ts`, zwei in `KalenderTest.kt` (Android).
+
+### Nachtrag P18
+
+- Mitglieder-Import: ein negativer Beitrag wird nicht übernommen (Hinweis);
+  P18 hatte ihn versehentlich positiv gemacht.
+- **Android:** Mitglieder-Import liest „1.250“ wie die Buchungsimporte als
+  1.250 € mit Hinweis (vorher 1,25 €); unlesbare Beiträge werden gemeldet.
+
 ### Paket 18 — Mitglieder- und Kontakt-Import (D-32, D-56 bis D-58, D-73)
 
 - **Mitglieder: Spaltenzuordnung (D-32):** genaue Überschriften zuerst, jede

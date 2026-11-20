@@ -42,6 +42,7 @@ import {
   Contact,
   ScrollText
 } from 'lucide-react';
+import { bestaetige } from '../utils/dialoge';
 
 interface DashboardConfigModalProps {
   isOpen: boolean;
@@ -496,8 +497,8 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
         <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/60 flex items-center justify-between gap-3 shrink-0">
           <button
             type="button"
-            onClick={() => {
-              if (window.confirm('Dashboard-Layout wirklich auf das Standard-Layout zurücksetzen?')) {
+            onClick={async () => {
+              if (await bestaetige('Dashboard-Layout wirklich auf das Standard-Layout zurücksetzen?')) {
                 onResetToDefault();
                 onClose();
               }

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { MeetingTemplateSettings, ClubSettings } from '../types';
 import { DEFAULT_MEETING_TEMPLATE } from '../data/initialMeetings';
+import { melde } from '../utils/dialoge';
 
 interface MeetingTemplateModalProps {
   isOpen: boolean;
@@ -39,7 +40,7 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
   const handleFileUpload = (file: File) => {
     if (!file) return;
     if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
-      alert('Bitte laden Sie eine Bilddatei (PNG, JPG, WEBP) oder ein PDF Ihres Briefpapiers hoch.');
+      void melde('Bitte laden Sie eine Bilddatei (PNG, JPG, WEBP) oder ein PDF Ihres Briefpapiers hoch.');
       return;
     }
 

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ApplicationTemplateSettings, ClubSettings } from '../types';
 import { saveDataUrlAs } from '../utils/fileExportHelper';
+import { melde } from '../utils/dialoge';
 
 interface ApplicationTemplateModalProps {
   isOpen: boolean;
@@ -63,7 +64,7 @@ export const ApplicationTemplateModal: React.FC<ApplicationTemplateModalProps> =
   const handleFileUpload = (file: File) => {
     if (!file) return;
     if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
-      alert('Bitte laden Sie ausschließlich eine PDF-Datei (.pdf) hoch.');
+      void melde('Bitte laden Sie ausschließlich eine PDF-Datei (.pdf) hoch.');
       return;
     }
 

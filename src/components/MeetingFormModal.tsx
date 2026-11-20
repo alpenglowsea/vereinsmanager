@@ -30,6 +30,7 @@ import { MeetingPdfService } from '../services/meetingPdfService';
 import { DEFAULT_MEETING_TEMPLATE } from '../data/initialMeetings';
 import { savePdfAs } from '../utils/fileExportHelper';
 import { keepUnknownFields } from '../utils/keepUnknownFields';
+import { melde } from '../utils/dialoge';
 
 interface MeetingFormModalProps {
   isOpen: boolean;
@@ -141,7 +142,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
       void savePdfAs(doc, `Einladung_${date}_${(title || 'Versammlung').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
     } catch (err) {
       console.error('Failed to generate invitation PDF:', err);
-      alert('Fehler beim Erzeugen des Einladungs-PDFs.');
+      void melde('Fehler beim Erzeugen des Einladungs-PDFs.');
     } finally {
       setIsGeneratingInvitation(false);
     }
@@ -265,7 +266,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !date) {
-      alert('Bitte geben Sie einen Titel und ein Datum für die Sitzung an.');
+      void melde('Bitte geben Sie einen Titel und ein Datum für die Sitzung an.');
       return;
     }
 

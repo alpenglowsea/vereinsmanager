@@ -35,6 +35,7 @@ import {
 import { LoadingState } from './LoadingState';
 import { BestaetigungsDialog } from './BestaetigungsDialog';
 import { erstlastschriftMitglieder, verbuchbarePosten } from '../services/beitragsBuchung';
+import { melde, bestaetige } from '../utils/dialoge';
 
 interface SepaRunViewProps {
   members: Member[];
@@ -264,7 +265,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
   const handleGenerateAndDownloadXml = async () => {
     const validItems = items.filter(i => i.selected && i.isValid);
     if (validItems.length === 0) {
-      alert('Keine gültigen Lastschriftposten ausgewählt.');
+      void melde('Keine gültigen Lastschriftposten ausgewählt.');
       return;
     }
 
@@ -298,7 +299,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
       setSuccessToast(`SEPA-XML "${filename}" erfolgreich generiert & heruntergeladen.`);
       setTimeout(() => setSuccessToast(null), 4500);
     } catch (err: any) {
-      alert(`Fehler bei der SEPA-XML-Erstellung: ${err.message}`);
+      void melde(`Fehler bei der SEPA-XML-Erstellung: ${err.message}`);
     }
   };
 
@@ -306,7 +307,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
   const handleOpenXmlPreview = () => {
     const validItems = items.filter(i => i.selected && i.isValid);
     if (validItems.length === 0) {
-      alert('Bitte wählen Sie mindestens einen gültigen Posten aus.');
+      void melde('Bitte wählen Sie mindestens einen gültigen Posten aus.');
       return;
     }
 
@@ -316,7 +317,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
       setGeneratedXmlContent(xml);
       setXmlModalOpen(true);
     } catch (err: any) {
-      alert(`Fehler bei der XML-Generierung: ${err.message}`);
+      void melde(`Fehler bei der XML-Generierung: ${err.message}`);
     }
   };
 
@@ -324,7 +325,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
   const handleDownloadPdfReport = () => {
     const validItems = items.filter(i => i.selected && i.isValid);
     if (validItems.length === 0) {
-      alert('Keine gültigen Lastschriften ausgewählt.');
+      void melde('Keine gültigen Lastschriften ausgewählt.');
       return;
     }
 
@@ -332,14 +333,14 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
       const runConfig = getRunConfig();
       SepaService.exportSepaPdfReport(runConfig, validItems, settings);
     } catch (err: any) {
-      alert(`Fehler beim PDF-Export: ${err.message}`);
+      void melde(`Fehler beim PDF-Export: ${err.message}`);
     }
   };
 
   // Book SEPA run to Accounting
   const handleBookToLedger = (run: SepaRunHistory) => {
     if (!selectedTargetAccountId) {
-      alert('Bitte wählen Sie ein Vereinskonto für die Gutschrift aus.');
+      void melde('Bitte wählen Sie ein Vereinskonto für die Gutschrift aus.');
       return;
     }
     setVerbuchenFrage(run);
@@ -365,14 +366,14 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
       const erst = erstlastschriftMitglieder(run);
       if (erst.length > 0) setFolgeFrage(erst);
     } catch (err: any) {
-      alert(`Fehler beim automatischen Verbuchen: ${err.message}`);
+      void melde(`Fehler beim automatischen Verbuchen: ${err.message}`);
     } finally {
       setIsBookingRunning(false);
     }
   };
 
   const handleDeleteHistoryRun = async (id: string) => {
-    if (window.confirm('Diesen archivierten Beitragslauf aus der Historie entfernen?')) {
+    if (await bestaetige('Diesen archivierten Beitragslauf aus der Historie entfernen?')) {
       await StorageService.deleteSepaRun(id);
       await loadHistory();
     }

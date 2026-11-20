@@ -204,6 +204,42 @@ class KalenderTest {
         assertEquals("Zeile1\nZeile2; ok", neu[1].beschreibung)
     }
 
+    @Test fun nurEinenSerienterminLoeschenUndIcsMitAusnahmen() {
+        val s = InMemoryDocumentStore()
+        val a = speichere(s, basis("Training", "2026-11-02").copy(serie = true, frequenz = "weekly", wochentage = setOf(1), endeArt = "count", anzahl = "3"))
+        Kalender.ausnahmeHinzu(s, a.id, "2026-11-09", jetzt)
+        val t = Kalender.termin(s, a.id)!!
+        // Der ausgenommene Tag zählt bei "Ende nach 3 Mal" mit (wie iCal).
+        assertEquals(listOf("2026-11-02", "2026-11-16"), Kalender.vorkommen(listOf(t), d("2026-11-01"), d("2026-12-31")).map { it.datum.toString() })
+        assertEquals("wöchentlich (Mo), 3 Mal, ohne 09.11.2026", Kalender.serieText(t.serie!!))
+        // Bearbeiten behält die Ausnahme
+        assertEquals(listOf("2026-11-09"), Termin.from(Kalender.speichern(s, TerminForm.von(t).copy(titel = "Neu"), jetzt)).serie!!.ausnahmen)
+        val ics = Austausch.icsSchreiben(listOf(t), Kalender.arten(s), "V", jetzt)
+        assertTrue(ics.contains("EXDATE:20261109T180000"))
+        assertEquals(listOf("2026-11-09"), Termin.from(Austausch.icsLesen(ics, Kalender.arten(s), jetzt).termine.single()).serie!!.ausnahmen)
+    }
+
+    @Test fun nurEinenSerienterminAendernUndSerieMitEinzelterminLoeschen() {
+        val s = InMemoryDocumentStore()
+        val a = speichere(s, basis("Training", "2026-11-02").copy(serie = true, frequenz = "weekly", wochentage = setOf(1), endeArt = "count", anzahl = "3", ort = "Halle"))
+        val f = Kalender.einzeln(a, "2026-11-09")
+        assertFalse(f.serie)
+        assertNull(f.id)
+        val e = speichere(s, f.copy(ort = "Sportplatz", beginnZeit = "19:00", endeZeit = "20:00"))
+        assertEquals(SerienHerkunft(a.id, "2026-11-09"), e.herkunft)
+        // Die Serie lässt den Tag aus, der Einzeltermin steht an seiner Stelle (kein Doppel).
+        val alle = Kalender.alle(s)
+        val v = Kalender.vorkommen(alle, d("2026-11-01"), d("2026-12-31")).map { "${it.datum} ${it.termin.ort}" }
+        assertEquals(listOf("2026-11-02 Halle", "2026-11-09 Sportplatz", "2026-11-16 Halle"), v)
+        // Den Einzeltermin später bearbeiten: Herkunft bleibt, Serie bekommt keine zweite Ausnahme.
+        speichere(s, TerminForm.von(Kalender.termin(s, e.id)!!).copy(titel = "Training (Platz)"))
+        assertEquals(SerienHerkunft(a.id, "2026-11-09"), Kalender.termin(s, e.id)!!.herkunft)
+        assertEquals(listOf("2026-11-09"), Kalender.termin(s, a.id)!!.serie!!.ausnahmen)
+        // Die ganze Serie löschen nimmt den Einzeltermin mit.
+        Kalender.loeschen(s, a.id)
+        assertTrue(Kalender.alle(s).isEmpty())
+    }
+
     @Test fun langeIcsZeilenWerdenGefaltet() {
         val s = InMemoryDocumentStore()
         val t = speichere(s, basis("Äpfel und Birnen für die Jugendabteilung ".repeat(4), "2026-11-12"))
@@ -221,7 +257,6 @@ class KalenderTest {
         assertEquals("19:30", t.endeZeit)
         assertNull(t.serie)
         assertTrue(l.hinweise.any { it.contains("Wiederholung") })
-        assertTrue(l.hinweise.any { it.contains("EXDATE") })
         assertTrue(l.hinweise.any { it.contains("Teilnehmerlisten") })
         assertTrue(t.teilnehmer.isEmpty())
     }

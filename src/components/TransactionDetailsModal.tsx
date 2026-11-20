@@ -30,6 +30,7 @@ import {
   Split
 } from 'lucide-react';
 import { saveDataUrlAs } from '../utils/fileExportHelper';
+import { bestaetige } from '../utils/dialoge';
 
 interface TransactionDetailsModalProps {
   isOpen: boolean;
@@ -90,12 +91,12 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
     void saveDataUrlAs(transaction.receipt.dataUrl, transaction.receipt.name || `Beleg_${transaction.documentNumber}.pdf`);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     const belegHinweis = transaction.receipt
       ? '\n\nDer angehängte Beleg wird dabei auch aus der Dokumentenverwaltung gelöscht.'
       : '';
     const confirmMsg = `Möchten Sie die Buchung ${transaction.documentNumber} (${transaction.bookingText}) über ${Math.abs(transaction.amount).toFixed(2)} € wirklich unwiderruflich löschen?${belegHinweis}`;
-    if (window.confirm(confirmMsg)) {
+    if (await bestaetige(confirmMsg)) {
       onDelete(transaction.id);
       onClose();
     }

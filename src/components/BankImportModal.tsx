@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Sparkles
 } from 'lucide-react';
+import { melde } from '../utils/dialoge';
 
 interface BankImportModalProps {
   accounts: FinancialAccount[];
@@ -115,7 +116,7 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
 
   const handleExecuteImport = () => {
     if (selectedCount === 0) {
-      alert('Bitte wählen Sie mindestens eine Buchung zum Importieren aus.');
+      void melde('Bitte wählen Sie mindestens eine Buchung zum Importieren aus.');
       return;
     }
     const transactions = BankImportService.convertToTransactions(

@@ -11,6 +11,7 @@ import {
   Edit2,
   Check
 } from 'lucide-react';
+import { melde } from '../utils/dialoge';
 
 interface AccountManageModalProps {
   accounts: FinancialAccount[];
@@ -272,7 +273,7 @@ export const AccountManageModal: React.FC<AccountManageModalProps> = ({
                         type="button"
                         onClick={() => {
                           if (accounts.length <= 1) {
-                            alert('Es muss mindestens ein Konto existieren.');
+                            void melde('Es muss mindestens ein Konto existieren.');
                             return;
                           }
                           starteLoeschen(acc);

@@ -31,6 +31,7 @@ import {
   FileText,
   Loader2
 } from 'lucide-react';
+import { bestaetige } from '../utils/dialoge';
 
 interface MemberDetailsDrawerProps {
   member: Member | null;
@@ -168,7 +169,7 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
   };
 
   const handleDeleteAssignment = async (id: string) => {
-    if (window.confirm('Gegenstand-Verknüpfung wirklich entfernen?')) {
+    if (await bestaetige('Gegenstand-Verknüpfung wirklich entfernen?')) {
       await StorageService.deleteMemberInventoryAssignment(id);
       await loadAssignments();
     }
@@ -373,9 +374,9 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const handleRemovePhoto = (e: React.MouseEvent) => {
+  const handleRemovePhoto = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm('Profilbild entfernen?')) {
+    if (await bestaetige('Profilbild entfernen?')) {
       const updatedMember: Member = {
         ...member,
         avatarUrl: undefined,
@@ -520,8 +521,8 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
               {onDelete && (
                 <button
                   type="button"
-                  onClick={() => {
-                    if (window.confirm(`Möchten Sie das Mitglied ${member.firstName} ${member.lastName} (${member.memberNumber}) wirklich unwiderruflich löschen?`)) {
+                  onClick={async () => {
+                    if (await bestaetige(`Möchten Sie das Mitglied ${member.firstName} ${member.lastName} (${member.memberNumber}) wirklich unwiderruflich löschen?`)) {
                       onDelete(member.id);
                       onClose();
                     }

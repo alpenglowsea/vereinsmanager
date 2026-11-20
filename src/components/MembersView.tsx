@@ -26,6 +26,7 @@ import {
   AlertTriangle,
   X
 } from 'lucide-react';
+import { bestaetige } from '../utils/dialoge';
 
 export type MemberSortField =
   | 'number'
@@ -1685,8 +1686,8 @@ export const MembersView: React.FC<MembersViewProps> = ({
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
-                            if (window.confirm(`Mitglied ${member.firstName} ${member.lastName} (${member.memberNumber}) wirklich löschen?`)) {
+                          onClick={async () => {
+                            if (await bestaetige(`Mitglied ${member.firstName} ${member.lastName} (${member.memberNumber}) wirklich löschen?`)) {
                               onDeleteMember(member.id);
                             }
                           }}

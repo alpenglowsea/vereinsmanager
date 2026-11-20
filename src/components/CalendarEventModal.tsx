@@ -24,6 +24,9 @@ import {
   Search
 } from 'lucide-react';
 import { OpenStreetMapModal } from './OpenStreetMapModal';
+import { heuteIso, wochentag, pruefeTermin, ohneDoppelteTeilnehmer, normiereSerie, datumKurz } from '../utils/kalenderRegeln';
+import { bestaetige } from '../utils/dialoge';
+import { keepUnknownFields } from '../utils/keepUnknownFields';
 
 interface CalendarEventModalProps {
   isOpen: boolean;
@@ -37,6 +40,8 @@ interface CalendarEventModalProps {
   onDelete?: (id: string) => Promise<void>;
   onOpenCategoriesManager?: () => void;
   clubSettingsAddress?: string;
+  /** Einzeln geänderte Termine dieser Serie (ihre Tage lassen sich nicht wieder aufnehmen). */
+  einzelTermine?: CalendarEvent[];
 }
 
 export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
@@ -50,11 +55,15 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
   onSave,
   onDelete,
   onOpenCategoriesManager,
-  clubSettingsAddress
+  clubSettingsAddress,
+  einzelTermine = []
 }) => {
   const isEditing = Boolean(event && event.id);
 
-  const defaultDate = initialDate || new Date().toISOString().split('T')[0];
+  // Heute in Ortszeit (vorher UTC: kurz nach Mitternacht noch „gestern“, D-112)
+  const defaultDate = initialDate || heuteIso();
+  // „Alle 2 Wochen“ (alt: biweekly) ist jetzt wöchentlich mit Intervall 2 (D-109)
+  const serieAlt = normiereSerie(event?.recurrence);
 
   const [title, setTitle] = useState<string>(event?.title || '');
   const [description, setDescription] = useState<string>(event?.description || '');
@@ -73,16 +82,15 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
   const [isRecurring, setIsRecurring] = useState<boolean>(
     Boolean(event?.recurrence && event.recurrence.frequency !== 'none')
   );
-  const [recFrequency, setRecFrequency] = useState<RecurrenceFrequency>(
-    event?.recurrence?.frequency || 'weekly'
-  );
-  // Kein Bedienelement vorhanden: Der Wert steht beim Öffnen fest und lässt
-  // sich nicht ändern. Die Änderungsfunktion ist deshalb entfernt — sie zu
-  // behalten täuschte eine Einstellmöglichkeit vor, die es nicht gibt.
-  const [recInterval] = useState<number>(event?.recurrence?.interval || 1);
+  const [recFrequency, setRecFrequency] = useState<RecurrenceFrequency>(serieAlt?.frequenz || 'weekly');
+  // Intervall frei einstellbar, 1 bis 99, für alle Arten (D-109)
+  const [recInterval, setRecInterval] = useState<string>(String(serieAlt?.intervall || 1));
   const [recDaysOfWeek, setRecDaysOfWeek] = useState<number[]>(
-    event?.recurrence?.daysOfWeek || [1]
+    serieAlt?.wochentage.length ? serieAlt.wochentage : [wochentag(event?.startDate || defaultDate)]
   );
+  const [feldFehler, setFeldFehler] = useState<Record<string, string>>({});
+  // Ausgenommene Tage der Serie (über „Löschen → nur diesen Termin“ entstanden)
+  const [ausnahmen, setAusnahmen] = useState<string[]>(serieAlt?.ausnahmen || []);
   const [recEndType, setRecEndType] = useState<'never' | 'until_date' | 'count'>(
     event?.recurrence?.endType || 'never'
   );
@@ -170,11 +178,8 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
       if (data && data.length > 0) {
         setLocationLat(parseFloat(data[0].lat));
         setLocationLng(parseFloat(data[0].lon));
-        setShowMapPreview(true);
-      } else {
-        alert('Keine Geodaten für diesen Ort gefunden. Sie können den Karteneintrag dennoch manuell ansehen.');
-        setShowMapPreview(true);
       }
+      setShowMapPreview(true);
     } catch (e) {
       console.warn('Geocoding failed:', e);
       setShowMapPreview(true);
@@ -185,12 +190,25 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) {
-      setError('Bitte geben Sie einen Termintitel ein.');
-      return;
-    }
-    if (!startDate) {
-      setError('Bitte geben Sie ein Startdatum ein.');
+    // Prüfung wie Android: Ende vor Beginn, Uhrzeiten, Intervall, Serienende (D-112)
+    const fehler = pruefeTermin({
+      titel: title,
+      beginn: startDate,
+      ende: endDate || startDate,
+      ganztaegig: isAllDay,
+      beginnZeit: startTime,
+      endeZeit: endTime,
+      serie: isRecurring,
+      frequenz: recFrequency,
+      intervall: recInterval.trim(),
+      wochentage: recDaysOfWeek,
+      endeArt: recEndType,
+      bis: recUntilDate,
+      anzahl: recCount
+    });
+    setFeldFehler(fehler);
+    if (Object.keys(fehler).length > 0) {
+      setError(Object.values(fehler)[0]);
       return;
     }
 
@@ -202,11 +220,12 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
       if (isRecurring && recFrequency !== 'none') {
         recurrence = {
           frequency: recFrequency,
-          interval: recInterval || 1,
-          daysOfWeek: recFrequency === 'weekly' || recFrequency === 'biweekly' ? recDaysOfWeek : undefined,
+          interval: Number(recInterval),
+          daysOfWeek: recFrequency === 'weekly' ? recDaysOfWeek : undefined,
           endType: recEndType,
           untilDate: recEndType === 'until_date' ? recUntilDate : undefined,
-          count: recEndType === 'count' ? recCount : undefined
+          count: recEndType === 'count' ? recCount : undefined,
+          exceptionDates: ausnahmen.length ? ausnahmen : undefined
         };
       }
 
@@ -225,12 +244,14 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
         locationLat,
         locationLng,
         recurrence,
-        participants,
+        participants: ohneDoppelteTeilnehmer(participants),
         createdAt: event?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
 
-      await onSave(eventData);
+      // Felder, die das Formular nicht kennt (Verweis auf die Serie, Farbe, Felder
+      // der Android-Fassung), bleiben erhalten
+      await onSave(keepUnknownFields(event, eventData));
       onClose();
     } catch (err: any) {
       setError(err.message || 'Fehler beim Speichern des Termins.');
@@ -241,7 +262,10 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
 
   const handleDelete = async () => {
     if (!event?.id || !onDelete) return;
-    if (confirm(`Möchten Sie den Termin "${event.title}" wirklich löschen?`)) {
+    const text = serieAlt
+      ? `„${event.title}“ ist ein Serientermin. Hier wird die ganze Serie gelöscht${einzelTermine.length ? `, auch ${einzelTermine.length} einzeln geänderte Termine` : ''}. Einen einzelnen Tag löschen Sie über die Termindetails im Kalender.`
+      : `Möchten Sie den Termin „${event.title}“ wirklich löschen?`;
+    if (await bestaetige(text)) {
       await onDelete(event.id);
       onClose();
     }
@@ -274,7 +298,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
               </div>
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                  {isEditing ? 'Termin bearbeiten' : 'Neuen Termin erstellen'}
+                  {event?.seriesOrigin ? 'Einzelnen Serientermin ändern' : isEditing ? 'Termin bearbeiten' : 'Neuen Termin erstellen'}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {isEditing ? 'Termindetails, Teilnehmer und Wiederholungen anpassen' : 'Neuen Vereins-, Spiel- oder Trainingstermin anlegen'}
@@ -435,7 +459,15 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
               </div>
             </div>
 
+            {/* Einzeln geänderter Serientag: bleibt ein Einzeltermin */}
+            {event?.seriesOrigin && (
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-700 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200">
+                Einzeln geänderter Termin einer Serie (ursprünglich am {datumKurz(event.seriesOrigin.date)}). Änderungen gelten nur für diesen Termin; die Serie lässt diesen Tag aus.
+              </div>
+            )}
+
             {/* Recurrence (Serientermin) */}
+            {!event?.seriesOrigin && (
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 dark:bg-slate-800 dark:border-slate-800">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 dark:text-slate-100">
@@ -457,18 +489,29 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                 <div className="space-y-3 pt-2 border-t border-slate-200 animate-in fade-in duration-150 dark:border-slate-800">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[11px] font-semibold text-slate-600 mb-1 block dark:text-slate-300">Intervall</label>
-                      <select
-                        value={recFrequency}
-                        onChange={(e) => setRecFrequency(e.target.value as RecurrenceFrequency)}
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-hidden dark:bg-slate-800 dark:border-slate-700"
-                      >
-                        <option value="daily">Täglich</option>
-                        <option value="weekly">Wöchentlich</option>
-                        <option value="biweekly">Alle 2 Wochen</option>
-                        <option value="monthly">Monatlich</option>
-                        <option value="yearly">Jährlich</option>
-                      </select>
+                      <label className="text-[11px] font-semibold text-slate-600 mb-1 block dark:text-slate-300">Wiederholung</label>
+                      <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                        <span>alle</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={99}
+                          value={recInterval}
+                          onChange={(e) => setRecInterval(e.target.value)}
+                          className={`w-16 px-2 py-2 bg-white border rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-hidden dark:bg-slate-800 ${feldFehler.intervall ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700'}`}
+                        />
+                        <select
+                          value={recFrequency}
+                          onChange={(e) => setRecFrequency(e.target.value as RecurrenceFrequency)}
+                          className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-hidden dark:bg-slate-800 dark:border-slate-700"
+                        >
+                          <option value="daily">Tag(e)</option>
+                          <option value="weekly">Woche(n)</option>
+                          <option value="monthly">Monat(e)</option>
+                          <option value="yearly">Jahr(e)</option>
+                        </select>
+                      </div>
+                      {feldFehler.intervall && <p className="text-[11px] text-rose-600 mt-1 dark:text-rose-400">{feldFehler.intervall}</p>}
                     </div>
 
                     <div>
@@ -486,7 +529,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                   </div>
 
                   {/* Weekdays selector for weekly */}
-                  {(recFrequency === 'weekly' || recFrequency === 'biweekly') && (
+                  {recFrequency === 'weekly' && (
                     <div>
                       <label className="text-[11px] font-semibold text-slate-600 mb-1.5 block dark:text-slate-300">Wochentage:</label>
                       <div className="flex flex-wrap gap-1.5">
@@ -511,6 +554,33 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                     </div>
                   )}
 
+                  {ausnahmen.length > 0 && (
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 mb-1 block dark:text-slate-300">Ausgenommene Tage (fallen aus)</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {ausnahmen.map((d) => (
+                          <span key={d} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-[11px] dark:bg-slate-900 dark:border-slate-700">
+                            {datumKurz(d)}
+                            {/* Ein einzeln geänderter Tag steht als eigener Termin im Kalender; ihn
+                                wieder aufzunehmen ergäbe den Termin doppelt */}
+                            {einzelTermine.some((x) => x.seriesOrigin?.date === d) ? (
+                              <span className="text-slate-400">(einzeln geändert)</span>
+                            ) : (
+                              <button
+                                type="button"
+                                title="Wieder aufnehmen"
+                                onClick={() => setAusnahmen(ausnahmen.filter((x) => x !== d))}
+                                className="text-slate-400 hover:text-purple-600"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {recEndType === 'until_date' && (
                     <div>
                       <label className="text-[11px] font-semibold text-slate-600 mb-1 block dark:text-slate-300">Enddatum der Serie</label>
@@ -529,7 +599,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                       <input
                         type="number"
                         min={1}
-                        max={100}
+                        max={999}
                         value={recCount}
                         onChange={(e) => setRecCount(parseInt(e.target.value, 10) || 1)}
                         className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-hidden dark:bg-slate-800 dark:border-slate-700"
@@ -539,6 +609,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                 </div>
               )}
             </div>
+            )}
 
             {/* Location & OpenStreetMap Section */}
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 dark:bg-slate-800 dark:border-slate-800">
@@ -578,6 +649,10 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
                   <span>{isGeocoding ? 'Suche...' : 'Karte'}</span>
                 </button>
               </div>
+
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                „Karte“ übermittelt den eingetragenen Ort an OpenStreetMap, um ihn auf der Karte zu finden. Ohne Klick geht nichts hinaus.
+              </p>
 
               {/* Quick Facility presets */}
               <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
@@ -835,6 +910,9 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+              {error && (
+                <span className="text-xs text-red-700 font-semibold max-w-xs dark:text-red-300">{error}</span>
+              )}
               <button
                 type="button"
                 onClick={onClose}

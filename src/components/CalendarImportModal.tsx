@@ -20,6 +20,8 @@ interface CalendarImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   categories: CalendarEventCategory[];
+  /** Für die Vorschau: welche Termine es schon gibt (werden nicht noch einmal angelegt). */
+  vorhandeneTermine?: CalendarEvent[];
   onImportSuccess: (events: CalendarEvent[]) => Promise<void>;
 }
 
@@ -27,6 +29,7 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
   isOpen,
   onClose,
   categories,
+  vorhandeneTermine = [],
   onImportSuccess
 }) => {
   const [activeTab, setActiveTab] = useState<'file' | 'text'>('file');
@@ -41,6 +44,10 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
+
+  // Schon vorhandene Termine (gleiche Kennung oder gleicher Titel, Tag und Uhrzeit) werden übersprungen (D-125)
+  const { neu: neueTermine, vorhanden: schonDa } = CalendarService.trenneNeueTermine(parsedEvents, vorhandeneTermine);
+  const schonDaIds = new Set(schonDa.map((e) => e.id + '|' + e.title + '|' + e.startDate));
 
   const handleProcessContent = (content: string, filename: string) => {
     setIsParsing(true);
@@ -111,7 +118,7 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
   };
 
   const handleExecuteImport = async () => {
-    if (parsedEvents.length === 0) return;
+    if (neueTermine.length === 0) return;
     setIsImporting(true);
     try {
       await onImportSuccess(parsedEvents);
@@ -263,10 +270,15 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
                       <div>
                         <span className="font-bold text-slate-900 dark:text-white">{evt.title}</span>
                         {evt.location && <span className="text-slate-400 ml-1.5 font-normal">📍 {evt.location}</span>}
+                        {schonDaIds.has(evt.id + '|' + evt.title + '|' + evt.startDate) && (
+                          <span className="ml-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300">schon vorhanden – wird übersprungen</span>
+                        )}
                       </div>
                     </div>
                     <div className="text-slate-500 font-medium dark:text-slate-400">
-                      {evt.startDate} {evt.startTime && `• ${evt.startTime} Uhr`}
+                      {evt.startDate.split('-').reverse().join('.')}
+                      {evt.endDate && evt.endDate !== evt.startDate && ` – ${evt.endDate.split('-').reverse().join('.')}`}
+                      {evt.startTime && ` • ${evt.startTime} Uhr`}
                     </div>
                   </div>
                 ))}
@@ -279,7 +291,7 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between dark:bg-slate-800 dark:border-slate-800">
           <div className="text-xs text-slate-500 dark:text-slate-400">
             {parsedEvents.length > 0
-              ? `${parsedEvents.length} Termine werden zur Vereinsdatenbank hinzugefügt.`
+              ? `${neueTermine.length} neue Termine werden hinzugefügt${schonDa.length ? `, ${schonDa.length} schon vorhandene übersprungen` : ''}.`
               : 'Wählen Sie eine Kalenderdatei aus.'}
           </div>
           <div className="flex items-center gap-2">
@@ -291,11 +303,11 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
             </button>
             <button
               onClick={handleExecuteImport}
-              disabled={parsedEvents.length === 0 || isImporting}
+              disabled={neueTermine.length === 0 || isImporting}
               className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-              <span>{isImporting ? 'Importiere...' : `${parsedEvents.length} Termine importieren`}</span>
+              <span>{isImporting ? 'Importiere...' : `${neueTermine.length} Termine importieren`}</span>
             </button>
           </div>
         </div>

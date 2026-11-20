@@ -117,6 +117,7 @@ import {
   Contact,
   ScrollText
 } from 'lucide-react';
+import { bestaetige } from './utils/dialoge';
 
 /** Die Menüpunkte der Navigationsleiste. */
 type ActiveTab =
@@ -1663,7 +1664,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={async () => {
-                  if (window.confirm('Demo-Daten wirklich auf die Beispieldaten zurücksetzen?')) {
+                  if (await bestaetige('Demo-Daten wirklich auf die Beispieldaten zurücksetzen?')) {
                     await StorageService.resetDemoData();
                     await loadData();
                   }
