@@ -137,6 +137,54 @@ entsprechen der Android-Fassung.
   Dokumentenverwaltung bleibt beim Löschen der Sitzung erhalten (wie bei
   Android). Vorher wurde es ohne Rückfrage mitgelöscht.
 
+### Pakete 16 und 17 — Kontakte und Buchungsimporte (D-54, D-55, D-61, D-65, D-67 bis D-71)
+
+- **Kontakt-Summen (D-54):** Einnahmen und Ausgaben eines Kontakts zählen
+  jetzt alle zugeordneten Buchungen; vorher nur die ersten zehn. Die Liste
+  zeigt die neuesten zehn. Umbuchungen zählen nicht mit, Ausgaben stehen ohne
+  doppeltes Minuszeichen.
+- **Zuordnung zum Kontakt (D-55):** nur bei genau gleichem Namen oder gleicher
+  Firma (Groß-/Kleinschreibung egal) oder über die Kontaktnummer als ganzes
+  Wort. Vorher fand „Müller“ auch „Müller Bau GmbH“.
+- **Kontaktformular (D-61, Rest):** IBAN mit Prüfziffer, BIC mit 8 oder 11
+  Zeichen und beide E-Mail-Felder werden geprüft; die Meldung steht am Feld.
+- **Duplikate im Bankimport (D-65):** Wie im Excel-Import: gleiches Datum,
+  gleicher Betrag und dazu gleiche Belegnummer, gleicher Partner oder gleicher
+  Text. Solche Zeilen sind in der Vorschau markiert und abgewählt.
+- **Unlesbares Datum (D-67):** wird nicht mehr still zu „heute“, sondern zur
+  Fehlerzeile. Das Datum lässt sich in der Vorschau eintragen; erst dann ist
+  die Zeile wählbar. Gilt für beide Importe.
+- **Spaltenzuordnung (D-68, D-70):** erst genaue Überschriften, dann
+  Teiltreffer nur mit längeren Wörtern, jede Spalte nur einmal. „Name“,
+  „Artikel“ oder „Bankverbindung“ landen nicht mehr in falschen Feldern.
+- **Konto und Umsatzsteuer (D-69):** Beide Importe setzen ein SKR-42-Konto:
+  aus der Datei (Kontonummer oder genauer Name), sonst das Konto der letzten
+  Buchung desselben Partners. In der Vorschau je Zeile wählbar und für alle
+  angehakten Zeilen zugleich. Die Umsatzsteuer kommt aus dem Konto; vorher
+  setzte der Bankimport sie pauschal nach Bereich (19/7/0 %), und der
+  Excel-Import wählte bei fehlendem Treffer irgendein erstes Konto.
+- **Beträge (D-71):** „S“ und „H“ zählen nur direkt hinter einer Zahl.
+  „1.250“ ist jetzt 1.250 € (vorher im Bankimport 1,25 €) und wird als
+  „bitte prüfen“ markiert.
+- **Weiteres:** Belegnummern im Jahr der Buchung; eine schon vergebene
+  Belegnummer aus der Datei wird ersetzt und gemeldet. Die wirkungslose
+  Auswahl „Bestehende Buchungen aktualisieren“ ist entfernt. Die Mustervorlage
+  nennt aktuelle Kontonummern. Der Excel-Import schätzt den Bereich nicht mehr
+  aus Stichwörtern, sondern nimmt Spalte, Vorschlag oder Vorgabe (wie Android).
+- Regeln in `src/utils/kontaktRegeln.ts` (5 Tests) und
+  `src/utils/importRegeln.ts` (13 Tests); Kontoauswahl `SkrKontoAuswahl`.
+
+### Nachbesserungen aus der Prüfung von P13 bis P15
+
+- **Kontoinhaber (T-128):** Nach dem Leeren des Felds bietet es den vollen
+  Namen als Vorschlag an (Liste beim Eintippen und Knopf „Vorschlag
+  übernehmen“).
+- **Prozente der Auswertung (T-131):** Wo jedes Mitglied genau einmal zählt
+  (z. B. Typ-Kachel), ergeben die Anteile zusammen genau 100 % (Verteilung
+  nach größtem Rest); vorher konnten es 101 % sein.
+- **Sammelbearbeitung (T-133):** Ein gelber Hinweis nennt, bei welchen
+  Mitgliedern welche Felder gesperrt waren und deshalb nicht geändert wurden.
+
 ### Pakete 13 bis 15 — Mitglieder und Beitrag (D-02, D-21 bis D-27, D-29, D-63)
 
 - **Mandatsfolge wählbar (D-21):** Im Mitgliedsformular gibt es bei SEPA die

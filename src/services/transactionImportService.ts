@@ -1,5 +1,10 @@
-import { Transaction, TaxSphere, FinancialAccount, ClubSettings } from '../types';
-import { SKR42_STRUCTURE } from '../data/taxSpheres';
+import { Transaction, TaxSphere, FinancialAccount, ClubSettings, Skr42MainCategory } from '../types';
+import { getSkr42Snapshot } from '../data/skr42Store';
+import { naechsteJahresNummer } from '../utils/nummern';
+import {
+  ordneSpaltenZu, leseDatum, leseBetrag, artAusText, findeDuplikat, duplikatText,
+  findeSkrKonto, kontoAusHistorie, kontoNachNummer, kontoFelder, SpaltenRegel
+} from '../utils/importRegeln';
 
 export interface TransactionColumnMapping {
   date?: string;
@@ -25,6 +30,43 @@ export interface ParsedTransactionRow {
   isDuplicate: boolean;
   existingTransactionId?: string;
   transaction: Transaction;
+  /** Fehler, die den Import der Zeile verhindern (z. B. unlesbares Datum, D-67). */
+  fehler: string[];
+  /** Datum so, wie es in der Datei stand. */
+  rohDatum: string;
+  /** Konto aus einer früheren Buchung desselben Partners vorgeschlagen (D-69). */
+  kontoVorschlag?: boolean;
+}
+
+/**
+ * Prüft eine Vorschauzeile nach dem Einlesen und nach jeder Änderung:
+ * Fehler, Doppelbuchung (D-65), Auswahl. Zeilen mit Fehler sind abgewählt
+ * und lassen sich erst nach der Berichtigung anhaken.
+ */
+export function pruefeImportZeile(
+  item: ParsedTransactionRow,
+  vorhandene: Transaction[],
+  auswahlSetzen = false
+): ParsedTransactionRow {
+  const tx = item.transaction;
+  const fehler: string[] = [];
+  if (!tx.date) fehler.push(item.rohDatum ? `Datum „${item.rohDatum}“ nicht lesbar – bitte in der Vorschau eintragen.` : 'Datum fehlt – bitte in der Vorschau eintragen.');
+  if (!tx.amount) fehler.push('Betrag fehlt, ist 0 oder nicht lesbar.');
+  const dup = tx.date ? findeDuplikat(tx, vorhandene) : undefined;
+  const warnings = item.warnings.filter(w => !w.startsWith('Gleicht Beleg') && !w.startsWith('Kein Konto'));
+  if (dup) warnings.push(duplikatText(dup));
+  if (tx.type !== 'transfer' && !tx.skrAccount) warnings.push('Kein Konto (SKR 42) gewählt.');
+  const neu: ParsedTransactionRow = {
+    ...item,
+    fehler,
+    warnings,
+    hasWarnings: warnings.length > 0,
+    isDuplicate: !!dup,
+    existingTransactionId: dup?.id
+  };
+  if (fehler.length > 0) neu.selected = false;
+  else if (auswahlSetzen) neu.selected = !dup;
+  return neu;
 }
 
 /**
@@ -128,281 +170,33 @@ export function parseCSVToRows(text: string): { headers: string[]; rows: Record<
 /**
  * Auto-detect column mappings for German bookkeeping, Excel & Google Sheets headers
  */
+const TABELLEN_SPALTEN: SpaltenRegel<keyof TransactionColumnMapping>[] = [
+  { feld: 'date', genau: ['datum', 'buchungsdatum', 'belegdatum', 'buchungstag', 'valutadatum', 'valuta', 'wertstellung', 'transaktionsdatum', 'date'], teil: ['buchungsdatum', 'buchungstag', 'belegdatum', 'datum', 'valuta'] },
+  { feld: 'documentNumber', genau: ['belegnummer', 'belegnr', 'beleg', 'rechnungsnummer', 'rechnungsnr', 'buchungsnummer', 'docnr', 'documentnumber', 'nummer', 'nr'], teil: ['belegnummer', 'belegnr', 'rechnungsnummer'] },
+  { feld: 'partner', genau: ['zahlungspartner', 'partner', 'beguenstigterzahlungspflichtiger', 'namezahlungsbeteiligter', 'beguenstigter', 'empfaenger', 'zahlungsempfaenger', 'auftraggeber', 'auftraggebername', 'gegenpartei', 'kunde', 'lieferant', 'absender', 'payee', 'name'], teil: ['zahlungspartner', 'beguenstigter', 'zahlungspflichtiger', 'empfaenger', 'auftraggeber', 'absender'] },
+  { feld: 'bookingText', genau: ['buchungstext', 'verwendungszweck', 'beschreibung', 'text', 'betreff', 'vorgang', 'zweck', 'description', 'umsatztext', 'bookingtext'], teil: ['verwendungszweck', 'buchungstext', 'beschreibung'] },
+  { feld: 'amount', genau: ['betrag', 'betrageur', 'betragineur', 'umsatz', 'summe', 'wert', 'amount', 'zahlbetrag', 'gesamtbetrag', 'bruttobetrag'], teil: ['betrag', 'umsatz', 'amount'] },
+  { feld: 'type', genau: ['art', 'buchungsart', 'typ', 'type', 'sollhaben', 'sh', 'einnahmeausgabe', 'ea', 'richtung', 'buchungsrichtung'], teil: ['buchungsart', 'sollhaben', 'einnahmeausgabe'] },
+  { feld: 'sphere', genau: ['sphaere', 'steuerlichesphaere', 'steuerlichersphaere', 'steuerlicherbereich', 'steuerbereich', 'bereich', 'taetigkeitsbereich', 'sphere'], teil: ['sphaere', 'sphere', 'steuerbereich'] },
+  { feld: 'subCategory', genau: ['skrkonto', 'skr42konto', 'skr42', 'skr', 'sachkonto', 'buchungskonto', 'nebenkategorie', 'unterkategorie', 'nebenkategorieskr42', 'subcategory'], teil: ['skr', 'sachkonto', 'nebenkategorie', 'unterkategorie'] },
+  { feld: 'category', genau: ['hauptkategorie', 'kategorie', 'nummernkreis', 'kostenart', 'category'], teil: ['hauptkategorie', 'nummernkreis'] },
+  { feld: 'account', genau: ['konto', 'finanzkonto', 'bankkonto', 'kasse', 'zahlungskonto', 'kontoname', 'account'], teil: ['finanzkonto', 'bankkonto', 'zahlungskonto'] },
+  { feld: 'vatRate', genau: ['mwst', 'ust', 'mwstsatz', 'ustsatz', 'steuersatz', 'mehrwertsteuer', 'umsatzsteuer', 'vat', 'taxrate'], teil: ['mwst', 'umsatzsteuer', 'ustsatz', 'steuersatz'] },
+  { feld: 'notes', genau: ['notiz', 'notizen', 'bemerkung', 'anmerkung', 'kommentar', 'hinweis', 'notes'], teil: ['notiz', 'bemerkung', 'kommentar'] }
+];
+
+/**
+ * Spaltenzuordnung: erst genaue Überschriften, dann Teiltreffer nur mit
+ * längeren Wörtern, jede Spalte nur einmal (D-70). Vorher fingen Kurzwörter
+ * wie „nr“, „art“, „bank“ oder „eur“ falsche Spalten ein.
+ */
 export function autoDetectTransactionMapping(headers: string[]): TransactionColumnMapping {
-  const mapping: TransactionColumnMapping = {};
-  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
-
-  const rules: { key: keyof TransactionColumnMapping; aliases: string[] }[] = [
-    {
-      key: 'date',
-      aliases: [
-        'datum', 'buchungsdatum', 'belegdatum', 'wertstellung', 'valuta', 'date', 'buchungstag', 'transaktionsdatum'
-      ]
-    },
-    {
-      key: 'documentNumber',
-      aliases: [
-        'belegnummer', 'belegnr', 'beleg', 'docnr', 'rechnungsnummer', 'rechnungsnr', 'ref', 'buchungsnummer',
-        'belegnummerintern', 'belegdokument', 'nr'
-      ]
-    },
-    {
-      key: 'partner',
-      aliases: [
-        'partner', 'zahlungspartner', 'empfänger', 'begünstigter', 'auftraggeber', 'empfaenger', 'beguenstigter',
-        'auftraggebername', 'kontoinhaber', 'name', 'gegenpartei', 'mitglied', 'kunde', 'lieferant', 'debitor',
-        'kreditor', 'payee', 'absender', 'person'
-      ]
-    },
-    {
-      key: 'bookingText',
-      aliases: [
-        'buchungstext', 'verwendungszweck', 'beschreibung', 'text', 'betreff', 'vorgang', 'zweck', 'memo',
-        'details', 'description', 'vermerk', 'umsatztext', 'buchungsbeschreibung'
-      ]
-    },
-    {
-      key: 'amount',
-      aliases: [
-        'betrag', 'umsatz', 'summe', 'wert', 'eur', 'amount', 'zahlbetrag', 'gesamtbetrag', 'bruttobetrag',
-        'nettobetrag', 'euro', 'betrageur', 'betragineur', 'wertineur'
-      ]
-    },
-    {
-      key: 'type',
-      aliases: [
-        'typ', 'buchungsart', 'art', 'sollhaben', 'sh', 's/h', 'einnahmeausgabe', 'e/a', 'einnahme/ausgabe',
-        'type', 'vorgangsart', 'umsatzart', 'kategorieart', 'transaktionsart', 'bewegung', 'buchungstyp', 'vorzeichen',
-        'buchungsrichtung', 'richtung', 'direction', 'buchungsartname'
-      ]
-    },
-    {
-      key: 'sphere',
-      aliases: [
-        'sphäre', 'sphaere', 'steuerlichesphäre', 'steuerbereich', 'bereich', 'skr42sphäre', 'sphärenbereich',
-        'tätigkeitsbereich', 'sphere', 'sphärenteil'
-      ]
-    },
-    {
-      key: 'category',
-      aliases: [
-        'hauptkategorie', 'kategorie', 'kostenart', 'erlösart', 'eürkategorie', 'guvkategorie', 'skrkategorie',
-        'category', 'kategoriebezeichnung', 'kontenbereich'
-      ]
-    },
-    {
-      key: 'subCategory',
-      aliases: [
-        'nebenkategorie', 'unterkategorie', 'skr42konto', 'skrkonto', 'kontonummer', 'buchungskonto',
-        'sachkonto', 'skr42', 'kontoart', 'skr', 'unterkonto', 'subcategory'
-      ]
-    },
-    {
-      key: 'account',
-      aliases: [
-        'konto', 'bankkonto', 'finanzkonto', 'kasse', 'zahlweg', 'bank', 'gegenkonto', 'account', 'zahlungskonto'
-      ]
-    },
-    {
-      key: 'vatRate',
-      aliases: [
-        'mwst', 'ust', 'steuersatz', 'mehrwertsteuer', 'umsatzsteuer', 'ustsatz', 'mwstsatz', 'taxrate', 'steuer'
-      ]
-    },
-    {
-      key: 'notes',
-      aliases: [
-        'notizen', 'bemerkung', 'anmerkung', 'kommentar', 'intern', 'notes', 'hinweis', 'memo'
-      ]
-    }
-  ];
-
-  headers.forEach(header => {
-    const norm = normalize(header);
-    for (const rule of rules) {
-      if (!mapping[rule.key]) {
-        const match = rule.aliases.some(alias => norm === alias || norm.includes(alias));
-        if (match) {
-          mapping[rule.key] = header;
-          break;
-        }
-      }
-    }
-  });
-
-  return mapping;
+  return ordneSpaltenZu(headers, TABELLEN_SPALTEN);
 }
 
-/**
- * Intelligent Number & Amount Parser supporting:
- * - 1.234,56 €
- * - -123,45
- * - 123.45 (US)
- * - (50.00) (Accounting parentheses for negative)
- * - 50,00 S (Soll = negative / expense)
- * - 50,00 H (Haben = positive / income)
- */
-export function parseAmountValue(
-  rawVal: string,
-  typeVal?: string,
-  defaultType: 'auto' | 'income' | 'expense' = 'auto'
-): { amount: number; isExpense: boolean } {
-  if (!rawVal) return { amount: 0, isExpense: defaultType === 'expense' };
-
-  let str = rawVal.trim();
-  let forceNegative = false;
-  let forcePositive = false;
-
-  // Check accounting trailing or leading indicators
-  if (str.endsWith('S') || str.endsWith('s') || str.startsWith('S ') || str.startsWith('-')) {
-    forceNegative = true;
-  } else if (str.endsWith('H') || str.endsWith('h') || str.startsWith('H ') || str.startsWith('+')) {
-    forcePositive = true;
-  }
-
-  // Parentheses check e.g. (100.00)
-  if (str.startsWith('(') && str.endsWith(')')) {
-    forceNegative = true;
-    str = str.slice(1, -1);
-  }
-
-  // Remove currency, spaces, S/H letters
-  str = str.replace(/[€$£a-zA-Z\s]/g, '');
-
-  let num: number;
-  if (str.includes(',') && str.includes('.')) {
-    // German format e.g. 1.234,56 or US format 1,234.56
-    const lastComma = str.lastIndexOf(',');
-    const lastDot = str.lastIndexOf('.');
-    if (lastComma > lastDot) {
-      // German: 1.234,56
-      str = str.replace(/\./g, '').replace(',', '.');
-    } else {
-      // US: 1,234.56
-      str = str.replace(/,/g, '');
-    }
-    num = parseFloat(str) || 0;
-  } else if (str.includes(',')) {
-    // German decimal: 123,45
-    str = str.replace(',', '.');
-    num = parseFloat(str) || 0;
-  } else {
-    // Standard: 123.45 or 1234
-    num = parseFloat(str) || 0;
-  }
-
-  // Type string heuristics e.g. "Ausgabe", "Abgang", "Expense", "Debit", "Lastschrift", "Einnahme", "Gutschrift"
-  if (typeVal && typeVal.trim().length > 0) {
-    const t = typeVal.toLowerCase().trim();
-    if (
-      t.includes('ausgabe') ||
-      t.includes('abgang') ||
-      t.includes('expense') ||
-      t.includes('debit') ||
-      t.includes('lastschrift') ||
-      t.includes('soll') ||
-      t.includes('aufwand') ||
-      t.includes('auszahlung') ||
-      t.includes('entnahme') ||
-      t.includes('kosten') ||
-      t.includes('gebühr') ||
-      t.includes('gebuehr') ||
-      t === 'a' ||
-      t === 's' ||
-      t === '-'
-    ) {
-      forceNegative = true;
-      forcePositive = false;
-    } else if (
-      t.includes('einnahme') ||
-      t.includes('zugang') ||
-      t.includes('income') ||
-      t.includes('credit') ||
-      t.includes('gutschrift') ||
-      t.includes('haben') ||
-      t.includes('ertrag') ||
-      t.includes('einzahlung') ||
-      t.includes('einlage') ||
-      t.includes('zuschuss') ||
-      t.includes('spende') ||
-      t.includes('beitrag') ||
-      t === 'e' ||
-      t === 'h' ||
-      t === '+'
-    ) {
-      forcePositive = true;
-      forceNegative = false;
-    }
-  } else if (defaultType === 'expense') {
-    forceNegative = true;
-    forcePositive = false;
-  } else if (defaultType === 'income') {
-    forcePositive = true;
-    forceNegative = false;
-  }
-
-  if (forceNegative) {
-    num = -Math.abs(num);
-  } else if (forcePositive) {
-    num = Math.abs(num);
-  }
-
-  return {
-    amount: num,
-    isExpense: num < 0
-  };
-}
-
-/**
- * Intelligent Date Parser supporting:
- * - DD.MM.YYYY
- * - YYYY-MM-DD
- * - DD/MM/YYYY
- * - DD-MM-YYYY
- * - MM/DD/YYYY
- */
-export function parseDateValue(rawVal: string): string {
-  if (!rawVal) return new Date().toISOString().split('T')[0];
-
-  const trimmed = rawVal.trim();
-
-  // YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return trimmed;
-  }
-
-  // DD.MM.YYYY or D.M.YYYY
-  const dotMatch = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
-  if (dotMatch) {
-    const day = dotMatch[1].padStart(2, '0');
-    const month = dotMatch[2].padStart(2, '0');
-    let year = dotMatch[3];
-    if (year.length === 2) {
-      year = parseInt(year, 10) > 50 ? `19${year}` : `20${year}`;
-    }
-    return `${year}-${month}-${day}`;
-  }
-
-  // DD/MM/YYYY or DD-MM-YYYY
-  const slashMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
-  if (slashMatch) {
-    const day = slashMatch[1].padStart(2, '0');
-    const month = slashMatch[2].padStart(2, '0');
-    let year = slashMatch[3];
-    if (year.length === 2) {
-      year = parseInt(year, 10) > 50 ? `19${year}` : `20${year}`;
-    }
-    return `${year}-${month}-${day}`;
-  }
-
-  // Fallback to Date object parsing
-  const d = new Date(trimmed);
-  if (!isNaN(d.getTime())) {
-    return d.toISOString().split('T')[0];
-  }
-
-  return new Date().toISOString().split('T')[0];
-}
+// Beträge und Daten liest seit P17 `src/utils/importRegeln.ts` (leseBetrag,
+// leseDatum). Die alten Funktionen machten jeden Wert mit „S“ am Ende negativ
+// (D-71) und setzten ein unlesbares Datum still auf „heute“ (D-67).
 
 /**
  * Intelligent Sphere detector & SKR 42 matcher
@@ -451,234 +245,115 @@ export function detectTaxSphere(rawSphere: string, categoryName: string, subCate
 }
 
 /**
- * Intelligent Category & SKR 42 SubCategory matcher.
- *
- * Sucht seit der DATEV-SKR42-Umstellung unter ALLEN Nummernkreisen des
- * jeweiligen Typs (Einnahme/Ausgabe) statt nur unter denen einer bestimmten
- * Sphäre — Sphäre und Konto werden unabhängig voneinander vergeben (siehe
- * Hinweis bei Skr42MainCategory in src/types.ts).
- */
-export function resolveSKR42Category(
-  isIncome: boolean,
-  rawCat: string,
-  rawSubCat: string,
-  bookingText: string
-): { category: string; subCategory: string } {
-  const type = isIncome ? 'income' : 'expense';
-  const availableMainCats = SKR42_STRUCTURE.filter(c => c.type === type);
-
-  if (availableMainCats.length === 0) {
-    return {
-      category: rawCat || (isIncome ? 'Sonstige Einnahmen' : 'Sonstige Ausgaben'),
-      subCategory: rawSubCat || ''
-    };
-  }
-
-  // 1. Direct match by subcategory code or name
-  if (rawSubCat) {
-    const rawLower = rawSubCat.toLowerCase();
-    for (const main of availableMainCats) {
-      for (const sub of main.subCategories) {
-        if (sub.code === rawSubCat || rawLower.includes(sub.code) || sub.name.toLowerCase().includes(rawLower) || rawLower.includes(sub.name.toLowerCase())) {
-          return { category: main.name, subCategory: sub.label };
-        }
-      }
-    }
-  }
-
-  // 2. Direct match by main category name
-  if (rawCat) {
-    const catLower = rawCat.toLowerCase();
-    for (const main of availableMainCats) {
-      if (main.name.toLowerCase().includes(catLower) || catLower.includes(main.name.toLowerCase())) {
-        const firstSub = main.subCategories[0];
-        return { category: main.name, subCategory: firstSub ? firstSub.label : '' };
-      }
-    }
-  }
-
-  // 3. Fallback: match by booking text keywords
-  const textLower = `${bookingText} ${rawCat} ${rawSubCat}`.toLowerCase();
-  for (const main of availableMainCats) {
-    for (const sub of main.subCategories) {
-      const keywords = sub.name.toLowerCase().split(/[\s,/-]+/);
-      const match = keywords.some(k => k.length > 3 && textLower.includes(k));
-      if (match) {
-        return { category: main.name, subCategory: sub.label };
-      }
-    }
-  }
-
-  // Default to first available main category & subcategory of this type
-  const defaultMain = availableMainCats[0];
-  const defaultSub = defaultMain?.subCategories[0];
-  return {
-    category: rawCat || (defaultMain ? defaultMain.name : 'Allgemeine Buchung'),
-    subCategory: rawSubCat || (defaultSub ? defaultSub.label : '')
-  };
-}
-
-/**
- * Convert parsed CSV/Sheets rows to rich Transaction objects with full validation & duplicate check
+ * Wandelt die Zeilen der Datei in Vorschauzeilen um. Nichts wird weggelassen:
+ * Was nicht lesbar ist, bleibt als Zeile mit Fehler stehen und lässt sich in
+ * der Vorschau berichtigen (wie Android).
  */
 export function convertRowsToTransactions(
   rows: Record<string, string>[],
   mapping: TransactionColumnMapping,
   existingTransactions: Transaction[],
   accounts: FinancialAccount[],
-  settings: ClubSettings,
+  _settings: ClubSettings,
   defaultAccountId: string,
   defaultSphere: TaxSphere,
   defaultVatRate: 0 | 7 | 19 = 0,
-  defaultType: 'auto' | 'income' | 'expense' = 'auto'
+  defaultType: 'auto' | 'income' | 'expense' = 'auto',
+  skr: readonly Skr42MainCategory[] = getSkr42Snapshot()
 ): ParsedTransactionRow[] {
-  const currentYear = new Date().getFullYear();
-  let runningDocIndex = 1;
-
-  // Find max doc number index for current year to auto-generate missing doc numbers
-  existingTransactions.forEach(t => {
-    const m = t.documentNumber.match(/BE-\d{4}-(\d+)/i);
-    if (m) {
-      const num = parseInt(m[1], 10);
-      if (num >= runningDocIndex) runningDocIndex = num + 1;
-    }
-  });
+  const wert = (row: Record<string, string>, feld: keyof TransactionColumnMapping) => {
+    const spalte = mapping[feld];
+    return spalte ? (row[spalte] || '').trim() : '';
+  };
 
   const accountNameToIdMap = new Map<string, string>();
   accounts.forEach(acc => {
     accountNameToIdMap.set(acc.id.toLowerCase(), acc.id);
-    accountNameToIdMap.set(acc.name.toLowerCase(), acc.id);
+    accountNameToIdMap.set(acc.name.toLowerCase().replace(/\s/g, ''), acc.id);
     if (acc.iban) accountNameToIdMap.set(acc.iban.toLowerCase().replace(/\s/g, ''), acc.id);
   });
+
+  // Belegnummern: aus der Datei, wenn noch frei; sonst BE-<Jahr der Buchung>-<höchste + 1>
+  const vergeben: string[] = existingTransactions.map(t => (t.documentNumber || '').trim()).filter(Boolean);
+  const vorhandeneNr = new Set(vergeben.map(n => n.toLowerCase()));
+  const jetzt = new Date().toISOString();
 
   return rows.map((row, index) => {
     const warnings: string[] = [];
     const id = `tx-imp-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 6)}`;
 
-    // 1. Date
-    const rawDate = mapping.date ? row[mapping.date] || '' : '';
-    const date = parseDateValue(rawDate);
-    if (!rawDate) warnings.push('Datum fehlte in der Datei (auf heute gesetzt)');
+    // 1. Datum: unlesbar bleibt leer und wird zur Fehlerzeile (D-67)
+    const rohDatum = wert(row, 'date');
+    const date = leseDatum(rohDatum) || '';
 
-    // 2. Amount & Type (Buchungsart)
-    const rawAmount = mapping.amount ? row[mapping.amount] || '' : '';
-    const rawType = mapping.type ? row[mapping.type] || '' : '';
-    const { amount, isExpense } = parseAmountValue(rawAmount, rawType, defaultType);
-    if (amount === 0) warnings.push('Betrag ist 0,00 € oder konnte nicht eindeutig gelesen werden');
+    // 2. Betrag und Art: „S“/„H“ nur direkt hinter der Zahl (D-71)
+    const rohBetrag = wert(row, 'amount');
+    const zahl = leseBetrag(rohBetrag);
+    if (zahl?.mehrdeutig) warnings.push(`Betrag „${rohBetrag}“ als ${zahl.wert.toLocaleString('de-DE', { minimumFractionDigits: 2 })} € gelesen (Tausenderpunkt) – bitte prüfen.`);
+    const rohArt = wert(row, 'type');
+    const artSpalte = rohArt ? artAusText(rohArt) : null;
+    if (rohArt && !artSpalte) warnings.push(`Art „${rohArt}“ nicht erkannt – das Vorzeichen des Betrags entscheidet.`);
+    const betrag = zahl ? zahl.wert : 0;
+    // Art-Spalte geht vor; ohne sie gilt die Vorgabe, bei „automatisch“ das Vorzeichen
+    const txType: 'income' | 'expense' | 'transfer' =
+      artSpalte ?? (defaultType === 'auto' ? (betrag < 0 ? 'expense' : 'income') : defaultType);
+    const amount = txType === 'expense' ? -Math.abs(betrag) : Math.abs(betrag);
 
-    let txType: 'income' | 'expense' | 'transfer' = amount >= 0 ? 'income' : 'expense';
-    const lowerType = rawType.toLowerCase().trim();
-    if (lowerType.includes('umbuchung') || lowerType.includes('transfer') || lowerType.includes('transit')) {
-      txType = 'transfer';
-    } else if (
-      isExpense ||
-      lowerType.includes('ausgabe') ||
-      lowerType.includes('abgang') ||
-      lowerType.includes('soll') ||
-      lowerType.includes('aufwand') ||
-      lowerType.includes('auszahlung') ||
-      lowerType.includes('entnahme') ||
-      lowerType === 'a' ||
-      lowerType === 's'
-    ) {
-      txType = 'expense';
-    } else if (
-      !isExpense &&
-      (lowerType.includes('einnahme') ||
-        lowerType.includes('zugang') ||
-        lowerType.includes('haben') ||
-        lowerType.includes('ertrag') ||
-        lowerType.includes('einzahlung') ||
-        lowerType.includes('einlage') ||
-        lowerType === 'e' ||
-        lowerType === 'h')
-    ) {
-      txType = 'income';
-    }
+    // 3. Partner und Text
+    const partner = wert(row, 'partner');
+    const bookingText = wert(row, 'bookingText');
+    if (!partner && !bookingText) warnings.push('Weder Partner noch Buchungstext vorhanden.');
 
-    // 3. Document Number
-    let docNum = mapping.documentNumber ? (row[mapping.documentNumber] || '').trim() : '';
-    if (!docNum) {
-      docNum = `BE-${currentYear}-${(runningDocIndex++).toString().padStart(3, '0')}`;
-    }
-
-    // 4. Partner & Booking text
-    const partner = mapping.partner ? (row[mapping.partner] || '').trim() : '';
-    const bookingText = mapping.bookingText ? (row[mapping.bookingText] || '').trim() : '';
-
-    if (!partner && !bookingText) {
-      warnings.push('Weder Partner noch Buchungstext vorhanden');
-    }
-
-    // 5. Account resolution
+    // 4. Finanzkonto
     let accountId = defaultAccountId || accounts[0]?.id || 'acc-1';
-    if (mapping.account && row[mapping.account]) {
-      const rawAcc = row[mapping.account].trim().toLowerCase().replace(/\s/g, '');
-      if (accountNameToIdMap.has(rawAcc)) {
-        accountId = accountNameToIdMap.get(rawAcc)!;
-      }
-    }
+    const rohKonto = wert(row, 'account').toLowerCase().replace(/\s/g, '');
+    if (rohKonto && accountNameToIdMap.has(rohKonto)) accountId = accountNameToIdMap.get(rohKonto)!;
 
-    // 6. Tax Sphere
-    const rawSphere = mapping.sphere ? row[mapping.sphere] || '' : '';
-    const rawCat = mapping.category ? row[mapping.category] || '' : '';
-    const rawSubCat = mapping.subCategory ? row[mapping.subCategory] || '' : '';
+    // 5. Sphäre: aus der Spalte, sonst aus dem Vorschlag, sonst Vorgabe
+    const rohSphaere = wert(row, 'sphere');
+    let sphere: TaxSphere | null = rohSphaere ? detectTaxSphere(rohSphaere, '', '', '') : null;
 
-    let sphere: TaxSphere;
-    if (rawSphere) {
-      sphere = detectTaxSphere(rawSphere, rawCat, rawSubCat, bookingText);
-    } else {
-      sphere = detectTaxSphere('', rawCat, rawSubCat, bookingText);
-    }
-
-    // 7. Category & Subcategory (SKR 42)
-    const { category, subCategory } = resolveSKR42Category(
-      !isExpense,
-      rawCat,
-      rawSubCat,
-      bookingText
-    );
-
-    // 8. Tax Rate (MwSt / USt)
+    // 6. Konto (SKR 42) mit Umsatzsteuer aus dem Konto (D-69): aus der Datei,
+    // sonst aus früheren Buchungen desselben Partners; kein Raten
+    let kontoTeil: Partial<Transaction> = { category: wert(row, 'category') || wert(row, 'subCategory') || '' };
+    let kontoVorschlag = false;
     let vatRate: 0 | 7 | 19 = defaultVatRate;
-    if (mapping.vatRate && row[mapping.vatRate]) {
-      const rawVat = row[mapping.vatRate].replace(/[^0-9]/g, '');
-      const parsedVat = parseInt(rawVat, 10);
-      if (parsedVat === 7) {
-        vatRate = 7;
-      } else if (parsedVat === 19) {
-        vatRate = 19;
+    if (txType !== 'transfer') {
+      const richtung = txType;
+      const gefunden = findeSkrKonto(wert(row, 'subCategory'), richtung, skr) || findeSkrKonto(wert(row, 'category'), richtung, skr);
+      if (gefunden) {
+        kontoTeil = kontoFelder(gefunden);
+        vatRate = gefunden.sub.vatRateDefault;
       } else {
-        vatRate = 0;
+        if (wert(row, 'subCategory')) warnings.push(`Konto „${wert(row, 'subCategory')}“ nicht im Kontenrahmen gefunden – bitte wählen.`);
+        const alt = partner ? kontoAusHistorie(partner, richtung, existingTransactions) : undefined;
+        const altKonto = alt?.skrAccount ? kontoNachNummer(alt.skrAccount, skr) : null;
+        if (alt && altKonto) {
+          kontoTeil = { ...kontoFelder(altKonto), department: alt.department };
+          vatRate = alt.vatRate ?? altKonto.sub.vatRateDefault;
+          if (!sphere) sphere = alt.sphere;
+          kontoVorschlag = true;
+        }
       }
     }
-
-    // 9. Notes
-    const notes = mapping.notes ? (row[mapping.notes] || '').trim() : '';
-
-    // 10. Duplicate Check against existing database transactions
-    let isDuplicate = false;
-    let existingTransactionId: string | undefined = undefined;
-
-    const duplicateMatch = existingTransactions.find(t => {
-      // Check date match and exact amount
-      const sameDate = t.date === date;
-      const sameAmount = Math.abs(t.amount - amount) < 0.009;
-      if (!sameDate || !sameAmount) return false;
-
-      // Check partner or document number or booking text similarity
-      const sameDocNum = docNum && t.documentNumber.toLowerCase() === docNum.toLowerCase();
-      const samePartner = partner && t.partner.toLowerCase() === partner.toLowerCase();
-      const sameText = bookingText && t.bookingText.toLowerCase() === bookingText.toLowerCase();
-
-      return sameDocNum || samePartner || sameText;
-    });
-
-    if (duplicateMatch) {
-      isDuplicate = true;
-      existingTransactionId = duplicateMatch.id;
-      warnings.push(`Mögliches Duplikat zu Beleg "${duplicateMatch.documentNumber}" (${duplicateMatch.date}, ${duplicateMatch.partner || duplicateMatch.bookingText})`);
+    // Umsatzsteuer aus einer eigenen Spalte geht vor
+    const rohUst = wert(row, 'vatRate').replace(/[^0-9]/g, '');
+    if (rohUst) {
+      const n = parseInt(rohUst, 10);
+      vatRate = n === 7 ? 7 : n === 19 ? 19 : 0;
     }
+
+    // 7. Belegnummer
+    let docNum = wert(row, 'documentNumber');
+    if (docNum && vorhandeneNr.has(docNum.toLowerCase())) {
+      warnings.push(`Belegnummer ${docNum} gibt es schon – es wird eine neue vergeben.`);
+      docNum = '';
+    }
+    if (!docNum) docNum = naechsteJahresNummer('BE', vergeben, Number(date.slice(0, 4)) || new Date().getFullYear());
+    vergeben.push(docNum);
+    vorhandeneNr.add(docNum.toLowerCase());
+
+    const notes = wert(row, 'notes');
 
     const createdTx: Transaction = {
       id,
@@ -688,26 +363,28 @@ export function convertRowsToTransactions(
       accountId,
       documentNumber: docNum,
       bookingText: bookingText || (partner ? `Zahlung ${partner}` : 'Importierte Buchung'),
-      partner: partner || 'Sonstiger Partner',
-      sphere,
-      category,
-      subCategory,
+      partner: partner || (txType === 'transfer' ? '' : 'Sonstiger Partner'),
+      sphere: sphere || defaultSphere,
+      category: '',
+      ...kontoTeil,
       vatRate,
       notes: notes ? `${notes} (Excel/Sheets Import)` : 'Importiert aus Excel / Google Sheets',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: jetzt,
+      updatedAt: jetzt
     };
 
-    return {
+    return pruefeImportZeile({
       id,
-      selected: !isDuplicate,
+      selected: true,
       raw: row,
-      hasWarnings: warnings.length > 0,
+      hasWarnings: false,
       warnings,
-      isDuplicate,
-      existingTransactionId,
-      transaction: createdTx
-    };
+      isDuplicate: false,
+      transaction: createdTx,
+      fehler: [],
+      rohDatum,
+      kontoVorschlag
+    }, existingTransactions, true);
   });
 }
 
@@ -724,8 +401,8 @@ export function generateSampleTransactionCSVTemplate(settings: ClubSettings, acc
     'Betrag (€)',
     'Buchungsart',
     'Steuerliche Sphäre',
-    'Hauptkategorie',
-    'Nebenkategorie (SKR 42)',
+    'Nummernkreis',
+    'SKR-Konto',
     'Konto',
     'MwSt-Satz (%)',
     'Notizen'
@@ -744,7 +421,7 @@ export function generateSampleTransactionCSVTemplate(settings: ClubSettings, acc
       'Einnahme',
       '1. Ideeller Bereich',
       'Echte Mitgliedsbeiträge & Aufnahmegebühren',
-      '3110 - Laufende Mitgliedsbeiträge',
+      '40000 - Echte Mitgliedsbeiträge (laufend)',
       primaryAcc,
       '0',
       'Beitragseinzug 1. Quartal'
@@ -758,7 +435,7 @@ export function generateSampleTransactionCSVTemplate(settings: ClubSettings, acc
       'Einnahme',
       '1. Ideeller Bereich',
       'Spenden, Schenkungen & Zuwendungen',
-      '3210 - Geldspenden (steuerbegünstigt)',
+      '40450 - Geldspenden (mit Zuwendungsbestätigung)',
       primaryAcc,
       '0',
       'Spendenbescheinigung ausgestellt'
@@ -772,7 +449,7 @@ export function generateSampleTransactionCSVTemplate(settings: ClubSettings, acc
       'Ausgabe',
       '1. Ideeller Bereich',
       'Satzungsgemäße Verbandsausgaben',
-      '5110 - Verbandsbeiträge Landessportbund',
+      '66100 - Verbandsabgaben & LSB-Beiträge',
       primaryAcc,
       '0',
       'Mitgliedschaftsbeitrag Verband'
@@ -786,7 +463,7 @@ export function generateSampleTransactionCSVTemplate(settings: ClubSettings, acc
       'Einnahme',
       '2. Vermögensverwaltung',
       'Zinserträge & Finanzanlagen',
-      '3510 - Zinserträge Bankguthaben',
+      '47000 - Zinserträge Bankkonten / Festgeld',
       primaryAcc,
       '0',
       'Zinsabrechnung Geschäftsjahr'
@@ -800,7 +477,7 @@ export function generateSampleTransactionCSVTemplate(settings: ClubSettings, acc
       'Einnahme',
       '3. Zweckbetrieb',
       'Sportliche Veranstaltungen & Wettkämpfe',
-      '4120 - Start- & Meldegelder',
+      '41300 - Melde- & Startgelder',
       primaryAcc,
       '0',
       '20 Kinder angemeldet'
@@ -814,7 +491,7 @@ export function generateSampleTransactionCSVTemplate(settings: ClubSettings, acc
       'Ausgabe',
       '3. Zweckbetrieb',
       'Sportbetrieb & Übungsleitervergütungen',
-      '6510 - Übungsleiterpauschalen (§ 3 Nr. 26 EStG)',
+      '60040 - Übungsleiterpauschale (§ 3 Nr. 26 EStG)',
       primaryAcc,
       '0',
       'Steuerfreie Aufwandsentschädigung Tennis'
@@ -828,7 +505,7 @@ export function generateSampleTransactionCSVTemplate(settings: ClubSettings, acc
       'Einnahme',
       '4. Wirtschaftlicher Geschäftsbetrieb',
       'Werbung, Sponsoring & Marketing',
-      '4510 - Banden- & Bannerwerbung',
+      '44100 - Bandenwerbung Sportplatz (19% USt)',
       primaryAcc,
       '19',
       'Rechnung #RE-2025-012 zzgl. 19% USt'
@@ -842,7 +519,7 @@ export function generateSampleTransactionCSVTemplate(settings: ClubSettings, acc
       'Einnahme',
       '4. Wirtschaftlicher Geschäftsbetrieb',
       'Bewirtung, Vereinsfeste & Basare',
-      '4620 - Einnahmen Kiosk & Vereinsheim',
+      '43150 - Verkauf Getränke Kiosk (19% USt)',
       cashAcc,
       '19',
       'Bargeld Kassensturz Kiosk'
@@ -856,7 +533,7 @@ export function generateSampleTransactionCSVTemplate(settings: ClubSettings, acc
       'Ausgabe',
       '4. Wirtschaftlicher Geschäftsbetrieb',
       'Wareneinkauf & Bewirtungsaufwand',
-      '7110 - Wareneinkauf Speisen & Getränke',
+      '51100 - Wareneinkauf Getränke (19% Vorsteuer)',
       cashAcc,
       '19',
       'Kassenbon #MB-48910 Vorsteuer 19%'

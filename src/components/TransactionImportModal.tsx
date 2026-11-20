@@ -6,9 +6,12 @@ import {
   convertRowsToTransactions,
   generateSampleTransactionCSVTemplate,
   TransactionColumnMapping,
-  ParsedTransactionRow
+  ParsedTransactionRow,
+  pruefeImportZeile
 } from '../services/transactionImportService';
-import { SKR42_STRUCTURE } from '../data/taxSpheres';
+import { useSkr42 } from '../hooks/useSkr42';
+import { kontoNachNummer, kontoFelder } from '../utils/importRegeln';
+import { SkrKontoAuswahl } from './SkrKontoAuswahl';
 import {
   X,
   Upload,
@@ -59,11 +62,15 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
   const [defaultType, setDefaultType] = useState<'auto' | 'income' | 'expense'>('auto');
   const [defaultSphere, setDefaultSphere] = useState<TaxSphere>('ideell');
   const [defaultVatRate, setDefaultVatRate] = useState<0 | 7 | 19>(0);
-  const [duplicateStrategy, setDuplicateStrategy] = useState<'update' | 'skip' | 'create_always'>('skip');
+  // „Bestehende Buchungen aktualisieren“ gab es nur als Auswahl, ohne Wirkung; entfernt (P17)
+  const [duplicateStrategy, setDuplicateStrategy] = useState<'skip' | 'create_always'>('skip');
+  const skr = useSkr42();
+  const [sammelKonto, setSammelKonto] = useState('');
+  const [sammelHinweis, setSammelHinweis] = useState<string | null>(null);
   
   // Step 3 preview state
   const [searchPreview, setSearchPreview] = useState('');
-  const [filterPreviewStatus, setFilterPreviewStatus] = useState<'all' | 'valid' | 'duplicates' | 'warnings'>('all');
+  const [filterPreviewStatus, setFilterPreviewStatus] = useState<'all' | 'valid' | 'duplicates' | 'warnings' | 'fehler'>('all');
   const [parsedList, setParsedList] = useState<ParsedTransactionRow[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -135,13 +142,15 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
       defaultAccountId,
       defaultSphere,
       defaultVatRate,
-      defaultType
+      defaultType,
+      skr
     );
 
-    // Apply duplicate strategy
-    if (duplicateStrategy === 'skip') {
+    // Duplikate sind abgewählt (D-65); auf Wunsch doch alle neu anlegen.
+    // Zeilen mit Fehler bleiben in jedem Fall abgewählt.
+    if (duplicateStrategy === 'create_always') {
       converted.forEach(c => {
-        if (c.isDuplicate) c.selected = false;
+        if (c.isDuplicate && c.fehler.length === 0) c.selected = true;
       });
     }
 
@@ -149,96 +158,79 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
     setStep(3);
   };
 
-  // Toggle selection in preview
+  // Auswahl in der Vorschau; Zeilen mit Fehler erst nach der Berichtigung
   const toggleRow = (id: string) => {
-    setParsedList(prev => prev.map(item => (item.id === id ? { ...item, selected: !item.selected } : item)));
+    setParsedList(prev => prev.map(item => (item.id === id && item.fehler.length === 0 ? { ...item, selected: !item.selected } : item)));
   };
 
   const toggleSelectAll = (select: boolean) => {
-    setParsedList(prev => prev.map(item => ({ ...item, selected: select })));
+    setParsedList(prev => prev.map(item => ({ ...item, selected: select && item.fehler.length === 0 })));
   };
 
-  // Inline edits in preview table
-  //
-  // Sphäre und Kontierung sind seit der DATEV-SKR42-Umstellung unabhängig
-  // voneinander (siehe Hinweis bei Skr42MainCategory in src/types.ts) — ein
-  // Sphärenwechsel ändert Nummernkreis/Konto darum nicht mehr mit.
+  // Änderungen in der Vorschau. Sphäre und Konto sind unabhängig voneinander
+  // (siehe Hinweis bei Skr42MainCategory in src/types.ts). Nach jeder Änderung
+  // wird die Zeile neu geprüft (Fehler, Duplikat).
+  const aendereZeile = (id: string, aendern: (t: Transaction) => Transaction, auswahlNeu = false) => {
+    setParsedList(prev => prev.map(item => {
+      if (item.id !== id) return item;
+      const vorher = item.fehler.length > 0;
+      return pruefeImportZeile({ ...item, transaction: aendern(item.transaction), kontoVorschlag: false }, existingTransactions, auswahlNeu || vorher);
+    }));
+  };
+
   const updateRowSphere = (id: string, newSphere: TaxSphere) => {
-    setParsedList(prev => prev.map(item => {
-      if (item.id !== id) return item;
-      return {
-        ...item,
-        transaction: {
-          ...item.transaction,
-          sphere: newSphere
-        }
-      };
-    }));
+    aendereZeile(id, t => ({ ...t, sphere: newSphere }));
   };
 
-  const updateRowCategory = (id: string, newCategory: string) => {
-    setParsedList(prev => prev.map(item => {
-      if (item.id !== id) return item;
-      const isIncome = item.transaction.amount >= 0;
-      const mainCat = SKR42_STRUCTURE.find(c => c.name === newCategory && c.type === (isIncome ? 'income' : 'expense'));
-      const defaultSub = mainCat?.subCategories[0]?.label || '';
-      return {
-        ...item,
-        transaction: {
-          ...item.transaction,
-          category: newCategory,
-          subCategory: defaultSub
-        }
-      };
-    }));
+  // Datum berichtigen (D-67)
+  const updateRowDate = (id: string, date: string) => {
+    aendereZeile(id, t => ({ ...t, date }));
   };
 
-  const updateRowSubCategory = (id: string, newSubCategory: string) => {
-    setParsedList(prev => prev.map(item => {
-      if (item.id !== id) return item;
-      return {
-        ...item,
-        transaction: {
-          ...item.transaction,
-          subCategory: newSubCategory
-        }
-      };
-    }));
+  // Konto des Kontenrahmens mit seiner Umsatzsteuer (D-69)
+  const updateRowKonto = (id: string, code: string) => {
+    const k = kontoNachNummer(code, skr);
+    aendereZeile(id, t => k
+      ? { ...t, ...kontoFelder(k) }
+      : { ...t, mainCategory: '', subCategory: '', category: '', skrAccount: '' });
   };
 
   const updateRowAccount = (id: string, newAccountId: string) => {
-    setParsedList(prev => prev.map(item => {
-      if (item.id !== id) return item;
-      return {
-        ...item,
-        transaction: {
-          ...item.transaction,
-          accountId: newAccountId
-        }
-      };
-    }));
+    aendereZeile(id, t => ({ ...t, accountId: newAccountId }));
   };
 
+  // Artwechsel: Vorzeichen anpassen; ein Konto der anderen Richtung entfällt
   const updateRowType = (id: string, newType: 'income' | 'expense' | 'transfer') => {
-    setParsedList(prev => prev.map(item => {
-      if (item.id !== id) return item;
-      const absAmount = Math.abs(item.transaction.amount);
-      const newAmount = newType === 'expense' ? -absAmount : absAmount;
-      const isIncome = newAmount >= 0;
-      const availableMain = SKR42_STRUCTURE.filter(c => c.type === (isIncome ? 'income' : 'expense'));
-      const defaultMain = availableMain[0]?.name || item.transaction.category;
-      const defaultSub = availableMain[0]?.subCategories[0]?.label || item.transaction.subCategory || '';
+    aendereZeile(id, t => {
+      const absAmount = Math.abs(t.amount);
+      const k = t.skrAccount ? kontoNachNummer(t.skrAccount, skr) : null;
+      const passt = !!k && newType !== 'transfer' && k.main.type === newType;
       return {
-        ...item,
-        transaction: {
-          ...item.transaction,
-          type: newType,
-          amount: newAmount,
-          category: defaultMain,
-          subCategory: defaultSub
-        }
+        ...t,
+        type: newType,
+        amount: newType === 'expense' ? -absAmount : absAmount,
+        ...(passt ? {} : { mainCategory: '', subCategory: '', category: '', skrAccount: '' })
       };
-    }));
+    });
+  };
+
+  // Ein Konto für alle angehakten Zeilen derselben Richtung
+  const setzeSammelKonto = () => {
+    const k = kontoNachNummer(sammelKonto, skr);
+    if (!k) return;
+    let gesetzt = 0;
+    let andere = 0;
+    const neu = parsedList.map(item => {
+      if (!item.selected) return item;
+      if (item.transaction.type !== k.main.type) { andere++; return item; }
+      gesetzt++;
+      return pruefeImportZeile({ ...item, transaction: { ...item.transaction, ...kontoFelder(k) }, kontoVorschlag: false }, existingTransactions);
+    });
+    setParsedList(neu);
+    setSammelHinweis(
+      `Konto ${k.sub.code} auf ${gesetzt} Zeile(n) gesetzt.` +
+      (andere > 0 ? ` ${andere} angehakte Zeile(n) haben eine andere Art und blieben unverändert.` : '')
+    );
   };
 
   // Filtered preview rows based on search and status filter
@@ -246,7 +238,8 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
     return parsedList.filter(item => {
       if (filterPreviewStatus === 'duplicates' && !item.isDuplicate) return false;
       if (filterPreviewStatus === 'warnings' && !item.hasWarnings) return false;
-      if (filterPreviewStatus === 'valid' && (item.isDuplicate || item.hasWarnings)) return false;
+      if (filterPreviewStatus === 'valid' && (item.isDuplicate || item.hasWarnings || item.fehler.length > 0)) return false;
+      if (filterPreviewStatus === 'fehler' && item.fehler.length === 0) return false;
 
       if (!searchPreview.trim()) return true;
       const q = searchPreview.toLowerCase();
@@ -262,7 +255,8 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
   }, [parsedList, searchPreview, filterPreviewStatus]);
 
   // Selected stats
-  const selectedRows = useMemo(() => parsedList.filter(p => p.selected), [parsedList]);
+  const selectedRows = useMemo(() => parsedList.filter(p => p.selected && p.fehler.length === 0), [parsedList]);
+  const fehlerAnzahl = parsedList.filter(p => p.fehler.length > 0).length;
 
   const previewStats = useMemo(() => {
     let incomeSum = 0;
@@ -276,7 +270,8 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
 
     selectedRows.forEach(row => {
       const amt = row.transaction.amount;
-      if (amt >= 0) incomeSum += amt;
+      if (row.transaction.type === 'transfer') return; // Umbuchungen sind weder Einnahme noch Ausgabe
+      if (row.transaction.type === 'income') incomeSum += Math.abs(amt);
       else expenseSum += Math.abs(amt);
       sphereCounts[row.transaction.sphere]++;
     });
@@ -297,7 +292,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
       return;
     }
 
-    const transactionsToImport = selectedRows.map(r => r.transaction);
+    const transactionsToImport = selectedRows.filter(r => r.transaction.date).map(r => r.transaction);
     onImport(transactionsToImport);
     onClose();
   };
@@ -530,7 +525,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   <ul className="list-disc pl-4 space-y-0.5 text-slate-600 dark:text-slate-300">
                     <li><b>Google Sheets:</b> Datei $\rightarrow$ Herunterladen $\rightarrow$ Kommagetrennte Werte (.csv) oder einfach Zeilen markieren und kopieren.</li>
                     <li><b>Microsoft Excel:</b> Speichern unter $\rightarrow$ CSV (Trennzeichen-getrennt) (*.csv).</li>
-                    <li><b>SKR 42 Erkennung:</b> Die Spalten für Sphäre, Haupt- und Nebenkategorie werden automatisch analysiert und mit dem Standardkontenrahmen verknüpft.</li>
+                    <li><b>SKR 42:</b> Eine Kontonummer (z. B. 40000) wird übernommen, die Umsatzsteuer kommt aus dem Konto. Ohne Nummer schlägt die App das Konto der letzten Buchung desselben Partners vor; in der Vorschau lässt es sich je Zeile oder für mehrere Zeilen zugleich wählen.</li>
                   </ul>
                 </div>
               </div>
@@ -667,9 +662,8 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                     >
                       <option value="skip">Duplikate abwählen (empfohlen)</option>
                       <option value="create_always">Alle als neu importieren</option>
-                      <option value="update">Bestehende Buchungen aktualisieren</option>
                     </select>
-                    <span className="text-[11px] text-slate-500 mt-1 block dark:text-slate-400">Gleiches Datum + Betrag + Text</span>
+                    <span className="text-[11px] text-slate-500 mt-1 block dark:text-slate-400">Gleiches Datum und Betrag, dazu gleiche Belegnummer, gleicher Partner oder gleicher Text</span>
                   </div>
                 </div>
               </div>
@@ -822,7 +816,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   {/* Field 7: Main Category */}
                   <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 dark:bg-slate-800 dark:border-slate-800">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100">Hauptkategorie</label>
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100">Nummernkreis / Kontoname</label>
                       <span className="text-[10px] text-slate-400">Optional</span>
                     </div>
                     <select
@@ -835,13 +829,13 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                         <option key={h} value={h}>{h} {rawRows[0]?.[h] ? `("${rawRows[0][h]}")` : ''}</option>
                       ))}
                     </select>
-                    <p className="text-[11px] text-slate-400">z.B. Mitgliedsbeiträge, Spenden, Kiosk</p>
+                    <p className="text-[11px] text-slate-400">Nur genutzt, wenn keine SKR-Nummer da ist (genauer Kontoname)</p>
                   </div>
 
                   {/* Field 8: Sub Category (SKR 42 Konto) */}
                   <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 dark:bg-slate-800 dark:border-slate-800">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100">Nebenkategorie / SKR42 Konto</label>
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-100">SKR-42-Konto</label>
                       <span className="text-[10px] text-slate-400">Optional</span>
                     </div>
                     <select
@@ -854,7 +848,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                         <option key={h} value={h}>{h} {rawRows[0]?.[h] ? `("${rawRows[0][h]}")` : ''}</option>
                       ))}
                     </select>
-                    <p className="text-[11px] text-slate-400">z.B. 3110, 3210, 6510, 4510</p>
+                    <p className="text-[11px] text-slate-400">Kontonummer, z. B. 40000, 40450, 43150 (sonst Vorschlag aus früheren Buchungen)</p>
                   </div>
 
                   {/* Field 9: Account */}
@@ -1015,7 +1009,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                         : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40'
                     }`}
                   >
-                    Gültig ({parsedList.filter(p => !p.isDuplicate && !p.hasWarnings).length})
+                    Gültig ({parsedList.filter(p => !p.isDuplicate && !p.hasWarnings && p.fehler.length === 0).length})
                   </button>
 
                   <button
@@ -1041,6 +1035,18 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   >
                     Hinweise ({parsedList.filter(p => p.hasWarnings).length})
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterPreviewStatus('fehler')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      filterPreviewStatus === 'fehler'
+                        ? 'bg-rose-700 text-white'
+                        : 'bg-rose-100 text-rose-900 hover:bg-rose-200 dark:bg-rose-950/60 dark:text-rose-200 dark:hover:bg-rose-900/60'
+                    }`}
+                  >
+                    Fehler ({fehlerAnzahl})
+                  </button>
                 </div>
 
                 {/* Bulk selection toggle */}
@@ -1063,6 +1069,32 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                 </div>
               </div>
 
+              {/* Konto für mehrere Zeilen zugleich (D-69) */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 flex flex-wrap items-center gap-2 text-xs dark:bg-slate-900 dark:border-slate-800">
+                <span className="font-semibold text-slate-700 dark:text-slate-200">Konto (SKR 42) für alle angehakten Zeilen:</span>
+                <SkrKontoAuswahl
+                  value={sammelKonto}
+                  skr={skr}
+                  onChange={code => { setSammelKonto(code); setSammelHinweis(null); }}
+                  leerText="– Konto wählen –"
+                  className="px-2 py-1 border border-slate-200 rounded-md text-xs bg-white max-w-xs dark:bg-slate-800 dark:border-slate-800"
+                />
+                <button
+                  type="button"
+                  disabled={!sammelKonto}
+                  onClick={setzeSammelKonto}
+                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold"
+                >
+                  Setzen
+                </button>
+                {sammelHinweis && <span className="text-slate-600 dark:text-slate-300">{sammelHinweis}</span>}
+                {fehlerAnzahl > 0 && (
+                  <span className="text-rose-700 font-semibold dark:text-rose-300">
+                    {fehlerAnzahl} Zeile(n) mit Fehler werden erst nach der Berichtigung übernommen.
+                  </span>
+                )}
+              </div>
+
               {/* Interactive Preview Table */}
               <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden dark:bg-slate-900 dark:border-slate-800">
                 <div className="overflow-x-auto max-h-[480px]">
@@ -1072,7 +1104,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                         <th className="p-3 w-10 text-center">
                           <input
                             type="checkbox"
-                            checked={selectedRows.length > 0 && selectedRows.length === parsedList.length}
+                            checked={selectedRows.length > 0 && selectedRows.length === parsedList.length - fehlerAnzahl}
                             onChange={(e) => toggleSelectAll(e.target.checked)}
                             className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer dark:border-slate-700 dark:text-emerald-400"
                           />
@@ -1083,8 +1115,8 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                         <th className="p-3">Partner / Buchungstext</th>
                         <th className="p-3">Art</th>
                         <th className="p-3 text-right">Betrag (€)</th>
-                        <th className="p-3">Sphäre (SKR 42)</th>
-                        <th className="p-3">Nummernkreis & Konto</th>
+                        <th className="p-3">Sphäre</th>
+                        <th className="p-3">Konto (SKR 42)</th>
                         <th className="p-3">Finanzkonto</th>
                       </tr>
                     </thead>
@@ -1098,9 +1130,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                       ) : (
                         filteredPreview.map((item) => {
                           const tx = item.transaction;
-                          const isIncome = tx.amount >= 0;
-                          const availableMain = SKR42_STRUCTURE.filter(c => c.type === (isIncome ? 'income' : 'expense'));
-                          const selectedMain = availableMain.find(c => c.name === tx.category) || availableMain[0];
+                          const isIncome = tx.type !== 'expense';
 
                           return (
                             <tr
@@ -1118,6 +1148,8 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                                 <input
                                   type="checkbox"
                                   checked={item.selected}
+                                  disabled={item.fehler.length > 0}
+                                  title={item.fehler.length > 0 ? 'Erst den Fehler berichtigen' : undefined}
                                   onChange={() => toggleRow(item.id)}
                                   className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer dark:border-slate-700 dark:text-emerald-400"
                                 />
@@ -1125,7 +1157,15 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
 
                               {/* Status Badge */}
                               <td className="p-3 whitespace-nowrap">
-                                {item.isDuplicate ? (
+                                {item.fehler.length > 0 ? (
+                                  <span
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-bold bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-900/40 dark:text-rose-200 dark:border-rose-800/60"
+                                    title={[...item.fehler, ...item.warnings].join('; ')}
+                                  >
+                                    <AlertCircle className="w-3 h-3" />
+                                    Fehler
+                                  </span>
+                                ) : item.isDuplicate ? (
                                   <span
                                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-bold bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800/60"
                                     title={item.warnings.join('; ')}
@@ -1150,8 +1190,13 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                               </td>
 
                               {/* Date */}
-                              <td className="p-3 whitespace-nowrap font-mono text-slate-800 dark:text-slate-100">
-                                {tx.date.split('-').reverse().join('.')}
+                              <td className="p-3 whitespace-nowrap">
+                                <input
+                                  type="date"
+                                  value={tx.date}
+                                  onChange={(e) => updateRowDate(item.id, e.target.value)}
+                                  className={`text-xs font-mono px-1.5 py-1 border rounded-md bg-white dark:bg-slate-800 ${tx.date ? 'border-slate-200 dark:border-slate-800' : 'border-rose-500'}`}
+                                />
                               </td>
 
                               {/* Document Number */}
@@ -1167,6 +1212,12 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                                 <div className="text-[11px] text-slate-500 truncate dark:text-slate-400" title={tx.bookingText}>
                                   {tx.bookingText}
                                 </div>
+                                {item.fehler.map(f => (
+                                  <div key={f} className="text-[11px] text-rose-600 font-semibold whitespace-normal dark:text-rose-400">{f}</div>
+                                ))}
+                                {item.warnings.map(w => (
+                                  <div key={w} className="text-[11px] text-amber-700 whitespace-normal dark:text-amber-300">{w}</div>
+                                ))}
                               </td>
 
                               {/* Transaction Type Selector / Toggle */}
@@ -1214,31 +1265,24 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                                 </select>
                               </td>
 
-                              {/* Category & SubCategory */}
-                              <td className="p-3 max-w-[220px]">
-                                <div className="space-y-1">
-                                  <select
-                                    value={tx.category}
-                                    onChange={(e) => updateRowCategory(item.id, e.target.value)}
-                                    className="w-full text-[11px] px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-800 truncate focus:outline-none dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
-                                  >
-                                    {availableMain.map(m => (
-                                      <option key={m.id} value={m.name}>{m.name}</option>
-                                    ))}
-                                  </select>
-
-                                  {selectedMain?.subCategories && selectedMain.subCategories.length > 0 && (
-                                    <select
-                                      value={tx.subCategory || ''}
-                                      onChange={(e) => updateRowSubCategory(item.id, e.target.value)}
-                                      className="w-full text-[10px] font-mono px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-slate-600 truncate focus:outline-none dark:bg-slate-800 dark:border-slate-800 dark:text-slate-300"
-                                    >
-                                      {selectedMain.subCategories.map(s => (
-                                        <option key={s.code} value={s.label}>{s.label}</option>
-                                      ))}
-                                    </select>
-                                  )}
-                                </div>
+                              {/* Konto des Kontenrahmens (D-69) */}
+                              <td className="p-3 max-w-[240px]">
+                                {tx.type === 'transfer' ? (
+                                  <span className="text-[11px] text-slate-400">Umbuchung – kein Konto</span>
+                                ) : (
+                                  <>
+                                    <SkrKontoAuswahl
+                                      value={tx.skrAccount || ''}
+                                      typ={tx.type}
+                                      skr={skr}
+                                      onChange={(code) => updateRowKonto(item.id, code)}
+                                      className={`w-full text-[11px] px-1.5 py-0.5 bg-white border rounded text-slate-800 focus:outline-none dark:bg-slate-800 dark:text-slate-100 ${tx.skrAccount ? 'border-slate-200 dark:border-slate-800' : 'border-amber-400'}`}
+                                    />
+                                    <div className="text-[10px] text-slate-500 mt-0.5 dark:text-slate-400">
+                                      USt {tx.vatRate} %{item.kontoVorschlag ? ' · aus früherer Buchung' : ''}
+                                    </div>
+                                  </>
+                                )}
                               </td>
 
                               {/* Account */}

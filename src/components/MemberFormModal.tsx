@@ -1204,7 +1204,29 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
                           })}
                           className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800"
                           placeholder="z.B. Maximilian Müller"
+                          list="kontoinhaber-vorschlag"
                         />
+                        {/* Vorschlag beim Tippen bzw. Anklicken des Feldes (T-128) */}
+                        <datalist id="kontoinhaber-vorschlag">
+                          {`${formData.firstName} ${formData.lastName}`.trim() && (
+                            <option value={`${formData.firstName} ${formData.lastName}`.trim()} />
+                          )}
+                        </datalist>
+                        {`${formData.firstName} ${formData.lastName}`.trim() &&
+                          formData.bankDetails.accountHolder.trim() !== `${formData.firstName} ${formData.lastName}`.trim() && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const name = `${formData.firstName} ${formData.lastName}`.trim();
+                                // Danach folgt das Feld wieder dem Namen
+                                autoKontoinhaber.current = name;
+                                setFormData(prev => ({ ...prev, bankDetails: { ...prev.bankDetails, accountHolder: name } }));
+                              }}
+                              className="mt-1 text-[11px] text-blue-600 hover:underline dark:text-blue-400"
+                            >
+                              Vorschlag übernehmen: {`${formData.firstName} ${formData.lastName}`.trim()}
+                            </button>
+                          )}
                         {errors.accountHolder && <p className="text-xs text-rose-600 mt-1 dark:text-rose-400">{errors.accountHolder}</p>}
                       </div>
 

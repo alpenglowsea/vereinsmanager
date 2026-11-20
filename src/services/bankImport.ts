@@ -1,6 +1,11 @@
 import { naechsteJahresNummer } from '../utils/nummern';
 import Papa from 'papaparse';
-import { Transaction, TaxSphere } from '../types';
+import { Transaction, TaxSphere, Skr42MainCategory } from '../types';
+import { getSkr42Snapshot } from '../data/skr42Store';
+import {
+  ordneSpaltenZu, leseDatum, leseBetrag, findeDuplikat, duplikatText,
+  kontoAusHistorie, kontoNachNummer, kontoFelder, SpaltenRegel
+} from '../utils/importRegeln';
 
 export interface ParsedBankRow {
   id: string;
@@ -12,6 +17,45 @@ export interface ParsedBankRow {
   suggestedSphere: TaxSphere;
   suggestedCategory: string;
   selected: boolean;
+  /** Datum so, wie es in der Datei stand (für die Fehlermeldung). */
+  rohDatum?: string;
+  /** Fehler, die den Import der Zeile verhindern (z. B. unlesbares Datum, D-67). */
+  fehler?: string[];
+  /** Hinweise, die den Import nicht verhindern. */
+  hinweise?: string[];
+  /** Beschreibung der vorhandenen Buchung, der diese Zeile gleicht (D-65). */
+  duplikat?: string;
+  /** Gewähltes Konto des Kontenrahmens (SKR 42), leer = keins (D-69). */
+  skrAccount?: string;
+  /** Das Konto wurde aus einer früheren Buchung desselben Partners vorgeschlagen. */
+  kontoVorschlag?: boolean;
+}
+
+type BankFeld = 'date' | 'amount' | 'partner' | 'text' | 'iban';
+
+/** Spalten der Bank-CSV: genaue Namen zuerst; „name“ nur als ganze Überschrift (D-68). */
+const BANK_SPALTEN: SpaltenRegel<BankFeld>[] = [
+  { feld: 'date', genau: ['buchungstag', 'buchungsdatum', 'datum', 'valutadatum', 'valuta', 'wertstellung', 'date', 'tag'], teil: ['buchungstag', 'buchungsdatum', 'datum', 'valuta'] },
+  { feld: 'amount', genau: ['betrag', 'betrageur', 'betragineur', 'umsatz', 'amount', 'umsatzineur'], teil: ['betrag', 'umsatz', 'amount'] },
+  { feld: 'partner', genau: ['beguenstigterzahlungspflichtiger', 'namezahlungsbeteiligter', 'beguenstigter', 'zahlungsempfaenger', 'zahlungspflichtiger', 'auftraggeber', 'empfaenger', 'zahlungspartner', 'partner', 'absender', 'name'], teil: ['beguenstigter', 'zahlungspflichtiger', 'zahlungsempfaenger', 'empfaenger', 'auftraggeber', 'zahlungspartner', 'absender'] },
+  { feld: 'text', genau: ['verwendungszweck', 'buchungstext', 'text', 'beschreibung', 'notiz'], teil: ['verwendungszweck', 'buchungstext', 'beschreibung'] },
+  { feld: 'iban', genau: ['iban', 'kontonummeriban', 'kontonummer', 'ibanzahlungsbeteiligter'], teil: ['iban'] }
+];
+
+/**
+ * Prüft eine Zeile (nach dem Einlesen und nach jeder Änderung in der
+ * Vorschau): Fehler, Doppelbuchung, Auswahl. Zeilen mit Fehler oder
+ * möglichem Duplikat sind abgewählt.
+ */
+export function pruefeBankZeile(r: ParsedBankRow, vorhandene: Transaction[], auswahlSetzen = false): ParsedBankRow {
+  const fehler: string[] = [];
+  if (!r.date) fehler.push(r.rohDatum ? `Datum „${r.rohDatum}“ nicht lesbar – bitte in der Vorschau eintragen.` : 'Datum fehlt – bitte in der Vorschau eintragen.');
+  if (!r.amount) fehler.push('Betrag fehlt, ist 0 oder nicht lesbar.');
+  const dup = r.date ? findeDuplikat({ date: r.date, amount: r.amount, type: r.amount < 0 ? 'expense' : 'income', partner: r.partner, bookingText: r.bookingText }, vorhandene) : undefined;
+  const neu: ParsedBankRow = { ...r, fehler, duplikat: dup ? duplikatText(dup) : undefined };
+  if (fehler.length > 0) neu.selected = false;
+  else if (auswahlSetzen) neu.selected = !dup;
+  return neu;
 }
 
 export const BankImportService = {
@@ -83,45 +127,12 @@ export const BankImportService = {
     }
   },
 
-  // Parse German date (DD.MM.YYYY or YYYY-MM-DD)
-  parseDate(dateStr: string): string {
-    if (!dateStr) return new Date().toISOString().split('T')[0];
-    const trimmed = dateStr.trim();
-    if (trimmed.includes('.')) {
-      const parts = trimmed.split('.');
-      if (parts.length === 3) {
-        const day = parts[0].padStart(2, '0');
-        const month = parts[1].padStart(2, '0');
-        let year = parts[2];
-        if (year.length === 2) year = '20' + year;
-        return `${year}-${month}-${day}`;
-      }
-    }
-    if (trimmed.includes('-')) {
-      return trimmed.substring(0, 10);
-    }
-    return new Date().toISOString().split('T')[0];
-  },
-
-  // Parse German number (e.g. "1.250,50" or "-45,00" or "45.00")
-  parseGermanNumber(numStr: string | number): number {
-    if (typeof numStr === 'number') return numStr;
-    if (!numStr) return 0;
-    let s = String(numStr).trim().replace(/\s/g, '').replace(/€/g, '');
-    
-    // Check if it's German format with thousand dot and decimal comma
-    if (s.includes(',') && s.includes('.')) {
-      s = s.replace(/\./g, '').replace(',', '.');
-    } else if (s.includes(',')) {
-      s = s.replace(',', '.');
-    }
-    
-    const parsed = parseFloat(s);
-    return isNaN(parsed) ? 0 : parsed;
-  },
+  // Datum und Betrag liest seit P17 `src/utils/importRegeln.ts` (leseDatum,
+  // leseBetrag). Die alten Funktionen setzten ein unlesbares Datum still auf
+  // „heute“ und lasen „1.250“ als 1,25 €.
 
   // Parse generic German Bank CSV (Sparkasse, Volksbank, VR-NetWorld, Postbank, Commerzbank, etc.)
-  parseBankCSV(fileContent: string): Promise<ParsedBankRow[]> {
+  parseBankCSV(fileContent: string, vorhandene: Transaction[] = []): Promise<ParsedBankRow[]> {
     return new Promise((resolve, reject) => {
       Papa.parse(fileContent, {
         header: true,
@@ -135,47 +146,58 @@ export const BankImportService = {
               return;
             }
 
-            // Detect headers
-            const sample = rows[0];
-            const keys = Object.keys(sample);
-
-            // Find matching column names
-            const dateKey = keys.find(k => /buchungstag|datum|valutadatum|tag|date|buchungsdatum/i.test(k)) || keys[0];
-            const amountKey = keys.find(k => /betrag|umsatz|betrag in eur|amount/i.test(k));
-            const partnerKey = keys.find(k => /beguenstigter|begünstigter|zahlungsempfänger|auftraggeber|name|partner|absender/i.test(k));
-            const textKey = keys.find(k => /verwendungszweck|buchungstext|notiz|text|verwendungszweckzeile/i.test(k));
-            const ibanKey = keys.find(k => /iban|kontonummer/i.test(k));
+            // Spalten zuordnen (D-68): genaue Überschriften zuerst, jede Spalte nur einmal
+            const keys = Object.keys(rows[0]);
+            const spalten = ordneSpaltenZu(keys, BANK_SPALTEN);
+            const dateKey = spalten.date;
+            const amountKey = spalten.amount;
+            const partnerKey = spalten.partner;
+            const textKey = spalten.text;
+            const ibanKey = spalten.iban;
+            const skr = getSkr42Snapshot();
 
             const parsedRows: ParsedBankRow[] = [];
 
             rows.forEach((row, idx) => {
-              const rawDate = row[dateKey] || '';
-              const rawAmount = amountKey ? row[amountKey] : '0';
+              const rawDate = (dateKey ? row[dateKey] : '') || '';
+              const rawAmount = (amountKey ? row[amountKey] : '') || '';
               const rawPartner = partnerKey ? row[partnerKey] : '';
               const rawText = textKey ? row[textKey] : '';
               const rawIban = ibanKey ? row[ibanKey] : '';
 
-              if (!rawDate && !rawAmount) return;
+              if (!rawDate.trim() && !rawAmount.trim()) return;
 
-              const date = BankImportService.parseDate(rawDate);
-              const amount = BankImportService.parseGermanNumber(rawAmount);
+              // Unlesbares Datum bleibt leer und wird zur Fehlerzeile (D-67)
+              const date = leseDatum(rawDate) || '';
+              const zahl = leseBetrag(rawAmount);
+              const amount = zahl ? zahl.wert : 0;
+              const hinweise: string[] = [];
+              if (zahl?.mehrdeutig) hinweise.push(`Betrag „${rawAmount.trim()}“ als ${amount.toLocaleString('de-DE', { minimumFractionDigits: 2 })} € gelesen (Tausenderpunkt) – bitte prüfen.`);
               const partner = (rawPartner || 'Unbekannter Partner').trim();
               const bookingText = (rawText || (partner !== 'Unbekannter Partner' ? partner : 'Banküberweisung')).trim();
 
               const combinedText = `${partner} ${bookingText}`;
               const { sphere, category } = BankImportService.guessSphereAndCategory(combinedText, amount);
 
-              parsedRows.push({
+              // Konto aus früheren Buchungen desselben Partners (D-69)
+              const alt = rawPartner ? kontoAusHistorie(rawPartner, amount < 0 ? 'expense' : 'income', vorhandene) : undefined;
+              const altKonto = alt?.skrAccount ? kontoNachNummer(alt.skrAccount, skr) : null;
+
+              parsedRows.push(pruefeBankZeile({
                 id: `bank-row-${idx}-${Date.now()}`,
                 date,
+                rohDatum: rawDate.trim(),
                 amount,
                 partner,
                 bookingText,
                 iban: rawIban,
-                suggestedSphere: sphere,
-                suggestedCategory: category,
+                suggestedSphere: altKonto && alt ? alt.sphere : sphere,
+                suggestedCategory: altKonto ? altKonto.sub.label : category,
+                skrAccount: altKonto ? altKonto.sub.code : '',
+                kontoVorschlag: !!altKonto,
+                hinweise,
                 selected: true
-              });
+              }, vorhandene, true));
             });
 
             resolve(parsedRows);
@@ -192,16 +214,23 @@ export const BankImportService = {
   convertToTransactions(
     rows: ParsedBankRow[],
     accountId: string,
-    vorhandeneBelegnummern: Array<string | null | undefined> = []
+    vorhandeneBelegnummern: Array<string | null | undefined> = [],
+    skr: readonly Skr42MainCategory[] = getSkr42Snapshot()
   ): Transaction[] {
     // Belegnummern BK-<Jahr>-<n>: höchste vorhandene des Jahres plus eins.
     // Vorher begann jeder Import wieder bei 1 und vergab dieselben Nummern
     // erneut (D-66).
     const vergeben: Array<string | null | undefined> = [...vorhandeneBelegnummern];
-    return rows.filter(r => r.selected).map((r, i) => {
-      const docNum = naechsteJahresNummer('BK', vergeben);
+    // Zeilen mit Fehler werden nie übernommen, auch wenn sie angehakt wären
+    return rows.filter(r => r.selected && !(r.fehler && r.fehler.length > 0) && r.date).map((r, i) => {
+      // Nummer im Jahr der Buchung, nicht im laufenden Jahr
+      const docNum = naechsteJahresNummer('BK', vergeben, Number(r.date.slice(0, 4)) || new Date().getFullYear());
       vergeben.push(docNum);
       const isIncome = r.amount >= 0;
+      // Konto des Kontenrahmens mit seiner Umsatzsteuer (D-69); ohne Konto 0 %
+      // statt pauschal nach Sphäre
+      const konto = r.skrAccount ? kontoNachNummer(r.skrAccount, skr) : null;
+      const kontoTeil = konto ? kontoFelder(konto) : { category: r.suggestedCategory, vatRate: 0 as const };
 
       return {
         id: `tx-import-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
@@ -213,8 +242,7 @@ export const BankImportService = {
         bookingText: r.bookingText,
         partner: r.partner,
         sphere: r.suggestedSphere,
-        category: r.suggestedCategory,
-        vatRate: r.suggestedSphere === 'wirtschaftlich' ? 19 : r.suggestedSphere === 'zweckbetrieb' ? 7 : 0,
+        ...kontoTeil,
         notes: `Importiert aus Bankauszug. IBAN: ${r.iban || '–'}`,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()

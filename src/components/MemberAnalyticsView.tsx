@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { prozente } from '../utils/mitgliedRegeln';
 import { Member, ClubSettings } from '../types';
 import {
   Users,
@@ -431,6 +432,14 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
     ...monthlyBreakdown.map((m) => Math.max(m.entries, m.exits)),
     1
   );
+
+
+  // Prozente so runden, dass sie zusammen 100 ergeben (T-131; einzeln
+  // gerundet kamen z. B. 101 % heraus). Reihenfolge wie in den Kacheln.
+  const deptProzente = prozente(deptList.map(([, c]) => c), total);
+  const typProzente = prozente(Object.values(typeMap).map(i => i.count), members.length);
+  const altersProzente = prozente(Object.values(ageGroups).map(g => g.count), ageFilteredTotal);
+  const zahlartProzente = prozente(Object.values(paymentMap).map(i => i.count), total);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -985,8 +994,8 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
           </div>
 
           <div className="space-y-3.5">
-            {deptList.map(([dept, count]) => {
-              const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+            {deptList.map(([dept, count], idx) => {
+              const pct = deptProzente[idx];
               const fee = deptFeeMap[dept] || 0;
               return (
                 <div key={dept} className="space-y-1">
@@ -1121,8 +1130,8 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
 
             {/* Age Group Bars */}
             <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-              {Object.entries(ageGroups).map(([key, group]) => {
-                const pct = ageFilteredTotal > 0 ? Math.round((group.count / ageFilteredTotal) * 100) : 0;
+              {Object.entries(ageGroups).map(([key, group], idx) => {
+                const pct = altersProzente[idx];
                 return (
                   <div key={key} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
@@ -1157,11 +1166,11 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {Object.entries(typeMap).map(([key, item]) => {
+            {Object.entries(typeMap).map(([key, item], idx) => {
               // Die Kachel zählt alle Mitglieder (auch Ausgetretene), also auch
               // auf alle beziehen; vorher teilte sie durch die aktuellen und kam
               // zusammen über 100 % (D-26, wie Android)
-              const pct = members.length > 0 ? Math.round((item.count / members.length) * 100) : 0;
+              const pct = typProzente[idx];
               return (
                 <div key={key} className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg dark:bg-slate-800 dark:border-slate-800">
                   <div className="text-xs text-slate-500 font-medium truncate dark:text-slate-400">{item.label}</div>
@@ -1193,8 +1202,8 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
 
             {/* Itemized Colored Bar Rows */}
             <div className="space-y-3 pt-1">
-              {Object.entries(paymentMap).map(([key, item]) => {
-                const pct = total > 0 ? Math.round((item.count / total) * 100) : 0;
+              {Object.entries(paymentMap).map(([key, item], idx) => {
+                const pct = zahlartProzente[idx];
                 return (
                   <div key={key} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">

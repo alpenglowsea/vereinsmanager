@@ -172,7 +172,8 @@ interface MembersViewProps {
   onOpenEdit: (member: Member) => void;
   onOpenDetails: (member: Member) => void;
   onDeleteMember: (id: string) => void;
-  onBulkUpdateMembers?: (ids: string[], updates: MemberBulkUpdates) => Promise<void>;
+  /** Gibt einen Hinweis zurück, wenn Felder wegen der Formularregeln nicht geändert wurden. */
+  onBulkUpdateMembers?: (ids: string[], updates: MemberBulkUpdates) => Promise<string | null | void>;
   onBulkDeleteMembers?: (ids: string[]) => Promise<void>;
   onOpenImport: () => void;
   onNavigateToSepa?: () => void;
@@ -645,6 +646,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
   // Multiple selection state
   const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
+  const [sammelHinweis, setSammelHinweis] = useState<string | null>(null);
   const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
 
   // Filter & Search logic
@@ -776,7 +778,8 @@ export const MembersView: React.FC<MembersViewProps> = ({
 
   const handleBulkUpdate = async (updates: MemberBulkUpdates) => {
     if (onBulkUpdateMembers && selectedMemberIds.size > 0) {
-      await onBulkUpdateMembers(Array.from(selectedMemberIds), updates);
+      const hinweis = await onBulkUpdateMembers(Array.from(selectedMemberIds), updates);
+      setSammelHinweis(hinweis || null);
       setIsBulkEditOpen(false);
       handleClearSelection();
     }
@@ -937,6 +940,15 @@ export const MembersView: React.FC<MembersViewProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150 relative pb-16">
+      {sammelHinweis && (
+        // Fest unten im Fenster, damit er nach dem Schließen der Sammelbearbeitung sichtbar ist
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[min(36rem,calc(100%-2rem))] p-3 rounded-xl border border-amber-300 bg-amber-50 shadow-lg text-xs text-amber-900 flex items-start gap-2 dark:border-amber-800/60 dark:bg-amber-950 dark:text-amber-200">
+          <span className="flex-1 leading-relaxed">{sammelHinweis}</span>
+          <button type="button" onClick={() => setSammelHinweis(null)} className="shrink-0 font-bold" aria-label="Hinweis schließen">
+            ×
+          </button>
+        </div>
+      )}
       {/* Metric Cards: Mitglieder Gesamt & Mitglieder je Sparte */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Kachel 1: Mitglieder Gesamt */}

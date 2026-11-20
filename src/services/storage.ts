@@ -1639,11 +1639,13 @@ export const StorageService = {
     ids: string[],
     updates: MemberBulkUpdates,
     author = 'Kassier / Administrator'
-  ): Promise<{ updatedCount: number; updatedMembers: Member[] }> {
+  ): Promise<{ updatedCount: number; updatedMembers: Member[]; gesperrt: { name: string; felder: string[] }[] }> {
     const allMembers = await this.getMembers();
     const idSet = new Set(ids);
     const now = new Date().toISOString();
     const updatedMembersList: Member[] = [];
+    // Mitglieder, bei denen Felder gesperrt waren (ausgetreten, beitragsfrei), für den Hinweis (T-133)
+    const gesperrt: { name: string; felder: string[] }[] = [];
 
     const fieldLabels: Record<string, string> = {
       paymentMethod: 'Zahlungsmethode',
@@ -1712,7 +1714,11 @@ export const StorageService = {
       // Art, Status, Zahlweise, Zahlungsart, Beitrag und Austritt nach den
       // Regeln des Formulars (D-27, wie Android). Vorher setzte die
       // Sammelbearbeitung z. B. „gekündigt“, ließ aber Beitrag und Lastschrift stehen.
-      const geregelt = wendeSammelRegelnAn(memberCopy, updates, lokalesHeute()).mitglied;
+      const regel = wendeSammelRegelnAn(memberCopy, updates, lokalesHeute());
+      const geregelt = regel.mitglied;
+      if (regel.uebersprungen.length > 0) {
+        gesperrt.push({ name: `${memberCopy.firstName} ${memberCopy.lastName}`.trim(), felder: regel.uebersprungen });
+      }
       const regelFelder = ['membershipType', 'status', 'feePeriod', 'paymentMethod', 'feeAmount', 'exitDate'] as const;
       for (const feld of regelFelder) {
         const vorher = memberCopy[feld];
@@ -1825,7 +1831,8 @@ export const StorageService = {
 
     return {
       updatedCount: updatedMembersList.length,
-      updatedMembers: updatedMembersList
+      updatedMembers: updatedMembersList,
+      gesperrt
     };
   },
 

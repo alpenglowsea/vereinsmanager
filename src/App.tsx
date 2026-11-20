@@ -562,14 +562,20 @@ export default function App() {
     }
   };
 
-  const handleBulkUpdateMembers = async (ids: string[], updates: MemberBulkUpdates) => {
-    await StorageService.bulkUpdateMembers(ids, updates);
+  const handleBulkUpdateMembers = async (ids: string[], updates: MemberBulkUpdates): Promise<string | null> => {
+    const ergebnis = await StorageService.bulkUpdateMembers(ids, updates);
     const updated = await StorageService.getMembers();
     setMembers(updated);
     if (detailsMember && ids.includes(detailsMember.id)) {
       const refreshed = updated.find(m => m.id === detailsMember.id);
       if (refreshed) setDetailsMember(refreshed);
     }
+    // Hinweis, was wegen der Formularregeln nicht geändert wurde (T-133)
+    if (ergebnis.gesperrt.length === 0) return null;
+    const felder = Array.from(new Set(ergebnis.gesperrt.flatMap(g => g.felder))).join(', ');
+    const namen = ergebnis.gesperrt.slice(0, 5).map(g => g.name).join(', ');
+    const mehr = ergebnis.gesperrt.length > 5 ? ` und ${ergebnis.gesperrt.length - 5} weitere` : '';
+    return `Bei ${ergebnis.gesperrt.length} ${ergebnis.gesperrt.length === 1 ? 'Mitglied' : 'Mitgliedern'} wurde ${felder} nicht geändert, weil sie ausgetreten oder beitragsfrei sind (${namen}${mehr}). Erst Status oder Zahlweise ändern, dann den Beitrag.`;
   };
 
   const handleBulkDeleteMembers = async (ids: string[]) => {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { kontaktBuchungen } from '../utils/kontaktRegeln';
 import { TelefonKnopf } from './TelefonKnopf';
 import { ClubContact, Transaction } from '../types';
 import { CONTACT_TYPE_MAP } from '../data/contactConstants';
@@ -39,39 +40,12 @@ export const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
 }) => {
   if (isOpen === false || !contact) return null;
 
-  // Find bookings associated with this contact
-  const contactNameLower = (contact.displayName || '').toLowerCase().trim();
-  const companyNameLower = (contact.companyName || '').toLowerCase().trim();
-  const contactNumber = contact.contactNumber?.toLowerCase().trim();
-
-  const relatedBookings = transactions.filter(t => {
-    const p = (t.partner || '').toLowerCase().trim();
-    const notes = (t.notes || '').toLowerCase();
-    const bookingText = (t.bookingText || '').toLowerCase();
-
-    if (!p && !bookingText) return false;
-
-    // Direct match with partner name
-    if (contactNameLower && (p === contactNameLower || p.includes(contactNameLower) || contactNameLower.includes(p))) {
-      return true;
-    }
-    if (companyNameLower && (p === companyNameLower || p.includes(companyNameLower))) {
-      return true;
-    }
-    // Match with contact number
-    if (contactNumber && (notes.includes(contactNumber) || bookingText.includes(contactNumber))) {
-      return true;
-    }
-    return false;
-  }).slice(0, 10);
-
-  const totalInflow = relatedBookings
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const totalOutflow = relatedBookings
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
+  // Zugeordnete Buchungen: genauer Name oder Kontaktnummer (D-55); Summen
+  // über alle, Liste mit den neuesten zehn (D-54)
+  const zuordnung = kontaktBuchungen(contact, transactions);
+  const relatedBookings = zuordnung.neueste;
+  const totalInflow = zuordnung.einnahmen;
+  const totalOutflow = zuordnung.ausgaben;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
@@ -406,17 +380,17 @@ export const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
               <div className="flex items-center gap-2">
                 <Receipt className="w-4 h-4 text-slate-600 dark:text-slate-300" />
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Zugeordnete Buchungen ({relatedBookings.length})
+                  Zugeordnete Buchungen ({zuordnung.anzahl}{zuordnung.anzahl > 10 ? ', die neuesten 10' : ''})
                 </h3>
               </div>
               {relatedBookings.length > 0 && (
                 <div className="flex items-center gap-3 text-xs">
                   <span className="text-emerald-700 font-semibold dark:text-emerald-300">
-                    Einnahmen: +{totalInflow.toFixed(2)} €
+                    Einnahmen: +{totalInflow.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                   </span>
                   <span className="text-slate-400">|</span>
                   <span className="text-rose-700 font-semibold dark:text-rose-300">
-                    Ausgaben: -{totalOutflow.toFixed(2)} €
+                    Ausgaben: -{totalOutflow.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                   </span>
                 </div>
               )}
@@ -448,8 +422,8 @@ export const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
                         t.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-800 dark:text-slate-100'
                       }`}
                     >
-                      {t.type === 'income' ? '+' : '-'}
-                      {t.amount.toFixed(2)} €
+                      {t.type === 'income' ? '+' : t.type === 'transfer' ? '' : '-'}
+                      {Math.abs(t.amount).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                     </div>
                   </div>
                 ))}

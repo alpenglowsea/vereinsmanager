@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { FinancialAccount, Transaction, TaxSphere } from '../types';
-import { BankImportService, ParsedBankRow } from '../services/bankImport';
-import { ALL_ACCOUNT_CATEGORIES } from '../data/taxSpheres';
+import { BankImportService, ParsedBankRow, pruefeBankZeile } from '../services/bankImport';
+import { useSkr42 } from '../hooks/useSkr42';
+import { kontoNachNummer } from '../utils/importRegeln';
+import { SkrKontoAuswahl } from './SkrKontoAuswahl';
 import {
   X,
   Upload,
@@ -30,6 +32,9 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
   const [parsedRows, setParsedRows] = useState<ParsedBankRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sammelKonto, setSammelKonto] = useState('');
+  const [sammelHinweis, setSammelHinweis] = useState<string | null>(null);
+  const skr = useSkr42();
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -40,7 +45,7 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
 
     try {
       const text = await file.text();
-      const rows = await BankImportService.parseBankCSV(text);
+      const rows = await BankImportService.parseBankCSV(text, existingTransactions);
       if (rows.length === 0) {
         setError('Keine gültigen Buchungszeilen im CSV-Kontoauszug gefunden.');
       } else {
@@ -53,23 +58,57 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
     }
   };
 
+  const hatFehler = (r: ParsedBankRow) => !!r.fehler && r.fehler.length > 0;
+
+  // Zeilen mit Fehler lassen sich erst nach der Berichtigung anhaken
   const toggleSelectAll = (checked: boolean) => {
-    setParsedRows(prev => prev.map(r => ({ ...r, selected: checked })));
+    setParsedRows(prev => prev.map(r => ({ ...r, selected: checked && !hatFehler(r) })));
   };
 
   const toggleRowSelect = (id: string) => {
-    setParsedRows(prev => prev.map(r => r.id === id ? { ...r, selected: !r.selected } : r));
+    setParsedRows(prev => prev.map(r => r.id === id && !hatFehler(r) ? { ...r, selected: !r.selected } : r));
   };
+
+  // Datum in der Vorschau berichtigen (D-67); danach neu prüfen, auch auf Duplikat
+  const updateRowDate = (id: string, date: string) => {
+    setParsedRows(prev => prev.map(r => r.id === id ? pruefeBankZeile({ ...r, date }, existingTransactions, hatFehler(r)) : r));
+  };
+
+  // Konto des Kontenrahmens je Zeile (D-69)
+  const updateRowKonto = (id: string, code: string) => {
+    const k = kontoNachNummer(code, skr);
+    setParsedRows(prev => prev.map(r => r.id === id
+      ? { ...r, skrAccount: code, suggestedCategory: k ? k.sub.label : r.suggestedCategory, kontoVorschlag: false }
+      : r));
+  };
+
+  // Ein Konto für alle angehakten Zeilen derselben Richtung
+  const setzeSammelKonto = () => {
+    const k = kontoNachNummer(sammelKonto, skr);
+    if (!k) return;
+    let gesetzt = 0;
+    let andere = 0;
+    const neu = parsedRows.map(r => {
+      if (!r.selected) return r;
+      if ((r.amount < 0 ? 'expense' : 'income') !== k.main.type) { andere++; return r; }
+      gesetzt++;
+      return { ...r, skrAccount: k.sub.code, suggestedCategory: k.sub.label, kontoVorschlag: false };
+    });
+    setParsedRows(neu);
+    setSammelHinweis(
+      `Konto ${k.sub.code} auf ${gesetzt} Zeile(n) gesetzt.` +
+      (andere > 0 ? ` ${andere} angehakte Zeile(n) haben die andere Richtung (${k.main.type === 'income' ? 'Ausgabe' : 'Einnahme'}) und blieben unverändert.` : '')
+    );
+  };
+
+  const fehlerAnzahl = parsedRows.filter(hatFehler).length;
+  const duplikatAnzahl = parsedRows.filter(r => r.duplikat).length;
 
   // Sphäre und Kategorie sind seit der DATEV-SKR42-Umstellung unabhängig
   // voneinander (siehe Hinweis bei Skr42MainCategory in src/types.ts) — ein
   // Sphärenwechsel ändert die gewählte Kategorie darum nicht mehr mit.
   const updateRowSphere = (id: string, sphere: TaxSphere) => {
     setParsedRows(prev => prev.map(r => r.id === id ? { ...r, suggestedSphere: sphere } : r));
-  };
-
-  const updateRowCategory = (id: string, category: string) => {
-    setParsedRows(prev => prev.map(r => r.id === id ? { ...r, suggestedCategory: category } : r));
   };
 
   const selectedCount = parsedRows.filter(r => r.selected).length;
@@ -82,7 +121,8 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
     const transactions = BankImportService.convertToTransactions(
       parsedRows,
       selectedAccountId,
-      existingTransactions.map(t => t.documentNumber)
+      existingTransactions.map(t => t.documentNumber),
+      skr
     );
     onImport(transactions);
     onClose();
@@ -172,8 +212,18 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
                   </span>
                   <span className="text-2xs bg-blue-100 text-blue-800 font-semibold px-2 py-0.5 rounded-md flex items-center gap-1 dark:bg-blue-900/40 dark:text-blue-200">
                     <Sparkles className="w-3 h-3" />
-                    Automatisch kategorisiert
+                    Bereich geschätzt, Konto aus früheren Buchungen
                   </span>
+                  {duplikatAnzahl > 0 && (
+                    <span className="text-2xs bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded-md dark:bg-amber-900/40 dark:text-amber-200">
+                      {duplikatAnzahl} mögliche(s) Duplikat(e) abgewählt
+                    </span>
+                  )}
+                  {fehlerAnzahl > 0 && (
+                    <span className="text-2xs bg-rose-100 text-rose-800 font-semibold px-2 py-0.5 rounded-md dark:bg-rose-900/40 dark:text-rose-200">
+                      {fehlerAnzahl} Zeile(n) mit Fehler
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 text-xs">
                   <button
@@ -194,6 +244,26 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
                 </div>
               </div>
 
+              <div className="flex flex-wrap items-center gap-2 text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 dark:bg-slate-800 dark:border-slate-700">
+                <span className="font-semibold text-slate-700 dark:text-slate-200">Konto für alle angehakten Zeilen:</span>
+                <SkrKontoAuswahl
+                  value={sammelKonto}
+                  skr={skr}
+                  onChange={code => { setSammelKonto(code); setSammelHinweis(null); }}
+                  leerText="– Konto wählen –"
+                  className="px-2 py-1 border border-slate-300 rounded text-2xs bg-white max-w-xs dark:border-slate-700 dark:bg-slate-900"
+                />
+                <button
+                  type="button"
+                  disabled={!sammelKonto}
+                  onClick={setzeSammelKonto}
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-2xs font-semibold"
+                >
+                  Setzen
+                </button>
+                {sammelHinweis && <span className="text-slate-600 dark:text-slate-300">{sammelHinweis}</span>}
+              </div>
+
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs max-h-[380px] overflow-y-auto dark:border-slate-800">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="bg-slate-100 sticky top-0 border-b border-slate-200 text-slate-700 font-semibold z-10 dark:bg-slate-700 dark:border-slate-800 dark:text-slate-200">
@@ -201,16 +271,16 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
                       <th className="p-3 w-10 text-center">
                         <input
                           type="checkbox"
-                          checked={selectedCount === parsedRows.length}
+                          checked={selectedCount > 0 && selectedCount === parsedRows.length - fehlerAnzahl}
                           onChange={e => toggleSelectAll(e.target.checked)}
                           className="w-4 h-4 rounded text-blue-600 dark:text-blue-400"
                         />
                       </th>
-                      <th className="p-3 w-24">Datum</th>
+                      <th className="p-3 w-36">Datum</th>
                       <th className="p-3">Partner & Verwendungszweck</th>
                       <th className="p-3 w-28 text-right">Betrag</th>
                       <th className="p-3 w-40">Steuerliche Sphäre</th>
-                      <th className="p-3 w-44">Kategorie</th>
+                      <th className="p-3 w-56">Konto (SKR 42)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -223,16 +293,32 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
                           <input
                             type="checkbox"
                             checked={row.selected}
+                            disabled={hatFehler(row)}
+                            title={hatFehler(row) ? 'Erst den Fehler berichtigen' : undefined}
                             onChange={() => toggleRowSelect(row.id)}
-                            className="w-4 h-4 rounded text-blue-600 dark:text-blue-400"
+                            className="w-4 h-4 rounded text-blue-600 disabled:opacity-40 dark:text-blue-400"
                           />
                         </td>
-                        <td className="p-3 font-mono text-slate-600 whitespace-nowrap dark:text-slate-300">
-                          {row.date}
+                        <td className="p-3 whitespace-nowrap">
+                          <input
+                            type="date"
+                            value={row.date}
+                            onChange={e => updateRowDate(row.id, e.target.value)}
+                            className={`px-1.5 py-1 border rounded text-2xs font-mono bg-white dark:bg-slate-800 ${!row.date ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700'}`}
+                          />
                         </td>
                         <td className="p-3">
                           <div className="font-semibold text-slate-900 truncate max-w-xs dark:text-white">{row.partner}</div>
                           <div className="text-2xs text-slate-500 truncate max-w-sm dark:text-slate-400">{row.bookingText}</div>
+                          {row.fehler?.map(f => (
+                            <div key={f} className="text-2xs text-rose-600 font-semibold dark:text-rose-400">{f}</div>
+                          ))}
+                          {row.duplikat && (
+                            <div className="text-2xs text-amber-700 font-semibold dark:text-amber-300">Mögliches Duplikat: {row.duplikat}</div>
+                          )}
+                          {row.hinweise?.map(h => (
+                            <div key={h} className="text-2xs text-slate-500 dark:text-slate-400">{h}</div>
+                          ))}
                         </td>
                         <td className={`p-3 text-right font-bold font-mono whitespace-nowrap ${row.amount >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                           {row.amount >= 0 ? '+' : ''}{row.amount.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €
@@ -250,15 +336,17 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
                           </select>
                         </td>
                         <td className="p-3">
-                          <select
-                            value={row.suggestedCategory}
-                            onChange={e => updateRowCategory(row.id, e.target.value)}
-                            className="w-full px-2 py-1 border border-slate-300 rounded text-2xs bg-white dark:border-slate-700 dark:bg-slate-800"
-                          >
-                            {(row.amount >= 0 ? ALL_ACCOUNT_CATEGORIES.income : ALL_ACCOUNT_CATEGORIES.expense).map(c => (
-                              <option key={c} value={c}>{c}</option>
-                            ))}
-                          </select>
+                          <SkrKontoAuswahl
+                            value={row.skrAccount || ''}
+                            typ={row.amount < 0 ? 'expense' : 'income'}
+                            skr={skr}
+                            onChange={code => updateRowKonto(row.id, code)}
+                            className={`w-full px-2 py-1 border rounded text-2xs bg-white dark:bg-slate-800 ${row.skrAccount ? 'border-slate-300 dark:border-slate-700' : 'border-amber-400'}`}
+                            title={row.skrAccount ? undefined : 'Kein Konto gewählt – die Buchung erscheint in der EÜR ohne Konto.'}
+                          />
+                          {row.kontoVorschlag && (
+                            <div className="text-2xs text-blue-600 mt-0.5 dark:text-blue-400">aus früherer Buchung</div>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -283,7 +371,10 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between dark:bg-slate-800 dark:border-slate-800">
           <div className="text-xs text-slate-500 dark:text-slate-400">
             {parsedRows.length > 0 && (
-              <span><strong>{selectedCount}</strong> von {parsedRows.length} Buchungen ausgewählt</span>
+              <span>
+                <strong>{selectedCount}</strong> von {parsedRows.length} Buchungen ausgewählt
+                {fehlerAnzahl > 0 && <> · {fehlerAnzahl} mit Fehler werden nicht übernommen</>}
+              </span>
             )}
           </div>
 

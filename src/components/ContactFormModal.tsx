@@ -1,5 +1,6 @@
 import { nummerVergeben } from '../utils/nummern';
 import React, { useState, useEffect } from 'react';
+import { ibanFehler, bicFehler, emailFehler } from '../utils/kontaktRegeln';
 import { keepUnknownFields } from '../utils/keepUnknownFields';
 import {
   ClubContact,
@@ -54,7 +55,7 @@ const COMMON_LEGAL_FORMS = [
 
 // Reihenfolge der Pflichtfelder im Formular, von oben nach unten; das
 // Speichern springt zum ersten fehlerhaften.
-const KONTAKT_FEHLER_REIHENFOLGE = ['types', 'companyName', 'natLastName', 'contactNumber'];
+const KONTAKT_FEHLER_REIHENFOLGE = ['types', 'companyName', 'natLastName', 'cpEmail', 'email', 'contactNumber', 'iban', 'bic'];
 
 export const ContactFormModal: React.FC<ContactFormModalProps> = ({
   contact,
@@ -214,6 +215,16 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
     if (selectedTypes.length === 0) {
       newErrors.types = 'Bitte mindestens einen Kontakttyp auswählen';
     }
+
+    // E-Mail, IBAN und BIC prüfen (D-61, wie Android); leere Felder sind erlaubt
+    const fehlerEmail = emailFehler(email);
+    if (fehlerEmail) newErrors.email = fehlerEmail;
+    const fehlerCpEmail = emailFehler(cpEmail);
+    if (fehlerCpEmail) newErrors.cpEmail = fehlerCpEmail;
+    const fehlerIban = ibanFehler(iban);
+    if (fehlerIban) newErrors.iban = fehlerIban;
+    const fehlerBic = bicFehler(bic);
+    if (fehlerBic) newErrors.bic = fehlerBic;
 
     return newErrors;
   };
@@ -648,8 +659,9 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
                       value={cpEmail}
                       onChange={e => setCpEmail(e.target.value)}
                       placeholder="k.bergmann@firma.de"
-                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg dark:border-slate-700"
+                      className={`w-full px-2.5 py-1.5 text-xs border rounded-lg ${errors.cpEmail ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700'}`}
                     />
+                    {errors.cpEmail && <p data-kontakt-feld="cpEmail" className="text-xs text-rose-600 mt-1 dark:text-rose-400">{errors.cpEmail}</p>}
                   </div>
                   <div className="sm:col-span-4">
                     <label className="block text-2xs font-semibold text-slate-600 mb-1 dark:text-slate-300">
@@ -805,9 +817,10 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     placeholder="kontakt@example.de"
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 dark:border-slate-700"
+                    className={`w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-orange-500 ${errors.email ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700'}`}
                   />
                 </div>
+                {errors.email && <p data-kontakt-feld="email" className="text-xs text-rose-600 mt-1 dark:text-rose-400">{errors.email}</p>}
               </div>
 
               <div>
@@ -959,8 +972,9 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
                   value={iban}
                   onChange={e => setIban(e.target.value)}
                   placeholder="DE00 0000 0000 0000 0000 00"
-                  className="w-full px-3 py-2 text-sm font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 dark:border-slate-700"
+                  className={`w-full px-3 py-2 text-sm font-mono border rounded-lg focus:ring-2 focus:ring-orange-500 ${errors.iban ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700'}`}
                 />
+                {errors.iban && <p data-kontakt-feld="iban" className="text-xs text-rose-600 mt-1 dark:text-rose-400">{errors.iban}</p>}
               </div>
 
               <div className="sm:col-span-5">
@@ -972,8 +986,9 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
                   value={bic}
                   onChange={e => setBic(e.target.value)}
                   placeholder="SPKDMUSTXXX"
-                  className="w-full px-3 py-2 text-sm font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 dark:border-slate-700"
+                  className={`w-full px-3 py-2 text-sm font-mono border rounded-lg focus:ring-2 focus:ring-orange-500 ${errors.bic ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700'}`}
                 />
+                {errors.bic && <p data-kontakt-feld="bic" className="text-xs text-rose-600 mt-1 dark:text-rose-400">{errors.bic}</p>}
               </div>
 
               <div className="sm:col-span-6">
