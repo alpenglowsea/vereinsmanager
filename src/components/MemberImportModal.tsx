@@ -4,6 +4,7 @@ import {
   parseCSVToRows,
   autoDetectMapping,
   convertRowsToMembers,
+  bereiteMitgliederImportVor,
   generateSampleCSVTemplate,
   ColumnMapping,
   ParsedMemberRow
@@ -146,33 +147,11 @@ export const MemberImportModal: FC<MemberImportModalProps> = ({
   const duplicateCount = parsedList.filter(i => i.isDuplicate).length;
   const warningsCount = parsedList.filter(i => i.hasWarnings).length;
 
-  // Execute Import
+  // Import ausführen: beim Aktualisieren nur Felder mit Wert in der Datei
+  // überschreiben, bei neuen Mitgliedern belegte Nummern ersetzen (D-32)
   const handleExecuteImport = () => {
-    const toImport: Member[] = [];
-
-    parsedList.forEach(item => {
-      if (!item.selected) return;
-
-      if (item.isDuplicate) {
-        if (duplicateStrategy === 'skip') {
-          return;
-        } else if (duplicateStrategy === 'create_always') {
-          // Force fresh new ID and adjusted number
-          toImport.push({
-            ...item.member,
-            id: `mem-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
-          });
-          return;
-        }
-      }
-
-      toImport.push(item.member);
-    });
-
-    if (toImport.length === 0) {
-      alert('Keine Mitglieder zum Importieren ausgewählt.');
-      return;
-    }
+    const toImport = bereiteMitgliederImportVor(parsedList, duplicateStrategy, existingMembers);
+    if (toImport.length === 0) return;
 
     onImport(toImport);
     onClose();
@@ -773,7 +752,7 @@ export const MemberImportModal: FC<MemberImportModalProps> = ({
                         onChange={() => setDuplicateStrategy('update')}
                         className="text-blue-600 focus:ring-blue-500 dark:text-blue-400"
                       />
-                      <span>Bestehende Stammdaten aktualisieren (Merge)</span>
+                      <span>Bestehende aktualisieren (nur Felder, die in der Datei gefüllt sind)</span>
                     </label>
 
                     <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer font-medium ${duplicateStrategy === 'skip' ? 'bg-white border-amber-400 text-amber-900 shadow-xs dark:bg-slate-900 dark:text-amber-100' : 'border-amber-200 text-amber-800 dark:border-amber-800/60 dark:text-amber-200'}`}>
@@ -886,8 +865,8 @@ export const MemberImportModal: FC<MemberImportModalProps> = ({
                                 </span>
                               )}
                               {row.hasWarnings && (
-                                <span className="inline-block text-rose-600 font-semibold dark:text-rose-400" title={row.warnings.join(', ')}>
-                                  ⚠️ {row.warnings[0]}
+                                <span className="block text-rose-600 font-semibold whitespace-normal dark:text-rose-400">
+                                  {row.warnings.map(w => <span key={w} className="block">⚠️ {w}</span>)}
                                 </span>
                               )}
                             </div>
@@ -937,7 +916,8 @@ export const MemberImportModal: FC<MemberImportModalProps> = ({
                   <button
                     type="button"
                     onClick={handleExecuteImport}
-                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition-colors flex items-center gap-2"
+                    disabled={selectedCount === 0}
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-md transition-colors flex items-center gap-2"
                   >
                     <Users className="w-4 h-4" />
                     <span>Jetzt {selectedCount} Mitglied(er) importieren</span>

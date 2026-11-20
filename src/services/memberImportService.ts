@@ -1,4 +1,7 @@
 import { Member, Gender, MembershipStatus, MembershipType, PaymentMethod, FeePeriod, ClubSettings } from '../types';
+import { ordneSpaltenZu, leseDatum, leseBetrag, SpaltenRegel } from '../utils/importRegeln';
+import { naechsteNummerImSchema } from '../utils/nummern';
+import { leseVorgaben, vorgabeFuer } from '../utils/beitragsVorgaben';
 
 export interface ColumnMapping {
   memberNumber?: string;
@@ -41,6 +44,12 @@ export interface ParsedMemberRow {
   isDuplicate: boolean;
   existingMemberId?: string;
   member: Member;
+  /**
+   * Felder, die in der Datei einen Wert hatten. Nur diese überschreiben beim
+   * „Aktualisieren“ das vorhandene Mitglied (wie Android); vorher wurde das
+   * ganze Mitglied ersetzt.
+   */
+  vorhanden: string[];
 }
 
 // CSV Parser Helper supporting quotes, multiline values, and separators (;, \t, ,)
@@ -139,219 +148,59 @@ export function parseCSVToRows(text: string): { headers: string[]; rows: Record<
 }
 
 // Auto-detect matching column based on common aliases
+const MITGLIED_SPALTEN: SpaltenRegel<keyof ColumnMapping>[] = [
+  { feld: 'memberNumber', genau: ['mitgliedsnummer', 'mitgliedsnr', 'mitgliedsno', 'mgnr', 'nr', 'nummer', 'mitgliedsid', 'membernumber', 'memberno', 'memberid', 'ausweisnummer'], teil: ['mitgliedsnummer', 'mitgliedsnr'] },
+  { feld: 'firstName', genau: ['vorname', 'firstname', 'givenname', 'vname', 'rufname'], teil: ['vorname'] },
+  { feld: 'lastName', genau: ['nachname', 'lastname', 'familienname', 'surname', 'nname'], teil: ['nachname', 'familienname'] },
+  // Nur bei genauem Treffer: „Status (Aktiv/Passiv/Ehrenmitglied/…)“ enthält „mitglied“ (D-32)
+  { feld: 'fullName', genau: ['name', 'fullname', 'vollstaendigername', 'mitgliedsname', 'mitglied'], teil: [] },
+  { feld: 'gender', genau: ['geschlecht', 'gender', 'anrede', 'sex'], teil: ['geschlecht'] },
+  { feld: 'birthDate', genau: ['geburtsdatum', 'geburtstag', 'gebdatum', 'birthdate', 'dob', 'geboren', 'geburtsjahr', 'geb'], teil: ['geburtsdatum', 'geburtstag', 'geburtsjahr'] },
+  { feld: 'street', genau: ['strasse', 'str', 'street', 'strassenname'], teil: ['strasse'] },
+  { feld: 'houseNumber', genau: ['hausnummer', 'hausnr', 'hnr', 'housenumber'], teil: ['hausnummer', 'hausnr'] },
+  { feld: 'fullAddress', genau: ['adresse', 'address', 'anschrift', 'wohnadresse', 'strasseundhausnummer', 'strassehausnummer'], teil: ['adresse', 'anschrift'] },
+  { feld: 'zip', genau: ['plz', 'postleitzahl', 'zip', 'zipcode', 'postalcode'], teil: ['postleitzahl'] },
+  { feld: 'city', genau: ['ort', 'stadt', 'city', 'wohnort', 'gemeinde'], teil: ['wohnort'] },
+  { feld: 'country', genau: ['land', 'country', 'staat', 'nation'], teil: [] },
+  { feld: 'phone', genau: ['telefon', 'telefonnummer', 'phone', 'mobil', 'handy', 'mobilnummer', 'tel', 'festnetz'], teil: ['telefon', 'mobil', 'handy'] },
+  { feld: 'email', genau: ['email', 'emailadresse', 'mail', 'mailadresse', 'epost'], teil: ['email', 'mail'] },
+  { feld: 'department', genau: ['abteilung', 'sparte', 'department', 'sportart', 'sektion', 'bereich', 'gruppe'], teil: ['sparte', 'abteilung'] },
+  { feld: 'status', genau: ['status', 'mitgliedsstatus', 'mitgliedschaftsstatus', 'zustand'], teil: ['status'] },
+  // Vor dem Beitrag: „Beitragsgruppe (…)“ enthält auch „beitrag“
+  { feld: 'membershipType', genau: ['mitgliedschaftstyp', 'typ', 'beitragsgruppe', 'tarif', 'art', 'mitgliedsart', 'beitragsart'], teil: ['mitgliedschaftstyp', 'beitragsgruppe', 'mitgliedsart', 'beitragsart'] },
+  { feld: 'feeAmount', genau: ['beitrag', 'beitragshoehe', 'betrag', 'fee', 'jahresbeitrag', 'monatsbeitrag', 'summe', 'kosten'], teil: ['beitrag', 'betrag'] },
+  { feld: 'feePeriod', genau: ['zahlungsweise', 'zahlungsintervall', 'intervall', 'periode', 'turnus', 'abrechnung', 'frequenz', 'zahlweise'], teil: ['zahlungsweise', 'zahlungsintervall', 'zahlweise', 'turnus'] },
+  { feld: 'paymentMethod', genau: ['zahlungsmethode', 'zahlungsart', 'zahlweg', 'bezahlung', 'paymentmethod'], teil: ['zahlungsmethode', 'zahlungsart'] },
+  { feld: 'iban', genau: ['iban', 'kontonummer', 'bankkonto', 'sepaiban'], teil: ['iban'] },
+  { feld: 'bic', genau: ['bic', 'swift', 'swiftbic', 'blz', 'bankleitzahl'], teil: ['swift'] },
+  { feld: 'bankName', genau: ['bank', 'bankname', 'kreditinstitut', 'institut'], teil: ['bankname', 'kreditinstitut'] },
+  { feld: 'accountHolder', genau: ['kontoinhaber', 'kontoinhaberin', 'inhaber', 'accountholder'], teil: ['kontoinhaber'] },
+  { feld: 'mandateDate', genau: ['mandatsdatum', 'sepamandat', 'mandaterteilt', 'mandatedate'], teil: ['mandatsdatum'] },
+  { feld: 'mandateReference', genau: ['mandatsreferenz', 'mandatsref', 'mandatnr', 'mandateno'], teil: ['mandatsreferenz'] },
+  { feld: 'entryDate', genau: ['eintritt', 'eintrittsdatum', 'beitritt', 'beitrittsdatum', 'mitgliedseit', 'entrydate', 'startdate', 'beginn'], teil: ['eintritt', 'beitritt', 'mitgliedseit'] },
+  { feld: 'exitDate', genau: ['austritt', 'austrittsdatum', 'kuendigung', 'kuendigungsdatum', 'exitdate', 'endedatum'], teil: ['austritt', 'kuendigungsdatum'] },
+  { feld: 'notes', genau: ['notizen', 'notiz', 'bemerkungen', 'bemerkung', 'kommentar', 'anmerkung', 'notes', 'info'], teil: ['notiz', 'bemerkung', 'kommentar'] }
+];
+
+/**
+ * Spaltenzuordnung: erst genaue Überschriften, dann Teiltreffer nur mit
+ * längeren Wörtern, jede Spalte nur einmal (D-32, wie Android). Vorher fing
+ * „Status (Aktiv/Passiv/Ehrenmitglied/Gekündigt)“ der eigenen Vorlage wegen
+ * „mitglied“ das Namensfeld ein, und der Status blieb unzugeordnet.
+ */
 export function autoDetectMapping(headers: string[]): ColumnMapping {
-  const mapping: ColumnMapping = {};
-  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
-
-  const rules: { key: keyof ColumnMapping; aliases: string[] }[] = [
-    {
-      key: 'memberNumber',
-      aliases: ['mitgliedsnummer', 'mitgliedsnr', 'mitgliedsno', 'mgnr', 'mgnr', 'nr', 'mitgliedsid', 'membernumber', 'memberno', 'memberid', 'ausweisnummer']
-    },
-    {
-      key: 'firstName',
-      aliases: ['vorname', 'firstname', 'givenname', 'vname', 'rufname']
-    },
-    {
-      key: 'lastName',
-      aliases: ['nachname', 'lastname', 'familienname', 'surname', 'nname']
-    },
-    {
-      key: 'fullName',
-      aliases: ['name', 'fullname', 'vollständigername', 'mitgliedsname', 'mitglied']
-    },
-    {
-      key: 'gender',
-      aliases: ['geschlecht', 'gender', 'anrede', 'sex']
-    },
-    {
-      key: 'birthDate',
-      aliases: ['geburtsdatum', 'geburtstag', 'gebdatum', 'birthdate', 'dob', 'geboren', 'geburtsjahr', 'geb']
-    },
-    {
-      key: 'street',
-      aliases: ['straße', 'strasse', 'str', 'street', 'straßenname', 'anschrift']
-    },
-    {
-      key: 'houseNumber',
-      aliases: ['hausnummer', 'hausnr', 'hnr', 'housenumber', 'nr']
-    },
-    {
-      key: 'fullAddress',
-      aliases: ['adresse', 'address', 'wohnadresse', 'straßeundhausnummer']
-    },
-    {
-      key: 'zip',
-      aliases: ['plz', 'postleitzahl', 'zip', 'zipcode', 'postalcode']
-    },
-    {
-      key: 'city',
-      aliases: ['ort', 'stadt', 'city', 'wohnort', 'gemeinde']
-    },
-    {
-      key: 'country',
-      aliases: ['land', 'country', 'staat', 'nation']
-    },
-    {
-      key: 'phone',
-      aliases: ['telefon', 'telefonnummer', 'phone', 'mobil', 'handy', 'mobilnummer', 'tel', 'festnetz']
-    },
-    {
-      key: 'email',
-      aliases: ['email', 'emailadresse', 'mail', 'mailadresse', 'epost']
-    },
-    {
-      key: 'department',
-      aliases: ['abteilung', 'sparte', 'department', 'sportart', 'sektion', 'bereich', 'gruppe']
-    },
-    {
-      key: 'status',
-      aliases: ['status', 'mitgliedsstatus', 'mitgliedschaftsstatus', 'zustand']
-    },
-    {
-      key: 'membershipType',
-      aliases: ['mitgliedschaftstyp', 'typ', 'beitragsgruppe', 'tarif', 'art', 'mitgliedsart', 'beitragsart']
-    },
-    {
-      key: 'feeAmount',
-      aliases: ['beitrag', 'beitragshöhe', 'betrag', 'fee', 'jahresbeitrag', 'monatsbeitrag', 'summe', 'kosten']
-    },
-    {
-      key: 'feePeriod',
-      aliases: ['zahlungsweise', 'zahlungsintervall', 'intervall', 'periode', 'turnus', 'abrechnung', 'frequenz']
-    },
-    {
-      key: 'paymentMethod',
-      aliases: ['zahlungsmethode', 'zahlungsart', 'zahlweg', 'bezahlung', 'paymentmethod']
-    },
-    {
-      key: 'iban',
-      aliases: ['iban', 'kontonummer', 'bankkonto', 'sepaiban']
-    },
-    {
-      key: 'bic',
-      aliases: ['bic', 'swift', 'swiftbic', 'blz', 'bankleitzahl']
-    },
-    {
-      key: 'bankName',
-      aliases: ['bank', 'bankname', 'kreditinstitut', 'institut', 'sparkasse']
-    },
-    {
-      key: 'accountHolder',
-      aliases: ['kontoinhaber', 'kontoinhaberin', 'inhaber', 'accountholder']
-    },
-    {
-      key: 'mandateDate',
-      aliases: ['mandatsdatum', 'sepamandat', 'mandaterteilt', 'mandatedate']
-    },
-    {
-      key: 'mandateReference',
-      aliases: ['mandatsreferenz', 'mandatsref', 'mandatnr', 'mandateno']
-    },
-    {
-      key: 'entryDate',
-      aliases: ['eintritt', 'eintrittsdatum', 'beitritt', 'beitrittsdatum', 'mitgliedseit', 'entrydate', 'startdate', 'beginn']
-    },
-    {
-      key: 'exitDate',
-      aliases: ['austritt', 'austrittsdatum', 'kündigung', 'kündigungsdatum', 'exitdate', 'endedatum']
-    },
-    {
-      key: 'notes',
-      aliases: ['notizen', 'bemerkungen', 'bemerkung', 'kommentar', 'anmerkung', 'notes', 'info']
-    }
-  ];
-
-  headers.forEach(header => {
-    const norm = normalize(header);
-    for (const rule of rules) {
-      if (!mapping[rule.key]) {
-        if (rule.aliases.some(alias => norm === alias || norm.includes(alias))) {
-          mapping[rule.key] = header;
-          break;
-        }
-      }
-    }
-  });
-
-  // If we have separate firstName & lastName, don't use fullName
-  if (mapping.firstName && mapping.lastName) {
-    delete mapping.fullName;
-  }
-
-  // If we have separate street and houseNumber, don't use fullAddress
-  if (mapping.street && mapping.houseNumber) {
-    delete mapping.fullAddress;
-  }
-
+  const mapping: ColumnMapping = ordneSpaltenZu(headers, MITGLIED_SPALTEN);
+  if (mapping.firstName && mapping.lastName) delete mapping.fullName;
+  if (mapping.street && mapping.houseNumber) delete mapping.fullAddress;
   return mapping;
 }
 
-// Date Normalizer
-function parseGermanOrISODate(val?: string): string | undefined {
-  if (!val) return undefined;
-  const clean = val.trim();
-  if (!clean) return undefined;
-
-  // DD.MM.YYYY or D.M.YYYY
-  const deMatch = clean.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-  if (deMatch) {
-    const day = deMatch[1].padStart(2, '0');
-    const month = deMatch[2].padStart(2, '0');
-    const year = deMatch[3];
-    return `${year}-${month}-${day}`;
-  }
-
-  // YYYY-MM-DD
-  const isoMatch = clean.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (isoMatch) {
-    const year = isoMatch[1];
-    const month = isoMatch[2].padStart(2, '0');
-    const day = isoMatch[3].padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-  // DD/MM/YYYY
-  const slashMatch = clean.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (slashMatch) {
-    const day = slashMatch[1].padStart(2, '0');
-    const month = slashMatch[2].padStart(2, '0');
-    const year = slashMatch[3];
-    return `${year}-${month}-${day}`;
-  }
-
-  // Just a 4 digit year
-  if (/^\d{4}$/.test(clean)) {
-    return `${clean}-01-01`;
-  }
-
-  const d = new Date(clean);
-  if (!isNaN(d.getTime())) {
-    return d.toISOString().split('T')[0];
-  }
-
-  return undefined;
-}
-
-// Parse Number / Currency
-function parseCurrencyNumber(val?: string): number {
-  if (!val) return 0;
-  let clean = val.replace(/[^0-9,.-]/g, '').trim();
-  if (!clean) return 0;
-
-  // Handle German format: 1.250,50 -> 1250.50
-  if (clean.includes(',') && clean.includes('.')) {
-    if (clean.lastIndexOf(',') > clean.lastIndexOf('.')) {
-      clean = clean.replace(/\./g, '').replace(',', '.');
-    } else {
-      clean = clean.replace(/,/g, '');
-    }
-  } else if (clean.includes(',')) {
-    clean = clean.replace(',', '.');
-  }
-
-  const num = parseFloat(clean);
-  return isNaN(num) ? 0 : Math.max(0, num);
+/** Datum wie in den Buchungsimporten, dazu ein reines Jahr (→ 1. Januar). Unmögliche Daten ergeben undefined. */
+export function leseImportDatum(val?: string): string | undefined {
+  const v = (val || '').trim();
+  if (!v) return undefined;
+  if (/^\d{4}$/.test(v)) return `${v}-01-01`;
+  return leseDatum(v) ?? undefined;
 }
 
 // Split full name into first and last name
@@ -408,7 +257,7 @@ function normalizeStatus(val?: string): MembershipStatus {
   if (l.includes('passiv')) return 'passive';
   if (l.includes('ehren')) return 'honorary';
   if (l.includes('ruhend') || l.includes('ausgesetzt')) return 'suspended';
-  if (l.includes('gekündigt') || l.includes('austritt') || l.includes('beendet')) return 'terminated';
+  if (l.includes('gekündigt') || l.includes('austritt') || l.includes('ausgetreten') || l.includes('beendet')) return 'terminated';
   return 'active';
 }
 
@@ -448,153 +297,190 @@ function normalizeFeePeriod(val?: string): FeePeriod {
   return 'yearly';
 }
 
-// Main function: Convert parsed CSV rows to Member objects with mapping
+const PERIODEN_TEXT: Record<string, string> = { monthly: 'monatlich', quarterly: 'vierteljährlich', half_yearly: 'halbjährlich', yearly: 'jährlich' };
+
+const euro = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/**
+ * Wandelt die Zeilen in Vorschauzeilen um. Gegenüber früher (wie Android):
+ * fehlende Mitgliedsnummern werden aus der höchsten vergebenen fortgezählt,
+ * unlesbare Daten ergeben einen Hinweis statt eines geratenen Datums,
+ * „1.250“ ist 1.250 € mit Hinweis, und ohne Beitrag in der Datei gilt die
+ * Beitragsvorgabe der Mitgliedsart aus den Einstellungen (statt fester 60/80/120 €).
+ */
 export function convertRowsToMembers(
   rows: Record<string, string>[],
   mapping: ColumnMapping,
   existingMembers: Member[],
   settings: ClubSettings,
-  defaultDepartment?: string
+  defaultDepartment?: string,
+  heute: string = new Date().toISOString().slice(0, 10)
 ): ParsedMemberRow[] {
   const existingMapByNumber = new Map<string, Member>();
   const existingMapByName = new Map<string, Member>();
 
   existingMembers.forEach(m => {
     if (m.memberNumber) existingMapByNumber.set(m.memberNumber.toLowerCase().trim(), m);
-    const nameKey = `${m.lastName.toLowerCase().trim()}_${m.firstName.toLowerCase().trim()}`;
+    const nameKey = `${(m.lastName || '').toLowerCase().trim()}_${(m.firstName || '').toLowerCase().trim()}`;
     existingMapByName.set(nameKey, m);
   });
 
-  let counter = existingMembers.length + 101;
+  // Vergebene Nummern: Bestand plus alle ausdrücklich genannten Nummern der Datei
+  const vergeben: string[] = existingMembers.map(m => m.memberNumber).filter(Boolean);
+  const nummernSpalte = mapping.memberNumber;
+  if (nummernSpalte) {
+    rows.forEach(r => {
+      const n = (r[nummernSpalte] || '').trim();
+      if (n) vergeben.push(n);
+    });
+  }
+  const vorgaben = leseVorgaben(settings.membershipFeeDefaults);
 
   return rows.map((row, index) => {
     const warnings: string[] = [];
+    const vorhanden = new Set<string>();
+    const zelle = (feld: keyof ColumnMapping) => {
+      const spalte = mapping[feld];
+      return spalte ? (row[spalte] || '').trim() : '';
+    };
 
-    // Names
-    let firstName = mapping.firstName ? row[mapping.firstName] || '' : '';
-    let lastName = mapping.lastName ? row[mapping.lastName] || '' : '';
-
-    if ((!firstName || !lastName) && mapping.fullName && row[mapping.fullName]) {
-      const split = splitFullName(row[mapping.fullName]);
+    // Namen
+    let firstName = zelle('firstName');
+    let lastName = zelle('lastName');
+    if ((!firstName || !lastName) && zelle('fullName')) {
+      const split = splitFullName(zelle('fullName'));
       if (!firstName) firstName = split.firstName;
       if (!lastName) lastName = split.lastName;
     }
+    if (firstName) vorhanden.add('firstName');
+    if (lastName) vorhanden.add('lastName');
+    if (!lastName && !firstName) warnings.push('Vor- oder Nachname fehlt.');
 
-    if (!lastName && !firstName) {
-      warnings.push('Vor- oder Nachname fehlt.');
+    // Mitgliedsnummer: aus der Datei, sonst höchste vergebene + 1 (D-32)
+    let memberNumber = zelle('memberNumber');
+    if (memberNumber) vorhanden.add('memberNumber');
+    else {
+      memberNumber = naechsteNummerImSchema(vergeben, 'M-0101');
+      vergeben.push(memberNumber);
     }
 
-    // Member number
-    let memberNumber = mapping.memberNumber ? row[mapping.memberNumber] || '' : '';
-    if (!memberNumber) {
-      memberNumber = `M-${String(counter++).padStart(4, '0')}`;
-    }
-
-    // Birth date & age
-    const birthDate = parseGermanOrISODate(mapping.birthDate ? row[mapping.birthDate] : undefined);
+    // Geburtsdatum und Alter
+    const birthText = zelle('birthDate');
+    const birthDate = leseImportDatum(birthText);
+    if (birthText && !birthDate) warnings.push(`Geburtsdatum „${birthText}“ ist nicht lesbar.`);
+    if (birthDate) vorhanden.add('birthDate');
     let age: number | undefined;
     if (birthDate) {
-      const birth = new Date(birthDate);
-      if (!isNaN(birth.getTime())) {
-        const today = new Date();
-        age = today.getFullYear() - birth.getFullYear();
-        const m = today.getMonth() - birth.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-          age--;
-        }
-      }
+      const [bj, bm, bt] = birthDate.split('-').map(Number);
+      const [hj, hm, ht] = heute.split('-').map(Number);
+      age = hj - bj - (hm < bm || (hm === bm && ht < bt) ? 1 : 0);
     }
 
-    // Address
-    let street = mapping.street ? row[mapping.street] || '' : '';
-    let houseNumber = mapping.houseNumber ? row[mapping.houseNumber] || '' : '';
-
-    if (!street && mapping.fullAddress && row[mapping.fullAddress]) {
-      const split = splitAddress(row[mapping.fullAddress]);
+    // Adresse
+    let street = zelle('street');
+    let houseNumber = zelle('houseNumber');
+    if (!street && zelle('fullAddress')) {
+      const split = splitAddress(zelle('fullAddress'));
       street = split.street;
       houseNumber = split.houseNumber;
     }
+    if (street) vorhanden.add('street');
+    if (houseNumber) vorhanden.add('houseNumber');
+    const zip = zelle('zip');
+    const city = zelle('city');
+    const country = zelle('country') || 'Deutschland';
+    if (zip) vorhanden.add('zip');
+    if (city) vorhanden.add('city');
+    if (zelle('country')) vorhanden.add('country');
 
-    const zip = mapping.zip ? row[mapping.zip] || '' : '';
-    const city = mapping.city ? row[mapping.city] || '' : '';
-    const country = mapping.country ? row[mapping.country] || 'Deutschland' : 'Deutschland';
+    const phone = zelle('phone');
+    const email = zelle('email');
+    if (phone) vorhanden.add('phone');
+    if (email) vorhanden.add('email');
 
-    // Contact
-    const phone = mapping.phone ? row[mapping.phone] || '' : '';
-    const email = mapping.email ? row[mapping.email] || '' : '';
+    let department = zelle('department');
+    if (department) vorhanden.add('department');
+    else department = defaultDepartment || settings.departments[0] || 'Hauptverein';
 
-    // Department / Sparte
-    let department = mapping.department ? row[mapping.department] || '' : '';
-    if (!department) {
-      department = defaultDepartment || settings.departments[0] || 'Hauptverein';
-    }
+    const status = normalizeStatus(zelle('status') || undefined);
+    const membershipType = normalizeMembershipType(zelle('membershipType') || undefined, age);
+    if (zelle('status')) vorhanden.add('status');
+    if (zelle('membershipType')) vorhanden.add('membershipType');
 
-    // Status & Membership Type
-    const status = normalizeStatus(mapping.status ? row[mapping.status] : undefined);
-    const membershipType = normalizeMembershipType(mapping.membershipType ? row[mapping.membershipType] : undefined, age);
-
-    // Fee & Payment
-    let feeAmount = parseCurrencyNumber(mapping.feeAmount ? row[mapping.feeAmount] : undefined);
-    // If no fee is mapped or fee is 0, give a sensible default based on type
-    if (feeAmount === 0 && status === 'active' && membershipType !== 'honorary') {
-      if (membershipType === 'youth') feeAmount = 60.00;
-      else if (membershipType === 'reduced') feeAmount = 80.00;
-      else feeAmount = 120.00;
-    }
-
-    const feePeriod = normalizeFeePeriod(mapping.feePeriod ? row[mapping.feePeriod] : undefined);
-
-    // Bank & IBAN
-    const iban = mapping.iban ? (row[mapping.iban] || '').replace(/\s/g, '').toUpperCase() : '';
-    const bic = mapping.bic ? (row[mapping.bic] || '').replace(/\s/g, '').toUpperCase() : '';
-    const bankName = mapping.bankName ? row[mapping.bankName] || '' : '';
-    const accountHolder = mapping.accountHolder ? row[mapping.accountHolder] || `${firstName} ${lastName}`.trim() : `${firstName} ${lastName}`.trim();
-
-    const paymentMethod = normalizePaymentMethod(mapping.paymentMethod ? row[mapping.paymentMethod] : undefined, iban);
-
-    if (iban && !iban.startsWith('DE') && iban.length < 15) {
-      warnings.push(`IBAN (${iban}) scheint unvollständig zu sein.`);
-    }
-
-    // Dates
-    const entryDate = parseGermanOrISODate(mapping.entryDate ? row[mapping.entryDate] : undefined) || new Date().toISOString().split('T')[0];
-    const exitDate = parseGermanOrISODate(mapping.exitDate ? row[mapping.exitDate] : undefined);
-    const mandateDate = parseGermanOrISODate(mapping.mandateDate ? row[mapping.mandateDate] : undefined) || (iban ? entryDate : '');
-    const mandateReference = mapping.mandateReference ? row[mapping.mandateReference] || '' : (iban ? `MANDAT-${memberNumber}` : '');
-
-    const notes = mapping.notes ? row[mapping.notes] || '' : '';
-
-    // Check duplicate
-    let isDuplicate = false;
-    let existingMemberId: string | undefined;
-
-    if (existingMapByNumber.has(memberNumber.toLowerCase().trim())) {
-      isDuplicate = true;
-      existingMemberId = existingMapByNumber.get(memberNumber.toLowerCase().trim())?.id;
-    } else {
-      const nameKey = `${lastName.toLowerCase().trim()}_${firstName.toLowerCase().trim()}`;
-      if (lastName && firstName && existingMapByName.has(nameKey)) {
-        isDuplicate = true;
-        existingMemberId = existingMapByName.get(nameKey)?.id;
+    // Beitrag: „1.250“ ist 1.250 € mit Hinweis; nie negativ
+    const rohBeitrag = zelle('feeAmount');
+    const zahl = leseBetrag(rohBeitrag);
+    if (rohBeitrag && !zahl) warnings.push(`Beitrag „${rohBeitrag}“ ist nicht lesbar.`);
+    if (zahl?.mehrdeutig) warnings.push(`Beitrag „${rohBeitrag}“ als ${euro(Math.abs(zahl.wert))} € gelesen (Tausenderpunkt) – bitte prüfen.`);
+    let feeAmount = zahl ? Math.abs(zahl.wert) : 0;
+    let feePeriod = normalizeFeePeriod(zelle('feePeriod') || undefined);
+    if (zelle('feePeriod')) vorhanden.add('feePeriod');
+    if (feeAmount > 0) vorhanden.add('feeAmount');
+    else if (status === 'active') {
+      // Ohne Beitrag in der Datei: Vorgabe der Mitgliedsart aus den Einstellungen
+      const v = vorgabeFuer(vorgaben, membershipType);
+      if (v) {
+        feeAmount = v.amount;
+        if (zelle('feePeriod') && feePeriod !== v.period) {
+          warnings.push(`Kein Beitrag in der Datei: Vorgabe ${euro(v.amount)} € ${PERIODEN_TEXT[v.period]} übernommen; die Zahlungsweise der Datei (${PERIODEN_TEXT[feePeriod] ?? feePeriod}) wurde dafür ersetzt.`);
+        }
+        feePeriod = v.period;
       }
     }
 
+    // Bank
+    const iban = zelle('iban').replace(/\s/g, '').toUpperCase();
+    const bic = zelle('bic').replace(/\s/g, '').toUpperCase();
+    const bankName = zelle('bankName');
+    const accountHolder = zelle('accountHolder') || `${firstName} ${lastName}`.trim();
+    const paymentMethod = normalizePaymentMethod(zelle('paymentMethod') || undefined, iban);
+    if (iban) vorhanden.add('iban');
+    if (bic) vorhanden.add('bic');
+    if (bankName) vorhanden.add('bankName');
+    if (zelle('accountHolder')) vorhanden.add('accountHolder');
+    if (zelle('paymentMethod') || iban) vorhanden.add('paymentMethod');
+    if (iban && !iban.startsWith('DE') && iban.length < 15) warnings.push(`IBAN (${iban}) scheint unvollständig zu sein.`);
+
+    // Daten: unlesbar ergibt einen Hinweis (vorher still „heute“ bzw. geraten)
+    const entryText = zelle('entryDate');
+    const entryParsed = leseImportDatum(entryText);
+    if (entryText && !entryParsed) warnings.push(`Eintrittsdatum „${entryText}“ ist nicht lesbar; heute eingesetzt.`);
+    if (entryParsed) vorhanden.add('entryDate');
+    const entryDate = entryParsed || heute;
+    const exitText = zelle('exitDate');
+    const exitDate = leseImportDatum(exitText);
+    if (exitText && !exitDate) warnings.push(`Austrittsdatum „${exitText}“ ist nicht lesbar.`);
+    if (exitDate) vorhanden.add('exitDate');
+    const mandateText = zelle('mandateDate');
+    const mandateParsed = leseImportDatum(mandateText);
+    if (mandateText && !mandateParsed) warnings.push(`Mandatsdatum „${mandateText}“ ist nicht lesbar.`);
+    if (mandateParsed) vorhanden.add('mandateDate');
+    const mandateDate = mandateParsed || (iban ? entryDate : '');
+    const mandateReference = mapping.mandateReference ? zelle('mandateReference') : (iban ? `MANDAT-${memberNumber}` : '');
+    if (zelle('mandateReference')) vorhanden.add('mandateReference');
+
+    const notes = zelle('notes');
+    if (notes) vorhanden.add('notes');
+    if (zelle('gender')) vorhanden.add('gender');
+
+    // Duplikat: gleiche Nummer oder gleicher Name
+    let existingMemberId: string | undefined = existingMapByNumber.get(memberNumber.toLowerCase().trim())?.id;
+    if (!existingMemberId && lastName && firstName) {
+      existingMemberId = existingMapByName.get(`${lastName.toLowerCase().trim()}_${firstName.toLowerCase().trim()}`)?.id;
+    }
+    const isDuplicate = !!existingMemberId;
+
     const id = existingMemberId || `mem-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 6)}`;
+    const jetzt = new Date().toISOString();
 
     const member: Member = {
       id,
       memberNumber,
       firstName,
       lastName,
-      gender: normalizeGender(mapping.gender ? row[mapping.gender] : undefined),
+      gender: normalizeGender(zelle('gender') || undefined),
       birthDate,
-      address: {
-        street,
-        houseNumber,
-        zip,
-        city,
-        country
-      },
+      address: { street, houseNumber, zip, city, country },
       phone,
       email,
       entryDate,
@@ -605,31 +491,86 @@ export function convertRowsToMembers(
       feeAmount,
       feePeriod,
       paymentMethod,
-      bankDetails: {
-        iban,
-        bic,
-        bankName,
-        accountHolder,
-        mandateDate,
-        mandateReference
-      },
+      bankDetails: { iban, bic, bankName, accountHolder, mandateDate, mandateReference },
       notes,
       dataPrivacyConsent: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: jetzt,
+      updatedAt: jetzt
     };
 
     return {
       id,
-      selected: warnings.length === 0 || !!(firstName || lastName),
+      selected: !!(firstName || lastName),
       raw: row,
       hasWarnings: warnings.length > 0,
       warnings,
       isDuplicate,
       existingMemberId,
-      member
+      member,
+      vorhanden: [...vorhanden]
     };
   });
+}
+
+/**
+ * Übernimmt nur die Felder, die in der Datei einen Wert hatten, in das
+ * vorhandene Mitglied; alles andere bleibt, auch Felder, die der Import gar
+ * nicht kennt (Erziehungsberechtigte, Mandatsfolge, Foto …).
+ */
+export function uebernehmeMitglied(alt: Member, neu: Member, vorhanden: Iterable<string>): Member {
+  const p = new Set(vorhanden);
+  const m: Member = { ...alt, address: { ...alt.address }, bankDetails: { ...alt.bankDetails } };
+  const direkt: Array<keyof Member> = ['memberNumber', 'firstName', 'lastName', 'gender', 'birthDate', 'phone', 'email', 'department', 'status', 'membershipType', 'feeAmount', 'feePeriod', 'paymentMethod', 'entryDate', 'exitDate', 'notes'];
+  for (const f of direkt) if (p.has(f)) (m as unknown as Record<string, unknown>)[f] = neu[f];
+  for (const f of ['street', 'houseNumber', 'zip', 'city', 'country'] as const) if (p.has(f)) m.address[f] = neu.address[f];
+  for (const f of ['iban', 'bic', 'bankName', 'accountHolder', 'mandateDate', 'mandateReference'] as const) if (p.has(f)) m.bankDetails[f] = neu.bankDetails[f];
+  return m;
+}
+
+/**
+ * Bereitet die angehakten Zeilen zum Speichern vor (D-32):
+ * - „aktualisieren“: nur Felder mit Wert in der Datei überschreiben;
+ * - „überspringen“: Duplikate weglassen;
+ * - „immer neu“: Duplikat als neues Mitglied mit neuer Kennung.
+ * Eine schon vergebene Nummer bekommt bei neuen Mitgliedern die nächste freie
+ * (vorher entstanden bei „immer neu“ doppelte Mitgliedsnummern).
+ */
+export function bereiteMitgliederImportVor(
+  zeilen: ParsedMemberRow[],
+  strategie: 'update' | 'skip' | 'create_always',
+  vorhandene: Member[]
+): Member[] {
+  const nachId = new Map(vorhandene.map(m => [m.id, m]));
+  const vergebenListe: string[] = vorhandene.map(m => m.memberNumber).filter(Boolean);
+  const vergeben = new Set(vergebenListe.map(n => n.toLowerCase()));
+  const ergebnis: Member[] = [];
+  for (const z of zeilen) {
+    if (!z.selected) continue;
+    if (z.isDuplicate && strategie === 'skip') continue;
+    const alt = z.existingMemberId ? nachId.get(z.existingMemberId) : undefined;
+    if (alt && strategie === 'update') {
+      ergebnis.push(uebernehmeMitglied(alt, z.member, z.vorhanden));
+      continue;
+    }
+    let m: Member = { ...z.member };
+    if (z.isDuplicate) m.id = `mem-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    if (vergeben.has(m.memberNumber.toLowerCase())) {
+      const altNr = m.memberNumber;
+      const neuNr = naechsteNummerImSchema(vergebenListe, 'M-0101');
+      m = {
+        ...m,
+        memberNumber: neuNr,
+        bankDetails: {
+          ...m.bankDetails,
+          mandateReference: m.bankDetails.mandateReference === `MANDAT-${altNr}` ? `MANDAT-${neuNr}` : m.bankDetails.mandateReference
+        }
+      };
+    }
+    vergeben.add(m.memberNumber.toLowerCase());
+    vergebenListe.push(m.memberNumber);
+    ergebnis.push(m);
+  }
+  return ergebnis;
 }
 
 // Generate sample CSV template for download
@@ -649,7 +590,7 @@ export function generateSampleCSVTemplate(settings: ClubSettings): string {
     'Sparte/Abteilung',
     'Status (Aktiv/Passiv/Ehrenmitglied/Gekündigt)',
     'Beitragsgruppe (Vollzahler/Jugend/Ermäßigt/Familie)',
-    'Jahresbeitrag in Euro',
+    'Beitrag in Euro (je Zahlung)',
     'Zahlungsweise (Jährlich/Monatlich/Halbjährlich/Quartal)',
     'Zahlungsmethode (SEPA/Überweisung/Bar)',
     'IBAN',

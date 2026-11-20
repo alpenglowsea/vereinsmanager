@@ -137,6 +137,37 @@ entsprechen der Android-Fassung.
   Dokumentenverwaltung bleibt beim Löschen der Sitzung erhalten (wie bei
   Android). Vorher wurde es ohne Rückfrage mitgelöscht.
 
+### Paket 18 — Mitglieder- und Kontakt-Import (D-32, D-56 bis D-58, D-73)
+
+- **Mitglieder: Spaltenzuordnung (D-32):** genaue Überschriften zuerst, jede
+  Spalte nur einmal. „Status (Aktiv/Passiv/Ehrenmitglied/Gekündigt)“ der
+  eigenen Vorlage wird wieder zum Status und nicht zum Namen.
+- **Mitglieder: Nummern** werden aus der höchsten vergebenen fortgezählt (vorher
+  aus der Anzahl). Bei „Immer als neues Mitglied anlegen“ bekommt ein
+  Duplikat eine freie Nummer statt derselben noch einmal.
+- **Mitglieder: „Aktualisieren“** überschreibt nur noch Felder, die in der
+  Datei gefüllt sind. Vorher ersetzte es das ganze Mitglied: Erziehungsberechtigte,
+  Mandatsfolge, abweichender Kontoinhaber und alles, was die Datei nicht
+  enthielt, gingen verloren, und der Beitrag fiel auf einen Festwert.
+- **Mitglieder: Werte:** „1.250“ ist 1.250 € mit Hinweis „bitte prüfen“ (vorher
+  1,25 €). Unmögliche oder unlesbare Daten werden gemeldet statt geraten.
+  Ohne Beitrag in der Datei gilt die Beitragsvorgabe der Mitgliedsart aus den
+  Einstellungen (vorher fest 60/80/120 € jährlich). „Ausgetreten“ wird als
+  Status erkannt. Alle Hinweise einer Zeile sind sichtbar, nicht nur der erste.
+- **Kontakte (D-56):** Firma nur noch an einer Rechtsform als ganzes Wort
+  erkannt; „Evangelisch“ oder „Zeugner“ machen niemanden mehr zur Firma.
+  Die Art lässt sich vorgeben und in der Vorschau je Zeile umschalten.
+- **Kontakte (D-57):** alle neun Kontakttypen; Ansprechpartner ohne feste
+  Anrede „Herr/Frau“ und ohne feste Funktion; Vor- und Nachname, Anrede,
+  Kontaktnummer, Hausnummer, Land, Bank, Kontoinhaber, Steuernummer,
+  Handelsregister und Geburtsdatum werden übernommen.
+- **Kontakte (D-58):** mögliche Duplikate (gleiche Nummer oder gleicher Name)
+  sind in der Vorschau markiert und abgewählt; jede Zeile ist einzeln
+  wählbar. Ungültige IBAN, BIC und E-Mail werden nicht übernommen und
+  gemeldet. Eine vergebene Nummer aus der Datei wird ersetzt.
+- Regeln in `src/services/kontaktImportService.ts` (9 Tests) und
+  `memberImportService.ts` (8 Tests, erstmals).
+
 ### Pakete 16 und 17 — Kontakte und Buchungsimporte (D-54, D-55, D-61, D-65, D-67 bis D-71)
 
 - **Kontakt-Summen (D-54):** Einnahmen und Ausgaben eines Kontakts zählen
