@@ -1,5 +1,7 @@
 import { vergleicheNummern } from '../utils/sortierung';
 import { offeneAusgaben, inventarSperrText } from '../utils/loeschRegeln';
+import { WERT_HINWEIS, ausgegeben, ausgemustert, geprueftAm, zurueckgeben, inventarCsv, kennzahlen, menge, pruefungBald, sichtbar, stueckwert, wert } from '../utils/inventarRegeln';
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { InventoryItem, InventoryCategory, ClubSettings, InventoryBulkUpdates, Member, MemberInventoryAssignment } from '../types';
 import { INVENTORY_CATEGORIES, CONDITION_OPTIONS } from '../data/inventoryCategories';
@@ -10,6 +12,8 @@ import { AuswahlLeiste } from './AuswahlLeiste';
 import { ermittleSeitenStatus, wechsleSeite, waehleAlleGefilterten } from '../utils/tableSelection';
 import { InventoryBulkEditModal } from './InventoryBulkEditModal';
 import { IssuedInventoryModal } from './IssuedInventoryModal';
+import { InventoryDetailsModal } from './InventoryDetailsModal';
+import { frage } from '../utils/dialoge';
 import { SortableResizableTh } from './SortableResizableTh';
 import { useResizableColumns, ColumnWidths } from '../hooks/useResizableColumns';
 import { useSortableColumns } from '../hooks/useSortableColumns';
@@ -123,6 +127,10 @@ interface InventoryViewProps {
   onDeleteItem: (id: string) => void;
   onBulkUpdateItems?: (ids: string[], updates: InventoryBulkUpdates) => Promise<void>;
   onBulkDeleteItems?: (ids: string[]) => Promise<void>;
+  /** Speichert einen Gegenstand (für „Heute geprüft“ in der Detailansicht). */
+  onSaveItem?: (item: InventoryItem) => Promise<void>;
+  /** Öffnet ein Mitglied (aus „Ausgegeben an“ der Detailansicht). */
+  onOpenMember?: (member: Member) => void;
 }
 
 export const InventoryView: React.FC<InventoryViewProps> = ({
@@ -135,6 +143,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   onDeleteItem,
   onBulkUpdateItems,
   onBulkDeleteItems,
+  onSaveItem,
+  onOpenMember,
 }) => {
   /**
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
@@ -148,6 +158,16 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const [showNeedsInspectionOnly, setShowNeedsInspectionOnly] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  // Detailansicht im eigenen Fenster; der Gegenstand wird jeweils frisch aus der Liste gelesen
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailMeldung, setDetailMeldung] = useState<string | null>(null);
+  const detailItem = detailId ? inventory.find(i => i.id === detailId) || null : null;
+  const oeffneDetails = (id: string) => {
+    setDetailMeldung(null);
+    setDetailId(id);
+    // Ausgaben frisch laden: sie können sich beim Mitglied geändert haben
+    void loadAssignments();
+  };
 
   // Sortierung der Tabellenansicht (Kartenansicht bleibt unsortiert)
   const { sortBy, sortDirection, handleSort } = useSortableColumns<InventorySortField>('name');
@@ -431,7 +451,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         const q = searchQuery.toLowerCase();
         const matchesName = item.name.toLowerCase().includes(q);
         const matchesCode = item.itemNumber.toLowerCase().includes(q);
-        const matchesLoc = item.location.toLowerCase().includes(q);
+        const matchesLoc = (item.location || '').toLowerCase().includes(q);
         const matchesResp = (item.responsiblePerson || '').toLowerCase().includes(q);
         const matchesAssigned = (item.assignedTo || '').toLowerCase().includes(q);
         const matchesSupplier = (item.supplier || '').toLowerCase().includes(q);
@@ -457,13 +477,14 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       if (selectedCondition !== 'all' && item.condition !== selectedCondition) {
         return false;
       }
+      // Ausgemustertes nur über den Zustandsfilter „Ausgemustert“ (D-100, wie Android)
+      if (!sichtbar(item, selectedCondition === 'all' ? null : selectedCondition)) {
+        return false;
+      }
 
-      // Needs inspection / overdue filter
-      if (showNeedsInspectionOnly) {
-        if (!item.nextInspectionDate) return false;
-        const nextMonth = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
-        // Overdue or within next 30 days
-        if (item.nextInspectionDate > nextMonth) return false;
+      // Prüfung fällig oder in den nächsten 30 Tagen; Ausgemustertes nie
+      if (showNeedsInspectionOnly && !pruefungBald(item, lokalesHeute())) {
+        return false;
       }
 
       return true;
@@ -483,13 +504,11 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       } else if (sortBy === 'quantity') {
         comparison = (a.quantity || 0) - (b.quantity || 0);
       } else if (sortBy === 'location') {
-        comparison = a.location.localeCompare(b.location, 'de');
+        comparison = (a.location || '').localeCompare(b.location || '', 'de');
       } else if (sortBy === 'condition') {
         comparison = CONDITION_SORT_ORDER[a.condition] - CONDITION_SORT_ORDER[b.condition];
       } else if (sortBy === 'value') {
-        const valueA = a.currentValue ?? a.purchasePrice ?? 0;
-        const valueB = b.currentValue ?? b.purchasePrice ?? 0;
-        comparison = valueA - valueB;
+        comparison = wert(a) - wert(b);
       } else if (sortBy === 'responsible') {
         comparison = (a.responsiblePerson || '').localeCompare(b.responsiblePerson || '', 'de');
       } else if (sortBy === 'purchasePrice') {
@@ -508,30 +527,15 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     return filteredInventory.slice(startIndex, startIndex + pageSize);
   }, [filteredInventory, currentPage, pageSize]);
 
-  // Statistics Summary
+  // Kennzahlen ohne Ausgemustertes, Wert = Zeitwert sonst Anschaffungspreis mal Menge (D-100, D-101)
   const stats = useMemo(() => {
-    const totalCount = inventory.reduce((acc, curr) => acc + (curr.quantity || 1), 0);
-    const totalOriginalValue = inventory.reduce(
-      (acc, curr) => acc + (curr.purchasePrice || 0) * (curr.quantity || 1),
-      0
-    );
-    const totalCurrentValue = inventory.reduce(
-      (acc, curr) => acc + (curr.currentValue || curr.purchasePrice || 0) * (curr.quantity || 1),
-      0
-    );
-    
-    // Check overdue inspections
-    const today = new Date().toISOString().split('T')[0];
-    const overdueCount = inventory.filter(i => i.nextInspectionDate && i.nextInspectionDate < today).length;
-    const damagedCount = inventory.filter(i => i.condition === 'damaged' || i.condition === 'in_repair').length;
-
+    const k = kennzahlen(inventory, lokalesHeute());
     return {
-      totalItems: inventory.length,
-      totalCount,
-      totalOriginalValue,
-      totalCurrentValue,
-      overdueCount,
-      damagedCount
+      totalItems: k.positionen,
+      totalCount: k.einheiten,
+      totalCurrentValue: k.wert,
+      overdueCount: k.ueberfaellig,
+      damagedCount: k.reparatur
     };
   }, [inventory]);
 
@@ -563,57 +567,14 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     }
   };
 
-  // CSV Export for Excel
+  // CSV: ein Format für beide Knöpfe, gleich wie am Handy (D-102)
+  const ladeCsv = (liste: InventoryItem[], dateiname: string) => {
+    const blob = new Blob([inventarCsv(liste, ausgegeben(issuedAssignments))], { type: 'text/csv;charset=utf-8;' });
+    void saveBlobAs(blob, dateiname);
+  };
+
   const handleExportCSV = () => {
-    const headers = [
-      'Inventarnummer',
-      'Bezeichnung',
-      'Kategorie',
-      'Sparte',
-      'Menge',
-      'Einheit',
-      'Standort',
-      'Zustand',
-      'Kaufdatum',
-      'Anschaffungspreis_EUR',
-      'Zeitwert_EUR',
-      'Lieferant',
-      'Verantwortlicher',
-      'Im_Einsatz_bei',
-      'Seriennummer',
-      'Letzte_Prüfung',
-      'Nächste_Prüfung',
-      'Bemerkungen'
-    ];
-
-    const rows = filteredInventory.map(item => {
-      const cat = getCategoryMeta(item.category);
-      const cond = CONDITION_OPTIONS.find(c => c.value === item.condition)?.label || item.condition;
-      return [
-        `"${item.itemNumber}"`,
-        `"${(item.name || '').replace(/"/g, '""')}"`,
-        `"${cat.label}"`,
-        `"${item.department}"`,
-        item.quantity,
-        `"${item.unit}"`,
-        `"${(item.location || '').replace(/"/g, '""')}"`,
-        `"${cond}"`,
-        `"${item.purchaseDate || ''}"`,
-        item.purchasePrice !== undefined ? item.purchasePrice.toFixed(2).replace('.', ',') : '',
-        item.currentValue !== undefined ? item.currentValue.toFixed(2).replace('.', ',') : '',
-        `"${(item.supplier || '').replace(/"/g, '""')}"`,
-        `"${(item.responsiblePerson || '').replace(/"/g, '""')}"`,
-        `"${(item.assignedTo || '').replace(/"/g, '""')}"`,
-        `"${(item.serialNumber || '').replace(/"/g, '""')}"`,
-        `"${item.lastCheckedDate || ''}"`,
-        `"${item.nextInspectionDate || ''}"`,
-        `"${(item.notes || '').replace(/"/g, '""')}"`
-      ].join(';');
-    });
-
-    const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    void saveBlobAs(blob, `Inventarliste_${settings.clubName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+    ladeCsv(filteredInventory, `Inventarliste_${settings.clubName.replace(/[^a-zA-Z0-9]/g, '_')}_${lokalesHeute()}.csv`);
   };
 
   // Selected items objects
@@ -664,6 +625,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       handleClearSelection();
     } catch (err) {
       console.error('Failed to bulk update inventory items:', err);
+      // Weiterreichen, damit das Fenster offen bleibt und den Fehler zeigt
+      throw err;
     } finally {
       setIsBulkProcessing(false);
     }
@@ -704,7 +667,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
 
   const handleExportSelectedCSV = () => {
     const toExport = selectedItems.length > 0 ? selectedItems : filteredInventory;
-    ExportService.exportInventoryCSV(toExport, `inventar_${toExport.length}_ausgewaehlt.csv`);
+    ladeCsv(toExport, `inventar_${toExport.length}_ausgewaehlt.csv`);
   };
 
   const handleExportSelectedPDF = () => {
@@ -712,8 +675,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     ExportService.exportInventoryPDF(
       toExport,
       settings,
-      `inventar_${toExport.length}_ausgewaehlt.pdf`,
-      `Inventarliste (${toExport.length} ausgewählt)`
+      // Reihenfolge wie in exportInventoryPDF: erst Titel, dann Dateiname
+      // (vorher vertauscht: Dateiname stand als Überschrift im PDF)
+      `Inventarliste (${toExport.length} ausgewählt)`,
+      `inventar_${toExport.length}_ausgewaehlt.pdf`
     );
   };
 
@@ -786,7 +751,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         <div className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-2xs dark:bg-slate-900 dark:border-slate-800">
           <div className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1 flex items-center gap-1.5 dark:text-slate-400">
             <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>Geschätzter Zeitwert</span>
+            <span title={WERT_HINWEIS}>Wert des Bestands</span>
           </div>
           <div className="text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-300">
             {stats.totalCurrentValue.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
@@ -1169,7 +1134,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   return (
                     <tr
                       key={item.id}
-                      className={`transition-colors group ${
+                      onClick={() => oeffneDetails(item.id)}
+                      className={`transition-colors cursor-pointer group ${
                         selectedItemIds.has(item.id) ? 'bg-blue-50/70 hover:bg-blue-50 dark:bg-blue-950/70 dark:hover:bg-blue-950/40' : 'hover:bg-slate-50/60 dark:hover:bg-slate-800/60'
                       }`}
                     >
@@ -1260,8 +1226,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                                 // Preise werden pro Stück erfasst. Bei Positionen mit
                                 // mehr als einem Stück wird zusätzlich der Gesamtwert
                                 // der Position ausgewiesen.
-                                const unitValue = item.currentValue ?? item.purchasePrice;
-                                if (unitValue === undefined) {
+                                const unitValue = stueckwert(item);
+                                if (unitValue === null) {
                                   return <span className="text-slate-400">–</span>;
                                 }
                                 const qty = item.quantity || 1;
@@ -1279,7 +1245,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                                         title="Gesamtwert dieser Position"
                                       >
                                         × {qty} ={' '}
-                                        {(unitValue * qty).toLocaleString('de-DE', {
+                                        {wert(item).toLocaleString('de-DE', {
                                           minimumFractionDigits: 2,
                                           maximumFractionDigits: 2
                                         })}{' '}
@@ -1353,7 +1319,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                       })()}
 
                       {/* Actions */}
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-3 px-4 text-right" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
@@ -1392,14 +1358,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           {/* Table Bottom Summary & Pagination */}
           <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-400">
             <div>
-              Gesamtwert der gefilterten Liste:{' '}
+              <span title={WERT_HINWEIS}>Gesamtwert der gefilterten Liste (ohne Ausgemustertes):</span>{' '}
               <span className="font-bold text-emerald-700 dark:text-emerald-300">
-                {filteredInventory
-                  .reduce(
-                    (sum, item) =>
-                      sum + (item.currentValue || item.purchasePrice || 0) * (item.quantity || 1),
-                    0
-                  )
+                {(filteredInventory.filter(item => !ausgemustert(item)).reduce((sum, item) => sum + Math.round(wert(item) * 100), 0) / 100)
                   .toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
               </span>
             </div>
@@ -1452,6 +1413,14 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 } p-5 shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between`}
               >
                 <div>
+                  {/* Foto (D-105) */}
+                  {item.photoUrl && (
+                    <img
+                      src={item.photoUrl}
+                      alt={`Foto: ${item.name}`}
+                      className="w-full h-36 object-cover rounded-xl border border-slate-200 mb-3 dark:border-slate-700"
+                    />
+                  )}
                   {/* Card Header: Category & Sparte */}
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <div className="flex items-center gap-2">
@@ -1501,11 +1470,11 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                       </span>
                     </div>
 
-                    {(item.currentValue !== undefined || item.purchasePrice !== undefined) && (
+                    {stueckwert(item) !== null && (
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Zeitwert:</span>
+                        <span className="text-slate-400" title={WERT_HINWEIS}>Wert{menge(item) > 1 ? ` (${menge(item)} Stück)` : ''}:</span>
                         <span className="font-bold text-emerald-700 font-mono dark:text-emerald-300">
-                          {(item.currentValue ?? item.purchasePrice ?? 0).toLocaleString('de-DE', { minimumFractionDigits: 2 })} €
+                          {wert(item).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                         </span>
                       </div>
                     )}
@@ -1539,6 +1508,14 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => oeffneDetails(item.id)}
+                      className="px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors dark:text-slate-200 dark:hover:bg-slate-800 dark:border-slate-700"
+                      title="Details anzeigen"
+                    >
+                      Details
+                    </button>
                     <button
                       type="button"
                       onClick={() => onOpenEdit(item)}
@@ -1577,6 +1554,60 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       )}
 
       {/* Delete Confirmation Dialog */}
+      {detailItem && (
+        <InventoryDetailsModal
+          item={detailItem}
+          assignments={issuedAssignments}
+          members={members}
+          heute={lokalesHeute()}
+          meldung={detailMeldung}
+          onClose={() => setDetailId(null)}
+          onEdit={(i) => {
+            setDetailId(null);
+            onOpenEdit(i);
+          }}
+          onDelete={(i) => {
+            setDetailId(null);
+            setDeleteConfirmId(i.id);
+          }}
+          onMarkChecked={
+            onSaveItem
+              ? async (i) => {
+                  try {
+                    await onSaveItem(geprueftAm(i, lokalesHeute(), new Date().toISOString()));
+                    setDetailMeldung('Prüfung für heute eingetragen.');
+                  } catch {
+                    setDetailMeldung(null);
+                  }
+                }
+              : undefined
+          }
+          onReturn={async (x, name) => {
+            const ok = await frage({
+              titel: 'Rückgabe eintragen?',
+              text: `${x.quantity} ${x.unit || ''} „${detailItem.name}“ von ${name} als heute zurückgegeben eintragen?`.replace('  ', ' '),
+              bestaetigenText: 'Zurückgeben'
+            });
+            if (!ok) return;
+            try {
+              await StorageService.saveMemberInventoryAssignment(zurueckgeben(x, lokalesHeute(), new Date().toISOString()));
+              await loadAssignments();
+              setDetailMeldung(`Rückgabe von ${name} eingetragen.`);
+            } catch {
+              setDetailMeldung('Die Rückgabe konnte nicht gespeichert werden.');
+            }
+          }}
+          onOpenMember={
+            onOpenMember
+              ? (m) => {
+                  setDetailId(null);
+                  onOpenMember(m);
+                }
+              : undefined
+          }
+        />
+      )}
+
       {deleteConfirmId &&
         (() => {
           // Noch an Mitglieder ausgegeben? Dann wird nicht gelöscht, sonst

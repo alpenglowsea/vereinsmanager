@@ -50,6 +50,8 @@ import { planeBelegOrdner, planeUnterordner, belegArtVon, sollEinsortiertWerden,
 import { wendeSammelAn } from '../utils/buchungSammel';
 import { wendeSammelRegelnAn, lokalesHeute } from '../utils/mitgliedRegeln';
 import { beitragsBuchungen } from './beitragsBuchung';
+import { pruefeSammel, wendeSammelAn as wendeInventarSammelAn } from '../utils/inventarRegeln';
+import { MaterialEintrag, materialEntfernt, materialGespeichert } from '../utils/materialProtokoll';
 import {
   belegDokumentId,
   inventarSperrText,
@@ -2187,57 +2189,14 @@ export const StorageService = {
     const now = new Date().toISOString();
     const updatedList: InventoryItem[] = [];
 
+    // Regeln an einer Stelle (D-103): angehakt + leer leert freiwillige Felder;
+    // gezählt wird nur, was sich wirklich ändert
+    const problem = pruefeSammel(updates);
+    if (problem) throw new Error(problem);
     for (const item of allItems) {
       if (!idSet.has(item.id)) continue;
-      const copy = { ...item };
-      let changed = false;
-
-      if (updates.department !== undefined && copy.department !== updates.department) {
-        copy.department = updates.department;
-        changed = true;
-      }
-      if (updates.category !== undefined && copy.category !== updates.category) {
-        copy.category = updates.category;
-        changed = true;
-      }
-      if (updates.condition !== undefined && copy.condition !== updates.condition) {
-        copy.condition = updates.condition;
-        changed = true;
-      }
-      if (updates.location !== undefined && updates.location.trim() && copy.location !== updates.location.trim()) {
-        copy.location = updates.location.trim();
-        changed = true;
-      }
-      if (updates.responsiblePerson !== undefined && copy.responsiblePerson !== updates.responsiblePerson) {
-        copy.responsiblePerson = updates.responsiblePerson.trim();
-        changed = true;
-      }
-      if (updates.assignedTo !== undefined && copy.assignedTo !== updates.assignedTo) {
-        copy.assignedTo = updates.assignedTo.trim();
-        changed = true;
-      }
-      if (updates.supplier !== undefined && copy.supplier !== updates.supplier) {
-        copy.supplier = updates.supplier.trim();
-        changed = true;
-      }
-      if (updates.lastCheckedDate !== undefined && copy.lastCheckedDate !== updates.lastCheckedDate) {
-        copy.lastCheckedDate = updates.lastCheckedDate;
-        changed = true;
-      }
-      if (updates.nextInspectionDate !== undefined && copy.nextInspectionDate !== updates.nextInspectionDate) {
-        copy.nextInspectionDate = updates.nextInspectionDate;
-        changed = true;
-      }
-      if (updates.notesAction === 'replace') {
-        copy.notes = updates.notesValue || '';
-        changed = true;
-      } else if (updates.notesAction === 'append' && updates.notesValue && updates.notesValue.trim()) {
-        copy.notes = copy.notes ? `${copy.notes}\n${updates.notesValue.trim()}` : updates.notesValue.trim();
-        changed = true;
-      }
-
-      if (changed) {
-        copy.updatedAt = now;
+      const copy = wendeInventarSammelAn(item, updates, now);
+      if (copy) {
         await putItemToStore(STORES.INVENTORY, copy);
         updatedList.push(copy);
       }
@@ -2262,7 +2221,7 @@ export const StorageService = {
     return all.filter(a => a.memberId === memberId);
   },
 
-  async saveMemberInventoryAssignment(assignment: MemberInventoryAssignment): Promise<MemberInventoryAssignment> {
+  async saveMemberInventoryAssignment(assignment: MemberInventoryAssignment, author = 'Kassier / Administrator'): Promise<MemberInventoryAssignment> {
     const now = new Date().toISOString();
     const existing = await getItemFromStore<MemberInventoryAssignment>(STORES.MEMBER_INVENTORY, assignment.id);
     const toSave: MemberInventoryAssignment = {
@@ -2271,11 +2230,34 @@ export const StorageService = {
       updatedAt: now
     };
     await putItemToStore(STORES.MEMBER_INVENTORY, toSave);
+    // Änderungsprotokoll des Mitglieds wie Android (ausgegeben, bearbeitet, zurückgegeben …)
+    const eintrag = materialGespeichert(existing, toSave);
+    if (eintrag) await this.protokolliereMaterial(toSave.memberId, eintrag, now, author);
     return toSave;
   },
 
-  async deleteMemberInventoryAssignment(id: string): Promise<void> {
+  async deleteMemberInventoryAssignment(id: string, author = 'Kassier / Administrator'): Promise<void> {
+    const existing = await getItemFromStore<MemberInventoryAssignment>(STORES.MEMBER_INVENTORY, id);
     await deleteItemFromStore(STORES.MEMBER_INVENTORY, id);
+    if (existing) await this.protokolliereMaterial(existing.memberId, materialEntfernt(existing), new Date().toISOString(), author);
+  },
+
+  /** Schreibt einen Material-Eintrag in das Änderungsprotokoll des Mitglieds (gibt es das Mitglied nicht mehr, entfällt er). */
+  async protokolliereMaterial(memberId: string, eintrag: MaterialEintrag, now: string, author: string): Promise<void> {
+    const member = await getItemFromStore<Member>(STORES.MEMBERS, memberId);
+    if (!member) return;
+    const auditLog: MemberAuditLog = {
+      id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      memberId: member.id,
+      memberNumber: member.memberNumber,
+      memberName: `${member.firstName} ${member.lastName}`,
+      timestamp: now,
+      author,
+      action: 'update',
+      summary: eintrag.summary,
+      changes: eintrag.changes
+    };
+    await putItemToStore(STORES.AUDIT_LOGS, auditLog);
   },
 
   // Settings

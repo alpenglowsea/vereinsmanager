@@ -78,6 +78,14 @@ class SitzungenTest {
         assertEquals("accepted", Sitzungen.ergebnisVorschlag(5, 4)); assertEquals("rejected", Sitzungen.ergebnisVorschlag(4, 4))
     }
 
+    @Test fun hinweisWennStimmenOhneTeilnehmerUndAnzahl() {
+        // wie Desktop sitzungRegeln.test.ts „Hinweis: Stimmen ohne Teilnehmer (T-192)“
+        assertTrue(Sitzungen.stimmenUngeprueft(form(stimmen = "").copy(teilnehmer = emptyList())))
+        assertFalse(Sitzungen.stimmenUngeprueft(form().copy(teilnehmer = emptyList())))
+        assertFalse(Sitzungen.stimmenUngeprueft(form(stimmen = "")))
+        assertFalse(Sitzungen.stimmenUngeprueft(form(tops = emptyList(), stimmen = "").copy(teilnehmer = emptyList())))
+    }
+
     @Test fun speichernBehaeltUnbekannteFelderUndNummeriertNeu() {
         val s = InMemoryDocumentStore()
         val a = speichere(s)

@@ -301,7 +301,8 @@ class MainActivity : ComponentActivity() {
                             Page.Inventory -> InventarScreen(model, onOpen = { stack = stack + Page.InventoryItem(it) }, onNew = { stack = stack + Page.InventoryEdit(null) }, modifier = m)
                             is Page.InventoryItem -> InventarDetailScreen(
                                 model, page.id, onEdit = { stack = stack + Page.InventoryEdit(page.id) },
-                                onDeleted = { stack = stack.filter { it !is Page.InventoryItem && it !is Page.InventoryEdit } }, modifier = m,
+                                onDeleted = { stack = stack.filter { it !is Page.InventoryItem && it !is Page.InventoryEdit } },
+                                onOpenMember = { stack = stack + Page.Member(it) }, modifier = m,
                             )
                             is Page.InventoryEdit -> InventarFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
                             Page.Settings -> EinstellungenScreen(model, onProbes = { stack = stack + Page.Probes }, modifier = m)

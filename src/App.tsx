@@ -2091,6 +2091,8 @@ export default function App() {
                 }}
                 onDeleteItem={handleDeleteInventoryItem}
                 onBulkUpdateItems={handleBulkUpdateInventoryItems}
+                onSaveItem={handleSaveInventoryItem}
+                onOpenMember={(m) => setDetailsMember(m)}
                 onBulkDeleteItems={handleBulkDeleteInventoryItems}
                 />
             )}

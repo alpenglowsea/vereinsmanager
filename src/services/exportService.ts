@@ -12,6 +12,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Papa from 'papaparse';
 import { formatClubAddress } from '../utils/clubAddress';
+import { ausgegeben, ausgemustert, inventarCsv, stueckwert, wert, zustandName } from '../utils/inventarRegeln';
 import {
   Member,
   Transaction,
@@ -421,40 +422,9 @@ export const ExportService = {
     void savePdfAs(doc, targetFile);
   },
 
-  // 4c. Inventory CSV Export
-  exportInventoryCSV(items: InventoryItem[], filename = 'inventarliste.csv'): void {
-    const conditionLabels: Record<string, string> = {
-      new: 'Neu / Neuwertig',
-      good: 'Gut / Einsatzbereit',
-      used: 'Gebraucht',
-      damaged: 'Beschädigt',
-      in_repair: 'In Reparatur',
-      discarded: 'Ausgemustert'
-    };
-
-    const data = items.map(item => ({
-      'Inventar-Nr.': item.itemNumber,
-      'Bezeichnung': item.name,
-      'Kategorie': item.category,
-      'Sparte / Abteilung': item.department,
-      'Menge': item.quantity,
-      'Einheit': item.unit,
-      'Standort': item.location,
-      'Zustand': conditionLabels[item.condition] || item.condition,
-      'Anschaffungsdatum': item.purchaseDate || '',
-      'Anschaffungspreis (EUR)': item.purchasePrice !== undefined ? item.purchasePrice.toFixed(2) : '',
-      'Aktueller Zeitwert (EUR)': item.currentValue !== undefined ? item.currentValue.toFixed(2) : '',
-      'Lieferant / Hersteller': item.supplier || '',
-      'Zuständige Person': item.responsiblePerson || '',
-      'Zugewiesen / Einsatz bei': item.assignedTo || '',
-      'Seriennummer': item.serialNumber || '',
-      'Letzte Prüfung': item.lastCheckedDate || '',
-      'Nächste Prüfung': item.nextInspectionDate || '',
-      'Notizen': (item.notes || '').replace(/(\r\n|\n|\r)/gm, ' ')
-    }));
-
-    const csv = Papa.unparse(data, { delimiter: ';' });
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  // 4c. Inventory CSV Export – ein Format für alle Wege, wie Android (D-102)
+  exportInventoryCSV(items: InventoryItem[], filename = 'inventarliste.csv', ausgaben: MemberInventoryAssignment[] = []): void {
+    const blob = new Blob([inventarCsv(items, ausgegeben(ausgaben))], { type: 'text/csv;charset=utf-8;' });
     void saveBlobAs(blob, filename);
   },
 
@@ -466,15 +436,6 @@ export const ExportService = {
     filename?: string
   ): void {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    const conditionLabels: Record<string, string> = {
-      new: 'Neu',
-      good: 'Gut',
-      used: 'Gebraucht',
-      damaged: 'Defekt',
-      in_repair: 'Reparatur',
-      discarded: 'Ausgemustert'
-    };
-
     // Header
     doc.setFontSize(16);
     doc.setTextColor(15, 23, 42);
@@ -497,11 +458,12 @@ export const ExportService = {
     doc.setLineWidth(0.5);
     doc.line(14, 24, 283, 24);
 
-    let totalValue = 0;
+    // Wert = Zeitwert, sonst Anschaffungspreis, mal Menge; die Summe ohne
+    // Ausgemustertes (D-101, wie Liste, CSV und Android)
+    const euro = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const totalValue = items.filter(i => !ausgemustert(i)).reduce((s, i) => s + Math.round(wert(i) * 100), 0) / 100;
     const tableRows = items.map(item => {
-      const val = item.currentValue !== undefined ? item.currentValue : item.purchasePrice || 0;
-      totalValue += val;
-      const valStr = val > 0 ? `${val.toFixed(2)} €` : '–';
+      const valStr = stueckwert(item) === null ? '–' : euro(wert(item));
 
       return [
         item.itemNumber || '–',
@@ -509,7 +471,7 @@ export const ExportService = {
         item.department,
         `${item.quantity} ${item.unit}`,
         item.location || '–',
-        conditionLabels[item.condition] || item.condition,
+        zustandName(item.condition),
         valStr,
         item.responsiblePerson || item.assignedTo || '–',
         item.nextInspectionDate || '–'
@@ -518,7 +480,7 @@ export const ExportService = {
 
     autoTable(doc, {
       startY: 27,
-      head: [['Inventar-Nr.', 'Gegenstand', 'Abteilung', 'Menge', 'Standort', 'Zustand', 'Zeitwert (€)', 'Verantwortlich', 'Nächste Prüf.']],
+      head: [['Inventar-Nr.', 'Gegenstand', 'Abteilung', 'Menge', 'Standort', 'Zustand', 'Wert gesamt (€)', 'Verantwortlich', 'Nächste Prüf.']],
       body: tableRows,
       theme: 'grid',
       headStyles: {
@@ -549,8 +511,8 @@ export const ExportService = {
       },
       foot: [
         [
-          { content: `GESAMTWERT (${items.length} Gegenstände):`, colSpan: 6, styles: { fontStyle: 'bold', halign: 'right', fillColor: [241, 245, 249], textColor: [15, 23, 42] } },
-          { content: `${totalValue.toFixed(2)} €`, styles: { fontStyle: 'bold', halign: 'right', fillColor: [241, 245, 249], textColor: [15, 23, 42] } },
+          { content: 'Summe (ohne Ausgemustertes):', colSpan: 6, styles: { fontStyle: 'bold', halign: 'right', fillColor: [241, 245, 249], textColor: [15, 23, 42] } },
+          { content: euro(totalValue), styles: { fontStyle: 'bold', halign: 'right', fillColor: [241, 245, 249], textColor: [15, 23, 42] } },
           { content: '', colSpan: 2, styles: { fillColor: [241, 245, 249] } }
         ]
       ],

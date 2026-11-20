@@ -272,6 +272,17 @@ object Sitzungen {
         return null
     }
 
+    /**
+     * Lassen sich die Stimmen nicht gegen die Anwesenden prüfen? Das ist der Fall, wenn weder die Zahl der
+     * Stimmberechtigten eingetragen ist noch anwesende Teilnehmer mit Stimmrecht erfasst sind, aber Beschlüsse
+     * Stimmen haben. Kein Fehler, nur ein Hinweis (wie Desktop `stimmenUngeprueft`).
+     */
+    fun stimmenUngeprueft(f: SitzungForm): Boolean {
+        if (zahl(f.stimmberechtigte) != null || f.teilnehmer.any { it.anwesend && it.stimmrecht }) return false
+        fun n(t: String) = t.trim().toIntOrNull() ?: 0
+        return f.tops.any { t -> t.beschluesse.any { n(it.ja) + n(it.nein) + n(it.enthaltung) > 0 } }
+    }
+
     /** Vorschlag für das Ergebnis aus den Stimmen (einfache Mehrheit; Enthaltungen zählen nicht, Gleichstand gilt als abgelehnt). Satzungen können mehr verlangen. */
     fun ergebnisVorschlag(ja: Int, nein: Int): String = if (ja > nein) "accepted" else "rejected"
 

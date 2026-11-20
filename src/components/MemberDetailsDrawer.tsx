@@ -31,7 +31,7 @@ import {
   FileText,
   Loader2
 } from 'lucide-react';
-import { bestaetige } from '../utils/dialoge';
+import { bestaetige } from '../utils/dialoge'; import { ausgebbar } from '../utils/inventarRegeln';
 
 interface MemberDetailsDrawerProps {
   member: Member | null;
@@ -119,9 +119,15 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
     }
   }, [inventory]);
 
+  // Neu ausgeben lässt sich nur, was nicht ausgemustert ist (D-106). Der Effekt
+  // oben wählt einfach den ersten Gegenstand vor; ist der ausgemustert, gilt
+  // der erste wählbare.
+  const waehlbar = ausgebbar(inventoryList);
+  const neuGewaehlt = waehlbar.some(i => i.id === newAssignmentItem) ? newAssignmentItem : waehlbar[0]?.id || '';
+
   const handleSaveNewAssignment = async () => {
-    if (!member || !newAssignmentItem) return;
-    const inv = inventoryList.find(i => i.id === newAssignmentItem);
+    if (!member || !neuGewaehlt) return;
+    const inv = inventoryList.find(i => i.id === neuGewaehlt);
     const parsedContrib = newHasContribution
       ? parseFloat(String(newContributionAmount).replace(',', '.')) || 0
       : undefined;
@@ -129,7 +135,7 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
     const assignment: MemberInventoryAssignment = {
       id: `mia_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       memberId: member.id,
-      inventoryItemId: newAssignmentItem,
+      inventoryItemId: neuGewaehlt,
       itemName: inv?.name || 'Gegenstand',
       itemNumber: inv?.itemNumber || '',
       quantity: Math.max(1, Number(newQuantity) || 1),
@@ -247,6 +253,15 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
       });
     }
   }, [member, auditLogs]);
+
+  // Material-Änderungen schreiben ins Änderungsprotokoll (wie Android);
+  // danach die Historie neu laden, damit der Eintrag sofort zu sehen ist.
+  useEffect(() => {
+    if (!member || (auditLogs && auditLogs.length > 0)) return;
+    StorageService.getAuditLogs()
+      .then(allLogs => setLogs(allLogs.filter(l => l.memberId === member.id)))
+      .catch(() => {});
+  }, [memberAssignments, member, auditLogs]);
 
   if (!member) return null;
 
@@ -930,8 +945,8 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
                       type="button"
                       onClick={() => {
                         setIsAddingAssignment(true);
-                        if (inventoryList.length > 0 && !newAssignmentItem) {
-                          setNewAssignmentItem(inventoryList[0].id);
+                        if (waehlbar.length > 0 && !newAssignmentItem) {
+                          setNewAssignmentItem(waehlbar[0].id);
                         }
                       }}
                       className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition-colors"
@@ -962,9 +977,11 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
                     </button>
                   </div>
 
-                  {inventoryList.length === 0 ? (
+                  {waehlbar.length === 0 ? (
                     <div className="text-xs text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200 dark:text-amber-200 dark:bg-amber-950/40 dark:border-amber-800/60">
-                      Kein Inventar vorhanden. Erfassen Sie zuerst Gegenstände in der Inventarverwaltung.
+                      {inventoryList.length === 0
+                        ? 'Kein Inventar vorhanden. Erfassen Sie zuerst Gegenstände in der Inventarverwaltung.'
+                        : 'Alle Gegenstände sind ausgemustert. Ausgemustertes kann nicht ausgegeben werden.'}
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -972,11 +989,11 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">Gegenstand</label>
                         <select
-                          value={newAssignmentItem}
+                          value={neuGewaehlt}
                           onChange={e => setNewAssignmentItem(e.target.value)}
                           className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                         >
-                          {inventoryList.map(item => (
+                          {waehlbar.map(item => (
                             <option key={item.id} value={item.id}>
                               [{item.itemNumber}] {item.name} ({item.department} • Bestand: {item.quantity} {item.unit})
                             </option>
@@ -1114,11 +1131,14 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
                                 onChange={e => setEditItem(e.target.value)}
                                 className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                               >
-                                {inventoryList.map(item => (
-                                  <option key={item.id} value={item.id}>
-                                    [{item.itemNumber}] {item.name}
-                                  </option>
-                                ))}
+                                {/* Wählbar ist Nicht-Ausgemustertes; der bisherige Gegenstand bleibt in der Liste, auch wenn er inzwischen ausgemustert ist */}
+                                {inventoryList
+                                  .filter(item => item.condition !== 'discarded' || item.id === a.inventoryItemId)
+                                  .map(item => (
+                                    <option key={item.id} value={item.id}>
+                                      [{item.itemNumber}] {item.name}{item.condition === 'discarded' ? ' (ausgemustert)' : ''}
+                                    </option>
+                                  ))}
                               </select>
                             </div>
 

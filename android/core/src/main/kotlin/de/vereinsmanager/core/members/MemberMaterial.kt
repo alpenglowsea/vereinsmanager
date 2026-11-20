@@ -87,6 +87,9 @@ object MemberMaterial {
     fun alle(store: DocumentStore): List<Ausgabe> =
         store.all(AREA).map { Ausgabe.from(it) }.sortedWith(compareByDescending<Ausgabe> { it.issueDate }.thenByDescending { it.id })
 
+    /** Wer den Gegenstand gerade hat: nicht zurückgegebene Ausgaben dieses Gegenstands, neueste zuerst (wie Desktop `ausgabenVon`). */
+    fun offeneVon(store: DocumentStore, itemId: String): List<Ausgabe> = alle(store).filter { !it.returned && it.itemId == itemId }
+
     /** Ausgaben eines Mitglieds, neueste Ausgabe zuerst. */
     fun ausgaben(store: DocumentStore, memberId: String): List<Ausgabe> =
         store.all(AREA).filter { t(it, "memberId") == memberId }.map { Ausgabe.from(it) }

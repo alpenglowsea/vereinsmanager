@@ -44,7 +44,8 @@ import {
   neuerBeschluss,
   pruefeSitzung,
   standardTagesordnung,
-  standardTitel
+  standardTitel,
+  stimmenUngeprueft
 } from '../utils/sitzungRegeln';
 
 interface MeetingFormModalProps {
@@ -296,6 +297,20 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
 
   const fehler: Record<string, string> = versucht ? pruefeSitzung(baueSitzung()) : {};
   const fehlerListe = Object.keys(fehler);
+  // Hinweis (kein Fehler): Stimmen eingetragen, aber nichts, woran sie sich prüfen lassen (T-192)
+  const ohneStimmenPruefung = stimmenUngeprueft({
+    agenda,
+    attendees,
+    totalEligibleVoters: typeof totalEligibleVoters === 'number' ? totalEligibleVoters : undefined
+  });
+  const stimmenHinweis = ohneStimmenPruefung ? (
+    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2 dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-100">
+      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+      <span>
+        Es sind Stimmen eingetragen, aber weder Teilnehmer mit Stimmrecht (Reiter 4) noch die Zahl der anwesenden Stimmberechtigten (Reiter 3). Deshalb kann nicht geprüft werden, ob die Stimmen zu den Anwesenden passen. Speichern ist trotzdem möglich.
+      </span>
+    </div>
+  ) : null;
   const tabVon = (k: string): 'details' | 'agenda' | 'compliance' | 'attendees' =>
     k.startsWith('top') || k.startsWith('beschluss')
       ? 'agenda'
@@ -801,6 +816,8 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                 </div>
               </div>
 
+              {stimmenHinweis}
+
               <div className="space-y-4">
                 {agenda.map((top, topIndex) => (
                   <div
@@ -1280,6 +1297,11 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
             </button>
 
             <div className="flex items-center gap-3">
+              {fehlerListe.length === 0 && ohneStimmenPruefung && (
+                <span className="text-xs font-semibold text-amber-700 max-w-md text-right dark:text-amber-300">
+                  Hinweis: Stimmen ohne Teilnehmer oder Anzahl der Stimmberechtigten (siehe Reiter 2)
+                </span>
+              )}
               {fehlerListe.length > 0 && (
                 <span className="text-xs font-semibold text-rose-600 max-w-md text-right dark:text-rose-400">
                   {fehler[fehlerListe[0]]}

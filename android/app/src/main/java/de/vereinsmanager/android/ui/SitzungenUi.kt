@@ -427,6 +427,8 @@ fun SitzungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
     val gesperrt = vorhanden?.gesperrt == true
     val statusWahl = remember(f.status) { LinkedHashMap(Sitzungen.STATUS_WAHL).also { it.putIfAbsent(f.status, Sitzungen.statusName(f.status)) } }
     val stimmenZaehlung = f.teilnehmer.count { it.anwesend && it.stimmrecht }
+    // Hinweis (kein Fehler): Stimmen eingetragen, aber nichts, woran sie sich prüfen lassen (wie Desktop, T-192)
+    val ohneStimmenPruefung = Sitzungen.stimmenUngeprueft(f)
 
     fun artWechseln(neu: String) {
         // Titel und Tagesordnung nur ersetzen, solange sie noch unverändert die Vorgabe der bisherigen Art sind.
@@ -469,6 +471,12 @@ fun SitzungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
                     Feld("Protokollführung", f.schrift, { f = f.copy(schrift = it) }, enabled = !gesperrt)
                 }
                 1 -> {
+                    if (ohneStimmenPruefung) Surface(shape = RoundedCornerShape(16.dp), color = sc.tertiaryContainer, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                        Text(
+                            "Es sind Stimmen eingetragen, aber weder Teilnehmer mit Stimmrecht (Abschnitt 4) noch die Zahl der anwesenden Stimmberechtigten (Abschnitt 3). Deshalb kann nicht geprüft werden, ob die Stimmen zu den Anwesenden passen. Speichern ist trotzdem möglich.",
+                            color = sc.onTertiaryContainer, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(12.dp),
+                        )
+                    }
                     f.tops.forEachIndexed { i, t ->
                         Surface(shape = RoundedCornerShape(20.dp), color = sc.surfaceContainer, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                             Column(Modifier.padding(10.dp)) {
@@ -547,6 +555,7 @@ fun SitzungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
                 }
             }
         }
+        if (pruef.isEmpty() && ohneStimmenPruefung) Text("Hinweis: Stimmen ohne Teilnehmer oder Anzahl der Stimmberechtigten (siehe Abschnitt 2)", color = sc.tertiary, style = MaterialTheme.typography.bodySmall)
         if (zeigeFehler && pruef.isNotEmpty()) Text("Bitte die markierten Angaben prüfen (${pruef.size}); sie stehen in den Abschnitten 1 bis 4.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         if (fehler != null) Text(fehler!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         FormFuss(

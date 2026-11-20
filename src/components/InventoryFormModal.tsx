@@ -1,5 +1,6 @@
-import { nummerVergeben } from '../utils/nummern';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { keepUnknownFields } from '../utils/keepUnknownFields';
+import { FOTO_MAX_PIXEL, FOTO_MAX_ZEICHEN, betragText, leseInventarBetrag, pruefeArtikel } from '../utils/inventarRegeln';
 import { InventoryItem, InventoryCategory, ItemCondition } from '../types';
 import { INVENTORY_CATEGORIES, CONDITION_OPTIONS, INVENTORY_UNITS } from '../data/inventoryCategories';
 import {
@@ -21,8 +22,43 @@ import {
   AlertCircle,
   Tag,
   Layers,
-  Sparkles
+  Sparkles,
+  Camera,
+  Trash2
 } from 'lucide-react';
+
+/**
+ * Foto verkleinern wie Android: längste Seite höchstens 1024 Pixel, JPEG.
+ * Ist es danach noch zu groß, wird die Qualität stufenweise gesenkt.
+ */
+function fotoVerkleinern(datei: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const leser = new FileReader();
+    leser.onerror = () => reject(new Error('Die Datei konnte nicht gelesen werden.'));
+    leser.onload = () => {
+      const bild = new Image();
+      bild.onerror = () => reject(new Error('Das ist kein lesbares Bild.'));
+      bild.onload = () => {
+        const faktor = Math.min(1, FOTO_MAX_PIXEL / Math.max(bild.width, bild.height));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(bild.width * faktor));
+        c.height = Math.max(1, Math.round(bild.height * faktor));
+        const ctx = c.getContext('2d');
+        if (!ctx) return reject(new Error('Das Bild konnte nicht verarbeitet werden.'));
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(bild, 0, 0, c.width, c.height);
+        for (const q of [0.85, 0.7, 0.55, 0.4]) {
+          const url = c.toDataURL('image/jpeg', q);
+          if (url.length <= FOTO_MAX_ZEICHEN) return resolve(url);
+        }
+        reject(new Error('Das Foto ist auch verkleinert zu groß.'));
+      };
+      bild.src = String(leser.result);
+    };
+    leser.readAsDataURL(datei);
+  });
+}
 
 interface InventoryFormModalProps {
   item: InventoryItem | null; // null = neu anlegen
@@ -65,8 +101,13 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
   const [lastCheckedDate, setLastCheckedDate] = useState('');
   const [nextInspectionDate, setNextInspectionDate] = useState('');
 
+  // Foto als Data-URL (D-105, Format wie Android); leer = keines
+  const [foto, setFoto] = useState('');
+  const fotoEingabe = useRef<HTMLInputElement | null>(null);
+
   const [activeTab, setActiveTab] = useState<'general' | 'assignment' | 'financial' | 'inspection'>('general');
   const [errorMsg, setErrorMsg] = useState('');
+  const [fehler, setFehler] = useState<Record<string, string>>({});
 
   // Sparte Options
   const departmentOptions = ['Gesamtverein', ...departments.filter(d => d !== 'Gesamtverein')];
@@ -82,8 +123,9 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
       setLocation(item.location || '');
       setCondition(item.condition || 'good');
       setPurchaseDate(item.purchaseDate || '');
-      setPurchasePrice(item.purchasePrice !== undefined ? item.purchasePrice.toString() : '');
-      setCurrentValue(item.currentValue !== undefined ? item.currentValue.toString() : '');
+      // Beträge in deutscher Schreibweise anzeigen („1.234,50“)
+      setPurchasePrice(betragText(item.purchasePrice));
+      setCurrentValue(betragText(item.currentValue));
       setSupplier(item.supplier || '');
       setResponsiblePerson(item.responsiblePerson || '');
       setAssignedTo(item.assignedTo || '');
@@ -91,69 +133,92 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
       setNotes(item.notes || '');
       setLastCheckedDate(item.lastCheckedDate || '');
       setNextInspectionDate(item.nextInspectionDate || '');
+      setFoto(item.photoUrl || '');
     } else {
       // Fortlaufende Inventarnummer statt einer Zufallszahl (D-98). Der
       // Vorschlag lässt sich im Feld ändern.
       setItemNumber(nextItemNumber);
       setDepartment(departments[0] || 'Gesamtverein');
-      setLocation('Geräteraum / Zentrallager');
+      // Kein vorbelegter Standort mehr (D-99)
+      setLocation('');
     }
   }, [item, departments, nextItemNumber]);
 
+  const tabVon = (k: string): 'general' | 'assignment' | 'financial' | 'inspection' =>
+    k === 'kaufpreis' || k === 'zeitwert' || k === 'kaufdatum'
+      ? 'financial'
+      : k === 'letztePruefung' || k === 'naechstePruefung'
+        ? 'inspection'
+        : 'general';
+
+  const handleFoto = async (datei: File | undefined) => {
+    if (!datei) return;
+    try {
+      setFoto(await fotoVerkleinern(datei));
+      setFehler(f => ({ ...f, foto: '' }));
+    } catch (err) {
+      setFehler(f => ({ ...f, foto: err instanceof Error ? err.message : 'Das Foto konnte nicht übernommen werden.' }));
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      setErrorMsg('Bitte geben Sie eine Bezeichnung für den Gegenstand ein.');
-      setActiveTab('general');
+    // Prüfung wie Android (D-97): deutsche Beträge, nichts Negatives, Menge ab 1,
+    // Inventarnummer eindeutig (ohne Rücksicht auf Groß-/Kleinschreibung)
+    const f = pruefeArtikel(
+      {
+        id: item?.id,
+        name,
+        nummer: itemNumber,
+        menge: String(quantity),
+        art: category,
+        zustand: condition,
+        kaufpreis: purchasePrice,
+        zeitwert: currentValue,
+        kaufdatum: purchaseDate,
+        letztePruefung: lastCheckedDate,
+        naechstePruefung: nextInspectionDate,
+        foto
+      },
+      existingItems
+    );
+    setFehler(f);
+    const erster = Object.keys(f)[0];
+    if (erster) {
+      setErrorMsg(f[erster]);
+      setActiveTab(tabVon(erster));
       return;
     }
-
-    if (quantity <= 0) {
-      setErrorMsg('Die Menge muss mindestens 1 betragen.');
-      setActiveTab('general');
-      return;
-    }
-
-    if (
-      nummerVergeben(
-        itemNumber,
-        existingItems.map(g => ({ id: g.id, nummer: g.itemNumber })),
-        item?.id
-      )
-    ) {
-      setErrorMsg('Diese Inventarnummer ist schon vergeben. Bitte eine andere Nummer eintragen.');
-      setActiveTab('general');
-      return;
-    }
-
-    const priceNum = purchasePrice ? parseFloat(purchasePrice.replace(',', '.')) : undefined;
-    const valueNum = currentValue ? parseFloat(currentValue.replace(',', '.')) : undefined;
+    setErrorMsg('');
 
     const newItem: InventoryItem = {
       id: item ? item.id : `inv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      itemNumber: itemNumber.trim() || nextItemNumber,
+      itemNumber: itemNumber.trim(),
       name: name.trim(),
       category,
       department: department || 'Gesamtverein',
       quantity: Number(quantity),
       unit: unit || 'Stk.',
-      location: location.trim() || 'Vereinsgelände',
+      // Leer bleibt leer (vorher still „Vereinsgelände“, D-99)
+      location: location.trim(),
       condition,
       purchaseDate: purchaseDate || undefined,
-      purchasePrice: isNaN(priceNum as number) ? undefined : priceNum,
-      currentValue: isNaN(valueNum as number) ? undefined : valueNum,
+      purchasePrice: leseInventarBetrag(purchasePrice).wert,
+      currentValue: leseInventarBetrag(currentValue).wert,
       supplier: supplier.trim() || undefined,
       responsiblePerson: responsiblePerson.trim() || undefined,
       assignedTo: assignedTo.trim() || undefined,
       serialNumber: serialNumber.trim() || undefined,
       notes: notes.trim() || undefined,
+      photoUrl: foto || undefined,
       lastCheckedDate: lastCheckedDate || undefined,
       nextInspectionDate: nextInspectionDate || undefined,
       createdAt: item ? item.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
-    onSave(newItem);
+    // Felder, die das Formular nicht kennt, bleiben erhalten
+    onSave(keepUnknownFields(item, newItem));
   };
 
   const getCategoryIcon = (catId: InventoryCategory) => {
@@ -376,6 +441,53 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
                   </select>
                 </div>
               </div>
+
+              {/* Foto (D-105): verkleinert wie am Handy, im Gegenstand gespeichert */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 dark:text-slate-200">Foto</label>
+                <div className="flex items-center gap-4">
+                  <div className="w-28 h-28 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden dark:border-slate-700 dark:bg-slate-800">
+                    {foto ? (
+                      <img src={foto} alt="Foto des Gegenstands" className="w-full h-full object-cover" />
+                    ) : (
+                      <Camera className="w-8 h-8 text-slate-300" />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <input
+                      ref={fotoEingabe}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={(e) => {
+                        void handleFoto(e.target.files?.[0]);
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fotoEingabe.current?.click()}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-white hover:bg-slate-50 flex items-center gap-1.5 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      {foto ? 'Anderes Foto wählen' : 'Foto wählen oder aufnehmen'}
+                    </button>
+                    {foto && (
+                      <button
+                        type="button"
+                        onClick={() => setFoto('')}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 flex items-center gap-1.5 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-300"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Foto entfernen
+                      </button>
+                    )}
+                    <p className="text-[11px] text-slate-400">Wird auf höchstens 1024 Pixel verkleinert.</p>
+                    {fehler.foto && <p className="text-[11px] font-semibold text-rose-600">{fehler.foto}</p>}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -405,11 +517,10 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5 dark:text-slate-200">
                     <MapPin className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                    <span>Lagerort / Standort *</span>
+                    <span>Lagerort / Standort</span>
                   </label>
                   <input
                     type="text"
-                    required
                     placeholder="z.B. Geräteraum Platz 1, Kabine 3, Vereinsheim Keller"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
@@ -489,14 +600,14 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
                     <span>Anschaffungspreis (€)</span>
                   </label>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="z. B. 1.234,50"
                     value={purchasePrice}
                     onChange={(e) => setPurchasePrice(e.target.value)}
                     className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono dark:border-slate-700"
                   />
+                  {fehler.kaufpreis && <p className="text-[11px] font-semibold text-rose-600 mt-1">{fehler.kaufpreis}</p>}
                 </div>
 
                 <div>
@@ -505,14 +616,15 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
                     <span>Aktueller Zeitwert (€)</span>
                   </label>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="z. B. 1.234,50"
                     value={currentValue}
                     onChange={(e) => setCurrentValue(e.target.value)}
                     className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono dark:border-slate-700"
                   />
+                  {fehler.zeitwert && <p className="text-[11px] font-semibold text-rose-600 mt-1">{fehler.zeitwert}</p>}
+                  <p className="text-[11px] text-slate-400 mt-1">Für den Wert zählt der Zeitwert, sonst der Anschaffungspreis, mal Menge.</p>
                 </div>
               </div>
 

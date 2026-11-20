@@ -125,6 +125,18 @@ class MemberMaterialTest {
         assertTrue(MemberMaterial.ausgaben(st, "mem-3").isEmpty())
     }
 
+    @Test fun werHatDenGegenstandNurOffeneNeuesteZuerst() {
+        // wie Desktop inventarRegeln.test.ts „Wer hat den Gegenstand“
+        val st = demo()
+        MemberMaterial.speichern(st, "mem-1", AusgabeForm(itemId = "inv-1", issueDate = "2026-01-05"), heute, jetzt)
+        MemberMaterial.speichern(st, "mem-2", AusgabeForm(itemId = "inv-1", issueDate = "2026-03-01"), heute, jetzt)
+        val zurueck = s(MemberMaterial.speichern(st, "mem-3", AusgabeForm(itemId = "inv-1", issueDate = "2026-04-01"), heute, jetzt), "id")
+        MemberMaterial.umschalten(st, zurueck, heute, jetzt)
+        MemberMaterial.speichern(st, "mem-4", AusgabeForm(itemId = "inv-2", issueDate = "2026-05-01"), heute, jetzt)
+        assertEquals(listOf("mem-2", "mem-1"), MemberMaterial.offeneVon(st, "inv-1").map { it.memberId })
+        assertTrue(MemberMaterial.offeneVon(st, "inv-3").isEmpty())
+    }
+
     @Test fun abhaengigkeitenZaehlenNurAusgegebenes() {
         val st = demo()
         val id = s(MemberMaterial.speichern(st, "mem-1", AusgabeForm(itemId = "inv-1"), heute, jetzt), "id")

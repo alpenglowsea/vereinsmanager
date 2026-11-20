@@ -1325,6 +1325,8 @@ class AppModel(private val appContext: Context) {
     }
 
     fun alleAusgaben(): List<Ausgabe> = MemberMaterial.alle(store)
+    /** Wer den Gegenstand gerade hat (offene Ausgaben, neueste zuerst). */
+    fun ausgabenVon(itemId: String): List<Ausgabe> = MemberMaterial.offeneVon(store, itemId)
 
     // ---- Material und Historie ----
 

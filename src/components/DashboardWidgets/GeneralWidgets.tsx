@@ -7,6 +7,8 @@ import {
   CalendarEventCategory
 } from '../../types';
 import { StorageService } from '../../services/storage';
+import { kennzahlen } from '../../utils/inventarRegeln';
+import { lokalesHeute } from '../../utils/mitgliedRegeln';
 import {
   Sparkles,
   Plus,
@@ -394,17 +396,10 @@ interface InventoryWidgetProps {
 
 export const InventoryWidget: React.FC<InventoryWidgetProps> = ({ inventory, onNavigate }) => {
   const { totalValue, totalQuantity, needsRepair } = useMemo(() => {
-    let val = 0;
-    let qty = 0;
-    let repair = 0;
-
-    inventory.forEach((item) => {
-      val += (item.purchasePrice || 0) * (item.quantity || 1);
-      qty += item.quantity || 1;
-      if (item.condition === 'damaged' || item.condition === 'in_repair') repair++;
-    });
-
-    return { totalValue: val, totalQuantity: qty, needsRepair: repair };
+    // Dieselbe Rechnung wie die Inventarliste (D-101): Zeitwert, sonst
+    // Anschaffungspreis, mal Menge; Ausgemustertes zählt nicht mit
+    const k = kennzahlen(inventory, lokalesHeute());
+    return { totalValue: k.wert, totalQuantity: k.einheiten, needsRepair: k.reparatur };
   }, [inventory]);
 
   return (

@@ -137,6 +137,81 @@ entsprechen der Android-Fassung.
   Dokumentenverwaltung bleibt beim Löschen der Sitzung erhalten (wie bei
   Android). Vorher wurde es ohne Rückfrage mitgelöscht.
 
+### Material im Änderungsprotokoll des Mitglieds (Gleichstand mit Android)
+
+- Jede Material-Änderung steht jetzt auch am Desktop im Änderungsprotokoll
+  des Mitglieds, mit denselben Texten wie am Handy: „Material ausgegeben“,
+  „Material bearbeitet“ (mit Menge, Ausgabedatum, Eigenanteil, Notiz,
+  Gegenstand als alt → neu), „Material zurückgegeben“, „Material wieder
+  ausgegeben“, „Material-Verknüpfung entfernt“. Gilt für alle Wege
+  (Mitgliedsfenster, Detailfenster des Gegenstands, „Ausgeteilte
+  Gegenstände“), weil es beim Speichern selbst geschieht
+  (`src/utils/materialProtokoll.ts`, ein Test mit denselben Fällen wie
+  Android). Ohne Änderung entsteht kein Eintrag. Die Historie im
+  Mitgliedsfenster aktualisiert sich sofort.
+
+### Nachtrag zu P23/P24 — Detailansicht Inventar, Gleichstand mit Android
+
+- **Detailansicht eines Gegenstands** (Desktop) im eigenen Fenster wie bei
+  Kontakten, Rechnungen und Buchungen: Klick auf die Zeile bzw. „Details“ in
+  der Kartenansicht. Inhalt wie am Handy: Menge, Wert gesamt, Prüfung,
+  Hinweise (ausgemustert, ausgegeben, Prüfung überfällig), Foto, Angaben,
+  Notizen; Knöpfe Bearbeiten, „Heute geprüft“, Löschen.
+- **„Ausgegeben an“** (Desktop und Android): Die Detailansicht nennt, wer den
+  Gegenstand gerade hat (Mitglied, Menge, Ausgabedatum, Eigenanteil, Notiz),
+  neueste Ausgabe zuerst. Ein Klick auf das Mitglied öffnet es.
+- **Zurückgeben aus der Detailansicht** (Desktop und Android): Jede Ausgabe
+  unter „Ausgegeben an“ hat einen Knopf „Zurückgeben“; nach einer Rückfrage
+  wird die Rückgabe mit dem heutigen Datum eingetragen (Rückmeldung aus
+  T-215). Das Desktop-Fenster folgt im Aufbau den übrigen Desktop-Fenstern
+  (Abschnitte mit Angaben wie bei Kontakten und Rechnungen) statt der
+  Handy-Ansicht.
+- **Sammelbearbeitung:** Fehler stehen jetzt am betroffenen Feld und neben
+  dem Knopf statt oben im Fenster (Rückmeldung aus T-208).
+- **Android:** Hinweis „Stimmen ohne Teilnehmer“ im Sitzungsformular wie am
+  Desktop (`Sitzungen.stimmenUngeprueft`, ein Test).
+
+### Pakete 23 und 24 — Inventar (D-97, D-99 bis D-103, D-105, D-106)
+
+Regeln wie Android `Inventar.kt` in `src/utils/inventarRegeln.ts` (6 Tests).
+
+- **Beträge (D-97):** Anschaffungspreis und Zeitwert werden in deutscher
+  Schreibweise gelesen („1.234,50“ = 1.234,50 €; vorher wurde daraus 1,234).
+  Negative oder unlesbare Beträge werden am Feld abgelehnt. Inventarnummer
+  eindeutig ohne Rücksicht auf Groß-/Kleinschreibung, Menge ganze Zahl ab 1.
+- **Standort (D-99):** kein vorbelegtes „Geräteraum / Zentrallager“ mehr,
+  kein stilles „Vereinsgelände“ beim Speichern; der Standort darf leer
+  bleiben (wie Android).
+- **Ausgemustertes (D-100):** zählt in keiner Kennzahl und keiner Summe mit
+  und erscheint in der Liste nur, wenn der Zustandsfilter „Ausgemustert“
+  gewählt ist. Auch der Filter „Prüfung fällig“ lässt es weg.
+- **Wert (D-101):** überall gleich: Zeitwert, sonst Anschaffungspreis, mal
+  Menge. Ein Zeitwert von 0 € gilt als Wert. Gilt für Kennzahlen, Liste,
+  Kartenansicht, Sortierung, PDF (vorher ohne Menge und mit Ausgemustertem)
+  und die Inventar-Kachel im Dashboard (vorher nur Anschaffungspreis; das war
+  für P27 vorgesehen und ist hier mit erledigt).
+- **CSV (D-102):** beide Export-Knöpfe liefern dasselbe Format wie Android:
+  19 Spalten, Semikolon, Punkt als Dezimalzeichen, Kategorie und Zustand als
+  Klartext, neue Spalte „Aktuell ausgegeben“.
+- **Sammelbearbeitung (D-103):** Ein angehaktes, leeres Feld leert dieses
+  Feld bei allen gewählten Gegenständen (vorher wurden Zuständige Person und
+  Standort dann still übergangen, andere Felder aber geleert). Der Standort
+  darf nicht leer werden, eine Notiz braucht Text. Gezählt wird nur, was sich
+  wirklich ändert. Fehler bleiben im Fenster stehen.
+- **Foto (D-105):** Foto wählen oder (am Gerät mit Kamera) aufnehmen, auf
+  höchstens 1024 Pixel verkleinert, gespeichert wie am Handy; Anzeige im
+  Formular und in der Kartenansicht. Ein am Handy aufgenommenes Foto geht
+  beim Bearbeiten am Desktop nicht mehr verloren; auch andere unbekannte
+  Felder bleiben erhalten.
+- **Ausgabe an Mitglieder (D-106):** Ausgemustertes lässt sich nicht neu
+  ausgeben. Eine bestehende Ausgabe eines inzwischen ausgemusterten
+  Gegenstands bleibt bearbeitbar.
+- **PDF „Auswahl“:** Titel und Dateiname waren vertauscht (im PDF stand der
+  Dateiname als Überschrift).
+- **Sitzungen (Hinweis aus T-192):** Sind Stimmen eingetragen, aber weder
+  Teilnehmer mit Stimmrecht noch die Zahl der Stimmberechtigten, zeigt das
+  Formular einen gelben Hinweis. Speichern bleibt möglich.
+
 ### Pakete 21 und 22 — Sitzungen (D-117 bis D-119, D-121 bis D-123, D-127 bis D-131)
 
 Regeln wie Android `Sitzungen.kt` in `src/utils/sitzungRegeln.ts` (16 Tests).

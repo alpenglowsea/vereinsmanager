@@ -6,6 +6,7 @@ import {
   InventoryBulkUpdates
 } from '../types';
 import { INVENTORY_CATEGORIES, CONDITION_OPTIONS } from '../data/inventoryCategories';
+import { pruefeSammelFeld } from '../utils/inventarRegeln';
 import {
   X,
   SlidersHorizontal,
@@ -69,6 +70,10 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
   const [notesValue, setNotesValue] = useState<string>('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Fehler mit dem Feld, zu dem er gehört; angezeigt am Feld und neben dem Knopf (T-208)
+  const [fehler, setFehler] = useState<{ feld: string; text: string } | null>(null);
+  const fehlerAm = (feld: string) =>
+    fehler?.feld === feld ? <p className="mt-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400">{fehler.text}</p> : null;
   const [showItemList, setShowItemList] = useState(false);
 
   // Departments list including Gesamtverein
@@ -96,17 +101,26 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
     if (applyDepartment) updates.department = department;
     if (applyCategory) updates.category = category;
     if (applyCondition) updates.condition = condition;
-    if (applyLocation && location.trim()) updates.location = location.trim();
-    if (applyResponsible && responsiblePerson.trim()) updates.responsiblePerson = responsiblePerson.trim();
+    // Angehakt heißt angewendet (D-103): ein leeres freiwilliges Feld wird geleert,
+    // statt still übergangen zu werden. Leerer Standort wird abgelehnt.
+    if (applyLocation) updates.location = location.trim();
+    if (applyResponsible) updates.responsiblePerson = responsiblePerson.trim();
     if (applyAssignedTo) updates.assignedTo = assignedTo.trim();
     if (applySupplier) updates.supplier = supplier.trim();
     if (applyLastChecked) updates.lastCheckedDate = lastCheckedDate;
     if (applyNextInspection) updates.nextInspectionDate = nextInspectionDate;
 
-    if (applyNotes && notesValue.trim()) {
+    if (applyNotes) {
       updates.notesAction = notesAction;
       updates.notesValue = notesValue.trim();
     }
+
+    const problem = pruefeSammelFeld(updates);
+    if (problem) {
+      setFehler(problem);
+      return;
+    }
+    setFehler(null);
 
     setIsSubmitting(true);
     try {
@@ -114,6 +128,7 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
       onClose();
     } catch (err) {
       console.error('Failed to bulk update inventory items:', err);
+      setFehler({ feld: '', text: 'Die Änderungen konnten nicht gespeichert werden.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -184,7 +199,7 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-100">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 dark:text-amber-400" />
             <div>
-              <span className="font-bold">Hinweis zur Inventur:</span> Nur aktivierte Felder werden modifiziert. Individuelle Daten wie Inventarnummer, Bezeichnung, Menge und Anschaffungspreis bleiben unverändert.
+              <span className="font-bold">Hinweis zur Inventur:</span> Nur aktivierte Felder werden modifiziert. Ein aktiviertes, leeres Feld wird bei allen Gegenständen geleert (außer dem Standort). Individuelle Daten wie Inventarnummer, Bezeichnung, Menge und Anschaffungspreis bleiben unverändert.
             </div>
           </div>
 
@@ -322,10 +337,11 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
                 <input
                   type="text"
                   value={location}
-                  onChange={e => setLocation(e.target.value)}
+                  onChange={e => { setLocation(e.target.value); if (fehler?.feld === 'location') setFehler(null); }}
                   placeholder="z.B. Geräteraum Platz 1, Keller Vereinsheim, Ballschrank..."
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100 ${fehler?.feld === 'location' ? 'border-rose-400' : 'border-slate-300 dark:border-slate-700'}`}
                 />
+                {fehlerAm('location')}
               </div>
             )}
           </div>
@@ -469,6 +485,7 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
                     onChange={e => setLastCheckedDate(e.target.value)}
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                   />
+                  {fehlerAm('lastCheckedDate')}
                 </div>
               )}
               {applyNextInspection && (
@@ -482,6 +499,7 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
                     onChange={e => setNextInspectionDate(e.target.value)}
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                   />
+                  {fehlerAm('nextInspectionDate')}
                 </div>
               )}
             </div>
@@ -534,10 +552,11 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
                 <textarea
                   rows={2}
                   value={notesValue}
-                  onChange={e => setNotesValue(e.target.value)}
+                  onChange={e => { setNotesValue(e.target.value); if (fehler?.feld === 'notesValue') setFehler(null); }}
                   placeholder="z.B. Inventur Frühjahr 2026 durchgeführt..."
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-normal text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-xs font-normal text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100 ${fehler?.feld === 'notesValue' ? 'border-rose-400' : 'border-slate-300 dark:border-slate-700'}`}
                 />
+                {fehlerAm('notesValue')}
               </div>
             )}
           </div>
@@ -546,7 +565,9 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
         {/* Footer */}
         <div className="p-5 border-t border-slate-200 bg-slate-50/80 rounded-b-2xl flex items-center justify-between dark:border-slate-800 dark:bg-slate-800/80">
           <div className="text-xs text-slate-500 dark:text-slate-400">
-            {activeChangeCount === 0 ? (
+            {fehler ? (
+              <span className="text-rose-700 font-semibold dark:text-rose-300">{fehler.text}</span>
+            ) : activeChangeCount === 0 ? (
               <span className="text-amber-700 font-medium dark:text-amber-300">
                 Bitte aktivieren Sie mindestens ein Feld zur Sammelbearbeitung.
               </span>

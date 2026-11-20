@@ -6,6 +6,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -66,6 +67,7 @@ import de.vereinsmanager.core.inventory.Inventar
 import de.vereinsmanager.core.inventory.InventarFilter
 import de.vereinsmanager.core.inventory.InventarSort
 import de.vereinsmanager.core.inventory.SammelAenderung
+import de.vereinsmanager.core.members.MemberMaterial
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -297,13 +299,17 @@ private fun SammelDialog(model: AppModel, ids: List<String>, sparten: List<Strin
 // ---------------------------------------------------------------- Detail
 
 @Composable
-fun InventarDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDeleted: () -> Unit, modifier: Modifier = Modifier) {
+fun InventarDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDeleted: () -> Unit, onOpenMember: (String) -> Unit, modifier: Modifier = Modifier) {
     val a = model.inventar.firstOrNull { it.id == id }
     var loeschen by remember { mutableStateOf(false) }
     var meldung by remember { mutableStateOf<String?>(null) }
+    // Rückgabe direkt aus der Detailansicht (wie Desktop): Ausgabe und Name für die Rückfrage
+    var rueckgabe by remember { mutableStateOf<Pair<de.vereinsmanager.core.members.Ausgabe, String>?>(null) }
     if (a == null) { Text("Den Gegenstand gibt es nicht mehr.", modifier.padding(16.dp)); return }
     val heute = LocalDate.now()
     val aus = model.inventarAusgegeben[a.id] ?: 0
+    // Wer den Gegenstand gerade hat (wie Desktop); neu gelesen, sobald sich Ausgaben ändern
+    val bei = remember(a.id, model.inventarAusgegeben) { model.ausgabenVon(a.id) }
     val ueber = Inventar.ueberfaellig(a, heute)
     val sc = MaterialTheme.colorScheme
     val zeile: @Composable (String, String) -> Unit = { l, w -> DetailFeld(l, w) }
@@ -380,6 +386,31 @@ fun InventarDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDele
             zeile("Nächste Prüfung", if (a.naechstePruefung.isNotEmpty()) deDate(a.naechstePruefung) else "")
         }
         if (a.notizen.isNotBlank()) DetailKarte("Notizen") { zeile("", a.notizen) }
+        DetailKarte(if (bei.isEmpty()) "Ausgegeben an" else "Ausgegeben an (${bei.size})") {
+            if (bei.isEmpty()) Text("Derzeit an niemanden ausgegeben.", style = MaterialTheme.typography.bodyMedium, color = sc.onSurfaceVariant)
+            bei.forEachIndexed { i, x ->
+                if (i > 0) HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                val mitglied = model.members.firstOrNull { it.id == x.memberId }
+                val name = (mitglied?.displayName ?: "Unbekanntes Mitglied") + (mitglied?.number?.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: "")
+                Column(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                        .then(if (mitglied != null) Modifier.clickable { onOpenMember(mitglied.id) } else Modifier).padding(vertical = 4.dp),
+                ) {
+                    Text(
+                        name,
+                        style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+                        color = if (mitglied != null) sc.primary else sc.onSurface,
+                    )
+                    Text(
+                        listOf("${x.quantity} ${x.unit}".trim(), if (x.issueDate.isNotEmpty()) "Ausgabe ${deDate(x.issueDate)}" else "", MemberMaterial.eigenanteil(x))
+                            .filter { it.isNotEmpty() }.joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    if (x.notes.isNotBlank()) Text(x.notes, style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
+                }
+                TextButton(onClick = { rueckgabe = x to name }, enabled = !model.busy) { Text("Zurückgeben") }
+            }
+        }
         if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
         AktionsZeilen(
             listOf(
@@ -389,6 +420,19 @@ fun InventarDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDele
                 listOf(Aktion("Löschen", { loeschen = true })),
             ),
             Modifier.padding(top = 12.dp, bottom = 16.dp),
+        )
+    }
+    rueckgabe?.let { (x, name) ->
+        AlertDialog(
+            onDismissRequest = { rueckgabe = null }, title = { Text("Rückgabe eintragen?") },
+            text = { Text("${x.quantity} ${x.unit} „${a.name}“ von $name als heute zurückgegeben eintragen?".replace("  ", " ")) },
+            confirmButton = {
+                TextButton(onClick = {
+                    rueckgabe = null
+                    meldung = model.ausgabeUmschalten(x.id) ?: "Rückgabe von $name eingetragen."
+                }) { Text("Zurückgeben") }
+            },
+            dismissButton = { TextButton(onClick = { rueckgabe = null }) { Text("Abbrechen") } },
         )
     }
     if (loeschen) {
