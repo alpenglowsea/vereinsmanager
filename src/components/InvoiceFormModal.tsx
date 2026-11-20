@@ -6,10 +6,12 @@ import {
   Member,
   ClubContact,
   InvoiceTemplateSettings,
-  TaxSphere
+  TaxSphere,
+  Transaction
 } from '../types';
-import {  } from '../data/taxSpheres';
 import { formatCurrency } from '../services/invoicePdfService';
+import { berechneSummen, parseMenge, buchungWeichtAb, KLEINUNTERNEHMER_HINWEIS } from '../services/rechnungsRegeln';
+import { BestaetigungsDialog } from './BestaetigungsDialog';
 import {
   X,
   Plus,
@@ -49,8 +51,13 @@ interface InvoiceFormModalProps {
       country?: string;
     };
   } | null;
-  onSave: (invoice: ClubInvoice, saveToDocuments: boolean) => Promise<void>;
+  /** `buchungAnpassen`: die verknüpfte Buchung an den neuen Betrag angleichen (wie Android). */
+  onSave: (invoice: ClubInvoice, saveToDocuments: boolean, buchungAnpassen?: boolean) => Promise<void>;
   onPreviewPdf?: (invoice: ClubInvoice) => void;
+  /** Vorhandene Rechnungen, um doppelte Nummern abzulehnen. */
+  existingInvoices?: ClubInvoice[];
+  /** Buchungen, um die verknüpfte Buchung zu finden. */
+  transactions?: Transaction[];
 }
 
 export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
@@ -63,7 +70,9 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
   nextInvoiceNumber = 'RE-2026-001',
   prefillRecipient,
   onSave,
-  onPreviewPdf
+  onPreviewPdf,
+  existingInvoices = [],
+  transactions = []
 }) => {
   // Form State
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -109,6 +118,12 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
   // Archive toggle
   const [saveToDocuments, setSaveToDocuments] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Kleinunternehmer nach § 19 UStG: keine Umsatzsteuer, Hinweis auf der Rechnung (D-05)
+  const [kleinunternehmer, setKleinunternehmer] = useState(false);
+  // Warum nicht gespeichert wurde; steht neben dem Knopf statt in alert()
+  const [formFehler, setFormFehler] = useState<string | null>(null);
+  // Rückfrage, ob die verknüpfte Buchung dem neuen Betrag folgen soll
+  const [buchungFrage, setBuchungFrage] = useState<ClubInvoice | null>(null);
 
   // Initialize or reset form
   useEffect(() => {
@@ -144,6 +159,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
       setNotes(invoice.notes || '');
 
       setItems(invoice.items.map((it, idx) => ({ ...it, position: idx + 1 })));
+      setKleinunternehmer(Boolean(invoice.smallBusiness));
       setSelectedPositionIds(new Set());
       setRecipientSearch('');
     } else {
@@ -161,6 +177,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
 
       setStatus('open');
       setTaxSphere('wirtschaftlich');
+      setKleinunternehmer(false);
 
       // Recipient
       if (prefillRecipient) {
@@ -214,6 +231,8 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
       ]);
       setSelectedPositionIds(new Set());
     }
+    setFormFehler(null);
+    setBuchungFrage(null);
   }, [isOpen, invoice, nextInvoiceNumber, templateSettings]);
 
   // Recalculate due date when date or terms change
@@ -347,11 +366,11 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
       return;
     }
     let valStr = String(rawValue).replace(',', '.');
-    // If there is a decimal part, strictly allow only ONE decimal place
+    // Bis zu drei Nachkommastellen (D-49; vorher nur eine, aus 0,75 wurde 0,8)
     if (valStr.includes('.')) {
       const [intPart, decPart] = valStr.split('.');
-      if (decPart && decPart.length > 1) {
-        valStr = `${intPart}.${decPart.slice(0, 1)}`;
+      if (decPart && decPart.length > 3) {
+        valStr = `${intPart}.${decPart.slice(0, 3)}`;
       }
     }
     handleItemChange(id, 'quantity', valStr);
@@ -398,7 +417,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
       quantity: 1,
       unit: 'Stk.',
       unitPrice: '' as any,
-      vatRate: 19,
+      vatRate: kleinunternehmer ? 0 : 19,
       totalPrice: 0
     };
     setItems(prev => [...prev, newItem]);
@@ -482,29 +501,10 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
     setDraggedIndex(null);
   };
 
-  // Calculate Totals
-  const { subtotalNet, vatAmounts, totalVat, totalAmount } = useMemo(() => {
-    let net = 0;
-    const vatMap: { [rate: number]: number } = {};
-
-    items.forEach(it => {
-      const itemNet = it.totalPrice || 0;
-      net += itemNet;
-      const rate = it.vatRate || 0;
-      const itemVat = Math.round(((itemNet * rate) / 100) * 100) / 100;
-      vatMap[rate] = Math.round(((vatMap[rate] || 0) + itemVat) * 100) / 100;
-    });
-
-    const vTotal = Object.values(vatMap).reduce((sum, val) => sum + val, 0);
-    const gross = Math.round((net + vTotal) * 100) / 100;
-
-    return {
-      subtotalNet: Math.round(net * 100) / 100,
-      vatAmounts: vatMap,
-      totalVat: Math.round(vTotal * 100) / 100,
-      totalAmount: gross
-    };
-  }, [items]);
+  // Summen: Umsatzsteuer je Satz aus der Nettosumme (wie Android), beim
+  // Kleinunternehmer ohne Umsatzsteuer
+  const summen = useMemo(() => berechneSummen(items, kleinunternehmer), [items, kleinunternehmer]);
+  const { subtotalNet, vatAmounts, totalVat, totalAmount } = summen;
 
   // Construct current invoice object
   const constructInvoiceData = (): ClubInvoice => {
@@ -536,23 +536,14 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
       title: title.trim() || 'Rechnung',
       subject: subject.trim(),
       introText: introText.trim() || undefined,
-      items: items.map((it, idx) => {
-        const q = Math.round((Number(it.quantity) || 1) * 10) / 10;
-        const p = Number(it.unitPrice) || 0;
-        return {
-          ...it,
-          position: idx + 1,
-          quantity: q,
-          unitPrice: p,
-          totalPrice: Math.round(q * p * 100) / 100
-        };
-      }),
+      items: summen.positionen,
       outroText: outroText.trim() || undefined,
       subtotalNet,
       vatAmounts,
       totalVat,
       totalAmount,
       paymentTermsDays,
+      smallBusiness: kleinunternehmer,
       notes: notes.trim() || undefined,
       createdAt: invoice ? invoice.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -564,22 +555,52 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!recipientName.trim()) {
-      alert('Bitte geben Sie einen Empfängernamen an oder wählen Sie ein Mitglied bzw. einen Kontakt aus.');
+      setFormFehler('Bitte einen Empfänger angeben oder ein Mitglied bzw. einen Kontakt auswählen.');
       return;
     }
     if (items.length === 0) {
-      alert('Bitte fügen Sie mindestens eine Rechnungsposition hinzu.');
+      setFormFehler('Bitte mindestens eine Position hinzufügen.');
       return;
     }
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (!String(it.description || '').trim()) {
+        setFormFehler(`Position ${i + 1}: Bitte eine Bezeichnung eingeben.`);
+        return;
+      }
+      const menge = parseMenge(it.quantity as number | string);
+      if (menge === null || menge <= 0) {
+        setFormFehler(`Position ${i + 1}: Die Menge muss eine Zahl größer 0 sein.`);
+        return;
+      }
+    }
+    // Doppelte Rechnungsnummer ablehnen (wie Android; Groß-/Kleinschreibung egal)
+    const nummer = (invoiceNumber.trim() || nextInvoiceNumber).toLowerCase();
+    if (existingInvoices.some(r => r.id !== invoice?.id && (r.invoiceNumber || '').trim().toLowerCase() === nummer)) {
+      setFormFehler(`Die Rechnungsnummer ${invoiceNumber.trim() || nextInvoiceNumber} gibt es schon. Bitte eine andere wählen.`);
+      return;
+    }
+    setFormFehler(null);
 
+    const invData = constructInvoiceData();
+    // Gehört schon eine Buchung dazu und ändert sich der Betrag, nachfragen
+    const verknuepft = invData.linkedTransactionId ? transactions.find(t => t.id === invData.linkedTransactionId) : undefined;
+    if (invoice && verknuepft && buchungWeichtAb(invData, verknuepft)) {
+      setBuchungFrage(invData);
+      return;
+    }
+    await speichern(invData, false);
+  };
+
+  const speichern = async (invData: ClubInvoice, buchungAnpassen: boolean) => {
+    setBuchungFrage(null);
     setIsSubmitting(true);
     try {
-      const invData = constructInvoiceData();
-      await onSave(invData, saveToDocuments);
+      await onSave(invData, saveToDocuments, buchungAnpassen);
       onClose();
     } catch (err) {
       console.error('Failed to save invoice:', err);
-      alert('Fehler beim Speichern der Rechnung.');
+      setFormFehler('Die Rechnung konnte nicht gespeichert werden.');
     } finally {
       setIsSubmitting(false);
     }
@@ -642,7 +663,10 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                 className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
               >
                 <option value="open">Offen (Zahlung ausstehend)</option>
-                <option value="paid">Bezahlt</option>
+                {/* „Bezahlt“ setzt man in den Details mit „Als bezahlt markieren“,
+                    damit Zahldatum und Buchung dazukommen (D-01). Eine schon
+                    bezahlte Rechnung behält ihren Status. */}
+                {status === 'paid' && <option value="paid">Bezahlt</option>}
                 <option value="draft">Entwurf</option>
                 <option value="cancelled">Storniert</option>
               </select>
@@ -1141,8 +1165,8 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                           <input
                             type="number"
                             required
-                            step="1"
-                            min="1"
+                            step="any"
+                            min="0.001"
                             value={item.quantity}
                             onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                             onKeyDown={(e) => handleQuantityKeyDown(e, item.id, item.quantity)}
@@ -1197,7 +1221,9 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                         {/* VAT Rate */}
                         <td className="px-2 py-2 text-center">
                           <select
-                            value={item.vatRate}
+                            value={kleinunternehmer ? 0 : item.vatRate}
+                            disabled={kleinunternehmer}
+                            title={kleinunternehmer ? 'Kleinunternehmer (§ 19 UStG): keine Umsatzsteuer' : undefined}
                             onChange={(e) => handleItemChange(item.id, 'vatRate', Number(e.target.value))}
                             className="w-full px-1.5 py-1 border border-slate-200 rounded-md text-xs text-center text-slate-800 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-slate-100"
                           >
@@ -1266,7 +1292,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                   <span className="font-mono font-semibold text-slate-900 dark:text-white">{formatCurrency(subtotalNet)}</span>
                 </div>
 
-                {Object.entries(vatAmounts).map(([rate, amount]) => (
+                {!kleinunternehmer && Object.entries(vatAmounts).map(([rate, amount]) => (
                   <div key={rate} className="flex items-center justify-between text-slate-500 text-[11px] dark:text-slate-400">
                     <span>zzgl. {rate}% USt:</span>
                     <span className="font-mono font-medium text-slate-700 dark:text-slate-200">{formatCurrency(Number(amount))}</span>
@@ -1277,6 +1303,24 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                   <span className="text-slate-900 dark:text-white">Gesamtbetrag:</span>
                   <span className="font-mono text-blue-700 dark:text-blue-300">{formatCurrency(totalAmount)}</span>
                 </div>
+                <label className="flex items-start gap-2 pt-2 border-t border-slate-200 dark:border-slate-800 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={kleinunternehmer}
+                    onChange={e => {
+                      const an = e.target.checked;
+                      setKleinunternehmer(an);
+                      // Beim Einschalten alle Positionen auf 0 %; beim Ausschalten
+                      // bleiben sie bei 0 % und werden von Hand gesetzt
+                      if (an) setItems(prev => prev.map(it => ({ ...it, vatRate: 0 })));
+                    }}
+                    className="mt-0.5 rounded border-slate-300"
+                  />
+                  <span className="text-[11px] text-slate-600 dark:text-slate-300">
+                    Kleinunternehmer (§ 19 UStG): keine Umsatzsteuer; auf der Rechnung steht
+                    „{(templateSettings.smallBusinessNotice ?? KLEINUNTERNEHMER_HINWEIS) || '(kein Hinweistext in der Vorlage)'}“
+                  </span>
+                </label>
               </div>
             </div>
           </div>
@@ -1365,6 +1409,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {formFehler && <span className="max-w-xs text-xs font-semibold text-rose-600 dark:text-rose-400">{formFehler}</span>}
             <button
               type="button"
               onClick={onClose}
@@ -1385,6 +1430,17 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
           </div>
         </div>
       </div>
+      {buchungFrage && (
+        <BestaetigungsDialog
+          titel="Verknüpfte Buchung angleichen?"
+          text="Zu dieser Rechnung gehört eine Buchung. Der Rechnungsbetrag ändert sich. Soll die Buchung den neuen Betrag übernehmen? Eine Aufteilung der Buchung wird dabei aufgehoben."
+          bestaetigenText="Buchung angleichen"
+          alternativText="Buchung unverändert lassen"
+          onBestaetigen={() => speichern(buchungFrage, true)}
+          onAlternative={() => speichern(buchungFrage, false)}
+          onAbbrechen={() => setBuchungFrage(null)}
+        />
+      )}
     </div>
   );
 };

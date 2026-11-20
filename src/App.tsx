@@ -72,6 +72,8 @@ import { BankImportModal } from './components/BankImportModal';
 import { AccountManageModal } from './components/AccountManageModal';
 import { InvoiceFormModal } from './components/InvoiceFormModal';
 import { InvoiceDetailsModal } from './components/InvoiceDetailsModal';
+import { RechnungBezahltDialog } from './components/RechnungBezahltDialog';
+import { BestaetigungsDialog } from './components/BestaetigungsDialog';
 import { InvoiceTemplateModal } from './components/InvoiceTemplateModal';
 import { ReceiptViewerModal } from './components/ReceiptViewerModal';
 import { ReceiptCameraScannerModal } from './components/ReceiptCameraScannerModal';
@@ -282,6 +284,12 @@ export default function App() {
   const [invoiceFormOpen, setInvoiceFormOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<ClubInvoice | null>(null);
   const [detailsInvoice, setDetailsInvoice] = useState<ClubInvoice | null>(null);
+  // Laufende Rückfrage zu einer Rechnung: bezahlt markieren, zurücksetzen, stornieren, löschen (P12)
+  const [rechnungAktion, setRechnungAktion] = useState<{
+    art: 'bezahlt' | 'offen' | 'storno' | 'loeschen';
+    rechnung: ClubInvoice;
+  } | null>(null);
+  const [rechnungFehler, setRechnungFehler] = useState<string | null>(null);
   const [invoiceTemplateModalOpen, setInvoiceTemplateModalOpen] = useState(false);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [meetingTemplateSettings, setMeetingTemplateSettings] = useState<MeetingTemplateSettings>(DEFAULT_MEETING_TEMPLATE);
@@ -943,7 +951,7 @@ export default function App() {
     invoices.map(inv => inv.invoiceNumber)
   );
 
-  const handleSaveInvoice = async (invoice: ClubInvoice, saveToDocuments: boolean = true) => {
+  const handleSaveInvoice = async (invoice: ClubInvoice, saveToDocuments: boolean = true, buchungAnpassen = false) => {
     const toSave: ClubInvoice = { ...invoice };
     if (saveToDocuments) {
       try {
@@ -956,29 +964,64 @@ export default function App() {
       }
     }
     await StorageService.saveInvoice(toSave);
-    const [updatedInvoices, updatedDocs] = await Promise.all([
+    // Verknüpfte Buchung dem neuen Betrag folgen lassen, wenn so gewählt
+    if (buchungAnpassen) await StorageService.angleichenRechnungsBuchung(toSave);
+    const [updatedInvoices, updatedDocs, updatedTxs] = await Promise.all([
       StorageService.getInvoices(),
-      StorageService.getDocuments()
+      StorageService.getDocuments(),
+      StorageService.getTransactions()
     ]);
     setInvoices(updatedInvoices);
     setDocuments(updatedDocs);
+    setTransactions(updatedTxs);
     setInvoiceFormOpen(false);
     setEditingInvoice(null);
     setPrefillInvoiceRecipient(null);
   };
 
-  const handleDeleteInvoice = async (id: string) => {
-    await StorageService.deleteInvoice(id);
-    // Das PDF wird mitgelöscht; die Dokumentenliste deshalb ebenfalls neu laden
-    const [updatedInvoices, updatedDocs] = await Promise.all([
+  /** Rechnungen, Buchungen und Dokumente neu laden; die geöffneten Details auf den neuen Stand bringen. */
+  const ladeRechnungenNeu = async (id?: string) => {
+    const [updatedInvoices, updatedDocs, updatedTxs] = await Promise.all([
       StorageService.getInvoices(),
-      StorageService.getDocuments()
+      StorageService.getDocuments(),
+      StorageService.getTransactions()
     ]);
     setInvoices(updatedInvoices);
     setDocuments(updatedDocs);
+    setTransactions(updatedTxs);
+    if (id) setDetailsInvoice(prev => (prev?.id === id ? updatedInvoices.find(i => i.id === id) ?? null : prev));
+  };
+
+  // Löschen fragt immer nach (vorher löschte der Knopf in den Details ohne
+  // Rückfrage); gehört eine Buchung dazu, auch, ob sie mit soll (wie Android).
+  const handleDeleteInvoice = (id: string) => {
+    const r = invoices.find(i => i.id === id);
+    if (r) setRechnungAktion({ art: 'loeschen', rechnung: r });
+  };
+
+  const loescheRechnung = async (id: string, buchungMitLoeschen: boolean) => {
+    await StorageService.deleteInvoice(id, buchungMitLoeschen);
+    await ladeRechnungenNeu();
     if (detailsInvoice?.id === id) {
       setDetailsInvoice(null);
     }
+  };
+
+  /** Statusknöpfe der Rechnungsdetails (D-46): vorher ohne Wirkung. */
+  const handleInvoiceStatus = (inv: ClubInvoice, neu: ClubInvoice['status']) => {
+    setRechnungFehler(null);
+    if (neu === 'paid') setRechnungAktion({ art: 'bezahlt', rechnung: inv });
+    else if (neu === 'cancelled') setRechnungAktion({ art: 'storno', rechnung: inv });
+    else if (neu === 'open') {
+      const mitBuchung = inv.status === 'paid' && inv.linkedTransactionId && transactions.some(t => t.id === inv.linkedTransactionId);
+      if (mitBuchung) setRechnungAktion({ art: 'offen', rechnung: inv });
+      else void setzeRechnungOffen(inv.id, false);
+    }
+  };
+
+  const setzeRechnungOffen = async (id: string, buchungMitLoeschen: boolean) => {
+    await StorageService.resetInvoiceToOpen(id, buchungMitLoeschen);
+    await ladeRechnungenNeu(id);
   };
 
   const handleBulkDeleteInvoices = async (ids: string[]) => {
@@ -2407,6 +2450,8 @@ export default function App() {
           templateSettings={invoiceTemplateSettings}
           nextInvoiceNumber={nextInvoiceNumber}
           prefillRecipient={prefillInvoiceRecipient}
+          existingInvoices={invoices}
+          transactions={transactions}
           onSave={handleSaveInvoice}
           onPreviewPdf={(inv) => downloadInvoicePdf(inv, settings, invoiceTemplateSettings)}
         />
@@ -2425,6 +2470,97 @@ export default function App() {
           }}
           onDelete={(id) => handleDeleteInvoice(id)}
           onDownloadPdf={(inv) => downloadInvoicePdf(inv, settings, invoiceTemplateSettings)}
+          onToggleStatus={handleInvoiceStatus}
+          statusFehler={rechnungFehler}
+        />
+      )}
+
+      {rechnungAktion?.art === 'bezahlt' && (
+        <RechnungBezahltDialog
+          rechnung={rechnungAktion.rechnung}
+          konten={accounts}
+          hatBuchung={Boolean(
+            rechnungAktion.rechnung.linkedTransactionId &&
+              transactions.some(t => t.id === rechnungAktion.rechnung.linkedTransactionId)
+          )}
+          onAbbrechen={() => setRechnungAktion(null)}
+          onBestaetigen={async a => {
+            await StorageService.markInvoicePaid(rechnungAktion.rechnung.id, a);
+            const id = rechnungAktion.rechnung.id;
+            setRechnungAktion(null);
+            await ladeRechnungenNeu(id);
+          }}
+        />
+      )}
+      {rechnungAktion?.art === 'offen' && (
+        <BestaetigungsDialog
+          titel={`Rechnung ${rechnungAktion.rechnung.invoiceNumber} wieder auf „offen“ setzen?`}
+          text="Zu dieser Rechnung gehört eine Einnahmebuchung. Soll sie gelöscht werden? Sonst bleibt sie stehen, ist aber nicht mehr mit der Rechnung verknüpft."
+          gefahr
+          bestaetigenText="Buchung löschen"
+          alternativText="Buchung behalten"
+          onBestaetigen={async () => {
+            const id = rechnungAktion.rechnung.id;
+            setRechnungAktion(null);
+            await setzeRechnungOffen(id, true);
+          }}
+          onAlternative={async () => {
+            const id = rechnungAktion.rechnung.id;
+            setRechnungAktion(null);
+            await setzeRechnungOffen(id, false);
+          }}
+          onAbbrechen={() => setRechnungAktion(null)}
+        />
+      )}
+      {rechnungAktion?.art === 'storno' && (
+        <BestaetigungsDialog
+          titel={`Rechnung ${rechnungAktion.rechnung.invoiceNumber} stornieren?`}
+          text="Die Rechnung bleibt mit ihrer Nummer erhalten, gilt aber nicht mehr als Forderung."
+          gefahr
+          bestaetigenText="Stornieren"
+          onBestaetigen={async () => {
+            const id = rechnungAktion.rechnung.id;
+            setRechnungAktion(null);
+            try {
+              await StorageService.cancelInvoice(id);
+              await ladeRechnungenNeu(id);
+            } catch (err: any) {
+              setRechnungFehler(err?.message || 'Die Rechnung konnte nicht storniert werden.');
+            }
+          }}
+          onAbbrechen={() => setRechnungAktion(null)}
+        />
+      )}
+      {rechnungAktion?.art === 'loeschen' && (
+        <BestaetigungsDialog
+          titel={`Rechnung ${rechnungAktion.rechnung.invoiceNumber} löschen?`}
+          text={
+            rechnungAktion.rechnung.linkedTransactionId && transactions.some(t => t.id === rechnungAktion.rechnung.linkedTransactionId)
+              ? 'Zu dieser Rechnung gehört eine Buchung. Soll sie mitgelöscht werden? Das abgelegte PDF wird in jedem Fall gelöscht.'
+              : 'Die Rechnung und ihr abgelegtes PDF werden gelöscht.'
+          }
+          gefahr
+          bestaetigenText={
+            rechnungAktion.rechnung.linkedTransactionId && transactions.some(t => t.id === rechnungAktion.rechnung.linkedTransactionId)
+              ? 'Rechnung und Buchung löschen'
+              : 'Löschen'
+          }
+          alternativText={
+            rechnungAktion.rechnung.linkedTransactionId && transactions.some(t => t.id === rechnungAktion.rechnung.linkedTransactionId)
+              ? 'Nur die Rechnung löschen'
+              : undefined
+          }
+          onAlternative={async () => {
+            const id = rechnungAktion.rechnung.id;
+            setRechnungAktion(null);
+            await loescheRechnung(id, false);
+          }}
+          onBestaetigen={async () => {
+            const id = rechnungAktion.rechnung.id;
+            setRechnungAktion(null);
+            await loescheRechnung(id, true);
+          }}
+          onAbbrechen={() => setRechnungAktion(null)}
         />
       )}
 

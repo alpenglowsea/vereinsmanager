@@ -47,4 +47,12 @@ class RechnungsExportTest {
         assertTrue(seiten.isNotEmpty())
         assertTrue(seiten.flatten().any { it is Zeichnung.Qr })
     }
+
+    @Test fun briefkopfMitTelefonUndWebseite() {
+        val a = Absender("Testverein", "", "info@tv.de", "", "", "", "", "", "", "", "", telefon = "0123 4567", webseite = "www.tv.de")
+        assertEquals("Tel.: 0123 4567 • info@tv.de • www.tv.de", a.kontaktZeile)
+        val seiten = RechnungsLayout.bauen(RechnungsExport.beispiel(heute), a, Vorlage(), { t, g, _ -> t.length * g * 0.2 })
+        assertTrue(seiten[0].any { it is Zeichnung.Text && it.text == a.kontaktZeile })
+        assertEquals("", Absender("V", "", "", "", "", "", "", "", "", "", "").kontaktZeile)
+    }
 }

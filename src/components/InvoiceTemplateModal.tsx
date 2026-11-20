@@ -35,6 +35,8 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
   const [activeTab, setActiveTab] = useState<'upload' | 'layout' | 'texts'>('upload');
   const [isSaving, setIsSaving] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  // Meldung zum Briefpapier statt alert()
+  const [uploadFehler, setUploadFehler] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -42,11 +44,13 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
   const handleFileUpload = (file: File) => {
     if (!file) return;
 
-    // We accept PNG, JPG, WEBP or PDF
-    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
-      alert('Bitte laden Sie eine Bilddatei (PNG, JPG, WEBP) oder ein PDF Ihres Briefpapiers hoch.');
+    // Nur PNG und JPEG: Das PDF der Rechnung kann ein PDF- oder WEBP-Briefpapier
+    // nicht als Hintergrund zeichnen; es blieb dann ohne Meldung weg (D-45).
+    if (file.type !== 'image/png' && file.type !== 'image/jpeg') {
+      setUploadFehler('Bitte das Briefpapier als Bild im Format PNG oder JPG hochladen. Ein PDF lässt sich vorher z. B. mit einem Bildschirmfoto oder „Exportieren als Bild“ umwandeln.');
       return;
     }
+    setUploadFehler(null);
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -175,12 +179,18 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                 <div className="text-xs text-blue-900 space-y-1 dark:text-blue-100">
                   <p className="font-semibold">Wie funktioniert die eigene Blanko-Vorlage?</p>
                   <p className="text-blue-800 leading-relaxed dark:text-blue-200">
-                    Laden Sie Ihr offizielles Vereins-Briefpapier (z.B. als hochauflösendes PNG, JPG oder PDF) hoch.
+                    Laden Sie Ihr offizielles Vereins-Briefpapier (als hochauflösendes PNG oder JPG) hoch.
                     Die Vereinsverwaltung hinterlegt diese Vorlage als ganzseitigen Hintergrund und druckt automatisch
                     die Empfängeranschrift, Rechnungsdaten, Positionsliste, Summen und den GiroCode passgenau darauf.
                   </p>
                 </div>
               </div>
+
+              {uploadFehler && (
+                <div className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-xs text-rose-800 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200">
+                  {uploadFehler}
+                </div>
+              )}
 
               {/* Upload Box / Dropzone */}
               {!hasCustomBlanko ? (
@@ -201,7 +211,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/png,image/jpeg,image/webp,application/pdf"
+                    accept="image/png,image/jpeg"
                     className="hidden"
                     onChange={(e) => {
                       if (e.target.files && e.target.files[0]) {
@@ -217,7 +227,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                       Blanko-Briefpapier hier ablegen oder klicken
                     </h4>
                     <p className="text-xs text-slate-500 mt-1 dark:text-slate-400">
-                      Unterstützte Formate: PNG, JPG, WEBP (Empfohlen: DIN A4, 210 x 297 mm, mind. 1200 x 1700 px)
+                      Unterstützte Formate: PNG, JPG (Empfohlen: DIN A4, 210 x 297 mm, mind. 1200 x 1700 px)
                     </p>
                   </div>
                   <button
@@ -267,7 +277,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/png,image/jpeg,image/webp,application/pdf"
+                      accept="image/png,image/jpeg"
                       className="hidden"
                       onChange={(e) => {
                         if (e.target.files && e.target.files[0]) {
@@ -332,7 +342,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                     Oberer Rand (mm)
@@ -345,52 +355,25 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                     onChange={(e) => setFormData(prev => ({ ...prev, marginTop: Number(e.target.value) || 45 }))}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">Standard: 45 mm</p>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Standard: 45 mm. Gilt mit eigenem Briefpapier, auch auf Folgeseiten.
+                  </p>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
-                    Unterer Rand (mm)
+                    Akzentfarbe
                   </label>
-                  <input
-                    type="number"
-                    min="15"
-                    max="70"
-                    value={formData.marginBottom}
-                    onChange={(e) => setFormData(prev => ({ ...prev, marginBottom: Number(e.target.value) || 25 }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Standard: 25 mm</p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
-                    Linker Rand (mm)
-                  </label>
-                  <input
-                    type="number"
-                    min="15"
-                    max="50"
-                    value={formData.marginLeft}
-                    onChange={(e) => setFormData(prev => ({ ...prev, marginLeft: Number(e.target.value) || 20 }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Standard: 20 mm</p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
-                    Rechter Rand (mm)
-                  </label>
-                  <input
-                    type="number"
-                    min="15"
-                    max="50"
-                    value={formData.marginRight}
-                    onChange={(e) => setFormData(prev => ({ ...prev, marginRight: Number(e.target.value) || 20 }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Standard: 20 mm</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={/^#[0-9a-fA-F]{6}$/.test(formData.accentColor || '') ? formData.accentColor : '#1e40af'}
+                      onChange={(e) => setFormData(prev => ({ ...prev, accentColor: e.target.value }))}
+                      className="h-9 w-14 rounded border border-slate-200 dark:border-slate-800"
+                    />
+                    <span className="text-xs font-mono text-slate-600 dark:text-slate-300">{formData.accentColor || '#1e40af'}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Vereinsname, Linien und Gesamtbetrag im PDF.</p>
                 </div>
               </div>
 
@@ -478,6 +461,21 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
                   onChange={(e) => setFormData(prev => ({ ...prev, defaultOutroText: e.target.value }))}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
+                  Hinweis für Kleinunternehmer (§ 19 UStG)
+                </label>
+                <textarea
+                  rows={2}
+                  value={formData.smallBusinessNotice ?? 'Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.'}
+                  onChange={(e) => setFormData(prev => ({ ...prev, smallBusinessNotice: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
+                />
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Steht unter den Summen jeder Rechnung, bei der „Kleinunternehmer“ angehakt ist. Gleiches Feld wie in der Handy-App.
+                </p>
               </div>
             </div>
           )}

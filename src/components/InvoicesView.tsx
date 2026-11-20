@@ -620,7 +620,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
     if (!onBulkDeleteInvoices || selectedIds.size === 0) return;
     if (
       window.confirm(
-        `Möchten Sie die ${selectedIds.size} ausgewählten Rechnungen wirklich unwiderruflich löschen?`
+        `Möchten Sie die ${selectedIds.size} ausgewählten Rechnungen wirklich unwiderruflich löschen? Ihre PDFs werden mitgelöscht, verknüpfte Buchungen bleiben stehen.`
       )
     ) {
       await onBulkDeleteInvoices(Array.from(selectedIds));
@@ -1347,11 +1347,8 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           {/* Delete button */}
                           <button
                             type="button"
-                            onClick={() => {
-                              if (window.confirm(`Rechnung ${inv.invoiceNumber} wirklich löschen?`)) {
-                                onDeleteInvoice(inv.id);
-                              }
-                            }}
+                            // Die Rückfrage (mit Buchung oder ohne) stellt App.tsx
+                            onClick={() => onDeleteInvoice(inv.id)}
                             className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer dark:hover:text-red-400 dark:hover:bg-red-950/40"
                             title="Rechnung löschen"
                           >

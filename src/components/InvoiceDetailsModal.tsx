@@ -26,6 +26,8 @@ interface InvoiceDetailsModalProps {
   onDelete: (id: string) => void;
   onDownloadPdf: (invoice: ClubInvoice) => void;
   onToggleStatus?: (invoice: ClubInvoice, newStatus: ClubInvoice['status']) => void;
+  /** Meldung, wenn ein Statuswechsel nicht ging */
+  statusFehler?: string | null;
 }
 
 export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
@@ -35,7 +37,8 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
   onEdit,
   onDelete,
   onDownloadPdf,
-  onToggleStatus
+  onToggleStatus,
+  statusFehler
 }) => {
   if (!isOpen || !invoice) return null;
 
@@ -231,6 +234,26 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
                     </span>
                   </div>
                 )}
+                {invoice.status === 'paid' && invoice.paidAt && (
+                  <div>
+                    <span className="text-slate-500 block dark:text-slate-400">Bezahlt am:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-100">
+                      {new Date(invoice.paidAt).toLocaleDateString('de-DE')}
+                      {invoice.paymentMethod
+                        ? ` (${{ transfer: 'Überweisung', cash: 'bar', sepa: 'Lastschrift', standing_order: 'Dauerauftrag', exempt: '-' }[invoice.paymentMethod] || invoice.paymentMethod})`
+                        : ''}
+                    </span>
+                    {invoice.linkedTransactionId && (
+                      <span className="block text-[11px] text-emerald-700 dark:text-emerald-300">mit Einnahmebuchung</span>
+                    )}
+                  </div>
+                )}
+                {invoice.smallBusiness && (
+                  <div>
+                    <span className="text-slate-500 block dark:text-slate-400">Umsatzsteuer:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-100">Kleinunternehmer (§ 19 UStG)</span>
+                  </div>
+                )}
                 {invoice.documentId && (
                   <div>
                     <span className="text-slate-500 block dark:text-slate-400">Archiv:</span>
@@ -263,10 +286,11 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
                         className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer dark:bg-blue-950/40 dark:hover:bg-blue-900/40 dark:text-blue-200 dark:border-blue-800/60"
                       >
                         <Clock className="w-3.5 h-3.5" />
-                        <span>Auf 'Offen' setzen</span>
+                        <span>{invoice.status === 'paid' ? 'Zurück auf „offen“' : 'Auf „offen“ setzen'}</span>
                       </button>
                     )}
-                    {invoice.status !== 'cancelled' && (
+                    {/* Eine bezahlte Rechnung erst auf „offen“ zurücksetzen, dann stornieren (wie Android) */}
+                    {invoice.status !== 'cancelled' && invoice.status !== 'paid' && (
                       <button
                         type="button"
                         onClick={() => onToggleStatus(invoice, 'cancelled')}
@@ -277,6 +301,7 @@ export const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
                       </button>
                     )}
                   </div>
+                  {statusFehler && <p className="mt-2 text-xs font-semibold text-rose-600 dark:text-rose-400">{statusFehler}</p>}
                 </div>
               )}
             </div>

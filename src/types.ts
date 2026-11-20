@@ -812,6 +812,8 @@ export interface ClubInvoice {
   // Archivierung & Vorlage
   documentId?: string; // ID in der Dokumentenverwaltung
   customTemplateUsed?: boolean;
+  /** Kleinunternehmer nach § 19 UStG: keine Umsatzsteuer, Hinweis auf der Rechnung (D-05, wie Android) */
+  smallBusiness?: boolean;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -841,6 +843,8 @@ export interface InvoiceTemplateSettings {
   showFoldingMarks: boolean;
   showGiroCode: boolean; // BezahlCode / EPC-QR-Code
   accentColor: string; // Hex-Farbe
+  /** Hinweistext für Kleinunternehmer (§ 19 UStG), wie Android */
+  smallBusinessNotice?: string;
 }
 
 // ----------------------------------------------------

@@ -94,7 +94,14 @@ object Vorlagen {
 data class Absender(
     val name: String, val anschrift: String, val email: String, val register: String, val finanzamt: String, val steuernummer: String,
     val vorsitzender: String, val kassenwart: String, val iban: String, val bic: String, val glaeubigerId: String,
+    /** Telefon und Webseite des Vereins, für den Briefkopf der Rechnung (E10, wie Desktop) */
+    val telefon: String = "", val webseite: String = "",
 ) {
+    /** „Tel.: … • E-Mail • Webseite“ – nur, was eingetragen ist (wie `kontaktZeile` am Desktop). */
+    val kontaktZeile: String get() = listOf(
+        telefon.trim().let { if (it.isNotEmpty()) "Tel.: $it" else "" }, email.trim(), webseite.trim(),
+    ).filter { it.isNotEmpty() }.joinToString(" • ")
+
     companion object {
         private fun t(o: JsonObject?, k: String) = (o?.get(k) as? JsonPrimitive)?.takeIf { it !is JsonNull }?.contentOrNull.orEmpty()
 
@@ -105,6 +112,7 @@ data class Absender(
             steuernummer = t(settings, "taxNumber"), vorsitzender = t(settings, "chairman"), kassenwart = t(settings, "treasurer"),
             iban = t(settings, "creditorIban").uppercase().filterNot { it.isWhitespace() }, bic = t(settings, "creditorBic").uppercase().filterNot { it.isWhitespace() },
             glaeubigerId = t(settings, "creditorId"),
+            telefon = t(settings, "phone"), webseite = t(settings, "website"),
         )
     }
 }

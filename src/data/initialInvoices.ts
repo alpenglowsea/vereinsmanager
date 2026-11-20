@@ -13,7 +13,8 @@ export const DEFAULT_INVOICE_TEMPLATE: InvoiceTemplateSettings = {
   showClubLogo: true,
   showFoldingMarks: true,
   showGiroCode: true,
-  accentColor: '#1e40af' // Blue-800
+  accentColor: '#1e40af', // Blue-800
+  smallBusinessNotice: 'Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.'
 };
 
 export const INITIAL_INVOICES: ClubInvoice[] = [

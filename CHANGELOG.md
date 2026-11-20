@@ -137,6 +137,46 @@ entsprechen der Android-Fassung.
   Dokumentenverwaltung bleibt beim Löschen der Sitzung erhalten (wie bei
   Android). Vorher wurde es ohne Rückfrage mitgelöscht.
 
+### Paket 11 und 12 — Rechnungen: Inhalt, PDF und Zahlung (D-01, D-05, D-44 bis D-46, D-49 bis D-52, D-149)
+
+- **Als bezahlt markieren (D-01, D-46):** Die Statusknöpfe in den
+  Rechnungsdetails waren nicht angeschlossen. Jetzt fragt „Als bezahlt
+  markieren“ nach Zahldatum, Zahlart und auf Wunsch nach der Einnahmebuchung
+  (Konto, Einnahmekonto mit Vorschlag nach der Sphäre). Die Buchung lautet
+  über den Bruttobetrag, bei mehreren Steuersätzen aufgeteilt je Satz;
+  Belegnummer = Rechnungsnummer (bei Kollision mit Zusatz). „Zurück auf
+  offen“ fragt, ob die Buchung gelöscht oder behalten wird; „Stornieren“
+  geht erst nach dem Zurücksetzen. Wie in der Android-Fassung.
+- **Bearbeiten und Löschen:** Ändert sich der Betrag einer Rechnung mit
+  Buchung, fragt die App, ob die Buchung angeglichen wird. Löschen fragt
+  immer nach (der Knopf in den Details löschte bisher ohne Rückfrage) und bei
+  einer Buchung, ob sie mitgelöscht wird. Doppelte Rechnungsnummern werden
+  abgelehnt; Meldungen stehen neben dem Speichern-Knopf statt in
+  Browserfenstern. „Bezahlt“ lässt sich im Formular nicht mehr direkt wählen.
+- **Kleinunternehmer (D-05, D-52):** Häkchen je Rechnung (Feld
+  `smallBusiness`, wie Android): alle Positionen 0 %, im PDF nur der
+  Gesamtbetrag und darunter der Hinweis aus der Vorlage
+  (`smallBusinessNotice`, Standard „Gemäß § 19 UStG wird keine Umsatzsteuer
+  berechnet.“).
+- **PDF:** kein erfundener „Kreditinstitut: Sparkasse / Hausbank“ mehr
+  (D-44); keine interne Kennung wie „member-1699…“ als „Kundennummer / Ref.“
+  (D-50); Akzentfarbe der Vorlage wirkt und ist jetzt einstellbar,
+  Briefpapier und oberer Rand gelten auch auf Folgeseiten (D-45);
+  Seitenumbruch für lange Texte, Summen und Zahlungsbox, Fußzeile und
+  „Seite x von y“ auf jeder Seite; Telefon, E-Mail und Webseite des Vereins
+  im Briefkopf (D-149, auch in der Android-Fassung).
+- **GiroCode (D-51):** Verwendungszweck „Rechnung RE-…“ in Zeile 11 statt der
+  Rechnungsnummer in der Zeile für genormte Referenzen; die Zahlungsbox steht
+  direkt nach dem Inhalt statt höchstens bei 235 mm (konnte Text überdecken).
+- **Menge (D-49):** bis zu drei Nachkommastellen (0,75 bleibt 0,75). Die
+  Umsatzsteuer wird je Satz aus der Nettosumme gerechnet, nicht je Position.
+- **Vorlage:** Briefpapier nur noch als PNG oder JPG (ein PDF oder WEBP
+  erschien bisher ohne Meldung gar nicht); die Felder für unteren, linken und
+  rechten Rand sind ausgeblendet, weil sie nie wirkten (Werte bleiben
+  gespeichert).
+- Regeln in `src/services/rechnungsRegeln.ts` (14 Tests); Android:
+  `Absender.kontaktZeile` mit einem Test.
+
 ### Paket 10 — Ablage im Ordner (D-40, D-47)
 
 - **Zuwendungsbestätigungen (D-40):** Das PDF liegt jetzt unter

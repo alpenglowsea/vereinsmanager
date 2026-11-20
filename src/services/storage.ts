@@ -37,6 +37,12 @@ import { getInitialFolders } from '../data/initialFolders';
 import { DEFAULT_CALENDAR_CATEGORIES, INITIAL_CALENDAR_EVENTS } from '../data/initialEvents';
 import { getDonationPdfDataUrl } from './donationService';
 import { spendenBuchung, gleicheBuchungAn } from './spendenBuchung';
+import {
+  BezahltAngaben,
+  pruefeBezahlt,
+  rechnungsBuchung,
+  gleicheBuchungAn as gleicheRechnungsBuchungAn
+} from './rechnungsRegeln';
 import { getMembershipApplicationPdfDataUrl } from './membershipPdfService';
 import { AuthService } from './authService';
 import { customCategoryService } from './customCategoryService';
@@ -2863,12 +2869,91 @@ export const StorageService = {
     await saveAllToStore(STORES.INVOICES, invoices);
   },
 
-  async deleteInvoice(id: string): Promise<void> {
+  /**
+   * Die verknüpfte Buchung an Betrag und Empfänger der Rechnung angleichen,
+   * wenn der Anwender das beim Bearbeiten gewählt hat (wie Android).
+   */
+  async angleichenRechnungsBuchung(invoice: ClubInvoice): Promise<void> {
+    if (!invoice.linkedTransactionId) return;
+    const tx = await getItemFromStore<Transaction>(STORES.TRANSACTIONS, invoice.linkedTransactionId);
+    if (tx) await this.saveTransaction(gleicheRechnungsBuchungAn(tx, invoice, new Date().toISOString()));
+  },
+
+  /**
+   * Rechnung als bezahlt markieren (D-01, D-46, wie Android): Zahldatum und
+   * Zahlart festhalten und auf Wunsch die Einnahmebuchung anlegen. Vorher
+   * entstand nie eine Buchung, und die Knöpfe in den Details hatten keine
+   * Wirkung.
+   */
+  async markInvoicePaid(id: string, a: BezahltAngaben): Promise<{ invoice: ClubInvoice; transaction?: Transaction }> {
+    const inv = await getItemFromStore<ClubInvoice>(STORES.INVOICES, id);
+    if (!inv) throw new Error('Die Rechnung gibt es nicht mehr.');
+    const fehler = pruefeBezahlt(inv, a);
+    if (fehler) throw new Error(fehler);
+    const now = new Date().toISOString();
+    const vorhanden = inv.linkedTransactionId
+      ? await getItemFromStore<Transaction>(STORES.TRANSACTIONS, inv.linkedTransactionId)
+      : null;
+    let tx: Transaction | undefined;
+    if (a.buchungAnlegen && !vorhanden) {
+      const belegNummern = (await this.getTransactions()).map(t => t.documentNumber);
+      tx = rechnungsBuchung(inv, a, belegNummern, now, `tx-inv-${id}-${Math.random().toString(36).substring(2, 6)}`);
+      await this.saveTransaction(tx);
+    }
+    const neu: ClubInvoice = {
+      ...inv,
+      status: 'paid',
+      paidAt: a.datum,
+      paymentMethod: a.zahlart,
+      linkedTransactionId: tx?.id ?? (vorhanden ? inv.linkedTransactionId : undefined),
+      updatedAt: now
+    };
+    if (!neu.linkedTransactionId) delete neu.linkedTransactionId;
+    await putItemToStore(STORES.INVOICES, neu);
+    // Das abgelegte PDF kennt jetzt die Buchung
+    if (tx && inv.documentId) {
+      const doc = await getItemFromStore<ClubDocument>(STORES.DOCUMENTS, inv.documentId);
+      if (doc) await putItemToStore(STORES.DOCUMENTS, { ...doc, transactionId: tx.id, updatedAt: now });
+    }
+    return { invoice: neu, transaction: tx };
+  },
+
+  /** Bezahlte oder stornierte Rechnung zurück auf „offen“; die Buchung wird gelöscht oder nur gelöst. */
+  async resetInvoiceToOpen(id: string, buchungMitLoeschen: boolean): Promise<void> {
+    const inv = await getItemFromStore<ClubInvoice>(STORES.INVOICES, id);
+    if (!inv) return;
+    const neu: ClubInvoice = { ...inv, status: 'open', updatedAt: new Date().toISOString() };
+    delete neu.paidAt;
+    delete neu.paymentMethod;
+    delete neu.linkedTransactionId;
+    await putItemToStore(STORES.INVOICES, neu);
+    if (buchungMitLoeschen && inv.linkedTransactionId) {
+      const tx = await getItemFromStore<Transaction>(STORES.TRANSACTIONS, inv.linkedTransactionId);
+      if (tx) await this.deleteTransaction(tx.id);
+    }
+  },
+
+  /** Rechnung stornieren; eine bezahlte erst nach dem Zurücksetzen (wie Android). */
+  async cancelInvoice(id: string): Promise<void> {
+    const inv = await getItemFromStore<ClubInvoice>(STORES.INVOICES, id);
+    if (!inv) return;
+    if (inv.status === 'paid') {
+      throw new Error('Eine bezahlte Rechnung kann erst nach dem Zurücksetzen auf „offen“ storniert werden.');
+    }
+    await putItemToStore(STORES.INVOICES, { ...inv, status: 'cancelled', updatedAt: new Date().toISOString() });
+  },
+
+  /** Löscht die Rechnung samt abgelegtem PDF; die verknüpfte Buchung nur auf Wunsch. */
+  async deleteInvoice(id: string, buchungMitLoeschen = false): Promise<void> {
     const existing = await getItemFromStore<ClubInvoice>(STORES.INVOICES, id);
     if (existing?.documentId) {
       await this.deleteDocument(existing.documentId).catch(() => {});
     }
     await deleteItemFromStore(STORES.INVOICES, id);
+    if (buchungMitLoeschen && existing?.linkedTransactionId) {
+      const tx = await getItemFromStore<Transaction>(STORES.TRANSACTIONS, existing.linkedTransactionId);
+      if (tx) await this.deleteTransaction(tx.id);
+    }
   },
 
   async getInvoiceTemplate(): Promise<InvoiceTemplateSettings> {

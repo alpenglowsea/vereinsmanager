@@ -110,6 +110,8 @@ object RechnungsLayout {
             linie(L, 26.0, R, 26.0, 1.2, akzent)
             val teile = listOf(a.register, a.finanzamt, if (a.steuernummer.isNotBlank()) "St.-Nr.: ${a.steuernummer}" else "").filter { it.isNotBlank() }
             if (teile.isNotEmpty()) text(teile.joinToString(" • "), L, 31.0, 8.5, farbe = GRAU)
+            // Telefon, E-Mail und Webseite des Vereins (E10, wie Desktop)
+            if (a.kontaktZeile.isNotEmpty()) text(a.kontaktZeile, L, 34.5, 8.5, farbe = GRAU)
             if (v.faltmarken) {
                 linie(4.0, 148.5, 9.0, 148.5, 0.3, RAHMEN); linie(4.0, 105.0, 8.0, 105.0, 0.3, RAHMEN); linie(4.0, 210.0, 8.0, 210.0, 0.3, RAHMEN)
             }
