@@ -1,7 +1,79 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Meeting, ClubSettings, MeetingTemplateSettings, MeetingType } from '../types';
+import { Meeting, ClubSettings, MeetingTemplateSettings, MeetingType, MeetingDigitalSignature, InvoiceTemplateSettings } from '../types';
 import { DEFAULT_MEETING_TEMPLATE } from '../data/initialMeetings';
+import {
+  ERGEBNISSE,
+  auszugFehlt,
+  deutsch,
+  einladungFehlt,
+  leitungsUnterschrift,
+  ortDesVereins,
+  pruefeUnterschrift,
+  registerBeschluesse,
+  schriftUnterschrift,
+  statusName,
+  stimmberechtigteWirksam
+} from '../utils/sitzungRegeln';
+
+/**
+ * Briefpapier für die Sitzungs-PDFs. Wie Android gilt das Briefpapier der
+ * Rechnungsvorlage für alle Dokumente (D-123). Ein früher eigens für
+ * Sitzungen hinterlegtes Briefpapier wird nur noch verwendet, solange in der
+ * Rechnungsvorlage keines liegt.
+ */
+export interface Briefpapier {
+  dataUrl: string;
+  /** Oberer Rand in mm, passend zu diesem Briefpapier */
+  marginTop?: number;
+  /** Woher es kommt: Rechnungsvorlage oder (alt) Sitzungsvorlage */
+  quelle: 'rechnung' | 'sitzung';
+}
+
+export function briefpapierFuerSitzungen(
+  sitzung: MeetingTemplateSettings | undefined,
+  rechnung: InvoiceTemplateSettings | undefined
+): Briefpapier | null {
+  if (rechnung?.customBlankoDataUrl?.trim()) {
+    return { dataUrl: rechnung.customBlankoDataUrl, marginTop: rechnung.marginTop, quelle: 'rechnung' };
+  }
+  if (sitzung?.customBlankoDataUrl?.trim()) {
+    return { dataUrl: sitzung.customBlankoDataUrl, marginTop: sitzung.marginTop, quelle: 'sitzung' };
+  }
+  return null;
+}
+
+/** Kopfzeile ohne erfundene Platzhalter: nur, was eingetragen ist. */
+function kopfZeile(settings: ClubSettings): string {
+  return [settings.associationNumber, settings.taxOffice, settings.taxNumber ? `St.-Nr.: ${settings.taxNumber}` : '']
+    .filter(t => t && String(t).trim())
+    .join(' • ');
+}
+
+/**
+ * Unterschrift über der Linie: als Linienzüge (scharf, Format wie Android),
+ * sonst als Bild. Höchstens 42 × 13 mm, Seitenverhältnis bleibt.
+ */
+function zeichneUnterschrift(doc: jsPDF, sig: MeetingDigitalSignature, x: number, linie: number) {
+  try {
+    if (sig.aspect && sig.aspect > 0 && sig.strokes && sig.strokes.length) {
+      const hoehe = Math.min(13, 42 / sig.aspect);
+      const breite = hoehe * sig.aspect;
+      const y0 = linie - 1 - hoehe;
+      doc.setDrawColor(15, 23, 42);
+      doc.setLineWidth(0.35);
+      sig.strokes.forEach(st => {
+        for (let i = 1; i < st.length; i++) {
+          doc.line(x + st[i - 1][0] * breite, y0 + st[i - 1][1] * hoehe, x + st[i][0] * breite, y0 + st[i][1] * hoehe);
+        }
+      });
+    } else if (sig.signatureDataUrl) {
+      doc.addImage(sig.signatureDataUrl, 'PNG', x, linie - 14, 42, 13);
+    }
+  } catch (err) {
+    console.warn('Unterschrift konnte nicht eingezeichnet werden:', err);
+  }
+}
 
 function formatMeetingType(type: MeetingType): string {
   switch (type) {
@@ -54,6 +126,8 @@ function formatDateTimeGerman(dateStr: string): string {
 
 export interface ProtocolPdfOptions {
   includeDigitalSignatures?: boolean;
+  /** Gemeinsames Briefpapier (siehe briefpapierFuerSitzungen); ohne Angabe das der Sitzungsvorlage */
+  briefpapier?: Briefpapier | null;
 }
 
 export const MeetingPdfService = {
@@ -79,18 +153,18 @@ export const MeetingPdfService = {
     const marginLeft = template.marginLeft || 20;
     const marginRight = template.marginRight || 20;
     const contentWidth = pageWidth - marginLeft - marginRight;
-    const marginTop = template.marginTop || 35;
     const marginBottom = template.marginBottom || 25;
 
-    const hasCustomBlanko = Boolean(template.customBlankoDataUrl && template.customBlankoDataUrl.trim().length > 0);
+    const bp = options?.briefpapier !== undefined ? options.briefpapier : briefpapierFuerSitzungen(template, undefined);
+    const marginTop = (bp?.marginTop || template.marginTop) || 35;
 
     const renderPageBackground = () => {
-      if (hasCustomBlanko && template.customBlankoDataUrl) {
+      if (bp) {
         try {
-          doc.addImage(template.customBlankoDataUrl, 'PNG', 0, 0, pageWidth, pageHeight);
+          doc.addImage(bp.dataUrl, 'PNG', 0, 0, pageWidth, pageHeight);
         } catch {
           try {
-            doc.addImage(template.customBlankoDataUrl, 'JPEG', 0, 0, pageWidth, pageHeight);
+            doc.addImage(bp.dataUrl, 'JPEG', 0, 0, pageWidth, pageHeight);
           } catch (err) {
             console.error('Failed to render blanko letterhead:', err);
           }
@@ -105,11 +179,7 @@ export const MeetingPdfService = {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
         doc.setTextColor(100, 116, 139); // Slate-500
-        doc.text(
-          `${settings.associationNumber || ''} • ${settings.taxOffice || 'Finanzamt'} • St.-Nr.: ${settings.taxNumber || ''}`,
-          marginLeft,
-          23
-        );
+        if (kopfZeile(settings)) doc.text(kopfZeile(settings), marginLeft, 23);
 
         doc.setDrawColor(203, 213, 225); // Slate-300
         doc.setLineWidth(0.4);
@@ -153,7 +223,25 @@ export const MeetingPdfService = {
     const subline = `Sitzungsart: ${formatMeetingType(meeting.type)}   •   Protokollform: ${meeting.protocolType === 'verbatim' ? 'Ausführliches Verlaufsprotokoll' : 'Ergebnisprotokoll'}`;
     const sublineLines = doc.splitTextToSize(subline, contentWidth);
     doc.text(sublineLines, marginLeft, currentY);
-    currentY += sublineLines.length * 4.2 + 4.5;
+    currentY += sublineLines.length * 4.2 + 2.5;
+
+    // Hinweise wie Android: Entwurf und nachträglich geänderter Text
+    const warnungen: string[] = [];
+    if (meeting.status !== 'approved') warnungen.push(`Entwurf – noch nicht genehmigt (Status: ${statusName(meeting.status)})`);
+    if ((meeting.signatures || []).some(sg => pruefeUnterschrift(meeting, sg) === 'geaendert')) {
+      warnungen.push('Achtung: Der Protokolltext wurde nach einer Unterschrift geändert.');
+    }
+    if (warnungen.length) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(185, 28, 28);
+      warnungen.forEach(w => {
+        const z = doc.splitTextToSize(w, contentWidth);
+        doc.text(z, marginLeft, currentY);
+        currentY += z.length * 4.2;
+      });
+    }
+    currentY += 2;
 
     // 2. Formalia-Kasten (Ort, Zeit, Leitung, Beschlussfähigkeit)
     // Saubere, streng begrenzte 2-Spalten-Struktur mit garantierter Rand-Einhaltung & bündiger Textausrichtung
@@ -167,29 +255,33 @@ export const MeetingPdfService = {
     const col2ValW = col2Width - col2LabelW - 4; // ~54mm
 
     // Formatiere und splitte alle Werte vorher für exakte Randkontrolle
-    const dateTimeStr = `${formatDateGerman(meeting.date)}, ${meeting.startTime} Uhr${meeting.endTime ? ' – ' + meeting.endTime + ' Uhr' : ''}`;
+    const dateTimeStr = `${formatDateGerman(meeting.date)}${meeting.startTime ? `, ${meeting.startTime} Uhr${meeting.endTime ? ' – ' + meeting.endTime + ' Uhr' : ''}` : ''}`;
     const dateTimeLines = doc.splitTextToSize(dateTimeStr, col1ValW).slice(0, 2);
 
     const chairStr = meeting.chairperson || '–';
     const chairLines = doc.splitTextToSize(chairStr, col2ValW).slice(0, 2);
 
-    const locStr = meeting.location || 'Vereinsheim';
+    const locStr = meeting.location || '–';
     const locLines = doc.splitTextToSize(locStr, col1ValW).slice(0, 2);
 
     const minuteKeeperStr = meeting.minuteKeeper || '–';
     const minuteKeeperLines = doc.splitTextToSize(minuteKeeperStr, col2ValW).slice(0, 2);
 
-    const invStr = meeting.invitationCompliant ? 'Form- & fristgerecht gem. Satzung' : 'Prüfung erforderlich';
+    // Nur bestätigen, was angekreuzt ist (D-127)
+    const einlDetails = [meeting.invitationDate ? `am ${deutsch(meeting.invitationDate)}` : '', meeting.invitationMethod || ''].filter(Boolean);
+    const invStr = meeting.invitationCompliant
+      ? `form- und fristgerecht${einlDetails.length ? ` (${einlDetails.join(', ')})` : ''}`
+      : 'nicht bestätigt';
     const invLines = doc.splitTextToSize(invStr, col1ValW).slice(0, 2);
 
-    const votersCount = meeting.totalEligibleVoters || meeting.attendees.filter(a => a.present && a.hasVotingRight).length || '–';
-    const votersStr = `${votersCount} stimmberechtigt anwesend`;
+    const votersCount = stimmberechtigteWirksam(meeting);
+    const votersStr = votersCount === null ? '–' : `${votersCount} stimmberechtigt anwesend`;
     const votersLines = doc.splitTextToSize(votersStr, col2ValW).slice(0, 2);
 
-    const quorumStr = meeting.quorumConfirmed ? 'Gegeben und ordnungsgemäß festgestellt' : 'Nicht bestätigt';
+    const quorumStr = meeting.quorumConfirmed ? 'festgestellt' : 'nicht festgestellt';
     const quorumLines = doc.splitTextToSize(quorumStr, col1ValW).slice(0, 2);
 
-    const statusLabel = meeting.status === 'approved' ? 'Genehmigt & rechtsgültig' : meeting.status === 'review' ? 'In Vorprüfung' : 'Entwurf';
+    const statusLabel = statusName(meeting.status);
     const statusLines = doc.splitTextToSize(statusLabel, col2ValW).slice(0, 2);
 
     // Berechne Zeilenabstände dynamisch
@@ -327,13 +419,14 @@ export const MeetingPdfService = {
       if (top.resolutions && top.resolutions.length > 0) {
         top.resolutions.forEach((res) => {
           const isAccepted = res.result === 'accepted';
-          const statusText = isAccepted ? 'ANGENOMMEN' : res.result === 'rejected' ? 'ABGELEHNT' : 'VERTAGT';
+          const statusText = (ERGEBNISSE[res.result] || res.result).toUpperCase();
 
           // Textblöcke aufbereiten
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(8.5);
           const badgeSpace = 28;
-          const titleLines = doc.splitTextToSize(`BESCHLUSS [TOP ${res.agendaItemNumber}]: ${res.title}`, contentWidth - badgeSpace - 10);
+          // Die Nummer heißt schon „TOP 2“; vorher stand „[TOP TOP 2]“ im PDF
+          const titleLines = doc.splitTextToSize(`BESCHLUSS (${top.number}): ${res.title}`, contentWidth - badgeSpace - 10);
 
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(8);
@@ -346,7 +439,7 @@ export const MeetingPdfService = {
           if (res.isTaxRelevant) noticeItems.push('Steuerlich relevant (Finanzamt / EÜR)');
           if (res.isRegisterRelevant) noticeItems.push('Vereinsregister relevant (§ 26 BGB / Satzungsänderung)');
           if (res.responsiblePerson) {
-            noticeItems.push(`Verantwortlich: ${res.responsiblePerson}${res.dueDate ? ` (Frist: ${res.dueDate})` : ''}`);
+            noticeItems.push(`Verantwortlich: ${res.responsiblePerson}${res.dueDate ? ` (Frist: ${deutsch(res.dueDate)})` : ''}`);
           }
           const noticeLines = noticeItems.length > 0
             ? doc.splitTextToSize(`Hinweis: ${noticeItems.join('  •  ')}`, contentWidth - 10)
@@ -437,8 +530,8 @@ export const MeetingPdfService = {
 
       const attendeeRows = meeting.attendees.map(a => [
         a.name,
-        a.role || 'Mitglied',
-        a.present ? 'Anwesend' : 'Entschuldigt',
+        a.role || '–',
+        a.present ? 'Anwesend' : 'Nicht anwesend',
         a.hasVotingRight ? 'Ja' : 'Nein',
         a.isSignatory ? 'Ja (Protokollunterschrift)' : '–'
       ]);
@@ -496,9 +589,8 @@ export const MeetingPdfService = {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
       doc.setTextColor(71, 85, 105);
-      const addressText = typeof settings.address === 'string' ? settings.address : (settings.address?.city || 'Musterstadt');
-      const cityPart = typeof settings.address === 'string' && settings.address.includes(',') ? settings.address.split(',')[1].trim() : addressText;
-      const signPlace = `${cityPart || 'Musterstadt'}, den ${formatDateGerman(meeting.signedAt || meeting.date)}`;
+      const ort = ortDesVereins(settings.address);
+      const signPlace = `${ort ? `${ort}, ` : ''}den ${formatDateGerman(meeting.signedAt || meeting.date)}`;
       doc.text(signPlace, marginLeft, currentY);
 
       // 2 Unterschriftslinien
@@ -508,38 +600,16 @@ export const MeetingPdfService = {
 
       // Digital signatures lookup
       const shouldIncludeSignatures = options?.includeDigitalSignatures !== false;
-      const chairpersonSig = meeting.signatures?.find(s =>
-        s.role.toLowerCase().includes('leiter') ||
-        s.role.toLowerCase().includes('vorsitz') ||
-        (meeting.chairperson && s.name.toLowerCase() === meeting.chairperson.toLowerCase())
-      ) || (meeting.signatures && meeting.signatures[0]);
-
-      const minuteKeeperSig = meeting.signatures?.find(s =>
-        s !== chairpersonSig && (
-          s.role.toLowerCase().includes('schrift') ||
-          s.role.toLowerCase().includes('protokoll') ||
-          (meeting.minuteKeeper && s.name.toLowerCase() === meeting.minuteKeeper.toLowerCase())
-        )
-      ) || (meeting.signatures && meeting.signatures.length > 1 ? meeting.signatures[1] : undefined);
+      // Zuordnung allein über die gespeicherte Rolle, wie Android (vorher auch
+      // über Namen und „erste Unterschrift = Leitung“)
+      const chairpersonSig = leitungsUnterschrift(meeting);
+      const minuteKeeperSig = schriftUnterschrift(meeting);
 
       currentY += 15; // 15mm Freiraum für die handschriftliche Unterschrift
 
       // Digitale Unterschriften einbinden (falls vorhanden und aktiviert)
-      if (shouldIncludeSignatures && chairpersonSig?.signatureDataUrl) {
-        try {
-          doc.addImage(chairpersonSig.signatureDataUrl, 'PNG', sig1X + 2, currentY - 14, 42, 13);
-        } catch (err) {
-          console.warn('Failed to render chairperson signature image:', err);
-        }
-      }
-
-      if (shouldIncludeSignatures && minuteKeeperSig?.signatureDataUrl) {
-        try {
-          doc.addImage(minuteKeeperSig.signatureDataUrl, 'PNG', sig2X + 2, currentY - 14, 42, 13);
-        } catch (err) {
-          console.warn('Failed to render minuteKeeper signature image:', err);
-        }
-      }
+      if (shouldIncludeSignatures && chairpersonSig) zeichneUnterschrift(doc, chairpersonSig, sig1X + 2, currentY);
+      if (shouldIncludeSignatures && minuteKeeperSig) zeichneUnterschrift(doc, minuteKeeperSig, sig2X + 2, currentY);
 
       // Linie 1: Versammlungsleitung
       doc.setDrawColor(148, 163, 184); // Slate-400
@@ -549,22 +619,22 @@ export const MeetingPdfService = {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
       doc.setTextColor(30, 41, 59);
-      doc.text(meeting.chairperson || 'Versammlungsleiter', sig1X, currentY + 4.5);
+      if (meeting.chairperson) doc.text(meeting.chairperson, sig1X, currentY + 4.5);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
       doc.setTextColor(100, 116, 139);
-      doc.text('Versammlungsleiter gem. Satzung', sig1X, currentY + 8.5);
+      doc.text('Versammlungsleitung', sig1X, currentY + 8.5);
 
       // Linie 2: Protokollführung
       doc.line(sig2X, currentY, sig2X + halfWidth, currentY);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
       doc.setTextColor(30, 41, 59);
-      doc.text(meeting.minuteKeeper || 'Protokollführer / Schriftführer', sig2X, currentY + 4.5);
+      if (meeting.minuteKeeper) doc.text(meeting.minuteKeeper, sig2X, currentY + 4.5);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
       doc.setTextColor(100, 116, 139);
-      doc.text('Protokollführer gem. Satzung', sig2X, currentY + 8.5);
+      doc.text('Protokollführung', sig2X, currentY + 8.5);
 
       if (shouldIncludeSignatures) {
         doc.setFontSize(6.5);
@@ -605,6 +675,11 @@ export const MeetingPdfService = {
     template: MeetingTemplateSettings = DEFAULT_MEETING_TEMPLATE,
     options?: ProtocolPdfOptions
   ): Promise<jsPDF> {
+    // Nur bei festgestellter Beschlussfähigkeit und einem angenommenen,
+    // gekennzeichneten Beschluss (D-127). Die Fenster prüfen vorher.
+    const grund = auszugFehlt(meeting);
+    if (grund) throw new Error(grund);
+
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -616,18 +691,18 @@ export const MeetingPdfService = {
     const marginLeft = template.marginLeft || 20;
     const marginRight = template.marginRight || 20;
     const contentWidth = pageWidth - marginLeft - marginRight;
-    const marginTop = template.marginTop || 35;
     const marginBottom = template.marginBottom || 25;
 
-    const hasCustomBlanko = Boolean(template.customBlankoDataUrl && template.customBlankoDataUrl.trim().length > 0);
+    const bp = options?.briefpapier !== undefined ? options.briefpapier : briefpapierFuerSitzungen(template, undefined);
+    const marginTop = (bp?.marginTop || template.marginTop) || 35;
 
     const renderPageBackground = () => {
-      if (hasCustomBlanko && template.customBlankoDataUrl) {
+      if (bp) {
         try {
-          doc.addImage(template.customBlankoDataUrl, 'PNG', 0, 0, pageWidth, pageHeight);
+          doc.addImage(bp.dataUrl, 'PNG', 0, 0, pageWidth, pageHeight);
         } catch {
           try {
-            doc.addImage(template.customBlankoDataUrl, 'JPEG', 0, 0, pageWidth, pageHeight);
+            doc.addImage(bp.dataUrl, 'JPEG', 0, 0, pageWidth, pageHeight);
           } catch (err) {
             console.error('Failed to render blanko letterhead:', err);
           }
@@ -641,11 +716,7 @@ export const MeetingPdfService = {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
         doc.setTextColor(100, 116, 139);
-        doc.text(
-          `Eingetragen im Vereinsregister: ${settings.associationNumber || 'Amtsgericht'}`,
-          marginLeft,
-          23
-        );
+        if (settings.associationNumber) doc.text(`Eingetragen im Vereinsregister: ${settings.associationNumber}`, marginLeft, 23);
 
         doc.setDrawColor(203, 213, 225);
         doc.setLineWidth(0.4);
@@ -684,43 +755,38 @@ export const MeetingPdfService = {
     doc.setFontSize(8.5);
     doc.setTextColor(51, 65, 85);
 
-    const eligibleCount = meeting.totalEligibleVoters || meeting.attendees.filter(a => a.present && a.hasVotingRight).length || 'alle erforderlichen';
-
+    // Nur Aussagen, die angekreuzt bzw. eingetragen sind (D-127, wie Android).
+    // Vorher stand „beschlussfähig“ und „form- und fristgerecht“ immer da.
+    const eligibleCount = stimmberechtigteWirksam(meeting);
     const introParagraphs = [
-      `Hiermit wird bescheinigt, dass am ${formatDateGerman(meeting.date)} in ${meeting.location || 'Vereinsheim'} die ${formatMeetingType(meeting.type)} stattgefunden hat.`,
-      `1. Einberufung: Die Versammlung wurde ${meeting.invitationCompliant ? 'ordnungsgemäß, form- und fristgerecht' : 'gem. Satzung'}${meeting.invitationMethod ? ' (' + meeting.invitationMethod + ')' : ''} einberufen.`,
-      `2. Beschlussfähigkeit: Die Versammlung war beschlussfähig. Es waren ${eligibleCount} stimmberechtigte Mitglieder anwesend.`,
-      `3. Versammlungsleitung: Versammlungsleiter war ${meeting.chairperson || '–'}, Schriftführer war ${meeting.minuteKeeper || '–'}.`,
-      'In dieser Versammlung wurden u. a. folgende registerrelevante Beschlüsse gefasst:'
+      `Hiermit wird bescheinigt, dass am ${formatDateGerman(meeting.date)}${meeting.location ? ` in ${meeting.location}` : ''} die ${formatMeetingType(meeting.type)} stattgefunden hat.`,
+      ...(meeting.invitationCompliant
+        ? [`Die Einberufung erfolgte ordnungsgemäß, form- und fristgerecht${meeting.invitationMethod ? ` (${meeting.invitationMethod})` : ''}.`]
+        : []),
+      `Die Beschlussfähigkeit wurde festgestellt${eligibleCount !== null ? `; es waren ${eligibleCount} stimmberechtigte Mitglieder anwesend` : ''}.`,
+      `Versammlungsleiter war ${meeting.chairperson || '–'}, Protokollführer war ${meeting.minuteKeeper || '–'}.`,
+      'Es wurden folgende für das Vereinsregister gekennzeichnete Beschlüsse gefasst:'
     ];
 
     introParagraphs.forEach((para, pIdx) => {
       const pLines = doc.splitTextToSize(para, contentWidth);
       checkPageBreak(pLines.length * 4.3 + 2.5);
       doc.text(pLines, marginLeft, currentY);
-      currentY += pLines.length * 4.3 + (pIdx === 0 || pIdx === 3 ? 3.0 : 2.0);
+      currentY += pLines.length * 4.3 + (pIdx === 0 || pIdx === introParagraphs.length - 2 ? 3.0 : 2.0);
     });
 
     currentY += 3.5;
 
-    // Registerrelevante Beschlüsse filtern
-    const registerResolutions = meeting.agenda
-      .flatMap(top => top.resolutions || [])
-      .filter(r => r.isRegisterRelevant || r.title.toLowerCase().includes('wahl') || r.title.toLowerCase().includes('satzung'));
-
-    if (registerResolutions.length === 0) {
-      doc.setFont('helvetica', 'italic');
-      doc.setFontSize(8.5);
-      doc.setTextColor(100, 116, 139);
-      doc.text('Im Protokoll wurden keine explizit als registerrelevant markierten Beschlüsse hinterlegt.', marginLeft, currentY);
-      currentY += 10;
-    } else {
-      registerResolutions.forEach((res, idx) => {
-        const isAccepted = res.result === 'accepted';
-        const titleLines = doc.splitTextToSize(`Beschluss Nr. ${idx + 1} (TOP ${res.agendaItemNumber}): ${res.title}`, contentWidth - 8);
+    // Nur angenommene, für das Vereinsregister gekennzeichnete Beschlüsse.
+    // Vorher kamen auch abgelehnte hinein und solche, deren Titel „Wahl“
+    // oder „Satzung“ enthielt; das Ergebnis hieß pauschal „einstimmig /
+    // mehrheitlich angenommen“.
+    const registerResolutions = registerBeschluesse(meeting);
+    {
+      registerResolutions.forEach(({ top, beschluss: res }, idx) => {
+        const titleLines = doc.splitTextToSize(`Beschluss Nr. ${idx + 1} (${top.number}): ${res.title}`, contentWidth - 8);
         const motionLines = doc.splitTextToSize(`Wortlaut des Antrags / Beschlusses:\n"${res.motionText}"`, contentWidth - 8);
-        const resultStatus = isAccepted ? 'EINSTIMMIG / MEHRHEITLICH ANGENOMMEN' : 'ABGELEHNT';
-        const resultText = `Ergebnis: ${resultStatus}  (Ja: ${res.votesFor}, Nein: ${res.votesAgainst}, Enthaltungen: ${res.votesAbstain})`;
+        const resultText = `Ergebnis: angenommen  (Ja: ${res.votesFor}, Nein: ${res.votesAgainst}, Enthaltungen: ${res.votesAbstain})`;
         const resultLines = doc.splitTextToSize(resultText, contentWidth - 8);
 
         const titleBlockH = titleLines.length * 4.2;
@@ -759,7 +825,7 @@ export const MeetingPdfService = {
         // Abstimmungsergebnis
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(8);
-        doc.setTextColor(isAccepted ? 22 : 153, isAccepted ? 101 : 27, isAccepted ? 52 : 27);
+        doc.setTextColor(22, 101, 52);
         doc.text(resultLines, marginLeft + 4, innerY + 2.2);
 
         currentY += totalBoxH + 4.5;
@@ -776,9 +842,8 @@ export const MeetingPdfService = {
     doc.text(confText, marginLeft, currentY);
     currentY += 5.5;
 
-    const addressText = typeof settings.address === 'string' ? settings.address : (settings.address?.city || 'Musterstadt');
-    const cityPart = typeof settings.address === 'string' && settings.address.includes(',') ? settings.address.split(',')[1].trim() : addressText;
-    const signPlace = `${cityPart || 'Musterstadt'}, den ${formatDateGerman(meeting.signedAt || meeting.date)}`;
+    const ort = ortDesVereins(settings.address);
+    const signPlace = `${ort ? `${ort}, ` : ''}den ${formatDateGerman(meeting.signedAt || meeting.date)}`;
     doc.text(signPlace, marginLeft, currentY);
 
     const halfWidth = contentWidth / 2 - 10;
@@ -787,38 +852,14 @@ export const MeetingPdfService = {
 
     // Digital signatures lookup
     const shouldIncludeSignatures = options?.includeDigitalSignatures !== false;
-    const chairpersonSig = meeting.signatures?.find(s =>
-      s.role.toLowerCase().includes('leiter') ||
-      s.role.toLowerCase().includes('vorsitz') ||
-      (meeting.chairperson && s.name.toLowerCase() === meeting.chairperson.toLowerCase())
-    ) || (meeting.signatures && meeting.signatures[0]);
-
-    const minuteKeeperSig = meeting.signatures?.find(s =>
-      s !== chairpersonSig && (
-        s.role.toLowerCase().includes('schrift') ||
-        s.role.toLowerCase().includes('protokoll') ||
-        (meeting.minuteKeeper && s.name.toLowerCase() === meeting.minuteKeeper.toLowerCase())
-      )
-    ) || (meeting.signatures && meeting.signatures.length > 1 ? meeting.signatures[1] : undefined);
+    const chairpersonSig = leitungsUnterschrift(meeting);
+    const minuteKeeperSig = schriftUnterschrift(meeting);
 
     currentY += 15; // 15mm für handschriftliche Unterschriften
 
     // Digitale Unterschriften einbinden (falls vorhanden und aktiviert)
-    if (shouldIncludeSignatures && chairpersonSig?.signatureDataUrl) {
-      try {
-        doc.addImage(chairpersonSig.signatureDataUrl, 'PNG', sig1X + 2, currentY - 14, 42, 13);
-      } catch (err) {
-        console.warn('Failed to render chairperson signature on register extract:', err);
-      }
-    }
-
-    if (shouldIncludeSignatures && minuteKeeperSig?.signatureDataUrl) {
-      try {
-        doc.addImage(minuteKeeperSig.signatureDataUrl, 'PNG', sig2X + 2, currentY - 14, 42, 13);
-      } catch (err) {
-        console.warn('Failed to render minuteKeeper signature on register extract:', err);
-      }
-    }
+    if (shouldIncludeSignatures && chairpersonSig) zeichneUnterschrift(doc, chairpersonSig, sig1X + 2, currentY);
+    if (shouldIncludeSignatures && minuteKeeperSig) zeichneUnterschrift(doc, minuteKeeperSig, sig2X + 2, currentY);
 
     doc.setDrawColor(148, 163, 184);
     doc.setLineWidth(0.4);
@@ -828,14 +869,14 @@ export const MeetingPdfService = {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(30, 41, 59);
-    doc.text(meeting.chairperson || 'Versammlungsleiter', sig1X, currentY + 4.5);
-    doc.text(meeting.minuteKeeper || 'Protokollführer / Schriftführer', sig2X, currentY + 4.5);
+    if (meeting.chairperson) doc.text(meeting.chairperson, sig1X, currentY + 4.5);
+    if (meeting.minuteKeeper) doc.text(meeting.minuteKeeper, sig2X, currentY + 4.5);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(100, 116, 139);
-    doc.text('Versammlungsleiter gem. Satzung', sig1X, currentY + 8.5);
-    doc.text('Schriftführer / Protokollführer gem. Satzung', sig2X, currentY + 8.5);
+    doc.text('Versammlungsleitung', sig1X, currentY + 8.5);
+    doc.text('Protokollführung', sig2X, currentY + 8.5);
 
     if (shouldIncludeSignatures) {
       doc.setFontSize(6.5);
@@ -887,10 +928,14 @@ export const MeetingPdfService = {
     settings: ClubSettings,
     template: MeetingTemplateSettings = DEFAULT_MEETING_TEMPLATE,
     options?: {
-      motionDeadlineDays?: number;
       customNotice?: string;
+      briefpapier?: Briefpapier | null;
     }
   ): Promise<jsPDF> {
+    // Ohne Datum, Uhrzeit, Ort und Tagesordnung keine Einladung; es wird nichts ergänzt.
+    const fehlt = einladungFehlt(meeting);
+    if (fehlt.length) throw new Error(`Für die Einladung fehlt noch: ${fehlt.join(', ')}.`);
+
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -902,18 +947,18 @@ export const MeetingPdfService = {
     const marginLeft = template.marginLeft || 20;
     const marginRight = template.marginRight || 20;
     const contentWidth = pageWidth - marginLeft - marginRight;
-    const marginTop = template.marginTop || 35;
     const marginBottom = template.marginBottom || 25;
 
-    const hasCustomBlanko = Boolean(template.customBlankoDataUrl && template.customBlankoDataUrl.trim().length > 0);
+    const bp = options?.briefpapier !== undefined ? options.briefpapier : briefpapierFuerSitzungen(template, undefined);
+    const marginTop = (bp?.marginTop || template.marginTop) || 35;
 
     const renderPageBackground = () => {
-      if (hasCustomBlanko && template.customBlankoDataUrl) {
+      if (bp) {
         try {
-          doc.addImage(template.customBlankoDataUrl, 'PNG', 0, 0, pageWidth, pageHeight);
+          doc.addImage(bp.dataUrl, 'PNG', 0, 0, pageWidth, pageHeight);
         } catch {
           try {
-            doc.addImage(template.customBlankoDataUrl, 'JPEG', 0, 0, pageWidth, pageHeight);
+            doc.addImage(bp.dataUrl, 'JPEG', 0, 0, pageWidth, pageHeight);
           } catch (err) {
             console.error('Failed to render blanko letterhead:', err);
           }
@@ -927,11 +972,7 @@ export const MeetingPdfService = {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
         doc.setTextColor(100, 116, 139);
-        doc.text(
-          `${settings.associationNumber ? settings.associationNumber + ' • ' : ''}${settings.taxOffice || 'Finanzamt'}${settings.taxNumber ? ' • St.-Nr.: ' + settings.taxNumber : ''}`,
-          marginLeft,
-          23
-        );
+        if (kopfZeile(settings)) doc.text(kopfZeile(settings), marginLeft, 23);
 
         doc.setDrawColor(203, 213, 225);
         doc.setLineWidth(0.4);
@@ -952,14 +993,13 @@ export const MeetingPdfService = {
     };
 
     // 1. Ort & Datum rechts oben
-    const addressText = typeof settings.address === 'string' ? settings.address : (settings.address?.city || 'Musterstadt');
-    const cityPart = typeof settings.address === 'string' && settings.address.includes(',') ? settings.address.split(',')[1].trim() : addressText;
+    const ort = ortDesVereins(settings.address);
     const issueDate = meeting.invitationDate ? formatDateGerman(meeting.invitationDate) : formatDateGerman(new Date().toISOString());
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(100, 116, 139);
-    doc.text(`${cityPart || 'Vereinssitz'}, den ${issueDate}`, pageWidth - marginRight, currentY, { align: 'right' });
+    doc.text(`${ort ? `${ort}, ` : ''}den ${issueDate}`, pageWidth - marginRight, currentY, { align: 'right' });
     currentY += 8;
 
     // 2. Empfängerzeile
@@ -1008,13 +1048,13 @@ export const MeetingPdfService = {
     doc.setFontSize(9);
     doc.setTextColor(51, 65, 85);
 
-    const salutation = meeting.type === 'board'
-      ? 'Liebe Kolleginnen und Kollegen des Vorstands,'
-      : 'Liebe Vereinsmitglieder, liebe Sportfreundinnen und Sportfreunde,';
+    // Neutral wie Android: keine Sport-Anrede, keine Zusicherung „form- und
+    // fristgerecht“ (die richtet sich nach der Satzung und wird nicht geprüft)
+    const salutation = 'Liebe Mitglieder,';
     doc.text(salutation, marginLeft, currentY);
     currentY += 5.5;
 
-    const openingFormula = `gemäß unserer Vereinssatzung laden wir Sie hiermit herzlich und form- sowie fristgerecht zu unserer ${formatMeetingType(meeting.type)} ein.`;
+    const openingFormula = 'hiermit laden wir Sie herzlich zu folgender Veranstaltung ein:';
     const openingLines = doc.splitTextToSize(openingFormula, contentWidth);
     doc.text(openingLines, marginLeft, currentY);
     currentY += openingLines.length * 4.4 + 4;
@@ -1036,26 +1076,23 @@ export const MeetingPdfService = {
     const invTimeStr = `${meeting.startTime} Uhr${meeting.endTime ? ' – ca. ' + meeting.endTime + ' Uhr' : ''}`;
     const invTimeLines = doc.splitTextToSize(invTimeStr, col1ValW).slice(0, 1);
 
-    const invLocStr = meeting.location || 'Vereinsheim';
+    const invLocStr = meeting.location || '';
     const invLocLines = doc.splitTextToSize(invLocStr, col1ValW).slice(0, 2);
-
-    const invAdmissionStr = 'Akkreditierung ab 30 Min. vor Beginn';
-    const invAdmissionLines = doc.splitTextToSize(invAdmissionStr, col1ValW).slice(0, 2);
 
     const invTypeStr = formatMeetingType(meeting.type);
     const invTypeLines = doc.splitTextToSize(invTypeStr, col2ValW).slice(0, 2);
 
-    const invChairStr = meeting.chairperson || '1. Vorsitzender';
+    // Ohne Eintrag ein Strich statt erfundener Ämter („1. Vorsitzender“)
+    const invChairStr = meeting.chairperson || '–';
     const invChairLines = doc.splitTextToSize(invChairStr, col2ValW).slice(0, 2);
 
-    const invMinuteStr = meeting.minuteKeeper || 'Schriftführer';
+    const invMinuteStr = meeting.minuteKeeper || '–';
     const invMinuteLines = doc.splitTextToSize(invMinuteStr, col2ValW).slice(0, 2);
 
-    const invVotingStr = 'Gemäß Satzung persönlich';
-    const invVotingLines = doc.splitTextToSize(invVotingStr, col2ValW).slice(0, 2);
-
+    // Drei Zeilen; die Zeile „Einlass: Akkreditierung ab 30 Min.“ und
+    // „Stimmrecht: Gemäß Satzung persönlich“ waren erfunden.
     const boxRowGap = 7.6;
-    const boxHeight = Math.max(36, 5.5 + 3 * boxRowGap + 6.0);
+    const boxHeight = 5.5 + 2 * boxRowGap + 7.0;
 
     doc.setFillColor(248, 250, 252);
     doc.setDrawColor(226, 232, 240);
@@ -1111,22 +1148,6 @@ export const MeetingPdfService = {
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(71, 85, 105);
     doc.text(invMinuteLines, col2X + col2LabelW, bY);
-
-    // Zeile 4: Einlass | Stimmrecht
-    bY += boxRowGap;
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(30, 41, 59);
-    doc.text('Einlass:', col1X, bY);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(71, 85, 105);
-    doc.text(invAdmissionLines, col1X + col1LabelW, bY);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(30, 41, 59);
-    doc.text('Stimmrecht:', col2X, bY);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(71, 85, 105);
-    doc.text(invVotingLines, col2X + col2LabelW, bY);
 
     currentY += boxHeight + 7;
 
@@ -1185,25 +1206,11 @@ export const MeetingPdfService = {
       currentY += 3.5;
     }
 
-    // 7. Rechtliche Hinweise & Antragsfrist (§ 32 BGB)
+    // 7. Hinweis (wie Android); keine erfundenen Fristen oder Regeln
     checkPageBreak(35);
-    const motionDeadlineDays = options?.motionDeadlineDays || 7;
-    let deadlineDateStr = '';
-    try {
-      const meetD = new Date(meeting.date);
-      if (!isNaN(meetD.getTime())) {
-        const dLine = new Date(meetD.getTime() - motionDeadlineDays * 24 * 60 * 60 * 1000);
-        deadlineDateStr = formatDateGerman(dLine.toISOString().split('T')[0]);
-      }
-    } catch {
-      // fallback
-    }
-
-    const noticeBoxTitle = 'Wichtige Hinweise zur Versammlung & Antragsfristen:';
+    const noticeBoxTitle = 'Hinweis:';
     const noticePoints = [
-      `• Anträge zur Tagesordnung: Anträge auf Ergänzung der Tagesordnung müssen gem. Satzung spätestens ${motionDeadlineDays} Tage vor der Versammlung${deadlineDateStr ? ' (bis zum ' + deadlineDateStr + ')' : ''} schriftlich beim Vorstand eingereicht werden. Spätere Anträge können in der Regel nicht mehr als beschlussfähig zugelassen werden.`,
-      `• Stimmrecht & Vertretung: Stimmberechtigt sind alle ordentlichen Mitglieder gem. Satzung. Das Stimmrecht ist grundsätzlich persönlich auszuüben. Bitte halten Sie ggf. Ihren Mitgliedsausweis oder Personalausweis am Einlass bereit.`,
-      `• Vorab-Einsichtnahme: Kassen- und Rechnungsberichte sowie Antragsunterlagen können auf Anfrage vorab bei der Geschäftsstelle eingesehen werden.`
+      'Bei der Einberufung ist der Gegenstand der Beschlussfassung zu bezeichnen (§ 32 Abs. 1 Satz 2 BGB); die Form und die Frist der Einladung richten sich nach der Satzung.'
     ];
 
     if (options?.customNotice) {
@@ -1245,43 +1252,23 @@ export const MeetingPdfService = {
 
     currentY += noticeBoxH + 6;
 
-    // 8. Grußformel & Unterschriften
-    checkPageBreak(30);
+    // 8. Grußformel wie Android: Leitung und Verein nur, wenn eingetragen.
+    // Vorher zwei Unterschriftslinien mit „1. Vorsitzender“ bzw.
+    // „Vertretungsberechtigter Vorstand gem. § 26 BGB“ unter der Protokollführung.
+    checkPageBreak(25);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
+    doc.setFontSize(9);
     doc.setTextColor(51, 65, 85);
-    doc.text('Mit freundlichen Vereinsgrüßen,', marginLeft, currentY);
-    currentY += 4.5;
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(30, 41, 59);
-    doc.text(`Für den Vorstand des ${settings.clubName} (§ 26 BGB):`, marginLeft, currentY);
-    currentY += 13;
-
-    const halfWidth = (contentWidth - 16) / 2;
-    const sig1X = marginLeft;
-    const sig2X = marginLeft + halfWidth + 16;
-
-    doc.setDrawColor(148, 163, 184);
-    doc.setLineWidth(0.4);
-    doc.line(sig1X, currentY, sig1X + halfWidth, currentY);
-    doc.line(sig2X, currentY, sig2X + halfWidth, currentY);
-
-    const sigChairLines = doc.splitTextToSize(meeting.chairperson || '1. Vorsitzender', halfWidth);
-    const sigMinuteLines = doc.splitTextToSize(meeting.minuteKeeper || '2. Vorsitzender / Schriftführer', halfWidth);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(30, 41, 59);
-    doc.text(sigChairLines, sig1X, currentY + 4.5);
-    doc.text(sigMinuteLines, sig2X, currentY + 4.5);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(100, 116, 139);
-    doc.text('Versammlungsleitung gem. Satzung', sig1X, currentY + 9.0);
-    doc.text('Vertretungsberechtigter Vorstand gem. § 26 BGB', sig2X, currentY + 9.0);
+    doc.text('Mit freundlichen Grüßen', marginLeft, currentY);
+    currentY += 9;
+    if (meeting.chairperson) {
+      doc.text(meeting.chairperson, marginLeft, currentY);
+      currentY += 4.5;
+    }
+    if (settings.clubName) {
+      doc.text(settings.clubName, marginLeft, currentY);
+      currentY += 4.5;
+    }
 
     // 9. Seitenzahlen unten
     const totalPages = (doc as any).internal.getNumberOfPages();

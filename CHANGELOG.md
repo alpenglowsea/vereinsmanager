@@ -137,6 +137,55 @@ entsprechen der Android-Fassung.
   Dokumentenverwaltung bleibt beim Löschen der Sitzung erhalten (wie bei
   Android). Vorher wurde es ohne Rückfrage mitgelöscht.
 
+### Pakete 21 und 22 — Sitzungen (D-117 bis D-119, D-121 bis D-123, D-127 bis D-131)
+
+Regeln wie Android `Sitzungen.kt` in `src/utils/sitzungRegeln.ts` (16 Tests).
+
+- **Unterschriften (D-117):** Jede Unterschrift speichert einen Fingerabdruck
+  des Protokolltextes (gleiches Verfahren wie Android; ein gemeinsamer
+  Prüfwert steht in beiden Testsammlungen). Mit der ersten Unterschrift ist
+  das Protokoll gesperrt, mit der zweiten „Genehmigt“; von Hand lässt sich
+  „Genehmigt“ nicht mehr wählen. „Bearbeiten“ bietet bei einem
+  unterschriebenen Protokoll an, die Unterschriften zu entfernen. Wird der
+  Text dennoch geändert (z. B. durch eingespielte Daten), zeigen Liste und
+  PDF „Text nach Unterschrift geändert“. Zuordnung Leitung/Protokoll nur
+  noch über die Rolle, nicht über Namen oder Reihenfolge (Rest aus P08).
+  Unterschriften werden zusätzlich als Linienzüge gespeichert (wie Android),
+  im PDF scharf gezeichnet. Ohne eingetragenen Namen oder bei abgesagter
+  Sitzung keine Unterschrift.
+- **Beschlüsse (D-118):** Neue Beschlüsse starten leer. Prüfung: Titel,
+  Wortlaut, Stimmen eingetragen, Summe höchstens die anwesenden
+  Stimmberechtigten, „angenommen“ nur mit mehr Ja- als Nein-Stimmen. Das
+  Ergebnis folgt den Stimmen (änderbar). Die Beschlussnummer folgt beim
+  Speichern ihrem TOP; im PDF stand vorher „[TOP TOP 2]“.
+- **Pflichtangaben (D-122):** Fehler am Feld, Reiter markiert, Sprung zum
+  ersten Fehler. Eine leere Stimmenzahl bleibt leer (wurde zu 1).
+- **Keine Musterdaten (D-119, D-131):** Kein „Vereinsheim TSV Musterstadt“,
+  keine Fantasiepersonen, kein „Standard-Vorstand laden“, keine feste
+  Jahreszahl, keine erfundenen Stimmenzahlen beim Artwechsel; nichts
+  vorangekreuzt. Auch in den PDFs keine Platzhalter („Musterstadt“,
+  „1. Vorsitzender“, „Finanzamt“).
+- **Registerauszug (D-127):** nur mit festgestellter Beschlussfähigkeit und
+  einem angenommenen, gekennzeichneten Beschluss; enthält nur diese
+  Beschlüsse; „form- und fristgerecht“ nur, wenn angekreuzt; kein
+  pauschales „einstimmig / mehrheitlich angenommen“.
+- **Einladung:** nur mit Datum, Uhrzeit, Ort und Tagesordnung. Ohne
+  erfundene Angaben („Akkreditierung ab 30 Min.“, Antragsfrist 7 Tage,
+  „Sportfreunde“, Zusicherung „form- und fristgerecht“); Grußformel wie
+  Android.
+- **Kennzahlen (D-128):** Finanzamt und Register zählen nur angenommene
+  Beschlüsse; abgelehnt und vertagt getrennt.
+- **Filter und Anzeige (D-121, D-129):** alle Sitzungsarten und Status
+  wählbar; „Abgesagt“ statt „cancelled“.
+- **Mail (D-130):** ohne „sportliche Grüße“, ohne „Unser Verein“; Leitung
+  und Verein nur, wenn eingetragen.
+- **Briefpapier (D-123):** wie Android ein gemeinsames Briefpapier aus der
+  Rechnungsvorlage; ein früher nur für Sitzungen hochgeladenes gilt weiter,
+  bis die Rechnungsvorlage eines hat.
+- Android: ältere Desktop-Unterschriften („Versammlungsleitung gem.
+  Satzung“) werden als Leitung erkannt; ein Test prüft den gemeinsamen
+  Fingerabdruck.
+
 ### Pakete 19 und 20 — Kalender: Rechnen und Austausch (D-107 bis D-115, D-125, D-126)
 
 - **Monatsansicht (D-107):** Vor/Zurück vom 31. eines Monats springt nicht

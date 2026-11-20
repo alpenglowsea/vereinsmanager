@@ -11,8 +11,9 @@ import {
   FileText
 } from 'lucide-react';
 import { Meeting, Member, ClubSettings, MeetingTemplateSettings } from '../types';
-import { MeetingPdfService } from '../services/meetingPdfService';
+import { MeetingPdfService, Briefpapier } from '../services/meetingPdfService';
 import { savePdfAs } from '../utils/fileExportHelper';
+import { einladungFehlt, mailBetreff, mailText } from '../utils/sitzungRegeln';
 
 interface MeetingEmailModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ interface MeetingEmailModalProps {
   members: Member[];
   clubSettings?: ClubSettings;
   templateSettings?: MeetingTemplateSettings;
+  briefpapier?: Briefpapier | null;
 }
 
 interface RecipientOption {
@@ -40,7 +42,8 @@ export const MeetingEmailModal: React.FC<MeetingEmailModalProps> = ({
   mode,
   members,
   clubSettings,
-  templateSettings
+  templateSettings,
+  briefpapier
 }) => {
   const isInvitation = mode === 'invitation';
 
@@ -115,58 +118,11 @@ export const MeetingEmailModal: React.FC<MeetingEmailModalProps> = ({
     setSendSuccessMessage(null);
     setSendErrorMessage(null);
 
-    const formattedDate = new Date(meeting.date).toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-
-    const clubName = clubSettings?.clubName || 'Unser Verein';
-
-    if (isInvitation) {
-      setSubject(`Einladung: ${meeting.title} am ${formattedDate}`);
-      const agendaPreview = meeting.agenda.map(top => `- ${top.number}: ${top.title}`).join('\n');
-
-      setBodyText(
-`Liebe Vereinsmitglieder, liebe Vorstandskollegen,
-
-hiermit laden wir Sie/Euch herzlich zur kommenden Sitzung ein:
-
-Sitzung: ${meeting.title}
-Datum: ${formattedDate}
-Uhrzeit: ${meeting.startTime || '19:00'} Uhr${meeting.endTime ? ` bis ca. ${meeting.endTime} Uhr` : ''}
-Ort: ${meeting.location || 'Vereinsheim'}
-
-VORLÄUFIGE TAGESORDNUNG:
-${agendaPreview || '- Tagesordnungspunkte werden vor Ort bekanntgegeben.'}
-
-Die vollständige, form- und fristgerechte Einladung mit allen Details finden Sie als PDF im Anhang dieses Schreibens.
-
-Mit sportlichen Grüßen
-${meeting.chairperson || clubSettings?.chairman || 'Der Vorstand'}
-${clubName}`
-      );
-    } else {
-      setSubject(`Protokoll: ${meeting.title} vom ${formattedDate}`);
-      setBodyText(
-`Liebe Vereinsmitglieder, liebe Teilnehmer,
-
-anbei erhalten Sie das genehmigte Protokoll zur Sitzung:
-
-Sitzung: ${meeting.title}
-Datum: ${formattedDate}
-Versammlungsleitung: ${meeting.chairperson || '1. Vorsitzender'}
-Protokollführung: ${meeting.minuteKeeper || 'Schriftführer'}
-
-Das vollständige Ergebnisprotokoll mit allen gefassten Beschlüssen und Beratungsverläufen ist als PDF beigefügt.
-
-Bei Rückfragen steht der Vorstand jederzeit gern zur Verfügung.
-
-Mit freundlichen Grüßen
-${meeting.chairperson || clubSettings?.chairman || 'Der Vorstand'}
-${clubName}`
-      );
-    }
+    // Text ohne „sportliche Grüße“, ohne erfundenen Vereinsnamen oder
+    // Platzhalter-Ämter; Leitung und Verein nur, wenn eingetragen (D-130)
+    const art = isInvitation ? 'einladung' : 'protokoll';
+    setSubject(mailBetreff(meeting, art));
+    setBodyText(mailText(meeting, art, clubSettings?.clubName || ''));
   }, [isOpen, isInvitation, meeting, clubSettings, initialRecipients]);
 
   // Toggle recipient selection
@@ -201,13 +157,18 @@ ${clubName}`
   // Download PDF directly
   const handleDownloadPdf = async () => {
     if (!clubSettings) return;
+    if (isInvitation && einladungFehlt(meeting).length) {
+      setSendErrorMessage(`Für die Einladung fehlt noch: ${einladungFehlt(meeting).join(', ')}. Das PDF wurde nicht erzeugt.`);
+      return;
+    }
     try {
       let doc;
       if (isInvitation) {
-        doc = await MeetingPdfService.generateInvitationPdf(meeting, clubSettings, templateSettings);
+        doc = await MeetingPdfService.generateInvitationPdf(meeting, clubSettings, templateSettings, { briefpapier });
       } else {
         doc = await MeetingPdfService.generateProtocolPdf(meeting, clubSettings, templateSettings, {
-          includeDigitalSignatures: Boolean(meeting.signatures && meeting.signatures.length > 0)
+          includeDigitalSignatures: Boolean(meeting.signatures && meeting.signatures.length > 0),
+          briefpapier
         });
       }
       const prefix = isInvitation ? 'Einladung' : 'Protokoll';
@@ -222,6 +183,10 @@ ${clubName}`
   const handleOpenLocalMailClient = () => {
     if (selectedRecipients.length === 0) {
       setSendErrorMessage('Bitte wählen Sie mindestens einen Empfänger aus.');
+      return;
+    }
+    if (isInvitation && einladungFehlt(meeting).length) {
+      setSendErrorMessage(`Für die Einladung fehlt noch: ${einladungFehlt(meeting).join(', ')}. Bitte zuerst in der Sitzung ergänzen.`);
       return;
     }
 

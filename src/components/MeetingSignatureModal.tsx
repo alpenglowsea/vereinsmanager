@@ -13,9 +13,20 @@ import {
   Smartphone,
   MousePointer
 } from 'lucide-react';
-import { Meeting, MeetingDigitalSignature, ClubSettings, MeetingTemplateSettings } from '../types';
-import { MeetingPdfService } from '../services/meetingPdfService';
+import { Meeting, ClubSettings, MeetingTemplateSettings } from '../types';
+import { MeetingPdfService, Briefpapier } from '../services/meetingPdfService';
 import { savePdfAs } from '../utils/fileExportHelper';
+import { bestaetige } from '../utils/dialoge';
+import { unterschriftAusZeichnung } from '../utils/unterschrift';
+import {
+  ROLLE_LEITUNG,
+  ROLLE_SCHRIFT,
+  leitungsUnterschrift,
+  pruefeUnterschrift,
+  schriftUnterschrift,
+  unterschreibe,
+  unterschriftenEntfernen
+} from '../utils/sitzungRegeln';
 
 interface MeetingSignatureModalProps {
   isOpen: boolean;
@@ -23,6 +34,7 @@ interface MeetingSignatureModalProps {
   meeting: Meeting;
   clubSettings?: ClubSettings;
   templateSettings?: MeetingTemplateSettings;
+  briefpapier?: Briefpapier | null;
   onSaveMeeting: (updatedMeeting: Meeting) => Promise<void>;
 }
 
@@ -32,10 +44,17 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
   meeting,
   clubSettings,
   templateSettings,
+  briefpapier,
   onSaveMeeting
 }) => {
   const [activeRole, setActiveRole] = useState<'chairperson' | 'minuteKeeper'>('chairperson');
-  const [signatures, setSignatures] = useState<MeetingDigitalSignature[]>(meeting.signatures || []);
+  // Die Unterschriften kommen immer aus der gespeicherten Sitzung (die Liste
+  // reicht nach dem Speichern die neue Fassung herein).
+  const signatures = meeting.signatures || [];
+  const [meldung, setMeldung] = useState<string | null>(null);
+  // Linienzüge zusätzlich zum Bild speichern (Format wie Android), damit die
+  // Unterschrift im PDF und am Handy scharf erscheint.
+  const stricheRef = useRef<{ x: number; y: number }[][]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasDrawnStroke, setHasDrawnStroke] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -45,27 +64,26 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
 
   // Signatory details
-  const chairpersonName = meeting.chairperson || 'Versammlungsleiter';
-  const minuteKeeperName = meeting.minuteKeeper || 'Protokollführer / Schriftführer';
+  // Ohne eingetragenen Namen kann nicht unterschrieben werden (wie Android).
+  const chairpersonName = (meeting.chairperson || '').trim();
+  const minuteKeeperName = (meeting.minuteKeeper || '').trim();
 
   const currentSignatoryName = activeRole === 'chairperson' ? chairpersonName : minuteKeeperName;
-  const currentSignatoryRoleLabel = activeRole === 'chairperson' ? 'Versammlungsleitung gem. Satzung' : 'Protokollführung gem. Satzung';
+  const currentSignatoryRoleLabel = activeRole === 'chairperson' ? 'Versammlungsleitung' : 'Protokollführung';
 
-  const existingChairpersonSig = signatures.find(s =>
-    s.role.toLowerCase().includes('leiter') ||
-    s.role.toLowerCase().includes('vorsitz') ||
-    s.name.toLowerCase() === chairpersonName.toLowerCase()
-  );
-
-  const existingMinuteKeeperSig = signatures.find(s =>
-    s !== existingChairpersonSig && (
-      s.role.toLowerCase().includes('schrift') ||
-      s.role.toLowerCase().includes('protokoll') ||
-      s.name.toLowerCase() === minuteKeeperName.toLowerCase()
-    )
-  );
+  // Zuordnung über die gespeicherte Rolle (vorher auch über Namen)
+  const existingChairpersonSig = leitungsUnterschrift(meeting);
+  const existingMinuteKeeperSig = schriftUnterschrift(meeting);
+  const anzahlUnterschriften = (existingChairpersonSig ? 1 : 0) + (existingMinuteKeeperSig ? 1 : 0);
+  const abgesagt = meeting.status === 'cancelled';
 
   const currentSignature = activeRole === 'chairperson' ? existingChairpersonSig : existingMinuteKeeperSig;
+  const pruefText = (p: ReturnType<typeof pruefeUnterschrift>) =>
+    p === 'gueltig'
+      ? 'passt zum gespeicherten Protokolltext'
+      : p === 'geaendert'
+        ? 'ACHTUNG: Der Protokolltext wurde nach dieser Unterschrift geändert'
+        : 'ältere Unterschrift ohne Prüfmerkmal';
 
   // Initialize Canvas
   const setupCanvas = useCallback(() => {
@@ -89,11 +107,11 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
     }
     setHasDrawnStroke(false);
     lastPointRef.current = null;
+    stricheRef.current = [];
   }, []);
 
   useEffect(() => {
     if (isOpen) {
-      setSignatures(meeting.signatures || []);
       // Give DOM time to render canvas then setup
       const timer = setTimeout(() => {
         setupCanvas();
@@ -129,6 +147,7 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
     setIsDrawing(true);
     setHasDrawnStroke(true);
     lastPointRef.current = coords;
+    stricheRef.current.push([coords]);
 
     const ctx = canvas.getContext('2d');
     if (ctx) {
@@ -149,6 +168,7 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
     if (!ctx) return;
 
     const currentPoint = getCanvasCoordinates(e);
+    stricheRef.current[stricheRef.current.length - 1]?.push(currentPoint);
 
     ctx.beginPath();
     ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
@@ -180,72 +200,47 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
     setupCanvas();
   };
 
+  /**
+   * Unterschrift übernehmen: mit Fingerabdruck des Protokolltextes; mit der
+   * zweiten Unterschrift wird das Protokoll „Genehmigt“ (D-117, wie Android).
+   */
   const handleSaveCurrentSignature = async () => {
     const canvas = canvasRef.current;
     if (!canvas || !hasDrawnStroke) return;
 
     setIsSaving(true);
+    setMeldung(null);
     try {
-      const dataUrl = canvas.toDataURL('image/png');
-      const nowIso = new Date().toISOString();
-
-      const newSig: MeetingDigitalSignature = {
-        id: `sig-${Date.now()}-${activeRole}`,
-        name: currentSignatoryName,
-        role: currentSignatoryRoleLabel,
-        signatureDataUrl: dataUrl,
-        signedAt: nowIso,
-        deviceInfo: typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches ? 'Touch-Eingabe (Finger / Stylus)' : 'Maus-Eingabe (Desktop)'
-      };
-
-      // Filter out existing signature for this role
-      const updatedSigs = signatures.filter(s => {
-        if (activeRole === 'chairperson') {
-          return s !== existingChairpersonSig;
-        } else {
-          return s !== existingMinuteKeeperSig;
-        }
+      const rect = canvas.getBoundingClientRect();
+      const linien = unterschriftAusZeichnung(stricheRef.current, rect.width, rect.height);
+      const updatedMeeting = unterschreibe(meeting, activeRole === 'chairperson' ? ROLLE_LEITUNG : ROLLE_SCHRIFT, {
+        dataUrl: canvas.toDataURL('image/png'),
+        aspect: linien?.aspect,
+        strokes: linien?.strokes,
+        geraet: typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches ? 'Touch-Eingabe (Finger / Stylus)' : 'Maus-Eingabe (Desktop)'
       });
-
-      const nextSigs = [...updatedSigs, newSig];
-      setSignatures(nextSigs);
-
-      // Save to meeting model
-      const updatedMeeting: Meeting = {
-        ...meeting,
-        signatures: nextSigs,
-        signedAt: meeting.signedAt || nowIso.split('T')[0],
-        updatedAt: nowIso
-      };
-
       await onSaveMeeting(updatedMeeting);
       setupCanvas();
     } catch (err) {
-      console.error('Failed to save signature:', err);
+      setMeldung(err instanceof Error ? err.message : 'Die Unterschrift konnte nicht gespeichert werden.');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleRemoveSignature = async (roleToRemove: 'chairperson' | 'minuteKeeper') => {
-    const sigToRemove = roleToRemove === 'chairperson' ? existingChairpersonSig : existingMinuteKeeperSig;
-    if (!sigToRemove) return;
-
+  /** Alle Unterschriften entfernen und das Protokoll wieder zum Bearbeiten freigeben (wie Android). */
+  const handleRemoveSignatures = async () => {
+    if (
+      !(await bestaetige(
+        'Alle Unterschriften entfernen? Danach ist das Protokoll wieder bearbeitbar; aus „Genehmigt“ wird „In Vorprüfung“. Unterschreiben müssen danach beide erneut.',
+        'Unterschriften entfernen'
+      ))
+    )
+      return;
     setIsSaving(true);
     try {
-      const nextSigs = signatures.filter(s => s !== sigToRemove);
-      setSignatures(nextSigs);
-
-      const updatedMeeting: Meeting = {
-        ...meeting,
-        signatures: nextSigs,
-        updatedAt: new Date().toISOString()
-      };
-
-      await onSaveMeeting(updatedMeeting);
+      await onSaveMeeting(unterschriftenEntfernen(meeting));
       setupCanvas();
-    } catch (err) {
-      console.error('Failed to remove signature:', err);
     } finally {
       setIsSaving(false);
     }
@@ -255,12 +250,10 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
     if (!clubSettings) return;
     setIsExporting(withDigitalSignatures ? 'signed' : 'blank');
     try {
-      const doc = await MeetingPdfService.generateProtocolPdf(
-        { ...meeting, signatures },
-        clubSettings,
-        templateSettings,
-        { includeDigitalSignatures: withDigitalSignatures }
-      );
+      const doc = await MeetingPdfService.generateProtocolPdf(meeting, clubSettings, templateSettings, {
+        includeDigitalSignatures: withDigitalSignatures,
+        briefpapier
+      });
       const safeTitle = (meeting.title || 'Protokoll').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_');
       const suffix = withDigitalSignatures ? 'digital_signiert' : 'blanko_ausdruck';
       void savePdfAs(doc, `Protokoll_${safeTitle}_${suffix}.pdf`);
@@ -331,7 +324,7 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
             }`}
           >
             <User className="w-3.5 h-3.5" />
-            <span>1. Versammlungsleitung ({chairpersonName})</span>
+            <span>1. Versammlungsleitung ({chairpersonName || 'kein Name eingetragen'})</span>
             {existingChairpersonSig ? (
               <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold flex items-center gap-0.5 dark:bg-emerald-900/40 dark:text-emerald-200">
                 <Check className="w-3 h-3" />
@@ -357,7 +350,7 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>2. Protokollführung ({minuteKeeperName})</span>
+            <span>2. Protokollführung ({minuteKeeperName || 'kein Name eingetragen'})</span>
             {existingMinuteKeeperSig ? (
               <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold flex items-center gap-0.5 dark:bg-emerald-900/40 dark:text-emerald-200">
                 <Check className="w-3 h-3" />
@@ -381,7 +374,7 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
                 Zu unterzeichnende Person
               </span>
               <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                {currentSignatoryName}
+                {currentSignatoryName || 'Kein Name eingetragen – bitte zuerst in der Sitzung ergänzen'}
               </span>
               <span className="text-xs text-slate-500 ml-1.5 dark:text-slate-400">
                 ({currentSignatoryRoleLabel})
@@ -394,15 +387,7 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   Signiert am {new Date(currentSignature.signedAt).toLocaleDateString('de-DE')} um {new Date(currentSignature.signedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr
                 </span>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveSignature(activeRole)}
-                  disabled={isSaving}
-                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer dark:hover:text-rose-400 dark:hover:bg-rose-950/40"
-                  title="Unterschrift löschen"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+
               </div>
             )}
           </div>
@@ -412,10 +397,12 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
             <div className="border border-emerald-200 bg-emerald-50/40 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 dark:border-emerald-800/60 dark:bg-emerald-950/40">
               <div>
                 <span className="text-xs font-bold text-emerald-900 block mb-1 dark:text-emerald-100">
-                  Gültige digitale Unterschrift hinterlegt
+                  Unterschrift von {currentSignature.name} hinterlegt
                 </span>
-                <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
-                  Wird beim PDF-Export automatisch über der Unterschriftslinie und mit offiziellem Zeitstempel eingefügt.
+                <p
+                  className={`text-[11px] ${pruefeUnterschrift(meeting, currentSignature) === 'geaendert' ? 'text-rose-700 font-bold dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'}`}
+                >
+                  Prüfung: {pruefText(pruefeUnterschrift(meeting, currentSignature))}.
                 </p>
               </div>
               <div className="bg-white border border-slate-200 rounded-lg p-2 shadow-2xs shrink-0 dark:bg-slate-900 dark:border-slate-800">
@@ -428,8 +415,14 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
             </div>
           )}
 
+          {abgesagt && (
+            <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 dark:text-amber-200 dark:bg-amber-950/40 dark:border-amber-800/60">
+              Die Sitzung ist abgesagt; ihr Protokoll wird nicht unterschrieben.
+            </div>
+          )}
+
           {/* Canvas Signature Pad Area */}
-          <div className="space-y-2">
+          <div className={`space-y-2${abgesagt || !currentSignatoryName ? ' hidden' : ''}`}>
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5 dark:text-slate-200">
                 <PenTool className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
@@ -482,7 +475,11 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
             {/* Signature Save Button */}
             <div className="flex items-center justify-between pt-1">
               <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                Die Unterschrift wird hochauflösend als Vektorgrafik im Sitzungsdatensatz gesichert.
+                {meldung ? (
+                  <span className="font-semibold text-rose-600 dark:text-rose-400">{meldung}</span>
+                ) : (
+                  'Mit der Unterschrift wird der Protokolltext gesperrt; mit beiden Unterschriften ist er genehmigt.'
+                )}
               </span>
               <button
                 type="button"
@@ -510,13 +507,13 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleDownloadPdf(true)}
-                disabled={Boolean(isExporting) || signatures.length === 0}
+                disabled={Boolean(isExporting) || anzahlUnterschriften === 0}
                 className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between shadow-2xs ${
-                  signatures.length > 0
+                  anzahlUnterschriften > 0
                     ? 'border-rose-200 bg-rose-50/50 hover:bg-rose-100/60 cursor-pointer dark:border-rose-800/60 dark:bg-rose-950/50 dark:hover:bg-rose-900/60'
                     : 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed dark:border-slate-800 dark:bg-slate-800'
                 }`}
-                title={signatures.length > 0 ? 'Erzeugt PDF mit den hinterlegten digitalen Unterschriften' : 'Erst mindestens eine Unterschrift erfassen'}
+                title={anzahlUnterschriften > 0 ? 'Erzeugt PDF mit den hinterlegten digitalen Unterschriften' : 'Erst mindestens eine Unterschrift erfassen'}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-bold text-rose-900 flex items-center gap-1.5 dark:text-rose-100">
@@ -524,7 +521,7 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
                     <span>Mit digitaler Unterschrift</span>
                   </span>
                   <span className="px-1.5 py-0.5 text-[10px] bg-rose-200/80 text-rose-800 font-bold rounded dark:bg-rose-900/80 dark:text-rose-200">
-                    {signatures.length}/2 signiert
+                    {anzahlUnterschriften}/2 signiert
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-600 dark:text-slate-300">
@@ -559,8 +556,20 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
         {/* Modal Footer */}
         <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between dark:border-slate-800 dark:bg-slate-800">
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            Status: {signatures.length === 2 ? 'Beide Unterschriften vollständig erfasst.' : `${signatures.length} von 2 Unterschriften vorhanden.`}
+            Status: {anzahlUnterschriften === 2 ? 'Beide Unterschriften erfasst, Protokoll genehmigt.' : `${anzahlUnterschriften} von 2 Unterschriften vorhanden.`}
           </span>
+          {signatures.length > 0 && (
+            <button
+              type="button"
+              onClick={handleRemoveSignatures}
+              disabled={isSaving}
+              className="ml-auto mr-2 px-3 py-2 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-xl flex items-center gap-1.5 dark:text-rose-300 dark:bg-rose-950/40 dark:border-rose-800/60"
+              title="Entfernt beide Unterschriften und gibt das Protokoll zum Bearbeiten frei"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Unterschriften entfernen</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}

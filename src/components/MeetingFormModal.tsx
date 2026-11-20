@@ -26,11 +26,26 @@ import {
   ClubSettings,
   MeetingTemplateSettings
 } from '../types';
-import { MeetingPdfService } from '../services/meetingPdfService';
+import { MeetingPdfService, Briefpapier } from '../services/meetingPdfService';
 import { DEFAULT_MEETING_TEMPLATE } from '../data/initialMeetings';
 import { savePdfAs } from '../utils/fileExportHelper';
 import { keepUnknownFields } from '../utils/keepUnknownFields';
 import { melde } from '../utils/dialoge';
+import {
+  SITZUNGSARTEN,
+  SITZUNGSSTATUS,
+  STATUS_WAHL,
+  GESPERRT,
+  beschlussNummernAngleichen,
+  einladungFehlt,
+  ergebnisVorschlag,
+  gesperrt,
+  istStandardTagesordnung,
+  neuerBeschluss,
+  pruefeSitzung,
+  standardTagesordnung,
+  standardTitel
+} from '../utils/sitzungRegeln';
 
 interface MeetingFormModalProps {
   isOpen: boolean;
@@ -39,24 +54,10 @@ interface MeetingFormModalProps {
   members: Member[];
   clubSettings?: ClubSettings;
   templateSettings?: MeetingTemplateSettings;
+  /** Gemeinsames Briefpapier (aus der Rechnungsvorlage, D-123). */
+  briefpapier?: Briefpapier | null;
   onSave: (meeting: Meeting) => Promise<void>;
 }
-
-const DEFAULT_AGENDA_MV: MeetingAgendaItem[] = [
-  { id: 'top-1', number: 'TOP 1', title: 'Begrüßung und Feststellung der ordnungsgemäßen Ladung und Beschlussfähigkeit' },
-  { id: 'top-2', number: 'TOP 2', title: 'Bericht des Vorstands über das abgelaufene Geschäftsjahr' },
-  { id: 'top-3', number: 'TOP 3', title: 'Finanzbericht des Schatzmeisters und Bericht der Kassenprüfer' },
-  { id: 'top-4', number: 'TOP 4', title: 'Aussprache und Entlastung des Vorstands' },
-  { id: 'top-5', number: 'TOP 5', title: 'Wahlen zum Vorstand und der Kassenprüfer' },
-  { id: 'top-6', number: 'TOP 6', title: 'Anträge und Verschiedenes' }
-];
-
-const DEFAULT_AGENDA_VS: MeetingAgendaItem[] = [
-  { id: 'top-1', number: 'TOP 1', title: 'Begrüßung und Genehmigung des Protokolls der letzten Vorstandssitzung' },
-  { id: 'top-2', number: 'TOP 2', title: 'Berichte der Vorstandsmitglieder (Finanzen, Sport, Jugend)' },
-  { id: 'top-3', number: 'TOP 3', title: 'Laufende Projekte, Investitionsanträge & Beschlussfassung' },
-  { id: 'top-4', number: 'TOP 4', title: 'Termine, Veranstaltungen & Verschiedenes' }
-];
 
 export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
   isOpen,
@@ -65,39 +66,49 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
   members,
   clubSettings,
   templateSettings,
+  briefpapier,
   onSave
 }) => {
   const isEditing = Boolean(meetingToEdit);
 
+  // Neue Sitzungen starten ohne Musterdaten (D-119): keine erfundenen Orte,
+  // Personen, Uhrzeiten oder Stimmenzahlen, nichts vorangekreuzt (D-127).
+  // Lokales Datum, nicht UTC (sonst kurz nach Mitternacht der Vortag).
+  const heute = new Date();
+  const heuteIso = `${heute.getFullYear()}-${String(heute.getMonth() + 1).padStart(2, '0')}-${String(heute.getDate()).padStart(2, '0')}`;
   const [type, setType] = useState<MeetingType>(meetingToEdit?.type || 'board');
-  const [title, setTitle] = useState(meetingToEdit?.title || (meetingToEdit?.type === 'general_assembly' ? 'Ordentliche Mitgliederversammlung 2026' : 'Vorstandssitzung'));
-  const [status, setStatus] = useState<MeetingStatus>(meetingToEdit?.status || 'scheduled');
+  const [title, setTitle] = useState(meetingToEdit?.title ?? standardTitel('board', heute.getFullYear()));
+  // „Genehmigt“ ergibt sich nur aus beiden Unterschriften. Ältere, von Hand
+  // auf „Genehmigt“ gesetzte Sitzungen ohne Unterschrift starten hier als
+  // „In Vorprüfung“ (Hinweis am Feld).
+  const statusVonHand = meetingToEdit?.status === 'approved' && !gesperrt(meetingToEdit);
+  const [status, setStatus] = useState<MeetingStatus>(statusVonHand ? 'review' : meetingToEdit?.status || 'scheduled');
   const [protocolType, setProtocolType] = useState<MeetingProtocolType>(meetingToEdit?.protocolType || 'results');
-  const [date, setDate] = useState(meetingToEdit?.date || new Date().toISOString().split('T')[0]);
-  const [startTime, setStartTime] = useState(meetingToEdit?.startTime || '19:00');
-  const [endTime, setEndTime] = useState(meetingToEdit?.endTime || '21:00');
-  const [location, setLocation] = useState(meetingToEdit?.location || 'Vereinsheim TSV Musterstadt');
-  const [chairperson, setChairperson] = useState(meetingToEdit?.chairperson || 'Dr. Michael Sommer');
-  const [minuteKeeper, setMinuteKeeper] = useState(meetingToEdit?.minuteKeeper || 'Sabine Weber');
+  const [date, setDate] = useState(meetingToEdit?.date || heuteIso);
+  const [startTime, setStartTime] = useState(meetingToEdit?.startTime || '');
+  const [endTime, setEndTime] = useState(meetingToEdit?.endTime || '');
+  const [location, setLocation] = useState(meetingToEdit?.location || '');
+  const [chairperson, setChairperson] = useState(meetingToEdit?.chairperson || '');
+  const [minuteKeeper, setMinuteKeeper] = useState(meetingToEdit?.minuteKeeper || '');
 
   // Compliance
   const [invitationDate, setInvitationDate] = useState(meetingToEdit?.invitationDate || '');
-  const [invitationMethod, setInvitationMethod] = useState(meetingToEdit?.invitationMethod || 'Per E-Mail mit Tagesordnung gem. Satzung');
-  const [invitationCompliant, setInvitationCompliant] = useState(meetingToEdit ? meetingToEdit.invitationCompliant : true);
-  const [quorumConfirmed, setQuorumConfirmed] = useState(meetingToEdit ? meetingToEdit.quorumConfirmed : true);
-  const [totalEligibleVoters, setTotalEligibleVoters] = useState<number | ''>(meetingToEdit?.totalEligibleVoters ?? 5);
+  const [invitationMethod, setInvitationMethod] = useState(meetingToEdit?.invitationMethod || '');
+  const [invitationCompliant, setInvitationCompliant] = useState(meetingToEdit ? Boolean(meetingToEdit.invitationCompliant) : false);
+  const [quorumConfirmed, setQuorumConfirmed] = useState(meetingToEdit ? Boolean(meetingToEdit.quorumConfirmed) : false);
+  const [totalEligibleVoters, setTotalEligibleVoters] = useState<number | ''>(meetingToEdit?.totalEligibleVoters ?? '');
 
   // Agenda & TOPs
-  const [agenda, setAgenda] = useState<MeetingAgendaItem[]>(
-    meetingToEdit?.agenda || (type === 'general_assembly' ? DEFAULT_AGENDA_MV : DEFAULT_AGENDA_VS)
-  );
+  const [agenda, setAgenda] = useState<MeetingAgendaItem[]>(meetingToEdit?.agenda || standardTagesordnung('board'));
 
   // Attendees & Mitgliedersuche
   const [attendees, setAttendees] = useState<MeetingAttendee[]>(meetingToEdit?.attendees || []);
   const [attendeeSearchQuery, setAttendeeSearchQuery] = useState('');
   const [showMemberSuggestions, setShowMemberSuggestions] = useState(false);
   const [generalNotes, setGeneralNotes] = useState(meetingToEdit?.generalNotes || '');
-  const [signedAt, setSignedAt] = useState(meetingToEdit?.signedAt || '');
+  // Fehler erst nach dem ersten Speicherversuch zeigen; danach laufend neu
+  // berechnet, damit sie beim Korrigieren verschwinden.
+  const [versucht, setVersucht] = useState(false);
 
   // Gefilterte Mitglieder für Autocomplete-Vorschläge
   const memberSuggestions = useMemo(() => {
@@ -121,23 +132,31 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
   if (!isOpen) return null;
 
   const handleDownloadInvitation = async () => {
+    // Ohne Datum, Uhrzeit, Ort und Tagesordnung keine Einladung; es wird nichts ergänzt.
+    const fehlt = einladungFehlt({ date, startTime, location, agenda });
+    if (fehlt.length) {
+      void melde(`Für die Einladung fehlt noch: ${fehlt.join(', ')}.`);
+      return;
+    }
+    if (!clubSettings) return;
     setIsGeneratingInvitation(true);
     try {
       const doc = await MeetingPdfService.generateInvitationPdf(
         {
-          title: title.trim() || 'Mitgliederversammlung',
+          title: title.trim(),
           type,
-          date: date || new Date().toISOString().split('T')[0],
-          startTime: startTime || '19:00',
+          date,
+          startTime,
           endTime: endTime || undefined,
-          location: location.trim() || 'Vereinsheim',
-          chairperson: chairperson.trim() || '1. Vorsitzender',
-          minuteKeeper: minuteKeeper.trim() || 'Schriftführer',
+          location: location.trim(),
+          chairperson: chairperson.trim(),
+          minuteKeeper: minuteKeeper.trim(),
           invitationDate: invitationDate || undefined,
           agenda
         },
-        clubSettings || ({ clubName: 'Sportverein Musterstadt e.V.' } as any),
-        templateSettings || DEFAULT_MEETING_TEMPLATE
+        clubSettings,
+        templateSettings || DEFAULT_MEETING_TEMPLATE,
+        { briefpapier }
       );
       void savePdfAs(doc, `Einladung_${date}_${(title || 'Versammlung').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
     } catch (err) {
@@ -148,19 +167,17 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
     }
   };
 
+  /**
+   * Artwechsel bei einer neuen Sitzung: Titel und Tagesordnung folgen der
+   * neuen Art nur, solange sie noch der Vorgabe der alten Art entsprechen;
+   * Eigenes bleibt stehen. Keine erfundenen Stimmenzahlen mehr (D-131).
+   */
   const handleTypeChange = (newType: MeetingType) => {
-    setType(newType);
     if (!meetingToEdit) {
-      if (newType === 'general_assembly') {
-        setTitle('Ordentliche Mitgliederversammlung (Jahreshauptversammlung) 2026');
-        setAgenda(DEFAULT_AGENDA_MV);
-        setTotalEligibleVoters(35);
-      } else if (newType === 'board') {
-        setTitle('Vorstandssitzung');
-        setAgenda(DEFAULT_AGENDA_VS);
-        setTotalEligibleVoters(5);
-      }
+      if (title === standardTitel(type, heute.getFullYear())) setTitle(standardTitel(newType, heute.getFullYear()));
+      if (istStandardTagesordnung(agenda, type)) setAgenda(standardTagesordnung(newType));
     }
+    setType(newType);
   };
 
   const handleAddTop = () => {
@@ -170,7 +187,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
         id: `top-${Date.now()}`,
         // Höchste vorhandene TOP-Nummer plus eins (D-120)
         number: naechsteTopNummer(agenda.map(top => top.number)),
-        title: 'Neuer Tagesordnungspunkt',
+        title: '',
         discussionNotes: ''
       }
     ]);
@@ -191,19 +208,8 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
 
   const handleAddResolution = (topIndex: number) => {
     const top = agenda[topIndex];
-    const newResolution: MeetingResolution = {
-      id: `res-${Date.now()}`,
-      agendaItemNumber: top.number,
-      title: 'Beschlussantrag',
-      motionText: 'Der Vorstand / die Versammlung beschließt...',
-      proposer: chairperson,
-      votesFor: typeof totalEligibleVoters === 'number' ? totalEligibleVoters : 5,
-      votesAgainst: 0,
-      votesAbstain: 0,
-      result: 'accepted',
-      isTaxRelevant: false,
-      isRegisterRelevant: false
-    };
+    // Startet leer: keine vorbelegten Ja-Stimmen, kein vorgegebenes Ergebnis (D-118)
+    const newResolution: MeetingResolution = neuerBeschluss(top.number);
 
     const nextTop = {
       ...top,
@@ -221,7 +227,14 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
   ) => {
     const top = agenda[topIndex];
     const resolutions = [...(top.resolutions || [])];
-    resolutions[resIndex] = { ...resolutions[resIndex], ...updated };
+    let neu = { ...resolutions[resIndex], ...updated };
+    // Das Ergebnis folgt den Stimmen (einfache Mehrheit), solange es nicht
+    // „Vertagt“ ist; es bleibt von Hand änderbar (wie Android).
+    const stimmen = 'votesFor' in updated || 'votesAgainst' in updated || 'votesAbstain' in updated;
+    if (stimmen && neu.result !== 'deferred' && (neu.votesFor || 0) + (neu.votesAgainst || 0) + (neu.votesAbstain || 0) > 0) {
+      neu = { ...neu, result: ergebnisVorschlag(neu.votesFor || 0, neu.votesAgainst || 0) };
+    }
+    resolutions[resIndex] = neu;
     const nextAgenda = [...agenda];
     nextAgenda[topIndex] = { ...top, resolutions };
     setAgenda(nextAgenda);
@@ -252,55 +265,71 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
     ]);
   };
 
-  const handleImportBoardAttendees = () => {
-    const boardAttendees: MeetingAttendee[] = [
-      { id: 'att-sommer', name: 'Dr. Michael Sommer', role: '1. Vorsitzender (Versammlungsleiter)', present: true, hasVotingRight: true, isSignatory: true },
-      { id: 'att-schneider', name: 'Thomas Schneider', role: '2. Vorsitzender', present: true, hasVotingRight: true, isSignatory: false },
-      { id: 'att-weber', name: 'Sabine Weber', role: 'Kassenwartin / Schatzmeisterin', present: true, hasVotingRight: true, isSignatory: true },
-      { id: 'att-franke', name: 'Claudia Franke', role: 'Jugendleiterin', present: true, hasVotingRight: true, isSignatory: false },
-      { id: 'att-bauer', name: 'Marcus Bauer', role: 'Schriftführer & Presse', present: true, hasVotingRight: true, isSignatory: false }
-    ];
-    setAttendees(boardAttendees);
+  /** Die Sitzung, wie sie gespeichert würde (für Prüfung und Speichern). */
+  const baueSitzung = (): Meeting => {
+    const now = new Date().toISOString();
+    return {
+      id: meetingToEdit?.id || `meet-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      title: title.trim(),
+      type,
+      status,
+      protocolType,
+      date,
+      startTime,
+      endTime: endTime || undefined,
+      location: location.trim(),
+      chairperson: chairperson.trim(),
+      minuteKeeper: minuteKeeper.trim(),
+      invitationDate: invitationDate || undefined,
+      invitationMethod: invitationMethod.trim() || undefined,
+      invitationCompliant,
+      quorumConfirmed,
+      // Leer bleibt leer; vorher wurde daraus die Zahl 1 (D-122).
+      totalEligibleVoters: typeof totalEligibleVoters === 'number' ? totalEligibleVoters : undefined,
+      agenda: beschlussNummernAngleichen(agenda),
+      attendees,
+      generalNotes: generalNotes.trim() || undefined,
+      createdAt: meetingToEdit?.createdAt || now,
+      updatedAt: now
+    };
   };
+
+  const fehler: Record<string, string> = versucht ? pruefeSitzung(baueSitzung()) : {};
+  const fehlerListe = Object.keys(fehler);
+  const tabVon = (k: string): 'details' | 'agenda' | 'compliance' | 'attendees' =>
+    k.startsWith('top') || k.startsWith('beschluss')
+      ? 'agenda'
+      : k === 'einladungsDatum' || k === 'stimmberechtigte'
+        ? 'compliance'
+        : k.startsWith('teilnehmer')
+          ? 'attendees'
+          : 'details';
+  const tabHatFehler = (t: string) => fehlerListe.some(k => tabVon(k) === t);
+  const fehlerText = (k: string) =>
+    fehler[k] ? <p className="text-[11px] font-semibold text-rose-600 mt-1 dark:text-rose-400">{fehler[k]}</p> : null;
+  const rot = (k: string) => (fehler[k] ? ' border-rose-400 ring-1 ring-rose-300 dark:border-rose-500' : '');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !date) {
-      void melde('Bitte geben Sie einen Titel und ein Datum für die Sitzung an.');
+    if (meetingToEdit && gesperrt(meetingToEdit)) {
+      void melde(GESPERRT);
+      return;
+    }
+    setVersucht(true);
+    const meetingData = baueSitzung();
+    const f = pruefeSitzung(meetingData);
+    const erster = Object.keys(f)[0];
+    if (erster) {
+      setActiveTab(tabVon(erster));
       return;
     }
 
     setIsSaving(true);
     try {
-      const now = new Date().toISOString();
-      const meetingData: Meeting = {
-        id: meetingToEdit?.id || `meet-${Date.now()}`,
-        title: title.trim(),
-        type,
-        status,
-        protocolType,
-        date,
-        startTime,
-        endTime: endTime || undefined,
-        location: location.trim(),
-        chairperson: chairperson.trim(),
-        minuteKeeper: minuteKeeper.trim(),
-        invitationDate: invitationDate || undefined,
-        invitationMethod: invitationMethod || undefined,
-        invitationCompliant,
-        quorumConfirmed,
-        totalEligibleVoters: typeof totalEligibleVoters === 'number' ? totalEligibleVoters : (parseInt(totalEligibleVoters || '0', 10) || 1),
-        agenda,
-        attendees,
-        generalNotes: generalNotes.trim() || undefined,
-        signedAt: signedAt || undefined,
-        createdAt: meetingToEdit?.createdAt || now,
-        updatedAt: now
-      };
-
       // keepUnknownFields: Unterschriften (signatures), das archivierte PDF
-      // (documentId), customTemplateUsed und alle weiteren Felder, die dieses
-      // Formular nicht kennt, bleiben beim Bearbeiten erhalten (D-116).
+      // (documentId), customTemplateUsed, das Unterschriftsdatum (signedAt)
+      // und alle weiteren Felder, die dieses Formular nicht kennt, bleiben
+      // beim Bearbeiten erhalten (D-116).
       // Vorher verlor ein unterschriebenes Protokoll beim Speichern seine
       // Unterschriften.
       await onSave(keepUnknownFields(meetingToEdit, meetingData));
@@ -364,6 +393,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
           >
             <Calendar className="w-3.5 h-3.5" />
             <span>1. Stammdaten & Leitung</span>
+            {tabHatFehler('details') && <span className="w-2 h-2 rounded-full bg-rose-500" title="Hier fehlt etwas" />}
           </button>
 
           <button
@@ -377,6 +407,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
           >
             <FileText className="w-3.5 h-3.5" />
             <span>2. Tagesordnung & Einladung ({agenda.length} TOPs)</span>
+            {tabHatFehler('agenda') && <span className="w-2 h-2 rounded-full bg-rose-500" title="Hier fehlt etwas" />}
           </button>
 
           <button
@@ -390,6 +421,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
           >
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>3. Am Versammlungstag: Beschlussfähigkeit & Nachweise</span>
+            {tabHatFehler('compliance') && <span className="w-2 h-2 rounded-full bg-rose-500" title="Hier fehlt etwas" />}
           </button>
 
           <button
@@ -403,6 +435,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
           >
             <User className="w-3.5 h-3.5" />
             <span>4. Teilnehmer & Unterschriften ({attendees.length})</span>
+            {tabHatFehler('attendees') && <span className="w-2 h-2 rounded-full bg-rose-500" title="Hier fehlt etwas" />}
           </button>
         </div>
 
@@ -421,12 +454,11 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                     onChange={(e) => handleTypeChange(e.target.value as MeetingType)}
                     className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
                   >
-                    <option value="board">Vorstandssitzung (§ 26 BGB)</option>
-                    <option value="general_assembly">Ordentliche Mitgliederversammlung (Jahreshauptversammlung)</option>
-                    <option value="extraordinary_assembly">Außerordentliche Mitgliederversammlung</option>
-                    <option value="committee">Ausschuss / Fachbereich / Beirat</option>
-                    <option value="department">Abteilungsversammlung</option>
-                    <option value="other">Sonstige Sitzung</option>
+                    {(Object.keys(SITZUNGSARTEN) as MeetingType[]).map((a) => (
+                      <option key={a} value={a}>
+                        {SITZUNGSARTEN[a]}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -438,9 +470,10 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="z.B. Vorstandssitzung Q3/2026 oder Jahreshauptversammlung 2026"
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
+                    placeholder="z.B. Vorstandssitzung März oder Mitgliederversammlung"
+                    className={`w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100${rot('titel')}`}
                   />
+                  {fehlerText('titel')}
                 </div>
               </div>
 
@@ -453,20 +486,22 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
+                    className={`w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100${rot('datum')}`}
                   />
+                  {fehlerText('datum')}
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
-                    Beginn (Uhrzeit) *
+                    Beginn (Uhrzeit)
                   </label>
                   <input
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
+                    className={`w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100${rot('beginn')}`}
                   />
+                  {fehlerText('beginn')}
                 </div>
 
                 <div>
@@ -477,8 +512,9 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                     type="time"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
+                    className={`w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100${rot('ende')}`}
                   />
+                  {fehlerText('ende')}
                 </div>
 
                 <div>
@@ -490,13 +526,18 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                     onChange={(e) => setStatus(e.target.value as MeetingStatus)}
                     className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
                   >
-                    <option value="scheduled">Geplant / Einberufen</option>
-                    <option value="in_progress">In Durchführung</option>
-                    <option value="draft">Entwurf des Protokolls</option>
-                    <option value="review">In Vorprüfung</option>
-                    <option value="approved">Rechtskräftig genehmigt</option>
-                    <option value="cancelled">Abgesagt</option>
+                    {STATUS_WAHL.map((st) => (
+                      <option key={st} value={st}>
+                        {SITZUNGSSTATUS[st]}
+                      </option>
+                    ))}
                   </select>
+                  <p className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">
+                    {statusVonHand
+                      ? 'War „Genehmigt“ ohne Unterschriften; genehmigt wird ein Protokoll erst durch beide Unterschriften.'
+                      : '„Genehmigt“ ergibt sich aus den beiden Unterschriften.'}
+                  </p>
+                  {fehlerText('status')}
                 </div>
               </div>
 
@@ -522,7 +563,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                     type="text"
                     value={chairperson}
                     onChange={(e) => setChairperson(e.target.value)}
-                    placeholder="z.B. Dr. Michael Sommer (1. Vorsitzender)"
+                    placeholder="Name der Versammlungsleitung"
                     className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
                   />
                 </div>
@@ -535,7 +576,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                     type="text"
                     value={minuteKeeper}
                     onChange={(e) => setMinuteKeeper(e.target.value)}
-                    placeholder="z.B. Sabine Weber oder Marcus Bauer"
+                    placeholder="Name der Protokollführung"
                     className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
                   />
                 </div>
@@ -616,8 +657,9 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                     type="date"
                     value={invitationDate}
                     onChange={(e) => setInvitationDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
+                    className={`w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100${rot('einladungsDatum')}`}
                   />
+                  {fehlerText('einladungsDatum')}
                   <p className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">
                     Dient dem Nachweis der Einhaltung der satzungsgemäßen Einladungsfrist (z.B. 2 oder 4 Wochen).
                   </p>
@@ -678,31 +720,24 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
 
                 <div className="pt-2">
                   <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
-                    Anzahl anwesender stimmberechtigter Mitglieder *
+                    Anzahl anwesender stimmberechtigter Mitglieder
                   </label>
                   <input
                     type="number"
-                    min={1}
+                    min={0}
+                    step={1}
                     value={totalEligibleVoters === '' ? '' : totalEligibleVoters}
                     onChange={(e) => {
                       const val = e.target.value;
-                      if (val === '') {
-                        setTotalEligibleVoters('');
-                      } else {
-                        const parsed = parseInt(val, 10);
-                        setTotalEligibleVoters(isNaN(parsed) ? '' : Math.max(1, parsed));
-                      }
+                      const parsed = Number(val);
+                      setTotalEligibleVoters(val === '' || !Number.isFinite(parsed) ? '' : parsed);
                     }}
-                    onBlur={() => {
-                      if (totalEligibleVoters === '' || totalEligibleVoters < 1) {
-                        setTotalEligibleVoters(1);
-                      }
-                    }}
-                    placeholder="z.B. 5"
-                    className="w-48 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
+                    placeholder="leer = aus der Teilnehmerliste"
+                    className={`w-56 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100${rot('stimmberechtigte')}`}
                   />
+                  {fehlerText('stimmberechtigte')}
                   <p className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">
-                    Wichtig für Quorum- und Mehrheitsberechnungen (z.B. einfache Mehrheit, 2/3- oder 3/4-Mehrheit).
+                    Leer gelassen zählt die App die anwesenden Stimmberechtigten der Teilnehmerliste. Die eingetragenen Stimmen eines Beschlusses dürfen diese Zahl nicht übersteigen.
                   </p>
                 </div>
               </div>
@@ -785,7 +820,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                           type="text"
                           value={top.title}
                           onChange={(e) => handleUpdateTop(topIndex, { title: e.target.value })}
-                          className="flex-1 px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-100"
+                          className={`flex-1 px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-100${rot(`top${topIndex}`)}`}
                           placeholder="Titel des Tagesordnungspunkts"
                         />
                       </div>
@@ -808,6 +843,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                         </button>
                       </div>
                     </div>
+                    {fehlerText(`top${topIndex}`)}
 
                     {/* Besprechung / Diskussionsnotizen */}
                     <div className="space-y-1">
@@ -886,7 +922,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                                   onChange={(e) =>
                                     handleUpdateResolution(topIndex, resIndex, { motionText: e.target.value })
                                   }
-                                  placeholder="Der Vorstand / die Versammlung beschließt, dass..."
+                                  placeholder="Wortlaut des Antrags"
                                   className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-800 focus:ring-1 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
                                 />
                               </div>
@@ -949,6 +985,10 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                                   </select>
                                 </div>
                               </div>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                Das Ergebnis folgt den Stimmen (einfache Mehrheit, Enthaltungen zählen nicht, Gleichstand = abgelehnt). Verlangt die Satzung mehr, bitte von Hand anpassen.
+                              </p>
+                              {fehlerText(`beschluss${topIndex}.${resIndex}`)}
 
                               {/* Relevanz-Flags */}
                               <div className="flex flex-wrap items-center gap-4 text-xs">
@@ -1003,13 +1043,6 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                     Erfassen Sie anwesende Vorstände, Mitglieder oder Gäste sowie die satzungsgemäßen Unterzeichner.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleImportBoardAttendees}
-                  className="px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl text-xs font-semibold cursor-pointer dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
-                >
-                  Standard-Vorstand laden
-                </button>
               </div>
 
               {/* Teilnehmer hinzufügen mit automatischer Mitglieder-Suche */}
@@ -1207,7 +1240,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                 </div>
               ) : (
                 <div className="text-center py-6 text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl dark:border-slate-800">
-                  Noch keine Teilnehmer erfasst. Nutzen Sie "Standard-Vorstand laden" oder fügen Sie Mitglieder hinzu.
+                  Noch keine Teilnehmer erfasst. Namen oben eingeben; Mitglieder werden dabei vorgeschlagen.
                 </div>
               )}
 
@@ -1216,19 +1249,9 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider dark:text-slate-100">
                   Unterzeichnung & Abschluss des Protokolls
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
-                      Datum der Genehmigung / Unterzeichnung
-                    </label>
-                    <input
-                      type="date"
-                      value={signedAt}
-                      onChange={(e) => setSignedAt(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100"
-                    />
-                  </div>
-                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Unterschrieben wird in der Sitzungsliste über „Digital unterschreiben“. Mit beiden Unterschriften ist das Protokoll genehmigt und gesperrt; das Datum ergibt sich daraus.
+                </p>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
@@ -1256,7 +1279,13 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
               Abbrechen
             </button>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              {fehlerListe.length > 0 && (
+                <span className="text-xs font-semibold text-rose-600 max-w-md text-right dark:text-rose-400">
+                  {fehler[fehlerListe[0]]}
+                  {fehlerListe.length > 1 ? ` (und ${fehlerListe.length - 1} weitere)` : ''}
+                </span>
+              )}
               <button
                 type="submit"
                 disabled={isSaving}

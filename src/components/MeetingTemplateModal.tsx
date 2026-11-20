@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   X,
   Upload,
@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { MeetingTemplateSettings, ClubSettings } from '../types';
 import { DEFAULT_MEETING_TEMPLATE } from '../data/initialMeetings';
-import { melde } from '../utils/dialoge';
 
 interface MeetingTemplateModalProps {
   isOpen: boolean;
@@ -20,6 +19,9 @@ interface MeetingTemplateModalProps {
   templateSettings: MeetingTemplateSettings;
   clubSettings: ClubSettings;
   onSaveTemplate: (settings: MeetingTemplateSettings) => Promise<void>;
+  /** Liegt in der Rechnungsvorlage ein Briefpapier? Dann gilt es auch hier (D-123). */
+  rechnungsBriefpapier?: boolean;
+  onOpenInvoiceTemplate?: () => void;
 }
 
 export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
@@ -27,43 +29,15 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
   onClose,
   templateSettings,
   clubSettings,
-  onSaveTemplate
+  onSaveTemplate,
+  rechnungsBriefpapier,
+  onOpenInvoiceTemplate
 }) => {
   const [formData, setFormData] = useState<MeetingTemplateSettings>(templateSettings || DEFAULT_MEETING_TEMPLATE);
   const [activeTab, setActiveTab] = useState<'upload' | 'layout'>('upload');
   const [isSaving, setIsSaving] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
-
-  const handleFileUpload = (file: File) => {
-    if (!file) return;
-    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
-      void melde('Bitte laden Sie eine Bilddatei (PNG, JPG, WEBP) oder ein PDF Ihres Briefpapiers hoch.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      setFormData((prev) => ({
-        ...prev,
-        customBlankoDataUrl: dataUrl,
-        customBlankoFileName: file.name,
-        customBlankoUploadedAt: new Date().toISOString()
-      }));
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileUpload(e.dataTransfer.files[0]);
-    }
-  };
 
   const handleRemoveBlanko = () => {
     setFormData((prev) => ({
@@ -87,7 +61,7 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
     }
   };
 
-  const hasCustomBlanko = Boolean(formData.customBlankoDataUrl);
+  const hasCustomBlanko = Boolean(formData.customBlankoDataUrl) || Boolean(rechnungsBriefpapier);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
@@ -128,7 +102,7 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
             }`}
           >
             <Upload className="w-3.5 h-3.5" />
-            <span>1. Eigene Blanko-Vorlage (Briefpapier)</span>
+            <span>1. Briefpapier</span>
             {hasCustomBlanko && (
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             )}
@@ -153,121 +127,60 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
           {/* TAB 1: UPLOAD BLANKO VORLAGE */}
           {activeTab === 'upload' && (
             <div className="space-y-6">
+              {/* Ein gemeinsames Briefpapier für alle Dokumente, gepflegt in der
+                  Rechnungsvorlage (D-123, wie Android). Das Hochladen hier entfällt. */}
               <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-4 flex items-start gap-3 dark:bg-rose-950/70 dark:border-rose-800/60">
                 <Info className="w-5 h-5 text-rose-600 shrink-0 mt-0.5 dark:text-rose-400" />
-                <div className="text-xs text-rose-900 space-y-1 dark:text-rose-100">
-                  <p className="font-semibold">Wie funktioniert die eigene Blanko-Vorlage für Protokolle?</p>
+                <div className="text-xs text-rose-900 space-y-2 dark:text-rose-100">
+                  <p className="font-semibold">Ein Briefpapier für Rechnungen und Sitzungen</p>
                   <p className="text-rose-800 leading-relaxed dark:text-rose-200">
-                    Laden Sie Ihr offizielles Vereins-Briefpapier (als PNG, JPG oder PDF) hoch.
-                    Die Vereinsverwaltung hinterlegt diese Vorlage als ganzseitigen Hintergrund für alle
-                    Vorstands- und Mitgliederversammlungsprotokolle und druckt Tagesordnung, Beschlüsse,
-                    Abstimmungsergebnisse und Unterschriftszeilen passgenau in den Inhaltsbereich.
+                    Das Briefpapier wird in der Rechnungsvorlage hinterlegt und gilt auch für Einladungen, Protokolle und Registerauszüge.
+                    {rechnungsBriefpapier ? ' Dort ist zurzeit eines hinterlegt.' : ' Dort ist zurzeit keines hinterlegt.'}
                   </p>
+                  {onOpenInvoiceTemplate && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenInvoiceTemplate();
+                      }}
+                      className="text-xs px-3 py-1.5 bg-white border border-rose-200 rounded-lg font-semibold text-rose-700 hover:bg-rose-50 dark:bg-slate-900 dark:border-rose-800/60 dark:text-rose-300"
+                    >
+                      Rechnungsvorlage öffnen
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* Upload Dropzone */}
-              {!hasCustomBlanko ? (
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragOver(true);
-                  }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 ${
-                    dragOver
-                      ? 'border-rose-500 bg-rose-50/50 scale-[0.99] dark:bg-rose-950/50'
-                      : 'border-slate-300 hover:border-rose-400 hover:bg-slate-50/50 dark:border-slate-700 dark:hover:bg-slate-800/50'
-                  }`}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,application/pdf"
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        handleFileUpload(e.target.files[0]);
-                      }
-                    }}
-                  />
-                  <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center shadow-xs dark:bg-rose-950/40 dark:text-rose-400">
-                    <Upload className="w-7 h-7" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                      Vereins-Briefpapier hier ablegen oder klicken
-                    </h4>
-                    <p className="text-xs text-slate-500 mt-1 dark:text-slate-400">
-                      Unterstützte Formate: PNG, JPG, WEBP (Empfohlen: DIN A4, 210 x 297 mm, mind. 1200 x 1700 px)
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="mt-2 text-xs bg-white border border-slate-200 text-slate-700 px-3.5 py-1.5 rounded-lg shadow-2xs font-semibold hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
-                  >
-                    Datei vom Computer auswählen
-                  </button>
-                </div>
-              ) : (
-                <div className="border border-emerald-200 bg-emerald-50/50 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-4 dark:border-emerald-800/60 dark:bg-emerald-950/50">
+              {formData.customBlankoDataUrl && (
+                <div className="border border-amber-200 bg-amber-50/50 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-4 dark:border-amber-800/60 dark:bg-amber-950/40">
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-20 bg-white border border-emerald-200 rounded-lg shadow-xs overflow-hidden flex items-center justify-center relative group dark:bg-slate-900 dark:border-emerald-800/60">
-                      {formData.customBlankoDataUrl?.startsWith('data:image') ? (
-                        <img
-                          src={formData.customBlankoDataUrl}
-                          alt="Briefpapier Vorschau"
-                          className="w-full h-full object-cover"
-                        />
+                    <div className="w-16 h-20 bg-white border border-amber-200 rounded-lg shadow-xs overflow-hidden flex items-center justify-center dark:bg-slate-900 dark:border-amber-800/60">
+                      {formData.customBlankoDataUrl.startsWith('data:image') ? (
+                        <img src={formData.customBlankoDataUrl} alt="Älteres Briefpapier" className="w-full h-full object-cover" />
                       ) : (
-                        <FileText className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+                        <FileText className="w-8 h-8 text-amber-600 dark:text-amber-400" />
                       )}
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
-                          <Check className="w-3 h-3" /> Eigene Briefpapier-Vorlage aktiv
-                        </span>
-                      </div>
-                      <h4 className="text-sm font-bold text-slate-900 mt-1 dark:text-white">
-                        {formData.customBlankoFileName || 'Hochgeladenes Vereins-Briefpapier'}
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                        Älteres Briefpapier nur für Sitzungen: {formData.customBlankoFileName || 'Briefpapier'}
                       </h4>
-                      <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
-                        Wird beim Erstellen und Exportieren aller Sitzungsprotokolle automatisch als Hintergrund verwendet.
+                      <p className="text-xs text-slate-600 mt-0.5 dark:text-slate-300">
+                        {rechnungsBriefpapier
+                          ? 'Wird nicht mehr verwendet, weil in der Rechnungsvorlage ein Briefpapier liegt. Kann entfernt werden.'
+                          : 'Wird weiter verwendet, bis in der Rechnungsvorlage ein Briefpapier hinterlegt ist.'}
                       </p>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="text-xs px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
-                    >
-                      Ersetzen
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleRemoveBlanko}
-                      className="text-xs px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-lg font-semibold text-rose-700 hover:bg-rose-100 flex items-center gap-1 cursor-pointer dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-300 dark:hover:bg-rose-900/40"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Entfernen
-                    </button>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp,application/pdf"
-                      className="hidden"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          handleFileUpload(e.target.files[0]);
-                        }
-                      }}
-                    />
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveBlanko}
+                    className="text-xs px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-lg font-semibold text-rose-700 hover:bg-rose-100 flex items-center gap-1 cursor-pointer dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-300 dark:hover:bg-rose-900/40"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Entfernen
+                  </button>
                 </div>
               )}
 
@@ -287,7 +200,9 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
                 <div className="mt-3 p-3 bg-white border border-slate-200 rounded-lg text-xs space-y-1 dark:bg-slate-900 dark:border-slate-800">
                   <div className="font-bold text-slate-800 dark:text-slate-100">{clubSettings.clubName}</div>
                   <div className="text-slate-500 text-[11px] dark:text-slate-400">
-                    {clubSettings.associationNumber} • {clubSettings.taxOffice} • St.-Nr.: {clubSettings.taxNumber}
+                    {[clubSettings.associationNumber, clubSettings.taxOffice, clubSettings.taxNumber ? `St.-Nr.: ${clubSettings.taxNumber}` : '']
+                      .filter(Boolean)
+                      .join(' • ')}
                   </div>
                 </div>
               </div>

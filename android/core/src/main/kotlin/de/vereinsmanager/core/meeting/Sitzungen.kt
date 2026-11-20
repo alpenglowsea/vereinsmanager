@@ -70,7 +70,8 @@ data class Anwesender(
 data class Signatur(
     val raw: JsonObject, val id: String, val name: String, val rolle: String, val zeit: String, val unterschrift: Unterschrift?, val inhalt: String,
 ) {
-    val istLeitung: Boolean get() = rolle.lowercase().let { "leiter" in it || "vorsitz" in it }
+    /** „leitung“: ältere Desktop-Unterschriften hießen „Versammlungsleitung gem. Satzung“. */
+    val istLeitung: Boolean get() = rolle.lowercase().let { "leiter" in it || "leitung" in it || "vorsitz" in it }
     val istSchrift: Boolean get() = !istLeitung && rolle.lowercase().let { "schrift" in it || "protokoll" in it }
 
     companion object {

@@ -122,6 +122,15 @@ class SitzungenTest {
         assertTrue(fehlerText { Sitzungen.unterschreiben(s, ab.id, Sitzungen.ROLLE_LEITUNG, unterschrift, "x", now = jetzt) }.contains("abgesagt"))
     }
 
+    @Test fun fingerabdruckGleichWieAmDesktop() {
+        // Derselbe Wert steht in src/utils/sitzungRegeln.test.ts (Desktop). Stimmen beide, prüft jede Fassung die Unterschriften der anderen.
+        assertEquals("e6d192515720ddd1386f5b84540e6cb0", Sitzungen.inhaltsstempel(speichere(InMemoryDocumentStore())))
+        // Ältere Desktop-Unterschriften trugen „Versammlungsleitung gem. Satzung“.
+        val alt = JsonObject(mapOf("role" to JsonPrimitive("Versammlungsleitung gem. Satzung")))
+        assertTrue(Signatur.from(alt).istLeitung)
+        assertTrue(Signatur.from(JsonObject(mapOf("role" to JsonPrimitive("Protokollführung gem. Satzung")))).istSchrift)
+    }
+
     @Test fun aenderungNachDerUnterschriftWirdErkannt() {
         val s = InMemoryDocumentStore()
         val a = speichere(s)

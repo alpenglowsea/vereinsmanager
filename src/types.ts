@@ -923,6 +923,11 @@ export interface MeetingDigitalSignature {
   signatureDataUrl: string; // Base64 PNG der Unterschrift
   signedAt: string; // ISO Zeitstempel der Unterzeichnung
   deviceInfo?: string; // z.B. "Touch-Eingabe (Smartphone)" oder "Mauszeiger (Desktop)"
+  /** Fingerabdruck des Protokolltextes beim Unterschreiben (wie Android); passt er nicht mehr, wurde der Text danach geändert. */
+  contentHash?: string;
+  /** Unterschrift als Linienzüge (Format wie `utils/unterschrift.ts`), damit sie auch am Handy und im PDF scharf erscheint. */
+  aspect?: number;
+  strokes?: number[][][];
 }
 
 export interface Meeting {

@@ -27,15 +27,31 @@ import {
   MeetingStatus,
   MeetingTemplateSettings,
   ClubSettings,
-  Member
+  Member,
+  InvoiceTemplateSettings
 } from '../types';
-import { MeetingPdfService } from '../services/meetingPdfService';
+import { MeetingPdfService, briefpapierFuerSitzungen } from '../services/meetingPdfService';
 import { MeetingFormModal } from './MeetingFormModal';
 import { MeetingTemplateModal } from './MeetingTemplateModal';
 import { MeetingSignatureModal } from './MeetingSignatureModal';
 import { MeetingEmailModal } from './MeetingEmailModal';
 import { savePdfAs } from '../utils/fileExportHelper';
-import { melde, bestaetige } from '../utils/dialoge';
+import { melde, bestaetige, frage } from '../utils/dialoge';
+import {
+  SITZUNGSARTEN,
+  SITZUNGSSTATUS,
+  auszugFehlt,
+  deutsch,
+  einladungFehlt,
+  filtern,
+  gesperrt,
+  leitungsUnterschrift,
+  pruefeUnterschrift,
+  schriftUnterschrift,
+  statistik,
+  statusName,
+  unterschriftenEntfernen
+} from '../utils/sitzungRegeln';
 
 interface MeetingsViewProps {
   meetings: Meeting[];
@@ -45,6 +61,9 @@ interface MeetingsViewProps {
   onSaveMeeting: (meeting: Meeting) => Promise<void>;
   onDeleteMeeting: (meetingId: string) => Promise<void>;
   onSaveTemplate: (settings: MeetingTemplateSettings) => Promise<void>;
+  /** Rechnungsvorlage: ihr Briefpapier gilt auch für Sitzungen (D-123) */
+  invoiceTemplateSettings?: InvoiceTemplateSettings;
+  onOpenInvoiceTemplate?: () => void;
 }
 
 export const MeetingsView: React.FC<MeetingsViewProps> = ({
@@ -55,6 +74,8 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
   onSaveMeeting,
   onDeleteMeeting,
   onSaveTemplate,
+  invoiceTemplateSettings,
+  onOpenInvoiceTemplate,
 }) => {
   /**
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
@@ -82,56 +103,20 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
     isExtract: boolean;
   } | null>(null);
 
-  // Statistics
-  const stats = useMemo(() => {
-    const total = meetings.length;
-    const generalAssemblies = meetings.filter(m => m.type === 'general_assembly' || m.type === 'extraordinary_assembly').length;
-    const boardMeetings = meetings.filter(m => m.type === 'board').length;
+  // Briefpapier: das der Rechnungsvorlage gilt für alle Dokumente (D-123)
+  const briefpapier = useMemo(
+    () => briefpapierFuerSitzungen(templateSettings, invoiceTemplateSettings),
+    [templateSettings, invoiceTemplateSettings]
+  );
 
-    let totalResolutions = 0;
-    let taxResolutions = 0;
-    let registerResolutions = 0;
+  // Kennzahlen: Finanzamt und Register zählen nur angenommene Beschlüsse (D-128)
+  const stats = useMemo(() => statistik(meetings), [meetings]);
 
-    meetings.forEach(m => {
-      m.agenda.forEach(top => {
-        (top.resolutions || []).forEach(res => {
-          totalResolutions++;
-          if (res.isTaxRelevant) taxResolutions++;
-          if (res.isRegisterRelevant) registerResolutions++;
-        });
-      });
-    });
-
-    return {
-      total,
-      generalAssemblies,
-      boardMeetings,
-      totalResolutions,
-      taxResolutions,
-      registerResolutions
-    };
-  }, [meetings]);
-
-  // Filtered meetings
-  const filteredMeetings = useMemo(() => {
-    return meetings.filter(m => {
-      if (selectedType !== 'all' && m.type !== selectedType) return false;
-      if (selectedStatus !== 'all' && m.status !== selectedStatus) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesTitle = m.title.toLowerCase().includes(q);
-        const matchesLocation = m.location?.toLowerCase().includes(q);
-        const matchesChair = m.chairperson?.toLowerCase().includes(q);
-        const matchesTop = m.agenda.some(top =>
-          top.title.toLowerCase().includes(q) ||
-          top.discussionNotes?.toLowerCase().includes(q) ||
-          (top.resolutions || []).some(r => r.title.toLowerCase().includes(q) || r.motionText.toLowerCase().includes(q))
-        );
-        if (!matchesTitle && !matchesLocation && !matchesChair && !matchesTop) return false;
-      }
-      return true;
-    });
-  }, [meetings, selectedType, selectedStatus, searchQuery]);
+  // Filter: Art genau, auch Abteilungs- und sonstige Sitzungen (D-121)
+  const filteredMeetings = useMemo(
+    () => filtern(meetings, searchQuery, selectedType === 'all' ? null : selectedType, selectedStatus === 'all' ? null : selectedStatus),
+    [meetings, selectedType, selectedStatus, searchQuery]
+  );
 
   // All resolutions flattened for the Beschlussbuch
   const allResolutions = useMemo(() => {
@@ -155,8 +140,15 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
       });
     });
 
-    return list.sort((a, b) => new Date(b.meeting.date).getTime() - new Date(a.meeting.date).getTime());
+    // Neueste Sitzung zuerst, innerhalb einer Sitzung in Reihenfolge der Tagesordnung
+    return list.sort((a, b) =>
+      b.meeting.date !== a.meeting.date
+        ? b.meeting.date.localeCompare(a.meeting.date)
+        : (b.meeting.startTime || '').localeCompare(a.meeting.startTime || '')
+    );
   }, [meetings]);
+  const anzahlSteuer = allResolutions.filter(i => i.resolution.isTaxRelevant).length;
+  const anzahlRegister = allResolutions.filter(i => i.resolution.isRegisterRelevant).length;
 
   const [resolutionFilter, setResolutionFilter] = useState<'all' | 'tax' | 'register'>('all');
 
@@ -181,12 +173,38 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
     setIsFormModalOpen(true);
   };
 
-  const handleEditMeeting = (m: Meeting) => {
+  /**
+   * Unterschriebene Protokolle sind gesperrt (D-117). Statt still nichts zu
+   * tun, wird angeboten, die Unterschriften zu entfernen.
+   */
+  const handleEditMeeting = async (m: Meeting) => {
+    if (gesperrt(m)) {
+      const ja = await frage({
+        titel: 'Protokoll ist unterschrieben',
+        text: 'Ein unterschriebenes Protokoll ist gesperrt. Zum Ändern müssen die Unterschriften entfernt werden; aus „Genehmigt“ wird dann „In Vorprüfung“, und beide müssen erneut unterschreiben.',
+        bestaetigenText: 'Unterschriften entfernen und bearbeiten',
+        gefahr: true
+      });
+      if (!ja) return;
+      const frei = unterschriftenEntfernen(m);
+      await onSaveMeeting(frei);
+      setMeetingToEdit(frei);
+      setIsFormModalOpen(true);
+      return;
+    }
     setMeetingToEdit(m);
     setIsFormModalOpen(true);
   };
 
   const handleInitiateDownloadPdf = (m: Meeting, isExtract: boolean = false) => {
+    // Registerauszug nur mit festgestellter Beschlussfähigkeit und angenommenem, gekennzeichnetem Beschluss (D-127)
+    if (isExtract) {
+      const grund = auszugFehlt(m);
+      if (grund) {
+        void melde(`Ein Registerauszug ist nicht möglich: ${grund}`);
+        return;
+      }
+    }
     // If the meeting has digital signatures, offer choice between digital signature and blank signature line
     if (m.signatures && m.signatures.length > 0) {
       setDownloadChoice({ meeting: m, isExtract });
@@ -204,12 +222,14 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
 
       if (isExtract) {
         doc = await MeetingPdfService.generateRegisterExtractPdf(m, clubSettings, templateSettings, {
-          includeDigitalSignatures: withDigitalSignatures
+          includeDigitalSignatures: withDigitalSignatures,
+          briefpapier
         });
         void savePdfAs(doc, `Registerauszug_${m.date}_${safeTitle}_${suffix}.pdf`);
       } else {
         doc = await MeetingPdfService.generateProtocolPdf(m, clubSettings, templateSettings, {
-          includeDigitalSignatures: withDigitalSignatures
+          includeDigitalSignatures: withDigitalSignatures,
+          briefpapier
         });
         void savePdfAs(doc, `Protokoll_${m.date}_${safeTitle}_${suffix}.pdf`);
       }
@@ -223,6 +243,11 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
   };
 
   const handleDownloadInvitationPdf = async (m: Meeting) => {
+    const fehlt = einladungFehlt(m);
+    if (fehlt.length) {
+      void melde(`Für die Einladung fehlt noch: ${fehlt.join(', ')}. Bitte in der Sitzung ergänzen.`);
+      return;
+    }
     setGeneratingInvitationId(m.id);
     try {
       const doc = await MeetingPdfService.generateInvitationPdf(
@@ -239,9 +264,10 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
           agenda: m.agenda
         },
         clubSettings,
-        templateSettings
+        templateSettings,
+        { briefpapier }
       );
-      void savePdfAs(doc, `Einladung_${m.date}_${m.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
+      void savePdfAs(doc, `Einladung_${m.date}_${m.title.replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_')}.pdf`);
     } catch (err) {
       console.error('Failed to generate invitation PDF:', err);
       void melde('Fehler beim Erzeugen des Einladungs-PDFs.');
@@ -255,7 +281,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
       case 'approved':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-200 dark:border-emerald-800/60">
-            <Check className="w-3 h-3" /> Genehmigt & Gültig
+            <Check className="w-3 h-3" /> Genehmigt
           </span>
         );
       case 'review':
@@ -282,10 +308,17 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
             <Calendar className="w-3 h-3" /> Einberufen / Geplant
           </span>
         );
+      case 'cancelled':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700 border border-slate-300 line-through decoration-slate-400 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600">
+            Abgesagt
+          </span>
+        );
       default:
+        // Unbekannter Status: deutscher Name, sonst das gespeicherte Wort (D-129)
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
-            {status}
+            {statusName(status)}
           </span>
         );
     }
@@ -320,7 +353,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
       default:
         return (
           <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-            Sitzung
+            {SITZUNGSARTEN[type] ?? 'Sitzung'}
           </span>
         );
     }
@@ -365,20 +398,20 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
             <span className="text-xs font-semibold">Sitzungen gesamt</span>
             <Calendar className="w-4 h-4 text-slate-400" />
           </div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white">{stats.total}</div>
+          <div className="text-2xl font-black text-slate-900 dark:text-white">{stats.gesamt}</div>
           <div className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">
-            {stats.boardMeetings} Vorstandssitzungen • {stats.generalAssemblies} Versammlungen
+            {stats.vorstand} Vorstandssitzungen • {stats.versammlungen} Versammlungen
           </div>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs dark:bg-slate-900 dark:border-slate-800">
           <div className="flex items-center justify-between text-slate-500 mb-1 dark:text-slate-400">
-            <span className="text-xs font-semibold">Beschlüsse gefasst</span>
+            <span className="text-xs font-semibold">Beschlüsse angenommen</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
           </div>
-          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{stats.totalResolutions}</div>
+          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{stats.angenommen}</div>
           <div className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">
-            Rechtskräftig in Protokollen protokolliert
+            {stats.abgelehnt} abgelehnt • {stats.vertagt} vertagt
           </div>
         </div>
 
@@ -387,9 +420,9 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
             <span className="text-xs font-semibold">Finanzamt-relevant</span>
             <Building className="w-4 h-4 text-blue-500" />
           </div>
-          <div className="text-2xl font-black text-blue-600 dark:text-blue-400">{stats.taxResolutions}</div>
+          <div className="text-2xl font-black text-blue-600 dark:text-blue-400">{stats.steuer}</div>
           <div className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">
-            z.B. Ehrenamtspauschalen, Mittel & Rücklagen
+            angenommene Beschlüsse mit diesem Kennzeichen
           </div>
         </div>
 
@@ -398,9 +431,9 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
             <span className="text-xs font-semibold">Vereinsregister / Notar</span>
             <Scale className="w-4 h-4 text-rose-500" />
           </div>
-          <div className="text-2xl font-black text-rose-600 dark:text-rose-400">{stats.registerResolutions}</div>
+          <div className="text-2xl font-black text-rose-600 dark:text-rose-400">{stats.register}</div>
           <div className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">
-            Wahlen gem. § 26 BGB & Satzungsbeschlüsse
+            angenommene Beschlüsse mit diesem Kennzeichen
           </div>
         </div>
       </div>
@@ -470,10 +503,11 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                 className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
               >
                 <option value="all">Alle Sitzungsarten</option>
-                <option value="board">Vorstandssitzungen</option>
-                <option value="general_assembly">Mitgliederversammlungen</option>
-                <option value="extraordinary_assembly">Außerordentliche MV</option>
-                <option value="committee">Ausschüsse & Abteilungen</option>
+                {(Object.keys(SITZUNGSARTEN) as MeetingType[]).map((a) => (
+                  <option key={a} value={a}>
+                    {SITZUNGSARTEN[a]}
+                  </option>
+                ))}
               </select>
 
               <select
@@ -482,10 +516,11 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                 className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
               >
                 <option value="all">Alle Status</option>
-                <option value="scheduled">Geplant / Einberufen</option>
-                <option value="draft">Entwurf</option>
-                <option value="review">In Prüfung</option>
-                <option value="approved">Genehmigt</option>
+                {(Object.keys(SITZUNGSSTATUS) as MeetingStatus[]).map((st) => (
+                  <option key={st} value={st}>
+                    {SITZUNGSSTATUS[st]}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -519,9 +554,11 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                   (acc, top) => acc + (top.resolutions?.length || 0),
                   0
                 );
-                const isGeneral = m.type === 'general_assembly' || m.type === 'extraordinary_assembly';
-                const needsRegisterExtract =
-                  isGeneral || m.agenda.some((top) => top.resolutions?.some((r) => r.isRegisterRelevant));
+                // Registerauszug anbieten, sobald ein Beschluss dafür gekennzeichnet ist;
+                // ob er möglich ist, sagt der Knopf beim Klick (auszugFehlt)
+                const needsRegisterExtract = m.agenda.some((top) => top.resolutions?.some((r) => r.isRegisterRelevant));
+                const anzahlSig = (leitungsUnterschrift(m) ? 1 : 0) + (schriftUnterschrift(m) ? 1 : 0);
+                const textGeaendert = (m.signatures || []).some((sg) => pruefeUnterschrift(m, sg) === 'geaendert');
 
                 return (
                   <div
@@ -553,9 +590,9 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                             title="Digitale Signaturen einsehen oder aktualisieren"
                           >
                             <PenTool className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                            <span>{m.signatures.length}/2 digital signiert</span>
+                            <span>{anzahlSig}/2 unterschrieben • gesperrt</span>
                           </button>
-                        ) : (
+                        ) : m.status === 'cancelled' ? null : (
                           <button
                             type="button"
                             onClick={() => setSignatureModalMeeting(m)}
@@ -565,6 +602,11 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                             <PenTool className="w-3 h-3 text-rose-500" />
                             <span>Digital unterschreiben</span>
                           </button>
+                        )}
+                        {textGeaendert && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 bg-rose-100 border border-rose-200 px-2 py-0.5 rounded-full dark:text-rose-200 dark:bg-rose-900/40 dark:border-rose-800/60">
+                            Text nach Unterschrift geändert
+                          </span>
                         )}
                       </div>
 
@@ -610,23 +652,23 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 pt-0.5 dark:text-slate-400">
                           <span className="flex items-center gap-1 shrink-0">
                             <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            {new Date(m.date).toLocaleDateString('de-DE', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              year: 'numeric'
-                            })}
+                            {deutsch(m.date)}
                           </span>
-                          <span className="flex items-center gap-1 shrink-0">
-                            <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            {m.startTime} Uhr{m.endTime ? ` – ${m.endTime} Uhr` : ''}
-                          </span>
-                          <span className="flex items-center gap-1 shrink-0">
-                            <Building className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span className="truncate max-w-[200px]">{m.location || 'Vereinsheim'}</span>
-                          </span>
+                          {m.startTime && (
+                            <span className="flex items-center gap-1 shrink-0">
+                              <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              {m.startTime} Uhr{m.endTime ? ` – ${m.endTime} Uhr` : ''}
+                            </span>
+                          )}
+                          {m.location && (
+                            <span className="flex items-center gap-1 shrink-0">
+                              <Building className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <span className="truncate max-w-[200px]">{m.location}</span>
+                            </span>
+                          )}
                           <span className="flex items-center gap-1 flex-wrap">
                             <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span>Leitung: {m.chairperson} • Protokoll: {m.minuteKeeper}</span>
+                            <span>Leitung: {m.chairperson || '–'} • Protokoll: {m.minuteKeeper || '–'}</span>
                           </span>
                         </div>
                       </div>
@@ -703,7 +745,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                       <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-200">
                         <span>Tagesordnung ({m.agenda.length} Punkte)</span>
                         <span className="text-slate-500 font-normal dark:text-slate-400">
-                          {totalResolutionsInMeeting} {totalResolutionsInMeeting === 1 ? 'Beschluss' : 'Beschlüsse'} gefasst
+                          {totalResolutionsInMeeting} {totalResolutionsInMeeting === 1 ? 'Beschluss' : 'Beschlüsse'}
                         </span>
                       </div>
 
@@ -768,7 +810,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                     resolutionFilter === 'tax' ? 'bg-white text-blue-700 shadow-2xs font-bold dark:bg-slate-900 dark:text-blue-300' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
                   }`}
                 >
-                  Finanzamt ({stats.taxResolutions})
+                  Finanzamt ({anzahlSteuer})
                 </button>
                 <button
                   type="button"
@@ -777,13 +819,13 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                     resolutionFilter === 'register' ? 'bg-white text-rose-700 shadow-2xs font-bold dark:bg-slate-900 dark:text-rose-300' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
                   }`}
                 >
-                  Vereinsregister ({stats.registerResolutions})
+                  Vereinsregister ({anzahlRegister})
                 </button>
               </div>
             </div>
 
             <div className="text-xs text-slate-500 dark:text-slate-400">
-              {filteredResolutions.length} gefasste Beschlüsse im Archiv
+              {filteredResolutions.length} Beschlüsse
             </div>
           </div>
 
@@ -807,7 +849,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                     <tr key={idx} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
                       <td className="px-4 py-3">
                         <div className="font-bold text-slate-900 dark:text-white">
-                          {new Date(item.meeting.date).toLocaleDateString('de-DE')}
+                          {deutsch(item.meeting.date)}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400">
                           {item.meeting.title}
@@ -867,7 +909,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                         {item.resolution.responsiblePerson || '–'}
                         {item.resolution.dueDate && (
                           <div className="text-slate-400 text-[10px]">
-                            Frist: {item.resolution.dueDate}
+                            Frist: {deutsch(item.resolution.dueDate)}
                           </div>
                         )}
                       </td>
@@ -906,19 +948,35 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
             <div className="lg:col-span-2 space-y-4">
               <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-2 dark:border-slate-800 dark:bg-slate-800">
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-100">Aktueller Status der Vorlage:</span>
-                <div className="flex items-center gap-3">
-                  {templateSettings.customBlankoDataUrl ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  {briefpapier ? (
                     <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1.5 rounded-lg dark:text-emerald-300 dark:bg-emerald-900/40">
                       <Check className="w-4 h-4" />
-                      Eigenes Briefpapier aktiv ({templateSettings.customBlankoFileName || 'Briefpapier.png'})
+                      {briefpapier.quelle === 'rechnung'
+                        ? `Briefpapier aus der Rechnungsvorlage (${invoiceTemplateSettings?.customBlankoFileName || 'Briefpapier'})`
+                        : `Älteres Briefpapier nur für Sitzungen (${templateSettings.customBlankoFileName || 'Briefpapier'})`}
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-700 bg-slate-200 px-3 py-1.5 rounded-lg dark:text-slate-200 dark:bg-slate-600">
                       <Building className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                      Standard-Vereinsbriefkopf aktiv (Kein Briefpapier hochgeladen)
+                      Standard-Vereinsbriefkopf (kein Briefpapier hinterlegt)
                     </div>
                   )}
+                  {onOpenInvoiceTemplate && (
+                    <button
+                      type="button"
+                      onClick={onOpenInvoiceTemplate}
+                      className="px-3 py-1.5 text-xs font-bold text-rose-700 bg-white border border-rose-200 hover:bg-rose-50 rounded-lg dark:text-rose-300 dark:bg-slate-900 dark:border-rose-800/60"
+                    >
+                      Briefpapier in der Rechnungsvorlage ändern
+                    </button>
+                  )}
                 </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Wie am Handy gilt ein gemeinsames Briefpapier für Rechnungen und Sitzungen; es wird in der Rechnungsvorlage gepflegt.
+                  {briefpapier?.quelle === 'sitzung' &&
+                    ' Das ältere, nur für Sitzungen hochgeladene Briefpapier wird verwendet, bis in der Rechnungsvorlage eines liegt.'}
+                </p>
               </div>
 
               <div className="border border-slate-200 rounded-xl p-4 space-y-3 dark:border-slate-800">
@@ -949,9 +1007,9 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
             {/* Visual Mini Preview */}
             <div className="border border-slate-200 rounded-xl p-4 bg-slate-100 flex flex-col items-center justify-center text-center dark:border-slate-800 dark:bg-slate-700">
               <div className="w-44 h-60 bg-white border border-slate-300 rounded-lg shadow-md p-3 relative overflow-hidden flex flex-col justify-between dark:bg-slate-800 dark:border-slate-700">
-                {templateSettings.customBlankoDataUrl ? (
+                {briefpapier ? (
                   <img
-                    src={templateSettings.customBlankoDataUrl}
+                    src={briefpapier.dataUrl}
                     alt="Briefpapier Vorschau"
                     className="absolute inset-0 w-full h-full object-cover opacity-90"
                   />
@@ -973,7 +1031,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                 </div>
               </div>
               <span className="text-[11px] font-semibold text-slate-500 mt-3 dark:text-slate-400">
-                DIN A4 Vorschau ({templateSettings.customBlankoDataUrl ? 'Mit eigenem Briefpapier' : 'Standard-Layout'})
+                DIN A4 Vorschau ({briefpapier ? 'Mit Briefpapier' : 'Standard-Layout'})
               </span>
             </div>
           </div>
@@ -997,6 +1055,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
           members={members}
           clubSettings={clubSettings}
           templateSettings={templateSettings}
+          briefpapier={briefpapier}
           onSave={onSaveMeeting}
         />
       )}
@@ -1007,6 +1066,8 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
         templateSettings={templateSettings}
         clubSettings={clubSettings}
         onSaveTemplate={onSaveTemplate}
+        rechnungsBriefpapier={Boolean(invoiceTemplateSettings?.customBlankoDataUrl?.trim())}
+        onOpenInvoiceTemplate={onOpenInvoiceTemplate}
       />
 
       {/* PDF Download Choice Modal (if meeting has digital signatures) */}
@@ -1097,6 +1158,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
           meeting={signatureModalMeeting}
           clubSettings={clubSettings}
           templateSettings={templateSettings}
+          briefpapier={briefpapier}
           onSaveMeeting={async (updatedMeeting) => {
             await onSaveMeeting(updatedMeeting);
             setSignatureModalMeeting(updatedMeeting);
@@ -1114,6 +1176,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
           members={members}
           clubSettings={clubSettings}
           templateSettings={templateSettings}
+          briefpapier={briefpapier}
         />
       )}
     </div>

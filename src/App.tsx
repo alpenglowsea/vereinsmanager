@@ -2113,6 +2113,8 @@ export default function App() {
                 onSaveMeeting={handleSaveMeeting}
                 onDeleteMeeting={handleDeleteMeeting}
                 onSaveTemplate={handleSaveMeetingTemplate}
+                invoiceTemplateSettings={invoiceTemplateSettings}
+                onOpenInvoiceTemplate={() => setInvoiceTemplateModalOpen(true)}
                 />
             )}
 
