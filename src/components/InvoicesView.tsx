@@ -1,5 +1,6 @@
 import { vergleicheDatumDannNummer, vergleicheNummerDannDatum } from '../utils/sortierung';
 import React, { useState, useMemo, useRef } from 'react';
+import { TelefonKnopf } from './TelefonKnopf';
 import {
   ClubInvoice,
   InvoiceStatus,
@@ -1283,13 +1284,9 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                                   </a>
                                 )}
                                 {inv.recipientPhone && (
-                                  <a
-                                    href={`tel:${inv.recipientPhone}`}
-                                    onClick={e => e.stopPropagation()}
-                                    className="text-[11px] text-slate-500 hover:text-blue-600 block dark:text-slate-400 dark:hover:text-blue-400"
-                                  >
+                                  <TelefonKnopf nummer={inv.recipientPhone} className="text-[11px] text-slate-500 hover:text-blue-600 block dark:text-slate-400 dark:hover:text-blue-400">
                                     {inv.recipientPhone}
-                                  </a>
+                                  </TelefonKnopf>
                                 )}
                                 {!inv.recipientEmail && !inv.recipientPhone && (
                                   <span className="text-slate-300 text-[11px]">-</span>

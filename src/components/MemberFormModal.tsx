@@ -1,5 +1,6 @@
 import { nummerVergeben } from '../utils/nummern';
 import { leseVorgaben, vorgabeFuer } from '../utils/beitragsVorgaben';
+import { kontoinhaberNachName } from '../utils/mitgliedRegeln';
 import type { ClubSettings } from '../types';
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -116,7 +117,8 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
       mandateDate: member?.bankDetails?.mandateDate || (member?.paymentMethod === 'sepa' ? new Date().toISOString().split('T')[0] : ''),
       mandateReference: member?.bankDetails?.mandateReference || `MANDAT-${nextMemberNumber}-${new Date().getFullYear()}`,
       monthlyDueDay: member?.bankDetails?.monthlyDueDay ?? 1,
-      mandateSequenceType: member?.bankDetails?.mandateSequenceType || 'RCUR'
+      // Neue Mitglieder beginnen mit einer Erstlastschrift (D-21, wie Android)
+      mandateSequenceType: member ? member.bankDetails?.mandateSequenceType || 'RCUR' : 'FRST'
     },
     notes: member?.notes || '',
     dataPrivacyConsent: member?.dataPrivacyConsent ?? true,
@@ -254,15 +256,29 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
   const reiterHatFehler = (reiter: MitgliedReiter): boolean =>
     Object.keys(errors).some(feld => FEHLER_REITER[feld] === reiter);
 
+  // Zuletzt automatisch eingetragener Kontoinhaber. Steht beim Bearbeiten
+  // schon der Name des Mitglieds drin, folgt das Feld weiter dem Namen.
+  const autoKontoinhaber = useRef<string>(
+    member && (member.bankDetails?.accountHolder || '') === `${member.firstName} ${member.lastName}`.trim()
+      ? member.bankDetails?.accountHolder || ''
+      : ''
+  );
+
   useEffect(() => {
-    // Keep account holder in sync with name if empty
-    if (!formData.bankDetails.accountHolder && (formData.firstName || formData.lastName)) {
+    // Kontoinhaber folgt dem Namen, solange das Feld leer ist oder noch den
+    // automatisch gesetzten Namen enthält; eine eigene Eingabe (Konto der
+    // Eltern) bleibt, und das Feld lässt sich leeren (D-25). Vorher wurde nur
+    // beim ersten Buchstaben eingetragen: aus „Max Müller“ wurde „M“.
+    // Die Abhängigkeitsliste bleibt bewusst unvollständig (Projektanweisung):
+    // mit dem Kontoinhaber darin liefe der Effekt bei jedem Tastendruck im
+    // Kontoinhaber-Feld und ließe es nicht leeren.
+    const name = `${formData.firstName} ${formData.lastName}`.trim();
+    const neu = kontoinhaberNachName(formData.bankDetails.accountHolder, autoKontoinhaber.current, name);
+    if (neu !== null) {
+      autoKontoinhaber.current = neu;
       setFormData(prev => ({
         ...prev,
-        bankDetails: {
-          ...prev.bankDetails,
-          accountHolder: `${prev.firstName} ${prev.lastName}`.trim()
-        }
+        bankDetails: { ...prev.bankDetails, accountHolder: neu }
       }));
     }
   }, [formData.firstName, formData.lastName]);
@@ -1316,6 +1332,26 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
                           })}
                           className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800"
                         />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
+                          Nächste Lastschrift
+                        </label>
+                        <select
+                          value={formData.bankDetails.mandateSequenceType || 'RCUR'}
+                          onChange={e => setFormData({
+                            ...formData,
+                            bankDetails: { ...formData.bankDetails, mandateSequenceType: e.target.value as 'FRST' | 'RCUR' }
+                          })}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800"
+                        >
+                          <option value="FRST">Erstlastschrift (FRST) – erster Einzug mit diesem Mandat</option>
+                          <option value="RCUR">Folgelastschrift (RCUR) – schon einmal eingezogen</option>
+                        </select>
+                        <p className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">
+                          Nach dem Verbuchen des ersten Beitragslaufs bietet die App an, auf Folgelastschrift umzustellen.
+                        </p>
                       </div>
 
                       <div>

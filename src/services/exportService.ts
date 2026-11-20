@@ -1,3 +1,4 @@
+import { statusText, typText, zahlweiseText, zahlartText, MANDATSFOLGE_TEXT } from '../utils/mitgliedRegeln';
 import {
   berechneEuer,
   buchungsCsvZeilen,
@@ -191,7 +192,8 @@ export const ExportService = {
     doc.text('1. Persönliche Stammdaten', 16, 53);
 
     const baseData = [
-      ['Mitgliedsnummer:', member.memberNumber, 'Status:', member.status.toUpperCase()],
+      // Deutsche Begriffe statt der internen Kennungen (D-29; vorher z. B. „ACTIVE“)
+      ['Mitgliedsnummer:', member.memberNumber, 'Status:', statusText(member.status)],
       ['Vollständiger Name:', `${member.firstName} ${member.lastName}`, 'Geschlecht:', member.gender === 'm' ? 'Männlich' : member.gender === 'w' ? 'Weiblich' : member.gender === 'd' ? 'Divers' : '–'],
       ['Geburtsdatum:', member.birthDate ? new Date(member.birthDate).toLocaleDateString('de-DE') : '–', 'Abteilung:', member.department],
       ['Straße / Hausnr.:', `${member.address.street} ${member.address.houseNumber}`, 'Eintrittsdatum:', member.entryDate ? new Date(member.entryDate).toLocaleDateString('de-DE') : '–'],
@@ -222,11 +224,12 @@ export const ExportService = {
     doc.text('2. Beitrags- & Zahlungsmodalitäten', 16, currentY1 + 5);
 
     const paymentData = [
-      ['Mitgliedschaftstyp:', member.membershipType.toUpperCase(), 'Beitragshöhe:', `${member.feeAmount.toFixed(2)} €`],
-      ['Zahlungsrhythmus:', member.feePeriod === 'yearly' ? 'Jährlich' : member.feePeriod === 'half_yearly' ? 'Halbjährlich' : member.feePeriod === 'quarterly' ? 'Vierteljährlich' : 'Monatlich', 'Zahlungsmethode:', member.paymentMethod.toUpperCase()],
+      ['Mitgliedschaftstyp:', typText(member.membershipType), 'Beitragshöhe:', `${member.feeAmount.toFixed(2).replace('.', ',')} €`],
+      ['Zahlungsrhythmus:', zahlweiseText(member.feePeriod), 'Zahlungsmethode:', zahlartText(member.paymentMethod)],
       ['Kontoinhaber:', member.bankDetails.accountHolder || '–', 'Kreditinstitut:', member.bankDetails.bankName || '–'],
       ['IBAN:', member.bankDetails.iban || '–', 'BIC:', member.bankDetails.bic || '–'],
-      ['SEPA-Mandatsreferenz:', member.bankDetails.mandateReference || '–', 'Mandatsdatum:', member.bankDetails.mandateDate ? new Date(member.bankDetails.mandateDate).toLocaleDateString('de-DE') : '–']
+      ['SEPA-Mandatsreferenz:', member.bankDetails.mandateReference || '–', 'Mandatsdatum:', member.bankDetails.mandateDate ? new Date(member.bankDetails.mandateDate).toLocaleDateString('de-DE') : '–'],
+      ['Nächste Lastschrift:', member.paymentMethod === 'sepa' ? MANDATSFOLGE_TEXT[member.bankDetails.mandateSequenceType || 'RCUR'] : '–', '', '']
     ];
 
     autoTable(doc, {

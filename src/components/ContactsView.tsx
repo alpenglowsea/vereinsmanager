@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
+import { TelefonKnopf } from './TelefonKnopf';
 import { ClubContact, ContactType, ContactPersonType } from '../types';
 import { CONTACT_TYPES_LIST, CONTACT_TYPE_MAP } from '../data/contactConstants';
 import { ExportService } from '../services/exportService';
@@ -1172,14 +1173,10 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                                 )}
 
                                 {contact.phone && (
-                                  <a
-                                    href={`tel:${contact.phone}`}
-                                    onClick={e => e.stopPropagation()}
-                                    className="text-2xs text-slate-600 hover:text-blue-600 flex items-center gap-1 dark:text-slate-300 dark:hover:text-blue-400"
-                                  >
+                                  <TelefonKnopf nummer={contact.phone} className="text-2xs text-slate-600 hover:text-blue-600 flex items-center gap-1 dark:text-slate-300 dark:hover:text-blue-400">
                                     <Phone className="w-3 h-3 shrink-0 text-slate-400" />
                                     <span>{contact.phone}</span>
-                                  </a>
+                                  </TelefonKnopf>
                                 )}
                               </div>
                             </td>
@@ -1232,13 +1229,9 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                           mobile: (
                             <td key="mobile" data-col-content="mobile" className="py-3.5 px-3 overflow-hidden">
                               {contact.mobile ? (
-                                <a
-                                  href={`tel:${contact.mobile}`}
-                                  onClick={e => e.stopPropagation()}
-                                  className="text-xs text-slate-700 hover:text-blue-600 truncate dark:text-slate-200 dark:hover:text-blue-400"
-                                >
+                                <TelefonKnopf nummer={contact.mobile} className="text-xs text-slate-700 hover:text-blue-600 truncate dark:text-slate-200 dark:hover:text-blue-400">
                                   {contact.mobile}
-                                </a>
+                                </TelefonKnopf>
                               ) : (
                                 <span className="text-slate-300 text-2xs">-</span>
                               )}

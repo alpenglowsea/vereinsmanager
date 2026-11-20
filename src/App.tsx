@@ -1943,7 +1943,9 @@ export default function App() {
                 settings={settings}
                 accounts={accounts}
                 onOpenSettings={() => setActiveTab('settings')}
-                onRefreshData={loadData}
+                // Leise neu laden: mit Ladebildschirm würde die Ansicht neu aufgebaut
+                // und die Rückfrage zur Folgelastschrift ginge verloren (wie T-82)
+                onRefreshData={() => loadData(true)}
                 />
             )}
 

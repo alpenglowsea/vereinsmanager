@@ -1151,11 +1151,17 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
               <PieIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
               Verteilung nach Mitgliedschaftstyp
             </h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              Anteil an allen {members.length} Mitgliedern, einschließlich Ausgetretener.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {Object.entries(typeMap).map(([key, item]) => {
-              const pct = total > 0 ? Math.round((item.count / total) * 100) : 0;
+              // Die Kachel zählt alle Mitglieder (auch Ausgetretene), also auch
+              // auf alle beziehen; vorher teilte sie durch die aktuellen und kam
+              // zusammen über 100 % (D-26, wie Android)
+              const pct = members.length > 0 ? Math.round((item.count / members.length) * 100) : 0;
               return (
                 <div key={key} className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg dark:bg-slate-800 dark:border-slate-800">
                   <div className="text-xs text-slate-500 font-medium truncate dark:text-slate-400">{item.label}</div>

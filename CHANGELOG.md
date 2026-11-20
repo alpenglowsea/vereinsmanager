@@ -137,6 +137,44 @@ entsprechen der Android-Fassung.
   Dokumentenverwaltung bleibt beim Löschen der Sitzung erhalten (wie bei
   Android). Vorher wurde es ohne Rückfrage mitgelöscht.
 
+### Pakete 13 bis 15 — Mitglieder und Beitrag (D-02, D-21 bis D-27, D-29, D-63)
+
+- **Mandatsfolge wählbar (D-21):** Im Mitgliedsformular gibt es bei SEPA die
+  Auswahl „Erstlastschrift / Folgelastschrift“; neue Mitglieder beginnen mit
+  Erstlastschrift (vorher immer Folgelastschrift).
+- **Nach dem ersten Einzug (D-22):** Nach dem Verbuchen eines Beitragslaufs
+  bietet die App an, die mit Erstlastschrift eingezogenen Mitglieder auf
+  Folgelastschrift umzustellen; umgestellt wird nur auf „Umstellen“.
+- **Kontoinhaber (D-25):** folgt dem Namen, solange das Feld leer ist oder
+  noch den automatisch eingetragenen Namen enthält. Vorher wurde nur der
+  erste Buchstabe übernommen („M“ statt „Max Müller“). Eine eigene Eingabe
+  (Konto der Eltern) bleibt, und das Feld lässt sich leeren. Die
+  `exhaustive-deps`-Warnung in `MemberFormModal` bleibt bewusst bestehen.
+- **Beitragslauf (D-23):** Mitglieder mit Austritt vor dem Tag des Laufs
+  oder Eintritt danach werden nicht mehr eingezogen; Ein- oder Austritt am
+  selben Tag schon (wie Android).
+- **Prüfprotokoll (D-24):** Der Stern „weicht vom Mitglied ab“ steht nur
+  noch bei echter Abweichung; vorher hatte ihn jede Zeile, weil „Max Müller“
+  mit „Müller, Max“ verglichen wurde.
+- **Verbuchen (D-02):** auf Konto 40000 „Echte Mitgliedsbeiträge (laufend)“,
+  ideeller Bereich, mit Sparte; Belegnummern ohne Doppel. Ein Lauf lässt
+  sich nur einmal verbuchen; die Rückfrage ist ein eigenes Fenster.
+- **Ausführungsdatum am Wochenende:** Hinweis unter dem Datumsfeld.
+- **Sammelbearbeitung (D-27):** wendet die Regeln des Formulars an, z. B.
+  setzt „gekündigt“ auch Beitrag, Zahlweise und Zahlungsart zurück und
+  trägt das Austrittsdatum ein; bei Ausgetretenen oder beitragsfreien
+  Mitgliedern wird kein Beitrag gesetzt.
+- **Statistik (D-26):** Die Kachel „Mitgliedschaftstyp“ bezieht die Prozente
+  auf alle Mitglieder; vorher konnten es zusammen über 100 % sein.
+- **Stammblatt (D-29):** deutsche Begriffe statt „ACTIVE“, „FULL“, „SEPA“;
+  dazu die nächste Lastschriftart.
+- **Telefonnummern (D-63, E9):** Ein Klick kopiert die Nummer in die
+  Zwischenablage (Mitglieder, Kontakte, Rechnungsliste); ein `tel:`-Link tut
+  am Rechner oft nichts. E-Mail-Adressen öffnen weiter das Mailprogramm.
+- Regeln in `src/utils/mitgliedRegeln.ts` (11 Tests) und
+  `src/services/beitragsBuchung.ts` (4 Tests), dazu 1 Test in
+  `sepaService.test.ts`.
+
 ### Paket 11 und 12 — Rechnungen: Inhalt, PDF und Zahlung (D-01, D-05, D-44 bis D-46, D-49 bis D-52, D-149)
 
 - **Als bezahlt markieren (D-01, D-46):** Die Statusknöpfe in den

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { TelefonKnopf } from './TelefonKnopf';
 import { Member, MemberAuditLog, ClubSettings, InventoryItem, MemberInventoryAssignment } from '../types';
 import { ExportService } from '../services/exportService';
 import { StorageService } from '../services/storage';
@@ -662,10 +663,10 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
                         </div>
                         <div className="flex flex-wrap items-center gap-3 text-slate-600 dark:text-slate-300">
                           {member.guardianPhone && (
-                            <a href={`tel:${member.guardianPhone}`} className="text-blue-600 hover:underline flex items-center gap-1 dark:text-blue-400">
+                            <TelefonKnopf nummer={member.guardianPhone} className="text-blue-600 hover:underline flex items-center gap-1 dark:text-blue-400">
                               <Phone className="w-3 h-3" />
                               {member.guardianPhone}
-                            </a>
+                            </TelefonKnopf>
                           )}
                           {member.guardianEmail && (
                             <a href={`mailto:${member.guardianEmail}`} className="text-blue-600 hover:underline flex items-center gap-1 dark:text-blue-400">
@@ -687,9 +688,9 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
                       <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-100 dark:bg-slate-800 dark:border-slate-800">
                         <Phone className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                         {member.phone ? (
-                          <a href={`tel:${member.phone}`} className="text-blue-600 hover:underline font-medium dark:text-blue-400">
+                          <TelefonKnopf nummer={member.phone} className="text-blue-600 hover:underline font-medium dark:text-blue-400">
                             {member.phone}
-                          </a>
+                          </TelefonKnopf>
                         ) : (
                           <span className="text-slate-400 italic">Keine Telefonnummer</span>
                         )}

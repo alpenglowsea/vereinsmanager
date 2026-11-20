@@ -181,6 +181,16 @@ describe('buildCollectionItems: Auswahl der Mitglieder', () => {
     expect(items).toHaveLength(0);
   });
 
+  it('schließt nach Ein- und Austrittsdatum aus (D-23)', () => {
+    const mitglieder = [
+      makeMember({ id: 'a', memberNumber: 'A', exitDate: '2026-11-19' }),
+      makeMember({ id: 'b', memberNumber: 'B', exitDate: '2026-11-20' }),
+      makeMember({ id: 'c', memberNumber: 'C', entryDate: '2026-12-01' })
+    ];
+    const items = SepaService.buildCollectionItems(mitglieder, config, '2026-11-20');
+    expect(items.map(i => i.memberNumber)).toEqual(['B']);
+  });
+
   it('schließt Mitglieder ohne SEPA-Zahlweise aus', () => {
     const items = SepaService.buildCollectionItems(
       [makeMember({ paymentMethod: 'transfer' })],

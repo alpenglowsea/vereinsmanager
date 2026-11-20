@@ -48,6 +48,8 @@ import { AuthService } from './authService';
 import { customCategoryService } from './customCategoryService';
 import { planeBelegOrdner, planeUnterordner, belegArtVon, sollEinsortiertWerden, BelegArt } from '../utils/belegOrdner';
 import { wendeSammelAn } from '../utils/buchungSammel';
+import { wendeSammelRegelnAn, lokalesHeute } from '../utils/mitgliedRegeln';
+import { beitragsBuchungen } from './beitragsBuchung';
 import {
   belegDokumentId,
   inventarSperrText,
@@ -1686,7 +1688,8 @@ export const StorageService = {
       reduced: 'Ermäßigt',
       family: 'Familie',
       supporting: 'Förderer / Sponsor',
-      honorary: 'Ehrenmitglied'
+      honorary: 'Ehrenmitglied',
+      ausgetreten: 'Ausgetreten'
     };
 
     const formatVal = (field: string, val: any) => {
@@ -1706,49 +1709,30 @@ export const StorageService = {
       const memberCopy = { ...mem };
       const changes: MemberAuditLog['changes'] = [];
 
-      // Payment Method
-      if (updates.paymentMethod !== undefined && memberCopy.paymentMethod !== updates.paymentMethod) {
+      // Art, Status, Zahlweise, Zahlungsart, Beitrag und Austritt nach den
+      // Regeln des Formulars (D-27, wie Android). Vorher setzte die
+      // Sammelbearbeitung z. B. „gekündigt“, ließ aber Beitrag und Lastschrift stehen.
+      const geregelt = wendeSammelRegelnAn(memberCopy, updates, lokalesHeute()).mitglied;
+      const regelFelder = ['membershipType', 'status', 'feePeriod', 'paymentMethod', 'feeAmount', 'exitDate'] as const;
+      for (const feld of regelFelder) {
+        const vorher = memberCopy[feld];
+        const nachher = geregelt[feld];
+        if ((vorher ?? '') === (nachher ?? '')) continue;
         changes.push({
-          field: 'paymentMethod',
-          label: fieldLabels.paymentMethod,
-          oldValue: formatVal('paymentMethod', memberCopy.paymentMethod),
-          newValue: formatVal('paymentMethod', updates.paymentMethod)
+          field: feld,
+          label: fieldLabels[feld],
+          oldValue: feld === 'exitDate' ? (vorher as string) || '–' : formatVal(feld, vorher),
+          newValue: feld === 'exitDate' ? (nachher as string) || '–' : formatVal(feld, nachher)
         });
-        memberCopy.paymentMethod = updates.paymentMethod;
       }
-
-      // Fee Period
-      if (updates.feePeriod !== undefined && memberCopy.feePeriod !== updates.feePeriod) {
-        changes.push({
-          field: 'feePeriod',
-          label: fieldLabels.feePeriod,
-          oldValue: formatVal('feePeriod', memberCopy.feePeriod),
-          newValue: formatVal('feePeriod', updates.feePeriod)
-        });
-        memberCopy.feePeriod = updates.feePeriod;
-      }
-
-      // Status
-      if (updates.status !== undefined && memberCopy.status !== updates.status) {
-        changes.push({
-          field: 'status',
-          label: fieldLabels.status,
-          oldValue: formatVal('status', memberCopy.status),
-          newValue: formatVal('status', updates.status)
-        });
-        memberCopy.status = updates.status;
-      }
-
-      // Membership Type
-      if (updates.membershipType !== undefined && memberCopy.membershipType !== updates.membershipType) {
-        changes.push({
-          field: 'membershipType',
-          label: fieldLabels.membershipType,
-          oldValue: formatVal('membershipType', memberCopy.membershipType),
-          newValue: formatVal('membershipType', updates.membershipType)
-        });
-        memberCopy.membershipType = updates.membershipType;
-      }
+      Object.assign(memberCopy, {
+        membershipType: geregelt.membershipType,
+        status: geregelt.status,
+        feePeriod: geregelt.feePeriod,
+        paymentMethod: geregelt.paymentMethod,
+        feeAmount: geregelt.feeAmount,
+        exitDate: geregelt.exitDate
+      });
 
       // Department
       if (updates.department !== undefined && memberCopy.department !== updates.department) {
@@ -1759,17 +1743,6 @@ export const StorageService = {
           newValue: updates.department
         });
         memberCopy.department = updates.department;
-      }
-
-      // Fee Amount
-      if (updates.feeAmount !== undefined && memberCopy.feeAmount !== updates.feeAmount) {
-        changes.push({
-          field: 'feeAmount',
-          label: fieldLabels.feeAmount,
-          oldValue: `${memberCopy.feeAmount.toFixed(2)} €`,
-          newValue: `${updates.feeAmount.toFixed(2)} €`
-        });
-        memberCopy.feeAmount = updates.feeAmount;
       }
 
       // Entry Date
@@ -1795,17 +1768,6 @@ export const StorageService = {
           ...memberCopy.bankDetails,
           monthlyDueDay: updates.monthlyDueDay
         };
-      }
-
-      // Exit Date
-      if (updates.exitDate !== undefined && memberCopy.exitDate !== updates.exitDate) {
-        changes.push({
-          field: 'exitDate',
-          label: fieldLabels.exitDate,
-          oldValue: memberCopy.exitDate || '–',
-          newValue: updates.exitDate || '–'
-        });
-        memberCopy.exitDate = updates.exitDate || undefined;
       }
 
       // Data Privacy Consent
@@ -2360,30 +2322,19 @@ export const StorageService = {
    * Automatically books all debit items of a SEPA run into the financial accounting ledger
    */
   async bookSepaRunTransactions(run: SepaRunHistory, targetAccountId: string): Promise<Transaction[]> {
-    const activeItems = run.items.filter(i => i.selected && i.isValid && i.amount > 0);
+    // Ein Lauf wird nur einmal verbucht
+    const gespeichert = await getItemFromStore<SepaRunHistory>(STORES.SEPA_RUNS, run.id);
+    if (gespeichert?.isBooked) throw new Error('Dieser Beitragslauf ist bereits verbucht.');
     const now = new Date().toISOString();
-    const createdTransactions: Transaction[] = [];
-
-    for (const item of activeItems) {
-      const docNum = `SEPA-${run.targetYear}-${run.targetMonth ? run.targetMonth.toString().padStart(2, '0') : 'RUN'}-${item.memberNumber}`;
-      const tx: Transaction = {
-        id: `tx-sepa-${run.id}-${item.memberNumber}-${Math.random().toString(36).substring(2, 6)}`,
-        date: run.executionDate,
-        amount: item.amount, // Income (positive)
-        type: 'income',
-        accountId: targetAccountId,
-        documentNumber: docNum,
-        bookingText: item.remittanceInfo,
-        partner: item.accountHolder || item.memberName,
-        sphere: 'ideell',
-        category: 'Mitgliedsbeiträge',
-        vatRate: 0,
-        notes: `Automatische Verbuchung aus SEPA-Beitragslauf "${run.title}" (Mandat: ${item.mandateReference}, IBAN: ${item.iban.slice(0, 6)}...${item.iban.slice(-4)})`,
-        createdAt: now,
-        updatedAt: now
-      };
-      createdTransactions.push(tx);
-    }
+    // Konto 40000, eindeutige Belegnummern (D-02, wie Android)
+    const vorhandene = (await this.getTransactions()).map(t => t.documentNumber);
+    const createdTransactions = beitragsBuchungen(
+      run,
+      targetAccountId,
+      vorhandene,
+      now,
+      nr => `tx-sepa-${run.id}-${nr}-${Math.random().toString(36).substring(2, 6)}`
+    );
 
     // Save batch transactions
     if (createdTransactions.length > 0) {
@@ -2399,6 +2350,25 @@ export const StorageService = {
     await this.saveSepaRun(updatedRun);
 
     return createdTransactions;
+  },
+
+  /**
+   * Mitglieder nach dem ersten Einzug auf Folgelastschrift umstellen (D-22).
+   * Nur auf Ja des Anwenders; gibt die Zahl der umgestellten zurück.
+   */
+  async stelleAufFolgelastschriftUm(memberIds: string[]): Promise<number> {
+    let n = 0;
+    for (const id of memberIds) {
+      const m = await getItemFromStore<Member>(STORES.MEMBERS, id);
+      if (!m || m.bankDetails?.mandateSequenceType !== 'FRST') continue;
+      await putItemToStore(STORES.MEMBERS, {
+        ...m,
+        bankDetails: { ...m.bankDetails, mandateSequenceType: 'RCUR' },
+        updatedAt: new Date().toISOString()
+      });
+      n++;
+    }
+    return n;
   },
 
   // Documents Management

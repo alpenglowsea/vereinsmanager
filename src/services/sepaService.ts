@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatClubAddress } from '../utils/clubAddress';
+import { wirdEingezogen, kontoinhaberWeichtAb, lokalesHeute } from '../utils/mitgliedRegeln';
 import {
   Member,
   ClubSettings,
@@ -236,7 +237,9 @@ export const SepaService = {
    */
   buildCollectionItems(
     members: Member[],
-    config: Partial<SepaRunConfig>
+    config: Partial<SepaRunConfig>,
+    /** Stichtag für Ein- und Austritt (JJJJ-MM-TT, Ortszeit) */
+    heute: string = lokalesHeute()
   ): SepaCollectionItem[] {
     const filter = config.periodFilter || 'monthly_1';
     const targetYear = config.targetYear || new Date().getFullYear();
@@ -252,7 +255,9 @@ export const SepaService = {
         // Gekündigte und ruhende Mitgliedschaften werden nicht eingezogen.
         // Der Kommentar nannte "suspended" bereits, die Prüfung fehlte aber,
         // sodass bei ruhender Mitgliedschaft weiter abgebucht wurde.
-        if (m.status === 'terminated' || m.status === 'suspended') return false;
+        // Dazu Ein- und Austrittsdatum: Austritt vor heute oder Eintritt nach
+        // heute wird nicht eingezogen (D-23, wie Android).
+        if (!wirdEingezogen(m, heute)) return false;
         // Must use SEPA
         if (m.paymentMethod !== 'sepa') return false;
 
@@ -641,7 +646,9 @@ ${bloecke.join('\n')}
       (idx + 1).toString(),
       item.memberNumber,
       item.memberName,
-      item.accountHolder !== item.memberName ? `${item.accountHolder}*` : item.accountHolder,
+      // Stern nur bei echter Abweichung; „Max Müller“ und „Müller, Max“ sind
+      // derselbe Name (D-24; vorher hatte jede Zeile einen Stern)
+      kontoinhaberWeichtAb(item.accountHolder, '', item.memberName) ? `${item.accountHolder}*` : item.accountHolder,
       item.iban ? `${item.iban.slice(0, 6)}...${item.iban.slice(-4)}` : '–',
       item.mandateReference,
       `${item.amount.toFixed(2)} €`

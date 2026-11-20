@@ -1,4 +1,5 @@
 import React from 'react';
+import { TelefonKnopf } from './TelefonKnopf';
 import { ClubContact, Transaction } from '../types';
 import { CONTACT_TYPE_MAP } from '../data/contactConstants';
 import {
@@ -225,24 +226,18 @@ export const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
                 {contact.phone && (
                   <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
                     <span className="text-slate-400 w-16">Telefon:</span>
-                    <a
-                      href={`tel:${contact.phone}`}
-                      className="text-slate-800 hover:text-orange-600 font-medium dark:text-slate-100 dark:hover:text-orange-400"
-                    >
+                    <TelefonKnopf nummer={contact.phone} className="text-slate-800 hover:text-orange-600 font-medium dark:text-slate-100 dark:hover:text-orange-400">
                       {contact.phone}
-                    </a>
+                    </TelefonKnopf>
                   </div>
                 )}
 
                 {contact.mobile && (
                   <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
                     <span className="text-slate-400 w-16">Mobil:</span>
-                    <a
-                      href={`tel:${contact.mobile}`}
-                      className="text-slate-800 hover:text-orange-600 font-medium dark:text-slate-100 dark:hover:text-orange-400"
-                    >
+                    <TelefonKnopf nummer={contact.mobile} className="text-slate-800 hover:text-orange-600 font-medium dark:text-slate-100 dark:hover:text-orange-400">
                       {contact.mobile}
-                    </a>
+                    </TelefonKnopf>
                   </div>
                 )}
 

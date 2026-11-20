@@ -33,6 +33,8 @@ import {
   X
 } from 'lucide-react';
 import { LoadingState } from './LoadingState';
+import { BestaetigungsDialog } from './BestaetigungsDialog';
+import { erstlastschriftMitglieder, verbuchbarePosten } from '../services/beitragsBuchung';
 
 interface SepaRunViewProps {
   members: Member[];
@@ -71,6 +73,9 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
   }, []);
 
   const [executionDate, setExecutionDate] = useState<string>(defaultExecDate);
+  // Rückfragen beim Verbuchen (statt window.confirm) und danach zur Mandatsfolge (D-22)
+  const [verbuchenFrage, setVerbuchenFrage] = useState<SepaRunHistory | null>(null);
+  const [folgeFrage, setFolgeFrage] = useState<string[] | null>(null);
   // Dateiformat der Lastschriftdatei. Standard ist das neue Format, das die
   // Banken seit November 2026 verlangen; das alte bleibt wählbar, falls eine
   // Bank es noch erwartet.
@@ -332,22 +337,16 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
   };
 
   // Book SEPA run to Accounting
-  const handleBookToLedger = async (run: SepaRunHistory) => {
+  const handleBookToLedger = (run: SepaRunHistory) => {
     if (!selectedTargetAccountId) {
       alert('Bitte wählen Sie ein Vereinskonto für die Gutschrift aus.');
       return;
     }
+    setVerbuchenFrage(run);
+  };
 
-    if (
-      !window.confirm(
-        `Möchten Sie ${run.totalTransactions} Lastschriften in Höhe von insgesamt €${run.totalAmount.toFixed(
-          2
-        )} jetzt als Einnahmen-Buchungen auf das gewählte Vereinskonto übertragen?`
-      )
-    ) {
-      return;
-    }
-
+  const verbucheLauf = async (run: SepaRunHistory) => {
+    setVerbuchenFrage(null);
     try {
       setIsBookingRunning(true);
       const createdTxs = await StorageService.bookSepaRunTransactions(
@@ -358,9 +357,13 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
       if (onRefreshData) onRefreshData();
 
       setSuccessToast(
-        `Erfolgreich ${createdTxs.length} Buchungen für den Beitragslauf "${run.title}" verbucht!`
+        `${createdTxs.length} Buchungen für den Beitragslauf "${run.title}" auf Konto 40000 verbucht.`
       );
       setTimeout(() => setSuccessToast(null), 5000);
+      // Wer mit Erstlastschrift eingezogen wurde, bekommt künftig eine
+      // Folgelastschrift; umgestellt wird nur auf Ja (D-22, wie Android)
+      const erst = erstlastschriftMitglieder(run);
+      if (erst.length > 0) setFolgeFrage(erst);
     } catch (err: any) {
       alert(`Fehler beim automatischen Verbuchen: ${err.message}`);
     } finally {
@@ -686,6 +689,12 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                   onChange={e => setExecutionDate(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                 />
+                {/* Banken buchen an Wochenenden nicht; der Einzug verschiebt sich dann */}
+                {/^\d{4}-\d{2}-\d{2}$/.test(executionDate) && [0, 6].includes(new Date(`${executionDate}T12:00:00`).getDay()) && (
+                  <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                    Das Datum fällt auf ein Wochenende. Banken führen Lastschriften nur an Bankarbeitstagen aus.
+                  </p>
+                )}
               </div>
 
               {/* Dateiformat */}
@@ -1273,6 +1282,34 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {verbuchenFrage && (
+        <BestaetigungsDialog
+          titel="Beitragslauf verbuchen?"
+          text={`${verbuchbarePosten(verbuchenFrage).length} Lastschriften über zusammen ${verbuchbarePosten(verbuchenFrage)
+            .reduce((s, i) => s + i.amount, 0)
+            .toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })} werden als Einnahmen auf Konto 40000 „Echte Mitgliedsbeiträge (laufend)“ gebucht (ideeller Bereich). Ein Lauf lässt sich nur einmal verbuchen.`}
+          bestaetigenText="Verbuchen"
+          onBestaetigen={() => verbucheLauf(verbuchenFrage)}
+          onAbbrechen={() => setVerbuchenFrage(null)}
+        />
+      )}
+      {folgeFrage && (
+        <BestaetigungsDialog
+          titel="Auf Folgelastschrift umstellen?"
+          text={`${folgeFrage.length} ${folgeFrage.length === 1 ? 'Mitglied wurde' : 'Mitglieder wurden'} in diesem Lauf mit einer Erstlastschrift eingezogen. Für den nächsten Einzug sollte dort „Folgelastschrift“ stehen. Jetzt umstellen?`}
+          bestaetigenText="Umstellen"
+          abbrechenText="Nicht umstellen"
+          onBestaetigen={async () => {
+            const ids = folgeFrage;
+            setFolgeFrage(null);
+            const n = await StorageService.stelleAufFolgelastschriftUm(ids);
+            if (onRefreshData) onRefreshData();
+            setSuccessToast(`${n} ${n === 1 ? 'Mitglied' : 'Mitglieder'} auf Folgelastschrift umgestellt.`);
+            setTimeout(() => setSuccessToast(null), 5000);
+          }}
+          onAbbrechen={() => setFolgeFrage(null)}
+        />
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { TelefonKnopf } from './TelefonKnopf';
 import { Member, ClubSettings, MemberBulkUpdates } from '../types';
 import { ExportService } from '../services/exportService';
 import { MemberBulkEditModal } from './MemberBulkEditModal';
@@ -1535,7 +1536,11 @@ export const MembersView: React.FC<MembersViewProps> = ({
                   ),
                   phone: (
                     <td key="phone" data-col-content="phone" className="px-4 py-3 text-slate-600 text-xs truncate dark:text-slate-300">
-                      {member.phone || '–'}
+                      {member.phone ? (
+                        <TelefonKnopf nummer={member.phone} className="hover:text-blue-600 dark:hover:text-blue-400" />
+                      ) : (
+                        '–'
+                      )}
                     </td>
                   ),
                   membershipType: (
