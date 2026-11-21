@@ -1,4 +1,5 @@
 import { naechsteJahresNummer } from '../utils/nummern';
+import { useBlobAdresse } from '../utils/pdfVorschau';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   X,
@@ -81,6 +82,8 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
   // Scanned pages state
   const [pages, setPages] = useState<ScannedPage[]>([]);
   const [uploadedPdf, setUploadedPdf] = useState<{ name: string; dataUrl: string; size: number } | null>(null);
+  // PDF über eine Blob-Adresse zeigen; eine Data-URL bleibt im Desktop-Fenster leer (T-261)
+  const pdfVorschauAdresse = useBlobAdresse(uploadedPdf?.dataUrl);
   const [selectedPageIndex, setSelectedPageIndex] = useState<number>(0);
   const [exportFormat, setExportFormat] = useState<'pdf' | 'image'>('pdf');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -773,7 +776,7 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
                     {/* PDF Embed / iframe */}
                     <div className="flex-1 p-2 flex items-center justify-center bg-slate-950 min-h-[380px]">
                       <iframe
-                        src={uploadedPdf.dataUrl}
+                        src={pdfVorschauAdresse || undefined}
                         title="PDF Beleg-Vorschau"
                         className="w-full h-full min-h-[400px] rounded-lg border border-slate-800 bg-white dark:bg-slate-900"
                       />

@@ -68,6 +68,15 @@ class AntragTest {
         assertTrue(fehler(4, kind.copy(vertreterName = "Eva Muster")).containsKey("vertreterUnterschrift"))
         val ok = kind.copy(vertreterName = "Eva Muster", vertreterUnterschrift = unterschrift)
         assertTrue(fehler(1, ok).isEmpty()); assertTrue(fehler(4, ok).isEmpty())
+        // Unter 18 unterschreibt allein der Vertreter, das Kind nicht
+        assertTrue(fehler(4, ok.copy(unterschrift = null)).isEmpty())
+        assertTrue(fehler(4, erwachsener().copy(unterschrift = null)).containsKey("unterschrift"))
+    }
+
+    @Test fun kontoinhaberVorschlagBeiMinderjaehrigenDerVertreter() {
+        assertEquals("Anna Muster", AntragRegeln.kontoinhaberVorschlag(erwachsener(), heute))
+        assertEquals("Eva Muster", AntragRegeln.kontoinhaberVorschlag(erwachsener().copy(geburtsdatum = "2012-01-01", vertreterName = " Eva Muster "), heute))
+        assertEquals("Anna Muster", AntragRegeln.kontoinhaberVorschlag(erwachsener().copy(geburtsdatum = "2012-01-01"), heute))
     }
 
     @Test fun lastschriftBrauchtGueltigeIbanUndKontoinhaber() {
@@ -252,7 +261,7 @@ class AntragTest {
         val e = AntragEinstellungen.standard()
         val kind = erwachsener().copy(
             geburtsdatum = "2012-01-01", vertreterName = "Peter Muster", kontoinhaber = "Peter Muster", vertreterUnterschrift = unterschrift,
-            vorverein = "SV Alt", notiz = "Torwart",
+            unterschrift = null, vorverein = "SV Alt", notiz = "Torwart",
         )
         val seiten = AntragLayout.bauen(kind, verein, e, "M-0007", heute, mass)
         imRahmen(seiten)
@@ -261,8 +270,9 @@ class AntragTest {
         assertTrue(t.contains("DE89 3704 0044 0532 0130 00")); assertTrue(t.contains("MANDAT-M-0007-2026")); assertTrue(t.contains("DE98ZZZ09999999999"))
         assertTrue(t.contains("18,00 € monatlich"))
         assertTrue(t.any { it.startsWith("2. Gesetzlicher Vertreter") }) // minderjährig
-        assertEquals(2, seiten.flatten().count { it is Zeichnung.Linienzug }) // Kind + Vertreter; Kontoinhaber = Vertreter, keine dritte
-        assertTrue(t.any { it.startsWith("Seite 1 von ") })
+        assertEquals(1, seiten.flatten().count { it is Zeichnung.Linienzug }) // nur der Vertreter; Kontoinhaber = Vertreter, keine weitere
+        assertTrue(t.contains("Unterschrift gesetzlicher Vertreter")); assertFalse(t.contains("Unterschrift Antragsteller/in"))
+        assertFalse(t.any { it.startsWith("Seite ") }) // keine Seitenzahl (stört das Briefpapier)
         assertFalse(t.any { it.contains("{verein}") })
         assertTrue(t.any { it.contains("TSV Test e.V.") && it.startsWith("Satzung") || it.contains("Satzung") })
     }
@@ -313,6 +323,8 @@ class AntragTest {
         assertTrue(t.contains("Bitte in Druckbuchstaben ausfüllen und unterschreiben."))
         assertEquals(0, seiten.flatten().count { it is Zeichnung.Linienzug })
         assertTrue(t.any { it.startsWith("Unterschrift Kontoinhaber") })
+        assertTrue(t.contains("Unterschrift Antragsteller/in (ab 18 Jahren)")); assertTrue(t.contains("Unterschrift gesetzlicher Vertreter (bei unter 18)"))
+        assertFalse(t.any { it.startsWith("Seite ") })
         assertFalse(t.contains("Anna"))
     }
 
@@ -320,6 +332,5 @@ class AntragTest {
         val e = AntragEinstellungen.standard().copy(datenschutz = "Sehr langer Text. ".repeat(80))
         val seiten = AntragLayout.bauen(erwachsener().copy(notiz = "x".repeat(300)), verein, e, "M-1", heute, mass)
         imRahmen(seiten); assertTrue(seiten.size >= 2)
-        assertTrue(texte(seiten).any { it.startsWith("Seite 2 von ${seiten.size}") })
     }
 }

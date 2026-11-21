@@ -63,7 +63,7 @@ interface MeetingsViewProps {
   onSaveTemplate: (settings: MeetingTemplateSettings) => Promise<void>;
   /** Rechnungsvorlage: ihr Briefpapier gilt auch für Sitzungen (D-123) */
   invoiceTemplateSettings?: InvoiceTemplateSettings;
-  onOpenInvoiceTemplate?: () => void;
+  onOpenBriefpapier?: () => void;
 }
 
 export const MeetingsView: React.FC<MeetingsViewProps> = ({
@@ -75,7 +75,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
   onDeleteMeeting,
   onSaveTemplate,
   invoiceTemplateSettings,
-  onOpenInvoiceTemplate,
+  onOpenBriefpapier,
 }) => {
   /**
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
@@ -953,7 +953,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                     <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1.5 rounded-lg dark:text-emerald-300 dark:bg-emerald-900/40">
                       <Check className="w-4 h-4" />
                       {briefpapier.quelle === 'rechnung'
-                        ? `Briefpapier aus der Rechnungsvorlage (${invoiceTemplateSettings?.customBlankoFileName || 'Briefpapier'})`
+                        ? `Briefpapier aus den Einstellungen (${invoiceTemplateSettings?.customBlankoFileName || 'Briefpapier'})`
                         : `Älteres Briefpapier nur für Sitzungen (${templateSettings.customBlankoFileName || 'Briefpapier'})`}
                     </div>
                   ) : (
@@ -962,20 +962,20 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                       Standard-Vereinsbriefkopf (kein Briefpapier hinterlegt)
                     </div>
                   )}
-                  {onOpenInvoiceTemplate && (
+                  {onOpenBriefpapier && (
                     <button
                       type="button"
-                      onClick={onOpenInvoiceTemplate}
+                      onClick={onOpenBriefpapier}
                       className="px-3 py-1.5 text-xs font-bold text-rose-700 bg-white border border-rose-200 hover:bg-rose-50 rounded-lg dark:text-rose-300 dark:bg-slate-900 dark:border-rose-800/60"
                     >
-                      Briefpapier in der Rechnungsvorlage ändern
+                      Briefpapier in den Einstellungen ändern
                     </button>
                   )}
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Wie am Handy gilt ein gemeinsames Briefpapier für Rechnungen und Sitzungen; es wird in der Rechnungsvorlage gepflegt.
+                  Wie am Handy gilt ein gemeinsames Briefpapier für Rechnungen, Sitzungen und den Aufnahmeantrag; es wird unter Einstellungen → Vereinsstammdaten gepflegt.
                   {briefpapier?.quelle === 'sitzung' &&
-                    ' Das ältere, nur für Sitzungen hochgeladene Briefpapier wird verwendet, bis in der Rechnungsvorlage eines liegt.'}
+                    ' Das ältere, nur für Sitzungen hochgeladene Briefpapier wird verwendet, bis dort eines liegt.'}
                 </p>
               </div>
 
@@ -1067,7 +1067,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
         clubSettings={clubSettings}
         onSaveTemplate={onSaveTemplate}
         rechnungsBriefpapier={Boolean(invoiceTemplateSettings?.customBlankoDataUrl?.trim())}
-        onOpenInvoiceTemplate={onOpenInvoiceTemplate}
+        onOpenBriefpapier={onOpenBriefpapier}
       />
 
       {/* PDF Download Choice Modal (if meeting has digital signatures) */}

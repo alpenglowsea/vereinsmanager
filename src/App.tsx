@@ -2041,7 +2041,11 @@ export default function App() {
                 onDeleteMeeting={handleDeleteMeeting}
                 onSaveTemplate={handleSaveMeetingTemplate}
                 invoiceTemplateSettings={invoiceTemplateSettings}
-                onOpenInvoiceTemplate={() => setInvoiceTemplateModalOpen(true)}
+                onOpenBriefpapier={() => {
+                  // Das Briefpapier liegt jetzt in den Einstellungen (Vereinsstammdaten)
+                  setSettingsActiveTab('club');
+                  setActiveTab('settings');
+                }}
                 />
             )}
 
@@ -2071,6 +2075,7 @@ export default function App() {
               <SettingsView
                 settings={settings}
                 onSaveSettings={handleSaveSettings}
+                onBriefpapierGeaendert={setInvoiceTemplateSettings}
                 onDataReload={(leise?: boolean) => loadData(leise)}
                 currentTheme={theme}
                 onThemeChange={(newTheme) => setTheme(newTheme)}
@@ -2237,7 +2242,6 @@ export default function App() {
           antrag={antragWartet}
           settings={settings}
           members={members}
-          naechsteNummer={nextMemberNumber}
           briefpapier={briefpapierFuerSitzungen(meetingTemplateSettings, invoiceTemplateSettings)}
           onAufgenommen={async m => {
             setAntragWartet(null);

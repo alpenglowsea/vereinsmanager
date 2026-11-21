@@ -316,10 +316,11 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
                             }
                             if (fehler["satzung"] != null) Text(fehler["satzung"]!!, color = MaterialTheme.colorScheme.error)
                             Ueberschrift("Unterschriften")
-                            Unterschriftsfeld("Unterschrift ${a.name.ifBlank { "Antragsteller" }}", a.unterschrift, fehler["unterschrift"]) { a = a.copy(unterschrift = it) }
+                            // Unter 18 unterschreibt allein der gesetzliche Vertreter
                             if (minder) Unterschriftsfeld(
                                 "Unterschrift gesetzlicher Vertreter (${a.vertreterName})", a.vertreterUnterschrift, fehler["vertreterUnterschrift"],
                             ) { a = a.copy(vertreterUnterschrift = it) }
+                            else Unterschriftsfeld("Unterschrift ${a.name.ifBlank { "Antragsteller" }}", a.unterschrift, fehler["unterschrift"]) { a = a.copy(unterschrift = it) }
                             if (AntragRegeln.kontoinhaberMussUnterschreiben(a, heute)) {
                                 Text(
                                     "Das Konto gehört einer anderen Person. Der Kontoinhaber unterschreibt das Lastschriftmandat selbst.",
@@ -353,7 +354,7 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
                                 if (seite == AntragRegeln.SEITE_PERSON && a.mitgliedsart == "full") {
                                     AntragRegeln.vorschlagArt(AntragRegeln.alter(a.geburtsdatum, heute))?.let { a = a.copy(mitgliedsart = it) }
                                 }
-                                if (seite == AntragRegeln.SEITE_ZAHLUNG - 1 && a.sepa && a.kontoinhaber.isBlank()) a = a.copy(kontoinhaber = a.name)
+                                if (seite == AntragRegeln.SEITE_ZAHLUNG - 1 && a.sepa && a.kontoinhaber.isBlank()) a = a.copy(kontoinhaber = AntragRegeln.kontoinhaberVorschlag(a, heute))
                                 seite += 1
                             }
                         },

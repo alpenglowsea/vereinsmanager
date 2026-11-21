@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import de.vereinsmanager.android.AppModel
 import de.vereinsmanager.android.export.rememberExporter
 import de.vereinsmanager.core.export.Export
@@ -81,19 +82,17 @@ fun MemberMaterialTab(model: AppModel, m: Member, onOverview: () -> Unit) {
                 Text(zeile2, style = MaterialTheme.typography.bodySmall)
                 Text(MemberMaterial.eigenanteil(a), style = MaterialTheme.typography.bodySmall)
                 if (a.notes.isNotEmpty()) Text(a.notes, style = MaterialTheme.typography.bodySmall)
-                // Drei Knöpfe in einer Zeile (T-224, T-247): kleinere Schrift und schmaler Innenabstand,
-                // damit auch „Wieder ausgeben“, „Bearbeiten“ und „Entfernen“ zusammen auf ein schmales
-                // Handy passen; „Entfernen“ ganz rechts in Warnfarbe
+                // Drei Knöpfe in einer Zeile, gleichmäßig verteilt: links, Mitte, rechts
+                // (T-224, T-247, T-251). Schrift 13 sp: groß genug zum Lesen, und
+                // „Wieder ausgeben“, „Bearbeiten“, „Entfernen“ passen nebeneinander.
                 val knopfRand = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-                val knopfText = MaterialTheme.typography.labelMedium
+                val knopfText = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Row {
-                        TextButton(onClick = { fehler = model.ausgabeUmschalten(a.id) ?: "" }, contentPadding = knopfRand) {
-                            Text(if (a.returned) "Wieder ausgeben" else "Zurückgeben", style = knopfText, maxLines = 1, softWrap = false)
-                        }
-                        TextButton(onClick = { dialog = AusgabeForm.von(a) }, contentPadding = knopfRand) {
-                            Text("Bearbeiten", style = knopfText, maxLines = 1, softWrap = false)
-                        }
+                    TextButton(onClick = { fehler = model.ausgabeUmschalten(a.id) ?: "" }, contentPadding = knopfRand) {
+                        Text(if (a.returned) "Wieder ausgeben" else "Zurückgeben", style = knopfText, maxLines = 1, softWrap = false)
+                    }
+                    TextButton(onClick = { dialog = AusgabeForm.von(a) }, contentPadding = knopfRand) {
+                        Text("Bearbeiten", style = knopfText, maxLines = 1, softWrap = false)
                     }
                     TextButton(onClick = { entfernen = a }, contentPadding = knopfRand) {
                         Text("Entfernen", style = knopfText, maxLines = 1, softWrap = false, color = MaterialTheme.colorScheme.error)

@@ -15,6 +15,7 @@ import {
   Info
 } from 'lucide-react';
 import { saveDataUrlAs } from '../utils/fileExportHelper';
+import { useBlobAdresse } from '../utils/pdfVorschau';
 
 interface DocumentViewerModalProps {
   document: ClubDocument | null;
@@ -39,6 +40,8 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 }) => {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
+  // PDF über eine Blob-Adresse zeigen; eine Data-URL bleibt im Desktop-Fenster leer (T-261)
+  const pdfAdresse = useBlobAdresse(doc?.dataUrl);
 
   if (!doc) return null;
 
@@ -170,7 +173,7 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
           <div className="flex-1 overflow-auto flex items-center justify-center p-3 bg-slate-200/60 min-h-[380px] dark:bg-slate-600/60">
             {isPdf ? (
               <iframe
-                src={doc.dataUrl}
+                src={pdfAdresse || undefined}
                 title={doc.title}
                 className="w-full h-full min-h-[520px] rounded-lg border border-slate-300 shadow-sm bg-white dark:border-slate-700 dark:bg-slate-800"
               />

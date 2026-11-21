@@ -1,6 +1,6 @@
 import { spartenVerwendung, spartenSperrText } from '../utils/loeschRegeln';
 import React, { useState, useEffect, useRef } from 'react';
-import { ClubSettings, Address, BoardMember, ColorSchemeId, FontChoiceId } from '../types';
+import { ClubSettings, Address, BoardMember, ColorSchemeId, FontChoiceId, InvoiceTemplateSettings } from '../types';
 import { COLOR_SCHEMES, FONT_CHOICES, DEFAULT_COLOR_SCHEME, DEFAULT_FONT_CHOICE } from '../utils/appearance';
 import { StorageService } from '../services/storage';
 import { AuthService } from '../services/authService';
@@ -19,6 +19,7 @@ import { spartenNameFehler, ersetzeSparte, ersetzeSparteInBuchung, ersetzeInList
 import { BestaetigungsDialog } from './BestaetigungsDialog';
 import { UnterschriftFeld } from './UnterschriftFeld';
 import { AntragEinstellungenKarte } from './AntragEinstellungenKarte';
+import { BriefpapierKarte } from './BriefpapierKarte';
 import { antragTexteZumSpeichern, leseAntragEinstellungen } from '../utils/antragRegeln';
 import { saveBlobWithLocationPicker, saveDataUrlAs } from '../utils/fileExportHelper';
 
@@ -90,6 +91,8 @@ const PROJECT_SUPPORT_URL = 'https://liberapay.com/alpenglowsea/';
 
 interface SettingsViewProps {
   settings: ClubSettings;
+  /** Briefpapier geändert (Karte „Briefpapier“): neue Rechnungsvorlage an die App */
+  onBriefpapierGeaendert?: (vorlage: InvoiceTemplateSettings) => void;
   onSaveSettings: (settings: ClubSettings) => void;
   /** Daten neu laden; `leise`: ohne Ladebildschirm, die Seite bleibt stehen (T-82). */
   onDataReload?: (leise?: boolean) => void;
@@ -192,6 +195,7 @@ type SettingsTab = 'general' | 'club' | 'backup' | 'support' | 'bugreport';
 export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
   onSaveSettings,
+  onBriefpapierGeaendert,
   onDataReload,
   currentTheme,
   onThemeChange,
@@ -2515,6 +2519,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               ))}
             </div>
           </div>
+
+          <BriefpapierKarte onGeaendert={onBriefpapierGeaendert} />
 
           <AntragEinstellungenKarte
             settings={settings}

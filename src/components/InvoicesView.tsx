@@ -939,7 +939,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
               type="button"
               onClick={onOpenTemplateConfig}
               className="text-xs bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer dark:bg-slate-800 dark:border-slate-800 dark:hover:bg-slate-700 dark:text-slate-200"
-              title="Eigenes Vereins-Briefpapier (Blanko-Vorlage) hochladen oder DIN 5008 Vorlage anpassen"
+              title="Rechnungsvorlage anpassen (Texte, Farbe, Zahlungsziel). Das Briefpapier steht unter Einstellungen → Vereinsstammdaten."
             >
               <Sliders className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
               <span>Blanko-Vorlage konfigurieren</span>

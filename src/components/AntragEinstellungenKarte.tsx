@@ -205,7 +205,7 @@ export const AntragEinstellungenKarte: React.FC<{
         <div>
           <h4 className="text-sm font-bold text-slate-900 dark:text-white">Leeres Antragsformular</h4>
           <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Zum Ausdrucken, wenn jemand den Antrag lieber auf Papier ausfüllt. Mit dem Briefpapier aus der Rechnungsvorlage, falls dort eines liegt, und mit
+            Zum Ausdrucken, wenn jemand den Antrag lieber auf Papier ausfüllt. Mit dem Briefpapier aus der Karte „Briefpapier“, falls dort eines liegt, und mit
             den gespeicherten Beiträgen und Texten.
           </p>
         </div>

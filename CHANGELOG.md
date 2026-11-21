@@ -176,6 +176,36 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Nachbesserungen aus der Prüfung von P29
+
+- **T-252:** Der Aufnahmeantrag ist jetzt ein Fenster im Stil des Desktops
+  wie „Neues Mitglied anlegen“: beschriftete Abschnitte „1. Person“ bis
+  „5. Prüfen & Abgeben“ statt der farbigen Leiste, rot markiert, wo etwas
+  fehlt; bereits besuchte Abschnitte lassen sich direkt anklicken. Normale
+  Schriftgrößen, Knöpfe unten rechts.
+- **T-258:** Unter 18 unterschreibt nur noch der gesetzliche Vertreter, nicht
+  das Kind (Antrag, PDF, Prüfung). Als Kontoinhaber wird dann der Vertreter
+  vorgeschlagen statt des Kindes. Das leere Formular hat beide Linien
+  („ab 18 Jahren“ / „bei unter 18“). Android ebenso.
+- **T-255:** Keine Seitenzahl mehr unten auf dem Antrags-PDF; sie stieß mit
+  dem Fuß des Briefpapiers zusammen. Android ebenso.
+- **T-257:** Beim Prüfen steht die Mitgliedsnummer als „höchste vergebene
+  + 1“ im Feld, darunter „Nächste freie Nummer: …“ statt des Satzes „Sie
+  können sie ändern“.
+- **T-261:** PDF-Vorschau (Antrag Schritt 4, Dokumentenarchiv, Belege)
+  über eine Blob-Adresse statt einer langen `data:`-Adresse; diese zeigt
+  das eingebaute Browserfenster bei größeren Dateien nicht an
+  (`src/utils/pdfVorschau.ts`, 1 Test).
+- **Briefpapier in den Einstellungen:** neue Karte „Briefpapier“ unter
+  Einstellungen → Vereinsstammdaten (Hochladen, Austauschen, Entfernen,
+  oberer Rand). Gilt für Rechnungen, Sitzungen und den Antrag und wirkt
+  sofort. Gespeichert wird weiterhin in der Rechnungsvorlage, ältere
+  Sicherungen bleiben gültig. Die Rechnungsvorlage zeigt nur noch an,
+  welches Briefpapier aktiv ist; Sitzungsseite und Sitzungsvorlage führen mit
+  ihrem Knopf jetzt in die Einstellungen.
+- **T-251 (Android):** Die drei Knöpfe im Reiter „Material“ stehen
+  gleichmäßig links, Mitte, rechts; Schrift wieder größer (13 sp).
+
 ### Nachbesserungen aus der Prüfung von P26/P27
 
 - **T-244:** „Gemeinnützig – Freistellungsbescheid vom …“ erscheint jetzt

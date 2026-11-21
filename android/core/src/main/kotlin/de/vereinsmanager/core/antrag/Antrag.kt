@@ -286,6 +286,13 @@ object AntragRegeln {
         return true
     }
 
+    /**
+     * Vorschlag für den Kontoinhaber, wenn das Feld noch leer ist: bei unter 18 der
+     * gesetzliche Vertreter (das Konto gehört meist den Eltern), sonst die Person selbst.
+     */
+    fun kontoinhaberVorschlag(a: Antrag, heute: LocalDate): String =
+        if (minderjaehrig(a, heute) && a.vertreterName.isNotBlank()) a.vertreterName.trim() else a.name
+
     /** Eine Mitgliedsart zum Alter; null, wenn das Alter unbekannt ist oder keine Änderung nahelegt. */
     fun vorschlagArt(alter: Int?): String? = if (alter != null && alter < 18) "youth" else null
 
@@ -327,9 +334,11 @@ object AntragRegeln {
         if (seite == SEITE_ERKLAERUNG || alle) {
             if (!a.datenschutz) f["datenschutz"] = "Ohne die Einwilligung zur Datenverarbeitung ist keine Aufnahme möglich."
             if (!a.satzung) f["satzung"] = "Ohne Anerkennung der Satzung ist keine Aufnahme möglich."
-            if (a.unterschrift == null || a.unterschrift.leer) f["unterschrift"] = "Bitte unterschreiben."
-            if (minderjaehrig(a, heute) && (a.vertreterUnterschrift == null || a.vertreterUnterschrift.leer))
-                f["vertreterUnterschrift"] = "Bei unter 18 Jahren unterschreibt auch der gesetzliche Vertreter."
+            // Unter 18 unterschreibt allein der gesetzliche Vertreter, nicht das Kind (Wunsch Johannes, 21.11.2026)
+            if (minderjaehrig(a, heute)) {
+                if (a.vertreterUnterschrift == null || a.vertreterUnterschrift.leer)
+                    f["vertreterUnterschrift"] = "Bei unter 18 Jahren unterschreibt der gesetzliche Vertreter."
+            } else if (a.unterschrift == null || a.unterschrift.leer) f["unterschrift"] = "Bitte unterschreiben."
             if (kontoinhaberMussUnterschreiben(a, heute) && (a.kontoinhaberUnterschrift == null || a.kontoinhaberUnterschrift.leer))
                 f["kontoinhaberUnterschrift"] = "Der Kontoinhaber muss das Lastschriftmandat unterschreiben."
         }

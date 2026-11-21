@@ -152,9 +152,6 @@ object AntragLayout {
             if (name.isNotBlank() || datumText.isNotBlank()) text(listOf(name, datumText).filter { it.isNotBlank() }.joinToString(", "), x, y + h + 6.8, 8.0)
         }
 
-        fun fuss() {
-            seiten.forEachIndexed { i, p -> p.add(Zeichnung.Text("Seite ${i + 1} von ${seiten.size}", 105.0, 290.0, 7.0, false, Zeichnung.Aus.MITTE, grau = true)) }
-        }
     }
 
     fun bauen(
@@ -226,14 +223,20 @@ object AntragLayout {
         t.kaestchenText(a != null && k.satzung, "Satzung: " + ersetze(e.satzung), 7.6)
         t.y += 3.0
 
-        // Unterschriften
-        val brauchtVertreter = t.leer || minder
+        // Unterschriften: Volljährige unterschreiben selbst, bei unter 18 allein der
+        // gesetzliche Vertreter. Das leere Formular hat beide Linien.
         val brauchtInhaber = t.leer || (a != null && AntragRegeln.kontoinhaberMussUnterschreiben(k, heute))
         t.platz(34.0)
         val halb = (B - 8.0) / 2
         val ortDatum = if (a != null) "$datumHeute" else "Ort, Datum"
-        t.unterschrift("Unterschrift Antragsteller/in", k.unterschrift, if (a != null) k.name else "", if (a != null) datumHeute else "", L, halb)
-        if (brauchtVertreter) t.unterschrift("Unterschrift gesetzlicher Vertreter" + if (t.leer) " (bei unter 18)" else "", k.vertreterUnterschrift, if (a != null) k.vertreterName else "", if (a != null) datumHeute else "", L + halb + 8.0, halb)
+        when {
+            t.leer -> {
+                t.unterschrift("Unterschrift Antragsteller/in (ab 18 Jahren)", null, "", "", L, halb)
+                t.unterschrift("Unterschrift gesetzlicher Vertreter (bei unter 18)", null, "", "", L + halb + 8.0, halb)
+            }
+            minder -> t.unterschrift("Unterschrift gesetzlicher Vertreter", k.vertreterUnterschrift, k.vertreterName, datumHeute, L, halb)
+            else -> t.unterschrift("Unterschrift Antragsteller/in", k.unterschrift, k.name, datumHeute, L, halb)
+        }
         t.y += 30.0
         if (brauchtInhaber && sepa) {
             t.platz(34.0)
@@ -241,7 +244,7 @@ object AntragLayout {
             t.y += 30.0
         }
         if (t.leer) t.text(ortDatum, L, t.y, 7.0, farbe = GRAU)
-        t.fuss()
+        // Keine Seitenzahl unten: sie stieß mit dem Fuß des Briefpapiers zusammen.
         return t.seiten
     }
 }

@@ -2,6 +2,7 @@ import React from 'react';
 import { ReceiptAttachment } from '../types';
 import { X, Download, FileText, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
 import { saveDataUrlAs } from '../utils/fileExportHelper';
+import { useBlobAdresse } from '../utils/pdfVorschau';
 
 interface ReceiptViewerModalProps {
   receipt: ReceiptAttachment | null;
@@ -18,6 +19,8 @@ export const ReceiptViewerModal: React.FC<ReceiptViewerModalProps> = ({
 }) => {
   const [zoom, setZoom] = React.useState(1);
   const [rotation, setRotation] = React.useState(0);
+  // PDF über eine Blob-Adresse zeigen; eine Data-URL bleibt im Desktop-Fenster leer (T-261)
+  const pdfAdresse = useBlobAdresse(receipt?.dataUrl);
 
   if (!receipt) return null;
 
@@ -103,7 +106,7 @@ export const ReceiptViewerModal: React.FC<ReceiptViewerModalProps> = ({
         <div className="flex-1 bg-slate-100 p-4 overflow-auto flex items-center justify-center min-h-[420px] dark:bg-slate-700">
           {isPdf ? (
             <iframe
-              src={receipt.dataUrl}
+              src={pdfAdresse || undefined}
               title={`Beleg ${documentNumber}`}
               className="w-full h-full min-h-[550px] rounded-lg border border-slate-300 shadow-inner bg-white dark:border-slate-700 dark:bg-slate-800"
             />

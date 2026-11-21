@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { InvoiceTemplateSettings, ClubSettings } from '../types';
 import {
   X,
@@ -7,7 +7,6 @@ import {
   Check,
   FileText,
   Eye,
-  Trash2,
   Info,
   Sliders,
   Sparkles,
@@ -34,53 +33,8 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
   const [formData, setFormData] = useState<InvoiceTemplateSettings>({ ...template });
   const [activeTab, setActiveTab] = useState<'upload' | 'layout' | 'texts'>('upload');
   const [isSaving, setIsSaving] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  // Meldung zum Briefpapier statt alert()
-  const [uploadFehler, setUploadFehler] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
-
-  const handleFileUpload = (file: File) => {
-    if (!file) return;
-
-    // Nur PNG und JPEG: Das PDF der Rechnung kann ein PDF- oder WEBP-Briefpapier
-    // nicht als Hintergrund zeichnen; es blieb dann ohne Meldung weg (D-45).
-    if (file.type !== 'image/png' && file.type !== 'image/jpeg') {
-      setUploadFehler('Bitte das Briefpapier als Bild im Format PNG oder JPG hochladen. Ein PDF lässt sich vorher z. B. mit einem Bildschirmfoto oder „Exportieren als Bild“ umwandeln.');
-      return;
-    }
-    setUploadFehler(null);
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      setFormData(prev => ({
-        ...prev,
-        customBlankoDataUrl: dataUrl,
-        customBlankoFileName: file.name,
-        customBlankoUploadedAt: new Date().toISOString()
-      }));
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleFileUpload(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleRemoveCustomBlanko = () => {
-    setFormData(prev => ({
-      ...prev,
-      customBlankoDataUrl: undefined,
-      customBlankoFileName: undefined,
-      customBlankoUploadedAt: undefined
-    }));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,7 +90,7 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
             }`}
           >
             <Upload className="w-3.5 h-3.5" />
-            <span>1. Eigene Blanko-Vorlage (Briefpapier)</span>
+            <span>1. Briefpapier</span>
             {hasCustomBlanko && (
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             )}
@@ -171,161 +125,48 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
 
         {/* Modal Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* TAB 1: UPLOAD BLANKO VORLAGE */}
+          {/* TAB 1: BRIEFPAPIER – nur Anzeige; Upload und oberer Rand liegen in den Einstellungen */}
           {activeTab === 'upload' && (
             <div className="space-y-6">
               <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-4 flex items-start gap-3 dark:bg-blue-950/70 dark:border-blue-800/60">
                 <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5 dark:text-blue-400" />
                 <div className="text-xs text-blue-900 space-y-1 dark:text-blue-100">
-                  <p className="font-semibold">Wie funktioniert die eigene Blanko-Vorlage?</p>
+                  <p className="font-semibold">Das Briefpapier ist umgezogen</p>
                   <p className="text-blue-800 leading-relaxed dark:text-blue-200">
-                    Laden Sie Ihr offizielles Vereins-Briefpapier (als hochauflösendes PNG oder JPG) hoch.
-                    Die Vereinsverwaltung hinterlegt diese Vorlage als ganzseitigen Hintergrund und druckt automatisch
-                    die Empfängeranschrift, Rechnungsdaten, Positionsliste, Summen und den GiroCode passgenau darauf.
+                    Hochladen, Austauschen und den oberen Rand stellen Sie jetzt unter <strong>Einstellungen → Vereinsstammdaten → Briefpapier</strong> ein.
+                    Es gilt dort für alle Dokumente: Rechnungen, Sitzungsunterlagen und den Aufnahmeantrag.
                   </p>
                 </div>
               </div>
 
-              {uploadFehler && (
-                <div className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-xs text-rose-800 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200">
-                  {uploadFehler}
+              <div className="border border-slate-200 rounded-2xl p-5 bg-white flex items-center gap-4 dark:border-slate-800 dark:bg-slate-900">
+                <div className="w-16 h-20 bg-slate-50 border border-slate-200 rounded-lg overflow-hidden flex items-center justify-center shrink-0 dark:bg-slate-800 dark:border-slate-700">
+                  {formData.customBlankoDataUrl?.startsWith('data:image') ? (
+                    <img src={formData.customBlankoDataUrl} alt="Briefpapier Vorschau" className="w-full h-full object-cover" />
+                  ) : (
+                    <ImageIcon className="w-7 h-7 text-slate-300 dark:text-slate-600" />
+                  )}
                 </div>
-              )}
-
-              {/* Upload Box / Dropzone */}
-              {!hasCustomBlanko ? (
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragOver(true);
-                  }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 ${
-                    dragOver
-                      ? 'border-blue-500 bg-blue-50/50 scale-[0.99] dark:bg-blue-950/50'
-                      : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50/50 dark:border-slate-700 dark:hover:bg-slate-800/50'
-                  }`}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg"
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        handleFileUpload(e.target.files[0]);
-                      }
-                    }}
-                  />
-                  <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-xs dark:bg-blue-950/40 dark:text-blue-400">
-                    <Upload className="w-7 h-7" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                      Blanko-Briefpapier hier ablegen oder klicken
-                    </h4>
-                    <p className="text-xs text-slate-500 mt-1 dark:text-slate-400">
-                      Unterstützte Formate: PNG, JPG (Empfohlen: DIN A4, 210 x 297 mm, mind. 1200 x 1700 px)
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="mt-2 text-xs bg-white border border-slate-200 text-slate-700 px-3.5 py-1.5 rounded-lg shadow-2xs font-semibold hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
+                <div className="min-w-0">
+                  <span
+                    className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                      hasCustomBlanko
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
+                        : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200'
+                    }`}
                   >
-                    Datei vom Computer auswählen
-                  </button>
-                </div>
-              ) : (
-                <div className="border border-emerald-200 bg-emerald-50/50 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-4 dark:border-emerald-800/60 dark:bg-emerald-950/50">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-20 bg-white border border-emerald-200 rounded-lg shadow-xs overflow-hidden flex items-center justify-center relative group dark:bg-slate-900 dark:border-emerald-800/60">
-                      {formData.customBlankoDataUrl?.startsWith('data:image') ? (
-                        <img
-                          src={formData.customBlankoDataUrl}
-                          alt="Briefpapier Vorschau"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <FileText className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
-                          <Check className="w-3 h-3" /> Eigene Vorlage aktiv
-                        </span>
-                      </div>
-                      <h4 className="text-sm font-bold text-slate-900 mt-1 dark:text-white">
-                        {formData.customBlankoFileName || 'Hochgeladener Vereinsbriefbogen'}
-                      </h4>
-                      <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
-                        Wird beim Schreiben und Exportieren von Rechnungen automatisch als Hintergrund verwendet.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="text-xs bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-slate-800 dark:text-slate-200"
-                    >
-                      Vorlage austauschen
-                    </button>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg"
-                      className="hidden"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          handleFileUpload(e.target.files[0]);
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleRemoveCustomBlanko}
-                      className="text-xs bg-red-50 border border-red-200 hover:bg-red-100 text-red-700 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1 cursor-pointer dark:bg-red-950/40 dark:border-red-800/60 dark:hover:bg-red-900/40 dark:text-red-300"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Entfernen</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Standard Template Card */}
-              <div className="border border-slate-200 rounded-2xl p-5 bg-white space-y-3 dark:border-slate-800 dark:bg-slate-900">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-1.5 bg-slate-100 text-slate-700 rounded-lg dark:bg-slate-700 dark:text-slate-200">
-                      <ImageIcon className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider dark:text-slate-100">
-                        Integrierte Standard-Vorlage (DIN 5008)
-                      </h4>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Wird automatisch genutzt, falls kein eigenes Briefpapier hochgeladen ist.
-                      </p>
-                    </div>
-                  </div>
-                  <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                    !hasCustomBlanko
-                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200'
-                      : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
-                  }`}>
-                    {!hasCustomBlanko ? 'Standard aktiv' : 'Als Fallback bereit'}
+                    {hasCustomBlanko && <Check className="w-3 h-3" />}
+                    {hasCustomBlanko ? 'Eigenes Briefpapier aktiv' : 'Standardvorlage (DIN 5008) aktiv'}
                   </span>
+                  <h4 className="text-sm font-bold text-slate-900 mt-1 truncate dark:text-white">
+                    {hasCustomBlanko ? formData.customBlankoFileName || 'Hochgeladener Vereinsbriefbogen' : `Briefkopf mit ${clubSettings.clubName}`}
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
+                    {hasCustomBlanko
+                      ? `Oberer Rand: ${formData.marginTop} mm.`
+                      : 'Mit Falt- und Lochmarken, Adressfenster, Fußzeile mit Bankverbindung und GiroCode.'}
+                  </p>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed dark:text-slate-300">
-                  Enthält automatisch den Vereinsnamen ({clubSettings.clubName}), Falt- und Lochmarken nach DIN 5008,
-                  ein Adressfenster, eine strukturierte Fußzeile mit Steuernummer, Vereinsregister und Bankverbindung
-                  sowie den GiroCode (EPC-QR-Code).
-                </p>
               </div>
             </div>
           )}
@@ -333,33 +174,11 @@ export const InvoiceTemplateModal: React.FC<InvoiceTemplateModalProps> = ({
           {/* TAB 2: RÄNDER & LAYOUT */}
           {activeTab === 'layout' && (
             <div className="space-y-6">
-              <div>
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1 dark:text-slate-100">
-                  Seitenränder für den Rechnungsdruck (in Millimeter)
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Passen Sie den oberen Abstand an, falls Ihr Briefpapier einen hohen Header oder ein großes Logo hat.
-                </p>
-              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Den oberen Rand passend zum Briefpapier stellen Sie unter Einstellungen → Vereinsstammdaten → Briefpapier ein.
+              </p>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
-                    Oberer Rand (mm)
-                  </label>
-                  <input
-                    type="number"
-                    min="20"
-                    max="100"
-                    value={formData.marginTop}
-                    onChange={(e) => setFormData(prev => ({ ...prev, marginTop: Number(e.target.value) || 45 }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:text-white"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Standard: 45 mm. Gilt mit eigenem Briefpapier, auch auf Folgeseiten.
-                  </p>
-                </div>
-
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1 dark:text-slate-200">
                     Akzentfarbe

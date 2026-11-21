@@ -16,6 +16,7 @@ import {
   fehler as fehlerAuf,
   kontoinhaberAbweichend,
   kontoinhaberMussUnterschreiben,
+  kontoinhaberVorschlag,
   leseAntragEinstellungen,
   minderjaehrig,
   mitgliedAusAntrag,
@@ -77,6 +78,15 @@ describe('Aufnahmeantrag: Regeln wie Android', () => {
     const ok = mit(kind, { vertreterName: 'Eva Muster', vertreterUnterschrift: unterschrift });
     expect(fehler(1, ok)).toEqual({});
     expect(fehler(4, ok)).toEqual({});
+    // Unter 18 unterschreibt allein der Vertreter, das Kind nicht (T-258)
+    expect(fehler(4, mit(ok, { unterschrift: null }))).toEqual({});
+    expect(fehler(4, mit(erwachsener(), { unterschrift: null }))).toHaveProperty('unterschrift');
+  });
+
+  it('Kontoinhaber-Vorschlag: bei unter 18 der Vertreter (T-258)', () => {
+    expect(kontoinhaberVorschlag(erwachsener(), heute)).toBe('Anna Muster');
+    expect(kontoinhaberVorschlag(mit(erwachsener(), { geburtsdatum: '2012-01-01', vertreterName: ' Eva Muster ' }), heute)).toBe('Eva Muster');
+    expect(kontoinhaberVorschlag(mit(erwachsener(), { geburtsdatum: '2012-01-01' }), heute)).toBe('Anna Muster');
   });
 
   it('Lastschrift braucht gültige IBAN und Kontoinhaber', () => {
@@ -195,14 +205,16 @@ describe('Aufnahmeantrag: PDF-Aufbau wie Android', () => {
   }
 
   it('ausgefüllter Antrag enthält Daten und Unterschriften', () => {
-    const kind = mit(erwachsener(), { geburtsdatum: '2012-01-01', vertreterName: 'Peter Muster', kontoinhaber: 'Peter Muster', vertreterUnterschrift: unterschrift, vorverein: 'SV Alt', notiz: 'Torwart' });
+    const kind = mit(erwachsener(), { geburtsdatum: '2012-01-01', vertreterName: 'Peter Muster', kontoinhaber: 'Peter Muster', vertreterUnterschrift: unterschrift, unterschrift: null, vorverein: 'SV Alt', notiz: 'Torwart' });
     const seiten = antragSeiten(kind, verein, e, 'M-0007', heute);
     imRahmen(seiten);
     const t = texte(seiten);
     for (const w of ['TSV Test e.V.', 'Muster', 'Anna', '12.11.2026', 'DE89 3704 0044 0532 0130 00', 'MANDAT-M-0007-2026', 'DE98ZZZ09999999999', '18,00 € monatlich']) expect(t).toContain(w);
     expect(t.some(x => x.startsWith('2. Gesetzlicher Vertreter'))).toBe(true);
-    expect(zuege(seiten)).toBe(2); // Kind + Vertreter; Kontoinhaber = Vertreter, keine dritte
-    expect(t.some(x => x.startsWith('Seite 1 von '))).toBe(true);
+    expect(zuege(seiten)).toBe(1); // nur der Vertreter; Kontoinhaber = Vertreter, keine weitere (T-258)
+    expect(t).toContain('Unterschrift gesetzlicher Vertreter');
+    expect(t).not.toContain('Unterschrift Antragsteller/in');
+    expect(t.some(x => x.startsWith('Seite '))).toBe(false); // keine Seitenzahl (T-255)
     expect(t.some(x => x.includes('{verein}'))).toBe(false);
   });
 
@@ -248,6 +260,9 @@ describe('Aufnahmeantrag: PDF-Aufbau wie Android', () => {
     expect(t).toContain('Bitte in Druckbuchstaben ausfüllen und unterschreiben.');
     expect(zuege(seiten)).toBe(0);
     expect(t.some(x => x.startsWith('Unterschrift Kontoinhaber'))).toBe(true);
+    expect(t).toContain('Unterschrift Antragsteller/in (ab 18 Jahren)');
+    expect(t).toContain('Unterschrift gesetzlicher Vertreter (bei unter 18)');
+    expect(t.some(x => x.startsWith('Seite '))).toBe(false);
     expect(t).not.toContain('Anna');
     expect(t).not.toContain('Deutsch'); // nichts vorausgefüllt
   });
@@ -257,7 +272,6 @@ describe('Aufnahmeantrag: PDF-Aufbau wie Android', () => {
     const seiten = antragSeiten(mit(erwachsener(), { notiz: 'x'.repeat(300) }), verein, lang, 'M-1', heute);
     imRahmen(seiten);
     expect(seiten.length).toBeGreaterThanOrEqual(2);
-    expect(texte(seiten).some(x => x.startsWith(`Seite 2 von ${seiten.length}`))).toBe(true);
     expect(umbrechen('a '.repeat(10) + 'x'.repeat(400), 50, 8).every(z => textBreite(z, 8) <= 50)).toBe(true);
   });
 });

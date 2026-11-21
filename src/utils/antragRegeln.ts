@@ -240,6 +240,14 @@ export function kontoinhaberMussUnterschreiben(a: Antrag, heute: string): boolea
 /** Eine Mitgliedsart zum Alter; null, wenn das Alter unbekannt ist oder keine Änderung nahelegt. */
 export const vorschlagArt = (jahre: number | null): VorgabeArt | null => (jahre !== null && jahre < 18 ? 'youth' : null);
 
+/**
+ * Vorschlag für den Kontoinhaber, wenn das Feld noch leer ist: bei unter 18
+ * der gesetzliche Vertreter (das Konto gehört meist den Eltern), sonst die
+ * Person selbst (T-258).
+ */
+export const kontoinhaberVorschlag = (a: Antrag, heute: string): string =>
+  minderjaehrig(a, heute) && a.vertreterName.trim() ? a.vertreterName.trim() : antragName(a);
+
 const leer = (u: Unterschrift | null) => !u || u.strokes.length === 0;
 
 /** Fehlermeldungen je Feld für eine Seite; leer, wenn alles in Ordnung ist. Seite 5 prüft alles. */
@@ -277,8 +285,10 @@ export function fehler(seite: number, a: Antrag, heute: string, sparten: string[
   if (seite === SEITE_ERKLAERUNG || alle) {
     if (!a.datenschutz) f.datenschutz = 'Ohne die Einwilligung zur Datenverarbeitung ist keine Aufnahme möglich.';
     if (!a.satzung) f.satzung = 'Ohne Anerkennung der Satzung ist keine Aufnahme möglich.';
-    if (leer(a.unterschrift)) f.unterschrift = 'Bitte unterschreiben.';
-    if (minderjaehrig(a, heute) && leer(a.vertreterUnterschrift)) f.vertreterUnterschrift = 'Bei unter 18 Jahren unterschreibt auch der gesetzliche Vertreter.';
+    // Unter 18 unterschreibt allein der gesetzliche Vertreter, nicht das Kind (T-258).
+    if (minderjaehrig(a, heute)) {
+      if (leer(a.vertreterUnterschrift)) f.vertreterUnterschrift = 'Bei unter 18 Jahren unterschreibt der gesetzliche Vertreter.';
+    } else if (leer(a.unterschrift)) f.unterschrift = 'Bitte unterschreiben.';
     if (kontoinhaberMussUnterschreiben(a, heute) && leer(a.kontoinhaberUnterschrift)) f.kontoinhaberUnterschrift = 'Der Kontoinhaber muss das Lastschriftmandat unterschreiben.';
   }
   return f;

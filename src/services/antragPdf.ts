@@ -232,10 +232,6 @@ class Baum {
     const zusatz = [name, datumText].filter(t => t.trim()).join(', ');
     if (zusatz) this.text(this.kuerze(zusatz, breite, 8), x, this.y + h + 6.8, 8);
   }
-
-  fuss() {
-    this.seiten.forEach((p, i) => p.push({ art: 'text', text: `Seite ${i + 1} von ${this.seiten.length}`, x: 105, y: 290, pt: 7, aus: 'mitte', farbe: GRAU }));
-  }
 }
 
 /**
@@ -316,21 +312,18 @@ export function antragSeiten(
   t.kaestchenText(a !== null && k.satzung, `Satzung: ${ersetze(e.satzung)}`, 7.6);
   t.y += 3;
 
-  // Unterschriften
-  const brauchtVertreter = t.leer || minder;
+  // Unterschriften: Volljährige unterschreiben selbst, bei unter 18 allein der
+  // gesetzliche Vertreter (T-258). Das leere Formular hat beide Linien.
   const brauchtInhaber = t.leer || (a !== null && kontoinhaberMussUnterschreiben(k, heute));
   t.platz(34);
   const halb = (B - 8) / 2;
-  t.unterschrift('Unterschrift Antragsteller/in', k.unterschrift, a ? antragName(k) : '', a ? datumHeute : '', L, halb);
-  if (brauchtVertreter) {
-    t.unterschrift(
-      `Unterschrift gesetzlicher Vertreter${t.leer ? ' (bei unter 18)' : ''}`,
-      k.vertreterUnterschrift,
-      a ? k.vertreterName : '',
-      a ? datumHeute : '',
-      L + halb + 8,
-      halb
-    );
+  if (t.leer) {
+    t.unterschrift('Unterschrift Antragsteller/in (ab 18 Jahren)', null, '', '', L, halb);
+    t.unterschrift('Unterschrift gesetzlicher Vertreter (bei unter 18)', null, '', '', L + halb + 8, halb);
+  } else if (minder) {
+    t.unterschrift('Unterschrift gesetzlicher Vertreter', k.vertreterUnterschrift, k.vertreterName, datumHeute, L, halb);
+  } else {
+    t.unterschrift('Unterschrift Antragsteller/in', k.unterschrift, antragName(k), datumHeute, L, halb);
   }
   t.y += 30;
   if (brauchtInhaber && sepa) {
@@ -346,7 +339,7 @@ export function antragSeiten(
     t.y += 30;
   }
   if (t.leer) t.text('Ort, Datum', L, t.y, 7, { farbe: GRAU });
-  t.fuss();
+  // Keine Seitenzahl unten: sie stieß mit dem Fuß des Briefpapiers zusammen (T-255).
   return t.seiten;
 }
 

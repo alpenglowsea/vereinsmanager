@@ -21,7 +21,7 @@ interface MeetingTemplateModalProps {
   onSaveTemplate: (settings: MeetingTemplateSettings) => Promise<void>;
   /** Liegt in der Rechnungsvorlage ein Briefpapier? Dann gilt es auch hier (D-123). */
   rechnungsBriefpapier?: boolean;
-  onOpenInvoiceTemplate?: () => void;
+  onOpenBriefpapier?: () => void;
 }
 
 export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
@@ -31,7 +31,7 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
   clubSettings,
   onSaveTemplate,
   rechnungsBriefpapier,
-  onOpenInvoiceTemplate
+  onOpenBriefpapier
 }) => {
   const [formData, setFormData] = useState<MeetingTemplateSettings>(templateSettings || DEFAULT_MEETING_TEMPLATE);
   const [activeTab, setActiveTab] = useState<'upload' | 'layout'>('upload');
@@ -128,25 +128,25 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
           {activeTab === 'upload' && (
             <div className="space-y-6">
               {/* Ein gemeinsames Briefpapier für alle Dokumente, gepflegt in der
-                  Rechnungsvorlage (D-123, wie Android). Das Hochladen hier entfällt. */}
+                  Einstellungen (D-123, wie Android). Das Hochladen hier entfällt. */}
               <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-4 flex items-start gap-3 dark:bg-rose-950/70 dark:border-rose-800/60">
                 <Info className="w-5 h-5 text-rose-600 shrink-0 mt-0.5 dark:text-rose-400" />
                 <div className="text-xs text-rose-900 space-y-2 dark:text-rose-100">
-                  <p className="font-semibold">Ein Briefpapier für Rechnungen und Sitzungen</p>
+                  <p className="font-semibold">Ein Briefpapier für alle Dokumente</p>
                   <p className="text-rose-800 leading-relaxed dark:text-rose-200">
-                    Das Briefpapier wird in der Rechnungsvorlage hinterlegt und gilt auch für Einladungen, Protokolle und Registerauszüge.
+                    Das Briefpapier wird unter Einstellungen → Vereinsstammdaten → Briefpapier hinterlegt und gilt für Rechnungen, Einladungen, Protokolle, Registerauszüge und den Aufnahmeantrag.
                     {rechnungsBriefpapier ? ' Dort ist zurzeit eines hinterlegt.' : ' Dort ist zurzeit keines hinterlegt.'}
                   </p>
-                  {onOpenInvoiceTemplate && (
+                  {onOpenBriefpapier && (
                     <button
                       type="button"
                       onClick={() => {
                         onClose();
-                        onOpenInvoiceTemplate();
+                        onOpenBriefpapier();
                       }}
                       className="text-xs px-3 py-1.5 bg-white border border-rose-200 rounded-lg font-semibold text-rose-700 hover:bg-rose-50 dark:bg-slate-900 dark:border-rose-800/60 dark:text-rose-300"
                     >
-                      Rechnungsvorlage öffnen
+                      Zu den Einstellungen
                     </button>
                   )}
                 </div>
@@ -168,8 +168,8 @@ export const MeetingTemplateModal: React.FC<MeetingTemplateModalProps> = ({
                       </h4>
                       <p className="text-xs text-slate-600 mt-0.5 dark:text-slate-300">
                         {rechnungsBriefpapier
-                          ? 'Wird nicht mehr verwendet, weil in der Rechnungsvorlage ein Briefpapier liegt. Kann entfernt werden.'
-                          : 'Wird weiter verwendet, bis in der Rechnungsvorlage ein Briefpapier hinterlegt ist.'}
+                          ? 'Wird nicht mehr verwendet, weil in den Einstellungen ein Briefpapier liegt. Kann entfernt werden.'
+                          : 'Wird weiter verwendet, bis in den Einstellungen ein Briefpapier hinterlegt ist.'}
                       </p>
                     </div>
                   </div>
