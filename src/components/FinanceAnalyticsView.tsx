@@ -16,7 +16,13 @@ import {
   ReferenceLine
 } from 'recharts';
 import { Transaction, FinancialAccount, ClubSettings } from '../types';
-import { SPENDEN_HAUPTKONTO_CODE, DEFAULT_DEPARTMENTS } from '../data/taxSpheres';
+import { DEFAULT_DEPARTMENTS } from '../data/taxSpheres';
+import jsPDF from 'jspdf';
+import { AuswFilter, GESAMT, berechne, csv, dateiname, filterText, mix } from '../services/finanzAuswertung';
+import { pdfSeiten, zeichnePdf } from '../services/finanzDiagramme';
+import { lokalesHeute } from '../utils/mitgliedRegeln';
+import { saveTextAs, savePdfAs } from '../utils/fileExportHelper';
+import { melde } from '../utils/dialoge';
 import {
   TrendingUp,
   ArrowUpRight,
@@ -26,7 +32,9 @@ import {
   PieChart as PieChartIcon,
   Activity,
   Layers,
-  Gift
+  Gift,
+  Download,
+  FileText
 } from 'lucide-react';
 
 interface FinanceAnalyticsViewProps {
@@ -46,35 +54,11 @@ const COLOR_EXPENSE = '#e11d48'; // rose-600
 const COLOR_DONATION = '#2563eb'; // blue-600
 const COLOR_NET = '#0f172a'; // slate-900
 
-const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
-
 const formatEUR = (value: number, decimals = 2): string =>
   `${value.toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })} €`;
 
 const formatEURCompact = (value: number): string =>
   `${Math.round(value).toLocaleString('de-DE')} €`;
-
-/**
- * Eine Buchung gilt als "Spende", wenn sie (oder bei Splittbuchungen: der
- * jeweilige Teilbetrag) auf dem Nummernkreis "Spenden, Schenkungen &
- * Zuwendungen" (40400) liegt. Spenden werden in den Auswertungen separat
- * ausgewiesen und NICHT unter "Einnahmen" mitgezählt, damit eine Spende
- * nicht doppelt auftaucht (siehe SPENDEN_HAUPTKONTO_CODE in taxSpheres.ts).
- */
-const isSpendenBooking = (mainCategory?: string): boolean => {
-  if (!mainCategory) return false;
-  const code = mainCategory.split(' - ')[0]?.trim();
-  return code === SPENDEN_HAUPTKONTO_CODE;
-};
-
-interface BookingLine {
-  monthIdx: number; // 0 = Januar
-  amount: number; // immer positiv
-  isIncome: boolean;
-  isSpende: boolean;
-  department: string; // '' = keiner Sparte zugeordnet
-  account: string; // Konto (SKR 42), z.B. "40010 - Laufende Mitgliedsbeiträge"
-}
 
 export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
   transactions,
@@ -85,8 +69,8 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
   const [selectedYear, setSelectedYear] = useState<string>(currentYear);
   const [selectedSphere, setSelectedSphere] = useState<string>('all');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('all');
-  const [incomeMixDepartment, setIncomeMixDepartment] = useState<string>('Gesamtverein');
-  const [expenseMixDepartment, setExpenseMixDepartment] = useState<string>('Gesamtverein');
+  const [incomeMixDepartment, setIncomeMixDepartment] = useState<string>(GESAMT);
+  const [expenseMixDepartment, setExpenseMixDepartment] = useState<string>(GESAMT);
 
   const departmentList = useMemo(
     () => (settings.departments && settings.departments.length > 0 ? settings.departments : DEFAULT_DEPARTMENTS),
@@ -104,90 +88,33 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
     return Array.from(years).sort((a, b) => b.localeCompare(a));
   }, [transactions, currentYear]);
 
-  // Umbuchungen zwischen eigenen Konten fließen nicht in die Auswertung ein.
-  const filteredTxs = useMemo(() => {
-    return transactions.filter(t => {
-      if (t.type === 'transfer') return false;
-      if (selectedYear !== 'all' && !t.date.startsWith(selectedYear)) return false;
-      if (selectedSphere !== 'all' && t.sphere !== selectedSphere) return false;
-      if (selectedAccountId !== 'all' && t.accountId !== selectedAccountId) return false;
-      return true;
-    });
-  }, [transactions, selectedYear, selectedSphere, selectedAccountId]);
+  // Alle Zahlen aus einer Rechnung wie am Handy (P25, `finanzAuswertung.ts`):
+  // Einnahme/Ausgabe nach Buchungsart (D-77), Spende nur als Einnahme auf
+  // 40400 (D-76), Bereichsfilter je Teilbetrag (D-78), Verlauf als echter
+  // Kontostand mit Anfangsbestand (D-75). Umbuchungen zählen nicht mit.
+  const filter = useMemo<AuswFilter>(
+    () => ({
+      jahr: selectedYear === 'all' ? null : selectedYear,
+      sphaere: selectedSphere === 'all' ? null : selectedSphere,
+      kontoId: selectedAccountId === 'all' ? null : selectedAccountId
+    }),
+    [selectedYear, selectedSphere, selectedAccountId]
+  );
+  const auswertung = useMemo(
+    () => berechne(transactions, accounts, filter, departmentList, lokalesHeute()),
+    [transactions, accounts, filter, departmentList]
+  );
+  const alleJahre = filter.jahr === null;
 
-  // Buchungen zu einzelnen Zeilen aufgelöst: bei Splittbuchungen eine Zeile
-  // je Teilbetrag (mit eigener Sparte/Kontierung), sonst eine Zeile je
-  // Buchung. Sphäre und Kontierung spielen hier keine Rolle mehr für die
-  // Kontenauswahl — nur noch für die Einordnung Einnahme/Ausgabe/Spende.
-  const lines = useMemo<BookingLine[]>(() => {
-    const result: BookingLine[] = [];
-    filteredTxs.forEach(t => {
-      const isIncome = t.amount >= 0;
-      const monthIdx = Number(t.date.substring(5, 7)) - 1;
-      if (t.isSplit && t.splits && t.splits.length > 0) {
-        t.splits.forEach(s => {
-          result.push({
-            monthIdx,
-            amount: Math.abs(s.amount || 0),
-            isIncome,
-            isSpende: isSpendenBooking(s.mainCategory || t.mainCategory),
-            department: s.department || t.department || '',
-            account: s.subCategory || s.category || t.subCategory || t.category || ''
-          });
-        });
-      } else {
-        result.push({
-          monthIdx,
-          amount: Math.abs(t.amount),
-          isIncome,
-          isSpende: isSpendenBooking(t.mainCategory),
-          department: t.department || '',
-          account: t.subCategory || t.category || ''
-        });
-      }
-    });
-    return result;
-  }, [filteredTxs]);
+  // 1. Säulen je Monat: Einnahmen und Spenden über, Ausgaben unter der
+  //    Nulllinie (stackOffset="sign", damit Recharts getrennt ab null stapelt).
+  const monthlyData = useMemo(
+    () => auswertung.monate.map(m => ({ month: m.name, Einnahmen: m.einnahmen, Ausgaben: -m.ausgaben, Spenden: m.spenden })),
+    [auswertung]
+  );
 
-  // -------------------------------------------------------------------------
-  // 1. Einnahmen/Ausgaben/Spenden nach Monat (gestapeltes Säulendiagramm).
-  //    Einnahmen und Spenden stapeln sich oberhalb der Nulllinie, Ausgaben
-  //    (negativ) unterhalb. Damit Recharts positive und negative Werte
-  //    wirklich getrennt ab der Nulllinie stapelt (statt sie fortlaufend zu
-  //    einem einzigen, sich überlappenden Balken aufzuaddieren), braucht das
-  //    <BarChart> zusätzlich zur stackId noch stackOffset="sign" — siehe
-  //    JSX weiter unten.
-  // -------------------------------------------------------------------------
-  const monthlyData = useMemo(() => {
-    return MONTHS.map((name, idx) => {
-      const monthLines = lines.filter(l => l.monthIdx === idx);
-      let einnahmen = 0;
-      let ausgaben = 0;
-      let spenden = 0;
-      monthLines.forEach(l => {
-        if (l.isSpende) spenden += l.amount;
-        else if (l.isIncome) einnahmen += l.amount;
-        else ausgaben += l.amount;
-      });
-      return { month: name, Einnahmen: einnahmen, Ausgaben: -ausgaben, Spenden: spenden };
-    });
-  }, [lines]);
-
-  // -------------------------------------------------------------------------
-  // 2. Einnahmen/Ausgaben/Spenden Jahresübersicht (Kreisdiagramm)
-  // -------------------------------------------------------------------------
-  const yearTotals = useMemo(() => {
-    let einnahmen = 0;
-    let ausgaben = 0;
-    let spenden = 0;
-    lines.forEach(l => {
-      if (l.isSpende) spenden += l.amount;
-      else if (l.isIncome) einnahmen += l.amount;
-      else ausgaben += l.amount;
-    });
-    return { einnahmen, ausgaben, spenden };
-  }, [lines]);
-
+  // 2. Kennzahlen und Torte
+  const yearTotals = auswertung.kennzahlen;
   const pieData = useMemo(
     () =>
       [
@@ -198,73 +125,52 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
     [yearTotals]
   );
 
-  // -------------------------------------------------------------------------
-  // 3. + 4. Einnahmen-/Ausgaben-Mix (horizontale Balken). Die Y-Achse zeigt
-  //    die Konten (SKR 42), auf denen in der gewählten Periode tatsächlich
-  //    gebucht wurde — nicht jedes mögliche Konto des Kontenrahmens. Jede
-  //    Kachel hat eine eigene Sparten-Auswahl ("Gesamtverein" = alle
-  //    Buchungen, mit und ohne Sparte).
-  // -------------------------------------------------------------------------
-  const incomeMixData = useMemo(() => {
-    const relevant = lines.filter(
-      l => l.isIncome && !l.isSpende && (incomeMixDepartment === 'Gesamtverein' || l.department === incomeMixDepartment)
-    );
-    const totals = new Map<string, number>();
-    relevant.forEach(l => {
-      totals.set(l.account, (totals.get(l.account) || 0) + l.amount);
-    });
-    return Array.from(totals.entries())
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [lines, incomeMixDepartment]);
+  // 3. + 4. Einnahmen-/Ausgaben-Mix nach Konto, je Kachel eigene Sparte
+  const incomeMixData = useMemo(
+    () => mix(auswertung.posten, true, incomeMixDepartment).map(a => ({ name: a.name, value: a.wert })),
+    [auswertung, incomeMixDepartment]
+  );
+  const expenseMixData = useMemo(
+    () => mix(auswertung.posten, false, expenseMixDepartment).map(a => ({ name: a.name, value: a.wert })),
+    [auswertung, expenseMixDepartment]
+  );
 
-  const expenseMixData = useMemo(() => {
-    const relevant = lines.filter(
-      l => !l.isIncome && (expenseMixDepartment === 'Gesamtverein' || l.department === expenseMixDepartment)
-    );
-    const totals = new Map<string, number>();
-    relevant.forEach(l => {
-      totals.set(l.account, (totals.get(l.account) || 0) + l.amount);
-    });
-    return Array.from(totals.entries())
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [lines, expenseMixDepartment]);
+  // 5. Kontostand-Verlauf (bei „Alle Jahre“: Anfang und Jahresenden)
+  const cashflowData = useMemo(() => auswertung.verlauf.map(p => ({ month: p.name, Kontostand: p.stand })), [auswertung]);
 
-  // -------------------------------------------------------------------------
-  // 5. Cashflow-Trend Gesamtverein über das Jahr nach Monaten (kumulierter
-  //    Kontostand-Verlauf, Fieberkurve). Spenden zählen hier mit — echter
-  //    Geldfluss kennt keine Unterscheidung zwischen "Einnahme" und "Spende".
-  // -------------------------------------------------------------------------
-  const cashflowData = useMemo(() => {
-    let running = 0;
-    return MONTHS.map((name, idx) => {
-      const net = lines
-        .filter(l => l.monthIdx === idx)
-        .reduce((sum, l) => sum + (l.isIncome ? l.amount : -l.amount), 0);
-      running += net;
-      return { month: name, Kontostand: running };
-    });
-  }, [lines]);
+  // 6. Sparten
+  const departmentSummaryData = useMemo(
+    () => auswertung.sparten.map(x => ({ name: x.name, Einnahmen: x.einnahmen, Ausgaben: x.ausgaben, Summe: x.summe })),
+    [auswertung]
+  );
 
-  // -------------------------------------------------------------------------
-  // 6. Einnahmen, Ausgaben und deren Summe nach Sparte (gruppierte,
-  //    senkrechte Balken). Einnahmen und Spenden werden hier zusammen
-  //    ausgewiesen, Ausgaben als positiver Balken (nicht als Fläche
-  //    unterhalb der Nulllinie wie in Diagramm 1). Summe kann negativ sein,
-  //    wenn eine Sparte mehr ausgibt als einnimmt.
-  // -------------------------------------------------------------------------
-  const departmentSummaryData = useMemo(() => {
-    const buckets = ['Gesamtverein', ...departmentList];
-    return buckets.map(name => {
-      const bucketLines = name === 'Gesamtverein' ? lines : lines.filter(l => l.department === name);
-      const einnahmenUndSpenden = bucketLines.filter(l => l.isIncome).reduce((s, l) => s + l.amount, 0);
-      const ausgaben = bucketLines.filter(l => !l.isIncome).reduce((s, l) => s + l.amount, 0);
-      return { name, Einnahmen: einnahmenUndSpenden, Ausgaben: ausgaben, Summe: einnahmenUndSpenden - ausgaben };
-    });
-  }, [lines, departmentList]);
+  const hasData = !auswertung.keineBuchungen;
 
-  const hasData = filteredTxs.length > 0;
+  // Ausgabe wie am Handy (D-80): CSV mit allen Zahlen, PDF mit den Diagrammen
+  // (die Mixe im PDF zeigen den Gesamtverein)
+  const verein = settings.clubName || 'Verein';
+  const handleCsv = async () => {
+    try {
+      await saveTextAs(
+        csv(auswertung, accounts, mix(auswertung.posten, true), mix(auswertung.posten, false)),
+        dateiname(auswertung, verein, 'csv'),
+        'text/csv'
+      );
+    } catch (err) {
+      console.error(err);
+      void melde('Die CSV-Datei konnte nicht gespeichert werden.');
+    }
+  };
+  const handlePdf = async () => {
+    try {
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      zeichnePdf(doc, pdfSeiten(auswertung, verein, filterText(filter, accounts), lokalesHeute().split('-').reverse().join('.')));
+      await savePdfAs(doc, dateiname(auswertung, verein, 'pdf'));
+    } catch (err) {
+      console.error(err);
+      void melde('Das PDF konnte nicht erstellt werden.');
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -309,6 +215,27 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
               <option key={a.id} value={a.id}>{a.name}</option>
             ))}
           </select>
+
+          <button
+            type="button"
+            onClick={handleCsv}
+            disabled={!hasData}
+            title="Alle Zahlen der Auswertung als CSV-Datei"
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-700"
+          >
+            <Download className="w-3.5 h-3.5" />
+            CSV
+          </button>
+          <button
+            type="button"
+            onClick={handlePdf}
+            disabled={!hasData}
+            title="Auswertung mit Diagrammen als PDF (A4)"
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-700"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            PDF
+          </button>
         </div>
       </div>
 
@@ -357,7 +284,7 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
 
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
               <div className="flex items-center justify-between text-slate-500 mb-1 dark:text-slate-400">
-                <span className="text-xs font-semibold uppercase tracking-wider">Cashflow-Saldo</span>
+                <span className="text-xs font-semibold uppercase tracking-wider">Saldo</span>
                 <TrendingUp className="w-4 h-4 text-slate-600 dark:text-slate-300" />
               </div>
               {(() => {
@@ -378,7 +305,7 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
               <BarChart3 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               Einnahmen, Ausgaben & Spenden nach Monat
             </h3>
-            <p className="text-xs text-slate-400 mb-4">Monatliche Gegenüberstellung der Zahlungsströme</p>
+            <p className="text-xs text-slate-400 mb-4">{alleJahre ? 'Alle Jahre zusammen, je Monat' : 'Monatliche Gegenüberstellung der Zahlungsströme'}</p>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={monthlyData} stackOffset="sign" margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
@@ -401,7 +328,7 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
                 <PieChartIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 Jahresübersicht: Einnahmen, Ausgaben & Spenden
               </h3>
-              <p className="text-xs text-slate-400 mb-4">Anteile im gewählten Zeitraum</p>
+              <p className="text-xs text-slate-400 mb-4">Anteil an allen Bewegungen im gewählten Zeitraum</p>
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
                   <Pie
@@ -430,9 +357,11 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800">
               <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 mb-1 dark:text-white">
                 <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                Cashflow-Trend Gesamtverein
+                Kontostand-Verlauf
               </h3>
-              <p className="text-xs text-slate-400 mb-4">Kumulierter Kontostand-Verlauf über das Jahr (Fieberkurve)</p>
+              <p className="text-xs text-slate-400 mb-4">
+                {alleJahre ? 'Anfangsbestand plus Buchungen, jeweils am Jahresende' : 'Anfangsbestand plus Buchungen, jeweils am Monatsende'}
+              </p>
               <ResponsiveContainer width="100%" height={280}>
                 <LineChart data={cashflowData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
@@ -459,7 +388,7 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
                   onChange={e => setIncomeMixDepartment(e.target.value)}
                   className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-2xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 shrink-0 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
                 >
-                  <option value="Gesamtverein">Gesamtverein (alle Sparten)</option>
+                  <option value={GESAMT}>Gesamtverein (alle Sparten)</option>
                   {departmentList.map(dept => (
                     <option key={dept} value={dept}>{dept}</option>
                   ))}
@@ -493,7 +422,7 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
                   onChange={e => setExpenseMixDepartment(e.target.value)}
                   className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-2xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500 shrink-0 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
                 >
-                  <option value="Gesamtverein">Gesamtverein (alle Sparten)</option>
+                  <option value={GESAMT}>Gesamtverein (alle Sparten)</option>
                   {departmentList.map(dept => (
                     <option key={dept} value={dept}>{dept}</option>
                   ))}

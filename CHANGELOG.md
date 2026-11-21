@@ -137,6 +137,31 @@ entsprechen der Android-Fassung.
   Dokumentenverwaltung bleibt beim Löschen der Sitzung erhalten (wie bei
   Android). Vorher wurde es ohne Rückfrage mitgelöscht.
 
+### Paket 25 — Finanz-Auswertung (D-75 bis D-78, D-80)
+
+Zahlen wie Android `Finanzauswertung.kt` in `src/services/finanzAuswertung.ts`,
+Diagramme für das PDF wie Android `Diagramme.kt` in
+`src/services/finanzDiagramme.ts` (8 Tests mit denselben Beispielen wie am Handy).
+Am Bildschirm bleiben die Desktop-Diagramme, nur die Zahlen kommen jetzt aus
+derselben Rechnung.
+
+- **Kontostand-Verlauf (D-75):** echter Kontostand am Monatsende (bzw. bei
+  „Alle Jahre“ am Jahresende, dazu „Anfang“): Anfangsbestand der Konten plus
+  alle Buchungen bis dahin, auch aus früheren Jahren. Umbuchungen wirken je
+  Konto. Vorher wurden nur die Buchungen des Zeitraums aufsummiert.
+- **Spenden (D-76):** nur Einnahmen auf Nummernkreis 40400; eine Ausgabe dort
+  (z. B. Rückerstattung) zählt als Ausgabe.
+- **Einnahme/Ausgabe (D-77):** nach Buchungsart wie in der EÜR, nicht nach
+  dem Vorzeichen.
+- **Bereichsfilter (D-78):** gilt je Teilbetrag aufgeteilter Buchungen;
+  unbekannter Bereich zählt als ideell.
+- **CSV und PDF (D-80):** zwei neue Knöpfe in der Filterleiste. CSV mit allen
+  Zahlen (Kennzahlen, Monate, Kontostand, Mixe, Sparten), PDF mit zwei Seiten
+  A4 und den Diagrammen wie am Handy. Dateiname
+  „Finanzauswertung_<Jahr>_<Verein>“.
+- Beschriftungen wie am Handy: Torte „Anteil an allen Bewegungen“,
+  „Kontostand-Verlauf“, Kachel „Saldo“.
+
 ### Material im Änderungsprotokoll des Mitglieds (Gleichstand mit Android)
 
 - Jede Material-Änderung steht jetzt auch am Desktop im Änderungsprotokoll
