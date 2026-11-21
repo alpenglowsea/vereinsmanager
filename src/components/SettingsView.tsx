@@ -18,6 +18,8 @@ import { VORGABE_ARTEN, VORGABE_PERIODEN, VorgabeArt, VorgabePeriode, leseVorgab
 import { spartenNameFehler, ersetzeSparte, ersetzeSparteInBuchung, ersetzeInListe } from '../utils/sparteUmbenennen';
 import { BestaetigungsDialog } from './BestaetigungsDialog';
 import { UnterschriftFeld } from './UnterschriftFeld';
+import { AntragEinstellungenKarte } from './AntragEinstellungenKarte';
+import { antragTexteZumSpeichern, leseAntragEinstellungen } from '../utils/antragRegeln';
 import { saveBlobWithLocationPicker, saveDataUrlAs } from '../utils/fileExportHelper';
 
 import QRCode from 'qrcode';
@@ -233,6 +235,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // Beitragsvorgaben je Mitgliedsart (D-94), als Texte, damit „7,50“ tippbar ist
   const [vorgaben, setVorgaben] = useState<VorgabenEingabe>(() => vorgabenAlsEingabe(settings));
   const [vorgabenFehler, setVorgabenFehler] = useState<Partial<Record<VorgabeArt, string>>>({});
+  // Texte des Aufnahmeantrags (P29); leer oder Standard wird nicht gespeichert
+  const [antragTexte, setAntragTexte] = useState(() => {
+    const e = leseAntragEinstellungen(settings);
+    return { datenschutz: e.datenschutz, satzung: e.satzung };
+  });
 
   // Fehler je Vorstandseintrag (Schlüssel: id) und Meldung zur Vorstandsliste
   const [vorstandFehlerListe, setVorstandFehlerListe] = useState<Record<string, string>>({});
@@ -281,6 +288,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setClubAddress(parseClubAddress(settings.clubAddress || settings.address));
     setBoardMembers(getInitialBoardMembers(settings));
     setVorgaben(vorgabenAlsEingabe(settings));
+    const e = leseAntragEinstellungen(settings);
+    setAntragTexte({ datenschutz: e.datenschutz, satzung: e.satzung });
   }, [settings, currentTheme]);
 
   const [newDepartment, setNewDepartment] = useState('');
@@ -558,6 +567,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       treasurer: kasseAus(vorstand),
       boardMembers: vorstand,
       membershipFeeDefaults: vorgabenWerte,
+      ...antragTexteZumSpeichern(antragTexte.datenschutz, antragTexte.satzung),
     };
     setFormData(updated);
     setBoardMembers(vorstand.length > 0 ? vorstand : getInitialBoardMembers({ ...updated, boardMembers: [] }));
@@ -2506,6 +2516,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
+          <AntragEinstellungenKarte
+            settings={settings}
+            datenschutz={antragTexte.datenschutz}
+            satzung={antragTexte.satzung}
+            onDatenschutz={t => setAntragTexte(prev => ({ ...prev, datenschutz: t }))}
+            onSatzung={t => setAntragTexte(prev => ({ ...prev, satzung: t }))}
+            onBeilage={(feld, id) => {
+              // Sofort im Formular nachführen, damit „Speichern“ die Beilage nicht
+              // mit einem älteren Stand überschreibt
+              setFormData(prev => {
+                const neu = { ...prev } as ClubSettings & Record<string, unknown>;
+                if (id) neu[feld] = id;
+                else delete neu[feld];
+                return neu;
+              });
+              onDataReload?.(true);
+            }}
+          />
+
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
           <div className="pt-5 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             {/* Inline Feedback Banner directly in view of the user */}
@@ -3098,7 +3127,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </optgroup>
                     <optgroup label="Mitgliederverwaltung">
                       <option value="Mitgliederverwaltung (Mitgliederliste)">👥 Mitgliederverwaltung (Mitgliederliste & Bearbeitung)</option>
-                      <option value="Online-Mitgliedsanträge">📝 Online-Mitgliedsanträge (Prüfung & Aufnahme)</option>
+                      <option value="Neues Mitglied aufnehmen">📝 Neues Mitglied aufnehmen (Aufnahmeantrag)</option>
                       <option value="Mitglieder-Statistiken">📈 Mitglieder-Statistiken & Auswertungen</option>
                     </optgroup>
                     <optgroup label="Finanzen & Kassenbuch">

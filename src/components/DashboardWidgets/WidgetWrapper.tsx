@@ -87,8 +87,12 @@ export const WidgetWrapper: React.FC<WidgetWrapperProps> = ({
           : ''
       }`}
     >
-      {/* Tile Hover Controls Overlay */}
-      <div className="absolute top-2 right-2 z-20 flex items-center gap-1 opacity-0 group-hover/widget:opacity-100 focus-within:opacity-100 transition-opacity bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs p-1 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700/80">
+      {/*
+        Bedienleiste (Ziehen, Breite, Entfernen): mittig auf der Oberkante der Kachel,
+        zur Hälfte im Abstand zur Kachel darüber und zur Hälfte im Innenrand. So verdeckt
+        sie weder die Verweise oben rechts („Alle“, „Statistik“ …) noch Inhalte links.
+      */}
+      <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-0.5 opacity-0 pointer-events-none group-hover/widget:opacity-100 group-hover/widget:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto transition-opacity bg-white dark:bg-slate-900 px-1 py-0.5 rounded-full shadow-xs border border-slate-200 dark:border-slate-700 whitespace-nowrap">
         {/* Drag Handle */}
         <div
           className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg cursor-grab active:cursor-grabbing flex items-center gap-0.5 text-2xs font-semibold px-1.5 transition-colors"

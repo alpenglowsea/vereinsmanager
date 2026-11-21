@@ -25,6 +25,18 @@ describe('Datensicherung: Vollstaendigkeit der Bereiche', () => {
     expect(fehlend).toEqual([]);
   });
 
+  it('fuehrt die entfallenen Online-Antraege nicht mehr (D-04)', () => {
+    // Wie Android: Eine aeltere Sicherung mit diesen Bereichen laesst sich
+    // lesen, die Bereiche werden aber weder verglichen noch eingespielt.
+    expect(Object.values(STORES)).not.toContain('online_applications');
+    expect(Object.values(STORES)).not.toContain('application_settings');
+    const alt = leseSicherung(JSON.stringify({ data: { members: [{ id: 'm1' }], onlineApplications: [{ id: 'a1' }], applicationSettings: {} } }));
+    expect((alt.daten.members as unknown[]).length).toBe(1);
+    const schluessel = vergleicheSicherung(alt.daten, {}).map(b => b.schluessel as string);
+    expect(schluessel).not.toContain('onlineApplications');
+    expect(schluessel).not.toContain('applicationSettings');
+  });
+
   it('fuehrt die zwei frueher vergessenen Bereiche', () => {
     // Diese fehlten bis Fassung 1.2 in der Sicherung. Wer umzog, verlor sie.
     for (const schluessel of ['folders', 'memberInventory'] as SicherungsSchluessel[]) {

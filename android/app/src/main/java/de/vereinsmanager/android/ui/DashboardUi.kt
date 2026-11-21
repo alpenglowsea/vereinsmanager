@@ -78,7 +78,11 @@ enum class Schnell(val text: String, val lang: String, val icon: androidx.compos
  * Die Anordnung lässt sich anpassen und liegt im selben Bereich der Sicherung wie am Desktop.
  */
 @Composable
-fun DashboardScreen(model: AppModel, onZiel: (Ziel) -> Unit, onSchnell: (Schnell) -> Unit, modifier: Modifier = Modifier) {
+fun DashboardScreen(
+    model: AppModel, onZiel: (Ziel) -> Unit, onSchnell: (Schnell) -> Unit, modifier: Modifier = Modifier,
+    /** Tippen auf einen Termin: Kalender an diesem Tag mit den Details (T-245, wie am Desktop). */
+    onTermin: (String, String) -> Unit = { _, _ -> },
+) {
     var anpassen by remember { mutableStateOf(false) }
     BackHandler(enabled = anpassen) { anpassen = false }
     val heute = remember(model.stand) { LocalDate.now() }
@@ -96,9 +100,9 @@ fun DashboardScreen(model: AppModel, onZiel: (Ziel) -> Unit, onSchnell: (Schnell
         reihen.forEach { reihe ->
             if (reihe.size == 2) {
                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    reihe.forEach { k -> Box(Modifier.weight(1f).fillMaxHeight()) { CompositionLocalProvider(LocalStil provides stilFuer(k.id)) { KachelInhalt(model, daten, k, onZiel, onSchnell) } } }
+                    reihe.forEach { k -> Box(Modifier.weight(1f).fillMaxHeight()) { CompositionLocalProvider(LocalStil provides stilFuer(k.id)) { KachelInhalt(model, daten, k, onZiel, onSchnell, onTermin) } } }
                 }
-            } else CompositionLocalProvider(LocalStil provides stilFuer(reihe.first().id)) { KachelInhalt(model, daten, reihe.first(), onZiel, onSchnell) }
+            } else CompositionLocalProvider(LocalStil provides stilFuer(reihe.first().id)) { KachelInhalt(model, daten, reihe.first(), onZiel, onSchnell, onTermin) }
         }
         FilledTonalButton(onClick = { anpassen = true }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) { Text("Dashboard anpassen") }
     }
@@ -238,9 +242,10 @@ private fun Eintrag(
     erster: Boolean = false,
     vorn: (@Composable () -> Unit)? = null,
     unten: (@Composable () -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
 ) {
     val grau = MaterialTheme.colorScheme.onSurfaceVariant
-    Column(Modifier.fillMaxWidth()) {
+    Column(Modifier.fillMaxWidth().let { if (onClick != null) it.clickable(onClick = onClick) else it }) {
         if (!erster) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             vorn?.invoke()
@@ -292,7 +297,10 @@ private fun datumKurz(iso: String) = Zeit.deutsch(iso).take(6)
 // ---------------------------------------------------------------- Kacheln
 
 @Composable
-private fun KachelInhalt(model: AppModel, d: DashboardRechner, k: Kachel, onZiel: (Ziel) -> Unit, onSchnell: (Schnell) -> Unit) {
+private fun KachelInhalt(
+    model: AppModel, d: DashboardRechner, k: Kachel, onZiel: (Ziel) -> Unit, onSchnell: (Schnell) -> Unit,
+    onTermin: (String, String) -> Unit,
+) {
     val primaer = MaterialTheme.colorScheme.primary
     val fehler = MaterialTheme.colorScheme.error
     val warn = MaterialTheme.colorScheme.tertiary
@@ -475,7 +483,8 @@ private fun KachelInhalt(model: AppModel, d: DashboardRechner, k: Kachel, onZiel
             t.forEachIndexed { nr, v ->
                 val art = model.terminarten.firstOrNull { it.id == v.termin.art }?.name.orEmpty()
                 val unter = listOf(art, Kalender.zeitText(v.datum.toString(), v.termin.beginnZeit, v.ende.toString(), v.termin.endeZeit, v.termin.ganztaegig), v.termin.ort).filter { it.isNotBlank() }.joinToString(" · ")
-                Eintrag(v.termin.titel, unter, erster = nr == 0, vorn = { Tagesblock(LocalDate.parse(v.datum.toString().take(10))) })
+                val tag = v.datum.toString().take(10)
+                Eintrag(v.termin.titel, unter, erster = nr == 0, vorn = { Tagesblock(LocalDate.parse(tag)) }, onClick = { onTermin(v.termin.id, tag) })
             }
         }
         "meetings_summary" -> {

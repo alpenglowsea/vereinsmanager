@@ -51,11 +51,16 @@ import { saveBlobAs } from '../utils/fileExportHelper';
 interface CalendarViewProps {
   members: Member[];
   settings: ClubSettings;
+  /** Termin, der beim Öffnen angesprungen wird (Klick im Dashboard, T-245). */
+  sprung?: { eventId: string; datum: string } | null;
+  onSprungErledigt?: () => void;
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
   members,
   settings,
+  sprung,
+  onSprungErledigt,
 }) => {
   /**
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
@@ -128,6 +133,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   useEffect(() => {
     loadCalendarData();
   }, []);
+
+  // Sprung aus dem Dashboard (T-245): sobald die Termine geladen sind, den Monat des
+  // angeklickten Tages zeigen und die Details dieses Termins (bei Serien: dieses Tages) öffnen.
+  useEffect(() => {
+    if (!sprung || isLoading) return;
+    const ziel = events.find((e) => e.id === sprung.eventId);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(sprung.datum)) setCurrentDate(new Date(`${sprung.datum}T00:00:00`));
+    if (ziel) {
+      setSelectedDetailEvent(ziel);
+      setDetailDatum(sprung.datum);
+    }
+    onSprungErledigt?.();
+  }, [sprung, isLoading, events, onSprungErledigt]);
 
   // Category Map for fast lookup
   const categoryMap = useMemo(() => {

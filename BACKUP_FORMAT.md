@@ -68,8 +68,9 @@ Beide haben die Endung `.json` und sind UTF-8-Text.
 
 **Entfallene Bereiche (Entscheidung 25.10.2026):** `onlineApplications` (Aufnahmeanträge) und
 `applicationSettings` (Antragsformular-Einstellungen) gehören nicht mehr zur Sicherung, weder in der
-Android-App noch künftig am Desktop. Steht einer der beiden in einer älteren Datei, wird er beim
-Einspielen überlesen und verworfen. **Die Desktop-Fassung schreibt sie bis zu ihrer Anpassung noch.**
+Android-App noch am Desktop (dort seit Paket P29, November 2026). Steht einer der beiden in einer
+älteren Datei, wird er beim Einspielen überlesen und verworfen. Der Desktop entfernt die beiden
+Speicherbereiche beim ersten Start nach dem Update samt Inhalt aus seiner Datenbank.
 
 **Nicht Teil der Sicherung:** das Gerätepasswort. Es sperrt nur das jeweilige
 Gerät und reist bewusst nicht mit. Das gilt auch für die Android-App: Jedes

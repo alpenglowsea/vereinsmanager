@@ -164,6 +164,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             VereinsManagerTheme {
                 var stack by remember { mutableStateOf<List<Page>>(listOf(Page.Home)) }
+                // Tag, auf dem der Kalender nach einem Sprung aus dem Dashboard steht (T-245)
+                var kalenderStart by remember { mutableStateOf<String?>(null) }
                 val page = stack.last()
                 // Ab 840 dp Breite (Tablet) steht das Menü dauerhaft als Spalte da; am Handy öffnet das Menü-Symbol das Bereichsraster.
                 var bereicheOffen by remember { mutableStateOf(false) }
@@ -175,6 +177,7 @@ class MainActivity : ComponentActivity() {
                 BackHandler(enabled = schnellOffen) { schnellOffen = false }
 
                 fun geheZu(z: Ziel) {
+                    kalenderStart = null
                     stack = when (z) {
                         Ziel.START -> listOf(Page.Home)
                         Ziel.MITGLIEDER -> listOf(Page.Home, Page.Members)
@@ -200,6 +203,7 @@ class MainActivity : ComponentActivity() {
 
                 /** Die Schnellzugriffe: gehen auf den Bereich und öffnen dort gleich das Formular „Neu“. Dashboard und Mittelknopf nutzen dasselbe. */
                 fun schnell(a: Schnell) {
+                    kalenderStart = null
                     stack = listOf(Page.Home) + when (a) {
                         Schnell.MITGLIED -> listOf(Page.Members, Page.MemberEdit(null))
                         Schnell.BUCHUNG -> listOf(Page.Transactions, Page.TransactionEdit(null))
@@ -247,6 +251,10 @@ class MainActivity : ComponentActivity() {
                                 model, onZiel = ::geheZu,
                                 onSchnell = ::schnell,
                                 modifier = m,
+                                onTermin = { id, tag ->
+                                    kalenderStart = tag
+                                    stack = listOf(Page.Home, Page.Calendar, Page.CalendarEvent(id, tag))
+                                },
                             )
                             Page.Members -> MemberListScreen(
                                 model, onOpen = { stack = stack + Page.Member(it) }, onNew = { stack = stack + Page.MemberEdit(null) },
@@ -286,6 +294,7 @@ class MainActivity : ComponentActivity() {
                             Page.Calendar -> KalenderScreen(
                                 model, onOpen = { id, tag -> stack = stack + Page.CalendarEvent(id, tag) }, onNeu = { stack = stack + Page.CalendarEdit(null, it) },
                                 onArten = { stack = stack + Page.CalendarKinds }, modifier = m,
+                                start = kalenderStart,
                             )
                             is Page.CalendarEvent -> TerminDetailScreen(
                                 model, page.id, page.datum, onEdit = { nurTag -> stack = stack + Page.CalendarEdit(page.id, null, nurTag) },

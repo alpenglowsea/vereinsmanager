@@ -21,8 +21,6 @@ import {
   DonationReceipt,
   CalendarEvent,
   CalendarEventCategory,
-  OnlineMembershipApplication,
-  ApplicationTemplateSettings,
   ClubContact,
   ContactType,
   ClubInvoice,
@@ -55,7 +53,9 @@ import { InventoryView } from './components/InventoryView';
 import { SepaRunView } from './components/SepaRunView';
 import { DocumentsView } from './components/DocumentsView';
 import { CalendarView } from './components/CalendarView';
-import { OnlineApplicationsView } from './components/OnlineApplicationsView';
+import { AntragAusfuellen, AntragPruefen } from './components/AntragView';
+import type { Antrag } from './utils/antragRegeln';
+import { briefpapierFuerSitzungen } from './services/meetingPdfService';
 import { MeetingsView } from './components/MeetingsView';
 
 // Modals & Drawers
@@ -123,7 +123,6 @@ import { bestaetige } from './utils/dialoge';
 type ActiveTab =
   | 'dashboard'
   | 'members'
-  | 'online_applications'
   | 'member_analytics'
   | 'finance'
   | 'sepa'
@@ -202,12 +201,10 @@ export default function App() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [documents, setDocuments] = useState<ClubDocument[]>([]);
   const [donations, setDonations] = useState<DonationReceipt[]>([]);
-  const [onlineApplications, setOnlineApplications] = useState<OnlineMembershipApplication[]>([]);
-  const [applicationSettings, setApplicationSettings] = useState<ApplicationTemplateSettings>({
-    headerText: 'Herzlich willkommen beim TSV Musterstadt 1890 e.V.! Füllen Sie den Online-Aufnahmeantrag bitte vollständig aus.',
-    notificationEmail: 'vorstand@tsv-musterstadt1890.de',
-    defaultFeeRules: { full: 18.0, reduced: 12.0, youth: 10.0, family: 30.0, supporting: 25.0 }
-  });
+  // Aufnahme am Gerät (P29): 'ausfuellen' = das neue Mitglied füllt aus (Vollbild),
+  // 'pruefen' = der Verein prüft. Der abgegebene Antrag liegt nur im Arbeitsspeicher.
+  const [antragModus, setAntragModus] = useState<'ausfuellen' | 'pruefen' | null>(null);
+  const [antragWartet, setAntragWartet] = useState<Antrag | null>(null);
   const [settings, setSettings] = useState<ClubSettings>({
     clubName: 'TSV Musterstadt 1890 e.V.',
     associationNumber: 'VR 48219 Amtsgericht Musterstadt',
@@ -316,6 +313,8 @@ export default function App() {
   // Wird nach jedem gespeicherten Termin hochgezählt, damit die
   // Dashboard-Kachel ihre Liste neu lädt.
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
+  // Termin, den der Kalender beim Öffnen anspringen soll (Klick im Dashboard, T-245)
+  const [kalenderSprung, setKalenderSprung] = useState<{ eventId: string; datum: string } | null>(null);
 
   // Meeting Form Modal State (Dashboard Schnellaktion & Global Modal)
   const [meetingFormOpen, setMeetingFormOpen] = useState(false);
@@ -361,8 +360,6 @@ export default function App() {
         loadedDocuments,
         loadedDonations,
         loadedFolders,
-        loadedApplications,
-        loadedTemplateSettings,
         loadedDashboardConfig,
         loadedContacts,
         loadedInvoices,
@@ -378,8 +375,6 @@ export default function App() {
         StorageService.getDocuments(),
         StorageService.getDonations(),
         StorageService.getFolders(),
-        StorageService.getOnlineApplications(),
-        StorageService.getApplicationTemplateSettings(),
         StorageService.getDashboardConfig(),
         StorageService.getContacts(),
         StorageService.getInvoices(),
@@ -396,7 +391,6 @@ export default function App() {
       setDocuments(loadedDocuments);
       setDonations(loadedDonations);
       setFolders(loadedFolders);
-      setOnlineApplications(loadedApplications);
       setContacts(loadedContacts);
       setInvoices(loadedInvoices);
       if (loadedInvoiceTemplate) {
@@ -408,9 +402,6 @@ export default function App() {
       }
       if (loadedDashboardConfig) {
         setDashboardConfig(loadedDashboardConfig);
-      }
-      if (loadedTemplateSettings) {
-        setApplicationSettings(loadedTemplateSettings);
       }
     } catch (err) {
       console.error('Failed to load local data:', err);
@@ -1079,49 +1070,10 @@ export default function App() {
   // Siehe git log -S handleCreateInvoiceForMember.
 
   // Calendar Event Quick Action Handlers
-  // --- Online-Aufnahmeanträge -------------------------------------------
+  // --- Neues Mitglied aufnehmen (P29) -------------------------------------
 
-  /**
-   * Antrag annehmen: legt dabei ein neues Mitglied an. Die Maske wartet auf
-   * das angelegte Mitglied und zeigt eine Ausnahme als Fehlermeldung an.
-   */
-  const handleApproveApplication = async (
-    appId: string,
-    overrides: Partial<Member>,
-    author: string
-  ): Promise<{ member: Member; documentId: string }> => {
-    const res = await StorageService.approveOnlineApplication(
-      appId,
-      overrides,
-      author || currentUser || 'Vorstand'
-    );
-    await loadData();
-    return res;
-  };
-
-  const handleRejectApplication = async (appId: string, reason: string, author: string) => {
-    await StorageService.rejectOnlineApplication(
-      appId,
-      reason,
-      author || currentUser || 'Vorstand'
-    );
-    await loadData();
-  };
-
-  const handleDeleteApplication = async (id: string) => {
-    await StorageService.deleteOnlineApplication(id);
-    await loadData();
-  };
-
-  const handleSaveApplicationTemplate = async (newSettings: ApplicationTemplateSettings) => {
-    await StorageService.saveApplicationTemplateSettings(newSettings);
-    await loadData();
-  };
-
-  const handleAddApplication = async (newApp: OnlineMembershipApplication) => {
-    await StorageService.saveOnlineApplication(newApp);
-    await loadData();
-  };
+  /** Öffnet den Antrag; wartet schon ein abgegebener Antrag, zuerst dessen Prüfung. */
+  const oeffneAufnahme = () => setAntragModus(antragWartet ? 'pruefen' : 'ausfuellen');
 
   const handleOpenCreateCalendarEvent = async () => {
     try {
@@ -1275,7 +1227,7 @@ export default function App() {
               type="button"
               onClick={() => setMembersMenuOpen(!membersMenuOpen)}
               className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer select-none ${
-                ['members', 'online_applications', 'member_analytics'].includes(activeTab)
+                ['members', 'member_analytics'].includes(activeTab)
                   ? 'text-blue-300 bg-slate-800/50 hover:bg-slate-800 hover:text-white'
                   : 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-200'
               }`}
@@ -1310,36 +1262,21 @@ export default function App() {
                   <span>Mitgliederverwaltung</span>
                 </button>
 
+                {/* Aufnahme am Gerät (P29): öffnet den Antrag, kein eigener Bereich */}
                 <button
                   type="button"
                   onClick={() => {
-                    setActiveTab('online_applications');
+                    oeffneAufnahme();
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                    activeTab === 'online_applications'
-                      ? 'bg-blue-600 text-white font-semibold shadow-xs'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-slate-300 hover:bg-slate-800 hover:text-white"
                 >
                   <div className="flex items-center gap-2">
                     <FileSignature className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Mitgliedsanträge</span>
+                    <span>Neues Mitglied aufnehmen</span>
                   </div>
-                  {onlineApplications.filter(a => a.status === 'pending').length > 0 ? (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500 text-white animate-pulse">
-                      {onlineApplications.filter(a => a.status === 'pending').length} neu
-                    </span>
-                  ) : (
-                    <span
-                      className={`text-[11px] px-1.5 py-0.5 rounded font-mono ${
-                        activeTab === 'online_applications'
-                          ? 'bg-blue-500/80 text-white'
-                          : 'bg-slate-800 text-slate-400'
-                      }`}
-                    >
-                      {onlineApplications.length}
-                    </span>
+                  {antragWartet && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500 text-white">prüfen</span>
                   )}
                 </button>
 
@@ -1715,7 +1652,6 @@ export default function App() {
               <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white leading-tight truncate">
                 {activeTab === 'dashboard' && 'Vereins-Dashboard'}
                 {activeTab === 'members' && 'Mitgliederverwaltung'}
-                {activeTab === 'online_applications' && 'Mitgliedsanträge & Digitales Aufnahmewesen'}
                 {activeTab === 'member_analytics' && 'Mitglieder-Statistiken & Demografie'}
                 {activeTab === 'sepa' && 'Beitragslauf (SEPA-Lastschriften)'}
                 {activeTab === 'finance' && 'Finanz- & Kassenverwaltung'}
@@ -1856,7 +1792,6 @@ export default function App() {
                 inventory={inventory}
                 documents={documents}
                 donations={donations}
-                applications={onlineApplications}
                 invoices={invoices}
                 contacts={contacts}
                 meetings={meetings}
@@ -1893,6 +1828,10 @@ export default function App() {
                   setMeetingFormOpen(true);
                 }}
                 onOpenCreateEvent={handleOpenCreateCalendarEvent}
+                onOpenEvent={(eventId, datum) => {
+                  setKalenderSprung({ eventId, datum });
+                  setActiveTab('calendar');
+                }}
                 onOpenCreateInventory={() => {
                   setEditingInventoryItem(null);
                   setInventoryFormOpen(true);
@@ -1920,22 +1859,6 @@ export default function App() {
                 onBulkDeleteMembers={handleBulkDeleteMembers}
                 onOpenImport={() => setMemberImportOpen(true)}
               />
-            )}
-
-            {/* Tab: Online Membership Applications */}
-            {activeTab === 'online_applications' && (
-              <OnlineApplicationsView
-                applications={onlineApplications}
-                members={members}
-                settings={settings}
-                templateSettings={applicationSettings}
-                currentUser={currentUser || 'Vorstand'}
-                onApproveApplication={handleApproveApplication}
-                onRejectApplication={handleRejectApplication}
-                onDeleteApplication={handleDeleteApplication}
-                onSaveTemplateSettings={handleSaveApplicationTemplate}
-                onSubmitNewApplication={handleAddApplication}
-                />
             )}
 
             {/* Tab 2: Member Analytics */}
@@ -2102,6 +2025,8 @@ export default function App() {
               <CalendarView
                 members={members}
                 settings={settings}
+                sprung={kalenderSprung}
+                onSprungErledigt={() => setKalenderSprung(null)}
                 />
             )}
 
@@ -2292,6 +2217,41 @@ export default function App() {
             setMemberFormOpen(true);
           }}
                 />
+      )}
+
+      {/* Neues Mitglied aufnehmen (P29): Ausfüllen durch das neue Mitglied, Prüfen durch den Verein */}
+      {antragModus === 'ausfuellen' && (
+        <AntragAusfuellen
+          settings={settings}
+          dokumente={documents}
+          onAbgegeben={a => setAntragWartet(a)}
+          onWeiter={() => setAntragModus('pruefen')}
+          onAbbruch={() => {
+            setAntragWartet(null);
+            setAntragModus(null);
+          }}
+        />
+      )}
+      {antragModus === 'pruefen' && antragWartet && (
+        <AntragPruefen
+          antrag={antragWartet}
+          settings={settings}
+          members={members}
+          naechsteNummer={nextMemberNumber}
+          briefpapier={briefpapierFuerSitzungen(meetingTemplateSettings, invoiceTemplateSettings)}
+          onAufgenommen={async m => {
+            setAntragWartet(null);
+            setAntragModus(null);
+            await loadData(true);
+            setActiveTab('members');
+            setDetailsMember(m);
+          }}
+          onVerworfen={() => {
+            setAntragWartet(null);
+            setAntragModus(null);
+          }}
+          onSchliessen={() => setAntragModus(null)}
+        />
       )}
 
       {/* Transaction Create/Edit Modal */}

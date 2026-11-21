@@ -370,43 +370,48 @@ export function sektorPunkte(cx: number, cy: number, aussen: number, innen: numb
 export function zeichnePdf(doc: PdfZiel, seiten: Befehl[][]): void {
   seiten.forEach((seite, i) => {
     if (i > 0) doc.addPage();
-    for (const b of seite) {
-      switch (b.art) {
-        case 'text':
-          doc.setFont('helvetica', b.fett ? 'bold' : 'normal');
-          doc.setFontSize(b.pt);
-          doc.setTextColor(b.farbe);
-          doc.text(b.text, b.x, b.y, { align: b.aus === 'mitte' ? 'center' : b.aus === 'rechts' ? 'right' : 'left' });
-          break;
-        case 'rechteck':
-          if (b.fuellung) doc.setFillColor(b.fuellung);
-          if (b.rand) {
-            doc.setDrawColor(b.rand);
-            doc.setLineWidth(0.2);
-          }
-          doc.rect(b.x, b.y, b.b, b.h, b.fuellung && b.rand ? 'FD' : b.fuellung ? 'F' : 'S');
-          break;
-        case 'linie':
-          doc.setDrawColor(b.farbe);
-          doc.setLineWidth(b.dicke);
-          doc.line(b.x1, b.y1, b.x2, b.y2);
-          break;
-        case 'linienzug': {
-          doc.setDrawColor(b.farbe);
-          doc.setLineWidth(b.dicke);
-          const [sx, sy] = b.punkte[0];
-          const teile = b.punkte.slice(1).map(([px, py], j) => [px - b.punkte[j][0], py - b.punkte[j][1]]);
-          doc.lines(teile, sx, sy, [1, 1], 'S', false);
-          break;
+    zeichneSeite(doc, seite);
+  });
+}
+
+/** Die Befehle einer Seite auf die aktuelle Seite von `doc` zeichnen (auch für den Aufnahmeantrag). */
+export function zeichneSeite(doc: PdfZiel, seite: Befehl[]): void {
+  for (const b of seite) {
+    switch (b.art) {
+      case 'text':
+        doc.setFont('helvetica', b.fett ? 'bold' : 'normal');
+        doc.setFontSize(b.pt);
+        doc.setTextColor(b.farbe);
+        doc.text(b.text, b.x, b.y, { align: b.aus === 'mitte' ? 'center' : b.aus === 'rechts' ? 'right' : 'left' });
+        break;
+      case 'rechteck':
+        if (b.fuellung) doc.setFillColor(b.fuellung);
+        if (b.rand) {
+          doc.setDrawColor(b.rand);
+          doc.setLineWidth(0.2);
         }
-        case 'sektor': {
-          const pkt = sektorPunkte(b.cx, b.cy, b.aussen, b.innen, b.start, b.winkel);
-          doc.setFillColor(b.fuellung);
-          const teile = pkt.slice(1).map(([px, py], j) => [px - pkt[j][0], py - pkt[j][1]]);
-          doc.lines(teile, pkt[0][0], pkt[0][1], [1, 1], 'F', true);
-          break;
-        }
+        doc.rect(b.x, b.y, b.b, b.h, b.fuellung && b.rand ? 'FD' : b.fuellung ? 'F' : 'S');
+        break;
+      case 'linie':
+        doc.setDrawColor(b.farbe);
+        doc.setLineWidth(b.dicke);
+        doc.line(b.x1, b.y1, b.x2, b.y2);
+        break;
+      case 'linienzug': {
+        doc.setDrawColor(b.farbe);
+        doc.setLineWidth(b.dicke);
+        const [sx, sy] = b.punkte[0];
+        const teile = b.punkte.slice(1).map(([px, py], j) => [px - b.punkte[j][0], py - b.punkte[j][1]]);
+        doc.lines(teile, sx, sy, [1, 1], 'S', false);
+        break;
+      }
+      case 'sektor': {
+        const pkt = sektorPunkte(b.cx, b.cy, b.aussen, b.innen, b.start, b.winkel);
+        doc.setFillColor(b.fuellung);
+        const teile = pkt.slice(1).map(([px, py], j) => [px - pkt[j][0], py - pkt[j][1]]);
+        doc.lines(teile, pkt[0][0], pkt[0][1], [1, 1], 'F', true);
+        break;
       }
     }
-  });
+  }
 }

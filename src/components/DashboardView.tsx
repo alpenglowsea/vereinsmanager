@@ -7,7 +7,6 @@ import {
   InventoryItem,
   ClubDocument,
   DonationReceipt,
-  OnlineMembershipApplication,
   ClubInvoice,
   ClubContact,
   Meeting
@@ -17,7 +16,6 @@ import { AVAILABLE_DASHBOARD_WIDGETS } from '../data/defaultDashboard';
 import { WidgetWrapper } from './DashboardWidgets/WidgetWrapper';
 import {
   MembersKpiWidget,
-  OnlineApplicationsWidget,
   DepartmentsWidget,
   BirthdaysWidget,
   RecentMembersWidget,
@@ -50,9 +48,7 @@ import {
 } from './DashboardWidgets/OperationalWidgets';
 import {
   SlidersHorizontal,
-  Plus,
-  FileSignature,
-  ArrowRight
+  Plus
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -62,7 +58,6 @@ interface DashboardViewProps {
   inventory: InventoryItem[];
   documents?: ClubDocument[];
   donations?: DonationReceipt[];
-  applications?: OnlineMembershipApplication[];
   invoices?: ClubInvoice[];
   contacts?: ClubContact[];
   meetings?: Meeting[];
@@ -77,6 +72,7 @@ interface DashboardViewProps {
   onOpenCreateContact?: () => void;
   onOpenCreateMeeting?: () => void;
   onOpenCreateEvent?: () => void;
+  onOpenEvent?: (eventId: string, datum: string) => void;
   onOpenCreateInventory: () => void;
   onOpenNewDocument?: () => void;
   /** Wird hochgezählt, wenn ein Termin gespeichert wurde. */
@@ -90,7 +86,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   inventory,
   documents = [],
   donations = [],
-  applications = [],
   invoices = [],
   contacts = [],
   meetings = [],
@@ -105,6 +100,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenCreateContact,
   onOpenCreateMeeting,
   onOpenCreateEvent,
+  onOpenEvent,
   onOpenCreateInventory,
   onOpenNewDocument,
   calendarRefreshKey
@@ -116,10 +112,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return map;
   }, []);
 
-  // Pending online membership applications
-  const pendingApplications = useMemo(() => {
-    return (applications || []).filter((a) => a.status === 'pending');
-  }, [applications]);
 
   // Sorted enabled widgets.
   const enabledWidgets = useMemo(() => {
@@ -127,10 +119,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       .filter((w) => w.enabled)
       .sort((a, b) => a.order - b.order);
   }, [dashboardConfig]);
-
-  const hasClubHeader = useMemo(() => {
-    return enabledWidgets.some((w) => w.id === 'club_header');
-  }, [enabledWidgets]);
 
   const [draggedWidgetId, setDraggedWidgetId] = useState<string | null>(null);
   const [dragOverWidgetId, setDragOverWidgetId] = useState<string | null>(null);
@@ -234,8 +222,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         return <ClubHeaderWidget settings={settings} onNavigate={onNavigate} />;
       case 'members_kpi':
         return <MembersKpiWidget members={members} onNavigate={onNavigate} />;
-      case 'online_applications_kpi':
-        return <OnlineApplicationsWidget applications={applications} onNavigate={onNavigate} />;
       case 'departments_distribution':
         return <DepartmentsWidget members={members} onNavigate={onNavigate} />;
       case 'upcoming_birthdays':
@@ -295,6 +281,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <UpcomingEventsWidget
             onNavigate={onNavigate}
             onOpenCreateEvent={onOpenCreateEvent}
+            onOpenEvent={onOpenEvent}
             refreshKey={calendarRefreshKey}
           />
         );
@@ -312,52 +299,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Modular Widgets Grid with Dense Gap-Free Layout */}
       {enabledWidgets.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 [grid-auto-flow:dense]">
-          {/* If club_header is not enabled, show pending applications banner at the top */}
-          {!hasClubHeader && pendingApplications.length > 0 && (
-            <div className="col-span-1 md:col-span-2 lg:col-span-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border-2 border-amber-300 dark:border-amber-700/60 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
-              <div className="flex items-start sm:items-center gap-4">
-                <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-xs shrink-0 animate-bounce">
-                  <FileSignature className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="px-2.5 py-0.5 rounded-full text-2xs font-black uppercase tracking-wider bg-amber-500 text-white">
-                      {pendingApplications.length === 1
-                        ? '1 neuer Aufnahmeantrag'
-                        : `${pendingApplications.length} neue Aufnahmeanträge`}
-                    </span>
-                    <h3 className="text-base sm:text-lg font-black text-amber-950 dark:text-amber-100">
-                      {pendingApplications.length === 1
-                        ? 'Neuer digitaler Mitgliedsantrag eingegangen'
-                        : 'Neue digitale Mitgliedsanträge eingegangen'}
-                    </h3>
-                  </div>
-                  <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1 break-words">
-                    Es liegen neue Online-Mitgliedsanträge zur satzungsgemäßen Prüfung und Freigabe vor:{' '}
-                    <span className="font-semibold">
-                      {pendingApplications.slice(0, 3).map((a) => `${a.firstName || (a as any).formData?.firstName || 'Antragsteller'} ${a.lastName || (a as any).formData?.lastName || ''} (${a.department || (a as any).formData?.department || 'Allgemein'})`).join(', ')}
-                      {pendingApplications.length > 3 && ` und ${pendingApplications.length - 3} weitere`}
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('online_applications')}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 active:scale-98 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow-md transition-all cursor-pointer shrink-0 w-full sm:w-auto text-center"
-              >
-                <span className="truncate">Antragsportal öffnen & prüfen ({pendingApplications.length})</span>
-                <ArrowRight className="w-4 h-4 shrink-0" />
-              </button>
-            </div>
-          )}
-
           {enabledWidgets.map((widget) => {
             const def = definitionsMap.get(widget.id);
             if (!def) return null;
-
-            const isClubHeader = widget.id === 'club_header';
 
             return (
               <React.Fragment key={widget.id}>
@@ -376,46 +320,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   {renderWidgetContent(widget.id)}
                 </WidgetWrapper>
 
-                {/* If this is the club_header widget and there are pending applications, render full-width alert directly under it */}
-                {isClubHeader && pendingApplications.length > 0 && (
-                  <div className="col-span-1 md:col-span-2 lg:col-span-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border-2 border-amber-300 dark:border-amber-700/60 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
-                    <div className="flex items-start sm:items-center gap-4">
-                      <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-xs shrink-0 animate-bounce">
-                        <FileSignature className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2.5 flex-wrap">
-                          <span className="px-2.5 py-0.5 rounded-full text-2xs font-black uppercase tracking-wider bg-amber-500 text-white">
-                            {pendingApplications.length === 1
-                              ? '1 neuer Aufnahmeantrag'
-                              : `${pendingApplications.length} neue Aufnahmeanträge`}
-                          </span>
-                          <h3 className="text-base sm:text-lg font-black text-amber-950 dark:text-amber-100">
-                            {pendingApplications.length === 1
-                              ? 'Neuer digitaler Mitgliedsantrag eingegangen'
-                              : 'Neue digitale Mitgliedsanträge eingegangen'}
-                          </h3>
-                        </div>
-                        <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1">
-                          Es liegen neue Online-Mitgliedsanträge zur satzungsgemäßen Prüfung und Freigabe vor:{' '}
-                          <span className="font-semibold">
-                            {pendingApplications.slice(0, 3).map((a) => `${a.firstName || (a as any).formData?.firstName || 'Antragsteller'} ${a.lastName || (a as any).formData?.lastName || ''} (${a.department || (a as any).formData?.department || 'Allgemein'})`).join(', ')}
-                            {pendingApplications.length > 3 && ` und ${pendingApplications.length - 3} weitere`}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => onNavigate('online_applications')}
-                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 active:scale-98 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow-md transition-all cursor-pointer shrink-0"
-                    >
-                      <span>Antragsportal öffnen & prüfen ({pendingApplications.length})</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
               </React.Fragment>
             );
           })}

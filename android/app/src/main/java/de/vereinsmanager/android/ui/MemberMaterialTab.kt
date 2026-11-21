@@ -2,6 +2,7 @@ package de.vereinsmanager.android.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -80,10 +81,23 @@ fun MemberMaterialTab(model: AppModel, m: Member, onOverview: () -> Unit) {
                 Text(zeile2, style = MaterialTheme.typography.bodySmall)
                 Text(MemberMaterial.eigenanteil(a), style = MaterialTheme.typography.bodySmall)
                 if (a.notes.isNotEmpty()) Text(a.notes, style = MaterialTheme.typography.bodySmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(onClick = { fehler = model.ausgabeUmschalten(a.id) ?: "" }) { Text(if (a.returned) "Wieder ausgeben" else "Zurückgeben") }
-                    TextButton(onClick = { dialog = AusgabeForm.von(a) }) { Text("Bearbeiten") }
-                    TextButton(onClick = { entfernen = a }) { Text("Entfernen") }
+                // Drei Knöpfe in einer Zeile (T-224, T-247): kleinere Schrift und schmaler Innenabstand,
+                // damit auch „Wieder ausgeben“, „Bearbeiten“ und „Entfernen“ zusammen auf ein schmales
+                // Handy passen; „Entfernen“ ganz rechts in Warnfarbe
+                val knopfRand = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                val knopfText = MaterialTheme.typography.labelMedium
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Row {
+                        TextButton(onClick = { fehler = model.ausgabeUmschalten(a.id) ?: "" }, contentPadding = knopfRand) {
+                            Text(if (a.returned) "Wieder ausgeben" else "Zurückgeben", style = knopfText, maxLines = 1, softWrap = false)
+                        }
+                        TextButton(onClick = { dialog = AusgabeForm.von(a) }, contentPadding = knopfRand) {
+                            Text("Bearbeiten", style = knopfText, maxLines = 1, softWrap = false)
+                        }
+                    }
+                    TextButton(onClick = { entfernen = a }, contentPadding = knopfRand) {
+                        Text("Entfernen", style = knopfText, maxLines = 1, softWrap = false, color = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         }

@@ -24,6 +24,8 @@ import {
   ContactType,
   MeetingType
 } from '../../types';
+import { rechnungen as rechnungsDaten, sitzungen as sitzungsDaten } from '../../utils/dashboardRegeln';
+import { heuteIso } from '../../utils/kalenderRegeln';
 
 // ==========================================
 // 1. INVOICES OVERVIEW WIDGET
@@ -39,35 +41,13 @@ export const InvoicesOverviewWidget: React.FC<InvoicesOverviewWidgetProps> = ({
   onNavigate,
   onOpenCreateInvoice
 }) => {
+  // Offen = gestellt und nicht bezahlt; Entwürfe und Stornierte zählen weder als Forderung
+  // noch als abgerechnet; „überfällig“ nach lokalem Datum (D-137, D-138)
+  const heute = heuteIso();
   const stats = useMemo(() => {
-    let totalBilled = 0;
-    let openAmount = 0;
-    let overdueCount = 0;
-    let paidCount = 0;
-
-    const today = new Date().toISOString().split('T')[0];
-
-    invoices.forEach((inv) => {
-      totalBilled += inv.totalAmount || 0;
-      if (inv.status === 'paid') {
-        paidCount++;
-      } else if (inv.status !== 'cancelled') {
-        openAmount += inv.totalAmount || 0;
-        if (inv.dueDate && inv.dueDate < today) {
-          overdueCount++;
-        }
-      }
-    });
-
-    // Latest 4 invoices sorted by date/creation descending
-    const sorted = [...invoices].sort((a, b) => {
-      const dateA = a.date || a.createdAt || '';
-      const dateB = b.date || b.createdAt || '';
-      return dateB.localeCompare(dateA);
-    }).slice(0, 4);
-
-    return { totalBilled, openAmount, overdueCount, paidCount, recent: sorted };
-  }, [invoices]);
+    const d = rechnungsDaten(invoices, heute);
+    return { totalBilled: d.abgerechnet, openAmount: d.offen, overdueCount: d.ueberfaellig, paidCount: d.bezahlt, recent: d.neueste };
+  }, [invoices, heute]);
 
   const getStatusBadge = (status: InvoiceStatus) => {
     switch (status) {
@@ -236,24 +216,12 @@ export const InvoicesKpiWidget: React.FC<InvoicesKpiWidgetProps> = ({
   invoices = [],
   onNavigate
 }) => {
+  // Wie die Rechnungsliste: Entwürfe und Stornierte sind keine Forderung (D-137, D-138)
+  const heute = heuteIso();
   const { openSum, openCount, overdueCount } = useMemo(() => {
-    let openSum = 0;
-    let openCount = 0;
-    let overdueCount = 0;
-    const today = new Date().toISOString().split('T')[0];
-
-    invoices.forEach((inv) => {
-      if (inv.status !== 'paid' && inv.status !== 'cancelled') {
-        openSum += inv.totalAmount || 0;
-        openCount++;
-        if (inv.dueDate && inv.dueDate < today) {
-          overdueCount++;
-        }
-      }
-    });
-
-    return { openSum, openCount, overdueCount };
-  }, [invoices]);
+    const d = rechnungsDaten(invoices, heute);
+    return { openSum: d.offen, openCount: d.offenAnzahl, overdueCount: d.ueberfaellig };
+  }, [invoices, heute]);
 
   return (
     <div
@@ -522,33 +490,12 @@ export const MeetingsSummaryWidget: React.FC<MeetingsSummaryWidgetProps> = ({
   onNavigate,
   onOpenCreateMeeting
 }) => {
+  // Anstehend ab heute nach lokalem Datum, Abgesagtes nicht (D-138)
+  const heute = heuteIso();
   const { nextMeeting, openProtocolsCount, upcomingMeetings } = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-
-    let openProtocols = 0;
-    const upcoming: Meeting[] = [];
-
-    meetings.forEach((m) => {
-      if (m.status === 'draft' || m.status === 'review') {
-        openProtocols++;
-      }
-      if (m.date >= today && m.status !== 'cancelled') {
-        upcoming.push(m);
-      }
-    });
-
-    upcoming.sort((a, b) => {
-      const diff = a.date.localeCompare(b.date);
-      if (diff !== 0) return diff;
-      return (a.startTime || '').localeCompare(b.startTime || '');
-    });
-
-    return {
-      nextMeeting: upcoming[0] || null,
-      openProtocolsCount: openProtocols,
-      upcomingMeetings: upcoming.slice(0, 3)
-    };
-  }, [meetings]);
+    const d = sitzungsDaten(meetings, heute);
+    return { nextMeeting: d.anstehend[0] || null, openProtocolsCount: d.offeneProtokolle, upcomingMeetings: d.anstehend };
+  }, [meetings, heute]);
 
   const getTypeBadge = (type: MeetingType) => {
     switch (type) {
@@ -702,18 +649,11 @@ export const MeetingsKpiWidget: React.FC<MeetingsKpiWidgetProps> = ({
   meetings = [],
   onNavigate
 }) => {
+  const heute = heuteIso();
   const { upcomingCount, openProtocols } = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    let upcoming = 0;
-    let openProtocols = 0;
-
-    meetings.forEach((m) => {
-      if (m.date >= today && m.status !== 'cancelled') upcoming++;
-      if (m.status === 'draft' || m.status === 'review') openProtocols++;
-    });
-
-    return { upcomingCount: upcoming, openProtocols };
-  }, [meetings]);
+    const d = sitzungsDaten(meetings, heute);
+    return { upcomingCount: d.anstehendAnzahl, openProtocols: d.offeneProtokolle };
+  }, [meetings, heute]);
 
   return (
     <div

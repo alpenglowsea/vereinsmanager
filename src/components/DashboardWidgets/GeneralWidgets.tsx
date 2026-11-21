@@ -9,6 +9,7 @@ import {
 import { StorageService } from '../../services/storage';
 import { kennzahlen } from '../../utils/inventarRegeln';
 import { lokalesHeute } from '../../utils/mitgliedRegeln';
+import { gemeinnuetzigText, termine } from '../../utils/dashboardRegeln';
 import {
   Sparkles,
   Plus,
@@ -165,13 +166,18 @@ export const ClubHeaderWidget: React.FC<ClubHeaderWidgetProps> = ({ settings, on
           />
         </div>
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="px-2.5 py-0.5 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60 rounded-full text-2xs font-bold uppercase tracking-wider">
               {settings.associationNumber || 'Eingetragener Verein (e.V.)'}
             </span>
-            {settings.taxExemptionDate && (
+            {/* Mit dem Datum des Bescheids, damit sein Alter sichtbar ist (D-140, wie Android) */}
+            {gemeinnuetzigText(settings.taxExemptionDate) ? (
               <span className="px-2.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 rounded-full text-2xs font-bold">
-                Gemeinnützig
+                {gemeinnuetzigText(settings.taxExemptionDate)}
+              </span>
+            ) : (
+              <span className="px-2.5 py-0.5 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60 rounded-full text-2xs font-bold">
+                Kein Freistellungsbescheid hinterlegt
               </span>
             )}
           </div>
@@ -199,6 +205,8 @@ export const ClubHeaderWidget: React.FC<ClubHeaderWidgetProps> = ({ settings, on
 interface UpcomingEventsWidgetProps {
   onNavigate: (tab: string) => void;
   onOpenCreateEvent?: () => void;
+  /** Klick auf einen Termin: Kalender an diesem Tag mit den Details öffnen (T-245). */
+  onOpenEvent?: (eventId: string, datum: string) => void;
   /**
    * Wird von App.tsx hochgezählt, sobald ein Termin gespeichert wurde.
    * Dadurch lädt die Kachel neu, statt bis zum nächsten Seitenwechsel
@@ -219,6 +227,7 @@ function localDateKey(d: Date = new Date()): string {
 export const UpcomingEventsWidget: React.FC<UpcomingEventsWidgetProps> = ({
   onNavigate,
   onOpenCreateEvent,
+  onOpenEvent,
   refreshKey = 0
 }) => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -249,18 +258,9 @@ export const UpcomingEventsWidget: React.FC<UpcomingEventsWidgetProps> = ({
     };
   }, [refreshKey]);
 
-  const upcoming = useMemo(() => {
-    const today = localDateKey();
-    return events
-      // Mehrtägige Termine bleiben sichtbar, solange sie noch laufen.
-      .filter(evt => (evt.endDate || evt.startDate) >= today)
-      .sort((a, b) => {
-        const byDate = a.startDate.localeCompare(b.startDate);
-        if (byDate !== 0) return byDate;
-        return (a.startTime || '').localeCompare(b.startTime || '');
-      })
-      .slice(0, 3);
-  }, [events]);
+  // Die nächsten drei Vorkommen, auch aus Serien (D-142); mehrtägige Termine bleiben
+  // sichtbar, solange sie noch laufen.
+  const upcoming = useMemo(() => termine(events, localDateKey()), [events]);
 
   const categoryOf = (categoryId: string) => categories.find(c => c.id === categoryId);
 
@@ -311,12 +311,13 @@ export const UpcomingEventsWidget: React.FC<UpcomingEventsWidgetProps> = ({
           </div>
         ) : (
           <div className="space-y-2.5">
-            {upcoming.map(evt => {
+            {upcoming.map(v => {
+              const evt = v.originalEvent;
               const cat = categoryOf(evt.categoryId);
               return (
                 <div
-                  key={evt.id}
-                  onClick={() => onNavigate('calendar')}
+                  key={v.instanceId}
+                  onClick={() => (onOpenEvent ? onOpenEvent(evt.id, v.date) : onNavigate('calendar'))}
                   className="p-3 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex items-start justify-between gap-3 transition-colors cursor-pointer"
                 >
                   <div className="space-y-1 min-w-0">
@@ -348,13 +349,13 @@ export const UpcomingEventsWidget: React.FC<UpcomingEventsWidgetProps> = ({
 
                   <div className="text-right shrink-0">
                     <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-200 block">
-                      {new Date(`${evt.startDate}T00:00:00`).toLocaleDateString('de-DE', {
+                      {new Date(`${v.date}T00:00:00`).toLocaleDateString('de-DE', {
                         day: '2-digit',
                         month: 'short'
                       })}
                     </span>
                     <span className="text-[10px] text-slate-400">
-                      {new Date(`${evt.startDate}T00:00:00`).toLocaleDateString('de-DE', {
+                      {new Date(`${v.date}T00:00:00`).toLocaleDateString('de-DE', {
                         weekday: 'short'
                       })}
                     </span>

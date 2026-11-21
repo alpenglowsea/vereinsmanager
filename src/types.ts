@@ -51,8 +51,7 @@ export interface Member {
   notes: string;
   dataPrivacyConsent: boolean;
   // Gesetzlicher Vertreter (bei Minderjährigen / unter 18 Jahren) — kommt aus
-  // dem Online-Aufnahmeformular (OnlineApplication) und bleibt beim Mitglied
-  // sichtbar, auch nachdem der Antrag selbst angenommen und abgelegt wurde.
+  // dem Aufnahmeantrag am Gerät (P29) oder aus dem Mitgliedsformular.
   isMinor?: boolean;
   guardianName?: string;
   guardianRelation?: string; // z.B. 'Mutter', 'Vater', 'Gesetzlicher Vormund'
@@ -265,6 +264,13 @@ export interface ClubSettings {
   // Linienzüge mit Punkten [x, y] auf 0..1 bezogen, aspect = Breite / Höhe der Zeichenfläche.
   signature?: { aspect: number; strokes: number[][][] };
   membershipFeeDefaults?: Partial<Record<'full' | 'reduced' | 'youth' | 'family' | 'supporting', { amount: number | string; period: string }>>;
+  // Aufnahmeantrag am Gerät (P29), gleiche Felder wie Android (AntragEinstellungenStore):
+  // eigene Texte (fehlen sie, gilt der Standardtext) und die Dokumente mit Satzung
+  // und Datenschutz-Vordruck, die das neue Mitglied im Antrag öffnen kann.
+  applicationPrivacyText?: string;
+  applicationStatuteText?: string;
+  applicationStatuteDocId?: string;
+  applicationPrivacyDocId?: string;
   taxOffice?: string; // z.B. 'Finanzamt Musterstadt'
   taxExemptionDate?: string; // z.B. '10.01.2024'
   taxStatementDate?: string; // Datum des Feststellungsbescheids nach § 60a AO, z.B. '24.07.2025'
@@ -584,95 +590,6 @@ export interface SpecialCalendarItem {
   years: number; // Age or years of membership
   isMilestone: boolean; // e.g. 18, 30, 40, 50, 60, 70, 75, 80... or 10, 25, 40, 50 years membership
   details: string;
-}
-
-// ----------------------------------------------------
-// ONLINE-MITGLIEDSANTRAG & DIGITALES AUFNAHMEWESEN
-// ----------------------------------------------------
-
-export type ApplicationStatus = 'pending' | 'approved' | 'rejected';
-
-export interface OnlineMembershipApplication {
-  id: string;
-  applicationNumber: string; // z.B. 'ANTRAG-2026-001'
-  submittedAt: string; // ISO datetime
-  status: ApplicationStatus;
-  reviewedAt?: string;
-  reviewedBy?: string;
-  rejectionReason?: string;
-  createdMemberId?: string;
-  createdMemberNumber?: string;
-  generatedDocumentId?: string;
-
-  // Persönliche Daten des Antragstellers
-  firstName: string;
-  lastName: string;
-  gender: Gender;
-  birthDate: string; // YYYY-MM-DD
-  nationality?: string;
-  phone: string;
-  email: string;
-
-  // Anschrift
-  address: Address;
-
-  // Mitgliedschaft & Sparte
-  department: string;
-  membershipType: MembershipType;
-  feeAmount?: number;
-  feePeriod: FeePeriod;
-  entryDate: string; // YYYY-MM-DD
-  notes?: string;
-  previousClub?: string;
-
-  // Gesetzlicher Vertreter (bei Minderjährigen / unter 18 Jahren)
-  isMinor: boolean;
-  guardianName?: string;
-  guardianPhone?: string;
-  guardianEmail?: string;
-  guardianAddress?: Address;
-  guardianRelation?: string; // z.B. 'Mutter', 'Vater', 'Gesetzlicher Vormund'
-
-  // Zahlungsweise & SEPA-Lastschrift
-  paymentMethod: PaymentMethod;
-  bankDetails: BankDetails;
-
-  // Rechtliche Zustimmungen & Einwilligungen
-  dataPrivacyConsent: boolean;
-  statuteConsent: boolean; // Satzung & Ordnungen anerkannt
-
-  // Digitale Unterschriften (Base64 PNG Data URLs)
-  applicantSignature?: string;
-  applicantSignatureDate?: string;
-  guardianSignature?: string;
-  guardianSignatureDate?: string;
-  sepaSignature?: string;
-  sepaSignatureDate?: string;
-
-  // PDF & Vorlagen
-  pdfDataUrl?: string; // Zuletzt generierte Antrags-PDF
-  customTemplateUsed?: boolean;
-}
-
-
-export interface ApplicationTemplateSettings {
-  clubLogoUrl?: string;
-  headerText?: string;
-  customPdfTemplateDataUrl?: string; // Eigene hochgeladene PDF-Vorlage des Vereins
-  customPdfTemplateFileName?: string;
-  customPdfTemplateUploadedAt?: string;
-  introductoryText?: string;
-  dataPrivacyText?: string;
-  statuteText?: string;
-  defaultFeeRules?: {
-    full: number;
-    reduced: number;
-    youth: number;
-    family: number;
-    supporting: number;
-  };
-  contactEmail?: string;
-  notificationEmail?: string;
 }
 
 export interface AppUpdateInfo {

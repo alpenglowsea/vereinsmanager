@@ -48,8 +48,6 @@ export const STORES = {
   FOLDERS: 'folders',
   CALENDAR_EVENTS: 'calendar_events',
   CALENDAR_CATEGORIES: 'calendar_categories',
-  ONLINE_APPLICATIONS: 'online_applications',
-  APPLICATION_SETTINGS: 'application_settings',
   DASHBOARD_CONFIG: 'dashboard_config',
   CONTACTS: 'contacts',
   INVOICES: 'invoices',
@@ -58,6 +56,15 @@ export const STORES = {
   MEETING_TEMPLATES: 'meeting_templates',
   MEMBER_INVENTORY: 'member_inventory'
 } as const;
+
+/**
+ * Speicherbereiche der früheren Online-Anträge (D-04, Entscheidung 25.10.2026).
+ * Sie gehören nicht mehr zur App und nicht zur Sicherung; die Datenbank
+ * entfernt sie beim nächsten Start. Steht einer davon in einer älteren
+ * Sicherung (`onlineApplications`, `applicationSettings`), wird er beim
+ * Einspielen überlesen.
+ */
+export const ENTFALLENE_STORES = ['online_applications', 'application_settings'] as const;
 
 export type StoreName = (typeof STORES)[keyof typeof STORES];
 
@@ -117,12 +124,6 @@ export const SICHERUNGS_BEREICHE = {
     bezeichnung: 'Terminkategorien',
     art: 'liste',
     store: STORES.CALENDAR_CATEGORIES
-  },
-  onlineApplications: { bezeichnung: 'Aufnahmeanträge', art: 'liste', store: STORES.ONLINE_APPLICATIONS },
-  applicationSettings: {
-    bezeichnung: 'Antragsformular',
-    art: 'einzel',
-    store: STORES.APPLICATION_SETTINGS
   },
   settings: { bezeichnung: 'Vereinsstammdaten', art: 'einzel', store: STORES.SETTINGS }
   // Das Gerätepasswort gehört bewusst NICHT hierher: Es sperrt dieses eine

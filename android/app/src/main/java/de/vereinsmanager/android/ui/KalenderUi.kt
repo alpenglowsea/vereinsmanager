@@ -89,11 +89,14 @@ private fun spartenMap(model: AppModel, aktuell: String = ""): LinkedHashMap<Str
 @Composable
 fun KalenderScreen(
     model: AppModel, onOpen: (String, String?) -> Unit, onNeu: (String) -> Unit, onArten: () -> Unit, modifier: Modifier = Modifier,
+    /** Tag, auf dem der Kalender beginnt (Sprung aus dem Dashboard, T-245); sonst heute. */
+    start: String? = null,
 ) {
     val heute = LocalDate.now()
+    val anfang = remember(start) { start?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: heute }
     var liste by remember { mutableStateOf(false) }
-    var monat by remember { mutableStateOf(YearMonth.from(heute)) }
-    var tag by remember { mutableStateOf(heute) }
+    var monat by remember { mutableStateOf(YearMonth.from(anfang)) }
+    var tag by remember { mutableStateOf(anfang) }
     var listeStart by remember { mutableStateOf(heute) }
     var suche by remember { mutableStateOf("") }
     var art by remember { mutableStateOf<String?>(null) }

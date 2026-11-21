@@ -15,8 +15,6 @@ import {
   DonationReceipt,
   CalendarEvent,
   CalendarEventCategory,
-  OnlineMembershipApplication,
-  ApplicationTemplateSettings,
   ClubContact,
   ClubInvoice,
   InvoiceTemplateSettings,
@@ -43,7 +41,21 @@ import {
   rechnungsBuchung,
   gleicheBuchungAn as gleicheRechnungsBuchungAn
 } from './rechnungsRegeln';
-import { getMembershipApplicationPdfDataUrl } from './membershipPdfService';
+import {
+  Antrag,
+  ANTRAG_DOK_NOTIZ,
+  BEILAGEN,
+  Beilage,
+  ORDNER_ANTRAEGE,
+  antragDateiname,
+  antragDokTags,
+  antragDokTitel,
+  antragTexteZumSpeichern,
+  aufnahmeFehler,
+  beilageTitel,
+  leseAntragEinstellungen,
+  mitgliedAusAntrag
+} from '../utils/antragRegeln';
 import { AuthService } from './authService';
 import { customCategoryService } from './customCategoryService';
 import { planeBelegOrdner, planeUnterordner, belegArtVon, sollEinsortiertWerden, BelegArt } from '../utils/belegOrdner';
@@ -61,6 +73,7 @@ import {
 } from '../utils/loeschRegeln';
 import {
   STORES,
+  ENTFALLENE_STORES,
   SICHERUNGS_BEREICHE,
   SicherungsDaten,
   SicherungsKopf,
@@ -95,9 +108,22 @@ function markiereAlsEingerichtet(): void {
 
 const LIVE_DB_NAME = 'VereinsManager_LiveDB_v1';
 const DEMO_DB_NAME = 'VereinsManager_DemoDB_v1';
-const DB_VERSION = 9;
+// 10: Bereiche der früheren Online-Anträge entfernt (D-04)
+const DB_VERSION = 10;
 
 let isImportingBackup = false;
+
+/**
+ * Entfernt die Bereiche der früheren Online-Anträge samt Inhalt (D-04,
+ * Beschluss 25.10.2026): Anträge, Unterschriften und Formular-Einstellungen,
+ * die seit dem Wegfall des Online-Formulars niemand mehr sieht. Geht nur
+ * während eines Versions-Upgrades der Datenbank.
+ */
+function entferneEntfalleneStores(db: IDBDatabase): void {
+  for (const name of ENTFALLENE_STORES) {
+    if (db.objectStoreNames.contains(name)) db.deleteObjectStore(name);
+  }
+}
 
 /**
  * Reclaims localStorage quota by removing bloated legacy dumps of entire tables.
@@ -232,114 +258,6 @@ function ohneVeralteteSmtpFelder<T extends Record<string, unknown>>(
   return { bereinigt, warVeraltet };
 }
 
-const DEFAULT_APPLICATION_SETTINGS: ApplicationTemplateSettings = {
-  headerText: 'Herzlich willkommen beim TSV Musterstadt 1890 e.V.! Füllen Sie den Online-Aufnahmeantrag bitte vollständig aus.',
-  notificationEmail: 'vorstand@tsv-musterstadt1890.de',
-  defaultFeeRules: {
-    full: 18.0,
-    reduced: 12.0,
-    youth: 10.0,
-    family: 30.0,
-    supporting: 25.0
-  }
-};
-
-const SAMPLE_SIG_PNG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60" viewBox="0 0 200 60"><path d="M 20 40 Q 50 10, 80 35 T 140 30 T 180 35" fill="none" stroke="%230f172a" stroke-width="3" stroke-linecap="round"/></svg>';
-
-const INITIAL_APPLICATIONS: OnlineMembershipApplication[] = [
-  {
-    id: 'app-demo-1',
-    applicationNumber: 'ANTRAG-2026-001',
-    submittedAt: '2026-03-01T14:20:00.000Z',
-    status: 'pending',
-    firstName: 'Felix',
-    lastName: 'Bauer',
-    gender: 'm',
-    birthDate: '2012-06-18', // 13-14 Jahre (Minderjährig)
-    nationality: 'Deutsch',
-    phone: '0176 9988776',
-    email: 'familie.bauer@example.de',
-    address: {
-      street: 'Kastanienallee',
-      houseNumber: '17',
-      zip: '12345',
-      city: 'Musterstadt',
-      country: 'Deutschland'
-    },
-    department: 'Fußball',
-    membershipType: 'youth',
-    feeAmount: 10.00,
-    feePeriod: 'monthly',
-    entryDate: '2026-03-15',
-    notes: 'Jugend D-Jugend Training. Bisher vereinslos.',
-    previousClub: '',
-    isMinor: true,
-    guardianName: 'Martina Bauer',
-    guardianRelation: 'Mutter',
-    guardianPhone: '0176 9988776',
-    guardianEmail: 'familie.bauer@example.de',
-    paymentMethod: 'sepa',
-    bankDetails: {
-      iban: 'DE44370501980011223344',
-      bic: 'SPKDMUSTXXX',
-      bankName: 'Sparkasse Musterstadt',
-      accountHolder: 'Martina Bauer',
-      mandateDate: '2026-03-01',
-      mandateReference: 'MANDAT-ANTRAG-2026-001',
-      monthlyDueDay: 1
-    },
-    dataPrivacyConsent: true,
-    statuteConsent: true,
-    applicantSignature: SAMPLE_SIG_PNG,
-    applicantSignatureDate: '2026-03-01T14:18:00.000Z',
-    guardianSignature: SAMPLE_SIG_PNG,
-    guardianSignatureDate: '2026-03-01T14:19:00.000Z'
-  },
-  {
-    id: 'app-demo-2',
-    applicationNumber: 'ANTRAG-2026-002',
-    submittedAt: '2026-02-28T09:45:00.000Z',
-    status: 'pending',
-    firstName: 'Sophia',
-    lastName: 'Wagner',
-    gender: 'w',
-    birthDate: '1996-09-12', // Erwachsen
-    nationality: 'Deutsch',
-    phone: '0151 4455667',
-    email: 'sophia.wagner@example.de',
-    address: {
-      street: 'Lindenweg',
-      houseNumber: '8b',
-      zip: '12345',
-      city: 'Musterstadt',
-      country: 'Deutschland'
-    },
-    department: 'Tennis',
-    membershipType: 'full',
-    feeAmount: 18.00,
-    feePeriod: 'monthly',
-    entryDate: '2026-04-01',
-    notes: 'Interesse an Sommer-Medenspielen Damen.',
-    previousClub: 'TC Blau-Weiß 1920 e.V.',
-    isMinor: false,
-    paymentMethod: 'sepa',
-    bankDetails: {
-      iban: 'DE89370601900055667788',
-      bic: 'GENODEM1MST',
-      bankName: 'Volksbank Musterstadt',
-      accountHolder: 'Sophia Wagner',
-      mandateDate: '2026-02-28',
-      mandateReference: 'MANDAT-ANTRAG-2026-002',
-      monthlyDueDay: 1
-    },
-    dataPrivacyConsent: true,
-    statuteConsent: true,
-    applicantSignature: SAMPLE_SIG_PNG,
-    applicantSignatureDate: '2026-02-28T09:44:00.000Z',
-    sepaSignature: SAMPLE_SIG_PNG,
-    sepaSignatureDate: '2026-02-28T09:44:00.000Z'
-  }
-];
 
 const INITIAL_DONATIONS: DonationReceipt[] = [
   {
@@ -978,12 +896,14 @@ function openDB(dbNameOverride?: string): Promise<IDBDatabase> {
           db.createObjectStore(storeName, { keyPath: 'id' });
         }
       });
+      entferneEntfalleneStores(db);
     };
     request.onsuccess = () => {
       const db = request.result;
       // Defensive check in case DB was created earlier without newer stores
       const missingStores = Object.values(STORES).filter(s => !db.objectStoreNames.contains(s));
-      if (missingStores.length > 0) {
+      const entfallene = ENTFALLENE_STORES.filter(s => db.objectStoreNames.contains(s));
+      if (missingStores.length > 0 || entfallene.length > 0) {
         db.close();
         const nextVersion = Math.max(db.version + 1, DB_VERSION + 1);
         const upgradeReq = indexedDB.open(currentDB, nextVersion);
@@ -994,6 +914,7 @@ function openDB(dbNameOverride?: string): Promise<IDBDatabase> {
               upDb.createObjectStore(storeName, { keyPath: 'id' });
             }
           });
+          entferneEntfalleneStores(upDb);
         };
         upgradeReq.onsuccess = () => resolve(upgradeReq.result);
         upgradeReq.onerror = () => resolve(db);
@@ -3097,200 +3018,130 @@ export const StorageService = {
   },
 
   // =========================================================================
-  // ONLINE-MITGLIEDSANTRÄGE & DIGITALES AUFNAHMEWESEN
+  // AUFNAHMEANTRAG AM GERÄT (P29, wie Android)
   // =========================================================================
 
-  async getOnlineApplications(): Promise<OnlineMembershipApplication[]> {
-    const apps = await getAllFromStore<OnlineMembershipApplication>(STORES.ONLINE_APPLICATIONS);
-    if (apps.length === 0 && isDemoModeActive()) {
-      await saveAllToStore(STORES.ONLINE_APPLICATIONS, INITIAL_APPLICATIONS);
-      return INITIAL_APPLICATIONS;
+  /**
+   * Kennung eines Standardordners (z. B. „Digitale Aufnahmeanträge“). Fehlt er
+   * (gelöscht), wird erst nach dem Namen gesucht, dann wird er mit seinen
+   * übergeordneten Ordnern aus den Standardordnern neu angelegt. Leer, wenn es
+   * keinen solchen Standardordner gibt.
+   */
+  async standardOrdner(id: string): Promise<string> {
+    const ordner = await this.getFolders();
+    if (ordner.some(o => o.id === id)) return id;
+    const vorlagen = getInitialFolders();
+    const vorlage = vorlagen.find(o => o.id === id);
+    if (!vorlage) return '';
+    const gleichNamig = ordner.find(o => o.name === vorlage.name);
+    if (gleichNamig) return gleichNamig.id;
+    const kette: DocumentFolder[] = [];
+    for (let o: DocumentFolder | undefined = vorlage; o; o = vorlagen.find(v => v.id === o!.parentId)) {
+      if (!ordner.some(x => x.id === o!.id)) kette.unshift(o);
     }
-    return apps;
-  },
-
-  async saveOnlineApplication(app: OnlineMembershipApplication): Promise<OnlineMembershipApplication> {
-    await putItemToStore(STORES.ONLINE_APPLICATIONS, app);
-    return app;
-  },
-
-  async deleteOnlineApplication(id: string): Promise<void> {
-    await deleteItemFromStore(STORES.ONLINE_APPLICATIONS, id);
-  },
-
-  async getApplicationTemplateSettings(): Promise<ApplicationTemplateSettings> {
-    const stored = await getItemFromStore<ApplicationTemplateSettings & { id: string }>(
-      STORES.APPLICATION_SETTINGS,
-      'main'
-    );
-    if (!stored) {
-      return DEFAULT_APPLICATION_SETTINGS;
-    }
-    return stored;
-  },
-
-  async saveApplicationTemplateSettings(settings: ApplicationTemplateSettings): Promise<ApplicationTemplateSettings> {
-    await putItemToStore(STORES.APPLICATION_SETTINGS, { id: 'main', ...settings });
-    return settings;
+    for (const o of kette) await putItemToStore(STORES.FOLDERS, o);
+    return id;
   },
 
   /**
-   * Bestätigt einen Online-Aufnahmeantrag:
-   * 1. Legt das neue Mitglied mit allen Feldern in der Mitgliedertabelle an.
-   * 2. Erzeugt das offizielle Aufnahmeantrags-PDF inkl. digitaler Signaturen.
-   * 3. Archiviert das Dokument automatisch im Dokumentenarchiv unter 'Mitglieder / Aufnahmeanträge'.
-   * 4. Erstellt einen Audit-Log-Eintrag.
-   * 5. Setzt den Antragsstatus auf 'approved'.
+   * Nimmt einen geprüften, unterschriebenen Antrag als Mitglied auf: erst die
+   * Prüfung, dann das PDF im Dokumentenarchiv („Digitale Aufnahmeanträge“),
+   * dann das Mitglied. Schlägt das Speichern des Mitglieds fehl, wird das PDF
+   * wieder entfernt (alles oder nichts, wie Android).
    */
-  async approveOnlineApplication(
-    appId: string,
-    memberOverrides: Partial<Member>,
-    author: string = 'Vorstand'
-  ): Promise<{ member: Member; documentId: string }> {
-    const apps = await this.getOnlineApplications();
-    const app = apps.find(a => a.id === appId);
-    if (!app) {
-      throw new Error(`Aufnahmeantrag mit ID ${appId} nicht gefunden.`);
-    }
+  async antragAufnehmen(a: Antrag, nummer: string, pdfDataUrl: string, pdfGroesse: number): Promise<{ member: Member; documentId: string }> {
+    const settings = await this.getSettings();
+    const members = await getAllFromStore<Member>(STORES.MEMBERS);
+    const heute = lokalesHeute();
+    const sparten = (settings.departments || []).length ? settings.departments : ['Hauptverein'];
+    const problem = aufnahmeFehler(a, nummer, heute, sparten, members);
+    if (problem) throw new Error(problem);
 
-    const clubSettings = await this.getSettings();
-    const now = new Date().toISOString();
-    const newMemberId = `mem-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-    const memberNum = memberOverrides.memberNumber || `MG-${Math.floor(100 + Math.random() * 900)}`;
-
-    // 1. Neues Mitgliedsobjekt zusammenstellen
-    const newMember: Member = {
-      id: newMemberId,
-      memberNumber: memberNum,
-      firstName: app.firstName,
-      lastName: app.lastName,
-      gender: app.gender,
-      birthDate: app.birthDate,
-      nationality: app.nationality,
-      address: app.address,
-      phone: app.phone,
-      email: app.email,
-      entryDate: memberOverrides.entryDate || app.entryDate || now.slice(0, 10),
-      status: 'active',
-      department: memberOverrides.department || app.department,
-      membershipType: memberOverrides.membershipType || app.membershipType,
-      feeAmount: memberOverrides.feeAmount !== undefined ? memberOverrides.feeAmount : (app.feeAmount || 18.0),
-      feePeriod: memberOverrides.feePeriod || app.feePeriod,
-      paymentMethod: app.paymentMethod,
-      bankDetails: {
-        iban: app.bankDetails.iban,
-        bic: app.bankDetails.bic,
-        bankName: app.bankDetails.bankName,
-        accountHolder: app.bankDetails.accountHolder || `${app.firstName} ${app.lastName}`,
-        mandateDate: app.bankDetails.mandateDate || now.slice(0, 10),
-        mandateReference: app.bankDetails.mandateReference || `MANDAT-${memberNum}`,
-        monthlyDueDay: app.bankDetails.monthlyDueDay || 1
-      },
-      notes: [memberOverrides.notes, app.notes, app.previousClub ? `Vorverein: ${app.previousClub}` : '']
-        .filter(Boolean)
-        .join(' | ') || `Digitaler Aufnahmeantrag ${app.applicationNumber}`,
-      dataPrivacyConsent: app.dataPrivacyConsent,
-      isMinor: app.isMinor,
-      guardianName: app.isMinor ? app.guardianName : undefined,
-      guardianRelation: app.isMinor ? app.guardianRelation : undefined,
-      guardianPhone: app.isMinor ? app.guardianPhone : undefined,
-      guardianEmail: app.isMinor ? app.guardianEmail : undefined,
-      createdAt: now,
-      updatedAt: now
+    const jetzt = new Date().toISOString();
+    const vorgabe = leseAntragEinstellungen(settings).beitraege[a.mitgliedsart];
+    const member = mitgliedAusAntrag(a, nummer, vorgabe, heute, `mem-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`, jetzt);
+    const ordner = await this.standardOrdner(ORDNER_ANTRAEGE);
+    const dok: ClubDocument = {
+      id: `doc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      title: antragDokTitel(a, nummer),
+      fileName: antragDateiname(a, nummer),
+      fileType: 'application/pdf',
+      fileSize: pdfGroesse,
+      dataUrl: pdfDataUrl,
+      category: 'mitglieder',
+      folderId: ordner || null,
+      date: heute,
+      uploadDate: jetzt,
+      tags: antragDokTags(a, nummer),
+      notes: ANTRAG_DOK_NOTIZ,
+      memberId: member.id,
+      memberName: `${member.firstName} ${member.lastName}`,
+      isReceipt: false,
+      createdAt: jetzt,
+      updatedAt: jetzt
     };
-
-    // Mitglied speichern
-    await this.saveMember(newMember);
-
-    // 2. Aufnahmeantrag PDF erzeugen & im Dokumentenarchiv ablegen (bevorzugt Original-PDF falls vorhanden)
-    const documentId = `doc-app-${app.id}`;
+    await putItemToStore(STORES.DOCUMENTS, dok);
     try {
-      const pdfDataUrl = app.pdfDataUrl || getMembershipApplicationPdfDataUrl(app, clubSettings);
-      const isOriginalUploadedPdf = Boolean(app.pdfDataUrl);
-      const doc: ClubDocument = {
-        id: documentId,
-        title: `Aufnahmeantrag: ${newMember.lastName}, ${newMember.firstName} (${memberNum})`,
-        fileName: isOriginalUploadedPdf ? `Aufnahmeantrag_Original_${newMember.lastName}_${newMember.firstName}_${memberNum}.pdf` : `Aufnahmeantrag_${newMember.lastName}_${newMember.firstName}_${memberNum}.pdf`,
-        fileType: 'application/pdf',
-        fileSize: Math.round(pdfDataUrl.length * 0.75),
-        dataUrl: pdfDataUrl,
-        category: 'mitglieder',
-        folderId: 'folder-aufnahmeantraege',
-        date: app.submittedAt ? app.submittedAt.slice(0, 10) : now.slice(0, 10),
-        uploadDate: now,
-        tags: ['Aufnahmeantrag', isOriginalUploadedPdf ? 'PDF-Scan' : 'Online', 'Beitrittserklärung', memberNum, app.department, 'SEPA-Mandat'],
-        notes: isOriginalUploadedPdf 
-          ? `Handschriftlich ausgefüllter & eingescannter Aufnahmeantrag (${app.applicationNumber}) für ${newMember.firstName} ${newMember.lastName}. Automatisch per KI ausgelesen und archiviert.`
-          : `Vollständig ausgefüllter und digital signierter Aufnahmeantrag (${app.applicationNumber}) für ${newMember.firstName} ${newMember.lastName}. Beitragsgruppe: ${app.membershipType}, Sparte: ${app.department}.`,
-        memberId: newMember.id,
-        memberName: `${newMember.firstName} ${newMember.lastName}`,
-        isReceipt: false,
-        createdAt: now,
-        updatedAt: now
-      };
-      await this.saveDocument(doc);
+      await this.saveMember(member);
     } catch (err) {
-      console.warn('PDF generation for document archive failed:', err);
+      await deleteItemFromStore(STORES.DOCUMENTS, dok.id).catch(() => {});
+      throw err;
     }
-
-    // 3. Audit Log für neues Mitglied erstellen
-    try {
-      const auditLog: MemberAuditLog = {
-        id: `log-app-${Date.now()}`,
-        memberId: newMember.id,
-        memberNumber: newMember.memberNumber,
-        memberName: `${newMember.firstName} ${newMember.lastName}`,
-        timestamp: now,
-        author,
-        action: 'create',
-        summary: `Neues Mitglied über Online-Aufnahmeantrag (${app.applicationNumber}) aufgenommen`,
-        changes: [
-          { field: 'status', label: 'Status', oldValue: '–', newValue: 'Aktiv' },
-          { field: 'department', label: 'Abteilung', oldValue: '–', newValue: newMember.department },
-          { field: 'membershipType', label: 'Mitgliedsart', oldValue: '–', newValue: newMember.membershipType },
-          { field: 'feeAmount', label: 'Beitrag', oldValue: '–', newValue: `${newMember.feeAmount.toFixed(2)} € (${newMember.feePeriod})` }
-        ]
-      };
-      await putItemToStore(STORES.AUDIT_LOGS, auditLog);
-    } catch (e) {
-      console.warn('Audit log creation error:', e);
-    }
-
-    // 4. Antragsstatus auf 'approved' aktualisieren
-    const updatedApp: OnlineMembershipApplication = {
-      ...app,
-      status: 'approved',
-      reviewedAt: now,
-      reviewedBy: author,
-      createdMemberId: newMember.id,
-      createdMemberNumber: newMember.memberNumber,
-      generatedDocumentId: documentId
-    };
-    await this.saveOnlineApplication(updatedApp);
-
-    return { member: newMember, documentId };
+    return { member, documentId: dok.id };
   },
 
-  async rejectOnlineApplication(
-    appId: string,
-    rejectionReason: string,
-    author: string = 'Vorstand'
-  ): Promise<void> {
-    const apps = await this.getOnlineApplications();
-    const app = apps.find(a => a.id === appId);
-    if (!app) {
-      throw new Error(`Aufnahmeantrag mit ID ${appId} nicht gefunden.`);
+  /** Eigene Texte des Antrags speichern (Standardtexte werden nicht gespeichert). */
+  async antragTexteSpeichern(datenschutz: string, satzung: string): Promise<ClubSettings> {
+    const s = { ...(await this.getSettings()) } as ClubSettings & Record<string, unknown>;
+    const neu = antragTexteZumSpeichern(datenschutz, satzung);
+    for (const [k, v] of Object.entries(neu)) {
+      if (v === undefined) delete s[k];
+      else s[k] = v;
     }
+    await this.saveSettings(s);
+    return s;
+  },
 
-    const now = new Date().toISOString();
-    const updatedApp: OnlineMembershipApplication = {
-      ...app,
-      status: 'rejected',
-      reviewedAt: now,
-      reviewedBy: author,
-      rejectionReason
+  /**
+   * Satzung oder Datenschutz-Vordruck hinterlegen (nur PDF). Jede Fassung wird
+   * als neues Dokument mit Datum im Titel abgelegt; frühere Fassungen bleiben
+   * im Archiv, nur die neue wird im Antrag angeboten (wie Android).
+   */
+  async antragBeilageSetzen(b: Beilage, dataUrl: string, dateiName: string, groesse: number): Promise<{ settings: ClubSettings; dokument: ClubDocument }> {
+    const info = BEILAGEN[b];
+    const heute = lokalesHeute();
+    const jetzt = new Date().toISOString();
+    const vorhandene = await getAllFromStore<ClubDocument>(STORES.DOCUMENTS);
+    const ordner = await this.standardOrdner(info.ordner);
+    const dokument: ClubDocument = {
+      id: `doc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      title: beilageTitel(b, heute, vorhandene.map(d => d.title)),
+      fileName: dateiName.trim() || info.dateiName,
+      fileType: 'application/pdf',
+      fileSize: groesse,
+      dataUrl,
+      category: info.kategorie,
+      folderId: ordner || null,
+      date: heute,
+      uploadDate: jetzt,
+      tags: info.tags,
+      notes: 'Wird im Aufnahmeantrag dem neuen Mitglied zum Ansehen angeboten, solange es die aktuelle Fassung ist.',
+      isReceipt: false,
+      createdAt: jetzt,
+      updatedAt: jetzt
     };
-    await this.saveOnlineApplication(updatedApp);
+    await putItemToStore(STORES.DOCUMENTS, dokument);
+    const settings = { ...(await this.getSettings()), [info.feld]: dokument.id };
+    await this.saveSettings(settings);
+    return { settings, dokument };
+  },
+
+  /** Der Antrag bietet die Beilage nicht mehr an; das Dokument bleibt im Archiv. */
+  async antragBeilageEntfernen(b: Beilage): Promise<ClubSettings> {
+    const s = { ...(await this.getSettings()) } as ClubSettings & Record<string, unknown>;
+    delete s[BEILAGEN[b].feld];
+    await this.saveSettings(s);
+    return s;
   },
 
   // Full Database Backup & Restore
@@ -3312,8 +3163,6 @@ export const StorageService = {
       dashboardConfig,
       calendarEvents,
       calendarCategories,
-      onlineApplications,
-      applicationSettings,
       settings
     ] = await Promise.all([
       this.getMembers(),
@@ -3332,8 +3181,6 @@ export const StorageService = {
       this.getDashboardConfig(),
       this.getCalendarEvents(),
       this.getCalendarCategories(),
-      this.getOnlineApplications(),
-      this.getApplicationTemplateSettings(),
       this.getSettings()
     ]);
 
@@ -3367,8 +3214,6 @@ export const StorageService = {
       dashboardConfig,
       calendarEvents,
       calendarCategories,
-      onlineApplications,
-      applicationSettings,
       // Die eigenen SKR-42-Konten liegen im Browserspeicher, nicht in der
       // Datenbank, und fehlten deshalb bis November 2026 in der Sicherung
       // (D-12). Sie reisen im Bereich `settings` mit: Die Android-Fassung
@@ -3492,8 +3337,8 @@ export const StorageService = {
         dashboardConfig,
         calendarEvents = [],
         calendarCategories = [],
-        onlineApplications = [],
-        applicationSettings,
+        // onlineApplications und applicationSettings älterer Sicherungen
+        // werden überlesen (D-04, wie Android).
         settings
       } = data;
 
@@ -3581,12 +3426,10 @@ export const StorageService = {
       await uebernehmeListe(STORES.MEETINGS, meetings);
       await uebernehmeListe(STORES.CALENDAR_CATEGORIES, calendarCategories);
       await uebernehmeListe(STORES.CALENDAR_EVENTS, calendarEvents);
-      await uebernehmeListe(STORES.ONLINE_APPLICATIONS, onlineApplications);
 
       await uebernehmeEinzelstueck(STORES.INVOICE_TEMPLATES, 'main_template', invoiceTemplate);
       await uebernehmeEinzelstueck(STORES.MEETING_TEMPLATES, 'main_template', meetingTemplate);
       await uebernehmeEinzelstueck(STORES.DASHBOARD_CONFIG, 'main_dashboard', dashboardConfig);
-      await uebernehmeEinzelstueck(STORES.APPLICATION_SETTINGS, 'main', applicationSettings);
 
       if (settings) {
         // Alte Sicherungen führen die SMTP-Zugangsdaten im Klartext mit.

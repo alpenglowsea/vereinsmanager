@@ -8,6 +8,9 @@ import {
   ClubSettings
 } from '../../types';
 import { TAX_SPHERES } from '../../data/taxSpheres';
+import { berechneEuer, wgbGrenze } from '../../services/buchungsBerichte';
+import { finanzen as finanzDaten, sepa as sepaDaten } from '../../utils/dashboardRegeln';
+import { heuteIso } from '../../utils/kalenderRegeln';
 import {
   Wallet,
   ShieldCheck,
@@ -91,19 +94,10 @@ export const AnnualBalanceWidget: React.FC<AnnualBalanceWidgetProps> = ({
   transactions,
   onNavigate
 }) => {
-  const currentYear = new Date().getFullYear().toString();
+  // Dieselbe Rechnung wie die EÜR-Seite: Teilbuchungen einzeln, Umbuchungen nicht (D-134)
+  const currentYear = heuteIso().slice(0, 4);
 
-  const { income, expense, net } = useMemo(() => {
-    let inc = 0;
-    let exp = 0;
-    (transactions || [])
-      .filter((t) => t.type !== 'transfer' && t.date && t.date.startsWith(currentYear))
-      .forEach((t) => {
-        if (t.amount >= 0) inc += t.amount;
-        else exp += Math.abs(t.amount);
-      });
-    return { income: inc, expense: exp, net: inc - exp };
-  }, [transactions, currentYear]);
+  const { income, expense, net } = useMemo(() => berechneEuer(transactions || [], currentYear), [transactions, currentYear]);
 
   return (
     <div
@@ -129,24 +123,21 @@ export const AnnualBalanceWidget: React.FC<AnnualBalanceWidgetProps> = ({
   );
 };
 
-// 3. WGB Limit Monitor Widget (§ 64 AO 45.000 €)
+// 3. WGB Limit Monitor Widget (§ 64 AO, Grenze je Kalenderjahr: bis 2025 45.000 €, ab 2026 50.000 €)
 interface WgbLimitWidgetProps {
   transactions: Transaction[];
   onNavigate: (tab: string) => void;
 }
 
 export const WgbLimitWidget: React.FC<WgbLimitWidgetProps> = ({ transactions, onNavigate }) => {
-  const currentYear = new Date().getFullYear().toString();
-
-  const wgbIncome = useMemo(() => {
-    return (transactions || [])
-      .filter((t) => t.type !== 'transfer' && t.date && t.date.startsWith(currentYear) && t.sphere === 'wirtschaftlich' && t.amount > 0)
-      .reduce((sum, t) => sum + t.amount, 0);
-  }, [transactions, currentYear]);
-
-  const WGB_LIMIT = 45000.0;
-  const wgbPercent = Math.min(100, (wgbIncome / WGB_LIMIT) * 100);
-  const wgbBuffer = Math.max(0, WGB_LIMIT - wgbIncome);
+  // Wie die EÜR-Seite: Einnahmen des wirtschaftlichen Geschäftsbetriebs einschließlich
+  // Teilbuchungen gegen die Grenze des laufenden Kalenderjahres (D-132, D-134)
+  const currentYear = heuteIso().slice(0, 4);
+  const stand = useMemo(() => berechneEuer(transactions || [], currentYear).grenze, [transactions, currentYear]);
+  const WGB_LIMIT = stand?.grenze ?? wgbGrenze(currentYear);
+  const wgbIncome = stand?.einnahmen ?? 0;
+  const wgbPercent = Math.min(100, stand?.prozent ?? 0);
+  const wgbBuffer = stand?.puffer ?? WGB_LIMIT;
 
   return (
     <div
@@ -168,17 +159,23 @@ export const WgbLimitWidget: React.FC<WgbLimitWidgetProps> = ({ transactions, on
         <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden my-2">
           <div
             className={`h-full rounded-full transition-all duration-300 ${
-              wgbPercent > 90 ? 'bg-rose-500' : wgbPercent > 70 ? 'bg-amber-400' : 'bg-emerald-500'
+              stand?.ueberschritten ? 'bg-rose-500' : stand?.warnung ? 'bg-amber-400' : 'bg-emerald-500'
             }`}
             style={{ width: `${Math.max(3, wgbPercent)}%` }}
           />
         </div>
       </div>
       <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
-        <span className="font-mono">{wgbIncome.toLocaleString('de-DE', { maximumFractionDigits: 0 })} €</span>
-        <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-          {wgbBuffer.toLocaleString('de-DE', { maximumFractionDigits: 0 })} € Puffer
+        <span className="font-mono">
+          {wgbIncome.toLocaleString('de-DE', { maximumFractionDigits: 0 })} € von {WGB_LIMIT.toLocaleString('de-DE')} €
         </span>
+        {stand?.ueberschritten ? (
+          <span className="text-rose-600 dark:text-rose-400 font-semibold">Grenze überschritten</span>
+        ) : (
+          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+            {wgbBuffer.toLocaleString('de-DE', { maximumFractionDigits: 0 })} € Puffer
+          </span>
+        )}
       </div>
     </div>
   );
@@ -191,30 +188,10 @@ interface TaxSpheresWidgetProps {
 }
 
 export const TaxSpheresWidget: React.FC<TaxSpheresWidgetProps> = ({ transactions, onNavigate }) => {
-  const currentYear = new Date().getFullYear().toString();
+  const currentYear = heuteIso().slice(0, 4);
 
-  const sphereStats = useMemo(() => {
-    const spheres: Record<TaxSphere, { income: number; expense: number; net: number }> = {
-      ideell: { income: 0, expense: 0, net: 0 },
-      vermoegen: { income: 0, expense: 0, net: 0 },
-      zweckbetrieb: { income: 0, expense: 0, net: 0 },
-      wirtschaftlich: { income: 0, expense: 0, net: 0 }
-    };
-
-    (transactions || [])
-      .filter((t) => t.type !== 'transfer' && t.date && t.date.startsWith(currentYear))
-      .forEach((t) => {
-        const sph = t.sphere || 'ideell';
-        if (t.amount >= 0) {
-          spheres[sph].income += t.amount;
-        } else {
-          spheres[sph].expense += Math.abs(t.amount);
-        }
-        spheres[sph].net = spheres[sph].income - spheres[sph].expense;
-      });
-
-    return spheres;
-  }, [transactions, currentYear]);
+  // Aus der EÜR-Rechnung: aufgeteilte Buchungen zählen Teil für Teil in ihrer Sphäre (D-134)
+  const sphereStats = useMemo(() => berechneEuer(transactions || [], currentYear).spheres, [transactions, currentYear]);
 
   return (
     <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 h-full flex flex-col justify-between">
@@ -318,17 +295,8 @@ export const SepaMonitorWidget: React.FC<SepaMonitorWidgetProps> = ({
   settings,
   onNavigate
 }) => {
-  const activeMembers = useMemo(() => members.filter((m) => m.status === 'active'), [members]);
-  const sepaMembers = useMemo(() => members.filter((m) => m.paymentMethod === 'sepa' && m.status === 'active'), [members]);
-  const missingSepaMandates = useMemo(() => {
-    return members.filter(
-      (m) => m.status === 'active' && m.paymentMethod === 'sepa' && (!m.bankDetails?.iban || !m.bankDetails?.mandateReference)
-    );
-  }, [members]);
-
-  const totalFeeSumEst = useMemo(() => {
-    return activeMembers.reduce((sum, m) => sum + (m.feeAmount || 0), 0);
-  }, [activeMembers]);
+  // Jahres-Soll aller Beiträge mit Zahlrhythmus wie die Mitglieder-Auswertung (D-136)
+  const d = useMemo(() => sepaDaten(members), [members]);
 
   return (
     <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 h-full flex flex-col justify-between">
@@ -354,7 +322,7 @@ export const SepaMonitorWidget: React.FC<SepaMonitorWidgetProps> = ({
           <div className="flex items-center justify-between">
             <span className="text-slate-600 dark:text-slate-400">SEPA-Lastschriftzahler:</span>
             <span className="font-bold text-slate-900 dark:text-white font-mono">
-              {sepaMembers.length} von {activeMembers.length}
+              {d.sepa} von {d.aktive}
             </span>
           </div>
           <div className="flex items-center justify-between">
@@ -364,16 +332,16 @@ export const SepaMonitorWidget: React.FC<SepaMonitorWidgetProps> = ({
             </span>
           </div>
           <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
-            <span className="text-slate-600 dark:text-slate-400">Geschätztes Beitragsvolumen:</span>
+            <span className="text-slate-600 dark:text-slate-400">Jahres-Soll aller Beiträge:</span>
             <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-              ~{totalFeeSumEst.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+              {d.jahresSoll.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
             </span>
           </div>
 
-          {missingSepaMandates.length > 0 && (
+          {d.unvollstaendig > 0 && (
             <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold text-2xs">
               <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 dark:text-amber-400" />
-              <span>{missingSepaMandates.length} Mandat(e) unvollständig</span>
+              <span>{d.unvollstaendig} Mandat(e) unvollständig (IBAN oder Mandatsreferenz fehlt)</span>
             </div>
           )}
         </div>
@@ -488,7 +456,7 @@ interface DonationsWidgetProps {
 }
 
 export const DonationsWidget: React.FC<DonationsWidgetProps> = ({ donations = [], onNavigate }) => {
-  const currentYear = new Date().getFullYear().toString();
+  const currentYear = heuteIso().slice(0, 4);
 
   const { totalSum, cashCount, inKindCount } = useMemo(() => {
     let sum = 0;
@@ -570,31 +538,19 @@ interface CashflowWidgetProps {
 }
 
 export const CashflowWidget: React.FC<CashflowWidgetProps> = ({ transactions, onNavigate }) => {
-  const currentYear = new Date().getFullYear();
+  // Monate wie die Finanz-Auswertung: Teilbuchungen einzeln, Umbuchungen nicht, Spenden zählen
+  // als Einnahme (D-134)
+  const heute = heuteIso();
+  const currentYear = heute.slice(0, 4);
 
-  const monthlyData = useMemo(() => {
-    const months = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
-    const data = months.map((m, i) => ({
-      name: m,
-      monthNum: i + 1,
-      income: 0,
-      expense: 0,
-      net: 0
-    }));
-
-    (transactions || [])
-      .filter((t) => t.type !== 'transfer' && t.date && t.date.startsWith(currentYear.toString()))
-      .forEach((t) => {
-        const mIndex = parseInt(t.date.substring(5, 7), 10) - 1;
-        if (mIndex >= 0 && mIndex < 12) {
-          if (t.amount >= 0) data[mIndex].income += t.amount;
-          else data[mIndex].expense += Math.abs(t.amount);
-          data[mIndex].net = data[mIndex].income - data[mIndex].expense;
-        }
-      });
-
-    return data;
-  }, [transactions, currentYear]);
+  const monthlyData = useMemo(
+    () =>
+      finanzDaten([], transactions || [], heute).monate.map((m) => {
+        const income = m.einnahmen + m.spenden;
+        return { name: m.name, income, expense: m.ausgaben, net: Math.round((income - m.ausgaben) * 100) / 100 };
+      }),
+    [transactions, heute]
+  );
 
   const maxAmount = useMemo(() => {
     return Math.max(1000, ...monthlyData.map((d) => Math.max(d.income, d.expense)));

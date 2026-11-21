@@ -103,10 +103,11 @@ Das zentrale Nervensystem der Vereinsorganisation:
   * Statusarten: *Aktiv*, *Passiv*, *Ehrenmitglied* und *Ausgetreten*.
   * **Automatische Beitragssperre:** Bei Status *Ausgetreten* wird das Mitglied sofort vor versehentlichen SEPA-Einzügen oder Rechnungsstellungen geschützt.
   * Beliebig viele Abteilungen/Sparten (z. B. Fußball, Turnen, Tennis) mit individueller Zuordnung und Sortierung per Drag & Drop.
-* **Digitale Aufnahmeanträge:**
-  * Digitales Aufnahmeformular mit Signaturfeld (Touchscreen/Maus) zur Erfassung durch den Vorstand — etwa am eigenen Gerät bei einem Vereinstermin oder beim Nacherfassen eines Papierantrags.
-  * Automatische Erfassung des SEPA-Lastschriftmandats mit rechtssicherem Bestätigungstext.
-  * Übersicht aller erfassten Anträge für den Vorstand mit 1-Klick-Übernahme in den regulären Mitgliederbestand.
+* **Neues Mitglied aufnehmen (am Gerät, wie in der Handy-App):**
+  * Das neue Mitglied füllt den Antrag im Beisein des Vereins in fünf Schritten selbst aus und unterschreibt (Maus, Stift oder Finger); bei Minderjährigen unterschreibt der gesetzliche Vertreter, bei fremdem Konto der Kontoinhaber.
+  * Danach prüft der Verein die Angaben, vergibt die Mitgliedsnummer und nimmt die Person auf: Mitglied und PDF des Antrags im Dokumentenarchiv entstehen zusammen oder gar nicht. Der Antrag selbst wird nirgends aufbewahrt.
+  * Beiträge je Mitgliedsart, Texte, Satzung und Datenschutz-Vordruck stehen in den Einstellungen; dort auch das leere Antragsformular zum Ausdrucken.
+  * Ein öffentliches Online-Formular gibt es nicht mehr (Entscheidung Oktober 2026).
 * **Mitglieder-Statistiken & Demografie:**
   * Grafische Analysen der Altersverteilung, Geschlechteranteile, Spartenbelegungen und Eintritts-/Austrittstrends.
 * **Massen-Import, Export & Etiketten:**

@@ -137,6 +137,94 @@ entsprechen der Android-Fassung.
   Dokumentenverwaltung bleibt beim Löschen der Sitzung erhalten (wie bei
   Android). Vorher wurde es ohne Rückfrage mitgelöscht.
 
+### Paket 29 — Neues Mitglied aufnehmen (D-96, D-95, D-04)
+
+Wie in der Handy-App: Das neue Mitglied füllt den Antrag im Beisein des
+Vereins am Desktop selbst aus und unterschreibt; danach prüft der Verein und
+nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
+`src/services/antragPdf.ts` (19 Tests mit denselben Fällen wie Android
+`AntragTest.kt`). Das Aussehen ist das des Desktops.
+
+- **Menü Mitglieder → „Neues Mitglied aufnehmen“** öffnet den Antrag als
+  Vollbild in fünf Schritten (Person, Mitgliedschaft, Zahlung, Erklärungen,
+  Prüfen), große Schrift, Fehler am Feld und neben dem Knopf. Verlassen nur
+  über „Abbrechen (Vereinsvertreter)“ mit Rückfrage. Unter 18: gesetzlicher
+  Vertreter mit eigener Unterschrift, Mitgliedsart „Kinder und Jugendliche“
+  wird vorgeschlagen. Fremdes Konto: der Kontoinhaber unterschreibt das
+  Mandat selbst (außer er ist der Vertreter).
+- **Prüfen durch den Verein:** Übersicht, Warnung bei möglicher Dublette
+  (gleicher Name oder gleiche E-Mail), Mitgliedsnummer mit Vorschlag.
+  „Als Mitglied aufnehmen“ legt das PDF im Archiv („Digitale
+  Aufnahmeanträge“) und das Mitglied an, zusammen oder gar nicht; danach
+  öffnet sich das neue Mitglied. Nichts wird erfunden: keine BIC, keine
+  Bank, Mandatsreferenz `MANDAT-<Nr>-<Jahr>`, Erstlastschrift. Der Antrag
+  selbst wird nirgends aufbewahrt; „Verwerfen“ löscht ihn.
+- **Einstellungen → Aufnahmeantrag:** Texte für Einwilligung und Satzung
+  (mit „Standardtext wiederherstellen“), Satzung und Datenschutz-Vordruck als
+  PDF (jede Fassung als eigenes Dokument im Archiv, das neue Mitglied kann
+  sie in Schritt 4 öffnen), leeres Antragsformular als PDF zum Ausdrucken
+  (D-95), mit dem Briefpapier der Rechnungsvorlage. Gleiche Felder wie
+  Android (`applicationPrivacyText`, `applicationStatuteText`,
+  `applicationStatuteDocId`, `applicationPrivacyDocId`).
+- **Entfallen (D-96, Entscheidung 25.10.2026):** öffentliches
+  Online-Formular, Antragsliste mit Ablehnen-Archiv, Prüffenster, eigene
+  Antragsvorlage, Dashboard-Kachel „Online-Mitgliedsanträge“ und die beiden
+  orangefarbenen Hinweise. Gelöscht: `OnlineApplicationsView`,
+  `PublicApplicationForm`, `ApplicationReviewModal`,
+  `ApplicationTemplateModal`, `DigitalSignaturePad`, `membershipPdfService`.
+- **Sicherung (D-04):** `onlineApplications` und `applicationSettings` werden
+  nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
+  entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
+
+### Nachbesserungen aus der Prüfung von P26/P27
+
+- **T-244:** „Gemeinnützig – Freistellungsbescheid vom …“ erscheint jetzt
+  auch, wenn das Datum wie in den Einstellungen üblich als „10.01.2024“
+  eingetragen ist (vorher nur bei JJJJ-MM-TT, daher immer „Kein
+  Freistellungsbescheid hinterlegt“).
+- **T-245:** Klick auf einen Termin im Dashboard öffnet den Kalender im
+  Monat des Termins mit dessen Details (bei Serien: der angeklickte Tag).
+  Am Handy ebenso: Tippen auf einen Termin öffnet ihn; zurück steht der
+  Kalender auf seinem Monat.
+- **T-247 (Android):** Knöpfe im Reiter „Material“ mit kleinerer Schrift,
+  damit „Entfernen“ nicht mehr abgeschnitten wird.
+
+### Paket 26/27 — Dashboard: Rechnen und Anzeige (D-132 bis D-142)
+
+Zahlen wie Android `Dashboard.kt` in `src/utils/dashboardRegeln.ts`
+(12 Tests mit denselben Beispielen wie am Handy). Das Aussehen der Kacheln
+bleibt das des Desktops.
+
+- **§ 64-Kachel (D-132, D-134):** Grenze je Kalenderjahr (bis 2025 45.000 €,
+  ab 2026 50.000 €) aus derselben Rechnung wie die EÜR-Seite; Text „… von
+  50.000 €“, bei Überschreitung „Grenze überschritten“. Gelb ab 75 %.
+- **Jahres-Saldo, vier Sphären, Cashflow (D-134):** aufgeteilte Buchungen
+  zählen Teil für Teil in ihrer Sphäre, Umbuchungen nicht. Der Cashflow
+  nimmt die Monate der Finanz-Auswertung (Spenden als Einnahme).
+- **Ausgetretene (D-135):** Sparten, Altersstruktur, Geschlechter, „Neueste
+  Mitglieder“ und Neuzugänge zählen nur aktuelle Mitglieder; Prozent der
+  Sparten beziehen sich auf sie.
+- **SEPA (D-136):** „Jahres-Soll aller Beiträge“ mit Zahlrhythmus statt
+  „~ Summe“ der Einzelbeträge.
+- **Rechnungen (D-137):** offen = gestellt und nicht bezahlt; Entwürfe und
+  Stornierte zählen weder als Forderung noch als abgerechnet.
+- **Datum (D-138):** „überfällig“ und „anstehende Sitzungen“ nach dem
+  lokalen Datum statt UTC.
+- **Alter (D-139):** auf den Tag genau; fünf Gruppen wie Android (0–13,
+  14–17, 18–59, ab 60, ohne Geburtsdatum).
+- **Geburtstage (D-133, D-141):** Kachel „Geburtstage & Jubiläen“: alle
+  Geburtstage und Mitgliedsjubiläen (10/25/40/50 Jahre) der nächsten 30 Tage
+  nach der Rechnung des Kalenders. Wer heute Geburtstag hat, steht mit
+  „Heute!“ oben; der 29.2. wird in Jahren ohne Schalttag zum 28.2.
+- **„Gemeinnützig“ (D-140):** zeigt „Gemeinnützig – Freistellungsbescheid
+  vom …“; ohne Datum „Kein Freistellungsbescheid hinterlegt“.
+- **Termine (D-142):** die nächsten drei Vorkommen auch aus Serien.
+- **Kachelbeschreibungen** in „Dashboard anpassen“ passen jetzt zum Inhalt.
+- **Bedienleiste der Kacheln** (Ziehen, Breite, Entfernen) sitzt mittig auf
+  der Oberkante statt oben rechts und verdeckt keine Verweise mehr.
+- **Android, Reiter „Material“ beim Mitglied (T-224):** die drei Knöpfe
+  stehen einzeilig, „Entfernen“ rechts in Warnfarbe.
+
 ### Paket 25 — Finanz-Auswertung (D-75 bis D-78, D-80)
 
 Zahlen wie Android `Finanzauswertung.kt` in `src/services/finanzAuswertung.ts`,

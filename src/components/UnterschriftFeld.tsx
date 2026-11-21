@@ -9,7 +9,8 @@ import React, { useRef, useState } from 'react';
 import { PenTool, Trash2 } from 'lucide-react';
 import { Unterschrift, leseUnterschrift, unterschriftAusZeichnung } from '../utils/unterschrift';
 
-const Vorschau: React.FC<{ u: Unterschrift }> = ({ u }) => (
+/** Die Unterschrift als Bild (Linienzüge), z. B. zur Kontrolle im Aufnahmeantrag. */
+export const Vorschau: React.FC<{ u: Unterschrift }> = ({ u }) => (
   <svg
     viewBox={`0 0 ${u.aspect} 1`}
     preserveAspectRatio="xMidYMid meet"
@@ -31,7 +32,8 @@ const Vorschau: React.FC<{ u: Unterschrift }> = ({ u }) => (
   </svg>
 );
 
-const Zeichenflaeche: React.FC<{ onUebernehmen: (u: Unterschrift) => void; onAbbrechen: () => void }> = ({
+/** Fenster zum Zeichnen einer Unterschrift (auch im Aufnahmeantrag). */
+export const Zeichenflaeche: React.FC<{ onUebernehmen: (u: Unterschrift) => void; onAbbrechen: () => void }> = ({
   onUebernehmen,
   onAbbrechen
 }) => {
