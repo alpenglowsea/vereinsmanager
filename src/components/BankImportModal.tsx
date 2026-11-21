@@ -14,6 +14,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { melde } from '../utils/dialoge';
+import { leseImportDatei, XLSX_ACCEPT } from '../utils/importDatei';
 
 interface BankImportModalProps {
   accounts: FinancialAccount[];
@@ -45,15 +46,19 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
     setError(null);
 
     try {
-      const text = await file.text();
-      const rows = await BankImportService.parseBankCSV(text, existingTransactions);
+      // Excel (.xlsx) als fertige Tabelle, sonst CSV-Text wie bisher (P28)
+      const d = await leseImportDatei(file);
+      const rows =
+        d.art === 'tabelle'
+          ? BankImportService.parseBankZeilen(d.tabelle.rows, existingTransactions)
+          : await BankImportService.parseBankCSV(d.text, existingTransactions);
       if (rows.length === 0) {
-        setError('Keine gültigen Buchungszeilen im CSV-Kontoauszug gefunden.');
+        setError('Keine gültigen Buchungszeilen im Kontoauszug gefunden.');
       } else {
         setParsedRows(rows);
       }
     } catch (err: any) {
-      setError(`Fehler beim Einlesen der Bankdatei: ${err.message || 'Ungültiges CSV-Format'}`);
+      setError(`Fehler beim Einlesen der Bankdatei: ${err.message || 'Ungültiges Dateiformat'}`);
     } finally {
       setLoading(false);
     }
@@ -143,7 +148,7 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
                 Bankumsätze & Kontoauszug importieren
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Direkter CSV-Import (Sparkasse, Volksbank, Postbank, etc.) mit KI/Regel-basierter Sphärenzuordnung
+                Direkter Import als CSV oder Excel (Sparkasse, Volksbank, Postbank usw.) mit KI/Regel-basierter Sphärenzuordnung
               </p>
             </div>
           </div>
@@ -179,18 +184,18 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1 dark:text-slate-200">
-                Bank-Kontoauszug (CSV / CAMT-Export)
+                Bank-Kontoauszug (CSV, CSV-CAMT oder Excel .xlsx)
               </label>
               <div className="relative">
                 <input
                   type="file"
-                  accept=".csv,.txt"
+                  accept={`.csv,.txt,${XLSX_ACCEPT}`}
                   onChange={handleFileUpload}
                   className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
                 />
                 <div className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-2xs">
                   <Upload className="w-4 h-4" />
-                  Bank-CSV-Datei auswählen
+                  Kontoauszug-Datei auswählen
                 </div>
               </div>
             </div>
@@ -362,7 +367,7 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
               <FileSpreadsheet className="w-12 h-12 text-slate-300 mx-auto mb-2" />
               <h3 className="font-bold text-slate-700 text-sm dark:text-slate-200">Noch kein Bankauszug geladen</h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 dark:text-slate-400">
-                Laden Sie die CSV-Umsatzdatei Ihres Vereinskontos hoch (z.B. aus dem Sparkassen-, VR-NetWorld- oder Online-Banking-Portal).
+                Laden Sie die Umsatzdatei Ihres Vereinskontos (CSV oder Excel) hoch (z.B. aus dem Sparkassen-, VR-NetWorld- oder Online-Banking-Portal).
               </p>
             </div>
           )}

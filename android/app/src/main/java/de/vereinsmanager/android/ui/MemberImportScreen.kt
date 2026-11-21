@@ -90,13 +90,15 @@ fun MemberImportScreen(model: AppModel, onDone: () -> Unit, modifier: Modifier =
             0 -> Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                 if (hinweis.isNotEmpty()) FormKarte { Text(hinweis, color = MaterialTheme.colorScheme.error) }
                 FormKarte {
-                    KartenTitel("CSV-Datei wählen")
+                    KartenTitel("Datei wählen")
                     Text(
-                        "Wählen Sie eine CSV-Datei (z. B. aus Excel mit „Speichern unter → CSV“). Trennzeichen Semikolon, Komma oder Tabulator " +
-                            "werden erkannt. Die erste Zeile muss die Spaltenüberschriften enthalten.",
+                        "Wählen Sie eine Excel-Datei (.xlsx, gelesen wird die erste Tabelle) oder eine CSV-Datei. Trennzeichen Semikolon, " +
+                            "Komma oder Tabulator werden erkannt. Die erste Zeile muss die Spaltenüberschriften enthalten.",
                     )
-                    Button(onClick = { openLauncher.launch(arrayOf("text/*", "application/vnd.ms-excel", "application/octet-stream")) }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(52.dp)) {
-                        Text("CSV-Datei wählen")
+                    Button(onClick = {
+                        openLauncher.launch(arrayOf("text/*", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel", "application/octet-stream"))
+                    }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(52.dp)) {
+                        Text("Excel- oder CSV-Datei wählen")
                     }
                 }
                 FormKarte {

@@ -1346,9 +1346,13 @@ class AppModel(private val appContext: Context) {
 
     // ---- CSV-Import ----
 
-    /** Liest die Datei; zweiter Wert: true, wenn sie nicht UTF-8 war und als Windows-1252 gelesen wurde. */
+    /**
+     * Liest die Datei: Excel (.xlsx, erste Tabelle) oder CSV (wie am Desktop seit P28).
+     * Zweiter Wert: true, wenn eine CSV nicht UTF-8 war und als Windows-1252 gelesen wurde.
+     */
     fun loadCsv(uri: Uri): Pair<CsvTable, Boolean> {
         val bytes = appContext.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+        if (de.vereinsmanager.core.importe.Xlsx.istXlsx(bytes)) return de.vereinsmanager.core.importe.Xlsx.lesen(bytes) to false
         val (text, fallback) = MemberCsv.decode(bytes)
         return MemberCsv.parse(text) to fallback
     }

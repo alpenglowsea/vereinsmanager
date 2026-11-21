@@ -464,22 +464,33 @@ export class CalendarService {
     csvText: string,
     existingCategories: CalendarEventCategory[] = []
   ): { events: CalendarEvent[]; errors: string[] } {
+    const result = Papa.parse<Record<string, string>>(csvText, {
+      header: true,
+      skipEmptyLines: true
+    });
+    const errors: string[] = [];
+    if (result.errors && result.errors.length > 0) {
+      result.errors.forEach((err) => errors.push(`Zeile ${err.row}: ${err.message}`));
+    }
+    const aus = CalendarService.parseTabelle(result.data, existingCategories);
+    return { events: aus.events, errors: [...errors, ...aus.errors] };
+  }
+
+  /**
+   * Termine aus fertigen Tabellenzeilen (Schlüssel = Spaltenüberschrift).
+   * Gemeinsamer Kern für CSV und Excel (P28).
+   */
+  static parseTabelle(
+    rows: Record<string, string>[],
+    existingCategories: CalendarEventCategory[] = []
+  ): { events: CalendarEvent[]; errors: string[] } {
     const events: CalendarEvent[] = [];
     const errors: string[] = [];
 
     const categoryMap = new Map<string, string>();
     existingCategories.forEach((c) => categoryMap.set(c.name.toLowerCase(), c.id));
 
-    const result = Papa.parse<Record<string, string>>(csvText, {
-      header: true,
-      skipEmptyLines: true
-    });
-
-    if (result.errors && result.errors.length > 0) {
-      result.errors.forEach((err) => errors.push(`Zeile ${err.row}: ${err.message}`));
-    }
-
-    result.data.forEach((row, idx) => {
+    rows.forEach((row, idx) => {
       // Find title column
       const title = row['Titel'] || row['titel'] || row['Title'] || row['Betreff'] || row['Name'] || row['Summary'];
       if (!title) {

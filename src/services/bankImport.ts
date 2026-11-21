@@ -132,6 +132,70 @@ export const BankImportService = {
   // „heute“ und lasen „1.250“ als 1,25 €.
 
   // Parse generic German Bank CSV (Sparkasse, Volksbank, VR-NetWorld, Postbank, Commerzbank, etc.)
+  /**
+   * Wertet fertige Tabellenzeilen eines Kontoauszugs aus (Schlüssel = Spaltenüberschrift).
+   * Gemeinsamer Kern für CSV und Excel (P28).
+   */
+  parseBankZeilen(rows: Record<string, string>[], vorhandene: Transaction[] = []): ParsedBankRow[] {
+    if (!rows || rows.length === 0) return [];
+
+    // Spalten zuordnen (D-68): genaue Überschriften zuerst, jede Spalte nur einmal
+    const keys = Object.keys(rows[0]);
+    const spalten = ordneSpaltenZu(keys, BANK_SPALTEN);
+    const dateKey = spalten.date;
+    const amountKey = spalten.amount;
+    const partnerKey = spalten.partner;
+    const textKey = spalten.text;
+    const ibanKey = spalten.iban;
+    const skr = getSkr42Snapshot();
+
+    const parsedRows: ParsedBankRow[] = [];
+
+    rows.forEach((row, idx) => {
+      const rawDate = (dateKey ? row[dateKey] : '') || '';
+      const rawAmount = (amountKey ? row[amountKey] : '') || '';
+      const rawPartner = partnerKey ? row[partnerKey] : '';
+      const rawText = textKey ? row[textKey] : '';
+      const rawIban = ibanKey ? row[ibanKey] : '';
+
+      if (!rawDate.trim() && !rawAmount.trim()) return;
+
+      // Unlesbares Datum bleibt leer und wird zur Fehlerzeile (D-67)
+      const date = leseDatum(rawDate) || '';
+      const zahl = leseBetrag(rawAmount);
+      const amount = zahl ? zahl.wert : 0;
+      const hinweise: string[] = [];
+      if (zahl?.mehrdeutig) hinweise.push(`Betrag „${rawAmount.trim()}“ als ${amount.toLocaleString('de-DE', { minimumFractionDigits: 2 })} € gelesen (Tausenderpunkt) – bitte prüfen.`);
+      const partner = (rawPartner || 'Unbekannter Partner').trim();
+      const bookingText = (rawText || (partner !== 'Unbekannter Partner' ? partner : 'Banküberweisung')).trim();
+
+      const combinedText = `${partner} ${bookingText}`;
+      const { sphere, category } = BankImportService.guessSphereAndCategory(combinedText, amount);
+
+      // Konto aus früheren Buchungen desselben Partners (D-69)
+      const alt = rawPartner ? kontoAusHistorie(rawPartner, amount < 0 ? 'expense' : 'income', vorhandene) : undefined;
+      const altKonto = alt?.skrAccount ? kontoNachNummer(alt.skrAccount, skr) : null;
+
+      parsedRows.push(pruefeBankZeile({
+        id: `bank-row-${idx}-${Date.now()}`,
+        date,
+        rohDatum: rawDate.trim(),
+        amount,
+        partner,
+        bookingText,
+        iban: rawIban,
+        suggestedSphere: altKonto && alt ? alt.sphere : sphere,
+        suggestedCategory: altKonto ? altKonto.sub.label : category,
+        skrAccount: altKonto ? altKonto.sub.code : '',
+        kontoVorschlag: !!altKonto,
+        hinweise,
+        selected: true
+      }, vorhandene, true));
+    });
+
+    return parsedRows;
+  },
+
   parseBankCSV(fileContent: string, vorhandene: Transaction[] = []): Promise<ParsedBankRow[]> {
     return new Promise((resolve, reject) => {
       Papa.parse(fileContent, {
@@ -140,67 +204,7 @@ export const BankImportService = {
         delimiter: '', // auto-detect delimiter (, or ; or tab)
         complete: (results) => {
           try {
-            const rows = results.data as Record<string, string>[];
-            if (!rows || rows.length === 0) {
-              resolve([]);
-              return;
-            }
-
-            // Spalten zuordnen (D-68): genaue Überschriften zuerst, jede Spalte nur einmal
-            const keys = Object.keys(rows[0]);
-            const spalten = ordneSpaltenZu(keys, BANK_SPALTEN);
-            const dateKey = spalten.date;
-            const amountKey = spalten.amount;
-            const partnerKey = spalten.partner;
-            const textKey = spalten.text;
-            const ibanKey = spalten.iban;
-            const skr = getSkr42Snapshot();
-
-            const parsedRows: ParsedBankRow[] = [];
-
-            rows.forEach((row, idx) => {
-              const rawDate = (dateKey ? row[dateKey] : '') || '';
-              const rawAmount = (amountKey ? row[amountKey] : '') || '';
-              const rawPartner = partnerKey ? row[partnerKey] : '';
-              const rawText = textKey ? row[textKey] : '';
-              const rawIban = ibanKey ? row[ibanKey] : '';
-
-              if (!rawDate.trim() && !rawAmount.trim()) return;
-
-              // Unlesbares Datum bleibt leer und wird zur Fehlerzeile (D-67)
-              const date = leseDatum(rawDate) || '';
-              const zahl = leseBetrag(rawAmount);
-              const amount = zahl ? zahl.wert : 0;
-              const hinweise: string[] = [];
-              if (zahl?.mehrdeutig) hinweise.push(`Betrag „${rawAmount.trim()}“ als ${amount.toLocaleString('de-DE', { minimumFractionDigits: 2 })} € gelesen (Tausenderpunkt) – bitte prüfen.`);
-              const partner = (rawPartner || 'Unbekannter Partner').trim();
-              const bookingText = (rawText || (partner !== 'Unbekannter Partner' ? partner : 'Banküberweisung')).trim();
-
-              const combinedText = `${partner} ${bookingText}`;
-              const { sphere, category } = BankImportService.guessSphereAndCategory(combinedText, amount);
-
-              // Konto aus früheren Buchungen desselben Partners (D-69)
-              const alt = rawPartner ? kontoAusHistorie(rawPartner, amount < 0 ? 'expense' : 'income', vorhandene) : undefined;
-              const altKonto = alt?.skrAccount ? kontoNachNummer(alt.skrAccount, skr) : null;
-
-              parsedRows.push(pruefeBankZeile({
-                id: `bank-row-${idx}-${Date.now()}`,
-                date,
-                rohDatum: rawDate.trim(),
-                amount,
-                partner,
-                bookingText,
-                iban: rawIban,
-                suggestedSphere: altKonto && alt ? alt.sphere : sphere,
-                suggestedCategory: altKonto ? altKonto.sub.label : category,
-                skrAccount: altKonto ? altKonto.sub.code : '',
-                kontoVorschlag: !!altKonto,
-                hinweise,
-                selected: true
-              }, vorhandene, true));
-            });
-
-            resolve(parsedRows);
+            resolve(BankImportService.parseBankZeilen(results.data as Record<string, string>[], vorhandene));
           } catch (err) {
             reject(err);
           }

@@ -12,7 +12,10 @@ Geprüft wurde zusätzlich eine echte Demo-Sicherung (Format-Version 1.2.3).
 
 ## 1. Zwei Dateiarten
 
-Beide haben die Endung `.json` und sind UTF-8-Text.
+Beide haben die Endung `.json` und sind UTF-8-Text. Daneben gibt es seit
+Format 1.3.0 das **Sicherungspaket** (`.zip`), siehe Abschnitt 8; beide
+Fassungen schreiben und lesen es (Desktop schreibt seit P30 Teil 2,
+21.11.2026).
 
 - **Klartext-Sicherung:** ein JSON-Objekt, Aufbau siehe Abschnitt 2.
 - **Verschlüsselte Sicherung:** ein JSON-Objekt („Hülle“), das die Klartext-
@@ -277,8 +280,20 @@ Dieses Format ändert sich **nur gemeinsam** für beide Fassungen:
 ## 8. Sicherungspaket (Format 1.3.0) – Entwurf, Stand 27.10.2026
 
 **Status:** auf Android im Kern umgesetzt und getestet (`BackupPaket`). Am Desktop seit 16.11.2026 **lesbar**
-(`src/services/backupPaket.ts`, mit und ohne Passwort), aber **noch nicht schreibbar**: Die Desktop-Fassung schreibt weiterhin
-nur die JSON-Sicherung nach den Abschnitten 1 bis 5. Die Android-App liest beides.
+(`src/services/backupPaket.ts`, mit und ohne Passwort) und seit 21.11.2026 **schreibbar**
+(`src/services/backupPaketSchreiben.ts`, ZIP-Schreiber `src/utils/zipSchreiben.ts`). Beim Sichern am Desktop ist das Paket
+vorgewählt; die JSON-Sicherung nach den Abschnitten 1 bis 5 bleibt wählbar. Die Android-App liest beides.
+
+**Desktop beim Schreiben:** Jede Base64-Data-URL an den vier Stellen der Tabelle unten wird zu einer Datei im ZIP, im Eintrag
+steht danach der Pfad. Gleicher Inhalt steht nur einmal im ZIP (erkannt am Base64-Text; Android erkennt ihn an der Datei-Kennung,
+nach dem Einspielen einer Desktop-Sicherung also ebenfalls am Inhalt). Leere Werte, Internetadressen und Data-URLs ohne Base64
+bleiben unverändert im Eintrag. Pfade und Dateinamen nach denselben Regeln wie Android (`Dateinamen`, Ordnerpfade, Belegnamen,
+Reihenfolge Dokumente → Buchungen → Mitglieder → Inventar). Deflate über `CompressionStream('deflate-raw')`; fehlt die Funktion,
+gültige Deflate-Blöcke ohne Kompression. Größen stehen im lokalen Kopf vor den Daten (kein Datenbeschreiber), damit Android das
+Paket als Datenstrom liest. Mit Passwort: AE-2, AES-256, PBKDF2-HMAC-SHA1 mit 1000 Runden, je Eintrag ein zufälliges Salz,
+CRC 0, Zusatzfeld `0x9901` mit Methode 8, Versionsangabe 51. Gegengeprüft mit Info-ZIP `unzip -t`, Java `ZipInputStream`
+(Datenstrom wie am Handy), Python `zipfile` und einer eigenen Python-Entschlüsselung nach der AE-Beschreibung; am 21.11.2026
+in der Android-App eingespielt, mit und ohne Passwort (T-275).
 
 **Desktop beim Lesen:** Die Dateien werden aus dem ZIP geholt und als Data-URL wieder in die Einträge gesetzt (`file` → `dataUrl`,
 `receipt.file` → `receipt.dataUrl`, `avatarFile` → `avatarUrl`, `photoFile` → `photoUrl`); danach läuft der Einspielweg aus
@@ -355,6 +370,6 @@ zu einer PDF (längere Seite höchstens 1600 Pixel, JPEG-Qualität 75, eine Seit
 
 ### Offene Punkte für den Desktop
 
-- Lesen von AES-ZIP: erledigt (eigener Code, keine Bibliothek). Schreiben: offen.
+- Lesen von AES-ZIP: erledigt (eigener Code, keine Bibliothek). Schreiben: erledigt (P30 Teil 2), am Handy eingespielt mit und ohne Passwort (21.11.2026).
 - Umstellung von `Transaction.receipt` / `ClubDocument.dataUrl` auf Dateiverweise und Migration beim ersten Start.
-- Gemeinsame Gegenprobe: Paket von Android am Desktop öffnen und umgekehrt, mit und ohne Passwort.
+- Gemeinsame Gegenprobe: erledigt. Android → Desktop am 16.11.2026, Desktop → Android am 21.11.2026, jeweils mit und ohne Passwort.

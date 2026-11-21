@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Download, Lock, Unlock, AlertTriangle, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { X, Download, Lock, Unlock, AlertTriangle, Eye, EyeOff, ShieldCheck, Package, FileText } from 'lucide-react';
 import { kannVerschluesseln, MIN_PASSWORT_LAENGE } from '../services/backupCrypto';
 
 /**
@@ -15,14 +15,19 @@ import { kannVerschluesseln, MIN_PASSWORT_LAENGE } from '../services/backupCrypt
  * Der Hinweis auf das nicht wiederherstellbare Passwort steht absichtlich
  * mitten im Dialog und verlangt eine Bestätigung — wer das Passwort verliert,
  * verliert die Sicherung.
+ *
+ * Seit P30 Teil 2 zusätzlich die Wahl des Formats: Sicherungspaket (.zip,
+ * wie die Handy-App, vorgewählt) oder die bisherige einzelne JSON-Datei.
  */
+
+export type SicherungsFormat = 'paket' | 'json';
 
 interface BackupExportDialogProps {
   isOpen: boolean;
   laeuft: boolean;
   onAbbrechen: () => void;
   /** `passwort` ist null bei einer unverschlüsselten Sicherung. */
-  onBestaetigen: (passwort: string | null) => void;
+  onBestaetigen: (passwort: string | null, format: SicherungsFormat) => void;
 }
 
 export const BackupExportDialog: React.FC<BackupExportDialogProps> = ({
@@ -32,6 +37,7 @@ export const BackupExportDialog: React.FC<BackupExportDialogProps> = ({
   onBestaetigen
 }) => {
   const moeglich = kannVerschluesseln();
+  const [format, setFormat] = useState<SicherungsFormat>('paket');
   const [verschluesseln, setVerschluesseln] = useState(true);
   const [passwort, setPasswort] = useState('');
   const [wiederholung, setWiederholung] = useState('');
@@ -56,7 +62,7 @@ export const BackupExportDialog: React.FC<BackupExportDialogProps> = ({
   const absenden = (e: React.FormEvent) => {
     e.preventDefault();
     if (!kannSpeichern) return;
-    onBestaetigen(mitPasswort ? passwort : null);
+    onBestaetigen(mitPasswort ? passwort : null, format);
   };
 
   return (
@@ -83,6 +89,54 @@ export const BackupExportDialog: React.FC<BackupExportDialogProps> = ({
         </div>
 
         <div className="p-6 overflow-y-auto space-y-4 flex-1">
+          {/* Format */}
+          <div className="space-y-2">
+            <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">Format</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {(
+                [
+                  {
+                    wert: 'paket',
+                    titel: 'Sicherungspaket (.zip)',
+                    zusatz: 'empfohlen',
+                    text: 'Belege, Dokumente und Fotos liegen als einzelne Dateien im Paket. Lässt sich am Desktop und in der Handy-App einspielen.',
+                    icon: <Package className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  },
+                  {
+                    wert: 'json',
+                    titel: 'Einzelne Datei (.json)',
+                    zusatz: 'bisheriges Format',
+                    text: 'Alles in einer Textdatei, Belege und Dokumente darin als Text. Bei vielen Belegen sehr groß; die Handy-App liest große Dateien unter Umständen nicht.',
+                    icon: <FileText className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                  }
+                ] as const
+              ).map(f => (
+                <label
+                  key={f.wert}
+                  className={`block p-3 rounded-xl border-2 cursor-pointer transition-colors ${
+                    format === f.wert
+                      ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-950/30'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <input type="radio" name="sicherungsformat" checked={format === f.wert} onChange={() => setFormat(f.wert)} className="mt-0.5" />
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        {f.icon}
+                        {f.titel}
+                        <span className="font-normal text-slate-500 dark:text-slate-400">· {f.zusatz}</span>
+                      </div>
+                      <p className="text-2xs text-slate-600 dark:text-slate-400 mt-1">{f.text}</p>
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 pt-1">Schutz</div>
+
           {/* Mit Passwort */}
           <label
             className={`block p-3.5 rounded-xl border-2 transition-colors ${
@@ -138,8 +192,8 @@ export const BackupExportDialog: React.FC<BackupExportDialogProps> = ({
                   Ohne Passwort (unverschlüsselt)
                 </div>
                 <p className="text-2xs text-slate-600 dark:text-slate-400 mt-1">
-                  Die Datei ist reiner Text. Wer sie öffnet, liest alle Mitglieder mit Adressen und
-                  Bankverbindungen, Spenden und Buchungen im Klartext.
+                  Wer die Datei öffnet, liest alle Mitglieder mit Adressen und Bankverbindungen,
+                  Spenden, Buchungen und Belege ohne Weiteres.
                 </p>
               </div>
             </div>
@@ -162,6 +216,17 @@ export const BackupExportDialog: React.FC<BackupExportDialogProps> = ({
               <span>
                 Bewahren Sie eine unverschlüsselte Sicherung nur an einem Ort auf, zu dem ausschließlich
                 berechtigte Personen Zugang haben, und verschicken Sie sie nicht per E-Mail.
+              </span>
+            </div>
+          )}
+
+          {mitPasswort && format === 'paket' && (
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-2xs text-slate-700 dark:text-slate-300 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-px text-amber-600 dark:text-amber-400" />
+              <span>
+                Im Paket sind alle <strong>Inhalte</strong> verschlüsselt, die <strong>Dateinamen</strong> aber nicht – so legt es das
+                ZIP-Format fest (wie in der Handy-App). Wer die Datei öffnet, sieht also Namen wie „M-0012 Müller Jörg.jpg“ oder
+                „2026-03-01 Sportshop Franke BE-2026-010.pdf“, kann die Dateien selbst aber nicht öffnen.
               </span>
             </div>
           )}

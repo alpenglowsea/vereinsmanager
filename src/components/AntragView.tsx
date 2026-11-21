@@ -241,6 +241,8 @@ export const AntragAusfuellen: React.FC<{
   const [seite, setSeite] = useState(SEITE_PERSON);
   // Höchster bisher erreichter Schritt: bis dorthin lassen sich die Reiter frei anklicken
   const [erreicht, setErreicht] = useState(SEITE_PERSON);
+  // Kontoinhaber von Hand geändert? Bis dahin folgt das Feld dem Vorschlag (T-265)
+  const [inhaberVonHand, setInhaberVonHand] = useState(false);
   const [zeigeFehler, setZeigeFehler] = useState(false);
   const [abgegeben, setAbgegeben] = useState(false);
   const [ansicht, setAnsicht] = useState<{ titel: string; dataUrl: string } | null>(null);
@@ -269,7 +271,9 @@ export const AntragAusfuellen: React.FC<{
       if (v) neu = { ...neu, mitgliedsart: v };
     }
     // Kontoinhaber vorschlagen; bei unter 18 der gesetzliche Vertreter (T-258)
-    if (von < SEITE_ZAHLUNG && neu.zahlungsart === 'sepa' && !neu.kontoinhaber.trim()) neu = { ...neu, kontoinhaber: kontoinhaberVorschlag(neu, heute) };
+    // Bei jedem Weg von vorn auf die Zahlungsseite neu, solange nicht von Hand geändert
+    if (von < SEITE_ZAHLUNG && neu.zahlungsart === 'sepa' && (!inhaberVonHand || !neu.kontoinhaber.trim()))
+      neu = { ...neu, kontoinhaber: kontoinhaberVorschlag(neu, heute) };
     return neu;
   };
 
@@ -515,7 +519,10 @@ export const AntragAusfuellen: React.FC<{
                         <Feld
                           label="Kontoinhaber *"
                           wert={a.kontoinhaber}
-                          onChange={v => set({ kontoinhaber: v })}
+                          onChange={v => {
+                            setInhaberVonHand(true);
+                            set({ kontoinhaber: v });
+                          }}
                           fehler={f.kontoinhaber}
                           hinweis={minder ? 'Meist der gesetzliche Vertreter; bitte ändern, wenn das Konto einer anderen Person gehört' : 'Name der Person, von deren Konto abgebucht wird'}
                           breit

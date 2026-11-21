@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { saveBlobAs } from '../utils/fileExportHelper';
 import { melde } from '../utils/dialoge';
+import { leseImportDatei, XLSX_ACCEPT } from '../utils/importDatei';
 
 interface TransactionImportModalProps {
   existingTransactions: Transaction[];
@@ -76,46 +77,59 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Kopfzeilen und Zeilen übernehmen (aus CSV-Text oder aus einer Excel-Datei, P28)
+  const uebernimmTabelle = (headers: string[], rows: Record<string, string>[], sourceName: string) => {
+    if (headers.length === 0 || rows.length === 0) {
+      setErrorMsg('Die Datei enthält keine lesbaren Buchungszeilen. Bitte überprüfen Sie das Format.');
+      return;
+    }
+
+    setFileName(sourceName);
+    setCsvHeaders(headers);
+    setRawRows(rows);
+
+    // Auto-detect columns
+    const autoMap = autoDetectTransactionMapping(headers);
+    setMapping(autoMap);
+
+    // Advance to step 2 (Column Mapping)
+    setStep(2);
+  };
+
   // Process raw text into headers & rows
   const processRawCSV = (text: string, sourceName: string) => {
     setErrorMsg(null);
     try {
       const { headers, rows } = parseCSVToRows(text);
-      if (headers.length === 0 || rows.length === 0) {
-        setErrorMsg('Die Datei enthält keine lesbaren Buchungszeilen. Bitte überprüfen Sie das Format.');
-        return;
-      }
-
-      setFileName(sourceName);
-      setCsvHeaders(headers);
-      setRawRows(rows);
-
-      // Auto-detect columns
-      const autoMap = autoDetectTransactionMapping(headers);
-      setMapping(autoMap);
-
-      // Advance to step 2 (Column Mapping)
-      setStep(2);
+      uebernimmTabelle(headers, rows, sourceName);
     } catch (err: any) {
       setErrorMsg(`Fehler beim Verarbeiten der CSV-Daten: ${err.message || 'Ungültiges Dateiformat'}`);
+    }
+  };
+
+  // Gewählte Datei: Excel (.xlsx) als Tabelle, sonst Text wie bisher (P28)
+  const verarbeiteDatei = async (file: File) => {
+    setErrorMsg(null);
+    try {
+      const d = await leseImportDatei(file);
+      if (d.art === 'tabelle') uebernimmTabelle(d.tabelle.headers, d.tabelle.rows, file.name);
+      else processRawCSV(d.text, file.name);
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Die Datei konnte nicht gelesen werden.');
     }
   };
 
   const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const text = await file.text();
-    processRawCSV(text, file.name);
+    await verarbeiteDatei(file);
   };
 
   const handleDrop = async (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file) {
-      const text = await file.text();
-      processRawCSV(text, file.name);
-    }
+    if (file) await verarbeiteDatei(file);
   };
 
   const handlePasteSubmit = () => {
@@ -405,7 +419,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                     Unterstützt Google Sheets, Microsoft Excel & Bank-CSV
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">
-                    Laden Sie eine CSV-Datei hoch oder kopieren Sie Zeilen direkt aus Ihrer Tabellenkalkulation per Strg+C / Strg+V.
+                    Laden Sie eine Excel- oder CSV-Datei hoch oder kopieren Sie Zeilen direkt aus Ihrer Tabellenkalkulation per Strg+C / Strg+V.
                   </p>
                 </div>
 
@@ -431,7 +445,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                   }`}
                 >
                   <Upload className="w-4 h-4" />
-                  <span>CSV-Datei hochladen</span>
+                  <span>Excel- oder CSV-Datei hochladen</span>
                 </button>
 
                 <button
@@ -468,15 +482,15 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                     Buchungsdatei hier ablegen oder durchsuchen
                   </h4>
                   <p className="text-xs text-slate-500 max-w-md mx-auto mb-5 dark:text-slate-400">
-                    Akzeptiert .csv-Dateien (mit Semikolon, Tabulator oder Komma getrennt) aus Excel, Google Sheets, Sparkasse, Volksbank, Lexware, etc.
+                    Akzeptiert Excel-Dateien (.xlsx, erste Tabelle) und .csv-Dateien (mit Semikolon, Tabulator oder Komma getrennt) aus Google Sheets, Sparkasse, Volksbank, Lexware usw.
                   </p>
 
                   <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold cursor-pointer transition-all shadow-xs">
                     <FileText className="w-4 h-4" />
-                    <span>CSV-Datei vom Computer auswählen</span>
+                    <span>Datei vom Computer auswählen</span>
                     <input
                       type="file"
-                      accept=".csv,.txt,.tsv"
+                      accept={`.csv,.txt,.tsv,${XLSX_ACCEPT}`}
                       onChange={handleFileUpload}
                       className="hidden"
                     />
@@ -524,8 +538,8 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
                 <div className="text-xs text-slate-600 space-y-1 dark:text-slate-300">
                   <span className="font-bold text-slate-800 dark:text-slate-100">So funktioniert der Import aus Google Sheets & Excel:</span>
                   <ul className="list-disc pl-4 space-y-0.5 text-slate-600 dark:text-slate-300">
-                    <li><b>Google Sheets:</b> Datei $\rightarrow$ Herunterladen $\rightarrow$ Kommagetrennte Werte (.csv) oder einfach Zeilen markieren und kopieren.</li>
-                    <li><b>Microsoft Excel:</b> Speichern unter $\rightarrow$ CSV (Trennzeichen-getrennt) (*.csv).</li>
+                    <li><b>Google Sheets:</b> Datei → Herunterladen → Microsoft Excel (.xlsx) oder Kommagetrennte Werte (.csv) oder einfach Zeilen markieren und kopieren.</li>
+                    <li><b>Microsoft Excel:</b> Die .xlsx-Datei direkt wählen (gelesen wird die erste Tabelle) oder Zeilen markieren und kopieren.</li>
                     <li><b>SKR 42:</b> Eine Kontonummer (z. B. 40000) wird übernommen, die Umsatzsteuer kommt aus dem Konto. Ohne Nummer schlägt die App das Konto der letzten Buchung desselben Partners vor; in der Vorschau lässt es sich je Zeile oder für mehrere Zeilen zugleich wählen.</li>
                   </ul>
                 </div>

@@ -25,6 +25,7 @@ import {
   ClipboardPaste
 } from 'lucide-react';
 import { saveBlobAs } from '../utils/fileExportHelper';
+import { leseImportDatei, XLSX_ACCEPT } from '../utils/importDatei';
 
 interface MemberImportModalProps {
   existingMembers: Member[];
@@ -54,46 +55,59 @@ export const MemberImportModal: FC<MemberImportModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Kopfzeilen und Zeilen übernehmen (aus CSV-Text oder aus einer Excel-Datei, P28)
+  const uebernimmTabelle = (headers: string[], rows: Record<string, string>[], sourceName: string) => {
+    if (headers.length === 0 || rows.length === 0) {
+      setErrorMsg('Die Datei enthält keine lesbaren Datenzeilen. Bitte überprüfen Sie das Format.');
+      return;
+    }
+
+    setFileName(sourceName);
+    setCsvHeaders(headers);
+    setRawRows(rows);
+
+    // Auto-detect columns
+    const autoMap = autoDetectMapping(headers);
+    setMapping(autoMap);
+
+    // Advance to step 2 (Column Mapping)
+    setStep(2);
+  };
+
   // Process raw text into headers & rows
   const processRawCSV = (text: string, sourceName: string) => {
     setErrorMsg(null);
     try {
       const { headers, rows } = parseCSVToRows(text);
-      if (headers.length === 0 || rows.length === 0) {
-        setErrorMsg('Die Datei enthält keine lesbaren Datenzeilen. Bitte überprüfen Sie das Format.');
-        return;
-      }
-
-      setFileName(sourceName);
-      setCsvHeaders(headers);
-      setRawRows(rows);
-
-      // Auto-detect columns
-      const autoMap = autoDetectMapping(headers);
-      setMapping(autoMap);
-
-      // Advance to step 2 (Column Mapping)
-      setStep(2);
+      uebernimmTabelle(headers, rows, sourceName);
     } catch (err: any) {
       setErrorMsg(`Fehler beim Verarbeiten der CSV-Daten: ${err.message || 'Ungültiges Dateiformat'}`);
+    }
+  };
+
+  // Gewählte Datei: Excel (.xlsx) als Tabelle, sonst Text wie bisher (P28)
+  const verarbeiteDatei = async (file: File) => {
+    setErrorMsg(null);
+    try {
+      const d = await leseImportDatei(file);
+      if (d.art === 'tabelle') uebernimmTabelle(d.tabelle.headers, d.tabelle.rows, file.name);
+      else processRawCSV(d.text, file.name);
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Die Datei konnte nicht gelesen werden.');
     }
   };
 
   const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const text = await file.text();
-    processRawCSV(text, file.name);
+    await verarbeiteDatei(file);
   };
 
   const handleDrop = async (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file) {
-      const text = await file.text();
-      processRawCSV(text, file.name);
-    }
+    if (file) await verarbeiteDatei(file);
   };
 
   const handlePasteSubmit = () => {
@@ -169,7 +183,7 @@ export const MemberImportModal: FC<MemberImportModalProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                Mitglieder per CSV & Google Sheets importieren
+                Mitglieder per Excel, CSV & Google Sheets importieren
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Automatischer Import mit intelligenter Spaltenerkennung und Duplikatsprüfung
@@ -246,7 +260,7 @@ export const MemberImportModal: FC<MemberImportModalProps> = ({
                   }`}
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  CSV-Datei hochladen
+                  Excel- oder CSV-Datei hochladen
                 </button>
                 <button
                   type="button"
@@ -273,18 +287,18 @@ export const MemberImportModal: FC<MemberImportModalProps> = ({
                     <FileSpreadsheet className="w-8 h-8" />
                   </div>
                   <h3 className="text-base font-bold text-slate-900 mb-1 dark:text-white">
-                    CSV-Datei hierher ziehen oder auswählen
+                    Excel- oder CSV-Datei hierher ziehen oder auswählen
                   </h3>
                   <p className="text-xs text-slate-500 max-w-md mb-5 leading-relaxed dark:text-slate-400">
-                    Unterstützt Google Sheets CSV-Exporte, Excel-CSV (.csv, .tsv) mit automatischer Erkennung von Trennzeichen (Semikolon, Komma oder Tabulator).
+                    Unterstützt Excel-Dateien (.xlsx, erste Tabelle) sowie CSV-Dateien (.csv, .tsv) mit automatischer Erkennung von Trennzeichen (Semikolon, Komma oder Tabulator).
                   </p>
 
                   <label className="cursor-pointer inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition-colors">
                     <Upload className="w-4 h-4" />
-                    <span>CSV-Datei vom Computer auswählen</span>
+                    <span>Datei vom Computer auswählen</span>
                     <input
                       type="file"
-                      accept=".csv, .tsv, .txt, text/csv, text/tab-separated-values"
+                      accept={`.csv,.tsv,.txt,text/csv,text/tab-separated-values,${XLSX_ACCEPT}`}
                       onChange={handleFileUpload}
                       className="hidden"
                     />

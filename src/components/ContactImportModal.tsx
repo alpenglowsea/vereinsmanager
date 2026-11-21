@@ -11,6 +11,7 @@ import {
   ArtVorgabe
 } from '../services/kontaktImportService';
 import Papa from 'papaparse';
+import { leseImportDatei, XLSX_ACCEPT } from '../utils/importDatei';
 import {
   X,
   Upload,
@@ -53,6 +54,23 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Kopfzeilen und Zeilen übernehmen (aus CSV-Text oder aus einer Excel-Datei, P28)
+  const uebernimmTabelle = (headers: string[], rows: Record<string, string>[], sourceName: string) => {
+    if (rows.length === 0) {
+      setErrorMsg('Keine Datenzeilen in der angegebenen Datei / dem Text gefunden.');
+      return;
+    }
+    if (headers.length === 0) {
+      setErrorMsg('Es konnten keine Spaltenüberschriften erkannt werden.');
+      return;
+    }
+    setFileName(sourceName);
+    setCsvHeaders(headers);
+    setRawRows(rows);
+    setMapping(erkenneKontaktSpalten(headers));
+    setStep(2);
+  };
+
   const processCSVText = (text: string, sourceName: string) => {
     setErrorMsg(null);
     try {
@@ -68,33 +86,28 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
       }
 
       const headers = parsed.meta.fields || Object.keys(parsed.data[0] || {});
-      if (headers.length === 0) {
-        setErrorMsg('Es konnten keine Spaltenüberschriften erkannt werden.');
-        return;
-      }
-
-      setFileName(sourceName);
-      setCsvHeaders(headers);
-      setRawRows(parsed.data);
-      setMapping(erkenneKontaktSpalten(headers));
-      setStep(2);
+      uebernimmTabelle(headers, parsed.data, sourceName);
     } catch (err: any) {
       setErrorMsg(`Fehler beim Einlesen: ${err.message || 'Unbekannter Fehler'}`);
+    }
+  };
+
+  // Gewählte Datei: Excel (.xlsx) als Tabelle, sonst Text wie bisher (P28)
+  const verarbeiteDatei = async (file: File) => {
+    setErrorMsg(null);
+    try {
+      const d = await leseImportDatei(file);
+      if (d.art === 'tabelle') uebernimmTabelle(d.tabelle.headers, d.tabelle.rows, file.name);
+      else if (d.text) processCSVText(d.text, file.name);
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Die Datei konnte nicht gelesen werden.');
     }
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = evt => {
-      const text = evt.target?.result as string;
-      if (text) {
-        processCSVText(text, file.name);
-      }
-    };
-    reader.readAsText(file, 'UTF-8');
+    void verarbeiteDatei(file);
   };
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -110,16 +123,7 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = evt => {
-        const text = evt.target?.result as string;
-        if (text) {
-          processCSVText(text, file.name);
-        }
-      };
-      reader.readAsText(file, 'UTF-8');
-    }
+    if (file) void verarbeiteDatei(file);
   };
 
   const handleDownloadTemplate = () => {
@@ -183,7 +187,7 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-base dark:text-white">
-                Kontakte importieren (CSV & Tabellen)
+                Kontakte importieren (Excel, CSV & Tabellen)
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Schritt {step} von 3: {step === 1 ? 'Datei auswählen oder einfügen' : step === 2 ? 'Spalten zuordnen' : 'Vorschau & Import bestätigen'}
@@ -223,7 +227,7 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
                   }`}
                 >
                   <FileSpreadsheet className="w-4 h-4" />
-                  <span>CSV-Datei hochladen</span>
+                  <span>Excel- oder CSV-Datei hochladen</span>
                 </button>
                 <button
                   type="button"
@@ -254,16 +258,16 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
                     <Upload className="w-6 h-6" />
                   </div>
                   <h4 className="text-sm font-bold text-slate-800 mb-1 dark:text-slate-100">
-                    CSV-Datei hierher ziehen oder durchsuchen
+                    Excel- oder CSV-Datei hierher ziehen oder durchsuchen
                   </h4>
                   <p className="text-xs text-slate-500 mb-4 max-w-md mx-auto dark:text-slate-400">
-                    Unterstützt kommagetrennte oder semikolongetrennte UTF-8 CSV-Dateien aus Microsoft Excel, Google Sheets, LibreOffice oder anderen Vereinsprogrammen.
+                    Unterstützt Excel-Dateien (.xlsx, erste Tabelle) sowie komma- oder semikolongetrennte UTF-8-CSV-Dateien aus Google Sheets, LibreOffice oder anderen Vereinsprogrammen.
                   </p>
                   <label className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition-colors">
                     <span>Datei auswählen</span>
                     <input
                       type="file"
-                      accept=".csv,text/csv,text/plain"
+                      accept={`.csv,text/csv,text/plain,${XLSX_ACCEPT}`}
                       onChange={handleFileChange}
                       className="hidden"
                     />

@@ -176,6 +176,52 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Paket 28 — Excel-Dateien lesen (D-72, E5)
+
+Eigener Leser ohne Bibliothek in `src/utils/xlsxReader.ts`, Nachbau von
+Android `Xlsx` (`core/importe/Tabellen.kt`): erste Tabelle des
+Arbeitsbuchs, gemeinsame Texte ohne Lautschrift, Formeln mit gespeichertem
+Ergebnis, WAHR/FALSCH, Fehlerwerte leer; Datum als JJJJ-MM-TT und Uhrzeit
+als HH:MM (am Zahlenformat erkannt), Zahlen mit Komma ohne Tausenderpunkt;
+doppelte Überschriften als „Name_2“. Das ZIP liest der vorhandene Leser aus
+P30 Teil 1. Der XML-Leser kennt keine DTD und keine fremden Entitäten.
+
+- **Alle Importe nehmen .xlsx:** Bankimport, Buchungsimport, Mitglieder,
+  Kontakte, Termine. Gemeinsamer Einstieg `src/utils/importDatei.ts` erkennt
+  Excel am Inhalt und gibt die Tabelle direkt weiter (ohne Umweg über
+  CSV-Text); CSV-Dateien laufen genau wie vorher. Dafür neu:
+  `BankImportService.parseBankZeilen`, `CalendarService.parseTabelle`.
+- **Verständliche Meldungen** für alte .xls-Dateien, mit Passwort geschützte
+  Excel-Dateien und ZIP-Dateien ohne Tabelle.
+- **Android:** Der Mitglieder-Import liest jetzt ebenfalls .xlsx
+  (Buchungen, Kontakte und Termine konnten es schon).
+- 8 Tests, darunter eine echte, von LibreOffice geschriebene Datei
+  (`xlsxTestdaten.ts`, Erwartungen mit openpyxl gegengelesen) bis in den
+  Bankimport.
+- Nebenbei: In der Anleitung des Buchungsimports stand `$\rightarrow$`
+  statt eines Pfeils.
+
+### Paket 30, Teil 2 — Sicherungspaket am Desktop schreiben (D-06, E6)
+
+- **Sichern als Paket (.zip), vorgewählt:** wie die Handy-App,
+  `sicherung.json` (Format 1.3.0) zuerst, dann Belege, Dokumente und Fotos
+  als Dateien mit denselben Pfaden und Namen wie am Handy; gleicher Inhalt
+  nur einmal. Die bisherige JSON-Datei bleibt wählbar.
+- **Mit Passwort:** WinZip-AES-256 (AE-2) je Eintrag, wie zip4j am Handy.
+  Hinweis im Fenster, dass die Dateinamen im Paket lesbar bleiben.
+- `src/utils/zipSchreiben.ts` (Deflate über `CompressionStream`, sonst
+  gültig ohne Kompression; AES-Einträge), `src/services/backupPaketSchreiben.ts`.
+  6 Tests: Rundlauf über den Desktop-Leser, unabhängiges Lesen mit Node
+  (zlib/OpenSSL) von vorn wie am Handy. Zusätzlich von Hand gegengeprüft mit
+  Info-ZIP, Java `ZipInputStream` und einer Python-Umsetzung der
+  AE-Beschreibung. **Nicht geprüft:** Einspielen in der Android-App.
+
+### Nachbesserung T-265
+
+- Kontoinhaber im Antrag folgt dem Vorschlag (bei unter 18 der Vertreter),
+  bis er von Hand geändert wird; auch nach Zurückblättern und Ändern von
+  Geburtsdatum oder Vertreter. Desktop und Android.
+
 ### Nachbesserungen aus der Prüfung von P29
 
 - **T-252:** Der Aufnahmeantrag ist jetzt ein Fenster im Stil des Desktops

@@ -7,7 +7,8 @@ import { AuthService } from '../services/authService';
 import { SnapshotService, AutoSnapshot } from '../services/snapshotService';
 import { CURRENT_APP_VERSION } from '../services/updateService';
 import { BackupImportDialog } from './BackupImportDialog';
-import { BackupExportDialog } from './BackupExportDialog';
+import { BackupExportDialog, type SicherungsFormat } from './BackupExportDialog';
+import { schreibePaket } from '../services/backupPaketSchreiben';
 import { BackupPasswordDialog } from './BackupPasswordDialog';
 import { istVerschluesselt, verschluessleSicherung, entschluessleSicherung } from '../services/backupCrypto';
 import { istPaket, istPaketVerschluesselt, lesePaket, paketFehlerText, paketHinweis } from '../services/backupPaket';
@@ -890,23 +891,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setExportDialogOffen(true);
   };
 
-  const fuehreExportAus = async (passwort: string | null) => {
+  const fuehreExportAus = async (passwort: string | null, format: SicherungsFormat) => {
     setExportLaeuft(true);
     try {
       const klartext = await StorageService.exportFullBackup();
-      const inhalt = passwort ? await verschluessleSicherung(klartext, passwort) : klartext;
-      const blob = new Blob([inhalt], { type: 'application/json' });
       const dateStr = new Date().toISOString().split('T')[0];
       const safeClub = (formData.clubName || 'Verein').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_');
-      const filename = `VereinsManager_Sicherung_${safeClub}_${dateStr}${passwort ? '_verschluesselt' : ''}.json`;
+      const grundname = `VereinsManager_Sicherung_${safeClub}_${dateStr}${passwort ? '_verschluesselt' : ''}`;
 
-      const result = await saveBlobWithLocationPicker(blob, filename, {
-        description: passwort
-          ? 'Verschlüsselte Datensicherungsdatei (*.json)'
-          : 'JSON-Datensicherungsdatei (*.json)',
-        mimeType: 'application/json',
-        extension: '.json'
-      });
+      let result;
+      if (format === 'paket') {
+        // Sicherungspaket 1.3.0 wie die Handy-App (P30 Teil 2): ZIP mit
+        // sicherung.json und den Dateien, mit Passwort AES-256 je Eintrag
+        const paket = await schreibePaket(klartext, passwort);
+        result = await saveBlobWithLocationPicker(new Blob([paket.bytes as BlobPart], { type: 'application/zip' }), `${grundname}.zip`, {
+          description: passwort ? 'Verschlüsseltes Sicherungspaket (*.zip)' : 'Sicherungspaket (*.zip)',
+          mimeType: 'application/zip',
+          extension: '.zip'
+        });
+      } else {
+        const inhalt = passwort ? await verschluessleSicherung(klartext, passwort) : klartext;
+        result = await saveBlobWithLocationPicker(new Blob([inhalt], { type: 'application/json' }), `${grundname}.json`, {
+          description: passwort
+            ? 'Verschlüsselte Datensicherungsdatei (*.json)'
+            : 'JSON-Datensicherungsdatei (*.json)',
+          mimeType: 'application/json',
+          extension: '.json'
+        });
+      }
 
       setExportDialogOffen(false);
       if (result.cancelled) {

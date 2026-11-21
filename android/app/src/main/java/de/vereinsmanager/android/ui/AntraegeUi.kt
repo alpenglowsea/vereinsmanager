@@ -156,6 +156,8 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
     val verein = model.vereinsname()
     var a by remember { mutableStateOf(Antrag(eintritt = heute.toString(), sparte = sparten.singleOrNull() ?: "")) }
     var seite by remember { mutableStateOf(AntragRegeln.SEITE_PERSON) }
+    // Kontoinhaber von Hand geändert? Bis dahin folgt das Feld dem Vorschlag (T-265)
+    var inhaberVonHand by remember { mutableStateOf(false) }
     var zeigeFehler by remember { mutableStateOf(false) }
     var abgegeben by remember { mutableStateOf(false) }
     var abbrechenFrage by remember { mutableStateOf(false) }
@@ -286,8 +288,8 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
                                 FilterChip(selected = !a.sepa, onClick = { a = a.copy(zahlungsart = "transfer") }, label = { Text("Überweisung") })
                             }
                             if (a.sepa) {
-                                Feld("Kontoinhaber *", a.kontoinhaber, { a = a.copy(kontoinhaber = it) }, error = fehler["kontoinhaber"],
-                                    hinweis = "Name der Person, von deren Konto abgebucht wird")
+                                Feld("Kontoinhaber *", a.kontoinhaber, { inhaberVonHand = true; a = a.copy(kontoinhaber = it) }, error = fehler["kontoinhaber"],
+                                    hinweis = if (minder) "Meist der gesetzliche Vertreter; bitte ändern, wenn das Konto einer anderen Person gehört" else "Name der Person, von deren Konto abgebucht wird")
                                 Feld("IBAN *", a.iban, { a = a.copy(iban = it) }, error = fehler["iban"], hinweis = "z. B. DE89 3704 0044 0532 0130 00")
                                 Feld("BIC (freiwillig)", a.bic, { a = a.copy(bic = it) }, error = fehler["bic"])
                                 Feld("Name der Bank (freiwillig)", a.bankname, { a = a.copy(bankname = it) })
@@ -354,7 +356,10 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
                                 if (seite == AntragRegeln.SEITE_PERSON && a.mitgliedsart == "full") {
                                     AntragRegeln.vorschlagArt(AntragRegeln.alter(a.geburtsdatum, heute))?.let { a = a.copy(mitgliedsart = it) }
                                 }
-                                if (seite == AntragRegeln.SEITE_ZAHLUNG - 1 && a.sepa && a.kontoinhaber.isBlank()) a = a.copy(kontoinhaber = AntragRegeln.kontoinhaberVorschlag(a, heute))
+                                // Vorschlag bei jedem Weg auf die Zahlungsseite neu, solange nicht von Hand geändert
+                                // (oder das Feld leer ist); bei unter 18 der Vertreter (T-258, T-265)
+                                if (seite == AntragRegeln.SEITE_ZAHLUNG - 1 && a.sepa && (!inhaberVonHand || a.kontoinhaber.isBlank()))
+                                    a = a.copy(kontoinhaber = AntragRegeln.kontoinhaberVorschlag(a, heute))
                                 seite += 1
                             }
                         },

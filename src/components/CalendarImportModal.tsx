@@ -4,6 +4,7 @@ import {
   CalendarEventCategory
 } from '../types';
 import { CalendarService } from '../services/calendarService';
+import { leseImportDatei, XLSX_ACCEPT } from '../utils/importDatei';
 import {
   Upload,
   FileText,
@@ -73,17 +74,28 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
     }
   };
 
+  // Gewählte Datei: Excel (.xlsx) als Tabelle, sonst iCal/CSV-Text wie bisher (P28)
+  const verarbeiteDatei = async (file: File) => {
+    setSelectedFileName(file.name);
+    try {
+      const d = await leseImportDatei(file);
+      if (d.art === 'tabelle') {
+        const result = CalendarService.parseTabelle(d.tabelle.rows, categories);
+        setParsedEvents(result.events);
+        setParseErrors(result.errors);
+      } else {
+        handleProcessContent(d.text, file.name);
+      }
+    } catch (err: any) {
+      setParsedEvents([]);
+      setParseErrors([err?.message || 'Die Datei konnte nicht gelesen werden.']);
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    setSelectedFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const text = evt.target?.result as string;
-      handleProcessContent(text, file.name);
-    };
-    reader.readAsText(file);
+    void verarbeiteDatei(file);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -101,14 +113,7 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
-
-    setSelectedFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const text = evt.target?.result as string;
-      handleProcessContent(text, file.name);
-    };
-    reader.readAsText(file);
+    void verarbeiteDatei(file);
   };
 
   const handleTextParse = () => {
@@ -164,7 +169,7 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
             }`}
           >
             <FileCode className="w-4 h-4" />
-            <span>Datei-Upload (.ics / .csv)</span>
+            <span>Datei-Upload (.ics / .csv / .xlsx)</span>
           </button>
           <button
             type="button"
@@ -199,7 +204,7 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".ics,.ical,.csv,text/calendar,text/csv"
+                accept={`.ics,.ical,.csv,text/calendar,text/csv,${XLSX_ACCEPT}`}
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -208,7 +213,7 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
                 {selectedFileName ? selectedFileName : 'Klicken oder Datei hierher ziehen'}
               </p>
               <p className="text-xs text-slate-500 mt-1 dark:text-slate-400">
-                Format: <strong>.ics</strong>, <strong>.ical</strong> oder <strong>.csv</strong>
+                Format: <strong>.ics</strong>, <strong>.ical</strong>, <strong>.csv</strong> oder Excel <strong>.xlsx</strong>
               </p>
             </div>
           ) : (

@@ -18,7 +18,7 @@
  *   members        avatarFile          avatarUrl
  *   inventory      photoFile           photoUrl
  *
- * Das Schreiben eines Pakets am Desktop ist noch nicht umgesetzt.
+ * Das Schreiben eines Pakets am Desktop steht in `backupPaketSchreiben.ts`.
  */
 import { istZip, oeffneZip, ZipFehler } from '../utils/zipReader';
 
