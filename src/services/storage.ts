@@ -22,6 +22,7 @@ import {
   MeetingTemplateSettings,
   MemberInventoryAssignment
 } from '../types';
+import { buchungOhneAltenVermerk, dokumentOhneAltenVermerk, gegenstandOhneAltenVermerk } from './jahresarchiv';
 import { UserDashboardConfig } from '../types/dashboard';
 import { DEFAULT_DASHBOARD_CONFIG } from '../data/defaultDashboard';
 import { DEFAULT_DEPARTMENTS } from '../data/taxSpheres';
@@ -1252,6 +1253,9 @@ export const StorageService = {
   },
 
   async saveTransaction(transaction: Transaction): Promise<void> {
+    // Neuer Beleg an einer archivierten Buchung: Archivvermerk entfällt (R4b).
+    // Das Objekt wird wie bisher an Ort und Stelle ergänzt (id, updatedAt).
+    if (buchungOhneAltenVermerk(transaction) !== transaction) delete transaction.receipt?.archiv;
     const now = new Date().toISOString();
     if (!transaction.id) {
       transaction.id = `tx-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -1288,7 +1292,7 @@ export const StorageService = {
         createdAt: bisher?.createdAt || transaction.createdAt || now,
         updatedAt: now
       };
-      await putItemToStore(STORES.DOCUMENTS, doc);
+      await putItemToStore(STORES.DOCUMENTS, dokumentOhneAltenVermerk(doc));
     }
     
   },
@@ -1296,7 +1300,7 @@ export const StorageService = {
   async saveBatchTransactions(transactions: Transaction[]): Promise<void> {
     const current = await this.getTransactions();
     const map = new Map<string, Transaction>(current.map(t => [t.id, t]));
-    transactions.forEach(t => map.set(t.id, t));
+    transactions.forEach(t => map.set(t.id, buchungOhneAltenVermerk(t)));
     await saveAllToStore(STORES.TRANSACTIONS, Array.from(map.values()));
   },
 
@@ -1396,11 +1400,11 @@ export const StorageService = {
     const existing = await getItemFromStore<InventoryItem>(STORES.INVENTORY, item.id);
     const now = new Date().toISOString();
 
-    const toSave: InventoryItem = {
+    const toSave: InventoryItem = gegenstandOhneAltenVermerk({
       ...item,
       createdAt: existing?.createdAt || item.createdAt || now,
       updatedAt: now
-    };
+    });
 
     await putItemToStore(STORES.INVENTORY, toSave);
   },
@@ -1680,8 +1684,10 @@ export const StorageService = {
       createdAt: bisher?.createdAt || doc.createdAt || now,
       updatedAt: now
     };
-    await putItemToStore(STORES.DOCUMENTS, neu);
-    return neu;
+    // Neu erzeugtes PDF: ein alter Archivvermerk gilt nicht mehr (R4b)
+    const gespeichert = dokumentOhneAltenVermerk(neu);
+    await putItemToStore(STORES.DOCUMENTS, gespeichert);
+    return gespeichert;
   },
 
   async getDocuments(): Promise<ClubDocument[]> {
@@ -1730,13 +1736,13 @@ export const StorageService = {
       document.createdAt = now;
     }
     document.updatedAt = now;
-    await putItemToStore(STORES.DOCUMENTS, document);
+    await putItemToStore(STORES.DOCUMENTS, dokumentOhneAltenVermerk(document));
   },
 
   async saveBatchDocuments(documents: ClubDocument[]): Promise<void> {
     const current = await this.getDocuments();
     const map = new Map<string, ClubDocument>(current.map(d => [d.id, d]));
-    documents.forEach(d => map.set(d.id, d));
+    documents.forEach(d => map.set(d.id, dokumentOhneAltenVermerk(d)));
     await saveAllToStore(STORES.DOCUMENTS, Array.from(map.values()));
   },
 

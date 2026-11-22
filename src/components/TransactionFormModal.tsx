@@ -46,6 +46,7 @@ import { ReceiptCameraScannerModal } from './ReceiptCameraScannerModal';
 import { keepUnknownFields } from '../utils/keepUnknownFields';
 import { melde } from '../utils/dialoge';
 import VeraenderbaresFenster from './VeraenderbaresFenster';
+import { imArchiv } from '../services/jahresarchiv';
 
 interface TransactionFormModalProps {
   transaction: Transaction | null;
@@ -1079,6 +1080,11 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                     <div className="overflow-hidden">
                       <p className="text-xs font-semibold text-slate-800 truncate dark:text-slate-100">{receiptFile.name}</p>
                       <p className="text-2xs text-slate-500 dark:text-slate-400">
+                        {imArchiv(receiptFile.archiv, receiptFile.dataUrl) && (
+                          <span className="font-semibold text-amber-600 dark:text-amber-400" title={receiptFile.archiv.datei}>
+                            Im Jahresarchiv {receiptFile.archiv.jahr} •{' '}
+                          </span>
+                        )}
                         {Math.round(receiptFile.size / 1024)} KB • {receiptFile.type}
                       </p>
                     </div>

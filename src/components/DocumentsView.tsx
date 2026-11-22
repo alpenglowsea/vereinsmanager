@@ -37,6 +37,8 @@ import { AuswahlLeiste } from './AuswahlLeiste';
 import { usePagination } from '../hooks/usePagination';
 import { ermittleSeitenStatus, wechsleSeite, waehleAlleGefilterten } from '../utils/tableSelection';
 import { saveDataUrlAs, saveDataUrlsAsZip } from '../utils/fileExportHelper';
+import { melde } from '../utils/dialoge';
+import { imArchiv } from '../services/jahresarchiv';
 
 interface DocumentsViewProps {
   documents: ClubDocument[];
@@ -300,12 +302,26 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   // Download Single File
   const handleSingleDownload = (doc: ClubDocument, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    if (imArchiv(doc.archiv, doc.dataUrl)) {
+      void melde(`Die Datei liegt im Jahresarchiv ${doc.archiv.jahr} (${doc.archiv.datei}). Öffnen Sie das Dokument und wählen Sie „Aus Archiv anzeigen“.`);
+      return;
+    }
     void saveDataUrlAs(doc.dataUrl, doc.fileName || `${doc.title}.pdf`);
   };
 
   // Download Multiple Files
   const handleBatchDownload = () => {
-    const docsToDownload = documents.filter(d => selectedIds.has(d.id));
+    const ausgewaehlt = documents.filter(d => selectedIds.has(d.id));
+    // Dateien im Jahresarchiv sind nicht im Bestand und werden übergangen (R4b)
+    const docsToDownload = ausgewaehlt.filter(d => !imArchiv(d.archiv, d.dataUrl));
+    const imJahresarchiv = ausgewaehlt.length - docsToDownload.length;
+    if (imJahresarchiv > 0) {
+      void melde(
+        docsToDownload.length === 0
+          ? 'Die ausgewählten Dateien liegen alle im Jahresarchiv und können hier nicht heruntergeladen werden.'
+          : `${imJahresarchiv} der ausgewählten Dateien liegen im Jahresarchiv und werden übergangen.`
+      );
+    }
     if (docsToDownload.length === 0) return;
     if (docsToDownload.length === 1) {
       void saveDataUrlAs(docsToDownload[0].dataUrl, docsToDownload[0].fileName || `${docsToDownload[0].title}.pdf`);
@@ -1009,7 +1025,9 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                       <Calendar className="w-3 h-3 text-slate-400" />
                       {doc.date ? new Date(doc.date).toLocaleDateString('de-DE') : '-'}
                     </span>
-                    <span className="font-mono text-slate-500 dark:text-slate-400">{formatFileSize(doc.fileSize)}</span>
+                    <span className="font-mono text-slate-500 dark:text-slate-400">
+                      {imArchiv(doc.archiv, doc.dataUrl) ? `Jahresarchiv ${doc.archiv.jahr}` : formatFileSize(doc.fileSize)}
+                    </span>
                   </div>
                 </div>
               );
@@ -1117,7 +1135,13 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                         {doc.date ? new Date(doc.date).toLocaleDateString('de-DE') : '-'}
                       </td>
                       <td className="py-3 px-3 text-right font-mono text-slate-500 whitespace-nowrap dark:text-slate-400">
-                        {formatFileSize(doc.fileSize)}
+                        {imArchiv(doc.archiv, doc.dataUrl) ? (
+                          <span className="text-amber-600 dark:text-amber-400" title={`Datei liegt in ${doc.archiv.datei}`}>
+                            Jahresarchiv {doc.archiv.jahr}
+                          </span>
+                        ) : (
+                          formatFileSize(doc.fileSize)
+                        )}
                       </td>
                       <td className="py-3 px-3 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">

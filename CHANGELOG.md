@@ -176,6 +176,49 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Runde 2, R4b — Jahresarchiv am Desktop bedienen
+
+- **Einstellungen → Datensicherung → „Jahresarchiv“** mit zwei Knöpfen:
+  „Jahr archivieren …“ und „Jahresarchiv zurückholen …“
+  (`JahresarchivDialog.tsx`).
+- **Archivieren in vier Schritten:**
+  1. Jahr wählen. Das laufende Jahr und das Vorjahr sind ausgegraut, mit
+     Begründung.
+  2. Vorschau: Dateien je Art, eingesparte Größe, Aufbewahrungsfrist.
+     Passwort ist vorgewählt, lässt sich aber abwählen. Dann speichern.
+  3. Die gespeicherte Datei noch einmal auswählen. Die App prüft, dass es
+     genau dieses Archiv ist (Kennung), und prüft jede Datei gegen ihre
+     Prüfsumme.
+  4. Erst danach werden die Dateien aus dem Bestand genommen. Die Daten
+     werden dafür frisch geladen; Dateien, die sich inzwischen geändert
+     haben, bleiben im Bestand und werden genannt.
+  - Wer nach Schritt 2 abbricht, verliert nichts.
+  - „Gespeichertes Archiv prüfen und auslagern …“ setzt bei Schritt 3
+    wieder ein.
+- **Zurückholen:** Archiv wählen, bei Bedarf Passwort, Prüfung, dann
+  zurückschreiben. Die Archivdatei bleibt dabei unverändert.
+- **Vermerk an den Einträgen:**
+  - Buchung (Details und Bearbeiten), Dokumentenliste (Karten und Tabelle)
+    und Gegenstand zeigen „Im Jahresarchiv <Jahr>“.
+  - Beleg- und Dokumentansicht sowie Gegenstand-Details bieten
+    „Aus Archiv anzeigen …“ (`ArchivDateiLaden.tsx`). Damit wird die
+    Datei nur angezeigt, nicht wieder eingelagert.
+  - Ein einmal geöffnetes Archiv merkt sich die App bis zum Beenden.
+  - Herunterladen ist bei archivierten Dateien ausgeblendet. Der
+    Sammel-Download übergeht sie und sagt, wie viele.
+- **Neue Datei hebt den Vermerk auf:** Bekommt ein archivierter Eintrag
+  wieder eine Datei, gilt ab dann die Datei im Bestand. Das betrifft einen
+  neuen Beleg, ein neues Foto und ein neu erzeugtes Rechnungs- oder
+  Spenden-PDF. Die Speicherfunktionen in `storage.ts` entfernen den
+  Vermerk dann.
+- **Inventar, Nachtrag aus T-308:** Ausgemusterte Gegenstände zeigen keine
+  fällige Prüfung mehr. Detailansicht: „Entfällt (ausgemustert)“, ohne
+  „Heute geprüft“. Liste: keine Prüfzeile. Am Handy ebenso
+  (`InventarUi.kt`).
+- `BackupPasswordDialog` kann jetzt auch nach dem Passwort eines Archivs
+  fragen.
+- Tests: einer neu in `jahresarchiv.test.ts` (Vermerk aufheben, `imArchiv`).
+
 ### Runde 2, R4a — Jahresarchiv: Grundlagen
 
 - **„Ausgemustert am“** an Desktop und Handy (`inventory[].retiredAt`). Wird

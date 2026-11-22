@@ -15,14 +15,19 @@ interface BackupPasswordDialogProps {
   /** Gibt null bei Erfolg zurück, sonst die Fehlermeldung. */
   onEntschluesseln: (passwort: string) => Promise<string | null>;
   onAbbrechen: () => void;
+  /** Was entschlüsselt wird: eine Sicherung (Standard) oder ein Jahresarchiv (R4b) */
+  art?: 'Sicherung' | 'Archiv';
 }
 
 export const BackupPasswordDialog: React.FC<BackupPasswordDialogProps> = ({
   isOpen,
   dateiName,
   onEntschluesseln,
-  onAbbrechen
+  onAbbrechen,
+  art = 'Sicherung'
 }) => {
+  const titel = art === 'Archiv' ? 'Verschlüsseltes Jahresarchiv' : 'Verschlüsselte Sicherung';
+  const dieses = art === 'Archiv' ? 'Dieses Jahresarchiv' : 'Diese Sicherung';
   const [passwort, setPasswort] = useState('');
   const [zeigen, setZeigen] = useState(false);
   const [laeuft, setLaeuft] = useState(false);
@@ -67,7 +72,7 @@ export const BackupPasswordDialog: React.FC<BackupPasswordDialogProps> = ({
               <Lock className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Verschlüsselte Sicherung</h3>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">{titel}</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{dateiName}</p>
             </div>
           </div>
@@ -83,7 +88,7 @@ export const BackupPasswordDialog: React.FC<BackupPasswordDialogProps> = ({
 
         <div className="p-6 space-y-3">
           <p className="text-xs text-slate-600 dark:text-slate-400">
-            Diese Sicherung ist mit einem Passwort geschützt. Bitte geben Sie das Passwort ein, das beim
+            {dieses} ist mit einem Passwort geschützt. Bitte geben Sie das Passwort ein, das beim
             Erstellen vergeben wurde.
           </p>
           <div className="relative">
@@ -93,7 +98,7 @@ export const BackupPasswordDialog: React.FC<BackupPasswordDialogProps> = ({
               onChange={e => setPasswort(e.target.value)}
               autoFocus
               autoComplete="off"
-              placeholder="Passwort der Sicherung"
+              placeholder={art === 'Archiv' ? 'Passwort des Archivs' : 'Passwort der Sicherung'}
               className="w-full px-3 py-2 pr-10 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
             />
             <button

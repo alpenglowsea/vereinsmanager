@@ -317,7 +317,8 @@ fun InventarDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDele
 
     val menge = "${a.menge} ${a.einheit}"
     val wertText = if (a.stueckwert != null) Geld.euro(a.wert) else "–"
-    val pruef = datumTagJahr(a.naechstePruefung)
+    // Ausgemustert: keine Prüfung mehr fällig (Wunsch Johannes, T-308)
+    val pruef = if (a.ausgemustert) "entfällt" to null else datumTagJahr(a.naechstePruefung)
 
     Column(modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -384,7 +385,7 @@ fun InventarDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDele
         }
         if (a.letztePruefung.isNotEmpty() || a.naechstePruefung.isNotEmpty()) DetailKarte("Prüfung") {
             zeile("Letzte Prüfung", if (a.letztePruefung.isNotEmpty()) deDate(a.letztePruefung) else "")
-            zeile("Nächste Prüfung", if (a.naechstePruefung.isNotEmpty()) deDate(a.naechstePruefung) else "")
+            zeile("Nächste Prüfung", if (a.ausgemustert) "entfällt (ausgemustert)" else if (a.naechstePruefung.isNotEmpty()) deDate(a.naechstePruefung) else "")
         }
         if (a.notizen.isNotBlank()) DetailKarte("Notizen") { zeile("", a.notizen) }
         DetailKarte(if (bei.isEmpty()) "Ausgegeben an" else "Ausgegeben an (${bei.size})") {
@@ -415,7 +416,7 @@ fun InventarDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDele
         if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
         AktionsZeilen(
             listOf(
-                listOf(Aktion("Bearbeiten", onEdit, primaer = true), Aktion("Heute geprüft", {
+                listOfNotNull(Aktion("Bearbeiten", onEdit, primaer = true), if (a.ausgemustert) null else Aktion("Heute geprüft", {
                     model.artikelGeprueft(a.id) { f -> meldung = f ?: "Prüfung für heute eingetragen." }
                 }, enabled = !model.busy)),
                 listOf(Aktion("Löschen", { loeschen = true })),

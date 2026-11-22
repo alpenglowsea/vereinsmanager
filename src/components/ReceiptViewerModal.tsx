@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ReceiptAttachment } from '../types';
 import { X, Download, FileText, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
 import { saveDataUrlAs } from '../utils/fileExportHelper';
 import { useBlobAdresse } from '../utils/pdfVorschau';
 
 import VeraenderbaresFenster from './VeraenderbaresFenster';
+import { ArchivDateiLaden } from './ArchivDateiLaden';
+import { imArchiv } from '../services/jahresarchiv';
 interface ReceiptViewerModalProps {
   receipt: ReceiptAttachment | null;
   documentNumber: string;
@@ -13,13 +15,17 @@ interface ReceiptViewerModalProps {
 }
 
 export const ReceiptViewerModal: React.FC<ReceiptViewerModalProps> = ({
-  receipt,
+  receipt: eingabe,
   documentNumber,
   bookingText,
   onClose
 }) => {
-  const [zoom, setZoom] = React.useState(1);
-  const [rotation, setRotation] = React.useState(0);
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  // Liegt der Beleg im Jahresarchiv, lädt „Aus Archiv anzeigen“ ihn nur für diese Ansicht (R4b)
+  const [ausArchiv, setAusArchiv] = useState<string | null>(null);
+  const receipt = eingabe && ausArchiv ? { ...eingabe, dataUrl: ausArchiv } : eingabe;
+  const archiviert = imArchiv(receipt?.archiv, receipt?.dataUrl);
   // PDF über eine Blob-Adresse zeigen; eine Data-URL bleibt im Desktop-Fenster leer (T-261)
   const pdfAdresse = useBlobAdresse(receipt?.dataUrl);
 
@@ -51,7 +57,7 @@ export const ReceiptViewerModal: React.FC<ReceiptViewerModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {!isPdf && (
+            {!isPdf && !archiviert && (
               <>
                 <button
                   type="button"
@@ -84,14 +90,16 @@ export const ReceiptViewerModal: React.FC<ReceiptViewerModalProps> = ({
               </>
             )}
 
-            <button
-              type="button"
-              onClick={handleDownload}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg transition-colors dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
-            >
-              <Download className="w-4 h-4" />
-              Herunterladen
-            </button>
+            {!archiviert && (
+              <button
+                type="button"
+                onClick={handleDownload}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg transition-colors dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
+              >
+                <Download className="w-4 h-4" />
+                Herunterladen
+              </button>
+            )}
 
             <button
               type="button"
@@ -105,7 +113,11 @@ export const ReceiptViewerModal: React.FC<ReceiptViewerModalProps> = ({
 
         {/* Content Preview */}
         <div className="flex-1 bg-slate-100 p-4 overflow-auto flex items-center justify-center min-h-[420px] group-data-[hoehe=fest]/fenster:min-h-0 dark:bg-slate-700">
-          {isPdf ? (
+          {archiviert && receipt.archiv ? (
+            <div className="max-w-md w-full">
+              <ArchivDateiLaden vermerk={receipt.archiv} was="Der Beleg" onGeladen={setAusArchiv} />
+            </div>
+          ) : isPdf ? (
             <iframe
               src={pdfAdresse || undefined}
               title={`Beleg ${documentNumber}`}

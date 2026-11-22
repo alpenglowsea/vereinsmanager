@@ -33,6 +33,7 @@ import { saveDataUrlAs } from '../utils/fileExportHelper';
 import { bestaetige } from '../utils/dialoge';
 
 import VeraenderbaresFenster from './VeraenderbaresFenster';
+import { imArchiv } from '../services/jahresarchiv';
 interface TransactionDetailsModalProps {
   isOpen: boolean;
   transaction: Transaction | null;
@@ -436,6 +437,14 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
                       {transaction.receipt.name || `Beleg_${transaction.documentNumber}`}
                     </div>
                     <div className="text-2xs text-slate-500 flex items-center gap-2 dark:text-slate-400">
+                      {imArchiv(transaction.receipt.archiv, transaction.receipt.dataUrl) && (
+                        <>
+                          <span className="font-semibold text-amber-600 dark:text-amber-400" title={transaction.receipt.archiv.datei}>
+                            Im Jahresarchiv {transaction.receipt.archiv.jahr}
+                          </span>
+                          <span>•</span>
+                        </>
+                      )}
                       <span>{Math.round((transaction.receipt.size || 0) / 1024)} KB</span>
                       <span>•</span>
                       <span className="font-mono text-slate-400">
@@ -460,15 +469,17 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
                     <ExternalLink className="w-3.5 h-3.5" />
                     <span>Beleg anzeigen</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleDownloadReceipt}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
-                    title="Beleg herunterladen"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download</span>
-                  </button>
+                  {!imArchiv(transaction.receipt.archiv, transaction.receipt.dataUrl) && (
+                    <button
+                      type="button"
+                      onClick={handleDownloadReceipt}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
+                      title="Beleg herunterladen"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download</span>
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (

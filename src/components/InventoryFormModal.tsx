@@ -516,6 +516,11 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
                       </button>
                     )}
                     <p className="text-[11px] text-slate-400">Wird auf höchstens 1024 Pixel verkleinert.</p>
+                    {!foto && item?.photoArchiv && (
+                      <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                        Das bisherige Foto liegt im Jahresarchiv {item.photoArchiv.jahr}. Ein neues Foto ersetzt diesen Vermerk.
+                      </p>
+                    )}
                     {fehler.foto && <p className="text-[11px] font-semibold text-rose-600">{fehler.foto}</p>}
                   </div>
                 </div>

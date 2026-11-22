@@ -14,9 +14,13 @@ import {
   archivJahre,
   archivKandidaten,
   aufbewahrenBis,
+  buchungOhneAltenVermerk,
   dateiAusArchiv,
   erstelleArchiv,
+  dokumentOhneAltenVermerk,
+  gegenstandOhneAltenVermerk,
   holeArchivZurueck,
+  imArchiv,
   leseArchiv,
   planeArchiv,
   pruefeArchiv,
@@ -227,5 +231,35 @@ describe('Bestand: auslagern, anzeigen, zurückholen', () => {
     const k = archivKandidaten(bestand());
     const schluessel = k.map(x => `${x.bereich}|${x.id}`);
     expect(new Set(schluessel).size).toBe(schluessel.length);
+  });
+});
+
+describe('Vermerk nach neuer Datei (R4b)', () => {
+  it('neue Datei hebt den Vermerk auf, ohne Datei bleibt er; imArchiv erkennt beides', async () => {
+    const b = bestand();
+    const { kopf } = await erstelle(b, 2024);
+    const n = uebernehmen(b, wendeArchivAn(b, kopf, JETZT.toISOString()));
+    const neu = 'data:image/png;base64,iVBORw0KGgo=';
+
+    const t = n.transactions.find(x => x.receipt?.archiv)!;
+    expect(imArchiv(t.receipt!.archiv, t.receipt!.dataUrl)).toBe(true);
+    expect(buchungOhneAltenVermerk(t)).toBe(t); // unverändert: dasselbe Objekt
+    const t2 = buchungOhneAltenVermerk({ ...t, receipt: { ...t.receipt!, dataUrl: neu } });
+    expect(t2.receipt!.archiv).toBeUndefined();
+    expect(t2.receipt!.dataUrl).toBe(neu);
+    expect(t.receipt!.archiv).toBeDefined(); // Eingabe nicht verändert
+
+    const d = n.documents.find(x => x.archiv)!;
+    expect(dokumentOhneAltenVermerk(d)).toBe(d);
+    expect(dokumentOhneAltenVermerk({ ...d, dataUrl: neu }).archiv).toBeUndefined();
+
+    const g = n.inventory.find(x => x.photoArchiv)!;
+    expect(imArchiv(g.photoArchiv, g.photoUrl)).toBe(true);
+    expect(gegenstandOhneAltenVermerk(g)).toBe(g);
+    const g2 = gegenstandOhneAltenVermerk({ ...g, photoUrl: neu });
+    expect(g2.photoArchiv).toBeUndefined();
+    expect(imArchiv(g2.photoArchiv, g2.photoUrl)).toBe(false);
+
+    expect(imArchiv(undefined, '')).toBe(false);
   });
 });

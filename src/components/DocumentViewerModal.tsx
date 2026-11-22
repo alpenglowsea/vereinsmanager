@@ -18,6 +18,8 @@ import { saveDataUrlAs } from '../utils/fileExportHelper';
 import { useBlobAdresse } from '../utils/pdfVorschau';
 
 import VeraenderbaresFenster from './VeraenderbaresFenster';
+import { ArchivDateiLaden } from './ArchivDateiLaden';
+import { imArchiv } from '../services/jahresarchiv';
 interface DocumentViewerModalProps {
   document: ClubDocument | null;
   onClose: () => void;
@@ -35,12 +37,16 @@ export const CATEGORY_CONFIG: Record<DocumentCategory, { label: string; color: s
 };
 
 export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
-  document: doc,
+  document: eingabe,
   onClose,
   onEdit
 }) => {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
+  // Liegt die Datei im Jahresarchiv, lädt „Aus Archiv anzeigen“ sie nur für diese Ansicht (R4b)
+  const [ausArchiv, setAusArchiv] = useState<string | null>(null);
+  const doc = eingabe && ausArchiv ? { ...eingabe, dataUrl: ausArchiv } : eingabe;
+  const archiviert = imArchiv(doc?.archiv, doc?.dataUrl);
   // PDF über eine Blob-Adresse zeigen; eine Data-URL bleibt im Desktop-Fenster leer (T-261)
   const pdfAdresse = useBlobAdresse(doc?.dataUrl);
 
@@ -103,7 +109,7 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {isImage && (
+            {isImage && !archiviert && (
               <>
                 <button
                   type="button"
@@ -136,15 +142,17 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
               </>
             )}
 
-            <button
-              id="btn-doc-download-view"
-              type="button"
-              onClick={handleDownload}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded-lg transition-colors shadow-xs"
-            >
-              <Download className="w-4 h-4" />
-              Herunterladen
-            </button>
+            {!archiviert && (
+              <button
+                id="btn-doc-download-view"
+                type="button"
+                onClick={handleDownload}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded-lg transition-colors shadow-xs"
+              >
+                <Download className="w-4 h-4" />
+                Herunterladen
+              </button>
+            )}
 
             {onEdit && (
               <button
@@ -172,7 +180,11 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
         <div className="flex-1 bg-slate-100 overflow-hidden flex flex-col md:flex-row min-h-[460px] group-data-[hoehe=fest]/fenster:min-h-0 dark:bg-slate-700">
           {/* Main Visual Preview */}
           <div className="flex-1 overflow-auto flex items-center justify-center p-3 bg-slate-200/60 min-h-[380px] group-data-[hoehe=fest]/fenster:min-h-0 dark:bg-slate-600/60">
-            {isPdf ? (
+            {archiviert && doc.archiv ? (
+              <div className="max-w-md w-full">
+                <ArchivDateiLaden vermerk={doc.archiv} was="Die Datei" onGeladen={setAusArchiv} />
+              </div>
+            ) : isPdf ? (
               <iframe
                 src={pdfAdresse || undefined}
                 title={doc.title}

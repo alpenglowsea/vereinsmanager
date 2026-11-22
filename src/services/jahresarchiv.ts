@@ -644,3 +644,36 @@ export async function holeArchivZurueck(b: ArchivBestand, archiv: GelesenesArchi
 
 /** Kurzer Text für die Anzeige an einem Eintrag. */
 export const vermerkText = (v: ArchivVermerk): string => `Im Jahresarchiv ${v.jahr} (${v.datei})`;
+
+// ------------------------------------------------------------------ Vermerk aufräumen
+
+/*
+ * Bekommt ein archivierter Eintrag wieder eine eigene Datei (neuer Beleg,
+ * neues Foto, neu erzeugtes Rechnungs- oder Spenden-PDF), gilt der Vermerk
+ * nicht mehr: Die Datei im Bestand ist dann die maßgebliche. Die
+ * Speicherfunktionen rufen das vor jedem Speichern auf.
+ */
+
+export function dokumentOhneAltenVermerk(d: ClubDocument): ClubDocument {
+  if (!d.archiv || !base64Teil(d.dataUrl)) return d;
+  const neu = { ...d };
+  delete neu.archiv;
+  return neu;
+}
+
+export function buchungOhneAltenVermerk(t: Transaction): Transaction {
+  if (!t.receipt?.archiv || !base64Teil(t.receipt.dataUrl)) return t;
+  const r = { ...t.receipt };
+  delete r.archiv;
+  return { ...t, receipt: r };
+}
+
+export function gegenstandOhneAltenVermerk(a: InventoryItem): InventoryItem {
+  if (!a.photoArchiv || !base64Teil(a.photoUrl)) return a;
+  const neu = { ...a };
+  delete neu.photoArchiv;
+  return neu;
+}
+
+/** Liegt die Datei im Archiv (und nicht mehr im Bestand)? */
+export const imArchiv = (v: ArchivVermerk | undefined, dataUrl: string | undefined): v is ArchivVermerk => !!v && !base64Teil(dataUrl);

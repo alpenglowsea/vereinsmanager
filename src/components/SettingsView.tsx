@@ -20,6 +20,7 @@ import { BestaetigungsDialog } from './BestaetigungsDialog';
 import { UnterschriftFeld } from './UnterschriftFeld';
 import { AntragEinstellungenKarte } from './AntragEinstellungenKarte';
 import { BriefpapierKarte } from './BriefpapierKarte';
+import { JahresarchivDialog, type JahresarchivModus } from './JahresarchivDialog';
 import { antragTexteZumSpeichern, leseAntragEinstellungen } from '../utils/antragRegeln';
 import { saveBlobWithLocationPicker, saveDataUrlAs } from '../utils/fileExportHelper';
 
@@ -69,7 +70,8 @@ import {
   Plus,
   Lock,
   FileText,
-  Pencil
+  Pencil,
+  ArchiveRestore
 } from 'lucide-react';
 
 /**
@@ -207,6 +209,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // 4. Projekt unterstützen
   // 5. Problem melden
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || 'general');
+  const [jahresarchiv, setJahresarchiv] = useState<JahresarchivModus | null>(null);
 
   const prevInitialTabRef = useRef(initialTab);
 
@@ -2661,6 +2664,45 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Jahresarchiv (R4b) */}
+            <div className="p-5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl space-y-3">
+              <h4 className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm flex items-center gap-2">
+                <Archive className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span>Jahresarchiv</span>
+              </h4>
+              <p className="text-2xs sm:text-xs text-slate-500 dark:text-slate-400 max-w-2xl">
+                Nimmt die Dateien eines abgeschlossenen Jahres (Belege, Rechnungs- und Spenden-PDFs, Fotos ausgemusterter Gegenstände) aus dem
+                Bestand und legt sie in einer eigenen Archivdatei ab. Buchungen, Rechnungen und Spenden bleiben vollständig; die Datensicherung wird
+                dauerhaft kleiner. Für eine Prüfung lassen sich einzelne Dateien jederzeit aus dem Archiv anzeigen oder alle zurückholen.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setJahresarchiv('archivieren')}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  <Archive className="w-4 h-4" />
+                  <span>Jahr archivieren …</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setJahresarchiv('zurueckholen')}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-100 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  <ArchiveRestore className="w-4 h-4" />
+                  <span>Jahresarchiv zurückholen …</span>
+                </button>
+              </div>
+            </div>
+            {jahresarchiv && (
+              <JahresarchivDialog
+                modus={jahresarchiv}
+                verein={formData.clubName || 'Verein'}
+                onSchliessen={() => setJahresarchiv(null)}
+                onGeaendert={() => onDataReload?.(true)}
+              />
+            )}
 
             {/* Database Danger Zone */}
             <div className="border border-rose-200 dark:border-rose-900/60 rounded-2xl p-5 bg-rose-50/50 dark:bg-rose-950/20 space-y-4">

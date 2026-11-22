@@ -1207,7 +1207,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                                 <span className={`w-1.5 h-1.5 rounded-full ${conditionMeta.dotColor}`} />
                                 <span>{conditionMeta.label}</span>
                               </span>
-                              {item.nextInspectionDate && (
+                              {item.nextInspectionDate && item.condition !== 'discarded' && (
                                 <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1" title="Nächste Sicherheitsprüfung">
                                   <Clock className="w-2.5 h-2.5 text-amber-500" />
                                   <span>Prüfung: {item.nextInspectionDate}</span>

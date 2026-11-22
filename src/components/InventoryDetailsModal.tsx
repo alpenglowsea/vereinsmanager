@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { InventoryItem, Member, MemberInventoryAssignment } from '../types';
 import { CONDITION_OPTIONS } from '../data/inventoryCategories';
 import { WERT_HINWEIS, artName, ausgabenVon, ausgemustert, menge, stueckwert, ueberfaellig, wert } from '../utils/inventarRegeln';
@@ -6,6 +6,8 @@ import { deutsch } from '../utils/sitzungRegeln';
 import { X, Edit2, Trash2, Package, CheckCircle2, Users, AlertTriangle, MapPin, Wallet, Calendar, RotateCcw } from 'lucide-react';
 
 import VeraenderbaresFenster from './VeraenderbaresFenster';
+import { ArchivDateiLaden } from './ArchivDateiLaden';
+import { imArchiv } from '../services/jahresarchiv';
 /**
  * Detailansicht eines Gegenstands im eigenen Fenster, im Stil der übrigen
  * Desktop-Detailfenster (Kontakte, Rechnungen). Inhalt wie Android
@@ -69,6 +71,10 @@ export const InventoryDetailsModal: React.FC<InventoryDetailsModalProps> = ({
   onReturn,
   meldung
 }) => {
+  // Foto im Jahresarchiv: „Aus Archiv anzeigen“ lädt es nur für diese Ansicht (R4b)
+  const [fotoAusArchiv, setFotoAusArchiv] = useState<string | null>(null);
+  const foto = a.photoUrl || fotoAusArchiv || '';
+  const fotoImArchiv = imArchiv(a.photoArchiv, a.photoUrl);
   const bei = ausgabenVon(a.id, assignments);
   const aus = bei.reduce((s, x) => s + (Number(x.quantity) || 0), 0);
   const stk = menge(a);
@@ -149,13 +155,16 @@ export const InventoryDetailsModal: React.FC<InventoryDetailsModalProps> = ({
             </div>
           )}
 
-          <div className={`grid gap-4 ${a.photoUrl ? 'grid-cols-1 md:grid-cols-[200px_1fr]' : 'grid-cols-1'}`}>
-            {a.photoUrl && (
+          <div className={`grid gap-4 ${foto || fotoImArchiv ? 'grid-cols-1 md:grid-cols-[200px_1fr]' : 'grid-cols-1'}`}>
+            {foto ? (
               <img
-                src={a.photoUrl}
+                src={foto}
                 alt={`Foto: ${a.name}`}
                 className="w-full h-48 md:h-full max-h-64 object-cover rounded-xl border border-slate-200 dark:border-slate-700"
               />
+            ) : (
+              fotoImArchiv &&
+              a.photoArchiv && <ArchivDateiLaden vermerk={a.photoArchiv} was="Das Foto" onGeladen={setFotoAusArchiv} />
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Abschnitt titel="Bestand und Wert" icon={<Wallet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}>
@@ -185,7 +194,14 @@ export const InventoryDetailsModal: React.FC<InventoryDetailsModalProps> = ({
                 <Angabe label="Letzte Prüfung" wert={a.lastCheckedDate ? deutsch(a.lastCheckedDate) : 'Keine erfasst'} />
                 <Angabe
                   label="Nächste Prüfung"
-                  wert={a.nextInspectionDate ? deutsch(a.nextInspectionDate) + (ueber ? ' (überfällig)' : '') : 'Keine geplant'}
+                  wert={
+                    // Ausgemustert: keine Prüfung mehr fällig (Wunsch Johannes, T-308)
+                    a.condition === 'discarded'
+                      ? 'Entfällt (ausgemustert)'
+                      : a.nextInspectionDate
+                        ? deutsch(a.nextInspectionDate) + (ueber ? ' (überfällig)' : '')
+                        : 'Keine geplant'
+                  }
                   warn={ueber}
                 />
               </Abschnitt>
@@ -286,7 +302,7 @@ export const InventoryDetailsModal: React.FC<InventoryDetailsModalProps> = ({
             <span>Gegenstand löschen</span>
           </button>
           <div className="flex items-center gap-2">
-            {onMarkChecked && (
+            {onMarkChecked && a.condition !== 'discarded' && (
               <button
                 type="button"
                 onClick={() => onMarkChecked(a)}
