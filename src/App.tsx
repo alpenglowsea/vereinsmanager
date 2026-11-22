@@ -29,8 +29,6 @@ import {
   MeetingTemplateSettings
 } from './types';
 import { StorageService } from './services/storage';
-import { AuthService } from './services/authService';
-import { AuthSession } from './types';
 import { formatClubAddress } from './utils/clubAddress';
 import { applyAppearance } from './utils/appearance';
 import { UserDashboardConfig } from './types/dashboard';
@@ -86,7 +84,6 @@ import { NewDocumentChoiceModal } from './components/NewDocumentChoiceModal';
 import { DonationFormModal } from './components/DonationFormModal';
 import { MeetingFormModal } from './components/MeetingFormModal';
 import { CalendarEventModal } from './components/CalendarEventModal';
-import { LoginScreen } from './components/LoginScreen';
 import { EinrichtungsModal } from './components/EinrichtungsModal';
 import { AppVersionBadge } from './components/AppVersionBadge';
 
@@ -109,15 +106,12 @@ import {
   FolderArchive,
   FileText,
   HeartHandshake,
-  LogOut,
-  UserCog,
   CalendarDays,
   FileSignature,
   SlidersHorizontal,
   Contact,
   ScrollText
 } from 'lucide-react';
-import { bestaetige } from './utils/dialoge';
 
 /** Die Menüpunkte der Navigationsleiste. */
 type ActiveTab =
@@ -177,13 +171,11 @@ export default function App() {
     }
   }, [theme]);
 
-  // Authentication State — ein einziges Gerätepasswort, siehe authService.ts
-  const [authSession, setAuthSession] = useState<AuthSession>(() => AuthService.getSession());
-
   /**
    * Braucht dieses Gerät noch die Ersteinrichtung (neuer Verein oder
-   * Import)? Wird nach jeder erfolgreichen Anmeldung/Registrierung geprüft;
-   * siehe StorageService.brauchtEinrichtung.
+   * Import)? Wird beim Start geprüft; siehe StorageService.brauchtEinrichtung.
+   * Eine Anmeldung gibt es seit Runde 2 (R2) nicht mehr: Schutz ist das
+   * Passwort des Rechners, wie am Handy.
    */
   const [needsSetup, setNeedsSetup] = useState(false);
 
@@ -191,8 +183,6 @@ export default function App() {
     const braucht = await StorageService.brauchtEinrichtung();
     setNeedsSetup(braucht);
   };
-
-  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
   // Core App State
   const [members, setMembers] = useState<Member[]>([]);
@@ -453,54 +443,15 @@ export default function App() {
     loadDataRef.current = loadData;
   });
 
+  // Start: Einrichtung prüfen, dann Daten laden (ohne Anmeldung, R2)
   useEffect(() => {
     let isMounted = true;
-
-    AuthService.init().then(async session => {
-      if (!isMounted) return;
-      setAuthSession(session);
-      if (session.isAuthenticated) {
-        setActiveTab('dashboard');
-        await pruefeEinrichtung();
-      }
-      await loadDataRef.current();
-    });
-
-    const unsubscribe = AuthService.onAuthStateChanged(async session => {
-      if (!isMounted) return;
-      let wurdeGeradeAngemeldet = false;
-      setAuthSession(prev => {
-        if (!prev.isAuthenticated && session.isAuthenticated) {
-          setActiveTab('dashboard');
-          wurdeGeradeAngemeldet = true;
-        }
-        return session;
-      });
-      if (wurdeGeradeAngemeldet) {
-        await pruefeEinrichtung();
-      }
-      await loadDataRef.current();
-    });
-
-    const handleUserActivity = () => {
-      AuthService.recordActivity();
-    };
-
-    window.addEventListener('mousemove', handleUserActivity);
-    window.addEventListener('keydown', handleUserActivity);
-    window.addEventListener('click', handleUserActivity);
-    // Beim Lesen langer Listen wird nur gescrollt — das zählt auch als Aktivität.
-    window.addEventListener('wheel', handleUserActivity, { passive: true });
-    window.addEventListener('touchstart', handleUserActivity, { passive: true });
-
+    (async () => {
+      await pruefeEinrichtung();
+      if (isMounted) await loadDataRef.current();
+    })();
     return () => {
       isMounted = false;
-      unsubscribe();
-      window.removeEventListener('mousemove', handleUserActivity);
-      window.removeEventListener('keydown', handleUserActivity);
-      window.removeEventListener('click', handleUserActivity);
-      window.removeEventListener('wheel', handleUserActivity);
-      window.removeEventListener('touchstart', handleUserActivity);
     };
   }, []);
 
@@ -526,8 +477,7 @@ export default function App() {
 
   // Member CRUD handlers
   const handleSaveMember = async (memberData: Member, attachedDoc?: ClubDocument) => {
-    const isNew = !members.some(m => m.id === memberData.id);
-    await StorageService.saveMember(memberData, isNew ? 'Mitglied neu angelegt' : 'Stammdaten aktualisiert');
+    await StorageService.saveMember(memberData);
     const updated = await StorageService.getMembers();
     setMembers(updated);
 
@@ -1105,28 +1055,11 @@ export default function App() {
     );
   }
 
-  // Auth Gate: If user is not authenticated, show Login Screen
-  if (!authSession.isAuthenticated) {
-    return (
-      <LoginScreen
-        settings={settings}
-        onLoginSuccess={async () => {
-          setActiveTab('dashboard');
-          setAuthSession(AuthService.getSession());
-          await pruefeEinrichtung();
-          loadData();
-        }}
-      />
-    );
-  }
-
-  // Zweites Tor: Anmeldung erfolgreich, aber auf diesem Gerät liegt noch
-  // kein Verein vor (frisch oder nach "Alle lokalen Daten löschen").
+  // Auf diesem Gerät liegt noch kein Verein vor (frisch oder nach
+  // "Alle lokalen Daten löschen"): Einrichtung statt App.
   if (needsSetup) {
     return <EinrichtungsModal onFertig={() => { setNeedsSetup(false); loadData(); }} />;
   }
-
-  const currentUser = authSession.benutzername;
 
   return (
     <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden dark:bg-slate-800 dark:text-white">
@@ -1577,51 +1510,13 @@ export default function App() {
             </span>
           </button>
 
-          {/* App Version Tile & 1-Klick Update Popover */}
+          {/* Versionsanzeige mit Hinweis auf neue Versionen */}
           <AppVersionBadge />
         </div>
       </aside>
 
       {/* Main Content Area */}
       <main className="vm-page flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 dark:bg-slate-950">
-        {/* Demo Mode Sandbox Notice */}
-        {AuthService.isDemoMode() && (
-          <div className="bg-amber-500/10 border-b border-amber-300/50 dark:border-amber-700/50 px-4 py-2 flex items-center justify-between text-xs text-amber-950 dark:text-amber-200 font-medium shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-              </span>
-              <span className="font-bold text-amber-900 dark:text-amber-300">Demo-Modus aktiv:</span>
-              <span className="hidden md:inline text-amber-800 dark:text-amber-200">
-                Fiktive Beispieldaten (TSV Musterstadt 1890 e.V.). Ihre echten Vereinsdaten sind strikt getrennt & geschützt.
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={async () => {
-                  if (await bestaetige('Demo-Daten wirklich auf die Beispieldaten zurücksetzen?')) {
-                    await StorageService.resetDemoData();
-                    await loadData();
-                  }
-                }}
-                className="px-2.5 py-1 bg-white dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-slate-700 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 rounded-lg text-2xs font-semibold transition-colors cursor-pointer"
-                title="Demo-Beispieldaten auf Standard zurücksetzen"
-              >
-                Musterdaten resetten
-              </button>
-              <button
-                type="button"
-                onClick={() => AuthService.logout()}
-                className="px-2.5 py-1 bg-amber-700 hover:bg-amber-800 text-white rounded-lg text-2xs font-bold transition-colors cursor-pointer"
-              >
-                Demo beenden
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Top Header Bar */}
         <header className="vm-header h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-8 flex items-center justify-between shrink-0 z-20 gap-3">
           <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
@@ -1674,98 +1569,17 @@ export default function App() {
 
           {/* Right Header User & Actions */}
           <div className="flex items-center gap-2.5 shrink-0">
-            {/* User Profile & Session Dropdown */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                className="flex items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl transition-all cursor-pointer"
-              >
-                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                  {currentUser ? currentUser.charAt(0).toUpperCase() : 'U'}
-                </div>
-                <div className="text-left hidden sm:block">
-                  <div className="text-xs font-bold text-slate-800 dark:text-white truncate max-w-[120px] leading-tight">
-                    {currentUser || 'Benutzer'}
-                  </div>
-                </div>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-              </button>
-
-              {userDropdownOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-30"
-                    onClick={() => setUserDropdownOpen(false)}
-                  />
-                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-2 z-40 space-y-1 animate-in fade-in zoom-in-95 duration-100 text-xs">
-                    <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-100 dark:border-slate-700 mb-2">
-                      <div className="font-bold text-slate-900 dark:text-white truncate">{currentUser}</div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400">Angemeldet auf diesem Gerät</div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUserDropdownOpen(false);
-                        setSettingsActiveTab('general');
-                        setActiveTab('settings');
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-left transition-colors cursor-pointer"
-                    >
-                      <Settings className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                      <span>Systemeinstellungen</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUserDropdownOpen(false);
-                        setSettingsActiveTab('general');
-                        setActiveTab('settings');
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-left transition-colors cursor-pointer"
-                    >
-                      <UserCog className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                      <span>Passwort ändern</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUserDropdownOpen(false);
-                        AuthService.lockSession();
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg text-left transition-colors dark:text-slate-200 dark:hover:bg-slate-700"
-                    >
-                      <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                      <span>Sitzung jetzt sperren</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUserDropdownOpen(false);
-                        AuthService.logout();
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-lg text-left transition-colors dark:text-rose-400 dark:hover:bg-rose-950/40"
-                    >
-                      <LogOut className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                      <span>Abmelden</span>
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Quick Lock Button */}
+            {/* Einstellungen (früher Benutzermenü mit Abmelden und Sperren; seit R2 ohne Anmeldung) */}
             <button
               type="button"
-              onClick={() => AuthService.lockSession()}
+              onClick={() => {
+                setSettingsActiveTab('general');
+                setActiveTab('settings');
+              }}
               className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors border border-transparent hover:border-slate-200 dark:hover:text-slate-200 dark:hover:bg-slate-700 dark:hover:border-slate-800"
-              title="Sitzung sofort sperren"
+              title="Systemeinstellungen"
             >
-              <Lock className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+              <Settings className="w-4 h-4 text-slate-600 dark:text-slate-300" />
             </button>
           </div>
         </header>

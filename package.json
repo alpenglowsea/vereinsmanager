@@ -26,6 +26,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "testverein": "tsx scripts/testverein.ts",
     "check": "npm run typecheck && npm run lint && npm run test"
   },
   "//dependencies": [

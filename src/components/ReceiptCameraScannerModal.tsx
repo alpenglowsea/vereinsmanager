@@ -363,7 +363,7 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
       documentNumber: docNumber,
       partner: docPartner,
       bookingText: docText,
-      clubName: settings?.clubName || 'TSV Musterstadt 1890 e.V.',
+      clubName: settings?.clubName || '',
       date: new Date().toISOString()
     };
 

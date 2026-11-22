@@ -377,7 +377,7 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
           if (onSaveMember) {
             onSaveMember(updatedMember);
           } else {
-            StorageService.saveMember(updatedMember, 'Profilbild aktualisiert');
+            StorageService.saveMember(updatedMember);
           }
         }
         setIsUploadingPhoto(false);
@@ -400,7 +400,7 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
       if (onSaveMember) {
         onSaveMember(updatedMember);
       } else {
-        StorageService.saveMember(updatedMember, 'Profilbild entfernt');
+        StorageService.saveMember(updatedMember);
       }
     }
   };

@@ -18,13 +18,9 @@ import { istVerschluesselt, entschluessleSicherung } from '../services/backupCry
 import { istPaket, istPaketVerschluesselt, lesePaket, paketFehlerText, paketHinweis } from '../services/backupPaket';
 
 /**
- * Erscheint nach erfolgreicher Anmeldung/Registrierung, wenn auf diesem Gerät
- * noch kein Verein eingerichtet ist (siehe StorageService.brauchtEinrichtung).
- *
- * Bewusst NACH der Anmeldung statt davor: Das Gerätepasswort steht damit in
- * jedem Fall schon fest, bevor hier irgendetwas mit Vereinsdaten passiert —
- * unabhängig davon, ob jemand gerade ein neues Konto angelegt oder sich mit
- * einem vorhandenen angemeldet hat (z. B. nach "Alle lokalen Daten löschen").
+ * Erscheint beim Start, wenn auf diesem Gerät noch kein Verein eingerichtet
+ * ist (siehe StorageService.brauchtEinrichtung): ganz frisch oder nach
+ * "Alle lokalen Daten löschen". Eine Anmeldung gibt es seit R2 nicht mehr.
  */
 
 interface EinrichtungsModalProps {
@@ -203,7 +199,7 @@ export const EinrichtungsModal: React.FC<EinrichtungsModalProps> = ({ onFertig }
             <p className="text-xs text-slate-400 mt-1 font-medium">
               {ansicht === 'wahl' && 'Wie möchten Sie starten?'}
               {ansicht === 'neuerVerein' && 'Angaben zu Ihrem Verein'}
-              {ansicht === 'import' && 'JSON-Sicherung von einem anderen Gerät laden'}
+              {ansicht === 'import' && 'Sicherung von einem anderen Gerät laden'}
             </p>
           </div>
 
@@ -234,9 +230,16 @@ export const EinrichtungsModal: React.FC<EinrichtungsModalProps> = ({ onFertig }
                   </div>
                   <div>
                     <div className="text-sm font-bold text-slate-900 dark:text-white">Vorhandene Daten importieren</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">Datensicherung (.json) von einem anderen Gerät</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">Sicherungspaket (.zip) oder Sicherung (.json), auch vom Handy</div>
                   </div>
                 </button>
+
+                {/* Testverein zum Ausprobieren (R2): liegt im Repository, nicht in der App */}
+                <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 px-1 pt-1">
+                  <strong className="text-slate-700 dark:text-slate-200">Erst einmal ausprobieren?</strong> Laden Sie die Datei{' '}
+                  <span className="font-mono">testdaten/Testverein.json</span> aus dem GitHub-Repository des VereinsManagers herunter und
+                  importieren Sie sie hier. Danach unter Einstellungen → Datensicherung „Alle lokalen Daten löschen“ und den eigenen Verein anlegen.
+                </p>
               </div>
             )}
 
@@ -346,9 +349,9 @@ export const EinrichtungsModal: React.FC<EinrichtungsModalProps> = ({ onFertig }
                     <span>Nahtloser Umzug auf dieses Gerät</span>
                   </div>
                   <p className="text-slate-600 text-[11px] leading-normal dark:text-slate-300">
-                    Laden Sie hier die auf einem anderen Gerät exportierte{' '}
-                    <span className="font-semibold text-slate-800 dark:text-slate-100">.json-Datensicherung</span> hoch. Ihr
-                    Gerätepasswort bleibt dabei unverändert — nur die Vereinsdaten werden übernommen.
+                    Laden Sie hier die auf einem anderen Gerät erstellte Sicherung hoch: ein{' '}
+                    <span className="font-semibold text-slate-800 dark:text-slate-100">Sicherungspaket (.zip)</span> vom Desktop oder
+                    vom Handy oder eine <span className="font-semibold text-slate-800 dark:text-slate-100">.json-Sicherung</span>.
                   </p>
                 </div>
 

@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ClubSettings, Address, BoardMember, ColorSchemeId, FontChoiceId, InvoiceTemplateSettings } from '../types';
 import { COLOR_SCHEMES, FONT_CHOICES, DEFAULT_COLOR_SCHEME, DEFAULT_FONT_CHOICE } from '../utils/appearance';
 import { StorageService } from '../services/storage';
-import { AuthService } from '../services/authService';
 import { SnapshotService, AutoSnapshot } from '../services/snapshotService';
 import { CURRENT_APP_VERSION } from '../services/updateService';
 import { BackupImportDialog } from './BackupImportDialog';
@@ -45,8 +44,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   User as UserIcon,
-  Eye,
-  EyeOff,
   Check,
   Sparkles,
   Server,
@@ -331,22 +328,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     };
   }, []);
 
-  // Gerätepasswort ändern (Tab 3)
-  const [newDevicePassword, setNewDevicePassword] = useState('');
-  const [newDevicePasswordRepeat, setNewDevicePasswordRepeat] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [userMsg, setUserMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Automatische Sperre: gilt für dieses Gerät (nicht für den Verein) und wird
-  // deshalb sofort beim Auswählen gespeichert, nicht erst mit dem
-  // „Speichern"-Knopf der Vereinsdaten.
-  const [autoLockMinutes, setAutoLockMinutes] = useState<number>(() => AuthService.getAutoLockMinutes());
-  const AUTO_LOCK_CHOICES = [5, 10, 15, 30, 60, 120, 240];
-  const handleAutoLockChange = (minutes: number) => {
-    setAutoLockMinutes(minutes);
-    AuthService.setAutoLockMinutes(minutes);
-  };
-
   /**
    * Gelesene, aber noch nicht eingespielte Datensicherung samt Abgleich.
    * Solange hier etwas steht, ist der Bestätigungsdialog offen und am
@@ -498,32 +479,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setBugArea('Dashboard (Übersicht)');
     setBugDescription('');
     setBugSeverity('normal');
-  };
-
-  const handleChangeDevicePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newDevicePassword.trim()) {
-      setUserMsg({ type: 'error', text: 'Bitte geben Sie ein neues Passwort ein.' });
-      return;
-    }
-    if (newDevicePassword !== newDevicePasswordRepeat) {
-      setUserMsg({ type: 'error', text: 'Die beiden Passwörter stimmen nicht überein.' });
-      return;
-    }
-    try {
-      const res = await AuthService.aendereBenutzerPasswort(newDevicePassword);
-      if (!res.success) {
-        setUserMsg({ type: 'error', text: res.message || 'Das Passwort konnte nicht geändert werden.' });
-        return;
-      }
-      setNewDevicePassword('');
-      setNewDevicePasswordRepeat('');
-      setShowPassword(false);
-      setUserMsg({ type: 'success', text: 'Das Passwort wurde geändert.' });
-      setTimeout(() => setUserMsg(null), 3500);
-    } catch (err: any) {
-      setUserMsg({ type: 'error', text: err.message || 'Das Passwort konnte nicht geändert werden.' });
-    }
   };
 
   const handleSaveClub = async (e: React.FormEvent) => {
@@ -1551,171 +1506,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
-          {/* General Preferences & Form */}
-          <form onSubmit={handleSaveClub} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-5">
-            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
-              <div className="p-2.5 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-2xl">
-                <Settings className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Standardeinstellungen
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Standardwerte für die tägliche Vereinsarbeit.
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Automatische Sperre bei Inaktivität
-              </label>
-              <select
-                value={autoLockMinutes}
-                onChange={e => handleAutoLockChange(Number(e.target.value))}
-                className="w-full sm:w-72 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-              >
-                <option value={0}>Nie automatisch sperren</option>
-                {(AUTO_LOCK_CHOICES.includes(autoLockMinutes) || autoLockMinutes <= 0
-                  ? AUTO_LOCK_CHOICES
-                  : [...AUTO_LOCK_CHOICES, autoLockMinutes].sort((a, b) => a - b)
-                ).map(min => (
-                  <option key={min} value={min}>
-                    Nach {min >= 60 ? `${min / 60} ${min === 60 ? 'Stunde' : 'Stunden'}` : `${min} Minuten`}
-                    {min === 15 ? ' (Standard)' : ''}
-                  </option>
-                ))}
-              </select>
-              <p className="text-2xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-                Gilt nur für dieses Gerät und wird sofort übernommen. Ohne automatische Sperre
-                bleibt die App an einem unbeaufsichtigten Rechner offen, bis jemand sie von Hand sperrt.
-              </p>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-              <button
-                type="submit"
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                title="Allgemeine Einstellungen speichern"
-              >
-                Allgemeine Einstellungen speichern
-              </button>
-            </div>
-          </form>
-
-          {/* Passwort dieses Geräts */}
-          {/* Was der Passwortschutz im lokalen Betrieb leistet — und was nicht.
-              Ohne diesen Hinweis hält ein Verein die Anmeldung leicht für einen
-              Schutz der Daten, der sie nicht ist. */}
+          {/* Schutz der Daten: seit R2 ohne eigene Anmeldung, wie am Handy */}
           <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 rounded-2xl p-4 flex items-start gap-3">
             <Lock className="w-4 h-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
             <div className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed space-y-1.5">
               <p>
-                <strong>Das Passwort</strong> wird nicht im Klartext gespeichert, sondern nur
-                als Prüfwert, aus dem sich das Passwort nicht zurückrechnen lässt. Es gehört zu
-                diesem Gerät und reist nicht mit einer Datensicherung mit.
+                <strong>Die App hat keine eigene Anmeldung.</strong> Wie in der Handy-App schützt das
+                Benutzerkonto des Rechners mit seinem Passwort den Zugang. Wer den Rechner entsperrt
+                bedienen kann, kann auch den VereinsManager öffnen.
               </p>
               <p>
-                <strong>Die Vereinsdaten selbst</strong> — Mitglieder, Bankverbindungen,
-                Kassenbuch — liegen auf diesem Gerät unverschlüsselt. Wer an den Rechner
-                kommt, kommt an die Daten, auch ohne Passwort. Die Anmeldung schützt nur gegen
-                einen zufälligen Blick an einem unbeaufsichtigten, entsperrten Gerät; sie
-                ersetzt keinen Schutz des Geräts selbst. Dafür sorgt die
-                Festplattenverschlüsselung Ihres Betriebssystems (Windows: BitLocker bzw.
-                „Geräteverschlüsselung"), und ein Bildschirmschoner mit Kennwort.
+                <strong>Die Vereinsdaten</strong> — Mitglieder, Bankverbindungen, Kassenbuch — liegen auf
+                diesem Gerät unverschlüsselt. Schützen Sie den Rechner deshalb mit einem eigenen
+                Benutzerkonto, einem guten Passwort, einer Bildschirmsperre beim Verlassen des Platzes
+                und der Festplattenverschlüsselung des Betriebssystems (Windows: BitLocker bzw.
+                „Geräteverschlüsselung“). Datensicherungen lassen sich zusätzlich mit einem Passwort
+                verschlüsseln.
               </p>
             </div>
           </div>
-
-          {/* Feedback Alert if present */}
-          {userMsg && (
-            <div
-              className={`p-4 rounded-2xl text-xs font-semibold flex items-center gap-3 animate-in fade-in ${
-                userMsg.type === 'success'
-                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
-                  : 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
-              }`}
-            >
-              {userMsg.type === 'success' ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              ) : (
-                <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
-              )}
-              <span>{userMsg.text}</span>
-            </div>
-          )}
-
-          <form
-            onSubmit={handleChangeDevicePassword}
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-5"
-          >
-            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
-              <div className="p-2.5 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-2xl">
-                <UserIcon className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Passwort ändern
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Es gibt genau ein Passwort für dieses Gerät. Jeder, der sich anmeldet, hat
-                  vollen Zugriff — es gibt keine einzelnen Benutzerkonten oder Bereichsrechte
-                  mehr.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Neues Passwort
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={newDevicePassword}
-                    onChange={(e) => setNewDevicePassword(e.target.value)}
-                    placeholder="Sicheres Passwort vergeben..."
-                    required
-                    className="w-full px-3.5 py-2 pr-10 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                    tabIndex={-1}
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Neues Passwort wiederholen
-                </label>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={newDevicePasswordRepeat}
-                  onChange={(e) => setNewDevicePasswordRepeat(e.target.value)}
-                  placeholder="Zur Kontrolle erneut eingeben"
-                  required
-                  className="w-full px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="submit"
-                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-xs"
-                title="Passwort ändern"
-              >
-                Passwort ändern
-              </button>
-            </div>
-          </form>
         </div>
       )}
 
@@ -2815,7 +2624,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <span>Vollständige Datensicherung herunterladen (JSON)</span>
                 </h4>
                 <p className="text-2xs sm:text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
-                  Exportiert alle Mitglieder, Kassenbuchungen, Belegdateien, Konten, Spendenquittungen, Anträge und Revisionsprotokolle in eine JSON-Datei — auf Wunsch mit Passwort verschlüsselt, sodass sie sich ohne dieses Passwort nicht lesen lässt.
+                  Sichert alle Mitglieder, Kassenbuchungen, Belegdateien, Konten, Spendenquittungen und Revisionsprotokolle als Sicherungspaket (.zip, auch am Handy lesbar) oder als einzelne JSON-Datei — auf Wunsch mit Passwort verschlüsselt, sodass sie sich ohne dieses Passwort nicht lesen lässt.
                 </p>
               </div>
               <button
@@ -3161,12 +2970,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <option value="Dokumente & Archiv">📁 Dokumente & Archiv (Dateiverwaltung)</option>
                     </optgroup>
                     <optgroup label="Systemeinstellungen">
-                      <option value="Einstellungen: 1. Allgemeine Einstellungen">⚙️ Einstellungen: 1. Allgemeine Einstellungen & Passwort</option>
+                      <option value="Einstellungen: 1. Allgemeine Einstellungen">⚙️ Einstellungen: 1. Allgemeine Einstellungen & Design</option>
                       <option value="Einstellungen: 2. Vereinsstammdaten">🏛️ Einstellungen: 2. Vereinsstammdaten & Logo</option>
                       <option value="Einstellungen: 3. Datensicherung & Import">💾 Einstellungen: 3. Datensicherung & Import</option>
                     </optgroup>
-                    <optgroup label="Sicherheit & Allgemein">
-                      <option value="Login, Authentifizierung & Sitzung">🔒 Login, Authentifizierung & Sitzung</option>
+                    <optgroup label="Allgemein">
                       <option value="Design, Dark Mode & Druckansichten">🎨 Design, Dark Mode & Druckansichten</option>
                       <option value="Sonstiges / Allgemeiner Fehler">❓ Sonstiges / Allgemeiner Programmfehler</option>
                     </optgroup>

@@ -176,6 +176,49 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Runde 2, R2 — Ohne Anmeldung und Demo, Testverein zum Ausprobieren
+
+- **Keine Anmeldung mehr am Desktop.** Der Anmeldebildschirm, die
+  automatische Sperre und das App-Passwort sind entfernt. Wie am Handy
+  schützt das Benutzerkonto des Rechners die Daten; in den Einstellungen
+  steht dazu ein Hinweis (Rechnerpasswort, Festplattenverschlüsselung). Die
+  App startet direkt; oben rechts führt ein Knopf zu den Einstellungen.
+  Entfernt: `LoginScreen.tsx`, `authService.ts`, `passwordService.ts` (mit
+  seinen 11 Tests).
+- **Kein Demo-Modus mehr.** Die eingebauten Beispieldaten („TSV
+  Musterstadt“) und die eigene Demo-Datenbank sind entfernt
+  (`initialContacts.ts`, `initialDocuments.ts`, `initialInventory.ts`; in
+  `initialInvoices.ts`, `initialMeetings.ts`, `initialEvents.ts` bleiben nur
+  die Vorlagen). Beim ersten Start räumt die App Reste von Demo und
+  Anmeldung einmal weg (`entferneAltlastenDemoUndAnmeldung` in
+  `storage.ts`). Die echten Vereinsdaten sind davon nicht berührt.
+- **Dabei gefunden:** Fehlten die Vereinsstammdaten, lieferte die App
+  ersatzweise die Stammdaten des Demo-Vereins (TSV Musterstadt mit dessen
+  Steuernummer und Gläubiger-ID). Jetzt sind es neutrale, leere Angaben.
+- **Bearbeiter im Änderungsprotokoll heißt „Admin“**, am Desktop wie am
+  Handy (vorher „Kassier / Administrator“ bzw. „Kassier (CSV Import)“).
+  Bestehende Einträge bleiben, wie sie sind. Android: `MemberEdit.kt`,
+  zwei Tests angepasst.
+- **Update-Anzeige ehrlich gemacht.** In der Desktop-App lief bisher immer
+  ein *vorgetäuschtes* Update: Die App fand das Update-Modul von Tauri nicht
+  (es ist gar nicht eingebaut, und der Aufruf stammte aus Tauri 1) und
+  „installierte“ dann zum Schein mit Fortschrittsbalken, ohne etwas zu
+  ändern. Jetzt prüft sie nur, ob es eine neuere Version auf GitHub gibt,
+  und bietet den Download an — mit dem Hinweis, vorher eine Sicherung zu
+  machen. Ohne Internet sagt sie, dass sie es nicht prüfen kann.
+- **Testverein zum Ausprobieren:** `testdaten/Testverein.json` (nur im
+  Repository, nicht in der App) — „TSV Testhausen 1921 e.V.“, 2022 bis
+  November 2026, 50 Mitglieder in 3 Sparten, 637 Buchungen, 20 Kontakte,
+  250 Termine (50 je Jahr), 10 Sitzungen, 15 Inventargegenstände,
+  113 Dokumente. Erzeugt von `src/testdaten/testverein.ts` mit den
+  App-Funktionen für Beitragslauf, Spende, Rechnung, Belegordner und
+  Unterschrift; neu erzeugen mit `npm run testverein`. 21 Tests
+  (`testverein.test.ts`): Umfang, alle Verweise, eindeutige Nummern, gültige
+  IBAN/BIC/E-Mail, kein Konto im Minus, alle Sitzungen, Termine und
+  Gegenstände bestehen die Prüfungen der Eingabemasken, die App erkennt die
+  Datei als Sicherung, und die Datei im Repository passt zum Programm.
+  Das Einrichtungsfenster und die README weisen darauf hin.
+
 ### Runde 2, R1 — Gleichstand Desktop/Handy und Aufräumen
 
 - **Desktop liest CSV auch in Windows-1252** (ältere Bank- und

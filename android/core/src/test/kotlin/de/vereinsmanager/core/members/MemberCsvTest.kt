@@ -374,7 +374,7 @@ class MemberCsvTest {
         assertEquals("Batch-CSV-Import: 0 Mitglied(er) neu hinzugefügt, 1 aktualisiert.", s(log, "summary"))
         assertEquals("batch-import", s(log, "memberId"))
         assertEquals("1 Mitglieder", s(log, "memberName"))
-        assertEquals("Administrator", s(log, "author"))
+        assertEquals("Admin", s(log, "author"))
     }
 
     @Test fun beitragNullInDerDateiUeberschreibtNichts() {

@@ -25,14 +25,10 @@ import {
 import { UserDashboardConfig } from '../types/dashboard';
 import { DEFAULT_DASHBOARD_CONFIG } from '../data/defaultDashboard';
 import { DEFAULT_DEPARTMENTS } from '../data/taxSpheres';
-import { INITIAL_INVENTORY } from '../data/initialInventory';
-import { INITIAL_CONTACTS } from '../data/initialContacts';
-import { INITIAL_INVOICES, DEFAULT_INVOICE_TEMPLATE } from '../data/initialInvoices';
-import { INITIAL_MEETINGS, DEFAULT_MEETING_TEMPLATE } from '../data/initialMeetings';
-
-import { getInitialDocuments } from '../data/initialDocuments';
+import { DEFAULT_INVOICE_TEMPLATE } from '../data/initialInvoices';
+import { DEFAULT_MEETING_TEMPLATE } from '../data/initialMeetings';
 import { getInitialFolders } from '../data/initialFolders';
-import { DEFAULT_CALENDAR_CATEGORIES, INITIAL_CALENDAR_EVENTS } from '../data/initialEvents';
+import { DEFAULT_CALENDAR_CATEGORIES } from '../data/initialEvents';
 import { getDonationPdfDataUrl } from './donationService';
 import { spendenBuchung, gleicheBuchungAn } from './spendenBuchung';
 import {
@@ -56,7 +52,6 @@ import {
   leseAntragEinstellungen,
   mitgliedAusAntrag
 } from '../utils/antragRegeln';
-import { AuthService } from './authService';
 import { customCategoryService } from './customCategoryService';
 import { planeBelegOrdner, planeUnterordner, belegArtVon, sollEinsortiertWerden, BelegArt } from '../utils/belegOrdner';
 import { wendeSammelAn } from '../utils/buchungSammel';
@@ -88,7 +83,7 @@ import {
 
 /**
  * Wurde dieses Gerät schon mit einem Verein eingerichtet (neu angelegt oder
- * eine Sicherung importiert)? Entscheidet, ob nach dem Anmelden/Registrieren
+ * eine Sicherung importiert)? Entscheidet, ob beim Start
  * das Auswahl-Modal ("Neuen Verein anlegen" / "Daten importieren") erscheint.
  *
  * Bewusst ein eigenes, einfaches Merkmal statt an einer Datenmenge
@@ -106,8 +101,19 @@ function markiereAlsEingerichtet(): void {
   }
 }
 
+/**
+ * Bearbeiter im Änderungsprotokoll. Seit R2 überall „Admin“ (Entscheidung
+ * Johannes, 22.11.2026), am Desktop wie am Handy; vorher stand hier
+ * „Kassier / Administrator“. Bestehende Einträge bleiben, wie sie sind.
+ */
+export const BEARBEITER = 'Admin';
+
 const LIVE_DB_NAME = 'VereinsManager_LiveDB_v1';
-const DEMO_DB_NAME = 'VereinsManager_DemoDB_v1';
+/**
+ * Datenbank des früheren Demo-Modus (bis R2, 22.11.2026). Wird beim Start
+ * einmal gelöscht, siehe `entferneAltlastenDemoUndAnmeldung`.
+ */
+const ALTE_DEMO_DB_NAME = 'VereinsManager_DemoDB_v1';
 // 10: Bereiche der früheren Online-Anträge entfernt (D-04)
 const DB_VERSION = 10;
 
@@ -175,46 +181,80 @@ export function purgeBloatedLocalStorage(): void {
 // Automatically run on startup to reclaim space
 purgeBloatedLocalStorage();
 
-function isDemoModeActive(): boolean {
-  return AuthService.isDemoMode();
-}
-
 function getActiveDBName(): string {
-  return isDemoModeActive() ? DEMO_DB_NAME : LIVE_DB_NAME;
+  return LIVE_DB_NAME;
 }
 
 function getStorePrefix(): string {
-  return isDemoModeActive() ? 'vm_demo_' : 'vm_live_';
+  return 'vm_live_';
+}
+
+/**
+ * Räumt einmalig weg, was vom Demo-Modus und von der früheren Anmeldung
+ * übrig ist (R2): die eigene Demo-Datenbank, deren Ausweichkopien im
+ * localStorage und die Anmeldedaten (Prüfwert des Gerätepassworts, Sitzung,
+ * automatische Sperre). Die echte Vereinsdatenbank bleibt unberührt.
+ * Mehrfaches Aufrufen schadet nicht.
+ */
+export function entferneAltlastenDemoUndAnmeldung(): void {
+  try {
+    const weg: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('vm_demo_')) weg.push(k);
+    }
+    weg.push(
+      'vm_device_account_v1',
+      'vm_auth_session_v1',
+      'vm_auto_lock_minutes_v1',
+      'vm_last_activity',
+      'vm_users_v2',
+      'vm_security_settings_v2',
+      'vm_auth_session_v2',
+      'vereinsmanager_simulated_update_available'
+    );
+    for (const k of weg) localStorage.removeItem(k);
+    sessionStorage.removeItem('vm_auth_session_v1');
+  } catch {
+    // ohne localStorage gibt es auch nichts aufzuräumen
+  }
+  try {
+    if (typeof indexedDB !== 'undefined') indexedDB.deleteDatabase(ALTE_DEMO_DB_NAME);
+  } catch {
+    // nicht löschbar: stört nicht, wird nie mehr geöffnet
+  }
 }
 
 // Die Liste der Datenbereiche steht seit Fassung 1.3 in backupContents.ts.
 // Dort wacht der Compiler darüber, dass jeder Bereich auch in der
 // Datensicherung landet — genau das war jahrelang nicht der Fall.
 
-const DEFAULT_SETTINGS: ClubSettings = {
-  clubName: 'TSV Musterstadt 1890 e.V.',
-  associationNumber: 'VR 48219 (Amtsgericht Musterstadt)',
-  taxNumber: '112/5840/1922 (Finanzamt Musterstadt)',
-  taxOffice: 'Finanzamt Musterstadt',
-  taxExemptionDate: '10.01.2024',
-  taxAssessmentPeriod: '2021 bis 2023',
-  promotedPurposes: 'Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)',
-  creditorId: 'DE98ZZZ09999999999',
-  creditorIban: 'DE89370501981122334455',
-  creditorBic: 'SPKDMUSTXXX',
-  creditorAccountId: 'acc-1',
-  address: 'Sportplatzweg 12, 12345 Musterstadt',
-  chairman: 'Dr. Michael Sommer',
-  treasurer: 'Sabine Weber',
-  boardMembers: [
-    { id: 'bm-1', role: '1. Vorsitzender', name: 'Dr. Michael Sommer', email: 'vorstand@tsv-musterstadt1890.de' },
-    { id: 'bm-2', role: 'Schatzmeisterin / Kassenwart', name: 'Sabine Weber', email: 'finanzen@tsv-musterstadt1890.de' },
-    { id: 'bm-3', role: '2. Vorsitzender', name: 'Thomas Müller' },
-    { id: 'bm-4', role: 'Schriftführerin', name: 'Claudia Schmidt' }
-  ],
-  email: 'vorstand@tsv-musterstadt1890.de',
-  departments: DEFAULT_DEPARTMENTS
-};
+/**
+ * Neutrale Vereinsstammdaten für einen neuen, leeren Verein. Bis R2 standen
+ * hier die Beispieldaten des Demo-Modus („TSV Musterstadt 1890 e.V.“ mit
+ * Vorstand, IBAN und Gläubiger-ID); die tauchten dann als Ersatzwert auf,
+ * wenn noch keine Stammdaten gespeichert waren.
+ */
+function neutraleEinstellungen(): ClubSettings {
+  return {
+    clubName: 'Mein Sportverein e.V.',
+    associationNumber: '',
+    taxNumber: '',
+    taxOffice: '',
+    taxExemptionDate: '',
+    taxAssessmentPeriod: '',
+    promotedPurposes: 'Förderung des Sports',
+    creditorId: '',
+    creditorIban: '',
+    creditorBic: '',
+    creditorAccountId: 'acc-main',
+    address: '',
+    chairman: '',
+    treasurer: '',
+    email: '',
+    departments: DEFAULT_DEPARTMENTS
+  };
+}
 
 /**
  * Felder, die früher in den Vereinsstammdaten standen und dort nicht mehr
@@ -258,631 +298,6 @@ function ohneVeralteteSmtpFelder<T extends Record<string, unknown>>(
   return { bereinigt, warVeraltet };
 }
 
-
-const INITIAL_DONATIONS: DonationReceipt[] = [
-  {
-    id: 'don-1',
-    receiptNumber: 'ZB-2025-001',
-    type: 'money',
-    date: '2025-01-20',
-    donorType: 'external',
-    donorName: 'Musterstadt Stadtwerke AG',
-    donorAddress: {
-      street: 'Energiestraße',
-      houseNumber: '1',
-      zip: '12345',
-      city: 'Musterstadt',
-      country: 'Deutschland'
-    },
-    amount: 1500.00,
-    amountInWords: 'Eintausendfünfhundert Euro',
-    isWaiverOfRefund: false,
-    taxOffice: 'Finanzamt Musterstadt',
-    taxNumber: '112/5840/1922',
-    exemptionDate: '10.01.2024',
-    assessmentPeriod: '2021 bis 2023',
-    promotedPurpose: 'Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)',
-    isDirectlyPromoted: true,
-    issuedBy: 'Sabine Weber (Schatzmeisterin)',
-    cityAndDate: 'Musterstadt, 20.01.2025',
-    transactionId: 'tx-2',
-    notes: 'Zweckgebundene Spende für neue Jugendtore',
-    createdAt: '2025-01-20T14:30:00.000Z',
-    updatedAt: '2025-01-20T14:30:00.000Z'
-  },
-  {
-    id: 'don-2',
-    receiptNumber: 'ZB-2025-002',
-    type: 'goods',
-    date: '2025-02-14',
-    donorType: 'member',
-    memberId: 'mem-6',
-    donorName: 'Christian Koch',
-    donorAddress: {
-      street: 'Kastanienweg',
-      houseNumber: '11',
-      zip: '12345',
-      city: 'Musterstadt',
-      country: 'Deutschland'
-    },
-    amount: 850.00,
-    amountInWords: 'Achthundertfünfzig Euro',
-    isWaiverOfRefund: false,
-    goodsDescription: '1x Professionelle Tischtennisplatte JOOLA 2000-S Pro inkl. Netzgarnitur & Zubehör (Neuwertig)',
-    goodsOrigin: 'private',
-    goodsValuationBasis: 'Original-Kaufbeleg Sport-Thieme GmbH vom 10.01.2025 über 899,00 € liegt vor',
-    taxOffice: 'Finanzamt Musterstadt',
-    taxNumber: '112/5840/1922',
-    exemptionDate: '10.01.2024',
-    assessmentPeriod: '2021 bis 2023',
-    promotedPurpose: 'Förderung des Sports (§ 52 Abs. 2 Satz 1 Nr. 21 AO)',
-    isDirectlyPromoted: true,
-    issuedBy: 'Sabine Weber (Schatzmeisterin)',
-    cityAndDate: 'Musterstadt, 14.02.2025',
-    notes: 'Sachspende für die Jugendabteilung Tischtennis & Turnen',
-    createdAt: '2025-02-14T11:00:00.000Z',
-    updatedAt: '2025-02-14T11:00:00.000Z'
-  }
-];
-
-
-const INITIAL_ACCOUNTS: FinancialAccount[] = [
-  {
-    id: 'acc-1',
-    name: 'Sparkasse Girokonto (Hauptkonto)',
-    accountType: 'bank',
-    iban: 'DE89370501981122334455',
-    bic: 'SPKDMUSTXXX',
-    initialBalance: 12450.00,
-    color: 'emerald',
-    description: 'Hauptgeschäftskonto für Beiträge, Rechnungen und Gehälter',
-    createdAt: '2024-01-01T00:00:00.000Z'
-  },
-  {
-    id: 'acc-2',
-    name: 'Volksbank Spendenkonto',
-    accountType: 'bank',
-    iban: 'DE44370601909988776655',
-    bic: 'GENODEM1MST',
-    initialBalance: 3200.00,
-    color: 'blue',
-    description: 'Zweckgebundenes Konto für Spenden & Jugendförderung',
-    createdAt: '2024-01-01T00:00:00.000Z'
-  },
-  {
-    id: 'acc-3',
-    name: 'Hauptkasse (Bargeld Vereinsheim)',
-    accountType: 'cash',
-    initialBalance: 850.00,
-    color: 'amber',
-    description: 'Barkasse für Kiosk, Spieltags-Eintritt und Auslagen',
-    createdAt: '2024-01-01T00:00:00.000Z'
-  }
-];
-
-const INITIAL_MEMBERS: Member[] = [
-  {
-    id: 'mem-1',
-    memberNumber: 'MG-001',
-    firstName: 'Maximilian',
-    lastName: 'Müller',
-    gender: 'm',
-    birthDate: '1984-05-14',
-    address: {
-      street: 'Hauptstraße',
-      houseNumber: '42',
-      zip: '12345',
-      city: 'Musterstadt',
-      country: 'Deutschland'
-    },
-    phone: '0171 1234567',
-    email: 'max.mueller@example.de',
-    entryDate: '2015-03-01',
-    status: 'active',
-    department: 'Fußball',
-    membershipType: 'full',
-    feeAmount: 15.00,
-    feePeriod: 'monthly',
-    paymentMethod: 'sepa',
-    bankDetails: {
-      iban: 'DE12370501980000123456',
-      bic: 'SPKDMUSTXXX',
-      bankName: 'Sparkasse Musterstadt',
-      accountHolder: 'Maximilian Müller',
-      mandateDate: '2015-03-01',
-      mandateReference: 'MANDAT-MG001-2015',
-      monthlyDueDay: 1
-    },
-    notes: 'Spielführer 1. Herrenmannschaft. Erste-Hilfe-Zertifikat vorhanden.',
-    dataPrivacyConsent: true,
-    createdAt: '2015-03-01T08:00:00.000Z',
-    updatedAt: '2024-01-15T10:30:00.000Z'
-  },
-  {
-    id: 'mem-2',
-    memberNumber: 'MG-002',
-    firstName: 'Anna-Lena',
-    lastName: 'Schmidt',
-    gender: 'w',
-    birthDate: '1992-11-20',
-    address: {
-      street: 'Birkenweg',
-      houseNumber: '7a',
-      zip: '12345',
-      city: 'Musterstadt',
-      country: 'Deutschland'
-    },
-    phone: '0152 9876543',
-    email: 'a.schmidt@example.de',
-    entryDate: '2018-09-01',
-    status: 'active',
-    department: 'Tennis',
-    membershipType: 'full',
-    feeAmount: 20.00,
-    feePeriod: 'monthly',
-    paymentMethod: 'sepa',
-    bankDetails: {
-      iban: 'DE45370501980000987654',
-      bic: 'SPKDMUSTXXX',
-      bankName: 'Sparkasse Musterstadt',
-      accountHolder: 'Anna-Lena Schmidt',
-      mandateDate: '2018-09-01',
-      mandateReference: 'MANDAT-MG002-2018',
-      monthlyDueDay: 15
-    },
-    notes: 'Jugendtrainerin Tennis mit C-Lizenz. Ehrenamtspauschale berechtigt.',
-    dataPrivacyConsent: true,
-    createdAt: '2018-09-01T09:00:00.000Z',
-    updatedAt: '2024-02-10T14:15:00.000Z'
-  },
-  {
-    id: 'mem-3',
-    memberNumber: 'MG-003',
-    firstName: 'Felix',
-    lastName: 'Schneider',
-    gender: 'm',
-    birthDate: '2010-04-12',
-    address: {
-      street: 'Goethestraße',
-      houseNumber: '15',
-      zip: '12345',
-      city: 'Musterstadt',
-      country: 'Deutschland'
-    },
-    phone: '0160 5544332',
-    email: 'familie.schneider@example.de',
-    entryDate: '2021-01-15',
-    status: 'active',
-    department: 'Leichtathletik',
-    membershipType: 'youth',
-    feeAmount: 10.00,
-    feePeriod: 'monthly',
-    paymentMethod: 'sepa',
-    bankDetails: {
-      iban: 'DE78370501980000554433',
-      bic: 'SPKDMUSTXXX',
-      bankName: 'Sparkasse Musterstadt',
-      accountHolder: 'Thomas Schneider (Vater)',
-      mandateDate: '2021-01-10',
-      mandateReference: 'MANDAT-MG003-2021',
-      monthlyDueDay: 1
-    },
-    notes: 'Jugendfördergruppe Sprint / Weitsprung.',
-    dataPrivacyConsent: true,
-    createdAt: '2021-01-15T11:00:00.000Z',
-    updatedAt: '2023-11-20T16:00:00.000Z'
-  },
-  {
-    id: 'mem-4',
-    memberNumber: 'MG-004',
-    firstName: 'Heinrich',
-    lastName: 'Bauer',
-    gender: 'm',
-    birthDate: '1948-02-18',
-    address: {
-      street: 'Lindenallee',
-      houseNumber: '3',
-      zip: '12345',
-      city: 'Musterstadt',
-      country: 'Deutschland'
-    },
-    phone: '01234 56789',
-    email: 'h.bauer.veteran@example.de',
-    entryDate: '1970-05-01',
-    status: 'honorary',
-    department: 'Ehrenmitglieder',
-    membershipType: 'honorary',
-    feeAmount: 0.00,
-    feePeriod: 'yearly',
-    paymentMethod: 'cash',
-    bankDetails: {
-      iban: '',
-      bic: '',
-      bankName: '',
-      accountHolder: '',
-      mandateDate: '',
-      mandateReference: ''
-    },
-    notes: 'Ehrenmitglied seit 2020. 50 Jahre Vereinsmitgliedschaft.',
-    dataPrivacyConsent: true,
-    createdAt: '1970-05-01T00:00:00.000Z',
-    updatedAt: '2020-05-01T12:00:00.000Z'
-  },
-  {
-    id: 'mem-5',
-    memberNumber: 'MG-005',
-    firstName: 'Laura',
-    lastName: 'Wagner',
-    gender: 'w',
-    birthDate: '1998-07-03',
-    address: {
-      street: 'Schulstraße',
-      houseNumber: '22',
-      zip: '12345',
-      city: 'Musterstadt',
-      country: 'Deutschland'
-    },
-    phone: '0176 3322110',
-    email: 'l.wagner@example.de',
-    entryDate: '2022-04-01',
-    status: 'passive',
-    department: 'Turnen & Gymnastik',
-    membershipType: 'reduced',
-    feeAmount: 40.00,
-    feePeriod: 'yearly',
-    paymentMethod: 'transfer',
-    bankDetails: {
-      iban: '',
-      bic: '',
-      bankName: '',
-      accountHolder: '',
-      mandateDate: '',
-      mandateReference: ''
-    },
-    notes: 'Studium bis 2025. Nachweis vorgelegt.',
-    dataPrivacyConsent: true,
-    createdAt: '2022-04-01T10:00:00.000Z',
-    updatedAt: '2024-03-01T09:00:00.000Z'
-  },
-  {
-    id: 'mem-6',
-    memberNumber: 'MG-006',
-    firstName: 'Christian',
-    lastName: 'Koch',
-    gender: 'm',
-    birthDate: '1979-09-12',
-    address: {
-      street: 'Kastanienweg',
-      houseNumber: '11',
-      zip: '12345',
-      city: 'Musterstadt',
-      country: 'Deutschland'
-    },
-    phone: '0170 8899001',
-    email: 'c.koch@firma-koch.de',
-    entryDate: '2019-06-15',
-    status: 'active',
-    department: 'Schach',
-    membershipType: 'supporting',
-    feeAmount: 75.00,
-    feePeriod: 'quarterly',
-    paymentMethod: 'sepa',
-    bankDetails: {
-      iban: 'DE91370501980000889900',
-      bic: 'SPKDMUSTXXX',
-      bankName: 'Sparkasse Musterstadt',
-      accountHolder: 'Christian Koch',
-      mandateDate: '2019-06-10',
-      mandateReference: 'MANDAT-MG006-2019'
-    },
-    notes: 'Fördermitglied und Sponsor der Jugendmannschaften.',
-    dataPrivacyConsent: true,
-    createdAt: '2019-06-15T14:00:00.000Z',
-    updatedAt: '2024-01-08T11:20:00.000Z'
-  },
-  {
-    id: 'mem-7',
-    memberNumber: 'MG-007',
-    firstName: 'Sophie',
-    lastName: 'Becker',
-    gender: 'w',
-    birthDate: '2004-03-29',
-    address: {
-      street: 'Am Sportfeld',
-      houseNumber: '5',
-      zip: '12345',
-      city: 'Musterstadt',
-      country: 'Deutschland'
-    },
-    phone: '0151 7766554',
-    email: 'sophie.becker@example.de',
-    entryDate: '2023-01-10',
-    status: 'active',
-    department: 'Volleyball',
-    membershipType: 'full',
-    feeAmount: 60.00,
-    feePeriod: 'half_yearly',
-    paymentMethod: 'sepa',
-    bankDetails: {
-      iban: 'DE62370501980000776655',
-      bic: 'SPKDMUSTXXX',
-      bankName: 'Sparkasse Musterstadt',
-      accountHolder: 'Sophie Becker',
-      mandateDate: '2023-01-05',
-      mandateReference: 'MANDAT-MG007-2023'
-    },
-    notes: 'Damenmannschaft Volleyball.',
-    dataPrivacyConsent: true,
-    createdAt: '2023-01-10T10:00:00.000Z',
-    updatedAt: '2023-01-10T10:00:00.000Z'
-  },
-  {
-    id: 'mem-8',
-    memberNumber: 'MG-008',
-    firstName: 'Jonas',
-    lastName: 'Richter',
-    gender: 'm',
-    birthDate: '1995-08-17',
-    address: {
-      street: 'Parkstraße',
-      houseNumber: '19',
-      zip: '12345',
-      city: 'Musterstadt',
-      country: 'Deutschland'
-    },
-    phone: '0175 4433221',
-    email: 'j.richter@example.de',
-    entryDate: '2020-02-01',
-    status: 'active',
-    department: 'Fußball',
-    membershipType: 'full',
-    feeAmount: 18.00,
-    feePeriod: 'monthly',
-    paymentMethod: 'sepa',
-    bankDetails: {
-      iban: 'DE21370501980000332211',
-      bic: 'SPKDMUSTXXX',
-      bankName: 'Sparkasse Musterstadt',
-      accountHolder: 'Jonas Richter',
-      mandateDate: '2020-02-01',
-      mandateReference: 'MANDAT-MG008-2020',
-      monthlyDueDay: 15
-    },
-    notes: '2. Herrenmannschaft Fußball.',
-    dataPrivacyConsent: true,
-    createdAt: '2020-02-01T10:00:00.000Z',
-    updatedAt: '2024-01-10T10:00:00.000Z'
-  },
-  {
-    id: 'mem-9',
-    memberNumber: 'MG-009',
-    firstName: 'Katharina',
-    lastName: 'Hoffmann',
-    gender: 'w',
-    birthDate: '1988-12-05',
-    address: {
-      street: 'Rosenweg',
-      houseNumber: '4',
-      zip: '12345',
-      city: 'Musterstadt',
-      country: 'Deutschland'
-    },
-    phone: '0157 1122334',
-    email: 'k.hoffmann@example.de',
-    entryDate: '2017-07-01',
-    status: 'active',
-    department: 'Turnen & Gymnastik',
-    membershipType: 'full',
-    feeAmount: 120.00,
-    feePeriod: 'yearly',
-    paymentMethod: 'sepa',
-    bankDetails: {
-      iban: 'DE39370501980000112233',
-      bic: 'SPKDMUSTXXX',
-      bankName: 'Sparkasse Musterstadt',
-      accountHolder: 'Katharina Hoffmann',
-      mandateDate: '2017-07-01',
-      mandateReference: 'MANDAT-MG009-2017'
-    },
-    notes: 'Übungsleiterin Eltern-Kind-Turnen.',
-    dataPrivacyConsent: true,
-    createdAt: '2017-07-01T10:00:00.000Z',
-    updatedAt: '2024-01-05T10:00:00.000Z'
-  }
-];
-
-const INITIAL_TRANSACTIONS: Transaction[] = [
-  {
-    id: 'tx-1',
-    date: '2025-01-15',
-    amount: 3450.00,
-    type: 'income',
-    accountId: 'acc-1',
-    documentNumber: 'BE-2025-001',
-    bookingText: 'SEPA-Sammellastschrift Mitgliedsbeiträge 1. Halbjahr',
-    partner: 'Mitglieder TSV Musterstadt',
-    sphere: 'ideell',
-    category: 'Mitgliedsbeiträge',
-    vatRate: 0,
-    notes: 'Einzug von 42 Mitgliedsbeiträgen per DTAUS/SEPA XML',
-    createdAt: '2025-01-15T10:00:00.000Z',
-    updatedAt: '2025-01-15T10:00:00.000Z'
-  },
-  {
-    id: 'tx-2',
-    date: '2025-01-20',
-    amount: 1500.00,
-    type: 'income',
-    accountId: 'acc-2',
-    documentNumber: 'BE-2025-002',
-    bookingText: 'Zweckgebundene Spende für neue Jugendtore',
-    partner: 'Musterstadt Stadtwerke AG',
-    sphere: 'ideell',
-    category: 'Spenden / Schenkungen',
-    vatRate: 0,
-    notes: 'Spendenbescheinigung nach amtl. Muster ausgestellt',
-    createdAt: '2025-01-20T14:30:00.000Z',
-    updatedAt: '2025-01-20T14:30:00.000Z'
-  },
-  {
-    id: 'tx-3',
-    date: '2025-01-25',
-    amount: -450.00,
-    type: 'expense',
-    accountId: 'acc-1',
-    documentNumber: 'BE-2025-003',
-    bookingText: 'Jahresbeitrag Landessportbund & Sportfachverbände',
-    partner: 'Landessportbund NRW e.V.',
-    sphere: 'ideell',
-    category: 'Verbandsabgaben & Beiträge',
-    vatRate: 0,
-    notes: 'Pflichtbeitrag inkl. Sportversicherung ARAG',
-    createdAt: '2025-01-25T09:15:00.000Z',
-    updatedAt: '2025-01-25T09:15:00.000Z'
-  },
-  {
-    id: 'tx-4',
-    date: '2025-02-02',
-    amount: 600.00,
-    type: 'income',
-    accountId: 'acc-1',
-    documentNumber: 'BE-2025-004',
-    bookingText: 'Pachterlöse Vereinsgaststätte Monat Januar/Februar',
-    partner: 'Gastronomie Pächter Luigi Rossi',
-    sphere: 'vermoegen',
-    category: 'Pachterlöse Vereinsgelände',
-    vatRate: 0,
-    notes: 'Pachtvertrag vom 01.01.2023',
-    createdAt: '2025-02-02T11:00:00.000Z',
-    updatedAt: '2025-02-02T11:00:00.000Z'
-  },
-  {
-    id: 'tx-5',
-    date: '2025-02-10',
-    amount: 820.00,
-    type: 'income',
-    accountId: 'acc-3',
-    documentNumber: 'BE-2025-005',
-    bookingText: 'Startgelder & Eintritt Winter-Hallenturnier',
-    partner: 'Teilnehmende Mannschaften & Zuschauer',
-    sphere: 'zweckbetrieb',
-    category: 'Startgelder & Meldegebühren',
-    vatRate: 7,
-    notes: '16 Gastmannschaften à 30 € + Zuschauereintritte',
-    createdAt: '2025-02-10T19:00:00.000Z',
-    updatedAt: '2025-02-10T19:00:00.000Z'
-  },
-  {
-    id: 'tx-6',
-    date: '2025-02-10',
-    amount: 1150.00,
-    type: 'income',
-    accountId: 'acc-3',
-    documentNumber: 'BE-2025-006',
-    bookingText: 'Kioskverkauf Speisen & Getränke Hallenturnier',
-    partner: 'Turniergäste / Kioskerlöse',
-    sphere: 'wirtschaftlich',
-    category: 'Verkauf Speisen & Getränke (Vereinsfeste)',
-    vatRate: 19,
-    notes: 'Wirtschaftlicher Geschäftsbetrieb Bewirtung',
-    createdAt: '2025-02-10T20:00:00.000Z',
-    updatedAt: '2025-02-10T20:00:00.000Z'
-  },
-  {
-    id: 'tx-7',
-    date: '2025-02-11',
-    amount: -480.00,
-    type: 'expense',
-    accountId: 'acc-1',
-    documentNumber: 'BE-2025-007',
-    bookingText: 'Wareneinkauf Getränke & Grillgut Turniertag',
-    partner: 'Metro Großmarkt Musterstadt',
-    sphere: 'wirtschaftlich',
-    category: 'Wareneinkauf Speisen & Getränke',
-    vatRate: 19,
-    notes: 'Rechnung #ME-884920 Vorsteuerabzug 19%',
-    createdAt: '2025-02-11T10:00:00.000Z',
-    updatedAt: '2025-02-11T10:00:00.000Z'
-  },
-  {
-    id: 'tx-8',
-    date: '2025-02-15',
-    amount: -600.00,
-    type: 'expense',
-    accountId: 'acc-1',
-    documentNumber: 'BE-2025-008',
-    bookingText: 'Übungsleiterpauschale 1. Quartal 2025',
-    partner: 'Anna-Lena Schmidt',
-    sphere: 'zweckbetrieb',
-    category: 'Übungsleiterpauschalen (§ 3 Nr. 26 EStG)',
-    vatRate: 0,
-    notes: 'Steuerfreie Aufwandsentschädigung Tennis-Jugend',
-    createdAt: '2025-02-15T15:00:00.000Z',
-    updatedAt: '2025-02-15T15:00:00.000Z'
-  },
-  {
-    id: 'tx-9',
-    date: '2025-02-20',
-    amount: 1200.00,
-    type: 'income',
-    accountId: 'acc-1',
-    documentNumber: 'BE-2025-009',
-    bookingText: 'Bandenwerbung Saison 2024/2025',
-    partner: 'Autohaus Müller GmbH',
-    sphere: 'wirtschaftlich',
-    category: 'Banden- & Bannerwerbung',
-    vatRate: 19,
-    notes: 'Rechnung #RE-2025-012 zzgl. 19% MwSt.',
-    createdAt: '2025-02-20T11:45:00.000Z',
-    updatedAt: '2025-02-20T11:45:00.000Z'
-  },
-  {
-    id: 'tx-10',
-    date: '2025-03-01',
-    amount: -280.00,
-    type: 'expense',
-    accountId: 'acc-1',
-    documentNumber: 'BE-2025-010',
-    bookingText: 'Neue Spielbälle & Trainingshütchen Jugend',
-    partner: 'Sportshop Franke',
-    sphere: 'zweckbetrieb',
-    category: 'Sportgeräte & Trainingsmaterial',
-    vatRate: 19,
-    notes: 'Trainingsausstattung Fußball- und Leichtathletikabteilung',
-    createdAt: '2025-03-01T14:00:00.000Z',
-    updatedAt: '2025-03-01T14:00:00.000Z'
-  }
-];
-
-const INITIAL_AUDIT_LOGS: MemberAuditLog[] = [
-  {
-    id: 'log-1',
-    memberId: 'mem-1',
-    memberNumber: 'MG-001',
-    memberName: 'Maximilian Müller',
-    timestamp: '2024-01-15T10:30:00.000Z',
-    author: 'Kassier (Sabine Weber)',
-    action: 'update',
-    summary: 'Telefonnummer und E-Mail aktualisiert',
-    changes: [
-      { field: 'phone', label: 'Telefonnummer', oldValue: '0171 0000000', newValue: '0171 1234567' },
-      { field: 'email', label: 'E-Mail', oldValue: 'm.mueller@alt.de', newValue: 'max.mueller@example.de' }
-    ]
-  },
-  {
-    id: 'log-2',
-    memberId: 'mem-2',
-    memberNumber: 'MG-002',
-    memberName: 'Anna-Lena Schmidt',
-    timestamp: '2024-02-10T14:15:00.000Z',
-    author: 'Vorstand (Dr. Sommer)',
-    action: 'update',
-    summary: 'Beitragsklasse und Trainerlizenz-Notiz ergänzt',
-    changes: [
-      { field: 'notes', label: 'Notizen', oldValue: 'Tennisspielerin', newValue: 'Jugendtrainerin Tennis mit C-Lizenz. Ehrenamtspauschale berechtigt.' }
-    ]
-  }
-];
 
 // IndexedDB Helper
 function openDB(dbNameOverride?: string): Promise<IDBDatabase> {
@@ -928,7 +343,7 @@ function openDB(dbNameOverride?: string): Promise<IDBDatabase> {
 
 let snapshotTimer: any = null;
 function triggerAutoSnapshot() {
-  if (isDemoModeActive() || isImportingBackup) return;
+  if (isImportingBackup) return;
   if (snapshotTimer) clearTimeout(snapshotTimer);
   snapshotTimer = setTimeout(async () => {
     try {
@@ -941,7 +356,7 @@ function triggerAutoSnapshot() {
 }
 
 async function getAllFromStore<T>(storeName: string, dbNameOverride?: string): Promise<T[]> {
-  const prefix = dbNameOverride ? (dbNameOverride === DEMO_DB_NAME ? 'vm_demo_' : 'vm_live_') : getStorePrefix();
+  const prefix = getStorePrefix();
   try {
     const db = await openDB(dbNameOverride);
     if (!db.objectStoreNames.contains(storeName)) {
@@ -967,7 +382,7 @@ async function getAllFromStore<T>(storeName: string, dbNameOverride?: string): P
 }
 
 async function saveAllToStore<T extends { id: string }>(storeName: string, items: T[], dbNameOverride?: string): Promise<void> {
-  const prefix = dbNameOverride ? (dbNameOverride === DEMO_DB_NAME ? 'vm_demo_' : 'vm_live_') : getStorePrefix();
+  const prefix = getStorePrefix();
   try {
     const db = await openDB(dbNameOverride);
     if (!db.objectStoreNames.contains(storeName)) {
@@ -1215,57 +630,29 @@ export const StorageService = {
   },
 
   async init(): Promise<void> {
-    const isDemo = isDemoModeActive();
-    const initKey = isDemo ? 'vm_demo_initialized' : 'vm_live_initialized';
-    const initialized = localStorage.getItem(initKey);
+    const initKey = 'vm_live_initialized';
+    // Reste von Demo-Modus und Anmeldung (bis R2) einmal wegräumen
+    entferneAltlastenDemoUndAnmeldung();
 
-    if (isDemo) {
-      if (!initialized) {
-        // Load complete isolated Demo Sample Sandbox for TSV Musterstadt 1890 e.V.
-        await saveAllToStore(STORES.ACCOUNTS, INITIAL_ACCOUNTS);
-        await saveAllToStore(STORES.MEMBERS, INITIAL_MEMBERS);
-        await saveAllToStore(STORES.TRANSACTIONS, INITIAL_TRANSACTIONS);
-        await saveAllToStore(STORES.AUDIT_LOGS, INITIAL_AUDIT_LOGS);
-        await saveAllToStore(STORES.INVENTORY, INITIAL_INVENTORY);
-        await saveAllToStore(STORES.FOLDERS, getInitialFolders());
-        await saveAllToStore(STORES.DOCUMENTS, getInitialDocuments());
-        await saveAllToStore(STORES.DONATIONS, INITIAL_DONATIONS);
-        await saveAllToStore(STORES.CONTACTS, INITIAL_CONTACTS);
-        await saveAllToStore(STORES.CALENDAR_CATEGORIES, DEFAULT_CALENDAR_CATEGORIES);
-        await saveAllToStore(STORES.CALENDAR_EVENTS, INITIAL_CALENDAR_EVENTS);
-        await putItemToStore(STORES.SETTINGS, { id: 'main', ...DEFAULT_SETTINGS });
-        await this.syncReceiptsToDocuments();
-        await this.syncDonationsToDocuments();
-        localStorage.setItem(initKey, 'true');
-      } else {
-        const existingFolders = await getAllFromStore<DocumentFolder>(STORES.FOLDERS);
-        if (!existingFolders || existingFolders.length === 0) {
-          await saveAllToStore(STORES.FOLDERS, getInitialFolders());
-        }
-        await this.syncReceiptsToDocuments();
-        await this.syncDonationsToDocuments();
-      }
-    } else {
-      // LIVE Mode Initialization with STRICT ZERO-DATA-LOSS GUARANTEE
+    // LIVE Mode Initialization with STRICT ZERO-DATA-LOSS GUARANTEE
+    try {
+      // Grundausstattung (Konten, Ordner, Kategorien, Stammdaten) nur dort
+      // anlegen, wo noch nichts vorhanden ist
+      await this.legeGrundausstattungAn();
+
+      // SICHERHEIT: Bestehende Daten in STORES.MEMBERS, TRANSACTIONS, CONTACTS, INVOICES,
+      // MEETINGS, INVENTORY, DOCUMENTS, DONATIONS usw. werden NIEMALS mit [] überschrieben!
+      localStorage.setItem(initKey, 'true');
+
+      // 6. Automatischen Sicherheits-Snapshot im Hintergrund anstoßen
       try {
-        // Grundausstattung (Konten, Ordner, Kategorien, Stammdaten) nur dort
-        // anlegen, wo noch nichts vorhanden ist
-        await this.legeGrundausstattungAn();
-
-        // SICHERHEIT: Bestehende Daten in STORES.MEMBERS, TRANSACTIONS, CONTACTS, INVOICES,
-        // MEETINGS, INVENTORY, DOCUMENTS, DONATIONS usw. werden NIEMALS mit [] überschrieben!
-        localStorage.setItem(initKey, 'true');
-
-        // 6. Automatischen Sicherheits-Snapshot im Hintergrund anstoßen
-        try {
-          const { SnapshotService } = await import('./snapshotService');
-          await SnapshotService.createSnapshot('startup');
-        } catch (err) {
-          console.warn('Start-Snapshot konnte nicht angelegt werden:', err);
-        }
+        const { SnapshotService } = await import('./snapshotService');
+        await SnapshotService.createSnapshot('startup');
       } catch (err) {
-        console.warn('Initialisierung Live-DB:', err);
+        console.warn('Start-Snapshot konnte nicht angelegt werden:', err);
       }
+    } catch (err) {
+      console.warn('Initialisierung Live-DB:', err);
     }
   },
 
@@ -1320,49 +707,12 @@ export const StorageService = {
     // 5. Vereinsstammdaten nur initialisieren, falls keine vorhanden sind
     const currentSettings = await getItemFromStore<ClubSettings>(STORES.SETTINGS, 'main');
     if (!currentSettings) {
-      await putItemToStore(STORES.SETTINGS, {
-        id: 'main',
-        clubName: 'Mein Sportverein e.V.',
-        associationNumber: '',
-        taxNumber: '',
-        taxOffice: '',
-        taxExemptionDate: '',
-        taxAssessmentPeriod: '',
-        promotedPurposes: 'Förderung des Sports',
-        creditorId: '',
-        creditorIban: '',
-        creditorBic: '',
-        creditorAccountId: 'acc-main',
-        address: '',
-        chairman: '',
-        treasurer: '',
-        email: '',
-        departments: DEFAULT_DEPARTMENTS
-      });
+      await putItemToStore(STORES.SETTINGS, { id: 'main', ...neutraleEinstellungen() });
     }
   },
 
   /**
-   * Setzt die Demo-Sandbox vollständig auf Beispieldaten zurück
-   */
-  async resetDemoData(): Promise<void> {
-    if (!isDemoModeActive()) return;
-    await saveAllToStore(STORES.ACCOUNTS, INITIAL_ACCOUNTS);
-    await saveAllToStore(STORES.MEMBERS, INITIAL_MEMBERS);
-    await saveAllToStore(STORES.TRANSACTIONS, INITIAL_TRANSACTIONS);
-    await saveAllToStore(STORES.AUDIT_LOGS, INITIAL_AUDIT_LOGS);
-    await saveAllToStore(STORES.INVENTORY, INITIAL_INVENTORY);
-    await saveAllToStore(STORES.FOLDERS, getInitialFolders());
-    await saveAllToStore(STORES.DOCUMENTS, getInitialDocuments());
-    await saveAllToStore(STORES.DONATIONS, INITIAL_DONATIONS);
-    await saveAllToStore(STORES.CONTACTS, INITIAL_CONTACTS);
-    await putItemToStore(STORES.SETTINGS, { id: 'main', ...DEFAULT_SETTINGS });
-    await this.syncReceiptsToDocuments();
-    await this.syncDonationsToDocuments();
-  },
-
-  /**
-   * Richtet den Live-Verein bei einer Registrierung ein
+   * Legt den Verein im Einrichtungsfenster neu an (Name, Vorsitz, E-Mail).
    */
   async initLiveClub(clubName: string, chairmanName: string, email: string): Promise<void> {
     const current = await this.getSettings();
@@ -1388,7 +738,6 @@ export const StorageService = {
    * damit die nächste Prüfung wieder den schnellen, klaren Weg nimmt.
    */
   async brauchtEinrichtung(): Promise<boolean> {
-    if (isDemoModeActive()) return false;
     try {
       if (localStorage.getItem(EINGERICHTET_KEY) === 'true') return false;
     } catch {
@@ -1416,7 +765,7 @@ export const StorageService = {
     return getItemFromStore<Member>(STORES.MEMBERS, id);
   },
 
-  async saveMember(member: Member, author = 'Kassier / Administrator'): Promise<void> {
+  async saveMember(member: Member, author = BEARBEITER): Promise<void> {
     const existing = await getItemFromStore<Member>(STORES.MEMBERS, member.id);
     const now = new Date().toISOString();
     
@@ -1514,7 +863,7 @@ export const StorageService = {
     }
   },
 
-  async deleteMember(id: string, author = 'Kassier / Administrator'): Promise<void> {
+  async deleteMember(id: string, author = BEARBEITER): Promise<void> {
     const existing = await getItemFromStore<Member>(STORES.MEMBERS, id);
     if (existing) {
       const auditLog: MemberAuditLog = {
@@ -1533,7 +882,7 @@ export const StorageService = {
     await deleteItemFromStore(STORES.MEMBERS, id);
   },
 
-  async deleteMultipleMembers(ids: string[], author = 'Kassier / Administrator'): Promise<number> {
+  async deleteMultipleMembers(ids: string[], author = BEARBEITER): Promise<number> {
     const allMembers = await this.getMembers();
     const idSet = new Set(ids);
     const toDelete = allMembers.filter(m => idSet.has(m.id));
@@ -1561,7 +910,7 @@ export const StorageService = {
   async bulkUpdateMembers(
     ids: string[],
     updates: MemberBulkUpdates,
-    author = 'Kassier / Administrator'
+    author = BEARBEITER
   ): Promise<{ updatedCount: number; updatedMembers: Member[]; gesperrt: { name: string; felder: string[] }[] }> {
     const allMembers = await this.getMembers();
     const idSet = new Set(ids);
@@ -1759,7 +1108,7 @@ export const StorageService = {
     };
   },
 
-  async batchSaveMembers(members: Member[], author = 'Kassier (CSV Import)'): Promise<{ added: number; updated: number }> {
+  async batchSaveMembers(members: Member[], author = BEARBEITER): Promise<{ added: number; updated: number }> {
     const current = await this.getMembers();
     const map = new Map<string, Member>(current.map(m => [m.id, m]));
     let added = 0;
@@ -2142,7 +1491,7 @@ export const StorageService = {
     return all.filter(a => a.memberId === memberId);
   },
 
-  async saveMemberInventoryAssignment(assignment: MemberInventoryAssignment, author = 'Kassier / Administrator'): Promise<MemberInventoryAssignment> {
+  async saveMemberInventoryAssignment(assignment: MemberInventoryAssignment, author = BEARBEITER): Promise<MemberInventoryAssignment> {
     const now = new Date().toISOString();
     const existing = await getItemFromStore<MemberInventoryAssignment>(STORES.MEMBER_INVENTORY, assignment.id);
     const toSave: MemberInventoryAssignment = {
@@ -2157,7 +1506,7 @@ export const StorageService = {
     return toSave;
   },
 
-  async deleteMemberInventoryAssignment(id: string, author = 'Kassier / Administrator'): Promise<void> {
+  async deleteMemberInventoryAssignment(id: string, author = BEARBEITER): Promise<void> {
     const existing = await getItemFromStore<MemberInventoryAssignment>(STORES.MEMBER_INVENTORY, id);
     await deleteItemFromStore(STORES.MEMBER_INVENTORY, id);
     if (existing) await this.protokolliereMaterial(existing.memberId, materialEntfernt(existing), new Date().toISOString(), author);
@@ -2203,7 +1552,7 @@ export const StorageService = {
 
       return bereinigt as unknown as ClubSettings;
     }
-    return DEFAULT_SETTINGS;
+    return neutraleEinstellungen();
   },
 
   async saveSettings(settings: ClubSettings): Promise<void> {
@@ -2520,51 +1869,6 @@ export const StorageService = {
     return count;
   },
 
-  /**
-   * Synchronisiert Belege aus Transaktionen in die Dokumentenablage
-   */
-  async syncReceiptsToDocuments(): Promise<number> {
-    const [txs, docs] = await Promise.all([
-      this.getTransactions(),
-      this.getDocuments()
-    ]);
-    const docMap = new Map<string, ClubDocument>(docs.map(d => [d.id, d]));
-    let synced = 0;
-
-    for (const tx of txs) {
-      if (tx.receipt && tx.receipt.dataUrl) {
-        const docId = `doc-receipt-${tx.id}`;
-        if (!docMap.has(docId)) {
-          const doc: ClubDocument = {
-            id: docId,
-            title: `Beleg: ${tx.documentNumber} - ${tx.bookingText || tx.partner}`,
-            fileName: tx.receipt.name || `Beleg_${tx.documentNumber}.pdf`,
-            fileType: tx.receipt.type || 'application/pdf',
-            fileSize: tx.receipt.size || 0,
-            dataUrl: tx.receipt.dataUrl,
-            category: 'belege',
-            date: tx.date,
-            uploadDate: tx.receipt.uploadedAt || tx.createdAt || new Date().toISOString(),
-            tags: ['Beleg', tx.sphere, tx.category, tx.documentNumber].filter(Boolean),
-            notes: tx.notes || `Buchungsbeleg für ${tx.partner}`,
-            transactionId: tx.id,
-            transactionDocNumber: tx.documentNumber,
-            isReceipt: true,
-            createdAt: tx.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-          docMap.set(docId, doc);
-          synced++;
-        }
-      }
-    }
-
-    if (synced > 0) {
-      await saveAllToStore(STORES.DOCUMENTS, Array.from(docMap.values()));
-    }
-    return synced;
-  },
-
   // Spenden & Zuwendungsbestätigungen (BMF Muster)
   async getDonations(): Promise<DonationReceipt[]> {
     const donations = await getAllFromStore<DonationReceipt>(STORES.DONATIONS);
@@ -2686,10 +1990,6 @@ export const StorageService = {
   // ----------------------------------------------------
   async getContacts(): Promise<ClubContact[]> {
     const contacts = await getAllFromStore<ClubContact>(STORES.CONTACTS);
-    if (contacts.length === 0 && isDemoModeActive()) {
-      await saveAllToStore(STORES.CONTACTS, INITIAL_CONTACTS);
-      return [...INITIAL_CONTACTS];
-    }
     return contacts.sort((a, b) => (a.displayName || '').localeCompare(b.displayName || '', 'de'));
   },
 
@@ -2722,10 +2022,6 @@ export const StorageService = {
   // ----------------------------------------------------
   async getInvoices(): Promise<ClubInvoice[]> {
     const invoices = await getAllFromStore<ClubInvoice>(STORES.INVOICES);
-    if (invoices.length === 0 && isDemoModeActive()) {
-      await saveAllToStore(STORES.INVOICES, INITIAL_INVOICES);
-      return [...INITIAL_INVOICES];
-    }
     return invoices.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
   },
 
@@ -2858,10 +2154,6 @@ export const StorageService = {
   // ----------------------------------------------------
   async getMeetings(): Promise<Meeting[]> {
     const meetings = await getAllFromStore<Meeting>(STORES.MEETINGS);
-    if (meetings.length === 0 && isDemoModeActive()) {
-      await saveAllToStore(STORES.MEETINGS, INITIAL_MEETINGS);
-      return [...INITIAL_MEETINGS];
-    }
     return meetings.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
   },
 
@@ -2914,56 +2206,6 @@ export const StorageService = {
     return toSave;
   },
 
-  /**
-   * Synchronisiert alle Zuwendungsbestätigungen als PDF in die Dokumentenablage
-   */
-  async syncDonationsToDocuments(): Promise<number> {
-    const [donations, docs, settings] = await Promise.all([
-      this.getDonations(),
-      this.getDocuments(),
-      this.getSettings()
-    ]);
-    const docMap = new Map<string, ClubDocument>(docs.map(d => [d.id, d]));
-    let synced = 0;
-
-    for (const don of donations) {
-      const docId = don.documentId || `doc-don-${don.id}`;
-      if (!docMap.has(docId)) {
-        try {
-          const pdfDataUrl = getDonationPdfDataUrl(don, settings);
-          const isGoods = don.type === 'goods';
-          const doc: ClubDocument = {
-            id: docId,
-            title: `Zuwendungsbestätigung: ${don.receiptNumber} - ${don.donorName}`,
-            fileName: `Zuwendungsbestaetigung_${don.receiptNumber}_${don.donorName.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,
-            fileType: 'application/pdf',
-            fileSize: Math.round(pdfDataUrl.length * 0.75),
-            dataUrl: pdfDataUrl,
-            category: 'belege',
-            date: don.date,
-            uploadDate: don.createdAt || new Date().toISOString(),
-            tags: ['Spendenbescheinigung', 'Zuwendungsbestätigung', isGoods ? 'Sachzuwendung' : 'Geldzuwendung', don.receiptNumber, 'BMF-Muster'],
-            notes: `${isGoods ? 'Sachspende' : 'Geldspende'} über ${don.amount.toFixed(2)} € von ${don.donorName}. BMF-konformes amtliches Formular.`,
-            transactionId: don.transactionId,
-            memberId: don.memberId,
-            memberName: don.donorName,
-            isReceipt: true,
-            createdAt: don.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-          docMap.set(docId, doc);
-          synced++;
-        } catch (err) {
-          console.warn('Failed to generate donation document sync:', err);
-        }
-      }
-    }
-
-    if (synced > 0) {
-      await saveAllToStore(STORES.DOCUMENTS, Array.from(docMap.values()));
-    }
-    return synced;
-  },
 
   // =========================================================================
   // TERMIN- & VERANSTALTUNGSKALENDER
@@ -2971,10 +2213,6 @@ export const StorageService = {
 
   async getCalendarEvents(): Promise<CalendarEvent[]> {
     const events = await getAllFromStore<CalendarEvent>(STORES.CALENDAR_EVENTS);
-    if (events.length === 0 && isDemoModeActive()) {
-      await saveAllToStore(STORES.CALENDAR_EVENTS, INITIAL_CALENDAR_EVENTS);
-      return INITIAL_CALENDAR_EVENTS;
-    }
     return events;
   },
 
@@ -3465,7 +2703,7 @@ export const StorageService = {
           const zusammen = ergaenzeStammdaten(
             settingsBereinigt as Record<string, unknown>,
             vorhandene,
-            DEFAULT_SETTINGS as unknown as Record<string, unknown>
+            neutraleEinstellungen() as unknown as Record<string, unknown>
           );
           if (zusammen) await putItemToStore(STORES.SETTINGS, { ...zusammen, id: 'main' }, dbTarget);
         } else {
@@ -3473,11 +2711,9 @@ export const StorageService = {
         }
       }
 
-      // Das Gerätepasswort reist bewusst nicht mit einer Sicherung mit (siehe
-      // EINGERICHTET_KEY oben) — es sperrt dieses eine Gerät, nicht die
-      // importierten Vereinsdaten. Eine alte Sicherung kann noch `users`/
-      // `securitySettings`-Felder enthalten; die werden hier schlicht nicht
-      // mehr gelesen.
+      // Eine alte Sicherung kann noch `users`/`securitySettings`-Felder aus
+      // der Zeit der Anmeldung (bis R2) enthalten; die werden hier schlicht
+      // nicht gelesen.
       if (fehlgeschlagen.length > 0) {
         throw new Error(
           'Nicht alles konnte gespeichert werden: ' +
@@ -3564,9 +2800,8 @@ export const StorageService = {
    * stehen. Ein neu hinzukommender Datenbereich wird so automatisch mit
    * geleert.
    *
-   * Nicht gelöscht wird, was zum Gerät und nicht zum Verein gehört: das
-   * Gerätepasswort, die Farbwahl und die Einstellung zur automatischen
-   * Sperre.
+   * Nicht gelöscht wird, was zum Gerät und nicht zum Verein gehört, etwa
+   * die Farbwahl.
    */
   async leereAlleBereiche(): Promise<void> {
     const bereiche = Object.values(STORES);

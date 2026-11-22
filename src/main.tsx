@@ -6,7 +6,7 @@ import './index.css';
 import './fonts';
 import { applyCachedAppearance } from './utils/appearance';
 
-// Farbschema und Schrift sofort setzen, damit Anmeldebildschirm und Start nicht
+// Farbschema und Schrift sofort setzen, damit der Start nicht
 // erst in den Standardfarben aufblitzen.
 applyCachedAppearance();
 

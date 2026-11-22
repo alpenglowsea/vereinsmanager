@@ -8,10 +8,7 @@ import {
   ExternalLink,
   X,
   ShieldCheck,
-  Zap,
-  CheckCheck
 } from 'lucide-react';
-import { melde } from '../utils/dialoge';
 
 export const AppVersionBadge: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -24,12 +21,6 @@ export const AppVersionBadge: React.FC = () => {
       isUpdateAvailable: false
     };
   });
-
-  // Desktop In-App Updater State
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [updateProgress, setUpdateProgress] = useState(0);
-  const [updateStepText, setUpdateStepText] = useState('');
-  const [updateFinished, setUpdateFinished] = useState(false);
 
   const popoverRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -72,53 +63,17 @@ export const AppVersionBadge: React.FC = () => {
     }
   };
 
-  const handleToggleSimulateUpdate = () => {
-    const currentlySimulated = UpdateService.isUpdateSimulated();
-    UpdateService.setSimulateUpdate(!currentlySimulated);
-    fetchUpdateInfo();
-  };
-
-  // 1-Click Desktop In-App Auto-Update (Tauri)
-  const handleExecuteDesktopUpdate = async () => {
-    setIsUpdating(true);
-    setUpdateProgress(5);
-    setUpdateStepText('Starte Update-Prozess...');
-
-    const targetVer = updateInfo.latestVersion;
-    const res = await UpdateService.executeDesktopInAppUpdate((prog, text) => {
-      setUpdateProgress(prog);
-      setUpdateStepText(text);
-    }, targetVer);
-
-    if (res.success) {
-      UpdateService.setInstalledVersion(targetVer);
-      setUpdateInfo(prev => ({
-        ...prev,
-        currentVersion: targetVer,
-        isUpdateAvailable: false
-      }));
-      setUpdateFinished(true);
-      setTimeout(() => {
-        setIsUpdating(false);
-        setUpdateFinished(false);
-        setIsOpen(false);
-        fetchUpdateInfo();
-        window.location.reload();
-      }, 1500);
-    } else {
-      setIsUpdating(false);
-      void melde('Update-Fehler: ' + (res.error || 'Unbekannter Fehler'));
-    }
-  };
-
-  const handleAcknowledgeVersion = (ver: string) => {
-    UpdateService.setInstalledVersion(ver);
-    setUpdateInfo(prev => ({
-      ...prev,
-      currentVersion: ver,
-      isUpdateAvailable: false
-    }));
-  };
+  /**
+   * Neue Version: zur Download-Seite auf GitHub. Eine Installation aus der
+   * App heraus gibt es nicht; bis R2 wurde sie nur vorgetäuscht (siehe
+   * CHANGELOG). Für Windows der neueste Stand direkt.
+   */
+  const downloadAdresse =
+    (typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
+      ? updateInfo.downloadUrls?.windows
+      : undefined) ||
+    updateInfo.githubUrl ||
+    'https://github.com/alpenglowsea/vereinsmanager/releases/latest';
 
   return (
     <div className="relative w-full">
@@ -137,7 +92,7 @@ export const AppVersionBadge: React.FC = () => {
             ? 'bg-slate-800/90 text-amber-300 border-amber-500/40 hover:bg-slate-800 hover:border-amber-400'
             : 'bg-slate-800/60 text-slate-400 border-slate-700/50 hover:bg-slate-800 hover:text-slate-200'
         }`}
-        title="Klicken für Versionsinformationen & 1-Klick-Updates"
+        title="Klicken für Versionsinformationen und neue Versionen"
       >
         <div className="flex items-center gap-2 min-w-0">
           <div className="relative">
@@ -239,55 +194,28 @@ export const AppVersionBadge: React.FC = () => {
                     )}
                   </div>
 
-                  {/* 1-Click Update Action or Progress Bar */}
-                  {isUpdating ? (
-                    <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
-                      <div className="flex items-center justify-between text-2xs font-bold text-slate-700 dark:text-slate-300">
-                        <span className="flex items-center gap-1.5">
-                          <RefreshCw className="w-3 h-3 animate-spin text-blue-500" />
-                          <span>{updateStepText}</span>
-                        </span>
-                        <span>{updateProgress}%</span>
-                      </div>
-                      <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-blue-600 h-full rounded-full transition-all duration-300"
-                          style={{ width: `${updateProgress}%` }}
-                        />
-                      </div>
-                    </div>
-                  ) : updateFinished ? (
-                    <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 rounded-xl border border-emerald-200 dark:border-emerald-800 flex items-center gap-2 text-2xs font-bold">
-                      <CheckCheck className="w-4 h-4 text-emerald-500" />
-                      <span>Update erfolgreich! Starte neu...</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5">
-                      <button
-                        type="button"
-                        onClick={handleExecuteDesktopUpdate}
-                        className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-                      >
-                        <Zap className="w-3.5 h-3.5 fill-current" />
-                        <span>Update jetzt per 1-Klick installieren</span>
-                      </button>
-                      <div className="flex justify-center">
-                        <button
-                          type="button"
-                          onClick={() => handleAcknowledgeVersion(updateInfo.latestVersion)}
-                          className="text-[11px] text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer py-0.5 dark:text-slate-400"
-                          title="Falls Sie die neue Version manuell installiert haben"
-                        >
-                          Bereits manuell aktualisiert? Als v{updateInfo.latestVersion} übernehmen
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  {/* Ehrlich: herunterladen statt vorgetäuschter 1-Klick-Installation */}
+                  <div className="space-y-1.5">
+                    <a
+                      href={downloadAdresse}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-xs"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Neue Version herunterladen (GitHub)</span>
+                    </a>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                      Die App aktualisiert sich nicht selbst. Laden Sie das Installationsprogramm herunter und führen Sie es aus.
+                      Erstellen Sie vorher eine Datensicherung (Einstellungen → Datensicherung). Öffnet sich die Seite nicht,
+                      rufen Sie diese Adresse im Browser auf: <span className="font-mono break-all select-all">{downloadAdresse}</span>
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-2.5 text-2xs text-emerald-800 dark:text-emerald-200">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span>Ihre Desktop-App ist auf dem neuesten Stand. Alle Module sind aktuell.</span>
+                  <span>Keine neuere Version gefunden. (Ohne Internetverbindung lässt sich das nicht prüfen.)</span>
                 </div>
               )}
             </div>
@@ -305,16 +233,6 @@ export const AppVersionBadge: React.FC = () => {
               </button>
 
               <div className="flex items-center gap-2">
-                {/* Simulation button for demo & testing */}
-                <button
-                  type="button"
-                  onClick={handleToggleSimulateUpdate}
-                  className="text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 font-mono"
-                  title="Testen: Schaltet simuliertes Update für Demozwecke ein/aus"
-                >
-                  {UpdateService.isUpdateSimulated() ? '🔴 Demo-Update aktiv' : '🧪 Demo-Update testen'}
-                </button>
-
                 <a
                   href={updateInfo.githubUrl || 'https://github.com/alpenglowsea/vereinsmanager/releases'}
                   target="_blank"

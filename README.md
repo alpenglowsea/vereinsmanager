@@ -26,6 +26,7 @@
   - [Voraussetzungen](#voraussetzungen)
   - [Die Desktop-App nutzen (empfohlener Weg)](#die-desktop-app-nutzen-empfohlener-weg)
   - [Alternativ: Start aus dem Quellcode im Browser](#alternativ-start-aus-dem-quellcode-im-browser)
+  - [Ausprobieren mit dem Testverein](#ausprobieren-mit-dem-testverein)
 - [Datensicherheit, Revisionssicherheit & Backups](#-datensicherheit-revisionssicherheit--backups)
 - [Lizenz](#-lizenz)
 
@@ -346,9 +347,22 @@ Für die reine Entwicklung (Hot-Reload) steht außerdem `npm run dev` zur Verfü
 
 ---
 
+### Ausprobieren mit dem Testverein
+
+Im Ordner [`testdaten/`](testdaten/) liegt die Datei `Testverein.json`: ein erfundener Verein („TSV Testhausen 1921 e.V.“) mit Daten von 2022 bis November 2026 — 50 Mitglieder in drei Sparten, gut 600 Buchungen (Beiträge, Spenden, Rechnungen, Ausgaben, Umbuchungen), 20 Kontakte, je Jahr rund 50 Termine, 10 Sitzungen mit und ohne Beschlüsse, 15 Inventargegenstände und einige Belege und Dokumente.
+
+So geht's: Datei herunterladen, beim ersten Start „Vorhandene Daten importieren“ wählen und die Datei auswählen. Am Handy: **Einstellungen → Datensicherung → „Sicherung einspielen“**. Wer danach mit dem eigenen Verein beginnen möchte, löscht den Testbestand unter **Einstellungen → Datensicherung → „Alle lokalen Daten löschen“**.
+
+Alle Namen, Adressen und Bankverbindungen sind erfunden. Die IBANs haben eine gültige Prüfziffer, die Bankleitzahl gibt es aber nicht; E-Mail-Adressen enden auf `example.org` bzw. `.example`. Die Belege sind Platzhalter-PDFs.
+
+Die Datei wird von einem Programm erzeugt (`src/testdaten/testverein.ts`), immer gleich, mit denselben Funktionen, mit denen auch die App Beiträge, Spenden und Rechnungen verbucht. Nach Änderungen daran: `npm run testverein`. Ein Test meldet, wenn die Datei im Repository nicht mehr zum Programm passt.
+
+---
+
 ## 🔒 Datensicherheit, Revisionssicherheit & Backups
 
 * **Keine externen Tracking-Dienste:** Keine Cookies von Drittanbietern, keine Telemetrie-Tracker.
+* **Zugriffsschutz über das Gerät:** Die App hat keine eigene Anmeldung. Geschützt werden die Daten wie am Handy durch das Benutzerkonto des Rechners (Passwort, Sperrbildschirm) und am besten eine Festplattenverschlüsselung (Windows: BitLocker bzw. Geräteverschlüsselung, macOS: FileVault).
 * **1-Klick-Gesamt-Backup:**  
   Unter **Systemeinstellungen > Datensicherung & Import** kann zu jedem Zeitpunkt eine vollständige Sicherung der gesamten Vereinsdatenbank (Mitglieder, Buchungen, Belege, Rechnungen, Protokolle, Einstellungen) gespeichert und auf einem USB-Stick oder Netzlaufwerk archiviert werden. Vorgewählt ist das **Sicherungspaket (.zip)** wie in der Handy-App: `sicherung.json` mit den Daten, Belege, Dokumente und Fotos als einzelne Dateien; es lässt sich am Desktop und am Handy einspielen. Wahlweise weiterhin als einzelne JSON-Datei. Auf Wunsch mit Passwort verschlüsselt (Paket: WinZip-AES-256; JSON: AES-256-GCM, Schlüssel jeweils per PBKDF2); ohne das Passwort lässt sie sich nicht lesen — es gibt keine Wiederherstellung. Im verschlüsselten Paket bleiben die Dateinamen lesbar (ZIP-Format). Ohne Passwort ist die Sicherung für jeden lesbar, der sie öffnet.
 * **Wiederherstellung (Restore):**  

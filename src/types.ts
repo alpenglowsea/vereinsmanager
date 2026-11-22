@@ -450,26 +450,6 @@ export interface ClubDocument {
   updatedAt: string;
 }
 
-// Gerätesperre
-/**
- * Ein einziges, geräte-lokales Passwort sperrt die Anwendung — keine
- * einzelnen Benutzerkonten mehr, keine Bereichsrechte. Es schützt nur vor
- * einem zufälligen Blick an einem unbeaufsichtigten, entsperrten Rechner;
- * siehe src/services/authService.ts für das, was es NICHT leistet.
- */
-export interface DeviceAccount {
-  benutzername: string;
-  passwortPruefwert: string; // siehe src/services/passwordService.ts
-  erstelltAm: string;
-}
-
-export interface AuthSession {
-  isAuthenticated: boolean;
-  benutzername?: string;
-  loginMethod?: 'user' | 'demo';
-  loginTime?: string;
-}
-
 // Spenden & Zuwendungsbestätigungen (BMF Muster)
 export type DonationType = 'money' | 'goods';
 

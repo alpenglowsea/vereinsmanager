@@ -292,7 +292,7 @@ class MemberEditTest {
         val log = store.all("auditLogs").single()
         assertEquals("create", s(log, "action"))
         assertEquals("Neues Mitglied (M-0001) angelegt", s(log, "summary"))
-        assertEquals("Administrator", s(log, "author"))
+        assertEquals("Admin", s(log, "author"))
         assertEquals("Max Muster", s(log, "memberName"))
         assertEquals(0, (log["changes"] as JsonArray).size)
         assertEquals("2026-10-26T08:30:00.000Z", s(store.get("members", f.id)!!, "createdAt"))

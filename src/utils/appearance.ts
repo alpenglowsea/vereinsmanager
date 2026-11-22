@@ -4,7 +4,7 @@
  *
  * Beides gehört zum Verein (es steht in den Vereinsdaten und reist mit der
  * Datensicherung mit), wird aber zusätzlich auf dem Gerät zwischengespeichert:
- * Der Anmeldebildschirm und der Start erscheinen sonst kurz in den
+ * Der Start erscheint sonst kurz in den
  * Standardfarben, bevor die Vereinsdaten geladen sind.
  *
  * Gesetzt wird nur ein Merkmal am Wurzelelement (data-farbschema,

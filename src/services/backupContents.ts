@@ -84,8 +84,7 @@ export interface BereichDefinition {
   art: BereichsArt;
   /**
    * Der zugehörige Datenbereich in der Browser-Datenbank, oder null für
-   * Angaben, die woanders liegen (Benutzerkonten und Sicherheitseinstellungen
-   * verwaltet der Anmeldedienst im localStorage).
+   * Angaben, die woanders liegen.
    */
   store: StoreName | null;
 }
@@ -126,9 +125,6 @@ export const SICHERUNGS_BEREICHE = {
     store: STORES.CALENDAR_CATEGORIES
   },
   settings: { bezeichnung: 'Vereinsstammdaten', art: 'einzel', store: STORES.SETTINGS }
-  // Das Gerätepasswort gehört bewusst NICHT hierher: Es sperrt dieses eine
-  // Gerät, nicht die Vereinsdaten, und reist deshalb nicht mit einer
-  // Sicherung mit. Siehe src/services/authService.ts.
 } as const satisfies Record<string, BereichDefinition>;
 
 export type SicherungsSchluessel = keyof typeof SICHERUNGS_BEREICHE;
@@ -277,7 +273,8 @@ export function ergaenzeEinzelstueck<T>(ausDatei: T | null | undefined, vorhande
  * "nur Ergänzen" feldweise zusammen.
  *
  * Warum nicht einfach `ergaenzeEinzelstueck`? Auf einem frisch eingerichteten
- * Gerät liegen schon die Muster-Stammdaten ("TSV Musterstadt") in der
+ * Gerät liegen schon Grund-Stammdaten (seit R2 neutral: „Mein Sportverein
+ * e.V.“, sonst leer; vorher die Demo-Angaben „TSV Musterstadt“) in der
  * Datenbank. Als "vorhanden" gezählt, hätten sie die echten Angaben aus der
  * Datei verdrängt — Vorstand, VR-Nr. und Steuernummer wären verloren.
  *

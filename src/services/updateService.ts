@@ -2,15 +2,13 @@ import { AppUpdateInfo } from '../types';
 
 export const CURRENT_APP_VERSION = (import.meta as any).env?.VITE_APP_VERSION || '1.1.0';
 
-// Default release notes when a new version is detected or simulated
+// Ersatzangaben, wenn GitHub zu einer neuen Version keine Beschreibung liefert
 const MOCK_LATEST_RELEASE = {
   version: CURRENT_APP_VERSION,
-  title: `VereinsManager v${CURRENT_APP_VERSION} – Inventar-Mitgliederverknüpfung & flexible Kontenverwaltung`,
+  title: 'Neue Version des VereinsManagers',
   date: new Date().toISOString().split('T')[0],
-  notes: [
-    '📦 Verknüpfung von Inventar und Mitgliedern: Direkte Ausleihe und Rückgabe von Vereinsgegenständen an Mitglieder mit Statusprotokollierung',
-    '🏦 Selbständiges Hinzufügen von Konten: Flexible Anlage eigener Buchungs- und Sachkonten mit dynamischer Sphären- und Kategoriezuordnung'
-  ],
+  // Keine erfundenen Inhalte: was eine neue Version bringt, steht auf GitHub
+  notes: ['Die Änderungen stehen auf der GitHub-Seite der Version.'],
   githubUrl: 'https://github.com/alpenglowsea/vereinsmanager/releases',
   downloadUrls: {
     windows: 'https://github.com/alpenglowsea/vereinsmanager/releases/latest',
@@ -19,31 +17,13 @@ const MOCK_LATEST_RELEASE = {
   }
 };
 
-const STORAGE_KEY_SIMULATE_UPDATE = 'vereinsmanager_simulated_update_available';
-const STORAGE_KEY_INSTALLED_VERSION = 'vereinsmanager_installed_version';
+// Bis R2 merkte sich die App eine „installierte Version“ selbst (auch nach
+// einem nur vorgetäuschten Update). Der Schlüssel wird nicht mehr gelesen und
+// beim Start entfernt.
+const ALTER_SCHLUESSEL_VERSION = 'vereinsmanager_installed_version';
 const STORAGE_KEY_GITHUB_REPO = 'vm_github_repo';
 
 export class UpdateService {
-  /**
-   * Liest die installierte Version aus localStorage oder Tauri aus
-   */
-  static getInstalledVersion(): string | null {
-    try {
-      return localStorage.getItem(STORAGE_KEY_INSTALLED_VERSION);
-    } catch {
-      return null;
-    }
-  }
-
-  static setInstalledVersion(version: string) {
-    try {
-      const clean = version.replace(/^v/, '').trim();
-      localStorage.setItem(STORAGE_KEY_INSTALLED_VERSION, clean);
-    } catch (e) {
-      console.warn('Fehler beim Speichern der installierten Version:', e);
-    }
-  }
-
   static getGitHubRepo(): string {
     try {
       return localStorage.getItem(STORAGE_KEY_GITHUB_REPO)?.trim() || 'alpenglowsea/vereinsmanager';
@@ -65,25 +45,18 @@ export class UpdateService {
     }
   }
 
+  /**
+   * Die Version, die wirklich läuft: in der Desktop-App die des Programms
+   * (Tauri), sonst die beim Bauen eingetragene. Keine selbst gespeicherte
+   * Angabe mehr (R2): Die konnte nach einem nur vorgetäuschten Update eine
+   * Version anzeigen, die gar nicht installiert war.
+   */
   static async getCurrentVersion(): Promise<string> {
-    let activeVersion = CURRENT_APP_VERSION;
-
-    // 1. Manuell oder per Updater gespeicherte Version prüfen
     try {
-      const stored = this.getInstalledVersion();
-      if (stored) {
-        if (this.compareVersions(stored, activeVersion) >= 0) {
-          activeVersion = stored;
-        } else {
-          // Die Code-Version ist neuer als die im Storage gespeicherte -> aktualisieren
-          this.setInstalledVersion(activeVersion);
-        }
-      }
+      localStorage.removeItem(ALTER_SCHLUESSEL_VERSION);
     } catch {
-      // Gespeicherte Version nicht lesbar: mit der Code-Version weiterarbeiten.
+      // ohne localStorage nichts aufzuräumen
     }
-
-    // 2. Native Tauri Version prüfen (falls in Desktop-App)
     try {
       if (typeof window !== 'undefined') {
         const tauri = (window as any).__TAURI__;
@@ -94,55 +67,20 @@ export class UpdateService {
           try {
             v = await (window as any).__TAURI_INTERNALS__.invoke('plugin:app|version');
           } catch {
-            // Version nicht ermittelbar: naechste Quelle probieren.
+            // Version nicht ermittelbar: die beim Bauen eingetragene nehmen.
           }
         }
-
-        if (v) {
-          const cleanTauri = v.replace(/^v/, '').trim();
-          if (cleanTauri && this.compareVersions(cleanTauri, activeVersion) >= 0) {
-            activeVersion = cleanTauri;
-            this.setInstalledVersion(cleanTauri);
-          }
-        }
+        const sauber = v?.replace(/^v/, '').trim();
+        if (sauber) return sauber;
       }
     } catch {
-      // Version nicht ermittelbar: naechste Quelle probieren.
+      // Version nicht ermittelbar: die beim Bauen eingetragene nehmen.
     }
-
-    return activeVersion;
+    return CURRENT_APP_VERSION;
   }
 
   static getCurrentVersionSync(): string {
-    let activeVersion = CURRENT_APP_VERSION;
-    try {
-      const stored = this.getInstalledVersion();
-      if (stored && this.compareVersions(stored, activeVersion) >= 0) {
-        activeVersion = stored;
-      }
-    } catch {
-      // Version nicht ermittelbar: Vorgabewert verwenden.
-    }
-    return activeVersion;
-  }
-
-  /**
-   * Prüft, ob ein Update simuliert werden soll (für Demozwecke / Testen der 1-Klick-Aktualisierung)
-   */
-  static isUpdateSimulated(): boolean {
-    try {
-      return localStorage.getItem(STORAGE_KEY_SIMULATE_UPDATE) === 'true';
-    } catch {
-      return false;
-    }
-  }
-
-  static setSimulateUpdate(enable: boolean) {
-    try {
-      localStorage.setItem(STORAGE_KEY_SIMULATE_UPDATE, enable ? 'true' : 'false');
-    } catch (e) {
-      console.warn('Fehler beim Setzen des Simulationsmodus:', e);
-    }
+    return CURRENT_APP_VERSION;
   }
 
   /**
@@ -156,7 +94,6 @@ export class UpdateService {
    * Universelle Update-Prüfung für alle 3 Modi
    */
   static async checkForUpdates(): Promise<AppUpdateInfo> {
-    const isSimulated = this.isUpdateSimulated();
     const currentVer = await this.getCurrentVersion();
     const repo = this.getGitHubRepo();
 
@@ -272,7 +209,7 @@ export class UpdateService {
         return {
           currentVersion: currentVer,
           latestVersion: tag || currentVer,
-          isUpdateAvailable: isSimulated || isNewer,
+          isUpdateAvailable: isNewer,
           releaseTitle: data.name || `VereinsManager v${tag || currentVer}`,
           releaseDate: data.published_at ? data.published_at.split('T')[0] : MOCK_LATEST_RELEASE.date,
           releaseNotes: notes.length > 0 ? notes : MOCK_LATEST_RELEASE.notes,
@@ -290,7 +227,7 @@ export class UpdateService {
         return {
           currentVersion: currentVer,
           latestVersion: tagVersion,
-          isUpdateAvailable: isSimulated || isNewer,
+          isUpdateAvailable: isNewer,
           releaseTitle: `VereinsManager v${tagVersion}`,
           releaseDate: new Date().toISOString().split('T')[0],
           releaseNotes: [
@@ -305,11 +242,11 @@ export class UpdateService {
       console.warn('Update check failed:', err);
     }
 
-    // Fallback: Entweder simulierter oder Standard-Status
+    // Keine Auskunft von GitHub (offline o. Ä.): kein Update anzeigen
     return {
       currentVersion: currentVer,
-      latestVersion: isSimulated ? '1.3.0' : currentVer,
-      isUpdateAvailable: isSimulated,
+      latestVersion: currentVer,
+      isUpdateAvailable: false,
       releaseTitle: MOCK_LATEST_RELEASE.title,
       releaseDate: MOCK_LATEST_RELEASE.date,
       releaseNotes: MOCK_LATEST_RELEASE.notes,
@@ -332,71 +269,4 @@ export class UpdateService {
     }
     return 0;
   }
-
-  /**
-   * 1-Klick Tauri In-App Auto-Update für den Desktop-Modus
-   */
-  static async executeDesktopInAppUpdate(
-    onProgress: (progress: number, statusText: string) => void,
-    targetVersion?: string
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
-      // 0. Vor jedem Update automatisch einen unlöschbaren Sicherheits-Snapshot anlegen
-      onProgress(5, 'Erstelle Sicherheits-Snapshot der Datenbank...');
-      try {
-        const { SnapshotService } = await import('./snapshotService');
-        await SnapshotService.createSnapshot('pre_update', `Sicherheits-Backup vor Update auf ${targetVersion || 'neue Version'}`);
-      } catch (snapErr) {
-        console.warn('Pre-Update Snapshot konnte nicht erstellt werden:', snapErr);
-      }
-
-      // Wenn echtes Tauri vorhanden ist
-      if (this.isRunningInTauri()) {
-        try {
-          const tauriUpdater = (window as any).__TAURI__?.updater;
-          if (tauriUpdater && typeof tauriUpdater.installUpdate === 'function') {
-            onProgress(10, 'Prüfe Signatur des Update-Pakets...');
-            await tauriUpdater.checkUpdate();
-            onProgress(40, 'Lade Update-Paket im Hintergrund herunter...');
-            await tauriUpdater.installUpdate();
-            onProgress(90, 'Installiere neue Binärdateien...');
-            await new Promise(r => setTimeout(r, 600));
-            onProgress(100, 'Starte VereinsManager neu...');
-            if (targetVersion) {
-              this.setInstalledVersion(targetVersion);
-            }
-            tauriUpdater.relaunch();
-            return { success: true };
-          }
-        } catch (e: any) {
-          console.warn('Tauri native updater error, falling back to simulated updater:', e);
-        }
-      }
-
-      // Reibungsloser In-App Updater Ablauf
-      onProgress(15, 'Prüfe Signatur & SHA-256 Prüfsumme...');
-      await new Promise(r => setTimeout(r, 600));
-
-      onProgress(45, `Lade Release-Paket ${targetVersion ? 'v' + targetVersion : ''} herunter...`);
-      await new Promise(r => setTimeout(r, 900));
-
-      onProgress(80, 'Tausche Programmkomponenten im Hintergrund aus...');
-      await new Promise(r => setTimeout(r, 700));
-
-      onProgress(95, 'Schließe Installation ab & aktualisiere Cache...');
-      if (targetVersion) {
-        this.setInstalledVersion(targetVersion);
-      }
-      this.setSimulateUpdate(false);
-      await new Promise(r => setTimeout(r, 500));
-
-      onProgress(100, 'Update erfolgreich installiert! App startet neu...');
-      await new Promise(r => setTimeout(r, 800));
-
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Update-Vorgang fehlgeschlagen.' };
-    }
-  }
-
 }

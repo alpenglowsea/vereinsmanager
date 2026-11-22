@@ -299,9 +299,9 @@ object MemberDocument {
     }
 }
 
-/** Einträge des Änderungsprotokolls (Bereich "auditLogs"), Bearbeiter fest "Administrator" (Entscheidung 1). */
+/** Einträge des Änderungsprotokolls (Bereich "auditLogs"), Bearbeiter fest "Admin" (Entscheidung 1; seit R2 „Admin“ wie am Desktop). */
 object MemberAudit {
-    const val BEARBEITER = "Administrator"
+    const val BEARBEITER = "Admin"
 
     private val FELDER = listOf(
         "firstName" to "Vorname", "lastName" to "Nachname", "gender" to "Geschlecht", "birthDate" to "Geburtsdatum",
@@ -447,7 +447,7 @@ object MemberAudit {
         return eintrag(neu, now, "update", summary, changes)
     }
 
-    /** Ein einziger Sammeleintrag für einen CSV-Import (wie am Desktop; Bearbeiter "Administrator", Entscheidung 1). */
+    /** Ein einziger Sammeleintrag für einen CSV-Import (wie am Desktop; Bearbeiter "Admin", Entscheidung 1). */
     fun sammelImport(added: Int, updated: Int, now: ZonedDateTime = ZonedDateTime.now()): JsonObject = JsonObject(
         mapOf(
             "id" to JsonPrimitive(Zeit.logId(now)),
