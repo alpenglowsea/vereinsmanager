@@ -1092,12 +1092,13 @@ export function erzeugeTestverein(): TestvereinDatei {
     foto?: string;
     notiz?: string;
     seriennummer?: string;
+    ausgemustert?: string;
   }
   const artikel: ArtikelVorlage[] = [
     { name: 'Fußballtore 7,32 × 2,44 m (Alu)', art: 'sports_equipment', sparte: 'Fußball', menge: 2, einheit: 'Stk.', ort: 'Hauptplatz', zustand: 'good', kauf: '2019-04-10', preis: 1850, zeitwert: 1200, lieferant: SPORTHAUS, pruefung: ['2026-04-15', '2027-04-15'], foto: fotos.tor, notiz: 'Jährliche Kippsicherheitsprüfung' },
     { name: 'Spielbälle Größe 5', art: 'sports_equipment', sparte: 'Fußball', menge: 20, einheit: 'Stk.', ort: 'Geräteraum Platz', zustand: 'used', kauf: '2024-08-20', preis: 30, zeitwert: 15, lieferant: SPORTHAUS },
     { name: 'Trikotsatz 1. Herren (blau)', art: 'apparel', sparte: 'Fußball', menge: 18, einheit: 'Stk.', ort: 'Kabine 1', zustand: 'good', kauf: '2024-08-20', preis: 65, zeitwert: 50, lieferant: SPORTHAUS, foto: fotos.trikots },
-    { name: 'Trikotsatz 1. Herren (alt, 2016)', art: 'apparel', sparte: 'Fußball', menge: 16, einheit: 'Stk.', ort: 'Lager Vereinsheim', zustand: 'discarded', kauf: '2016-07-01', preis: 55, zeitwert: 0, lieferant: SPORTHAUS, foto: fotos.trikots, notiz: 'Ausgemustert nach Kauf des neuen Satzes; Spende an Partnerverein geplant.' },
+    { name: 'Trikotsatz 1. Herren (alt, 2016)', art: 'apparel', sparte: 'Fußball', menge: 16, einheit: 'Stk.', ort: 'Lager Vereinsheim', zustand: 'discarded', ausgemustert: '2024-09-01', kauf: '2016-07-01', preis: 55, zeitwert: 0, lieferant: SPORTHAUS, foto: fotos.trikots, notiz: 'Ausgemustert nach Kauf des neuen Satzes; Spende an Partnerverein geplant.' },
     { name: 'Tennisnetze', art: 'sports_equipment', sparte: 'Tennis', menge: 4, einheit: 'Stk.', ort: 'Tennisanlage', zustand: 'good', kauf: '2021-04-01', preis: 160, zeitwert: 90, lieferant: SPORTHAUS },
     { name: 'Ballwurfmaschine', art: 'electronics', sparte: 'Tennis', menge: 1, einheit: 'Stk.', ort: 'Tennisanlage, Hütte', zustand: 'in_repair', kauf: '2018-05-12', preis: 1290, zeitwert: 400, seriennummer: 'BWM-55021', notiz: 'Akku defekt, beim Händler zur Reparatur.' },
     { name: 'Leihschläger Tennis (Jugend)', art: 'accessories', sparte: 'Tennis', menge: 6, einheit: 'Stk.', ort: 'Tennisanlage, Hütte', zustand: 'used', kauf: '2022-04-20', preis: 45, zeitwert: 20, lieferant: SPORTHAUS },
@@ -1108,7 +1109,7 @@ export function erzeugeTestverein(): TestvereinDatei {
     { name: 'Bierzeltgarnituren', art: 'furniture', sparte: 'Gesamtverein', menge: 10, einheit: 'Set', ort: 'Lager Vereinsheim', zustand: 'used', kauf: '2015-06-01', preis: 120, zeitwert: 40 },
     { name: 'Musikanlage mit Funkmikrofon', art: 'electronics', sparte: 'Gesamtverein', menge: 1, einheit: 'Set', ort: 'Vereinsheim, Saal', zustand: 'good', kauf: '2021-11-11', preis: 780, zeitwert: 450, seriennummer: 'PA-3307' },
     { name: 'Aufsitzrasenmäher', art: 'facility', sparte: 'Fußball', menge: 1, einheit: 'Stk.', ort: 'Garage Sportplatz', zustand: 'good', kauf: '2023-04-03', preis: 3400, zeitwert: 2600, seriennummer: 'RM-88412', pruefung: ['2026-03-01', '2027-03-01'] },
-    { name: 'Rasenmäher (alt)', art: 'facility', sparte: 'Fußball', menge: 1, einheit: 'Stk.', ort: 'Garage Sportplatz', zustand: 'discarded', kauf: '2009-05-01', preis: 1100, zeitwert: 0, foto: fotos.rasenmaeher, notiz: 'Motorschaden 2023, ersetzt durch Aufsitzrasenmäher. Wartet auf Abholung durch Wertstoffhof.' }
+    { name: 'Rasenmäher (alt)', art: 'facility', sparte: 'Fußball', menge: 1, einheit: 'Stk.', ort: 'Garage Sportplatz', zustand: 'discarded', ausgemustert: '2023-04-03', kauf: '2009-05-01', preis: 1100, zeitwert: 0, foto: fotos.rasenmaeher, notiz: 'Motorschaden 2023, ersetzt durch Aufsitzrasenmäher. Wartet auf Abholung durch Wertstoffhof.' }
   ];
   const inventory: InventoryItem[] = artikel.map((a, i) => ({
     id: `inv-item-${zwei(i + 1)}`,
@@ -1128,9 +1129,10 @@ export function erzeugeTestverein(): TestvereinDatei {
     ...(a.seriennummer ? { serialNumber: a.seriennummer } : {}),
     ...(a.notiz ? { notes: a.notiz } : {}),
     ...(a.foto ? { photoUrl: a.foto } : {}),
+    ...(a.ausgemustert ? { retiredAt: a.ausgemustert } : {}),
     ...(a.pruefung ? { lastCheckedDate: a.pruefung[0], nextInspectionDate: a.pruefung[1] } : {}),
     createdAt: zeitstempel(a.kauf < '2022-01-01' ? '2022-01-01' : a.kauf),
-    updatedAt: zeitstempel(a.kauf < '2022-01-01' ? '2022-01-01' : a.kauf)
+    updatedAt: zeitstempel(a.ausgemustert ?? (a.kauf < '2022-01-01' ? '2022-01-01' : a.kauf))
   }));
 
   const trikotsatz = inventory[2];

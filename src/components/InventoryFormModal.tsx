@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { keepUnknownFields } from '../utils/keepUnknownFields';
-import { FOTO_MAX_PIXEL, FOTO_MAX_ZEICHEN, betragText, leseInventarBetrag, pruefeArtikel } from '../utils/inventarRegeln';
+import { FOTO_MAX_PIXEL, FOTO_MAX_ZEICHEN, ausmusterungsDatum, betragText, leseInventarBetrag, pruefeArtikel } from '../utils/inventarRegeln';
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 import { InventoryItem, InventoryCategory, ItemCondition } from '../types';
 import { INVENTORY_CATEGORIES, CONDITION_OPTIONS, INVENTORY_UNITS } from '../data/inventoryCategories';
 import {
@@ -91,6 +92,8 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
   const [unit, setUnit] = useState<string>('Stk.');
   const [location, setLocation] = useState('');
   const [condition, setCondition] = useState<ItemCondition>('good');
+  // „Ausgemustert am“ (R4): nur bei Zustand „Ausgemustert“ sichtbar
+  const [retiredAt, setRetiredAt] = useState('');
   const [purchaseDate, setPurchaseDate] = useState('');
   const [purchasePrice, setPurchasePrice] = useState<string>('');
   const [currentValue, setCurrentValue] = useState<string>('');
@@ -123,6 +126,7 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
       setUnit(item.unit || 'Stk.');
       setLocation(item.location || '');
       setCondition(item.condition || 'good');
+      setRetiredAt(item.retiredAt || '');
       setPurchaseDate(item.purchaseDate || '');
       // Beträge in deutscher Schreibweise anzeigen („1.234,50“)
       setPurchasePrice(betragText(item.purchasePrice));
@@ -179,7 +183,9 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
         kaufdatum: purchaseDate,
         letztePruefung: lastCheckedDate,
         naechstePruefung: nextInspectionDate,
-        foto
+        foto,
+        ausgemustertAm: retiredAt,
+        heute: lokalesHeute()
       },
       existingItems
     );
@@ -212,6 +218,7 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
       serialNumber: serialNumber.trim() || undefined,
       notes: notes.trim() || undefined,
       photoUrl: foto || undefined,
+      retiredAt: ausmusterungsDatum(item, condition, retiredAt, lokalesHeute()),
       lastCheckedDate: lastCheckedDate || undefined,
       nextInspectionDate: nextInspectionDate || undefined,
       createdAt: item ? item.createdAt : new Date().toISOString(),
@@ -433,7 +440,12 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
                   </label>
                   <select
                     value={condition}
-                    onChange={(e) => setCondition(e.target.value as ItemCondition)}
+                    onChange={(e) => {
+                      const neu = e.target.value as ItemCondition;
+                      setCondition(neu);
+                      // Beim Ausmustern heute vorschlagen; ein schon eingetragenes Datum bleibt
+                      if (neu === 'discarded' && !retiredAt) setRetiredAt(item?.condition === 'discarded' && item.retiredAt ? item.retiredAt : lokalesHeute());
+                    }}
                     className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium dark:border-slate-700 dark:bg-slate-800"
                   >
                     {CONDITION_OPTIONS.map(c => (
@@ -442,6 +454,25 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
                   </select>
                 </div>
               </div>
+
+              {condition === 'discarded' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 dark:text-slate-200">Ausgemustert am</label>
+                    <input
+                      type="date"
+                      value={retiredAt}
+                      onChange={(e) => {
+                        setRetiredAt(e.target.value);
+                        setFehler(f => ({ ...f, ausgemustertAm: '' }));
+                      }}
+                      className={`w-full px-3.5 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 ${fehler.ausgemustertAm ? 'border-rose-400' : 'border-slate-300 dark:border-slate-700'}`}
+                    />
+                    {fehler.ausgemustertAm && <p className="text-[11px] font-semibold text-rose-600 mt-1">{fehler.ausgemustertAm}</p>}
+                    <p className="text-[11px] text-slate-400 mt-1">Leer = heute. Bestimmt, in welches Jahresarchiv das Foto gehört.</p>
+                  </div>
+                </div>
+              )}
 
               {/* Foto (D-105): verkleinert wie am Handy, im Gegenstand gespeichert */}
               <div>

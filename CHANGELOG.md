@@ -176,6 +176,30 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Runde 2, R4a — Jahresarchiv: Grundlagen
+
+- **„Ausgemustert am“** an Desktop und Handy (`inventory[].retiredAt`). Wird
+  beim Ausmustern auf heute gesetzt und lässt sich ändern; ein vorhandenes
+  Datum bleibt beim erneuten Speichern; wer den Gegenstand wieder in Gebrauch
+  nimmt, verliert das Datum. Gleiche Regel in der Sammelbearbeitung. Geprüft:
+  gültiges Datum, nicht in der Zukunft, nicht vor dem Kaufdatum. Anzeige in
+  der Detailansicht. Der Testverein hat die Daten bei seinen zwei
+  ausgemusterten Gegenständen (2023, 2024).
+- **Rechenkern des Jahresarchivs** am Desktop (`src/services/jahresarchiv.ts`,
+  14 Tests mit dem Testverein): welche Dateien eines Jahres ins Archiv gehören
+  (Belege, Rechnungs- und Spenden-PDFs, Fotos ausgemusterter Gegenstände),
+  ab welchem Jahr archiviert werden darf (Vorvorjahr) und wie lange
+  aufzubewahren ist; Archiv schreiben (ZIP wie das Sicherungspaket, auf Wunsch
+  mit Passwort, dazu `archiv.json` mit SHA-256 je Datei und ein
+  `Inhaltsverzeichnis.csv`); zurücklesen und prüfen; Dateien aus dem Bestand
+  nehmen und vermerken (nur, wenn die Datei unverändert ist); einzelne Datei
+  anzeigen; ganzes Jahr zurückholen. Noch ohne Bedienung (R4b).
+- `utils/sha256.ts` rechnet jetzt auch Prüfsummen von Dateien
+  (`sha256HexBytes`, gegen Node geprüft).
+- **Format:** `BACKUP_FORMAT.md`, neuer Abschnitt 9 (Archivdatei, Vermerk
+  `archiv`/`photoArchiv` im Bestand, Regeln). Die Sicherung behält ihre
+  Version; die neuen Felder sind freiwillig.
+
 ### Runde 2, R3 — Fenster in der Größe veränderbar
 
 - **Ziehen an Kanten und Ecken** ändert die Größe der Fenster zum Bearbeiten

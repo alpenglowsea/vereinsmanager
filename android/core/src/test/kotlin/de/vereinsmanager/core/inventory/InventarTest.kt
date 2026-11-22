@@ -186,4 +186,31 @@ class InventarTest {
         assertNull(p.zeilen.last().getOrNull(9))
         assertFalse(Inventar.WERT_HINWEIS.isEmpty())
     }
+
+    @Test fun ausgemustertAmWieAmDesktop() {
+        // Ausmustern ohne Datum: heute; mit Datum: dieses
+        val s = store(form("Mäher", "A", ArtikelForm(zustand = "discarded")), form("Netz", "B", ArtikelForm(zustand = "discarded", ausgemustertAm = "2024-05-05")))
+        val (maeher, netz) = Inventar.alle(s).sortedBy { it.nummer }
+        assertEquals("2026-11-12", maeher.ausgemustertAm)
+        assertEquals("2024-05-05", netz.ausgemustertAm)
+        // Unverändert gespeichert: das Datum bleibt; zurück in Gebrauch: es verschwindet
+        Inventar.speichern(s, ArtikelForm.von(netz).copy(ausgemustertAm = ""), jetzt)
+        assertEquals("2024-05-05", Inventar.artikel(s, netz.id)!!.ausgemustertAm)
+        Inventar.speichern(s, ArtikelForm.von(netz).copy(zustand = "used"), jetzt)
+        assertFalse(Inventar.artikel(s, netz.id)!!.raw.containsKey("retiredAt"))
+        // Sammelbearbeitung setzt und entfernt es ebenso
+        Inventar.sammelAendern(s, listOf(netz.id), SammelAenderung(zustand = "discarded"), jetzt)
+        assertEquals("2026-11-12", Inventar.artikel(s, netz.id)!!.ausgemustertAm)
+        Inventar.sammelAendern(s, listOf(maeher.id), SammelAenderung(zustand = "good"), jetzt)
+        assertFalse(Inventar.artikel(s, maeher.id)!!.raw.containsKey("retiredAt"))
+    }
+
+    @Test fun ausgemustertAmWirdGeprueft() {
+        val f = ArtikelForm(name = "Alt", nummer = "X", zustand = "discarded", kaufdatum = "2020-01-01")
+        assertEquals("Das Datum liegt in der Zukunft.", Inventar.pruefen(f.copy(ausgemustertAm = "2026-11-13"), emptyList(), heute)["ausgemustertAm"])
+        assertEquals("Ausgemustert vor dem Kaufdatum?", Inventar.pruefen(f.copy(ausgemustertAm = "2019-12-31"), emptyList(), heute)["ausgemustertAm"])
+        assertEquals("Datum ist ungültig.", Inventar.pruefen(f.copy(ausgemustertAm = "2026-13-01"), emptyList(), heute)["ausgemustertAm"])
+        assertTrue(Inventar.pruefen(f.copy(ausgemustertAm = "2024-06-30"), emptyList(), heute).isEmpty())
+        assertTrue(Inventar.pruefen(f.copy(zustand = "used", ausgemustertAm = "quatsch"), emptyList(), heute).isEmpty())
+    }
 }

@@ -45,6 +45,8 @@ data class Artikel(
     val foto: String,
     val letztePruefung: String,
     val naechstePruefung: String,
+    /** „Ausgemustert am“ (JJJJ-MM-TT), Feld `retiredAt`; nur bei Zustand „discarded“ (R4, wie Desktop). */
+    val ausgemustertAm: String = "",
 ) {
     val ausgemustert get() = zustand == "discarded"
 
@@ -68,6 +70,7 @@ data class Artikel(
                 zeitwert = z(o, "currentValue"), lieferant = t(o, "supplier"), zustaendig = t(o, "responsiblePerson"),
                 einsatz = t(o, "assignedTo"), seriennummer = t(o, "serialNumber"), notizen = t(o, "notes"), foto = t(o, "photoUrl"),
                 letztePruefung = t(o, "lastCheckedDate"), naechstePruefung = t(o, "nextInspectionDate"),
+                ausgemustertAm = t(o, "retiredAt"),
             )
         }
     }
@@ -96,12 +99,14 @@ data class ArtikelForm(
     val notizen: String = "",
     /** Foto als Data-URL (JPEG), leer = keines. */
     val foto: String = "",
+    /** „Ausgemustert am“; nur bei Zustand „discarded“ beachtet. Leer = heute bzw. bisheriges Datum. */
+    val ausgemustertAm: String = "",
 ) {
     companion object {
         fun von(a: Artikel) = ArtikelForm(
             a.id, a.art, a.name, a.nummer, a.menge.toString(), a.einheit, a.zustand, a.sparte, a.standort, a.zustaendig, a.einsatz,
             a.seriennummer, a.kaufdatum, a.kaufpreis?.let { BuchungRegeln.betragText(it) } ?: "", a.zeitwert?.let { BuchungRegeln.betragText(it) } ?: "",
-            a.lieferant, a.letztePruefung, a.naechstePruefung, a.notizen, a.foto,
+            a.lieferant, a.letztePruefung, a.naechstePruefung, a.notizen, a.foto, a.ausgemustertAm,
         )
     }
 }
@@ -184,7 +189,19 @@ object Inventar {
 
     private fun datumOk(s: String) = s.isEmpty() || runCatching { LocalDate.parse(s) }.isSuccess
 
-    fun pruefen(f: ArtikelForm, vorhandene: List<Artikel>): Map<String, String> {
+    /**
+     * „Ausgemustert am“ (R4, gleiche Regel wie Desktop `ausmusterungsDatum`): nicht ausgemustert → kein Datum;
+     * eingegebenes Datum gilt; sonst bleibt ein vorhandenes Datum eines schon ausgemusterten Gegenstands; sonst heute.
+     * Das Datum bestimmt, in welches Jahresarchiv ein Foto des Gegenstands gehört.
+     */
+    fun ausgemustertAm(altZustand: String?, altDatum: String?, neuerZustand: String, eingabe: String, heute: LocalDate): String? {
+        if (neuerZustand != "discarded") return null
+        eingabe.trim().takeIf { it.isNotEmpty() }?.let { return it }
+        if (altZustand == "discarded" && !altDatum.isNullOrBlank()) return altDatum
+        return heute.toString()
+    }
+
+    fun pruefen(f: ArtikelForm, vorhandene: List<Artikel>, heute: LocalDate = LocalDate.now()): Map<String, String> {
         val e = LinkedHashMap<String, String>()
         if (f.name.isBlank()) e["name"] = "Bitte eine Bezeichnung eingeben."
         val n = f.nummer.trim()
@@ -200,6 +217,16 @@ object Inventar {
         if (f.art !in ARTEN) e["art"] = "Bitte eine Art wählen."
         if (f.zustand !in ZUSTAENDE) e["zustand"] = "Bitte einen Zustand wählen."
         if (f.foto.isNotEmpty() && (!f.foto.startsWith("data:image/") || f.foto.length > FOTO_MAX_ZEICHEN)) e["foto"] = "Das Foto ist ungültig oder zu groß."
+        val am = f.ausgemustertAm.trim()
+        if (f.zustand == "discarded" && am.isNotEmpty()) {
+            val d = runCatching { LocalDate.parse(am) }.getOrNull()
+            val kauf = runCatching { LocalDate.parse(f.kaufdatum.trim()) }.getOrNull()
+            when {
+                d == null -> e["ausgemustertAm"] = "Datum ist ungültig."
+                d.isAfter(heute) -> e["ausgemustertAm"] = "Das Datum liegt in der Zukunft."
+                kauf != null && d.isBefore(kauf) -> e["ausgemustertAm"] = "Ausgemustert vor dem Kaufdatum?"
+            }
+        }
         return e
     }
 
@@ -217,7 +244,7 @@ object Inventar {
 
     /** Prüft und speichert; unbekannte Felder des bisherigen Dokuments bleiben erhalten. */
     fun speichern(store: DocumentStore, f: ArtikelForm, now: ZonedDateTime = ZonedDateTime.now()): JsonObject = store.transaction {
-        val fehler = pruefen(f, alle(store))
+        val fehler = pruefen(f, alle(store), now.toLocalDate())
         require(fehler.isEmpty()) { fehler.values.first() }
         val base = f.id?.let { store.get(AREA, it) }
         require(f.id == null || base != null) { "Den Gegenstand gibt es nicht mehr." }
@@ -233,6 +260,8 @@ object Inventar {
         m["unit"] = JsonPrimitive(f.einheit.ifBlank { "Stk." })
         m["location"] = JsonPrimitive(f.standort.trim())
         m["condition"] = JsonPrimitive(f.zustand)
+        ausgemustertAm(base?.let { t(it, "condition") }, base?.let { t(it, "retiredAt") }, f.zustand, f.ausgemustertAm, now.toLocalDate())
+            ?.let { m["retiredAt"] = JsonPrimitive(it) } ?: m.remove("retiredAt")
         setzen(m, "purchaseDate", f.kaufdatum)
         BuchungRegeln.parseBetrag(f.kaufpreis)?.let { m["purchasePrice"] = zahl(it) } ?: m.remove("purchasePrice")
         BuchungRegeln.parseBetrag(f.zeitwert)?.let { m["currentValue"] = zahl(it) } ?: m.remove("currentValue")
@@ -296,7 +325,11 @@ object Inventar {
             val m = LinkedHashMap<String, JsonElement>(b)
             a.sparte?.let { m["department"] = JsonPrimitive(it.trim()) }
             a.art?.let { m["category"] = JsonPrimitive(it) }
-            a.zustand?.let { m["condition"] = JsonPrimitive(it) }
+            a.zustand?.let {
+                m["condition"] = JsonPrimitive(it)
+                ausgemustertAm(t(b, "condition"), t(b, "retiredAt"), it, "", now.toLocalDate())
+                    ?.let { d -> m["retiredAt"] = JsonPrimitive(d) } ?: m.remove("retiredAt")
+            }
             a.standort?.let { m["location"] = JsonPrimitive(it.trim()) }
             a.zustaendig?.let { setzen(m, "responsiblePerson", it) }
             a.einsatz?.let { setzen(m, "assignedTo", it) }

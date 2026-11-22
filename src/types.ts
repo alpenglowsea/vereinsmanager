@@ -155,8 +155,34 @@ export interface ReceiptAttachment {
   name: string;
   type: string; // e.g. 'application/pdf' | 'image/jpeg' | 'image/png'
   size: number;
-  dataUrl: string; // Base64 data URL stored locally
+  dataUrl: string; // Base64 data URL stored locally; leer, wenn der Beleg im Jahresarchiv liegt
   uploadedAt: string;
+  /** Liegt die Datei im Jahresarchiv, steht hier, wo (R4). */
+  archiv?: ArchivVermerk;
+}
+
+/**
+ * Vermerk an einem Eintrag, dessen Datei in ein Jahresarchiv ausgelagert
+ * wurde (R4, BACKUP_FORMAT.md Abschnitt 9). Die Datei selbst ist dann nicht
+ * mehr im Bestand; mit dem Archiv lässt sie sich anzeigen oder zurückholen.
+ */
+export interface ArchivVermerk {
+  /** Jahr des Archivs */
+  jahr: number;
+  /** Kennung des Archivs (steht auch in dessen archiv.json) */
+  kennung: string;
+  /** Vorgeschlagener Name der Archivdatei, zur Anzeige */
+  datei: string;
+  /** Pfad der Datei im Archiv */
+  pfad: string;
+  /** Prüfsumme der Datei (SHA-256, hexadezimal) */
+  sha256: string;
+  /** Größe in Bytes */
+  groesse: number;
+  /** Dateityp (MIME) */
+  typ: string;
+  /** Zeitpunkt der Auslagerung (ISO) */
+  archiviertAm: string;
 }
 
 export interface Skr42SubCategory {
@@ -382,6 +408,10 @@ export interface InventoryItem {
   serialNumber?: string; // Seriennummer / Inventarnummer
   notes?: string;
   photoUrl?: string; // Optionales Foto des Gegenstands
+  /** Tag der Ausmusterung (JJJJ-MM-TT), nur bei Zustand „discarded“ (R4; Android: gleiches Feld). */
+  retiredAt?: string;
+  /** Liegt das Foto im Jahresarchiv, steht hier, wo (R4); `photoUrl` fehlt dann. */
+  photoArchiv?: ArchivVermerk;
   lastCheckedDate?: string; // Datum der letzten Inventur / Prüfung
   nextInspectionDate?: string; // Nächste Prüfung (z.B. TÜV Sportgeräte)
   createdAt: string;
@@ -434,7 +464,9 @@ export interface ClubDocument {
   fileName: string;
   fileType: string; // MIME type or extension (e.g. 'application/pdf', 'image/jpeg', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
   fileSize: number; // in Bytes
-  dataUrl: string; // Base64 data URL
+  dataUrl: string; // Base64 data URL; leer, wenn die Datei im Jahresarchiv liegt
+  /** Liegt die Datei im Jahresarchiv, steht hier, wo (R4). */
+  archiv?: ArchivVermerk;
   category: DocumentCategory;
   folderId?: string | null; // ID des zugeordneten Ordners / Unterordners
   date: string; // YYYY-MM-DD (Dokumentendatum)

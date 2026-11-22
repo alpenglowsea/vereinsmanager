@@ -367,6 +367,7 @@ fun InventarDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDele
             zeile("Art", Inventar.ARTEN[a.art] ?: a.art)
             zeile("Sparte", a.sparte)
             zeile("Zustand", Inventar.ZUSTAENDE[a.zustand] ?: a.zustand)
+            if (a.ausgemustert) zeile("Ausgemustert am", if (a.ausgemustertAm.isNotEmpty()) deDate(a.ausgemustertAm) else "")
             zeile("Seriennummer", a.seriennummer)
             zeile("Lieferant / Hersteller", a.lieferant)
         }
@@ -464,7 +465,7 @@ private val INVENTAR_SCHRITTE = listOf("Grunddaten", "Foto und Ort", "Wert und P
 
 /** In welchem Schritt eine Fehlermeldung steht (Schlüssel der Prüfung aus dem Kern). */
 private fun inventarFehlerSchritt(schluessel: String): Int = when (schluessel) {
-    "name", "nummer", "menge", "art", "zustand" -> 0
+    "name", "nummer", "menge", "art", "zustand", "ausgemustertAm" -> 0
     "foto" -> 1
     else -> 2
 }
@@ -507,7 +508,17 @@ fun InventarFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifie
                         Column(Modifier.weight(1f)) { Feld("Menge *", f.menge, { f = f.copy(menge = it) }, pruef["menge"], keyboard = KeyboardType.Number) }
                         Column(Modifier.weight(1f)) { Auswahl("Einheit", einheiten, f.einheit) { f = f.copy(einheit = it) } }
                     }
-                    Auswahl("Zustand", Inventar.ZUSTAENDE, f.zustand) { f = f.copy(zustand = it) }
+                    Auswahl("Zustand", Inventar.ZUSTAENDE, f.zustand) { z ->
+                        // Beim Ausmustern heute vorschlagen; ein schon eingetragenes Datum bleibt (R4)
+                        val am = if (z == "discarded" && f.ausgemustertAm.isBlank())
+                            vorhanden?.takeIf { it.ausgemustert && it.ausgemustertAm.isNotBlank() }?.ausgemustertAm ?: LocalDate.now().toString()
+                        else f.ausgemustertAm
+                        f = f.copy(zustand = z, ausgemustertAm = am)
+                    }
+                    if (f.zustand == "discarded") {
+                        DatumFeld("Ausgemustert am", f.ausgemustertAm, pruef["ausgemustertAm"], optional = true) { f = f.copy(ausgemustertAm = it) }
+                        Text("Leer = heute. Bestimmt, in welches Jahresarchiv das Foto gehört.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
+                    }
                 }
                 1 -> {
                     Text("Foto", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, color = sc.primary)

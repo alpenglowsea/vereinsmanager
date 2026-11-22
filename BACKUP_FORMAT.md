@@ -373,3 +373,97 @@ zu einer PDF (längere Seite höchstens 1600 Pixel, JPEG-Qualität 75, eine Seit
 - Lesen von AES-ZIP: erledigt (eigener Code, keine Bibliothek). Schreiben: erledigt (P30 Teil 2), am Handy eingespielt mit und ohne Passwort (21.11.2026).
 - Umstellung von `Transaction.receipt` / `ClubDocument.dataUrl` auf Dateiverweise und Migration beim ersten Start.
 - Gemeinsame Gegenprobe: erledigt. Android → Desktop am 16.11.2026, Desktop → Android am 21.11.2026, jeweils mit und ohne Passwort.
+
+## 9. Jahresarchiv (Format 1.0.0) – Stand 22.11.2026
+
+**Status:** Am Desktop ist der Rechenkern umgesetzt und getestet (`src/services/jahresarchiv.ts`, R4a): auswählen, schreiben,
+zurücklesen, prüfen, auslagern, einzeln anzeigen, zurückholen. Die Bedienung am Desktop folgt in R4b, Android in R4c.
+
+**Wozu:** Belege, Rechnungs- und Spenden-PDFs sowie Fotos ausgemusterter Gegenstände eines abgeschlossenen Jahres
+wandern aus dem Bestand in eine eigene Datei. Die Einträge selbst (Buchung, Rechnung, Spende, Gegenstand) bleiben
+vollständig im Bestand und auswertbar; an ihnen steht nur ein **Vermerk**, wo die Datei liegt. Die Sicherung wird dadurch
+dauerhaft kleiner.
+
+### Was ins Archiv eines Jahres gehört
+
+| Art (`art`) | Stelle im Bestand | Jahr nach |
+| --- | --- | --- |
+| `beleg` | `transactions[].receipt` und das Dokument `doc-receipt-<Buchung>`; sonstige Dokumente mit `isReceipt: true` oder `category: "belege"` | Buchungsdatum; ohne Buchung Dokumentdatum `date` |
+| `rechnung` | Dokument einer Rechnung (`invoices[].documentId` bzw. `doc-inv-<Rechnung>`) | Rechnungsdatum |
+| `spende` | Dokument einer Zuwendungsbestätigung (`donations[].documentId` bzw. `doc-don-<Spende>`) | Tag der Zuwendung (`date`) |
+| `inventarfoto` | `inventory[].photoUrl` eines Gegenstands mit `condition: "discarded"` | `retiredAt`, sonst Datum von `updatedAt` |
+
+Nicht ins Archiv: andere Dokumente (Satzung, Verträge, Protokolle), Mitgliederfotos, Unterschriften, Logo, Briefpapier.
+Archiviert werden darf frühestens das **Vorvorjahr** (Entscheidung 22.11.2026); das Vorjahr wird mit Begründung abgelehnt.
+
+### Neues Feld „Ausgemustert am“
+
+`inventory[].retiredAt` (JJJJ-MM-TT, freiwillig). Gesetzt nur bei `condition: "discarded"`: beim Ausmustern das eingegebene
+Datum, sonst heute; ein schon vorhandenes Datum bleibt beim erneuten Speichern. Wechselt der Zustand weg von „discarded“,
+wird das Feld entfernt. Gleiche Regel an beiden Fassungen (Desktop `ausmusterungsDatum`, Android `Inventar.ausgemustertAm`),
+auch in der Sammelbearbeitung.
+
+### Aufbau der Archivdatei
+
+Eine ZIP-Datei wie das Sicherungspaket (Abschnitt 8: UTF-8-Namen, Deflate, Größen im lokalen Kopf, auf Wunsch AES-256
+nach WinZip AE-2; Dateinamen sind auch dann nicht verschlüsselt). Name vorgeschlagen `VereinsManager_Archiv_<Verein>_<Jahr>.zip`.
+
+```
+archiv.json                         (erster Eintrag)
+Inhaltsverzeichnis.csv              (für Menschen: Excel, Kassenprüfer, Finanzamt)
+dokumente/Buchhaltungsbelege & Finanzen/Belege 2024/<Datei>
+dokumente/Buchhaltungsbelege & Finanzen/Belege 2024/Ausgangsrechnungen/<Datei>
+inventar-fotos/<Gegenstand>.png
+```
+
+Pfade und Dateinamen entstehen nach denselben Regeln wie im Sicherungspaket (Ordnerpfade aus `folders[]`, Belegnamen, gleiche
+Inhalte nur einmal). Ein Beleg, der an der Buchung und als Dokument hängt, steht deshalb einmal im Archiv.
+
+**`archiv.json`:**
+
+| Feld | Inhalt |
+| --- | --- |
+| `format` | immer `"VereinsManager-Jahresarchiv"` |
+| `version` | `"1.0.0"`; Leser akzeptieren `1.x` |
+| `kennung` | eindeutige Kennung dieses Archivs (zufällig beim Erstellen) |
+| `verein`, `jahr`, `erstelltAm` | Vereinsname, Jahr, Zeitpunkt (ISO) |
+| `aufbewahrung[]` | je enthaltener Art: `art`, `bezeichnung`, `jahre` (null = keine Pflicht), `bis` (JJJJ-MM-TT oder null), `grundlage` |
+| `dateien[]` | `pfad`, `sha256` (hexadezimal, klein), `groesse` (Bytes), `typ` (MIME) |
+| `eintraege[]` | `art`, `bereich` (`transactions`/`documents`/`inventory`), `id`, `pfad`, `datum`, freiwillig `belegnummer`, `betrag`, dazu `bezeichnung` |
+
+**Fristen** (Anzeige, keine Rechtsberatung): Buchungsbelege und ausgestellte Rechnungen 8 Jahre (§ 147 Abs. 3 AO bzw.
+§ 14b UStG in der Fassung ab 2025), Doppel der Zuwendungsbestätigungen vorsichtshalber 10 Jahre (§ 50 Abs. 7 EStDV nennt
+keine eigene Frist), Inventarfotos keine Pflicht. Die Frist beginnt mit dem Ende des Kalenderjahres: Belege 2024 bis
+31.12.2032.
+
+**`Inhaltsverzeichnis.csv`:** UTF-8 mit BOM, Trennzeichen `;`, Zeilenende CRLF. Spalten: Art, Datum (TT.MM.JJJJ),
+Belegnummer, Betrag (EUR, Komma), Bezeichnung, Datei im Archiv, SHA-256. Ein Beleg an Buchung und Dokument steht einmal.
+
+### Vermerk im Bestand
+
+Nach dem Auslagern trägt der Eintrag statt der Datei einen Vermerk:
+
+| Stelle | Datei vorher | danach |
+| --- | --- | --- |
+| `documents[]` | `dataUrl` | `dataUrl: ""` und `archiv: {…}` |
+| `transactions[].receipt` | `receipt.dataUrl` | `receipt.dataUrl: ""` und `receipt.archiv: {…}` |
+| `inventory[]` | `photoUrl` | `photoUrl` entfällt, `photoArchiv: {…}` |
+
+Vermerk: `{ jahr, kennung, datei, pfad, sha256, groesse, typ, archiviertAm }` – `kennung` und `pfad` finden die Datei im
+Archiv, `sha256` prüft sie, `datei` ist der vorgeschlagene Name (nur zur Anzeige; der Anwender darf die Datei umbenennen).
+
+**In der Sicherung** reist der Vermerk unverändert mit (JSON 1.2.3 wie oben; im Paket 1.3.0 steht für solche Einträge
+kein `file`, der Vermerk bleibt). Damit zeigen beide Fassungen nach dem Einspielen „im Jahresarchiv 2024“. Ältere
+Programmstände, die den Vermerk nicht kennen, sehen nur einen Eintrag ohne Datei. **Android** muss die Felder `archiv` und
+`photoArchiv` beim Einspielen, Bearbeiten und Sichern unverändert behalten (R4c).
+
+### Regeln beim Auslagern und Zurückholen
+
+1. Erst das Archiv schreiben, dann die **gespeicherte** Datei erneut einlesen und jede Datei gegen `sha256` und `groesse`
+   prüfen. Erst danach wird im Bestand etwas entfernt.
+2. Entfernt wird eine Datei nur, wenn sie im Bestand noch genau die im Archiv ist (gleiche Prüfsumme). Wurde sie
+   inzwischen ersetzt, bleibt sie und wird gemeldet.
+3. Anzeigen einer einzelnen Datei und Zurückholen eines Jahres prüfen `kennung` und `sha256`; ein anderes Archiv oder eine
+   veränderte Datei wird abgelehnt.
+4. Die App löscht nie Textdaten und nie eine Archivdatei. Vernichten darf der Verein das Archiv nach Ablauf der Fristen
+   selbst.

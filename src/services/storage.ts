@@ -1465,7 +1465,7 @@ export const StorageService = {
     if (problem) throw new Error(problem);
     for (const item of allItems) {
       if (!idSet.has(item.id)) continue;
-      const copy = wendeInventarSammelAn(item, updates, now);
+      const copy = wendeInventarSammelAn(item, updates, now, lokalesHeute());
       if (copy) {
         await putItemToStore(STORES.INVENTORY, copy);
         updatedList.push(copy);

@@ -164,6 +164,7 @@ export const InventoryDetailsModal: React.FC<InventoryDetailsModalProps> = ({
                 <Angabe label="Anschaffungspreis (je Stück)" wert={typeof a.purchasePrice === 'number' ? euro(a.purchasePrice) : ''} />
                 <Angabe label="Zeitwert (je Stück)" wert={typeof a.currentValue === 'number' ? euro(a.currentValue) : ''} />
                 <Angabe label="Anschaffungsdatum" wert={a.purchaseDate ? deutsch(a.purchaseDate) : ''} />
+                {a.condition === 'discarded' && <Angabe label="Ausgemustert am" wert={a.retiredAt ? deutsch(a.retiredAt) : ''} />}
                 <div title={WERT_HINWEIS}>
                   <span className="text-slate-500 block dark:text-slate-400">Wert gesamt:</span>
                   <span className="font-bold text-emerald-700 dark:text-emerald-300">

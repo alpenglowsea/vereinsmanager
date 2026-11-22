@@ -65,6 +65,7 @@ describe('Testverein: Umfang', () => {
     expect(d.documents.some(x => x.isReceipt && x.date < '2023-01-01')).toBe(true);
     expect(d.documents.some(x => x.id.startsWith('doc-inv-') && x.date < '2024-01-01')).toBe(true);
     expect(d.inventory.some(a => a.condition === 'discarded' && a.photoUrl)).toBe(true);
+    expect(d.inventory.filter(a => a.condition === 'discarded').every(a => a.retiredAt)).toBe(true);
   });
 
   it('hat nach dem Stichtag keine Buchungen', () => {
@@ -251,7 +252,9 @@ describe('Testverein: besteht die Prüfungen der Eingabemasken', () => {
           kaufdatum: a.purchaseDate ?? '',
           letztePruefung: a.lastCheckedDate ?? '',
           naechstePruefung: a.nextInspectionDate ?? '',
-          foto: a.photoUrl ?? ''
+          foto: a.photoUrl ?? '',
+          ausgemustertAm: a.retiredAt ?? '',
+          heute: TESTVEREIN_STAND
         },
         d.inventory
       );

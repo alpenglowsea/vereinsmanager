@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { InventoryItem, MemberInventoryAssignment } from '../types';
 import {
   ausgebbar,
+  ausmusterungsDatum,
   ausgabenVon,
   ausgegeben,
   geprueftAm,
@@ -89,6 +90,35 @@ describe('Sammelbearbeitung (D-103)', () => {
     expect(pruefeSammel({})).toMatch(/mindestens/);
     expect(pruefeSammel({ notesValue: '' })).toMatch(/Notiz/);
     expect(pruefeSammel({ assignedTo: '' })).toBeNull();
+  });
+});
+
+describe('Ausgemustert am (R4)', () => {
+  it('heute beim Ausmustern, eingegebenes Datum gilt, vorhandenes bleibt, sonst entfernt', () => {
+    expect(ausmusterungsDatum(artikel(), 'discarded', '', '2026-11-22')).toBe('2026-11-22');
+    expect(ausmusterungsDatum(artikel(), 'discarded', '2025-03-01', '2026-11-22')).toBe('2025-03-01');
+    expect(ausmusterungsDatum(artikel({ condition: 'discarded', retiredAt: '2024-05-05' }), 'discarded', '', '2026-11-22')).toBe('2024-05-05');
+    expect(ausmusterungsDatum(artikel({ condition: 'discarded', retiredAt: '2024-05-05' }), 'used', '2024-05-05', '2026-11-22')).toBeUndefined();
+    expect(ausmusterungsDatum(null, 'discarded', undefined, '2026-11-22')).toBe('2026-11-22');
+  });
+
+  it('Prüfung: gültig, nicht in der Zukunft, nicht vor dem Kauf; ohne Ausmusterung egal', () => {
+    const f = { ...eingabe, zustand: 'discarded', kaufdatum: '2020-01-01', heute: '2026-11-22' };
+    expect(pruefeArtikel({ ...f, ausgemustertAm: '2026-11-23' }, []).ausgemustertAm).toMatch(/Zukunft/);
+    expect(pruefeArtikel({ ...f, ausgemustertAm: '2019-12-31' }, []).ausgemustertAm).toMatch(/Kaufdatum/);
+    expect(pruefeArtikel({ ...f, ausgemustertAm: '2026-13-01' }, []).ausgemustertAm).toMatch(/ungültig/);
+    expect(pruefeArtikel({ ...f, ausgemustertAm: '2024-06-30' }, [])).toEqual({});
+    expect(pruefeArtikel({ ...f, ausgemustertAm: '' }, [])).toEqual({});
+    expect(pruefeArtikel({ ...f, zustand: 'used', ausgemustertAm: 'quatsch' }, [])).toEqual({});
+  });
+
+  it('Sammelbearbeitung setzt und entfernt das Datum mit dem Zustand', () => {
+    const n = wendeSammelAn(artikel(), { condition: 'discarded' }, '2026-11-22T10:00:00.000Z', '2026-11-22')!;
+    expect([n.condition, n.retiredAt]).toEqual(['discarded', '2026-11-22']);
+    const alt = artikel({ condition: 'discarded', retiredAt: '2023-02-02' });
+    expect(wendeSammelAn(alt, { condition: 'discarded' }, 'jetzt', '2026-11-22')).toBeNull();
+    const zurueck = wendeSammelAn(alt, { condition: 'used' }, 'jetzt', '2026-11-22')!;
+    expect('retiredAt' in zurueck).toBe(false);
   });
 });
 

@@ -27,6 +27,27 @@ const zahlOderNull = (v: unknown): number | null => (typeof v === 'number' && Nu
 const cent = (v: number) => Math.round(v * 100);
 
 export const ausgemustert = (a: Pick<InventoryItem, 'condition'>) => a.condition === 'discarded';
+
+/**
+ * „Ausgemustert am“ (R4, gleiche Regel wie Android `Inventar.ausgemustertAm`):
+ * - nicht ausgemustert → kein Datum (ein früheres wird entfernt);
+ * - eingegebenes Datum gilt;
+ * - sonst bleibt ein schon vorhandenes Datum eines bereits ausgemusterten Gegenstands;
+ * - sonst heute (der Gegenstand wird gerade ausgemustert).
+ * Das Datum bestimmt, in welches Jahresarchiv ein Foto des Gegenstands gehört.
+ */
+export function ausmusterungsDatum(
+  alt: Pick<InventoryItem, 'condition' | 'retiredAt'> | null | undefined,
+  neuerZustand: string,
+  eingabe: string | undefined,
+  heute: string
+): string | undefined {
+  if (neuerZustand !== 'discarded') return undefined;
+  const e = (eingabe ?? '').trim();
+  if (e) return e;
+  if (alt?.condition === 'discarded' && alt.retiredAt) return alt.retiredAt;
+  return heute;
+}
 export const menge = (a: Pick<InventoryItem, 'quantity'>) => Math.max(1, Math.floor(Number(a.quantity) || 1));
 
 /** Wert je Stück: Zeitwert, sonst Anschaffungspreis. Ein Zeitwert von 0 € ist ein Wert und gilt nicht als „fehlt“. */
@@ -68,6 +89,10 @@ export interface ArtikelEingabe {
   letztePruefung: string;
   naechstePruefung: string;
   foto: string;
+  /** „Ausgemustert am“; nur geprüft, wenn der Zustand „Ausgemustert“ ist. */
+  ausgemustertAm?: string;
+  /** Heutiges Datum (JJJJ-MM-TT) für die Prüfung „nicht in der Zukunft“. */
+  heute?: string;
 }
 
 /** Fehlertexte je Feld (wie Android `Inventar.pruefen`). */
@@ -90,6 +115,12 @@ export function pruefeArtikel(f: ArtikelEingabe, vorhandene: Pick<InventoryItem,
   if (!ARTEN.has(f.art)) e.art = 'Bitte eine Art wählen.';
   if (!ZUSTAENDE.has(f.zustand)) e.zustand = 'Bitte einen Zustand wählen.';
   if (f.foto && (!f.foto.startsWith('data:image/') || f.foto.length > FOTO_MAX_ZEICHEN)) e.foto = 'Das Foto ist ungültig oder zu groß.';
+  const am = (f.ausgemustertAm ?? '').trim();
+  if (f.zustand === 'discarded' && am) {
+    if (!istDatum(am)) e.ausgemustertAm = 'Datum ist ungültig.';
+    else if (f.heute && am > f.heute) e.ausgemustertAm = 'Das Datum liegt in der Zukunft.';
+    else if (istDatum(f.kaufdatum) && am < f.kaufdatum) e.ausgemustertAm = 'Ausgemustert vor dem Kaufdatum?';
+  }
   return e;
 }
 
@@ -196,7 +227,7 @@ export function pruefeSammelFeld(u: InventoryBulkUpdates): { feld: string; text:
 export const pruefeSammel = (u: InventoryBulkUpdates): string | null => pruefeSammelFeld(u)?.text ?? null;
 
 /** Wendet die Sammeländerung auf einen Gegenstand an; null, wenn sich nichts ändert. */
-export function wendeSammelAn(item: InventoryItem, u: InventoryBulkUpdates, jetzt: string): InventoryItem | null {
+export function wendeSammelAn(item: InventoryItem, u: InventoryBulkUpdates, jetzt: string, heute: string = jetzt.slice(0, 10)): InventoryItem | null {
   const neu: InventoryItem = { ...item };
   const setze = <K extends keyof InventoryItem>(k: K, v: string | undefined) => {
     if (v === undefined) return;
@@ -206,7 +237,12 @@ export function wendeSammelAn(item: InventoryItem, u: InventoryBulkUpdates, jetz
   };
   if (u.department !== undefined) neu.department = u.department.trim();
   if (u.category !== undefined) neu.category = u.category;
-  if (u.condition !== undefined) neu.condition = u.condition;
+  if (u.condition !== undefined) {
+    neu.condition = u.condition;
+    const am = ausmusterungsDatum(item, u.condition, undefined, heute);
+    if (am) neu.retiredAt = am;
+    else delete neu.retiredAt;
+  }
   if (u.location !== undefined) neu.location = u.location.trim();
   // Angehakt + leer = Feld leeren (vorher wurden Zuständig und Standort dann still übergangen)
   setze('responsiblePerson', u.responsiblePerson);

@@ -22,7 +22,14 @@ const K = new Uint32Array([
 const rotr = (x: number, n: number) => (x >>> n) | (x << (32 - n));
 
 export function sha256Hex(text: string): string {
-  const daten = new TextEncoder().encode(text);
+  return sha256HexBytes(new TextEncoder().encode(text));
+}
+
+/**
+ * SHA-256 beliebiger Bytes, z. B. einer Belegdatei im Jahresarchiv (R4).
+ * Ergebnis gleich wie `sha256sum` bzw. Java `MessageDigest("SHA-256")`.
+ */
+export function sha256HexBytes(daten: Uint8Array): string {
   const bitLaenge = daten.length * 8;
   // Auffüllen: 0x80, Nullen, dann die Länge in Bit als 64-Bit-Zahl
   const gesamt = Math.ceil((daten.length + 9) / 64) * 64;
