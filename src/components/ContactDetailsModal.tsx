@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { bestaetige } from '../utils/dialoge';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface ContactDetailsModalProps {
   contact: ClubContact | null;
   transactions: Transaction[];
@@ -50,7 +51,7 @@ export const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div
+      <VeraenderbaresFenster kennung="kontakt-details"
         className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl my-8 overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150 dark:bg-slate-900 dark:border-slate-800"
         role="dialog"
         aria-modal="true"
@@ -465,7 +466,7 @@ export const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
             Schließen
           </button>
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

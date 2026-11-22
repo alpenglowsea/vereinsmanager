@@ -14,6 +14,7 @@ import { Member, InventoryItem, MemberInventoryAssignment, ClubSettings } from '
 import { ExportService } from '../services/exportService';
 import { bestaetige } from '../utils/dialoge';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface IssuedInventoryModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -118,7 +119,7 @@ export const IssuedInventoryModal: React.FC<IssuedInventoryModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="ausgegebenes-material" minHoehe={400} className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden dark:bg-slate-900 dark:border-slate-800">
         
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70 dark:border-slate-800 dark:bg-slate-800/70">
@@ -365,7 +366,7 @@ export const IssuedInventoryModal: React.FC<IssuedInventoryModalProps> = ({
           </button>
         </div>
 
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

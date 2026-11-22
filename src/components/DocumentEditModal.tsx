@@ -8,6 +8,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface DocumentEditModalProps {
   // Nicht optional: Der Elternteil rendert diesen Dialog nur, wenn ein
   // Dokument ausgewählt ist. Damit entfällt ein früher Ausstieg, der
@@ -92,7 +93,7 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
 
   return (
     <div id="document-edit-modal-backdrop" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-xs p-3 md:p-6 animate-in fade-in duration-150">
-      <div id="document-edit-modal-container" className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="dokument-bearbeiten" id="document-edit-modal-container" className="bg-white rounded-2xl shadow-2xl w-full flex flex-col max-h-[92vh] max-w-lg overflow-hidden border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
@@ -114,7 +115,7 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSave} className="p-6 space-y-4 text-xs">
+        <form onSubmit={handleSave} className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4 text-xs">
           {errorMsg && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 flex items-center gap-2 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-300">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -320,7 +321,7 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
             </button>
           </div>
         </form>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

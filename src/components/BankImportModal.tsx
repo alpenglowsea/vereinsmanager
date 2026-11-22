@@ -16,6 +16,7 @@ import {
 import { melde } from '../utils/dialoge';
 import { leseImportDatei, XLSX_ACCEPT } from '../utils/importDatei';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface BankImportModalProps {
   accounts: FinancialAccount[];
   /** Vorhandene Buchungen, damit die Belegnummern (BK-…) fortgezählt werden. */
@@ -137,7 +138,7 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden border border-slate-200 my-6 max-h-[90vh] dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="bank-import" className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden border border-slate-200 my-6 max-h-[90vh] dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
@@ -404,7 +405,7 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
             </button>
           </div>
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

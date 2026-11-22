@@ -24,6 +24,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface InventoryBulkEditModalProps {
   selectedItems: InventoryItem[];
   departments: string[];
@@ -136,7 +137,7 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-8 dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="inventar-sammel" className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150 my-8 dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/80 dark:border-slate-800 dark:bg-slate-800/80">
           <div className="flex items-center gap-3">
@@ -194,7 +195,7 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[60vh] group-data-[hoehe=fest]/fenster:max-h-none flex-1 min-h-0 overflow-y-auto">
           {/* Info Banner */}
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-100">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 dark:text-amber-400" />
@@ -607,7 +608,7 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
             </button>
           </div>
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

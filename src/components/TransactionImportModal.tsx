@@ -35,6 +35,7 @@ import { saveBlobAs } from '../utils/fileExportHelper';
 import { melde } from '../utils/dialoge';
 import { leseImportDatei, XLSX_ACCEPT } from '../utils/importDatei';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface TransactionImportModalProps {
   existingTransactions: Transaction[];
   accounts: FinancialAccount[];
@@ -316,7 +317,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl flex flex-col overflow-hidden border border-slate-200 my-6 max-h-[92vh] dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="buchungen-import" className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl flex flex-col overflow-hidden border border-slate-200 my-6 max-h-[92vh] dark:bg-slate-900 dark:border-slate-800">
         
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
@@ -1385,7 +1386,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
           </div>
         </div>
 
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

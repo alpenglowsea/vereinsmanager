@@ -45,6 +45,7 @@ import {
 import { ReceiptCameraScannerModal } from './ReceiptCameraScannerModal';
 import { keepUnknownFields } from '../utils/keepUnknownFields';
 import { melde } from '../utils/dialoge';
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 
 interface TransactionFormModalProps {
   transaction: Transaction | null;
@@ -499,7 +500,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden border border-slate-200 my-8 dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="buchung" className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden border border-slate-200 my-8 dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
@@ -525,8 +526,8 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1">
-          <div className="p-6 max-h-[65vh] overflow-y-auto space-y-5">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="p-6 max-h-[65vh] group-data-[hoehe=fest]/fenster:max-h-none flex-1 min-h-0 overflow-y-auto space-y-5">
             {/* 1. Transaction Type Toggle (Einnahme vs Ausgabe vs Umbuchung) */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5 dark:text-slate-200">
@@ -1190,7 +1191,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
             </div>
           </div>
         </form>
-      </div>
+      </VeraenderbaresFenster>
 
       {/* Camera Scanner Modal for Receipt Digitization */}
       {scannerOpen && (

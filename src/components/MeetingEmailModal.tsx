@@ -15,6 +15,7 @@ import { MeetingPdfService, Briefpapier } from '../services/meetingPdfService';
 import { savePdfAs } from '../utils/fileExportHelper';
 import { einladungFehlt, mailBetreff, mailText } from '../utils/sitzungRegeln';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface MeetingEmailModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -212,7 +213,7 @@ export const MeetingEmailModal: React.FC<MeetingEmailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="sitzung-mail" className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] dark:bg-slate-900 dark:border-slate-800">
         
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between dark:border-slate-800 dark:bg-slate-800">
@@ -420,7 +421,7 @@ export const MeetingEmailModal: React.FC<MeetingEmailModalProps> = ({
           </div>
         </div>
 
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

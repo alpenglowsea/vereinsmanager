@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { melde } from '../utils/dialoge';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface AccountManageModalProps {
   accounts: FinancialAccount[];
   /** Alle Buchungen; damit erkennt das Fenster, ob an einem Konto Buchungen hängen. */
@@ -122,7 +123,7 @@ export const AccountManageModal: React.FC<AccountManageModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden border border-slate-200 my-8 dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="konten" className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden border border-slate-200 my-8 dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
@@ -148,7 +149,7 @@ export const AccountManageModal: React.FC<AccountManageModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="p-6 overflow-y-auto space-y-6 max-h-[65vh]">
+        <div className="p-6 overflow-y-auto space-y-6 max-h-[65vh] group-data-[hoehe=fest]/fenster:max-h-none flex-1 min-h-0">
           {/* Rückfrage vor dem Löschen eines Kontos */}
           {loeschen && (
             <div className="p-4 rounded-xl border border-rose-200 bg-rose-50 space-y-3 dark:border-rose-800/60 dark:bg-rose-950/40">
@@ -420,7 +421,7 @@ export const AccountManageModal: React.FC<AccountManageModalProps> = ({
             Fertig
           </button>
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

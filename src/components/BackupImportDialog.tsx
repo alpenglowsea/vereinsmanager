@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, AlertTriangle, ShieldCheck, FileJson, Layers, RefreshCw } from 'lucide-react';
 import { BereichsVergleich, ImportArt, SicherungsKopf } from '../services/backupContents';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 /**
  * Bestätigung vor dem Einspielen einer Datensicherung.
  * ---------------------------------------------------------------------------
@@ -75,7 +76,7 @@ export const BackupImportDialog: React.FC<BackupImportDialogProps> = ({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-3xl w-full shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col max-h-[92vh]">
+      <VeraenderbaresFenster kennung="sicherung-einspielen" className="bg-white dark:bg-slate-900 rounded-2xl max-w-3xl w-full shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Kopf */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -316,7 +317,7 @@ export const BackupImportDialog: React.FC<BackupImportDialogProps> = ({
                 : 'Fehlendes ergänzen'}
           </button>
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

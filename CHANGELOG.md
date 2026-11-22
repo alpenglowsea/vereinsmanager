@@ -176,6 +176,38 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Runde 2, R3 — Fenster in der Größe veränderbar
+
+- **Ziehen an Kanten und Ecken** ändert die Größe der Fenster zum Bearbeiten
+  und Ansehen (45 Fenster in 43 Dateien). Neuer Baustein
+  `src/components/VeraenderbaresFenster.tsx`, Rechenregeln in
+  `src/utils/fenstergroesse.ts` (15 Tests). Mittig stehende Fenster wachsen
+  nach beiden Seiten; die gezogene Kante bleibt unter der Maus. Die
+  Mitglied-Detailansicht (Seitenleiste rechts) lässt sich nur an der linken
+  Kante ziehen.
+- **Größe je Fensterart gemerkt**, nur auf diesem Gerät (Browserspeicher,
+  `vm_fenstergroessen_v1`), nicht in der Datensicherung.
+- **Kleineres Programmfenster:** Die gemerkte Größe wird beim Öffnen und bei
+  jeder Größenänderung des Programmfensters auf den vorhandenen Platz
+  begrenzt. Kopfzeile und Knöpfe bleiben sichtbar, der Inhalt rollt. Wird
+  das Programmfenster wieder groß, kommt die gemerkte Größe zurück.
+  Unlesbare gespeicherte Werte werden übergangen.
+- **Doppelklick auf die Kopfzeile** stellt die Ausgangsgröße wieder her.
+- Mindestgröße 360 × 240 Bildpunkte; „Startseite anpassen“ 440 und
+  „Ausgegebenes Material“ 400 Bildpunkte hoch, weil dort mehrere feste
+  Leisten übereinander liegen.
+- Beim Ziehen über eine PDF- oder Kartenansicht blieb das Fenster zunächst
+  hängen (die eingebettete Ansicht schluckt die Mausbewegungen); während des
+  Ziehens liegt deshalb eine unsichtbare Fläche über allem.
+- **Nicht veränderbar** bleiben Rückfragen und reine Meldungen (Löschen
+  bestätigen, Hinweise nach Sammelaktionen, PDF-Auswahl), die Passwortabfrage
+  der Sicherung, das Zeichnen von Unterschriften, „Rechnung als bezahlt
+  markieren“, „Datensicherung erstellen“ und die Auswahl „Neues Dokument“.
+- Ohne gemerkte Größe sehen die Fenster aus wie vorher (bei Claude mit
+  Bildschirmfotos verglichen). Ausnahme: „Ordner anlegen“ und „Dokument
+  bearbeiten“ sind jetzt höchstens 92 % des Bildschirms hoch und rollen
+  dann; vorher ragten sie bei wenig Platz unten aus dem Bild.
+
 ### Runde 2, R2 — Ohne Anmeldung und Demo, Testverein zum Ausprobieren
 
 - **Keine Anmeldung mehr am Desktop.** Der Anmeldebildschirm, die

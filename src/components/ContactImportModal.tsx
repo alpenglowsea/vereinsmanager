@@ -26,6 +26,7 @@ import {
 import { CONTACT_TYPES_LIST } from '../data/contactConstants';
 import { saveBlobAs } from '../utils/fileExportHelper';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface ContactImportModalProps {
   existingContacts: ClubContact[];
   onImport: (newOrUpdatedContacts: ClubContact[]) => Promise<void> | void;
@@ -180,7 +181,7 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="kontakte-import" className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden dark:bg-slate-900 dark:border-slate-800">
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70 dark:border-slate-800 dark:bg-slate-800/70">
           <div className="flex items-center gap-3">
@@ -580,7 +581,7 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
             )}
           </div>
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

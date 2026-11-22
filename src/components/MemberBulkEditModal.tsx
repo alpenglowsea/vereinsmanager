@@ -23,6 +23,7 @@ import {
   Clock
 } from 'lucide-react';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface MemberBulkEditModalProps {
   selectedMembers: Member[];
   departments: string[];
@@ -121,7 +122,7 @@ export const MemberBulkEditModal: React.FC<MemberBulkEditModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="mitglieder-sammel" className="bg-white rounded-2xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 dark:bg-slate-900 dark:border-slate-800">
         
         {/* Header */}
         <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/80 rounded-t-2xl dark:border-slate-800 dark:bg-slate-800/80">
@@ -736,7 +737,7 @@ export const MemberBulkEditModal: React.FC<MemberBulkEditModalProps> = ({
           </div>
         </div>
 
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

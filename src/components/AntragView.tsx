@@ -55,6 +55,7 @@ import type { Briefpapier } from '../services/meetingPdfService';
 import { Vorschau, Zeichenflaeche } from './UnterschriftFeld';
 import { useBlobAdresse } from '../utils/pdfVorschau';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 const sparteListe = (s: ClubSettings) => ((s.departments || []).length ? s.departments : ['Hauptverein']);
 
 // ------------------------------------------------------------------ kleine Bausteine
@@ -209,7 +210,7 @@ const PdfAnsicht: React.FC<{ titel: string; dataUrl: string; onSchliessen: () =>
   const adresse = useBlobAdresse(dataUrl);
   return (
     <div className="fixed inset-0 z-[56] flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="antrag-pdf" className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800">
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <FileText className="w-5 h-5 text-blue-600" /> {titel}
@@ -219,7 +220,7 @@ const PdfAnsicht: React.FC<{ titel: string; dataUrl: string; onSchliessen: () =>
           </button>
         </div>
         {adresse && <iframe src={adresse} title={titel} className="flex-1 w-full border-0 bg-slate-100" />}
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };
@@ -333,7 +334,7 @@ export const AntragAusfuellen: React.FC<{
       aria-label="Aufnahmeantrag"
     >
       {ansicht && <PdfAnsicht titel={ansicht.titel} dataUrl={ansicht.dataUrl} onSchliessen={() => setAnsicht(null)} />}
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden border border-slate-200 my-8 dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="antrag" className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden border border-slate-200 my-8 dark:bg-slate-900 dark:border-slate-800">
         {/* Kopf */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4 bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3 min-w-0">
@@ -389,7 +390,7 @@ export const AntragAusfuellen: React.FC<{
         )}
 
         {/* Inhalt */}
-        <div id="antrag-inhalt" className="p-6 max-h-[60vh] overflow-y-auto space-y-5">
+        <div id="antrag-inhalt" className="p-6 max-h-[60vh] group-data-[hoehe=fest]/fenster:max-h-none flex-1 min-h-0 overflow-y-auto space-y-5">
           {abgegeben ? (
             <div className="p-5 bg-blue-50 border border-blue-200 rounded-xl space-y-2 dark:bg-blue-950/40 dark:border-blue-900">
               <h3 className="text-base font-bold text-blue-900 dark:text-blue-200 flex items-center gap-2">
@@ -652,7 +653,7 @@ export const AntragAusfuellen: React.FC<{
             </div>
           )}
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };
@@ -716,7 +717,7 @@ export const AntragPruefen: React.FC<{
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs" role="dialog" aria-modal="true">
-      <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-3xl max-h-[94vh] flex flex-col overflow-hidden">
+      <VeraenderbaresFenster kennung="antrag-pruefen" className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-3xl max-h-[94vh] flex flex-col overflow-hidden">
         <div className="px-6 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -807,7 +808,7 @@ export const AntragPruefen: React.FC<{
             </button>
           </div>
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

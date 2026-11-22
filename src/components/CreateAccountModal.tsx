@@ -13,6 +13,7 @@ import { SKR42_STRUCTURE } from '../data/taxSpheres';
 import { customCategoryService } from '../services/customCategoryService';
 import { bestaetige } from '../utils/dialoge';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 export interface CreateAccountModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -179,7 +180,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div
+      <VeraenderbaresFenster kennung="konto-neu"
         className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 dark:bg-slate-900 dark:border-slate-800"
         onClick={e => e.stopPropagation()}
       >
@@ -234,7 +235,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="p-5 overflow-y-auto space-y-4">
+        <div className="p-5 overflow-y-auto flex-1 min-h-0 space-y-4">
           {error && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-700 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-300">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5 dark:text-rose-400" />
@@ -602,7 +603,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
             </div>
           )}
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

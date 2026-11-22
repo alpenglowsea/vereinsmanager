@@ -37,6 +37,7 @@ import { BestaetigungsDialog } from './BestaetigungsDialog';
 import { erstlastschriftMitglieder, verbuchbarePosten } from '../services/beitragsBuchung';
 import { melde, bestaetige } from '../utils/dialoge';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface SepaRunViewProps {
   members: Member[];
   settings: ClubSettings;
@@ -1218,7 +1219,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
       {/* XML PREVIEW MODAL */}
       {xmlModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+          <VeraenderbaresFenster kennung="sepa-datei" className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
               <div className="flex items-center gap-2.5">
@@ -1260,7 +1261,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
             </div>
 
             {/* XML Code Body */}
-            <div className="p-6 overflow-y-auto bg-slate-950 font-mono text-xs text-emerald-400 leading-relaxed max-h-[65vh] select-all">
+            <div className="p-6 overflow-y-auto bg-slate-950 font-mono text-xs text-emerald-400 leading-relaxed max-h-[65vh] group-data-[hoehe=fest]/fenster:max-h-none flex-1 min-h-0 select-all">
               <pre>{generatedXmlContent}</pre>
             </div>
 
@@ -1281,7 +1282,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                 <span>Herunterladen</span>
               </button>
             </div>
-          </div>
+          </VeraenderbaresFenster>
         </div>
       )}
       {verbuchenFrage && (

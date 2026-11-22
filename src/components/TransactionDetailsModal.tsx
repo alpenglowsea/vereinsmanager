@@ -32,6 +32,7 @@ import {
 import { saveDataUrlAs } from '../utils/fileExportHelper';
 import { bestaetige } from '../utils/dialoge';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface TransactionDetailsModalProps {
   isOpen: boolean;
   transaction: Transaction | null;
@@ -114,7 +115,7 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-150"
       onClick={onClose}
     >
-      <div
+      <VeraenderbaresFenster kennung="buchung-details"
         className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden my-6 flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150 dark:bg-slate-900 dark:border-slate-800"
         onClick={e => e.stopPropagation()}
       >
@@ -173,7 +174,7 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-6 text-sm">
+        <div className="p-6 overflow-y-auto flex-1 min-h-0 space-y-6 text-sm">
           {/* Hero Banner: Amount & Booking Text */}
           <div
             className={`p-5 rounded-2xl border ${
@@ -560,7 +561,7 @@ export const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = (
             </button>
           </div>
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

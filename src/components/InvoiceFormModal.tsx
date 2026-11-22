@@ -28,6 +28,7 @@ import {
   FolderArchive
 } from 'lucide-react';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface InvoiceFormModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -610,7 +611,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl overflow-hidden my-4 flex flex-col max-h-[94vh] dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="rechnung" className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl overflow-hidden my-4 flex flex-col max-h-[94vh] dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
@@ -1429,7 +1430,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
             </button>
           </div>
         </div>
-      </div>
+      </VeraenderbaresFenster>
       {buchungFrage && (
         <BestaetigungsDialog
           titel="Verknüpfte Buchung angleichen?"

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { CATEGORY_CONFIG } from './DocumentViewerModal';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface DocumentUploadModalProps {
   isOpen?: boolean;
   onClose: () => void;
@@ -229,7 +230,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
   return (
     <div id="document-upload-modal-backdrop" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-xs p-3 md:p-6 animate-in fade-in duration-150">
-      <div id="document-upload-modal-container" className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="dokument-hochladen" id="document-upload-modal-container" className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
@@ -596,7 +597,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             </button>
           </div>
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

@@ -32,6 +32,7 @@ import {
   generateImageReceipt
 } from '../services/receiptScannerService';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface ReceiptCameraScannerModalProps {
   onClose: () => void;
   // If provided, saves scanned document directly to the documents archive
@@ -469,7 +470,7 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto animate-in fade-in duration-150">
-      <div className="bg-slate-900 text-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col overflow-hidden border border-slate-800">
+      <VeraenderbaresFenster kennung="beleg-scanner" className="bg-slate-900 text-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col overflow-hidden border border-slate-800">
         
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
@@ -1209,7 +1210,7 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
             </button>
           </div>
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

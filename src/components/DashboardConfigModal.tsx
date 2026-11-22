@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import { bestaetige } from '../utils/dialoge';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface DashboardConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -217,7 +218,7 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div
+      <VeraenderbaresFenster kennung="startseite-anpassen" minHoehe={440}
         className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-5xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
         role="dialog"
         aria-modal="true"
@@ -527,7 +528,7 @@ export const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
             </button>
           </div>
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

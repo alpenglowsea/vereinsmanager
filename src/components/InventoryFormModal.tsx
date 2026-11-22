@@ -27,6 +27,7 @@ import {
   Trash2
 } from 'lucide-react';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 /**
  * Foto verkleinern wie Android: längste Seite höchstens 1024 Pixel, JPEG.
  * Ist es danach noch zu groß, wird die Qualität stufenweise gesenkt.
@@ -236,7 +237,7 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="gegenstand" className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-800/80">
           <div className="flex items-center gap-3">
@@ -722,7 +723,7 @@ export const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
             </button>
           </div>
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

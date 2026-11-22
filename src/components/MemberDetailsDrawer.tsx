@@ -31,6 +31,7 @@ import {
   FileText,
   Loader2
 } from 'lucide-react';
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 import { bestaetige } from '../utils/dialoge'; import { ausgebbar } from '../utils/inventarRegeln';
 
 interface MemberDetailsDrawerProps {
@@ -410,7 +411,7 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white w-full max-w-2xl h-full shadow-2xl flex flex-col overflow-hidden border-l border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="mitglied-details" kanten={['w']} className="bg-white w-full max-w-2xl h-full shadow-2xl flex flex-col overflow-hidden border-l border-slate-200 dark:bg-slate-900 dark:border-slate-800">
         
         {/* Top Header with Avatar & Key Identity Info */}
         <div className="p-6 border-b border-slate-200 bg-slate-50 flex flex-col gap-4 dark:border-slate-800 dark:bg-slate-800">
@@ -1378,7 +1379,7 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
             </button>
           </div>
         </div>
-      </div>
+      </VeraenderbaresFenster>
 
       {/* Modal: Liste aller ausgeteilten Gegenstände mit CSV/PDF Export */}
       {showAllIssuedModal && (

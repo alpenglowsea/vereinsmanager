@@ -4,6 +4,7 @@ import { X, Download, FileText, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
 import { saveDataUrlAs } from '../utils/fileExportHelper';
 import { useBlobAdresse } from '../utils/pdfVorschau';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface ReceiptViewerModalProps {
   receipt: ReceiptAttachment | null;
   documentNumber: string;
@@ -32,7 +33,7 @@ export const ReceiptViewerModal: React.FC<ReceiptViewerModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/75 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="beleg-ansicht" className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
@@ -103,12 +104,12 @@ export const ReceiptViewerModal: React.FC<ReceiptViewerModalProps> = ({
         </div>
 
         {/* Content Preview */}
-        <div className="flex-1 bg-slate-100 p-4 overflow-auto flex items-center justify-center min-h-[420px] dark:bg-slate-700">
+        <div className="flex-1 bg-slate-100 p-4 overflow-auto flex items-center justify-center min-h-[420px] group-data-[hoehe=fest]/fenster:min-h-0 dark:bg-slate-700">
           {isPdf ? (
             <iframe
               src={pdfAdresse || undefined}
               title={`Beleg ${documentNumber}`}
-              className="w-full h-full min-h-[550px] rounded-lg border border-slate-300 shadow-inner bg-white dark:border-slate-700 dark:bg-slate-800"
+              className="w-full h-full min-h-[550px] group-data-[hoehe=fest]/fenster:min-h-0 rounded-lg border border-slate-300 shadow-inner bg-white dark:border-slate-700 dark:bg-slate-800"
             />
           ) : (
             <div className="flex items-center justify-center p-4">
@@ -136,7 +137,7 @@ export const ReceiptViewerModal: React.FC<ReceiptViewerModalProps> = ({
             Schließen
           </button>
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

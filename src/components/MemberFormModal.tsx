@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { saveDataUrlAs } from '../utils/fileExportHelper';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface MemberFormModalProps {
   member: Member | null;
   departments: string[];
@@ -408,7 +409,7 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden border border-slate-200 my-8 dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="mitglied" className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden border border-slate-200 my-8 dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
@@ -529,8 +530,8 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1">
-          <div className="p-6 max-h-[60vh] overflow-y-auto space-y-6">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="p-6 max-h-[60vh] group-data-[hoehe=fest]/fenster:max-h-none flex-1 min-h-0 overflow-y-auto space-y-6">
             {/* TAB 1: STAMMDATEN */}
             {activeTab === 'base' && (
               <div className="space-y-5 animate-in fade-in duration-100">
@@ -1613,7 +1614,7 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
             </div>
           </div>
         </form>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

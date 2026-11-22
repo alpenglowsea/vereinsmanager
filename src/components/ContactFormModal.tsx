@@ -25,6 +25,7 @@ import {
   Briefcase
 } from 'lucide-react';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface ContactFormModalProps {
   contact: ClubContact | null;
   isOpen: boolean;
@@ -362,7 +363,7 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div
+      <VeraenderbaresFenster kennung="kontakt"
         className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl my-8 overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150 dark:bg-slate-900 dark:border-slate-800"
         role="dialog"
         aria-modal="true"
@@ -1082,7 +1083,7 @@ export const ContactFormModal: React.FC<ContactFormModalProps> = ({
             <span>{isEditing ? 'Änderungen speichern' : 'Kontakt anlegen'}</span>
           </button>
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

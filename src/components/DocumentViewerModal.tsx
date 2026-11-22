@@ -17,6 +17,7 @@ import {
 import { saveDataUrlAs } from '../utils/fileExportHelper';
 import { useBlobAdresse } from '../utils/pdfVorschau';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface DocumentViewerModalProps {
   document: ClubDocument | null;
   onClose: () => void;
@@ -65,7 +66,7 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 
   return (
     <div id="document-viewer-backdrop" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-xs p-3 md:p-6 animate-in fade-in duration-150">
-      <div id="document-viewer-container" className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[94vh] flex flex-col overflow-hidden border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="dokument-ansicht" id="document-viewer-container" className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[94vh] flex flex-col overflow-hidden border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 gap-4 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3 min-w-0">
@@ -168,14 +169,14 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
         </div>
 
         {/* Content Preview & Side Details */}
-        <div className="flex-1 bg-slate-100 overflow-hidden flex flex-col md:flex-row min-h-[460px] dark:bg-slate-700">
+        <div className="flex-1 bg-slate-100 overflow-hidden flex flex-col md:flex-row min-h-[460px] group-data-[hoehe=fest]/fenster:min-h-0 dark:bg-slate-700">
           {/* Main Visual Preview */}
-          <div className="flex-1 overflow-auto flex items-center justify-center p-3 bg-slate-200/60 min-h-[380px] dark:bg-slate-600/60">
+          <div className="flex-1 overflow-auto flex items-center justify-center p-3 bg-slate-200/60 min-h-[380px] group-data-[hoehe=fest]/fenster:min-h-0 dark:bg-slate-600/60">
             {isPdf ? (
               <iframe
                 src={pdfAdresse || undefined}
                 title={doc.title}
-                className="w-full h-full min-h-[520px] rounded-lg border border-slate-300 shadow-sm bg-white dark:border-slate-700 dark:bg-slate-800"
+                className="w-full h-full min-h-[520px] group-data-[hoehe=fest]/fenster:min-h-0 rounded-lg border border-slate-300 shadow-sm bg-white dark:border-slate-700 dark:bg-slate-800"
               />
             ) : isImage ? (
               <div className="flex items-center justify-center p-4">
@@ -299,7 +300,7 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
             Schließen
           </button>
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

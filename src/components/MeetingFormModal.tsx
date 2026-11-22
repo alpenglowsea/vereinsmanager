@@ -48,6 +48,7 @@ import {
   stimmenUngeprueft
 } from '../utils/sitzungRegeln';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface MeetingFormModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -358,7 +359,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl overflow-hidden my-6 flex flex-col max-h-[92vh] dark:bg-slate-900 dark:border-slate-800">
+      <VeraenderbaresFenster kennung="sitzung" className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl overflow-hidden my-6 flex flex-col max-h-[92vh] dark:bg-slate-900 dark:border-slate-800">
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
           <div className="flex items-center gap-3">
@@ -1319,7 +1320,7 @@ export const MeetingFormModal: React.FC<MeetingFormModalProps> = ({
             </div>
           </div>
         </form>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

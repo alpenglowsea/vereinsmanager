@@ -28,6 +28,7 @@ import { heuteIso, wochentag, pruefeTermin, ohneDoppelteTeilnehmer, normiereSeri
 import { bestaetige } from '../utils/dialoge';
 import { keepUnknownFields } from '../utils/keepUnknownFields';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface CalendarEventModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -286,7 +287,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
   return (
     <>
       <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] dark:bg-slate-900 dark:border-slate-800">
+        <VeraenderbaresFenster kennung="termin" className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] dark:bg-slate-900 dark:border-slate-800">
           {/* Header */}
           <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between dark:bg-slate-800 dark:border-slate-800">
             <div className="flex items-center space-x-3">
@@ -931,7 +932,7 @@ export const CalendarEventModal: React.FC<CalendarEventModalProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </VeraenderbaresFenster>
       </div>
 
       {/* OpenStreetMap Modal Preview */}

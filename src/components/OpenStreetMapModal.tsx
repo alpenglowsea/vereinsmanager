@@ -10,6 +10,7 @@ import {
   Loader2
 } from 'lucide-react';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 interface OpenStreetMapModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -102,7 +103,7 @@ export const OpenStreetMapModal: React.FC<OpenStreetMapModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div
+      <VeraenderbaresFenster kennung="karte"
         id="osm-modal-container"
         className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150 dark:bg-slate-900 dark:border-slate-800"
       >
@@ -148,7 +149,7 @@ export const OpenStreetMapModal: React.FC<OpenStreetMapModalProps> = ({
         </div>
 
         {/* Map Container */}
-        <div className="relative flex-1 min-h-[380px] bg-slate-100 dark:bg-slate-700">
+        <div className="relative flex-1 min-h-[380px] group-data-[hoehe=fest]/fenster:min-h-0 bg-slate-100 dark:bg-slate-700">
           {isLoading && (
             <div className="absolute inset-0 z-10 bg-white/70 backdrop-blur-xs flex flex-col items-center justify-center text-slate-600 dark:text-slate-300">
               <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mb-2 dark:text-emerald-400" />
@@ -158,7 +159,7 @@ export const OpenStreetMapModal: React.FC<OpenStreetMapModalProps> = ({
 
           <iframe
             title="OpenStreetMap Standortkarte"
-            className="w-full h-full min-h-[380px] border-0"
+            className="w-full h-full min-h-[380px] group-data-[hoehe=fest]/fenster:min-h-0 border-0"
             src={osmEmbedUrl}
             loading="lazy"
           />
@@ -216,7 +217,7 @@ export const OpenStreetMapModal: React.FC<OpenStreetMapModalProps> = ({
             </button>
           </div>
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };

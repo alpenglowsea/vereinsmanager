@@ -5,6 +5,7 @@ import { WERT_HINWEIS, artName, ausgabenVon, ausgemustert, menge, stueckwert, ue
 import { deutsch } from '../utils/sitzungRegeln';
 import { X, Edit2, Trash2, Package, CheckCircle2, Users, AlertTriangle, MapPin, Wallet, Calendar, RotateCcw } from 'lucide-react';
 
+import VeraenderbaresFenster from './VeraenderbaresFenster';
 /**
  * Detailansicht eines Gegenstands im eigenen Fenster, im Stil der übrigen
  * Desktop-Detailfenster (Kontakte, Rechnungen). Inhalt wie Android
@@ -84,7 +85,7 @@ export const InventoryDetailsModal: React.FC<InventoryDetailsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div
+      <VeraenderbaresFenster kennung="gegenstand-details"
         className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl my-8 overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150 dark:bg-slate-900 dark:border-slate-800"
         role="dialog"
         aria-modal="true"
@@ -304,7 +305,7 @@ export const InventoryDetailsModal: React.FC<InventoryDetailsModalProps> = ({
             </button>
           </div>
         </div>
-      </div>
+      </VeraenderbaresFenster>
     </div>
   );
 };
