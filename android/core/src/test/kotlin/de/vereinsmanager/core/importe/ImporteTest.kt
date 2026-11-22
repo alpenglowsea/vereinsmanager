@@ -98,6 +98,16 @@ class ImporteTest {
         assertEquals("Betrag", m[BuchungFeld.BETRAG])
     }
 
+    @Test fun neueresBankformatMitZahlungsbeteiligtem() {
+        // Neueres Bank-CSV-Format: die eigene Bank steht vorn („Auftragskonto“), der Partner heißt „Zahlungsbeteiligter“ (wie Desktop, R1)
+        val m = BuchungImport.erkenneSpalten(listOf("Bezeichnung Auftragskonto", "IBAN Auftragskonto", "BIC Auftragskonto", "Buchungstag", "Valutadatum",
+            "Name Zahlungsbeteiligter", "IBAN Zahlungsbeteiligter", "BIC (SWIFT-Code) Zahlungsbeteiligter", "Buchungstext", "Verwendungszweck", "Betrag", "Waehrung"))
+        assertEquals("Name Zahlungsbeteiligter", m[BuchungFeld.PARTNER])
+        assertEquals("IBAN Zahlungsbeteiligter", m[BuchungFeld.IBAN])
+        assertEquals("Buchungstag", m[BuchungFeld.DATUM])
+        assertEquals("Betrag", m[BuchungFeld.BETRAG])
+    }
+
     @Test fun kurzeUeberschriftenFangenNichtFalscheSpaltenEin() {
         // Der Desktop würde „Bank“ und „Art“ als Teiltreffer verwenden; hier zählt nur ein genauer Treffer.
         val m = BuchungImport.erkenneSpalten(listOf("Datum", "Betrag", "Bankverbindung", "Artikel", "Text"))

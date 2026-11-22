@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -29,7 +28,7 @@ import de.vereinsmanager.android.AppModel
 import de.vereinsmanager.core.backup.ImportMode
 
 @Composable
-fun SicherungKarte(model: AppModel, onProbes: () -> Unit, modifier: Modifier = Modifier) {
+fun SicherungKarte(model: AppModel, modifier: Modifier = Modifier) {
     var pending by remember { mutableStateOf<Uri?>(null) }
     var pendingEncrypted by remember { mutableStateOf(false) }
     var importPassword by remember { mutableStateOf("") }
@@ -76,9 +75,6 @@ fun SicherungKarte(model: AppModel, onProbes: () -> Unit, modifier: Modifier = M
         }
         if (model.dateiText.isNotEmpty()) Text("Gespeicherte Dateien (Belege, Dokumente, Fotos): ${model.dateiText}", Modifier.padding(top = 12.dp))
         if (model.message.isNotEmpty()) Text(model.message, Modifier.padding(top = 12.dp))
-
-        HorizontalDivider(Modifier.padding(vertical = 12.dp))
-        TextButton(onClick = onProbes) { Text("Proben (Entwicklung)") }
       }
     }
 

@@ -150,7 +150,6 @@ sealed interface Page {
     /** Vollbild für das neue Mitglied; Menü und Zurück sind gesperrt. */
     data object AntragAusfuellen : Page
     data object AntragPruefen : Page
-    data object Probes : Page
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -223,7 +222,7 @@ class MainActivity : ComponentActivity() {
                 val inhalt: @Composable () -> Unit = {
                     // Bei geöffneter Tastatur entfällt die Leiste, und der Inhalt endet über der Tastatur (nichts wird verdeckt).
                     val tastatur = WindowInsets.isImeVisible
-                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || (page is Page.Documents && page.folderId == null) || page is Page.Sepa || page is Page.Euer || page is Page.FinanzAuswertung || page is Page.Rechnungen || page is Page.Spenden || page is Page.Contacts || page is Page.Inventory || page is Page.Calendar || page is Page.Meetings || (page is Page.Settings && stack.size <= 2) || page is Page.Probes
+                    val oberste = page is Page.Home || page is Page.Members || page is Page.MemberAnalytics || page is Page.Transactions || (page is Page.Documents && page.folderId == null) || page is Page.Sepa || page is Page.Euer || page is Page.FinanzAuswertung || page is Page.Rechnungen || page is Page.Spenden || page is Page.Contacts || page is Page.Inventory || page is Page.Calendar || page is Page.Meetings || (page is Page.Settings && stack.size <= 2)
                     Box(Modifier.fillMaxSize()) {
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
@@ -314,7 +313,7 @@ class MainActivity : ComponentActivity() {
                                 onOpenMember = { stack = stack + Page.Member(it) }, modifier = m,
                             )
                             is Page.InventoryEdit -> InventarFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
-                            Page.Settings -> EinstellungenScreen(model, onProbes = { stack = stack + Page.Probes }, modifier = m)
+                            Page.Settings -> EinstellungenScreen(model, modifier = m)
                             Page.Euer -> EuerScreen(model, modifier = m)
                             Page.FinanzAuswertung -> FinanzAuswertungScreen(model, modifier = m)
                             Page.Rechnungen -> RechnungenScreen(
@@ -367,7 +366,6 @@ class MainActivity : ComponentActivity() {
                             )
                             // Wird weiter unten im Vollbild gezeigt, nie hier.
                             Page.AntragAusfuellen -> Unit
-                            Page.Probes -> ProbeScreen(m)
                         }
                       }
                       Box(Modifier.padding(inner).consumeWindowInsets(inner).imePadding()) {
@@ -462,7 +460,6 @@ private fun seitenTitel(p: Page, model: AppModel): String = when (p) {
     is Page.DocumentView -> "Dokument anzeigen"
     Page.AntragAusfuellen -> "Aufnahmeantrag"
     Page.AntragPruefen -> "Antrag prüfen"
-    Page.Probes -> "Proben"
 }
 
 /** Welcher Menüpunkt zur aktuellen Seite gehört (wird im Menü hervorgehoben). */
@@ -484,5 +481,4 @@ private fun aktivesZiel(p: Page): Ziel? = when (p) {
     Page.Meetings, is Page.Meeting, is Page.MeetingEdit -> Ziel.SITZUNGEN
     Page.Settings -> Ziel.EINSTELLUNGEN
     Page.AntragAusfuellen, Page.AntragPruefen -> Ziel.ANTRAEGE
-    Page.Probes -> null
 }

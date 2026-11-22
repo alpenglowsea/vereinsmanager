@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { istXlsx, leseXlsx, leseXlsxZeilen, tabelleAusZeilen, zahlText, zellArt, xmlText, XlsxFehler } from './xlsxReader';
-import { leseImportBytes } from './importDatei';
+import { leseImportBytes, HINWEIS_WINDOWS_1252 } from './importDatei';
 import { LIBREOFFICE_XLSX_BASE64 } from './xlsxTestdaten';
 import { baueTestZip } from './zipTestHelper';
 import { BankImportService } from '../services/bankImport';
@@ -128,5 +128,15 @@ describe('Excel im Bankimport (P28, echter Aufrufweg)', () => {
     expect(zeilen).toHaveLength(2);
     expect(zeilen[0]).toMatchObject({ date: '2026-03-01', amount: -1234.5, partner: 'Müller & Söhne <GmbH>', bookingText: 'Beitrag März' });
     expect(zeilen[1]).toMatchObject({ date: '2026-12-31', amount: 0.1, partner: 'Sportshop' });
+  });
+});
+
+describe('CSV in Windows-Kodierung (R1, wie Android MemberCsv.decode)', () => {
+  it('liest ungültiges UTF-8 als Windows-1252 und gibt den Hinweis; gültiges UTF-8 ohne Hinweis', async () => {
+    // „Müller;12 €“ in Windows-1252: ü = FC, € = 80 (in Latin-1 wäre 80 ein Steuerzeichen)
+    const win = new Uint8Array([0x4d, 0xfc, 0x6c, 0x6c, 0x65, 0x72, 0x3b, 0x31, 0x32, 0x20, 0x80]);
+    expect(await leseImportBytes(win)).toEqual({ art: 'text', text: 'Müller;12 €', hinweis: HINWEIS_WINDOWS_1252 });
+    const utf8 = await leseImportBytes(enc('Müller;12 €'));
+    expect(utf8).toEqual({ art: 'text', text: 'Müller;12 €' });
   });
 });

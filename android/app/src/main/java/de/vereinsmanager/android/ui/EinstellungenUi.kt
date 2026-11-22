@@ -37,7 +37,7 @@ import de.vereinsmanager.core.settings.Vorstand
  * Vereinsdaten und Vorstand gelten erst mit „Speichern“; Sparten, Schnappschüsse und Löschen wirken sofort.
  */
 @Composable
-fun EinstellungenScreen(model: AppModel, onProbes: () -> Unit, modifier: Modifier = Modifier) {
+fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
     var f by remember(model.vereinsdaten) { mutableStateOf(model.vereinsdaten) }
     var vorstand by remember(model.vorstand) { mutableStateOf(model.vorstand) }
     var zeigeFehler by remember { mutableStateOf(false) }
@@ -136,7 +136,7 @@ fun EinstellungenScreen(model: AppModel, onProbes: () -> Unit, modifier: Modifie
                 ) { Text("Speichern") }
                 }
                 2 -> {
-                    SicherungKarte(model, onProbes)
+                    SicherungKarte(model)
                     SchnappschussKarte(model)
                     LoeschenKarte(model)
                 }

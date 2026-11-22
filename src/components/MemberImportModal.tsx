@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { saveBlobAs } from '../utils/fileExportHelper';
 import { leseImportDatei, XLSX_ACCEPT } from '../utils/importDatei';
+import { melde } from '../utils/dialoge';
 
 interface MemberImportModalProps {
   existingMembers: Member[];
@@ -90,6 +91,7 @@ export const MemberImportModal: FC<MemberImportModalProps> = ({
     setErrorMsg(null);
     try {
       const d = await leseImportDatei(file);
+      if (d.art === 'text' && d.hinweis) void melde(d.hinweis, 'Hinweis zur Datei');
       if (d.art === 'tabelle') uebernimmTabelle(d.tabelle.headers, d.tabelle.rows, file.name);
       else processRawCSV(d.text, file.name);
     } catch (err: any) {

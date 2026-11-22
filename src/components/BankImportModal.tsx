@@ -48,6 +48,7 @@ export const BankImportModal: React.FC<BankImportModalProps> = ({
     try {
       // Excel (.xlsx) als fertige Tabelle, sonst CSV-Text wie bisher (P28)
       const d = await leseImportDatei(file);
+      if (d.art === 'text' && d.hinweis) void melde(d.hinweis, 'Hinweis zur Datei');
       const rows =
         d.art === 'tabelle'
           ? BankImportService.parseBankZeilen(d.tabelle.rows, existingTransactions)

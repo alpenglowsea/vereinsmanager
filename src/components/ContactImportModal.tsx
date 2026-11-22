@@ -12,6 +12,7 @@ import {
 } from '../services/kontaktImportService';
 import Papa from 'papaparse';
 import { leseImportDatei, XLSX_ACCEPT } from '../utils/importDatei';
+import { melde } from '../utils/dialoge';
 import {
   X,
   Upload,
@@ -97,6 +98,7 @@ export const ContactImportModal: FC<ContactImportModalProps> = ({
     setErrorMsg(null);
     try {
       const d = await leseImportDatei(file);
+      if (d.art === 'text' && d.hinweis) void melde(d.hinweis, 'Hinweis zur Datei');
       if (d.art === 'tabelle') uebernimmTabelle(d.tabelle.headers, d.tabelle.rows, file.name);
       else if (d.text) processCSVText(d.text, file.name);
     } catch (err: any) {

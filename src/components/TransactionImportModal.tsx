@@ -112,6 +112,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
     setErrorMsg(null);
     try {
       const d = await leseImportDatei(file);
+      if (d.art === 'text' && d.hinweis) void melde(d.hinweis, 'Hinweis zur Datei');
       if (d.art === 'tabelle') uebernimmTabelle(d.tabelle.headers, d.tabelle.rows, file.name);
       else processRawCSV(d.text, file.name);
     } catch (err: any) {

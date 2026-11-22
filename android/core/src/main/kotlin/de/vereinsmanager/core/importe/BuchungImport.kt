@@ -45,7 +45,8 @@ object BuchungImport {
     val REGELN: List<Triple<BuchungFeld, List<String>, List<String>>> = listOf(
         Triple(BuchungFeld.DATUM, listOf("buchungstag", "buchungsdatum", "datum", "belegdatum", "valutadatum", "valuta", "wertstellung", "date", "tag"), listOf("buchungstag", "datum", "valuta")),
         Triple(BuchungFeld.BELEGNUMMER, listOf("belegnummer", "belegnr", "beleg", "rechnungsnummer", "documentnumber", "nummer", "nr"), listOf("belegnummer", "belegnr", "rechnungsnummer")),
-        Triple(BuchungFeld.PARTNER, listOf("zahlungspartner", "partner", "beguenstigterzahlungspflichtiger", "beguenstigter", "empfaenger", "auftraggeber", "absender", "name"), listOf("beguenstigter", "zahlungspflichtiger", "empfaenger", "zahlungspartner", "auftraggeber", "absender")),
+        // „Name Zahlungsbeteiligter“: neueres Bank-CSV-Format, wie am Desktop seit P17 (R1, 22.11.2026)
+        Triple(BuchungFeld.PARTNER, listOf("zahlungspartner", "partner", "beguenstigterzahlungspflichtiger", "namezahlungsbeteiligter", "beguenstigter", "empfaenger", "auftraggeber", "absender", "name"), listOf("beguenstigter", "zahlungspflichtiger", "zahlungsbeteiligter", "empfaenger", "zahlungspartner", "auftraggeber", "absender")),
         Triple(BuchungFeld.TEXT, listOf("verwendungszweck", "buchungstext", "buchungstext", "bookingtext", "beschreibung", "text", "zweck", "vorgang"), listOf("verwendungszweck", "buchungstext", "beschreibung")),
         Triple(BuchungFeld.BETRAG, listOf("betrag", "betrageur", "umsatz", "amount", "summe", "wert"), listOf("betrag", "umsatz", "amount")),
         Triple(BuchungFeld.ART, listOf("art", "buchungsart", "typ", "type", "einnahmeausgabe", "sollhaben", "sh"), emptyList()),
@@ -54,7 +55,7 @@ object BuchungImport {
         Triple(BuchungFeld.FINANZKONTO, listOf("finanzkonto", "bankkonto", "kasse", "kontoname"), listOf("finanzkonto", "bankkonto")),
         Triple(BuchungFeld.UST, listOf("ust", "mwst", "umsatzsteuer", "mehrwertsteuer", "steuersatz", "ustsatz", "vat"), listOf("umsatzsteuer", "mwst", "ustsatz")),
         Triple(BuchungFeld.NOTIZ, listOf("notiz", "notizen", "bemerkung", "anmerkung", "kommentar", "notes"), listOf("notiz", "bemerkung", "kommentar")),
-        Triple(BuchungFeld.IBAN, listOf("iban", "kontonummeriban", "kontonummer"), listOf("iban")),
+        Triple(BuchungFeld.IBAN, listOf("iban", "kontonummeriban", "kontonummer", "ibanzahlungsbeteiligter"), listOf("iban")),
     )
 
     fun erkenneSpalten(headers: List<String>): Map<BuchungFeld, String> = Tabellen.zuordnen(headers, REGELN)

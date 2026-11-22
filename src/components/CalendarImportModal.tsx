@@ -5,6 +5,7 @@ import {
 } from '../types';
 import { CalendarService } from '../services/calendarService';
 import { leseImportDatei, XLSX_ACCEPT } from '../utils/importDatei';
+import { melde } from '../utils/dialoge';
 import {
   Upload,
   FileText,
@@ -79,6 +80,7 @@ export const CalendarImportModal: React.FC<CalendarImportModalProps> = ({
     setSelectedFileName(file.name);
     try {
       const d = await leseImportDatei(file);
+      if (d.art === 'text' && d.hinweis) void melde(d.hinweis, 'Hinweis zur Datei');
       if (d.art === 'tabelle') {
         const result = CalendarService.parseTabelle(d.tabelle.rows, categories);
         setParsedEvents(result.events);

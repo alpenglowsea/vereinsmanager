@@ -176,6 +176,21 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Runde 2, R1 — Gleichstand Desktop/Handy und Aufräumen
+
+- **Desktop liest CSV auch in Windows-1252** (ältere Bank- und
+  Excel-Exporte), wie Android: erst streng UTF-8, sonst Windows-1252 mit
+  Hinweis „Prüfen Sie Umlaute in der Vorschau“; in allen fünf Importen
+  (`dekodiereText` in `src/utils/importDatei.ts`, 1 Test).
+- **Android erkennt im Bankimport „Name Zahlungsbeteiligter“ und
+  „IBAN Zahlungsbeteiligter“** (neueres Bank-CSV-Format), wie der Desktop;
+  vorher hätte Android hier per Teiltreffer die eigene IBAN aus „IBAN
+  Auftragskonto“ genommen (1 Test in `ImporteTest.kt`).
+- **Android: „Proben (Entwicklung)“ entfernt** (Knopf in Einstellungen →
+  Datensicherung, `ProbeScreen.kt`).
+- Repository: versehentlich hochgeladene Lieferungs-ZIPs (`Claude outputs/`)
+  entfernt und in `.gitignore` aufgenommen.
+
 ### Paket 28 — Excel-Dateien lesen (D-72, E5)
 
 Eigener Leser ohne Bibliothek in `src/utils/xlsxReader.ts`, Nachbau von
