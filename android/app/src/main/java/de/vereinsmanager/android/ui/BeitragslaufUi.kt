@@ -77,9 +77,9 @@ private fun NeuerLauf(model: AppModel, onEinstellungen: () -> Unit) {
     var titel by remember { mutableStateOf("") }
     var vorlage by remember { mutableStateOf(Beitragslauf.STANDARD_VORLAGE) }
     var format by remember { mutableStateOf(SepaFormat.PAIN_008_001_08) }
-    var suche by remember { mutableStateOf("") }
+    var suche by model.gemerkt("sepa", "suche", "")
     var gueltigFilter by remember { mutableStateOf<String?>(null) }
-    var sparte by remember { mutableStateOf<String?>(null) }
+    var sparte by model.gemerkt<String?>("sepa", "sparte", null)
     var info by remember { mutableStateOf<String?>(null) }
     var betragFuer by remember { mutableStateOf<SepaItem?>(null) }
 
@@ -157,6 +157,7 @@ private fun NeuerLauf(model: AppModel, onEinstellungen: () -> Unit) {
             Column(Modifier.padding(top = 8.dp)) {
                 Text("Posten", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
                 SuchFeld(suche, { suche = it }, "Mitglied suchen …", Modifier.padding(top = 8.dp))
+                FilterZuruecksetzen(model, "sepa", Modifier.padding(top = 4.dp))
                 Row(Modifier.padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterMenu("Status", linkedMapOf("gueltig" to "Nur gültige", "ungueltig" to "Nur fehlerhafte"), gueltigFilter) { gueltigFilter = it }
                     if (sparten.isNotEmpty()) FilterMenu("Sparte", sparten, sparte) { sparte = it }

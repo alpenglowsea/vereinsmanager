@@ -116,9 +116,9 @@ internal fun FilterMenu(label: String, options: Map<String, String>, selected: S
 
 @Composable
 fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, onImport: () -> Unit, modifier: Modifier = Modifier) {
-    var filter by remember { mutableStateOf(MemberFilter()) }
-    var sortKey by remember { mutableStateOf(SortKey.NAME) }
-    var ascending by remember { mutableStateOf(true) }
+    var filter by model.gemerkt("mitglieder", "filter", MemberFilter())
+    var sortKey by model.gemerkt("mitglieder", "sortKey", SortKey.NAME, filter = false)
+    var ascending by model.gemerkt("mitglieder", "ascending", true, filter = false)
     var sortOpen by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
     val selecting = selected.isNotEmpty()
@@ -174,6 +174,7 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 )
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterZuruecksetzen(model, "mitglieder")
                     FilterMenu("Status", MemberLabels.STATUS, filter.status) { filter = filter.copy(status = it) }
                     FilterMenu("Sparte", deptOptions, filter.department) { filter = filter.copy(department = it) }
                     FilterMenu("Typ", MemberLabels.TYPE_FILTER, filter.type) { filter = filter.copy(type = it) }
@@ -358,6 +359,8 @@ private fun MemberRow(m: Member, nr: Int, erste: Boolean, letzte: Boolean, selec
 fun MemberDetailScreen(
     model: AppModel, startId: String, onEdit: (String) -> Unit, onDeleted: () -> Unit, onMaterialOverview: () -> Unit,
     onPage: (String) -> Unit, modifier: Modifier = Modifier, onOpenDoc: (String) -> Unit = {},
+    /** Unterlage hinzufügen (null) oder bearbeiten (Paket U): Mitglied, Dokument. */
+    onUnterlage: (String, String?) -> Unit = { _, _ -> },
 ) {
     val ids = remember(model.ansicht, model.members, startId) {
         val vorhanden = model.members.map { it.id }.toSet()
@@ -375,12 +378,15 @@ fun MemberDetailScreen(
     }
     HorizontalPager(state = pager, modifier = modifier, key = { ids.getOrNull(it) ?: it }) { i ->
         val id = ids[i]
-        MemberDetailPage(model, id, onEdit = { onEdit(id) }, onDeleted = onDeleted, onMaterialOverview = onMaterialOverview, onOpenDoc = onOpenDoc)
+        MemberDetailPage(model, id, onEdit = { onEdit(id) }, onDeleted = onDeleted, onMaterialOverview = onMaterialOverview, onOpenDoc = onOpenDoc, onUnterlage = onUnterlage)
     }
 }
 
 @Composable
-private fun MemberDetailPage(model: AppModel, id: String, onEdit: () -> Unit, onDeleted: () -> Unit, onMaterialOverview: () -> Unit, modifier: Modifier = Modifier, onOpenDoc: (String) -> Unit = {}) {
+private fun MemberDetailPage(
+    model: AppModel, id: String, onEdit: () -> Unit, onDeleted: () -> Unit, onMaterialOverview: () -> Unit, modifier: Modifier = Modifier,
+    onOpenDoc: (String) -> Unit = {}, onUnterlage: (String, String?) -> Unit = { _, _ -> },
+) {
     var deleting by remember { mutableStateOf(false) }
     var tab by remember { mutableStateOf(0) }
     var stammInfo by remember { mutableStateOf("") }
@@ -421,26 +427,12 @@ private fun MemberDetailPage(model: AppModel, id: String, onEdit: () -> Unit, on
             }
         }
         Row(Modifier.padding(top = 12.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Details", "Material", "Dokumente", "Historie").forEachIndexed { i, s -> TabChip(s, tab == i) { tab = i } }
+            listOf("Details", "Material", "Unterlagen", "Historie").forEachIndexed { i, s -> TabChip(s, tab == i) { tab = i } }
         }
         Spacer(Modifier.height(6.dp))
         if (tab == 1) MemberMaterialTab(model, m, onMaterialOverview)
-        if (tab == 2) {
-            val docs = model.dokumente.filter { it.mitgliedId == m.id }.sortedByDescending { it.datum }
-            Text("Dokumente (${docs.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
-            if (docs.isEmpty()) Text("Zu diesem Mitglied sind keine Dokumente abgelegt.", style = MaterialTheme.typography.bodyMedium, color = sc.onSurfaceVariant)
-            docs.forEach { d ->
-                Surface(
-                    shape = RoundedCornerShape(20.dp), color = sc.surface, border = BorderStroke(1.5.dp, sc.outlineVariant),
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(20.dp)).clickable { onOpenDoc(d.id) },
-                ) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp)) {
-                        Text(d.titel.ifEmpty { d.dateiName }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        Text(listOf(if (d.datum.isNotEmpty()) deDate(d.datum) else "", d.dateiName).filter { it.isNotEmpty() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant)
-                    }
-                }
-            }
-        }
+        // Unterlagen (Paket U): alle Dokumente des Mitglieds, dazu Führungszeugnis-Vermerk
+        if (tab == 2) MemberUnterlagenTab(model, m, onOpenDoc) { docId -> onUnterlage(m.id, docId) }
         if (tab == 3) MemberHistoryTab(model, m)
         if (tab == 0) {
             @Composable fun row(label: String, value: String) { if (value.isNotBlank()) Field(label, value) }

@@ -42,6 +42,21 @@ internal fun SuchFeld(wert: String, onChange: (String) -> Unit, platzhalter: Str
     )
 }
 
+/**
+ * Knopf „Filter zurücksetzen“ (Paket U, T-334): erscheint nur, solange in der Liste [liste] eine Suche oder ein Filter
+ * gesetzt ist, und setzt alle zurück. Steht meist vorn in der Reihe der Filter-Chips.
+ */
+@Composable
+internal fun FilterZuruecksetzen(model: de.vereinsmanager.android.AppModel, liste: String, modifier: Modifier = Modifier) {
+    if (!model.filterAktiv(liste)) return
+    androidx.compose.material3.AssistChip(
+        onClick = { model.filterZuruecksetzen(liste) },
+        label = { Text("Filter zurücksetzen", maxLines = 1, softWrap = false) },
+        leadingIcon = { Text("↺", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
+        modifier = modifier,
+    )
+}
+
 /** Beschriftung (grau) über dem Wert; leere Werte entfallen. Ein leeres [label] zeigt nur den Wert. */
 @Composable
 internal fun DetailFeld(label: String, wert: String) {

@@ -82,6 +82,8 @@ fun DashboardScreen(
     model: AppModel, onZiel: (Ziel) -> Unit, onSchnell: (Schnell) -> Unit, modifier: Modifier = Modifier,
     /** Tippen auf einen Termin: Kalender an diesem Tag mit den Details (T-245, wie am Desktop). */
     onTermin: (String, String) -> Unit = { _, _ -> },
+    /** Tippen auf einen Eintrag „Unterlagen laufen ab“: das Mitglied öffnen (Paket U). */
+    onMitglied: (String) -> Unit = {},
 ) {
     var anpassen by remember { mutableStateOf(false) }
     BackHandler(enabled = anpassen) { anpassen = false }
@@ -100,9 +102,9 @@ fun DashboardScreen(
         reihen.forEach { reihe ->
             if (reihe.size == 2) {
                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    reihe.forEach { k -> Box(Modifier.weight(1f).fillMaxHeight()) { CompositionLocalProvider(LocalStil provides stilFuer(k.id)) { KachelInhalt(model, daten, k, onZiel, onSchnell, onTermin) } } }
+                    reihe.forEach { k -> Box(Modifier.weight(1f).fillMaxHeight()) { CompositionLocalProvider(LocalStil provides stilFuer(k.id)) { KachelInhalt(model, daten, k, onZiel, onSchnell, onTermin, onMitglied) } } }
                 }
-            } else CompositionLocalProvider(LocalStil provides stilFuer(reihe.first().id)) { KachelInhalt(model, daten, reihe.first(), onZiel, onSchnell, onTermin) }
+            } else CompositionLocalProvider(LocalStil provides stilFuer(reihe.first().id)) { KachelInhalt(model, daten, reihe.first(), onZiel, onSchnell, onTermin, onMitglied) }
         }
         FilledTonalButton(onClick = { anpassen = true }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) { Text("Dashboard anpassen") }
     }
@@ -131,6 +133,7 @@ private class DashboardRechner(val model: AppModel, val heute: LocalDate) {
     val sitzungen by lazy { Dashboard.sitzungen(model.sitzungen, heute) }
     val inventar by lazy { Dashboard.inventar(model.inventar, heute).kennzahlen }
     val dokumente by lazy { Dashboard.dokumente(model.dokumente) }
+    val unterlagen by lazy { model.unterlagenErinnerungen(heute) }
 }
 
 // ---------------------------------------------------------------- Bausteine
@@ -299,7 +302,7 @@ private fun datumKurz(iso: String) = Zeit.deutsch(iso).take(6)
 @Composable
 private fun KachelInhalt(
     model: AppModel, d: DashboardRechner, k: Kachel, onZiel: (Ziel) -> Unit, onSchnell: (Schnell) -> Unit,
-    onTermin: (String, String) -> Unit,
+    onTermin: (String, String) -> Unit, onMitglied: (String) -> Unit,
 ) {
     val primaer = MaterialTheme.colorScheme.primary
     val fehler = MaterialTheme.colorScheme.error
@@ -351,6 +354,21 @@ private fun KachelInhalt(
                     Eintrag(b.name, "${datumKurz(b.datum.toString())} · $was", rechts = wann, rechtsFarbe = if (tage == 0L) primaer else Color.Unspecified, erster = nr == 0, vorn = { Marke(b.name, nr) })
                 }
             }
+        }
+        "member_documents_expiry" -> Rahmen("Unterlagen laufen ab", Ziel.MITGLIEDER, onZiel) {
+            val liste = d.unterlagen
+            if (liste.isEmpty()) Klein("In den nächsten ${de.vereinsmanager.core.members.Unterlagen.WARN_TAGE} Tagen läuft nichts ab.")
+            liste.take(8).forEachIndexed { nr, e ->
+                val tage = ChronoUnit.DAYS.between(d.heute, LocalDate.parse(e.datum))
+                Eintrag(
+                    e.memberName, e.text,
+                    rechts = if (e.abgelaufen) "abgelaufen" else if (tage == 0L) "heute" else "in $tage T.",
+                    rechtsFarbe = if (e.abgelaufen) fehler else warn,
+                    rechtsUnten = if (e.abgelaufen) Zeit.deutsch(e.datum) else null,
+                    erster = nr == 0, onClick = { onMitglied(e.memberId) },
+                )
+            }
+            if (liste.size > 8) Klein("… und ${liste.size - 8} weitere")
         }
         "recent_members" -> Rahmen("Neueste Mitglieder", Ziel.MITGLIEDER, onZiel) {
             val n = d.mitglieder.neueste

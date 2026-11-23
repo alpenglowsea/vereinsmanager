@@ -403,6 +403,13 @@ object MemberAudit {
             aenderungen.mapIndexed { i, (l, a, n) -> aenderung("material$i", l, JsonPrimitive(a), JsonPrimitive(n)) },
         )
 
+    /** Eintrag für eine Unterlage am Mitglied (Paket U, T-346); [aenderungen] sind (Bezeichnung, alt, neu). */
+    fun unterlage(m: JsonObject, now: ZonedDateTime, summary: String, aenderungen: List<Triple<String, String, String>> = emptyList()) =
+        eintrag(
+            m, now, "update", summary,
+            aenderungen.mapIndexed { i, (l, a, n) -> aenderung("unterlage$i", l, JsonPrimitive(a), JsonPrimitive(n)) },
+        )
+
     fun angelegt(m: JsonObject, now: ZonedDateTime = ZonedDateTime.now()) =
         eintrag(m, now, "create", "Neues Mitglied (${text(m, "memberNumber")}) angelegt", emptyList())
 

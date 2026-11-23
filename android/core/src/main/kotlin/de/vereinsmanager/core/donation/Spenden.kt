@@ -290,7 +290,7 @@ object Spenden {
                 if (buchungId != null) json["transactionId"] = s(buchungId!!)
 
                 // PDF im Dokumentenarchiv
-                if (neueDatei != null && bytes != null) {
+                if (neueDatei != null) { // neueDatei gibt es nur, wenn das PDF (bytes) erzeugt wurde
                     val id = dokId?.takeIf { it.isNotEmpty() } ?: "doc-don-${f.id}"
                     val altDoc = store.get(DOKUMENTE, id)
                     alteDatei = altDoc?.let { t(it, "fileId") }?.takeIf { it.isNotEmpty() }

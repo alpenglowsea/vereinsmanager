@@ -100,10 +100,10 @@ private val ART_FILTER = linkedMapOf("legal" to "Firmen", "natural" to "Privatpe
 @Composable
 fun KontakteScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, onImport: () -> Unit, modifier: Modifier = Modifier) {
     val alle = model.kontakte
-    var suche by remember { mutableStateOf("") }
-    var art by remember { mutableStateOf<String?>(null) }
-    var typ by remember { mutableStateOf<String?>(null) }
-    var sortierung by remember { mutableStateOf("name") }
+    var suche by model.gemerkt("kontakte", "suche", "")
+    var art by model.gemerkt<String?>("kontakte", "art", null)
+    var typ by model.gemerkt<String?>("kontakte", "typ", null)
+    var sortierung by model.gemerkt("kontakte", "sortierung", "name", filter = false)
     var gewaehlt by remember { mutableStateOf(setOf<String>()) }
     var loeschen by remember { mutableStateOf(false) }
     var info by remember { mutableStateOf<String?>(null) }
@@ -149,6 +149,7 @@ fun KontakteScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit,
             }
             SuchFeld(suche, { suche = it }, "Kontakt suchen …", Modifier.padding(top = 12.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                FilterZuruecksetzen(model, "kontakte")
                 FilterMenu("Art", ART_FILTER, art) { art = it }
                 FilterMenu("Typ", Kontakte.TYPEN, typ) { typ = it }
                 FilterMenu("Sortierung", Kontakte.SORTIERUNG, sortierung.takeIf { it != "name" }) { sortierung = it ?: "name" }

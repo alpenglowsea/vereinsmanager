@@ -26,9 +26,13 @@ import {
   ClubInvoice,
   InvoiceTemplateSettings,
   Meeting,
-  MeetingTemplateSettings
+  MeetingTemplateSettings,
+  MemberInventoryAssignment
 } from './types';
 import { StorageService } from './services/storage';
+import { melde } from './utils/dialoge';
+import { MitgliedLoeschenDialog, LoeschWahl } from './components/MitgliedLoeschenDialog';
+import { moeglicheEmpfaenger, offenesMaterial } from './utils/mitgliedLoeschen';
 import { formatClubAddress } from './utils/clubAddress';
 import { applyAppearance } from './utils/appearance';
 import { UserDashboardConfig } from './types/dashboard';
@@ -495,7 +499,47 @@ export default function App() {
     }
   };
 
+  /**
+   * Beim Löschen von Mitgliedern: Was geschieht mit ihren Dokumenten
+   * (Unterlagen, Aufnahmeanträge) und mit noch ausgegebenem Material? Ein
+   * Fenster wie am Handy (Paket U, T-352): Dokumente „mitlöschen“ vorgewählt
+   * (Entscheidung Johannes 22.11.2026), Material zurück ins Inventar oder auf
+   * ein anderes Mitglied übertragen. false = abbrechen.
+   */
+  const [loeschAnfrage, setLoeschAnfrage] = useState<{
+    ids: string[];
+    dokumente: number;
+    material: MemberInventoryAssignment[];
+    fertig: (w: LoeschWahl | null) => void;
+  } | null>(null);
+
+  const vorDemLoeschenAufraeumen = async (ids: string[]): Promise<boolean> => {
+    // Dokumente aus der Liste der App, ohne Datenbankzugriff
+    const s = new Set(ids);
+    const betroffen = documents.filter(d => d.memberId && s.has(d.memberId));
+    const material = offenesMaterial(await StorageService.getMemberInventoryAssignments(), ids);
+    if (betroffen.length === 0 && material.length === 0) return true;
+    const wahl = await new Promise<LoeschWahl | null>(resolve =>
+      setLoeschAnfrage({ ids, dokumente: betroffen.length, material, fertig: resolve })
+    );
+    setLoeschAnfrage(null);
+    if (!wahl) return false;
+    try {
+      if (material.length > 0) await StorageService.materialVonMitgliedernAufloesen(ids, wahl.material);
+      if (betroffen.length > 0 && wahl.dokumente === 'loeschen') {
+        for (const d of betroffen) await StorageService.deleteDocument(d.id);
+        const weg = new Set(betroffen.map(d => d.id));
+        setDocuments(prev => prev.filter(d => !weg.has(d.id)));
+      }
+    } catch (err) {
+      await melde(`Das Löschen wurde abgebrochen: ${err instanceof Error ? err.message : String(err)}`);
+      return false;
+    }
+    return true;
+  };
+
   const handleDeleteMember = async (id: string) => {
+    if (!(await vorDemLoeschenAufraeumen([id]))) return;
     await StorageService.deleteMember(id);
     const updated = await StorageService.getMembers();
     setMembers(updated);
@@ -521,6 +565,7 @@ export default function App() {
   };
 
   const handleBulkDeleteMembers = async (ids: string[]) => {
+    if (!(await vorDemLoeschenAufraeumen(ids))) return;
     await StorageService.deleteMultipleMembers(ids);
     const updated = await StorageService.getMembers();
     setMembers(updated);
@@ -1642,6 +1687,10 @@ export default function App() {
                   setMeetingFormOpen(true);
                 }}
                 onOpenCreateEvent={handleOpenCreateCalendarEvent}
+                onOpenMember={(id) => {
+                  const m = members.find(x => x.id === id);
+                  if (m) setDetailsMember(m);
+                }}
                 onOpenEvent={(eventId, datum) => {
                   setKalenderSprung({ eventId, datum });
                   setActiveTab('calendar');
@@ -2021,6 +2070,16 @@ export default function App() {
       )}
 
       {/* Member Details & Audit Drawer */}
+      {loeschAnfrage && (
+        <MitgliedLoeschenDialog
+          anzahlMitglieder={loeschAnfrage.ids.length}
+          dokumente={loeschAnfrage.dokumente}
+          material={loeschAnfrage.material}
+          empfaenger={moeglicheEmpfaenger(members, loeschAnfrage.ids)}
+          onLoeschen={w => loeschAnfrage.fertig(w)}
+          onAbbrechen={() => loeschAnfrage.fertig(null)}
+        />
+      )}
       {detailsMember && (
         <MemberDetailsDrawer
           member={detailsMember}
@@ -2030,6 +2089,14 @@ export default function App() {
           onClose={() => setDetailsMember(null)}
           onDelete={handleDeleteMember}
           onSaveMember={handleSaveMember}
+          documents={documents}
+          folders={folders}
+          onDokumentGespeichert={(doc, neuerOrdner) => {
+            // Nur den einen Eintrag austauschen, statt alle Dokumente neu aus der Datenbank zu lesen
+            setDocuments(prev => [...prev.filter(d => d.id !== doc.id), doc]);
+            if (neuerOrdner) setFolders(prev => (prev.some(f => f.id === neuerOrdner.id) ? prev : [...prev, neuerOrdner]));
+          }}
+          onDokumentGeloescht={id => setDocuments(prev => prev.filter(d => d.id !== id))}
           onEdit={(m) => {
             setDetailsMember(null);
             setEditingMember(m);

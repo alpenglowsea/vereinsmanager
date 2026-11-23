@@ -176,6 +176,82 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Runde 2, U — Unterlagen am Mitglied, Führungszeugnis, Filter bleiben stehen
+
+- **Unterlagen am Mitglied** (Desktop und Handy): Am Mitglied gibt es den
+  Bereich „Unterlagen“. Dort lassen sich Lizenzen, Nachweise und Ähnliches als
+  PDF oder Bild anhängen, am Handy auch als Foto. Zu jeder Unterlage gehören:
+  - eine Art (Trainer-/Übungsleiterlizenz, Erste-Hilfe-Nachweis,
+    Schiedsrichterausweis, Aufnahmeantrag, Einverständnis, Sonstiges);
+  - eine Bezeichnung;
+  - auf Wunsch „ausgestellt am“ und „gültig bis“.
+
+  Eine Unterlage ist ein normales Dokument im Ordner „Mitgliederunterlagen“.
+  Der Ordner wird bei Bedarf angelegt. Ältere Dokumente eines Mitglieds
+  erscheinen dort ebenfalls (Aufnahmeanträge als solche, sonst „Sonstiges“).
+- **Führungszeugnis nur als Vermerk** (§ 72a Abs. 5 SGB VIII): Der Vermerk
+  enthält, wann das Zeugnis eingesehen wurde, das Datum des Zeugnisses und ob
+  eine einschlägige Verurteilung vorliegt. Die nächste Vorlage ist nach
+  5 Jahren fällig; das Datum wird berechnet. Es gibt keinen Upload. Ein
+  Hinweis erinnert daran, die Angaben nach Ende der Tätigkeit zu löschen.
+- **Dashboard-Kachel „Unterlagen laufen ab“** (an beiden Fassungen): Sie zeigt
+  Unterlagen, die in den nächsten 90 Tagen ablaufen oder schon abgelaufen
+  sind, und fällige Führungszeugnisse. Ausgetretene Mitglieder zählen nicht.
+  Ein Klick öffnet das Mitglied. Die Kachel erscheint auch bei einer schon
+  gespeicherten Anordnung der Startseite, und zwar sofort sichtbar.
+- **Mitglied löschen:** Auch der Desktop fragt jetzt nach den Dokumenten des
+  Mitglieds (einzeln und beim Sammellöschen). An beiden Fassungen ist
+  „mitlöschen“ vorgewählt, die Frage nennt die Anzahl. Vorher ließ der Desktop
+  die Dokumente ohne Mitglied liegen.
+- **Filter bleiben stehen (T-334):** Suche und Filter jeder Liste bleiben
+  erhalten, wenn man einen Eintrag öffnet und zurückkommt oder den Bereich
+  wechselt. Das gilt, solange die App läuft. Solange ein Filter gesetzt ist,
+  gibt es den Knopf „Filter zurücksetzen“; die Sortierung bleibt dabei
+  erhalten.
+  - Desktop: 12 Ansichten. Die bisherigen eigenen Zurücksetzen-Knöpfe in
+    fünf davon sind durch den gemeinsamen ersetzt.
+  - Handy: 14 Bildschirme. Im Dokumentenarchiv merkt sich jeder Ordner seine
+    eigene Suche.
+- **Testverein** ergänzt: Ordner „Mitgliederunterlagen“ mit 5 Unterlagen (eine
+  davon abgelaufen) und 2 Führungszeugnis-Vermerke.
+- **Format:** freiwillige Felder `documents[].memberDocType`, `issuedAt`,
+  `validUntil` und `members[].policeCertificate`. Die Sicherungsversion bleibt
+  gleich (`BACKUP_FORMAT.md` Abschnitt 10).
+- Reiter „Unterlagen“ am Desktop: Er zählt und listet aus der
+  Dokumentenliste, die die App ohnehin im Speicher hat, und liest beim Öffnen
+  nichts aus der Datenbank. Gespeicherte oder gelöschte Unterlagen meldet er
+  einzeln an die App zurück. Ebenso nimmt die Löschen-Rückfrage beim Mitglied
+  die Liste im Speicher. Vorher las jedes Öffnen zweimal alle Dokumente samt
+  Dateiinhalt; im Programmfenster dauerte das 2 bis 3 Sekunden, und solange
+  stand „(0)“ da (Rückmeldung T-344).
+- **Unterlagen in der Änderungshistorie** (Desktop und Handy, Rückmeldung
+  T-346): „Unterlage hinzugefügt: <Art>: <Bezeichnung>“, „Unterlage
+  bearbeitet“ mit den geänderten Feldern (Art, Bezeichnung, ausgestellt am,
+  gültig bis, Datei) und „Unterlage gelöscht“. Gilt für den Reiter
+  „Unterlagen“ am Mitglied. Der Führungszeugnis-Vermerk kommt bewusst nicht
+  ins Protokoll: Nach § 72a Abs. 5 SGB VIII ist er spätestens drei Monate nach
+  Ende der Tätigkeit zu löschen, ein Protokolleintrag bliebe aber stehen.
+- **Mitglied löschen am Desktop fragt nach ausgegebenem Material**
+  (Rückmeldung T-352, wie Android). Ein Fenster fasst Dokumente und Material
+  zusammen. Das Material geht entweder zurück ins Inventar (als heute
+  zurückgegeben gebucht) oder auf ein anderes Mitglied über; dieses bekommt
+  „Material übernommen von …“ in seine Historie. Vorher blieb es am Desktop
+  einem gelöschten Mitglied zugeordnet und galt weiter als ausgegeben.
+- **Dabei gefunden und behoben (seit 21.11.2026, Commit `18389b1`):** Das
+  Mitglied-Detailfenster am Desktop lief in einer Endlosschleife. Es las etwa
+  700-mal pro Sekunde das ganze Änderungsprotokoll aus der Datenbank, solange
+  es offen war (gemessen im Prüfaufbau). Das füllte den Arbeitsspeicher und
+  bremste alle anderen Datenbankzugriffe. Ursache: die Vorgabe `auditLogs = []`
+  ist bei jedem Zeichnen eine neue Liste, und zwei Effekte hingen daran. Jetzt
+  ist es eine feste leere Liste. Andere Stellen mit diesem Muster sind reine
+  Rechnungen (`useMemo`) und laufen nicht in eine Schleife (von Claude
+  durchgesehen).
+- Aufgeräumt: die zwei Kotlin-Meldungen „Condition is always 'true'“ in
+  `Spenden.kt` und `Rechnungen.kt`.
+- Tests: Desktop 22 neu (`unterlagen.test.ts` 10, `gemerkteFilter.test.ts` 3,
+  `unterlagenProtokoll.test.ts` 4, `mitgliedLoeschen.test.ts` 5), Android 6 neu
+  (`UnterlagenTest.kt`). `DashboardTest.kt` ist an die neue Kachel angepasst.
+
 ### Runde 2, R4c — Jahresarchiv am Handy
 
 - **Rechenkern** `android/core/.../backup/Jahresarchiv.kt`, Gegenstück zu

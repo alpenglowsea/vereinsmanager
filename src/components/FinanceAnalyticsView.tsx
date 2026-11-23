@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react';
+import { useGemerkt } from '../utils/gemerkteFilter';
+import { FilterZuruecksetzen } from './FilterZuruecksetzen';
 import {
   BarChart,
   Bar,
@@ -66,9 +68,9 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
   settings
 }) => {
   const currentYear = new Date().getFullYear().toString();
-  const [selectedYear, setSelectedYear] = useState<string>(currentYear);
-  const [selectedSphere, setSelectedSphere] = useState<string>('all');
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('all');
+  const [selectedYear, setSelectedYear] = useGemerkt<string>('auswertung', 'selectedYear', currentYear);
+  const [selectedSphere, setSelectedSphere] = useGemerkt<string>('auswertung', 'selectedSphere', 'all');
+  const [selectedAccountId, setSelectedAccountId] = useGemerkt<string>('auswertung', 'selectedAccountId', 'all');
   const [incomeMixDepartment, setIncomeMixDepartment] = useState<string>(GESAMT);
   const [expenseMixDepartment, setExpenseMixDepartment] = useState<string>(GESAMT);
 
@@ -182,6 +184,7 @@ export const FinanceAnalyticsView: React.FC<FinanceAnalyticsViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <FilterZuruecksetzen liste="auswertung" />
           <select
             value={selectedYear}
             onChange={e => setSelectedYear(e.target.value)}

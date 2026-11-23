@@ -19,6 +19,7 @@ import {
   DepartmentsWidget,
   BirthdaysWidget,
   RecentMembersWidget,
+  UnterlagenAblaufWidget,
   DemographicsWidget
 } from './DashboardWidgets/MemberWidgets';
 import {
@@ -73,6 +74,8 @@ interface DashboardViewProps {
   onOpenCreateMeeting?: () => void;
   onOpenCreateEvent?: () => void;
   onOpenEvent?: (eventId: string, datum: string) => void;
+  /** Mitglied im Detailfenster öffnen (Kachel „Unterlagen laufen ab“). */
+  onOpenMember?: (memberId: string) => void;
   onOpenCreateInventory: () => void;
   onOpenNewDocument?: () => void;
   /** Wird hochgezählt, wenn ein Termin gespeichert wurde. */
@@ -101,6 +104,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenCreateMeeting,
   onOpenCreateEvent,
   onOpenEvent,
+  onOpenMember,
   onOpenCreateInventory,
   onOpenNewDocument,
   calendarRefreshKey
@@ -224,6 +228,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         return <MembersKpiWidget members={members} onNavigate={onNavigate} />;
       case 'departments_distribution':
         return <DepartmentsWidget members={members} onNavigate={onNavigate} />;
+      case 'member_documents_expiry':
+        return <UnterlagenAblaufWidget members={members} documents={documents || []} onOpenMember={onOpenMember} />;
       case 'upcoming_birthdays':
         return <BirthdaysWidget members={members} onNavigate={onNavigate} />;
       case 'recent_members':

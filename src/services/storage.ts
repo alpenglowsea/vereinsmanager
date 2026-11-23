@@ -24,7 +24,7 @@ import {
 } from '../types';
 import { buchungOhneAltenVermerk, dokumentOhneAltenVermerk, gegenstandOhneAltenVermerk } from './jahresarchiv';
 import { UserDashboardConfig } from '../types/dashboard';
-import { DEFAULT_DASHBOARD_CONFIG } from '../data/defaultDashboard';
+import { DEFAULT_DASHBOARD_CONFIG, ergaenzeNeueWidgets } from '../data/defaultDashboard';
 import { DEFAULT_DEPARTMENTS } from '../data/taxSpheres';
 import { DEFAULT_INVOICE_TEMPLATE } from '../data/initialInvoices';
 import { DEFAULT_MEETING_TEMPLATE } from '../data/initialMeetings';
@@ -60,6 +60,7 @@ import { wendeSammelRegelnAn, lokalesHeute } from '../utils/mitgliedRegeln';
 import { beitragsBuchungen } from './beitragsBuchung';
 import { pruefeSammel, wendeSammelAn as wendeInventarSammelAn } from '../utils/inventarRegeln';
 import { MaterialEintrag, materialEntfernt, materialGespeichert } from '../utils/materialProtokoll';
+import { materialBeimLoeschen, MaterialWahl } from '../utils/mitgliedLoeschen';
 import {
   belegDokumentId,
   inventarSperrText,
@@ -1506,18 +1507,40 @@ export const StorageService = {
     await putItemToStore(STORES.MEMBER_INVENTORY, toSave);
     // Änderungsprotokoll des Mitglieds wie Android (ausgegeben, bearbeitet, zurückgegeben …)
     const eintrag = materialGespeichert(existing, toSave);
-    if (eintrag) await this.protokolliereMaterial(toSave.memberId, eintrag, now, author);
+    if (eintrag) await this.protokolliereAmMitglied(toSave.memberId, eintrag, now, author);
     return toSave;
   },
 
   async deleteMemberInventoryAssignment(id: string, author = BEARBEITER): Promise<void> {
     const existing = await getItemFromStore<MemberInventoryAssignment>(STORES.MEMBER_INVENTORY, id);
     await deleteItemFromStore(STORES.MEMBER_INVENTORY, id);
-    if (existing) await this.protokolliereMaterial(existing.memberId, materialEntfernt(existing), new Date().toISOString(), author);
+    if (existing) await this.protokolliereAmMitglied(existing.memberId, materialEntfernt(existing), new Date().toISOString(), author);
   },
 
-  /** Schreibt einen Material-Eintrag in das Änderungsprotokoll des Mitglieds (gibt es das Mitglied nicht mehr, entfällt er). */
-  async protokolliereMaterial(memberId: string, eintrag: MaterialEintrag, now: string, author: string): Promise<void> {
+  /**
+   * Noch ausgegebenes Material von Mitgliedern, die gleich gelöscht werden:
+   * zurück ins Inventar oder auf ein anderes Mitglied übertragen (T-352, wie
+   * Android). Vor dem Löschen aufrufen, damit der Empfänger seinen Eintrag
+   * „Material übernommen von …“ bekommt.
+   */
+  async materialVonMitgliedernAufloesen(ids: string[], wahl: MaterialWahl, author = BEARBEITER): Promise<{ zurueckgegeben: number; uebertragen: number }> {
+    const [alle, mitglieder] = await Promise.all([
+      getAllFromStore<MemberInventoryAssignment>(STORES.MEMBER_INVENTORY),
+      this.getMembers()
+    ]);
+    const s = new Set(ids);
+    const jetzt = new Date().toISOString();
+    const r = materialBeimLoeschen(alle, mitglieder.filter(m => s.has(m.id)), wahl, mitglieder, lokalesHeute(), jetzt);
+    for (const a of r.geaendert) await putItemToStore(STORES.MEMBER_INVENTORY, a);
+    for (const p of r.protokoll) await this.protokolliereAmMitglied(p.memberId, { summary: p.summary, changes: [] }, jetzt, author);
+    return { zurueckgegeben: r.zurueckgegeben, uebertragen: r.uebertragen };
+  },
+
+  /**
+   * Schreibt einen Eintrag (Material, Unterlagen) in das Änderungsprotokoll des
+   * Mitglieds; gibt es das Mitglied nicht mehr, entfällt er.
+   */
+  async protokolliereAmMitglied(memberId: string, eintrag: MaterialEintrag, now: string, author: string): Promise<void> {
     const member = await getItemFromStore<Member>(STORES.MEMBERS, memberId);
     if (!member) return;
     const auditLog: MemberAuditLog = {
@@ -2761,7 +2784,8 @@ export const StorageService = {
     if (!stored || !stored.widgets || stored.widgets.length === 0) {
       return DEFAULT_DASHBOARD_CONFIG;
     }
-    return stored;
+    // Neue Widgets (z. B. „Unterlagen laufen ab“) in älteren Anordnungen ergänzen
+    return ergaenzeNeueWidgets(stored);
   },
 
   async saveDashboardConfig(config: UserDashboardConfig): Promise<UserDashboardConfig> {

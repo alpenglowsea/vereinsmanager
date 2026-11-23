@@ -1,11 +1,13 @@
 import React, { useMemo } from 'react';
-import { Member } from '../../types';
+import { ClubDocument, Member } from '../../types';
+import { erinnerungen, WARN_TAGE } from '../../utils/unterlagen';
 import {
   Users,
   Layers,
   Gift,
   UserPlus,
-  BarChart3
+  BarChart3,
+  ShieldCheck
 } from 'lucide-react';
 import { mitglieder as mitgliederDaten, tageBis } from '../../utils/dashboardRegeln';
 import { heuteIso } from '../../utils/kalenderRegeln';
@@ -344,6 +346,63 @@ export const DemographicsWidget: React.FC<DemographicsWidgetProps> = ({ members,
         </span>
         <span className="font-bold text-blue-600 dark:text-blue-400">BLSV / DOSB konform</span>
       </div>
+    </div>
+  );
+};
+
+// Unterlagen laufen ab (Paket U): Lizenzen u. a. mit „gültig bis“ in den
+// nächsten 90 Tagen oder schon abgelaufen, dazu fällige Führungszeugnisse.
+interface UnterlagenWidgetProps {
+  members: Member[];
+  documents: ClubDocument[];
+  onOpenMember?: (memberId: string) => void;
+}
+
+export const UnterlagenAblaufWidget: React.FC<UnterlagenWidgetProps> = ({ members, documents, onOpenMember }) => {
+  const heute = heuteIso();
+  const liste = useMemo(() => erinnerungen(members, documents, heute), [members, documents, heute]);
+  const tage = (d: string) => tageBis(heute, d);
+
+  return (
+    <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs h-full flex flex-col space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="p-2 bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 rounded-xl">
+          <ShieldCheck className="w-4 h-4" />
+        </div>
+        <div>
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Unterlagen laufen ab</h3>
+          <p className="text-2xs text-slate-500 dark:text-slate-400">Lizenzen, Nachweise und Führungszeugnisse · nächste {WARN_TAGE} Tage</p>
+        </div>
+      </div>
+      {liste.length > 0 ? (
+        <div className="space-y-2">
+          {liste.slice(0, 8).map((e, i) => (
+            <button
+              type="button"
+              key={`${e.memberId}-${e.documentId ?? e.art}-${i}`}
+              onClick={() => onOpenMember?.(e.memberId)}
+              className="w-full text-left p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-between gap-2 text-xs cursor-pointer"
+            >
+              <div className="min-w-0">
+                <span className="font-bold text-slate-900 dark:text-white">{e.memberName}</span>
+                <span className="text-2xs text-slate-500 dark:text-slate-400 block truncate">{e.text}</span>
+              </div>
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0 ${
+                  e.abgelaufen
+                    ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300'
+                    : 'bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300'
+                }`}
+              >
+                {e.abgelaufen ? `abgelaufen ${e.datum.slice(8, 10)}.${e.datum.slice(5, 7)}.${e.datum.slice(0, 4)}` : tage(e.datum) === 0 ? 'heute' : `in ${tage(e.datum)} T.`}
+              </span>
+            </button>
+          ))}
+          {liste.length > 8 && <p className="text-2xs text-slate-400 text-center">… und {liste.length - 8} weitere</p>}
+        </div>
+      ) : (
+        <p className="text-xs text-slate-400 py-3 text-center">In den nächsten {WARN_TAGE} Tagen läuft nichts ab.</p>
+      )}
     </div>
   );
 };

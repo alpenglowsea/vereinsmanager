@@ -80,9 +80,9 @@ private fun anzeigeStatus(r: Rechnung, heute: LocalDate): String =
 fun RechnungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, onVorlage: () -> Unit, modifier: Modifier = Modifier) {
     val alle = model.rechnungen
     val heute = remember { LocalDate.now() }
-    var suche by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf<String?>(null) }
-    var jahr by remember { mutableStateOf<String?>(null) }
+    var suche by model.gemerkt("rechnungen", "suche", "")
+    var status by model.gemerkt<String?>("rechnungen", "status", null)
+    var jahr by model.gemerkt<String?>("rechnungen", "jahr", null)
     var gewaehlt by remember { mutableStateOf(setOf<String>()) }
     var exportOffen by remember { mutableStateOf(false) }
     var info by remember { mutableStateOf<String?>(null) }
@@ -125,6 +125,7 @@ fun RechnungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
             }
             SuchFeld(suche, { suche = it }, "Rechnung suchen …", Modifier.padding(top = 12.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                FilterZuruecksetzen(model, "rechnungen")
                 FilterMenu("Status", STATI, status) { status = it }
                 FilterMenu("Jahr", jahre.associateWith { it }, jahr) { jahr = it }
             }

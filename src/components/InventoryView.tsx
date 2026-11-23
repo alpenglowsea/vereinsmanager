@@ -3,6 +3,8 @@ import { offeneAusgaben, inventarSperrText } from '../utils/loeschRegeln';
 import { WERT_HINWEIS, ausgegeben, ausgemustert, geprueftAm, zurueckgeben, inventarCsv, kennzahlen, menge, pruefungBald, sichtbar, stueckwert, wert } from '../utils/inventarRegeln';
 import { lokalesHeute } from '../utils/mitgliedRegeln';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useGemerkt } from '../utils/gemerkteFilter';
+import { FilterZuruecksetzen } from './FilterZuruecksetzen';
 import { InventoryItem, InventoryCategory, ClubSettings, InventoryBulkUpdates, Member, MemberInventoryAssignment } from '../types';
 import { INVENTORY_CATEGORIES, CONDITION_OPTIONS } from '../data/inventoryCategories';
 import { StorageService } from '../services/storage';
@@ -151,9 +153,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
   // Filter States
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useGemerkt('inventar', 'searchQuery', '');
+  const [selectedDepartment, setSelectedDepartment] = useGemerkt<string>('inventar', 'selectedDepartment', 'all');
+  const [selectedCategory, setSelectedCategory] = useGemerkt<string>('inventar', 'selectedCategory', 'all');
   const [selectedCondition, setSelectedCondition] = useState<string>('all');
   const [showNeedsInspectionOnly, setShowNeedsInspectionOnly] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
@@ -857,6 +859,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               </button>
             )}
           </div>
+          <FilterZuruecksetzen liste="inventar" />
 
           {/* Category Dropdown */}
           <div className="w-full md:w-56">
@@ -948,21 +951,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             <span>Prüfung fällig (30 Tage)</span>
           </button>
 
-          {(searchQuery || selectedDepartment !== 'all' || selectedCategory !== 'all' || selectedCondition !== 'all' || showNeedsInspectionOnly) && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedDepartment('all');
-                setSelectedCategory('all');
-                setSelectedCondition('all');
-                setShowNeedsInspectionOnly(false);
-              }}
-              className="text-xs text-rose-600 hover:text-rose-700 font-semibold underline ml-auto dark:text-rose-400 dark:hover:text-rose-300"
-            >
-              Filter zurücksetzen
-            </button>
-          )}
         </div>
       </div>
 

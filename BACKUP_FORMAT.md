@@ -475,3 +475,34 @@ Programmstände, die den Vermerk nicht kennen, sehen nur einen Eintrag ohne Date
    selbst.
 5. Bekommt ein archivierter Eintrag wieder eine Datei (neuer Beleg, neues Foto, neu erzeugtes Rechnungs- oder Spenden-PDF),
    entfällt der Vermerk; maßgeblich ist dann die Datei im Bestand. Beide Fassungen machen das beim Speichern.
+
+## 10. Unterlagen am Mitglied und Führungszeugnis-Vermerk – Stand 23.11.2026 (ohne neue Formatversion)
+
+Alle Felder sind freiwillig. Ältere Programmstände übergehen sie; beide Fassungen behalten sie beim Einspielen,
+Bearbeiten und Sichern.
+
+**Unterlage = Dokument** in `documents[]` mit `memberId` (gab es schon) und drei neuen Feldern:
+
+| Feld | Inhalt |
+| --- | --- |
+| `memberDocType` | `trainerlizenz`, `erste_hilfe`, `schiedsrichter`, `aufnahmeantrag`, `einverstaendnis` oder `sonstiges` |
+| `issuedAt` | ausgestellt am, `JJJJ-MM-TT` |
+| `validUntil` | gültig bis, `JJJJ-MM-TT` |
+
+Ordner: `folder-mitgliederunterlagen` („Mitgliederunterlagen“, Kategorie `mitglieder`), bei Bedarf angelegt, unter
+`folder-mitglieder`, falls es den gibt. Ein Dokument mit `memberId`, aber ohne `memberDocType` gilt als
+`aufnahmeantrag`, wenn seine Kennung mit `doc-antrag-` beginnt oder es das Schlagwort „Aufnahmeantrag“ trägt, sonst als
+`sonstiges`. Unterlagen gehören nicht ins Jahresarchiv (Abschnitt 9).
+
+**Führungszeugnis-Vermerk** `members[].policeCertificate`:
+
+```json
+{ "inspectedAt": "2024-05-06", "certificateDate": "2024-05-02", "relevantConviction": false }
+```
+
+Kein Dokument, keine Kopie (§ 72a Abs. 5 SGB VIII). Die nächste Vorlage (`certificateDate` + 5 Jahre; aus dem 29.02.
+wird der 28.02.) wird berechnet und nicht gespeichert.
+
+**Startseite:** neue Kachel `member_documents_expiry` in `dashboardConfig`. Fehlt sie in einer gespeicherten Anordnung,
+hängen beide Fassungen sie beim Lesen hinten an, sichtbar.
+

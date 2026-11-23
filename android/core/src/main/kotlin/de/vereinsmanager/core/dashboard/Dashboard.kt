@@ -108,7 +108,14 @@ object Dashboard {
         k("meetings_kpi", "Sitzungsstatus", "Sitzungsstatus", "Anstehende Sitzungen und offene Protokolle.", "meetings", true, false, 23, 1),
         k("inventory_overview", "Inventar & Materialbestand", "Inventar", "Wert des Bestands, Stückzahl und Reparaturbedarf.", "inventory", true, true, 24, 1),
         k("documents_archive_kpi", "Dokumentenarchiv", "Dokumentenarchiv", "Dokumente nach Belegen, Verträgen und Protokollen.", "documents", true, true, 25, 1),
+        k("member_documents_expiry", "Unterlagen laufen ab", "Unterlagen", "Lizenzen und Nachweise, die in 90 Tagen ablaufen oder abgelaufen sind, dazu fällige Führungszeugnisse.", "members", false, true, 26, 2),
     )
+
+    /**
+     * Kacheln, die nach dem Speichern einer Anordnung neu dazugekommen sind und trotzdem gleich angezeigt werden, weil sie
+     * auf Fristen hinweisen (Paket U). Gleiche Liste am Desktop (NEU_SICHTBAR in src/data/defaultDashboard.ts).
+     */
+    val NEU_SICHTBAR = setOf("member_documents_expiry")
 
     private val BEKANNT = KACHELN.associateBy { it.id }
     fun kachel(id: String): Kachel? = BEKANNT[id]
@@ -131,10 +138,10 @@ object Dashboard {
                 (o["order"] as? JsonPrimitive)?.intOrNull ?: 999, (o["colSpan"] as? JsonPrimitive)?.intOrNull ?: BEKANNT[id]?.standardBreite ?: 1,
             )
         }.distinctBy { it.id }
-        // Kacheln, die in einer älteren Anordnung fehlen, kommen ausgeblendet ans Ende.
+        // Kacheln, die in einer älteren Anordnung fehlen, kommen ans Ende: ausgeblendet, außer denen aus NEU_SICHTBAR.
         val fehlend = KACHELN.filter { k -> e.none { it.id == k.id } }
         val ende = (e.maxOfOrNull { it.reihenfolge } ?: 0)
-        return Anordnung(e + fehlend.mapIndexed { i, k -> KachelEintrag(k.id, false, ende + (i + 1) * 10, k.standardBreite) }, doc)
+        return Anordnung(e + fehlend.mapIndexed { i, k -> KachelEintrag(k.id, k.id in NEU_SICHTBAR && k.standardAn, ende + (i + 1) * 10, k.standardBreite) }, doc)
     }
 
     fun speichern(store: DocumentStore, a: Anordnung, now: ZonedDateTime = ZonedDateTime.now()) {

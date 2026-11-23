@@ -225,7 +225,7 @@ object Rechnungen {
                     bm["vatRate"] = JsonPrimitive(summen.positionen.map { it.ust }.distinct().singleOrNull() ?: 0)
                     store.put(Finance.BUCHUNGEN, buchungId, JsonObject(bm))
                 }
-                if (neueDatei != null && bytes != null) {
+                if (neueDatei != null) { // neueDatei gibt es nur, wenn das PDF (bytes) erzeugt wurde
                     val id = dokId?.takeIf { it.isNotEmpty() } ?: "doc-inv-${f.id}"
                     val altDoc = store.get(DOKUMENTE, id)
                     alteDatei = altDoc?.let { t(it, "fileId") }?.takeIf { it.isNotEmpty() }

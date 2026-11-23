@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useGemerkt } from '../utils/gemerkteFilter';
+import { FilterZuruecksetzen } from './FilterZuruecksetzen';
 import { prozente } from '../utils/mitgliedRegeln';
 import { Member, ClubSettings } from '../types';
 import {
@@ -68,13 +70,13 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
   const currentYear = new Date().getFullYear();
 
   // Filter States for Fluctuation Card
-  const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+  const [selectedYear, setSelectedYear] = useGemerkt<string>('mitgliederstatistik', 'selectedYear', currentYear.toString());
+  const [selectedDepartment, setSelectedDepartment] = useGemerkt<string>('mitgliederstatistik', 'selectedDepartment', 'all');
   const [activeListTab, setActiveListTab] = useState<'all' | 'entries' | 'exits'>('all');
-  const [listSearchQuery, setListSearchQuery] = useState<string>('');
+  const [listSearchQuery, setListSearchQuery] = useGemerkt<string>('mitgliederstatistik', 'listSearchQuery', '');
 
   // Filter State for Age Structure Card (by gender)
-  const [selectedGenderFilter, setSelectedGenderFilter] = useState<'all' | 'm' | 'w' | 'd' | 'none'>('all');
+  const [selectedGenderFilter, setSelectedGenderFilter] = useGemerkt<'all' | 'm' | 'w' | 'd' | 'none'>('mitgliederstatistik', 'selectedGenderFilter', 'all');
 
   // Collect all distinct years where actual entries or exits occurred (filtered by department if applicable or all members)
   const availableYears = useMemo(() => {
@@ -518,6 +520,7 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
               <Filter className="w-3.5 h-3.5 text-slate-400" />
               <span className="font-semibold hidden sm:inline">Filter:</span>
             </div>
+            <FilterZuruecksetzen liste="mitgliederstatistik" />
 
             {/* Jahr Filter */}
             <div className="relative">
@@ -553,20 +556,6 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
             </div>
 
-            {/* Reset Filter Button if active */}
-            {(selectedYear !== currentYear.toString() || selectedDepartment !== 'all') && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedYear(currentYear.toString());
-                  setSelectedDepartment('all');
-                }}
-                className="p-1.5 hover:bg-slate-200 text-slate-500 hover:text-slate-700 rounded-lg transition-colors dark:hover:bg-slate-600 dark:text-slate-400 dark:hover:text-slate-200"
-                title="Filter zurücksetzen"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
           </div>
         </div>
 

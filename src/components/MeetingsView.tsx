@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react';
+import { useGemerkt } from '../utils/gemerkteFilter';
+import { FilterZuruecksetzen } from './FilterZuruecksetzen';
 import {
   ScrollText,
   Plus,
@@ -82,9 +84,9 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
   const [activeTab, setActiveTab] = useState<'meetings' | 'resolutions' | 'template'>('meetings');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedType, setSelectedType] = useState<string>('all');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useGemerkt('sitzungen', 'searchQuery', '');
+  const [selectedType, setSelectedType] = useGemerkt<string>('sitzungen', 'selectedType', 'all');
+  const [selectedStatus, setSelectedStatus] = useGemerkt<string>('sitzungen', 'selectedStatus', 'all');
 
   // Modal states
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -150,7 +152,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
   const anzahlSteuer = allResolutions.filter(i => i.resolution.isTaxRelevant).length;
   const anzahlRegister = allResolutions.filter(i => i.resolution.isRegisterRelevant).length;
 
-  const [resolutionFilter, setResolutionFilter] = useState<'all' | 'tax' | 'register'>('all');
+  const [resolutionFilter, setResolutionFilter] = useGemerkt<'all' | 'tax' | 'register'>('sitzungen', 'resolutionFilter', 'all');
 
   const filteredResolutions = useMemo(() => {
     return allResolutions.filter(item => {
@@ -496,6 +498,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                   className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100 dark:focus:bg-slate-800"
                 />
               </div>
+              <FilterZuruecksetzen liste="sitzungen" />
 
               <select
                 value={selectedType}
@@ -792,6 +795,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                   className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-rose-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-100 dark:focus:bg-slate-800"
                 />
               </div>
+              <FilterZuruecksetzen liste="sitzungen" />
 
               <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-xs font-semibold dark:bg-slate-700">
                 <button

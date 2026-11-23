@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
+import { useGemerkt } from '../utils/gemerkteFilter';
+import { FilterZuruecksetzen } from './FilterZuruecksetzen';
 import { TelefonKnopf } from './TelefonKnopf';
 import { ClubContact, ContactType, ContactPersonType } from '../types';
 import { CONTACT_TYPES_LIST, CONTACT_TYPE_MAP } from '../data/contactConstants';
@@ -145,9 +147,9 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
   // Search & Filter state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [personTypeFilter, setPersonTypeFilter] = useState<'all' | ContactPersonType>('all');
-  const [contactTypeFilter, setContactTypeFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useGemerkt('kontakte', 'searchQuery', '');
+  const [personTypeFilter, setPersonTypeFilter] = useGemerkt<'all' | ContactPersonType>('kontakte', 'personTypeFilter', 'all');
+  const [contactTypeFilter, setContactTypeFilter] = useGemerkt<string>('kontakte', 'contactTypeFilter', 'all');
   const { sortBy, sortDirection, handleSort } = useSortableColumns<ContactSortField>('name');
 
   // Selection state
@@ -916,6 +918,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
               </button>
             )}
           </div>
+          <FilterZuruecksetzen liste="kontakte" />
 
           {/* Person Type Filter */}
           <select
@@ -942,21 +945,6 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
             ))}
           </select>
 
-          {/* Reset Filter Button */}
-          {(personTypeFilter !== 'all' || contactTypeFilter !== 'all' || searchQuery) && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchQuery('');
-                setPersonTypeFilter('all');
-                setContactTypeFilter('all');
-              }}
-              className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 ml-auto cursor-pointer dark:text-blue-400 dark:hover:text-blue-200"
-            >
-              <X className="w-3.5 h-3.5" />
-              <span>Filter zurücksetzen</span>
-            </button>
-          )}
         </div>
 
         {/* Tabular Contacts List */}

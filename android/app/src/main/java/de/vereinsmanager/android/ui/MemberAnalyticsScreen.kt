@@ -86,10 +86,10 @@ fun MemberAnalyticsScreen(model: AppModel, modifier: Modifier = Modifier) {
     val zone = remember { ZoneId.systemDefault() }
     val heute = remember { LocalDate.now() }
     val jahre = remember(members) { MemberAnalytics.verfuegbareJahre(members, heute.year, zone) }
-    var jahr by remember(jahre) { mutableStateOf(MemberAnalytics.vorgabeJahr(jahre, heute.year).toString()) }
-    var abteilung by remember { mutableStateOf("") }
+    var jahr by model.gemerkt("mitgliederstatistik", "jahr", MemberAnalytics.vorgabeJahr(jahre, heute.year).toString())
+    var abteilung by model.gemerkt("mitgliederstatistik", "abteilung", "")
     var tab by remember { mutableStateOf(0) }
-    var suche by remember { mutableStateOf("") }
+    var suche by model.gemerkt("mitgliederstatistik", "suche", "")
     var limit by remember { mutableStateOf(5) }
     var geschlecht by remember { mutableStateOf(GeschlechtFilter.ALLE) }
 
@@ -137,6 +137,7 @@ fun MemberAnalyticsScreen(model: AppModel, modifier: Modifier = Modifier) {
         Kachel("Zu- und Abgänge") {
             Auswahl("Jahr", jahrOptionen, jahr) { jahr = it; limit = 5 }
             Auswahl("Abteilung", abtOptionen, abteilung) { abteilung = it; limit = 5 }
+            FilterZuruecksetzen(model, "mitgliederstatistik")
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp).height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val gleich = Modifier.weight(1f).fillMaxHeight()
                 Kennzahl("Zugänge", "$zu", "", sc.primaryContainer, sc.onPrimaryContainer, gleich, mitte = true)
@@ -194,6 +195,7 @@ fun MemberAnalyticsScreen(model: AppModel, modifier: Modifier = Modifier) {
                 TabChip("Austritte", tab == 2) { tab = 2; limit = 5 }
             }
             OutlinedTextField(suche, { suche = it; limit = 5 }, label = { Text("Suchen (Name, Nr., Sparte)") }, singleLine = true, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+            FilterZuruecksetzen(model, "mitgliederstatistik", Modifier.padding(top = 4.dp))
             if (ereignisse.isEmpty()) Text("Keine Ereignisse.", Modifier.padding(top = 8.dp))
             ereignisse.take(limit).forEach { e ->
                 Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {

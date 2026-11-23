@@ -45,6 +45,10 @@ data class Dokument(
     val istBeleg: Boolean, val hochgeladen: String,
     /** Datei liegt im Jahresarchiv (R4c); dann ist [dateiId] null. */
     val archiv: de.vereinsmanager.core.backup.ArchivVermerk? = null,
+    /** Unterlage am Mitglied (Paket U): Art (`memberDocType`), ausgestellt am, gültig bis. Leer = keine Angabe. */
+    val unterlagenArt: String = "",
+    val ausgestelltAm: String = "",
+    val gueltigBis: String = "",
 ) {
     companion object {
         fun from(o: JsonObject) = Dokument(
@@ -59,6 +63,8 @@ data class Dokument(
             mitgliedName = o.text("memberName").orEmpty(),
             istBeleg = (o["isReceipt"] as? JsonPrimitive)?.booleanOrNull ?: false, hochgeladen = o.text("uploadDate").orEmpty(),
             archiv = de.vereinsmanager.core.backup.ArchivVermerk.aus(o["archiv"]),
+            unterlagenArt = o.text("memberDocType").orEmpty(), ausgestelltAm = o.text("issuedAt").orEmpty(),
+            gueltigBis = o.text("validUntil").orEmpty(),
         )
     }
 }
@@ -181,11 +187,13 @@ data class DokumentForm(
     val id: String, val titel: String = "", val kategorie: String = "sonstiges", val ordnerId: String = "", val datum: String = "",
     val tags: String = "", val notiz: String = "", val mitgliedId: String = "", val mitgliedName: String = "",
     val buchungId: String = "", val buchungNummer: String = "",
+    /** Unterlage am Mitglied (Paket U); leer = keine Angabe, das Feld entfällt. */
+    val unterlagenArt: String = "", val ausgestelltAm: String = "", val gueltigBis: String = "",
 ) {
     companion object {
         fun von(d: Dokument) = DokumentForm(
             d.id, d.titel, d.kategorie, d.ordnerId.orEmpty(), d.datum, d.tags.joinToString(", "), d.notiz,
-            d.mitgliedId, d.mitgliedName, d.buchungId, d.buchungNummer,
+            d.mitgliedId, d.mitgliedName, d.buchungId, d.buchungNummer, d.unterlagenArt, d.ausgestelltAm, d.gueltigBis,
         )
     }
 }
@@ -241,6 +249,11 @@ object DokumentStore {
         setze(m, "memberName", if (f.mitgliedId.isEmpty()) "" else f.mitgliedName)
         setze(m, "transactionId", f.buchungId)
         setze(m, "transactionDocNumber", if (f.buchungId.isEmpty()) "" else f.buchungNummer)
+        // Unterlage am Mitglied: nur solange ein Mitglied verknüpft ist
+        val mitMitglied = f.mitgliedId.isNotEmpty()
+        setze(m, "memberDocType", if (mitMitglied) f.unterlagenArt else "")
+        setze(m, "issuedAt", if (mitMitglied) f.ausgestelltAm else "")
+        setze(m, "validUntil", if (mitMitglied) f.gueltigBis else "")
     }
 
     /**

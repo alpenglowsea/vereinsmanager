@@ -1,5 +1,7 @@
 import { sammelHinweis, SammelBericht } from '../utils/buchungSammel';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useGemerkt } from '../utils/gemerkteFilter';
+import { FilterZuruecksetzen } from './FilterZuruecksetzen';
 import {
   Transaction,
   TransactionSplit,
@@ -169,12 +171,12 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('all');
-  const [selectedSphere, setSelectedSphere] = useState<string>('all');
-  const [selectedType, setSelectedType] = useState<string>('all');
-  const [receiptFilter, setReceiptFilter] = useState<string>('all');
-  const [selectedYear, setSelectedYear] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useGemerkt('buchungen', 'searchQuery', '');
+  const [selectedAccountId, setSelectedAccountId] = useGemerkt<string>('buchungen', 'selectedAccountId', 'all');
+  const [selectedSphere, setSelectedSphere] = useGemerkt<string>('buchungen', 'selectedSphere', 'all');
+  const [selectedType, setSelectedType] = useGemerkt<string>('buchungen', 'selectedType', 'all');
+  const [receiptFilter, setReceiptFilter] = useGemerkt<string>('buchungen', 'receiptFilter', 'all');
+  const [selectedYear, setSelectedYear] = useGemerkt<string>('buchungen', 'selectedYear', 'all');
 
   // Multi-selection state
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
@@ -231,8 +233,8 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   };
 
   // Sorting state
-  const [sortField, setSortField] = useState<TransactionSortField>('date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [sortField, setSortField] = useGemerkt<TransactionSortField>('buchungen', 'sortField', 'date', false);
+  const [sortDirection, setSortDirection] = useGemerkt<'asc' | 'desc'>('buchungen', 'sortDirection', 'desc', false);
 
   const handleSort = (field: TransactionSortField) => {
     if (sortField === field) {
@@ -1010,6 +1012,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
               </button>
             )}
           </div>
+          <FilterZuruecksetzen liste="buchungen" />
 
           {/* Account Filter */}
           <select
@@ -1071,22 +1074,6 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             <option value="no_receipt">⚠️ Ohne Beleg</option>
           </select>
 
-          {(selectedAccountId !== 'all' || selectedSphere !== 'all' || selectedType !== 'all' || receiptFilter !== 'all' || selectedYear !== 'all' || searchQuery) && (
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedAccountId('all');
-                setSelectedSphere('all');
-                setSelectedType('all');
-                setReceiptFilter('all');
-                setSelectedYear('all');
-                setSearchQuery('');
-              }}
-              className="text-xs text-rose-600 hover:text-rose-700 font-semibold dark:text-rose-400 dark:hover:text-rose-300"
-            >
-              Filter zurücksetzen
-            </button>
-          )}
         </div>
 
         {/* Transactions Journal Table */}

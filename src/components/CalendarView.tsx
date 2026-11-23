@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useGemerkt } from '../utils/gemerkteFilter';
+import { FilterZuruecksetzen } from './FilterZuruecksetzen';
 import {
   CalendarEvent,
   CalendarEventCategory,
@@ -77,9 +79,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
 
   // Filter State
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
-  const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useGemerkt<string>('kalender', 'searchTerm', '');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useGemerkt<string>('kalender', 'selectedCategoryFilter', 'all');
+  const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useGemerkt<string>('kalender', 'selectedDepartmentFilter', 'all');
   const [showBirthdays, setShowBirthdays] = useState<boolean>(true);
   const [showAnniversaries, setShowAnniversaries] = useState<boolean>(true);
 
@@ -699,6 +701,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 </button>
               )}
             </div>
+            <FilterZuruecksetzen liste="kalender" />
 
             {/* Department dropdown */}
             <select

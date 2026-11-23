@@ -56,7 +56,7 @@ fun EuerScreen(model: AppModel, modifier: Modifier = Modifier) {
     val jahre = remember(model.buchungen) { Finance.jahre(model.buchungen) }
     val aktuell = LocalDate.now().year.toString()
     // Vorgabe: das laufende Jahr, wenn es Buchungen gibt, sonst das neueste Jahr. null = alle Jahre.
-    var jahr by remember { mutableStateOf<String?>(if (aktuell in jahre) aktuell else jahre.firstOrNull()) }
+    var jahr by model.gemerkt<String?>("euer", "jahr", if (aktuell in jahre) aktuell else jahre.firstOrNull())
     val gewaehlt = jahr?.takeIf { it in jahre }
     var offen by remember { mutableStateOf(setOf<String>()) }
     var info by remember { mutableStateOf<String?>(null) }
@@ -67,6 +67,7 @@ fun EuerScreen(model: AppModel, modifier: Modifier = Modifier) {
     Column(modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             FilterMenu("Jahr", jahre.associateWith { it }, gewaehlt) { jahr = it }
+            FilterZuruecksetzen(model, "euer")
             Spacer(Modifier.weight(1f))
             KopfKnopf("PDF", {
                 val verein = model.vereinsname()

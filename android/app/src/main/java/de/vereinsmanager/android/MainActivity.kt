@@ -55,6 +55,7 @@ import de.vereinsmanager.android.ui.BuchungenScreen
 import de.vereinsmanager.android.ui.DokumentAnsichtScreen
 import de.vereinsmanager.android.ui.DokumentDetailScreen
 import de.vereinsmanager.android.ui.DokumentFormScreen
+import de.vereinsmanager.android.ui.UnterlageFormScreen
 import de.vereinsmanager.android.ui.DokumenteScreen
 import de.vereinsmanager.android.ui.KontakteScreen
 import de.vereinsmanager.android.ui.InventarDetailScreen
@@ -146,6 +147,8 @@ sealed interface Page {
     data class Document(val id: String) : Page
     /** id == null: neues Dokument (dann ist ordnerId der Ordner, in dem es angelegt wird). */
     data class DocumentEdit(val id: String?, val ordnerId: String?) : Page
+    /** Unterlage am Mitglied (Paket U); id == null: neue Unterlage. */
+    data class UnterlageEdit(val memberId: String, val id: String?) : Page
     data class DocumentView(val id: String) : Page
     /** Vollbild für das neue Mitglied; Menü und Zurück sind gesperrt. */
     data object AntragAusfuellen : Page
@@ -254,6 +257,7 @@ class MainActivity : ComponentActivity() {
                                     kalenderStart = tag
                                     stack = listOf(Page.Home, Page.Calendar, Page.CalendarEvent(id, tag))
                                 },
+                                onMitglied = { id -> stack = listOf(Page.Home, Page.Members, Page.Member(id)) },
                             )
                             Page.Members -> MemberListScreen(
                                 model, onOpen = { stack = stack + Page.Member(it) }, onNew = { stack = stack + Page.MemberEdit(null) },
@@ -264,9 +268,11 @@ class MainActivity : ComponentActivity() {
                                 onPage = { id -> stack = stack.dropLast(1) + Page.Member(id) },
                                 onMaterialOverview = { stack = stack + Page.MaterialOverview },
                                 onOpenDoc = { stack = stack + Page.Document(it) },
-                                onDeleted = { stack = stack.filter { it !is Page.Member && it !is Page.MemberEdit } }, modifier = m,
+                                onUnterlage = { mid, docId -> stack = stack + Page.UnterlageEdit(mid, docId) },
+                                onDeleted = { stack = stack.filter { it !is Page.Member && it !is Page.MemberEdit && it !is Page.UnterlageEdit } }, modifier = m,
                             )
                             is Page.MemberEdit -> MemberFormScreen(model, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
+                            is Page.UnterlageEdit -> UnterlageFormScreen(model, page.memberId, page.id, onDone = { stack = stack.dropLast(1) }, modifier = m)
                             Page.MemberAnalytics -> MemberAnalyticsScreen(model, modifier = m)
                             Page.MaterialOverview -> MaterialOverviewScreen(model, modifier = m)
                             Page.MemberImport -> MemberImportScreen(model, onDone = { stack = stack.dropLast(1) }, modifier = m)
@@ -419,6 +425,7 @@ private fun seitenTitel(p: Page, model: AppModel): String = when (p) {
     Page.Members -> "Mitgliederverwaltung"
     is Page.Member -> "Mitglied"
     is Page.MemberEdit -> if (p.id == null) "Neues Mitglied" else "Mitglied bearbeiten"
+    is Page.UnterlageEdit -> if (p.id == null) "Neue Unterlage" else "Unterlage bearbeiten"
     Page.MemberImport -> "CSV-Import"
     Page.BuchungImport -> "Buchungen importieren"
     Page.KontaktImport -> "Kontakte importieren"
@@ -465,7 +472,7 @@ private fun seitenTitel(p: Page, model: AppModel): String = when (p) {
 /** Welcher Menüpunkt zur aktuellen Seite gehört (wird im Menü hervorgehoben). */
 private fun aktivesZiel(p: Page): Ziel? = when (p) {
     Page.Home -> Ziel.START
-    Page.Members, is Page.Member, is Page.MemberEdit, Page.MemberImport, Page.MaterialOverview -> Ziel.MITGLIEDER
+    Page.Members, is Page.Member, is Page.MemberEdit, is Page.UnterlageEdit, Page.MemberImport, Page.MaterialOverview -> Ziel.MITGLIEDER
     Page.MemberAnalytics -> Ziel.MITGLIEDER_AUSWERTUNG
     Page.Transactions, is Page.Transaction, is Page.TransactionEdit, is Page.BelegAnsicht, Page.Accounts, Page.BuchungImport -> Ziel.BUCHUNGEN
     is Page.Documents, is Page.Document, is Page.DocumentEdit, is Page.DocumentView -> Ziel.DOKUMENTE

@@ -98,9 +98,9 @@ fun KalenderScreen(
     var monat by remember { mutableStateOf(YearMonth.from(anfang)) }
     var tag by remember { mutableStateOf(anfang) }
     var listeStart by remember { mutableStateOf(heute) }
-    var suche by remember { mutableStateOf("") }
-    var art by remember { mutableStateOf<String?>(null) }
-    var sparte by remember { mutableStateOf<String?>(null) }
+    var suche by model.gemerkt("kalender", "suche", "")
+    var art by model.gemerkt<String?>("kalender", "art", null)
+    var sparte by model.gemerkt<String?>("kalender", "sparte", null)
     var zeigeGeb by remember { mutableStateOf(true) }
     var zeigeJub by remember { mutableStateOf(true) }
     var info by remember { mutableStateOf<String?>(null) }
@@ -170,6 +170,7 @@ fun KalenderScreen(
         }
         SuchFeld(suche, { suche = it }, "Termin suchen …", Modifier.padding(top = 10.dp))
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            FilterZuruecksetzen(model, "kalender")
             FilterMenu("Terminart", model.terminarten.associate { it.id to it.name }, art) { art = it }
             FilterMenu("Sparte", spartenMap(model).filterKeys { it != Kalender.ALLE_SPARTEN }, sparte) { sparte = it }
             FilterChip(zeigeGeb, { zeigeGeb = !zeigeGeb }, { Text("Geburtstage", maxLines = 1, softWrap = false) })

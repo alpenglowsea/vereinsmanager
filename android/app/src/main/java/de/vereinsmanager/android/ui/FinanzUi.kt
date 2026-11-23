@@ -60,9 +60,9 @@ import java.time.LocalDate
 fun FinanzAuswertungScreen(model: AppModel, modifier: Modifier = Modifier) {
     val jahre = remember(model.buchungen) { Finance.jahre(model.buchungen) }
     val aktuell = LocalDate.now().year.toString()
-    var jahr by remember { mutableStateOf<String?>(if (aktuell in jahre) aktuell else jahre.firstOrNull()) }
-    var sphaere by remember { mutableStateOf<String?>(null) }
-    var kontoId by remember { mutableStateOf<String?>(null) }
+    var jahr by model.gemerkt<String?>("auswertung", "jahr", if (aktuell in jahre) aktuell else jahre.firstOrNull())
+    var sphaere by model.gemerkt<String?>("auswertung", "sphaere", null)
+    var kontoId by model.gemerkt<String?>("auswertung", "kontoId", null)
     var mixEinnahmenSparte by remember { mutableStateOf(Finanzauswertung.GESAMT) }
     var mixAusgabenSparte by remember { mutableStateOf(Finanzauswertung.GESAMT) }
     var info by remember { mutableStateOf<String?>(null) }
@@ -96,6 +96,7 @@ fun FinanzAuswertungScreen(model: AppModel, modifier: Modifier = Modifier) {
         Text("Auswertung", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 4.dp))
         Text(filterText, style = MaterialTheme.typography.bodyMedium, color = sc.onSurfaceVariant)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            FilterZuruecksetzen(model, "auswertung")
             FilterMenu("Jahr", jahre.associateWith { it }, gewaehlt) { jahr = it }
             FilterMenu("Bereich", FinanceLabels.SPHERE_SHORT, sphaere) { sphaere = it }
             FilterMenu("Konto", model.konten.associate { it.id to it.name }, konto) { kontoId = it }

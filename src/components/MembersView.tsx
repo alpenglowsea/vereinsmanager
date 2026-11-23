@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useGemerkt } from '../utils/gemerkteFilter';
+import { FilterZuruecksetzen } from './FilterZuruecksetzen';
 import { TelefonKnopf } from './TelefonKnopf';
 import { Member, ClubSettings, MemberBulkUpdates } from '../types';
 import { ExportService } from '../services/exportService';
@@ -197,13 +199,13 @@ export const MembersView: React.FC<MembersViewProps> = ({
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
   // Filters state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [deptFilter, setDeptFilter] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [paymentFilter, setPaymentFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<MemberSortField>('number');
-  const [sortAsc, setSortAsc] = useState(true);
+  const [searchQuery, setSearchQuery] = useGemerkt('mitglieder', 'searchQuery', '');
+  const [statusFilter, setStatusFilter] = useGemerkt<string>('mitglieder', 'statusFilter', 'all');
+  const [deptFilter, setDeptFilter] = useGemerkt<string>('mitglieder', 'deptFilter', 'all');
+  const [typeFilter, setTypeFilter] = useGemerkt<string>('mitglieder', 'typeFilter', 'all');
+  const [paymentFilter, setPaymentFilter] = useGemerkt<string>('mitglieder', 'paymentFilter', 'all');
+  const [sortBy, setSortBy] = useGemerkt<MemberSortField>('mitglieder', 'sortBy', 'number', false);
+  const [sortAsc, setSortAsc] = useGemerkt('mitglieder', 'sortAsc', true, false);
 
   // Pagination state (25, 50, 100, or 'all')
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -1296,6 +1298,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
               </button>
             )}
           </div>
+          <FilterZuruecksetzen liste="mitglieder" />
 
           {/* Status Filter */}
           <select
@@ -1350,22 +1353,6 @@ export const MembersView: React.FC<MembersViewProps> = ({
             <option value="standing_order">Dauerauftrag</option>
           </select>
 
-          {/* Reset Filter Button */}
-          {(statusFilter !== 'all' || deptFilter !== 'all' || typeFilter !== 'all' || paymentFilter !== 'all' || searchQuery) && (
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter('all');
-                setDeptFilter('all');
-                setTypeFilter('all');
-                setPaymentFilter('all');
-                setSearchQuery('');
-              }}
-              className="text-xs text-rose-600 hover:text-rose-700 font-semibold dark:text-rose-400 dark:hover:text-rose-300"
-            >
-              Filter zurücksetzen
-            </button>
-          )}
         </div>
 
         {/* Table Body */}

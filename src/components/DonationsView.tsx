@@ -1,5 +1,7 @@
 import { vergleicheDatumDannNummer, vergleicheNummerDannDatum } from '../utils/sortierung';
 import React, { useState, useMemo, useRef } from 'react';
+import { useGemerkt } from '../utils/gemerkteFilter';
+import { FilterZuruecksetzen } from './FilterZuruecksetzen';
 import {
   DonationReceipt,
   ClubSettings,
@@ -144,8 +146,8 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
    */
   // Bestätigung, deren Löschen gerade erfragt wird (eigener Dialog statt confirm(), D-39/D-147)
   const [zuLoeschen, setZuLoeschen] = useState<DonationReceipt | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState<'all' | 'money' | 'goods'>('all');
+  const [searchTerm, setSearchTerm] = useGemerkt('spenden', 'searchTerm', '');
+  const [selectedType, setSelectedType] = useGemerkt<'all' | 'money' | 'goods'>('spenden', 'selectedType', 'all');
   const { sortBy, sortDirection, handleSort } = useSortableColumns<DonationSortField>('date', 'desc'); // neueste zuerst
 
   // Ziehbare, gespeicherte Spaltenbreiten der Tabelle (siehe useResizableColumns).
@@ -433,7 +435,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
   const years = Array.from(
     new Set(donations.map(d => (d.date ? d.date.substring(0, 4) : '2025')))
   ).sort().reverse();
-  const [selectedYear, setSelectedYear] = useState<string>('all');
+  const [selectedYear, setSelectedYear] = useGemerkt<string>('spenden', 'selectedYear', 'all');
 
   // Filtered & sorted donations
   const filteredDonations = useMemo(() => {
@@ -703,6 +705,7 @@ export const DonationsView: React.FC<DonationsViewProps> = ({
                 className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-800"
               />
             </div>
+            <FilterZuruecksetzen liste="spenden" />
 
             {/* Type selector */}
             <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 dark:bg-slate-900 dark:border-slate-800">

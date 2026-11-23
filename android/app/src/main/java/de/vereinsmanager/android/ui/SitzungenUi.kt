@@ -76,9 +76,9 @@ private fun signiertText(zeit: String): String = try {
 @Composable
 fun SitzungenScreen(model: AppModel, onOpen: (String) -> Unit, onNeu: () -> Unit, modifier: Modifier = Modifier) {
     var tab by remember { mutableStateOf(0) }
-    var suche by remember { mutableStateOf("") }
-    var art by remember { mutableStateOf<String?>(null) }
-    var status by remember { mutableStateOf<String?>(null) }
+    var suche by model.gemerkt("sitzungen", "suche", "")
+    var art by model.gemerkt<String?>("sitzungen", "art", null)
+    var status by model.gemerkt<String?>("sitzungen", "status", null)
     var kennz by remember { mutableStateOf<String?>(null) }
     val st = remember(model.sitzungen) { Sitzungen.statistik(model.sitzungen) }
     val liste = remember(model.sitzungen, suche, art, status) { Sitzungen.filtern(model.sitzungen, suche, art, status) }
@@ -112,6 +112,7 @@ fun SitzungenScreen(model: AppModel, onOpen: (String) -> Unit, onNeu: () -> Unit
             }
             SuchFeld(suche, { suche = it }, if (tab == 0) "Sitzung suchen …" else "Beschluss suchen …", Modifier.padding(top = 10.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                FilterZuruecksetzen(model, "sitzungen")
                 if (tab == 0) {
                     FilterMenu("Art", Sitzungen.ARTEN, art) { art = it }
                     FilterMenu("Status", Sitzungen.STATUS, status) { status = it }

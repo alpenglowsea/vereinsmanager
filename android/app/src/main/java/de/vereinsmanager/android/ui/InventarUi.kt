@@ -103,12 +103,12 @@ fun InventarScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit,
     val alle = model.inventar
     val ausgegeben = model.inventarAusgegeben
     val heute = LocalDate.now()
-    var suche by remember { mutableStateOf("") }
-    var sparte by remember { mutableStateOf<String?>(null) }
-    var art by remember { mutableStateOf<String?>(null) }
-    var zustand by remember { mutableStateOf<String?>(null) }
+    var suche by model.gemerkt("inventar", "suche", "")
+    var sparte by model.gemerkt<String?>("inventar", "sparte", null)
+    var art by model.gemerkt<String?>("inventar", "art", null)
+    var zustand by model.gemerkt<String?>("inventar", "zustand", null)
     var nurPruefung by remember { mutableStateOf(false) }
-    var sortierung by remember { mutableStateOf(InventarSort.NAME) }
+    var sortierung by model.gemerkt("inventar", "sortierung", InventarSort.NAME, filter = false)
     var gewaehlt by remember { mutableStateOf(setOf<String>()) }
     var loeschen by remember { mutableStateOf(false) }
     var sammel by remember { mutableStateOf(false) }
@@ -160,6 +160,7 @@ fun InventarScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit,
             )
             SuchFeld(suche, { suche = it }, "Gegenstand suchen …", Modifier.padding(top = 10.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                FilterZuruecksetzen(model, "inventar")
                 FilterMenu("Sparte", sparten.associateWith { it }, sparte) { sparte = it }
                 FilterMenu("Art", Inventar.ARTEN_KURZ, art) { art = it }
                 FilterMenu("Zustand", Inventar.ZUSTAENDE, zustand) { zustand = it }

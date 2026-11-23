@@ -57,9 +57,27 @@ export interface Member {
   guardianRelation?: string; // z.B. 'Mutter', 'Vater', 'Gesetzlicher Vormund'
   guardianPhone?: string;
   guardianEmail?: string;
+  /**
+   * Vermerk zum erweiterten Führungszeugnis (Paket U). Nach § 72a Abs. 5 SGB VIII
+   * nur diese Angaben, keine Kopie des Zeugnisses.
+   */
+  policeCertificate?: FuehrungszeugnisVermerk;
   createdAt: string;
   updatedAt: string;
 }
+
+/** Vermerk zum erweiterten Führungszeugnis (§ 72a Abs. 5 SGB VIII). */
+export interface FuehrungszeugnisVermerk {
+  /** Tag der Einsichtnahme (JJJJ-MM-TT) */
+  inspectedAt: string;
+  /** Ausstellungsdatum des Führungszeugnisses (JJJJ-MM-TT) */
+  certificateDate: string;
+  /** Einschlägige Verurteilung nach § 72a Abs. 1 SGB VIII eingetragen? */
+  relevantConviction: boolean;
+}
+
+/** Art einer Unterlage am Mitglied (Paket U). */
+export type UnterlagenArt = 'trainerlizenz' | 'erste_hilfe' | 'schiedsrichter' | 'aufnahmeantrag' | 'einverstaendnis' | 'sonstiges';
 
 export interface MemberAuditChange {
   field: string;
@@ -477,6 +495,10 @@ export interface ClubDocument {
   transactionDocNumber?: string; // z.B. 'BE-2025-001'
   memberId?: string; // Verknüpftes Mitglied
   memberName?: string;
+  /** Unterlage am Mitglied (Paket U): Art, ausgestellt am, gültig bis (JJJJ-MM-TT). */
+  memberDocType?: UnterlagenArt;
+  issuedAt?: string;
+  validUntil?: string;
   isReceipt?: boolean; // Kennzeichnet, ob es ein Buchungsbeleg ist
   createdAt: string;
   updatedAt: string;

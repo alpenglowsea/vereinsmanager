@@ -34,8 +34,8 @@ import java.time.LocalDate
 /** Alle Materialausgaben aller Mitglieder: Kennzahlen, Suche, Filter, Rückgabe umschalten, Entfernen, CSV und PDF. */
 @Composable
 fun MaterialOverviewScreen(model: AppModel, modifier: Modifier = Modifier) {
-    var suche by remember { mutableStateOf("") }
-    var filter by remember { mutableStateOf(MaterialUebersicht.Filter.ALLE) }
+    var suche by model.gemerkt("material", "suche", "")
+    var filter by model.gemerkt("material", "filter", MaterialUebersicht.Filter.ALLE)
     var entfernen by remember { mutableStateOf<Ausgabe?>(null) }
     var info by remember { mutableStateOf("") }
     val exporter = rememberExporter(model) { info = it }
@@ -55,6 +55,7 @@ fun MaterialOverviewScreen(model: AppModel, modifier: Modifier = Modifier) {
             Column { Text("Eigenanteil", style = MaterialTheme.typography.labelMedium); Text(euro(k.eigenanteil), style = MaterialTheme.typography.titleMedium) }
         }
         OutlinedTextField(suche, { suche = it }, label = { Text("Suchen (Mitglied, Gegenstand, Nummer, Notiz)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        FilterZuruecksetzen(model, "material", Modifier.padding(top = 4.dp))
         Row(Modifier.padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(filter == MaterialUebersicht.Filter.ALLE, { filter = MaterialUebersicht.Filter.ALLE }, label = { Text("Alle") })
             FilterChip(filter == MaterialUebersicht.Filter.AUSGEGEBEN, { filter = MaterialUebersicht.Filter.AUSGEGEBEN }, label = { Text("Ausgegeben") })

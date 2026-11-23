@@ -117,9 +117,9 @@ private fun betragText(b: Buchung): String = when {
 /** Buchungsjournal: Kontostände oben, darunter Suche, Filter und die Buchungen als Karten-Liste. */
 @Composable
 fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, onKonten: () -> Unit, onImport: () -> Unit, modifier: Modifier = Modifier) {
-    var filter by remember { mutableStateOf(BuchungFilter()) }
-    var sortierung by remember { mutableStateOf(BuchungSortierung.DATUM) }
-    var aufsteigend by remember { mutableStateOf(false) }
+    var filter by model.gemerkt("buchungen", "filter", BuchungFilter())
+    var sortierung by model.gemerkt("buchungen", "sortierung", BuchungSortierung.DATUM, filter = false)
+    var aufsteigend by model.gemerkt("buchungen", "aufsteigend", false, filter = false)
     var sortOffen by remember { mutableStateOf(false) }
     var gewaehlt by remember { mutableStateOf<Set<String>>(emptySet()) }
     val waehlt = gewaehlt.isNotEmpty()
@@ -214,6 +214,7 @@ fun BuchungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             )
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterZuruecksetzen(model, "buchungen")
                 FilterMenu("Jahr", jahre.associateWith { it }, filter.jahr) { filter = filter.copy(jahr = it) }
                 FilterMenu("Art", FinanceLabels.KIND, filter.art) { filter = filter.copy(art = it) }
                 FilterMenu("Konto", kontoName, filter.kontoId) { filter = filter.copy(kontoId = it) }

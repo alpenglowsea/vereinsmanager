@@ -104,10 +104,10 @@ fun DokumenteScreen(
     val alleDok = model.dokumente
     val aktuell = folderId?.let { id -> alleOrdner.firstOrNull { it.id == id } }
 
-    var text by remember { mutableStateOf("") }
-    var format by remember { mutableStateOf(DateiFormat.ALLE) }
-    var jahr by remember { mutableStateOf<String?>(null) }
-    var sort by remember { mutableStateOf(DokSortierung.DATUM_NEU) }
+    var text by model.gemerkt("dokumente:${folderId.orEmpty()}", "text", "")
+    var format by model.gemerkt("dokumente:${folderId.orEmpty()}", "format", DateiFormat.ALLE)
+    var jahr by model.gemerkt<String?>("dokumente:${folderId.orEmpty()}", "jahr", null)
+    var sort by model.gemerkt("dokumente:${folderId.orEmpty()}", "sort", DokSortierung.DATUM_NEU, filter = false)
     var sortOffen by remember { mutableStateOf(false) }
     var auswahl by remember { mutableStateOf(false) }
     var gewaehlt by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -162,6 +162,7 @@ fun DokumenteScreen(
             }
             SuchFeld(text, { text = it }, if (folderId == null) "Dokument suchen …" else "In diesem Ordner suchen …", Modifier.padding(top = 8.dp))
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                FilterZuruecksetzen(model, "dokumente:${folderId.orEmpty()}")
                 FilterMenu(
                     "Format", DateiFormat.values().filter { it != DateiFormat.ALLE }.associate { it.name to it.titel },
                     if (format == DateiFormat.ALLE) null else format.name,
@@ -719,29 +720,35 @@ fun DokumentFormScreen(model: AppModel, id: String?, ordnerVorgabe: String?, onD
 
 /** Erster Schritt beim Hinzufügen: eine Datei wählen oder ein Foto aufnehmen. */
 @Composable
-private fun DateiWahl(model: AppModel, onAbbrechen: () -> Unit, modifier: Modifier, meldung: (String) -> Unit) {
+internal fun DateiWahl(
+    model: AppModel, onAbbrechen: () -> Unit, modifier: Modifier, meldung: (String) -> Unit,
+    /** Kennzeichen für die aufgenommenen Seiten (Dokument oder Unterlage am Mitglied). */
+    ziel: String = FOTO_ZIEL,
+    frage: String = "Welche Datei soll abgelegt werden?",
+    hinweis: String = "Jede Dateiart ist möglich, bis ${DokumentStore.MAX_GROESSE / 1024 / 1024} MB. Fotos werden verkleinert und zu einer PDF gemacht.",
+) {
     val dateiLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) model.dokumentDateiWaehlen(uri) { f -> if (f != null) meldung("Die Datei lässt sich nicht übernehmen: $f") }
     }
     val kamera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok -> model.fotoAufgenommen(ok) }
     fun fotoMachen() {
         try {
-            kamera.launch(model.neuesFotoZiel(FOTO_ZIEL))
+            kamera.launch(model.neuesFotoZiel(ziel))
         } catch (e: Exception) {
             meldung("Die Kamera lässt sich nicht starten: ${e.message ?: "keine Kamera-App gefunden"}")
         }
     }
 
     Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Welche Datei soll abgelegt werden?", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 8.dp))
-        Text("Jede Dateiart ist möglich, bis ${DokumentStore.MAX_GROESSE / 1024 / 1024} MB. Fotos werden verkleinert und zu einer PDF gemacht.")
+        Text(frage, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 8.dp))
+        Text(hinweis)
         Button(onClick = { dateiLauncher.launch(arrayOf("*/*")) }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Datei wählen") }
         OutlinedButton(onClick = { model.fotosVerwerfen(); fotoMachen() }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Foto aufnehmen") }
         TextButton(onClick = onAbbrechen, modifier = Modifier.fillMaxWidth()) { Text("Abbrechen") }
     }
 
     // Aufgenommene Seiten: dasselbe Fenster wie beim Beleg, nur dass am Ende ein Entwurf entsteht.
-    if (model.fotoSeiten.isNotEmpty() && model.fotoBuchungId == FOTO_ZIEL && !model.busy) {
+    if (model.fotoSeiten.isNotEmpty() && model.fotoBuchungId == ziel && !model.busy) {
         Aktionsdialog(
             titel = "Foto aufgenommen",
             onDismiss = null,

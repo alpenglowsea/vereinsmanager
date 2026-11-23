@@ -95,7 +95,8 @@ class DashboardTest {
         ))
         s.put(Dashboard.AREA, Dashboard.ID, desktop)
         var a = Dashboard.lesen(s)
-        assertEquals(listOf("members_kpi"), Dashboard.sichtbar(a).map { it.id }) // Online-Anträge gibt es hier nicht
+        // Online-Anträge gibt es hier nicht; neu ergänzt und gleich angezeigt wird nur „Unterlagen laufen ab“ (Paket U)
+        assertEquals(listOf("members_kpi", "member_documents_expiry"), Dashboard.sichtbar(a).map { it.id })
         // alle anderen Kacheln der App sind ergänzt und ausgeblendet
         assertEquals(Dashboard.KACHELN.size, Dashboard.alle(a).size)
         a = Dashboard.umschalten(a, "total_liquidity", true)
@@ -104,7 +105,7 @@ class DashboardTest {
         assertEquals("bleibt", (danach["extra"] as JsonPrimitive).content)
         val w = (danach["widgets"] as JsonArray).map { it as JsonObject }
         assertTrue(w.any { (it["id"] as JsonPrimitive).content == "online_applications_kpi" && (it["colSpan"] as JsonPrimitive).content == "2" })
-        assertEquals(listOf("members_kpi", "total_liquidity"), Dashboard.sichtbar(Dashboard.lesen(s)).map { it.id })
+        assertEquals(listOf("members_kpi", "member_documents_expiry", "total_liquidity"), Dashboard.sichtbar(Dashboard.lesen(s)).map { it.id }) // eingeblendete Kachel kommt ans Ende
     }
 
     @Test fun vorlagenWieAmDesktop() {

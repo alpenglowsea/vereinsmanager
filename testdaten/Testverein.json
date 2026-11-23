@@ -238,7 +238,12 @@
         "notes": "",
         "dataPrivacyConsent": true,
         "createdAt": "2026-08-01T09:00:00.000Z",
-        "updatedAt": "2026-08-01T09:00:00.000Z"
+        "updatedAt": "2026-08-01T09:00:00.000Z",
+        "policeCertificate": {
+          "certificateDate": "2022-01-10",
+          "inspectedAt": "2022-01-17",
+          "relevantConviction": false
+        }
       },
       {
         "id": "mem-M-0107",
@@ -1439,7 +1444,12 @@
         "notes": "",
         "dataPrivacyConsent": true,
         "createdAt": "2022-01-01T09:00:00.000Z",
-        "updatedAt": "2022-01-01T09:00:00.000Z"
+        "updatedAt": "2022-01-01T09:00:00.000Z",
+        "policeCertificate": {
+          "certificateDate": "2024-05-02",
+          "inspectedAt": "2024-05-06",
+          "relevantConviction": false
+        }
       },
       {
         "id": "mem-M-0138",
@@ -21920,6 +21930,105 @@
         "updatedAt": "2026-02-01T09:00:00.000Z",
         "memberId": "mem-M-0130",
         "memberName": "Johann Aigner"
+      },
+      {
+        "id": "doc-unterlage-M-0106-trainerlizenz",
+        "title": "C-Lizenz Fußball",
+        "fileName": "C-Lizenz_Fußball.pdf",
+        "fileType": "application/pdf",
+        "fileSize": 995,
+        "dataUrl": "data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUgODQyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA0IDAgUiAvRjIgNSAwIFIgPj4gPj4gL0NvbnRlbnRzIDYgMCBSID4+CmVuZG9iago0IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYSAvRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZyA+PgplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvRm9udCAvU3VidHlwZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EtQm9sZCAvRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZyA+PgplbmRvYmoKNiAwIG9iago8PCAvTGVuZ3RoIDI5MSA+PgpzdHJlYW0KQlQKL0YyIDE2IFRmCjU2IDc4MCBUZAooQy1MaXplbnogRnVcMzM3YmFsbCkgVGoKL0YxIDExIFRmCjAgLTI4IFRkCihUcmFpbmVyLS9cMzM0YnVuZ3NsZWl0ZXJsaXplbnogZlwzNzRyIEZlbGl4IE1heXIgXChNLTAxMDZcKSkgVGoKMCAtMTYgVGQKKEF1c2dlc3RlbGx0IGFtIDAxLjAyLjIwMjMsIGdcMzc0bHRpZyBiaXMgMzEuMDEuMjAyNy4pIFRqCjAgLTMyIFRkCi9GMSA5IFRmCihUZXN0ZGF0ZW4gZGVzIFZlcmVpbnNNYW5hZ2VycyBcMjI2IFBsYXR6aGFsdGVyLCBrZWluIGVjaHRlciBCZWxlZy4pIFRqCkVUCmVuZHN0cmVhbQplbmRvYmoKeHJlZgowIDcKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAowMDAwMDAwMjUxIDAwMDAwIG4gCjAwMDAwMDAzNDggMDAwMDAgbiAKMDAwMDAwMDQ1MCAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDcgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjc5MgolJUVPRgo=",
+        "category": "mitglieder",
+        "folderId": "folder-mitgliederunterlagen",
+        "date": "2023-02-01",
+        "uploadDate": "2023-02-01T09:00:00.000Z",
+        "tags": [],
+        "createdAt": "2023-02-01T09:00:00.000Z",
+        "updatedAt": "2023-02-01T09:00:00.000Z",
+        "memberId": "mem-M-0106",
+        "memberName": "Felix Mayr",
+        "memberDocType": "trainerlizenz",
+        "issuedAt": "2023-02-01",
+        "validUntil": "2027-01-31"
+      },
+      {
+        "id": "doc-unterlage-M-0106-erste_hilfe",
+        "title": "Erste-Hilfe-Kurs (9 Unterrichtseinheiten)",
+        "fileName": "Erste-Hilfe-Kurs_9_Unterrichtseinheiten_.pdf",
+        "fileType": "application/pdf",
+        "fileSize": 1009,
+        "dataUrl": "data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUgODQyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA0IDAgUiAvRjIgNSAwIFIgPj4gPj4gL0NvbnRlbnRzIDYgMCBSID4+CmVuZG9iago0IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYSAvRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZyA+PgplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvRm9udCAvU3VidHlwZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EtQm9sZCAvRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZyA+PgplbmRvYmoKNiAwIG9iago8PCAvTGVuZ3RoIDMwNSA+PgpzdHJlYW0KQlQKL0YyIDE2IFRmCjU2IDc4MCBUZAooRXJzdGUtSGlsZmUtS3VycyBcKDkgVW50ZXJyaWNodHNlaW5oZWl0ZW5cKSkgVGoKL0YxIDExIFRmCjAgLTI4IFRkCihFcnN0ZS1IaWxmZS1OYWNod2VpcyBmXDM3NHIgRmVsaXggTWF5ciBcKE0tMDEwNlwpKSBUagowIC0xNiBUZAooQXVzZ2VzdGVsbHQgYW0gMDguMDMuMjAyNSwgZ1wzNzRsdGlnIGJpcyAwOC4wMy4yMDI3LikgVGoKMCAtMzIgVGQKL0YxIDkgVGYKKFRlc3RkYXRlbiBkZXMgVmVyZWluc01hbmFnZXJzIFwyMjYgUGxhdHpoYWx0ZXIsIGtlaW4gZWNodGVyIEJlbGVnLikgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNwowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNTEgMDAwMDAgbiAKMDAwMDAwMDM0OCAwMDAwMCBuIAowMDAwMDAwNDUwIDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNyAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKODA2CiUlRU9GCg==",
+        "category": "mitglieder",
+        "folderId": "folder-mitgliederunterlagen",
+        "date": "2025-03-08",
+        "uploadDate": "2025-03-08T09:00:00.000Z",
+        "tags": [],
+        "createdAt": "2025-03-08T09:00:00.000Z",
+        "updatedAt": "2025-03-08T09:00:00.000Z",
+        "memberId": "mem-M-0106",
+        "memberName": "Felix Mayr",
+        "memberDocType": "erste_hilfe",
+        "issuedAt": "2025-03-08",
+        "validUntil": "2027-03-08"
+      },
+      {
+        "id": "doc-unterlage-M-0123-trainerlizenz",
+        "title": "C-Trainer Tennis Breitensport",
+        "fileName": "C-Trainer_Tennis_Breitensport.pdf",
+        "fileType": "application/pdf",
+        "fileSize": 1008,
+        "dataUrl": "data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUgODQyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA0IDAgUiAvRjIgNSAwIFIgPj4gPj4gL0NvbnRlbnRzIDYgMCBSID4+CmVuZG9iago0IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYSAvRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZyA+PgplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvRm9udCAvU3VidHlwZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EtQm9sZCAvRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZyA+PgplbmRvYmoKNiAwIG9iago8PCAvTGVuZ3RoIDMwNCA+PgpzdHJlYW0KQlQKL0YyIDE2IFRmCjU2IDc4MCBUZAooQy1UcmFpbmVyIFRlbm5pcyBCcmVpdGVuc3BvcnQpIFRqCi9GMSAxMSBUZgowIC0yOCBUZAooVHJhaW5lci0vXDMzNGJ1bmdzbGVpdGVybGl6ZW56IGZcMzc0ciBCYXJiYXJhIE1vc2VyIFwoTS0wMTIzXCkpIFRqCjAgLTE2IFRkCihBdXNnZXN0ZWxsdCBhbSAwMS4xMC4yMDIyLCBnXDM3NGx0aWcgYmlzIDMwLjA5LjIwMjYuKSBUagowIC0zMiBUZAovRjEgOSBUZgooVGVzdGRhdGVuIGRlcyBWZXJlaW5zTWFuYWdlcnMgXDIyNiBQbGF0emhhbHRlciwga2VpbiBlY2h0ZXIgQmVsZWcuKSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA3CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDI1MSAwMDAwMCBuIAowMDAwMDAwMzQ4IDAwMDAwIG4gCjAwMDAwMDA0NTAgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA3IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgo4MDUKJSVFT0YK",
+        "category": "mitglieder",
+        "folderId": "folder-mitgliederunterlagen",
+        "date": "2022-10-01",
+        "uploadDate": "2022-10-01T09:00:00.000Z",
+        "tags": [],
+        "createdAt": "2022-10-01T09:00:00.000Z",
+        "updatedAt": "2022-10-01T09:00:00.000Z",
+        "memberId": "mem-M-0123",
+        "memberName": "Barbara Moser",
+        "memberDocType": "trainerlizenz",
+        "issuedAt": "2022-10-01",
+        "validUntil": "2026-09-30"
+      },
+      {
+        "id": "doc-unterlage-M-0137-trainerlizenz",
+        "title": "Übungsleiter-C Breitensport",
+        "fileName": "Übungsleiter-C_Breitensport.pdf",
+        "fileType": "application/pdf",
+        "fileSize": 1006,
+        "dataUrl": "data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUgODQyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA0IDAgUiAvRjIgNSAwIFIgPj4gPj4gL0NvbnRlbnRzIDYgMCBSID4+CmVuZG9iago0IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYSAvRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZyA+PgplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvRm9udCAvU3VidHlwZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EtQm9sZCAvRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZyA+PgplbmRvYmoKNiAwIG9iago8PCAvTGVuZ3RoIDMwMiA+PgpzdHJlYW0KQlQKL0YyIDE2IFRmCjU2IDc4MCBUZAooXDMzNGJ1bmdzbGVpdGVyLUMgQnJlaXRlbnNwb3J0KSBUagovRjEgMTEgVGYKMCAtMjggVGQKKFRyYWluZXItL1wzMzRidW5nc2xlaXRlcmxpemVueiBmXDM3NHIgTGVhIEJlcmdlciBcKE0tMDEzN1wpKSBUagowIC0xNiBUZAooQXVzZ2VzdGVsbHQgYW0gMTUuMDYuMjAyNCwgZ1wzNzRsdGlnIGJpcyAxNC4wNi4yMDI4LikgVGoKMCAtMzIgVGQKL0YxIDkgVGYKKFRlc3RkYXRlbiBkZXMgVmVyZWluc01hbmFnZXJzIFwyMjYgUGxhdHpoYWx0ZXIsIGtlaW4gZWNodGVyIEJlbGVnLikgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNwowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNTEgMDAwMDAgbiAKMDAwMDAwMDM0OCAwMDAwMCBuIAowMDAwMDAwNDUwIDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNyAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKODAzCiUlRU9GCg==",
+        "category": "mitglieder",
+        "folderId": "folder-mitgliederunterlagen",
+        "date": "2024-06-15",
+        "uploadDate": "2024-06-15T09:00:00.000Z",
+        "tags": [],
+        "createdAt": "2024-06-15T09:00:00.000Z",
+        "updatedAt": "2024-06-15T09:00:00.000Z",
+        "memberId": "mem-M-0137",
+        "memberName": "Lea Berger",
+        "memberDocType": "trainerlizenz",
+        "issuedAt": "2024-06-15",
+        "validUntil": "2028-06-14"
+      },
+      {
+        "id": "doc-unterlage-M-0101-einverstaendnis",
+        "title": "Einverständnis Fotos und Veröffentlichung",
+        "fileName": "Einverständnis_Fotos_und_Veröffentlichung.pdf",
+        "fileType": "application/pdf",
+        "fileSize": 1004,
+        "dataUrl": "data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUgODQyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA0IDAgUiAvRjIgNSAwIFIgPj4gPj4gL0NvbnRlbnRzIDYgMCBSID4+CmVuZG9iago0IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYSAvRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZyA+PgplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvRm9udCAvU3VidHlwZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EtQm9sZCAvRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZyA+PgplbmRvYmoKNiAwIG9iago8PCAvTGVuZ3RoIDMwMCA+PgpzdHJlYW0KQlQKL0YyIDE2IFRmCjU2IDc4MCBUZAooRWludmVyc3RcMzQ0bmRuaXMgRm90b3MgdW5kIFZlclwzNjZmZmVudGxpY2h1bmcpIFRqCi9GMSAxMSBUZgowIC0yOCBUZAooRWludmVyc3RcMzQ0bmRuaXMgXCh6LiBCLiBGb3Rvc1wpIGZcMzc0ciBNYXJrdXMgUGljaGxlciBcKE0tMDEwMVwpKSBUagowIC0xNiBUZAooQXVzZ2VzdGVsbHQgYW0gMDEuMDguMjAyMS4pIFRqCjAgLTMyIFRkCi9GMSA5IFRmCihUZXN0ZGF0ZW4gZGVzIFZlcmVpbnNNYW5hZ2VycyBcMjI2IFBsYXR6aGFsdGVyLCBrZWluIGVjaHRlciBCZWxlZy4pIFRqCkVUCmVuZHN0cmVhbQplbmRvYmoKeHJlZgowIDcKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAowMDAwMDAwMjUxIDAwMDAwIG4gCjAwMDAwMDAzNDggMDAwMDAgbiAKMDAwMDAwMDQ1MCAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDcgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjgwMQolJUVPRgo=",
+        "category": "mitglieder",
+        "folderId": "folder-mitgliederunterlagen",
+        "date": "2021-08-01",
+        "uploadDate": "2021-08-01T09:00:00.000Z",
+        "tags": [],
+        "createdAt": "2021-08-01T09:00:00.000Z",
+        "updatedAt": "2021-08-01T09:00:00.000Z",
+        "memberId": "mem-M-0101",
+        "memberName": "Markus Pichler",
+        "memberDocType": "einverstaendnis",
+        "issuedAt": "2021-08-01"
       }
     ],
     "folders": [
@@ -22195,6 +22304,16 @@
         "description": "Zuwendungsbestätigungen (Spendenquittungen) dieses Geschäftsjahres",
         "createdAt": "2026-02-16T09:00:00.000Z",
         "updatedAt": "2026-02-16T09:00:00.000Z"
+      },
+      {
+        "id": "folder-mitgliederunterlagen",
+        "name": "Mitgliederunterlagen",
+        "parentId": "folder-mitglieder",
+        "category": "mitglieder",
+        "color": "#0ea5e9",
+        "description": "Lizenzen, Nachweise und Einverständnisse einzelner Mitglieder",
+        "createdAt": "2022-01-05T09:00:00.000Z",
+        "updatedAt": "2022-01-05T09:00:00.000Z"
       }
     ],
     "donations": [
@@ -30359,6 +30478,12 @@
           "enabled": true,
           "order": 25,
           "colSpan": 1
+        },
+        {
+          "id": "member_documents_expiry",
+          "enabled": true,
+          "order": 26,
+          "colSpan": 2
         }
       ]
     },

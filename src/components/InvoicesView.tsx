@@ -1,5 +1,7 @@
 import { vergleicheDatumDannNummer, vergleicheNummerDannDatum } from '../utils/sortierung';
 import React, { useState, useMemo, useRef } from 'react';
+import { useGemerkt } from '../utils/gemerkteFilter';
+import { FilterZuruecksetzen } from './FilterZuruecksetzen';
 import { TelefonKnopf } from './TelefonKnopf';
 import {
   ClubInvoice,
@@ -163,9 +165,9 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
   // Search & Filter state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | InvoiceStatus | 'overdue'>('all');
-  const [taxSphereFilter, setTaxSphereFilter] = useState<'all' | TaxSphere>('all');
+  const [searchQuery, setSearchQuery] = useGemerkt('rechnungen', 'searchQuery', '');
+  const [statusFilter, setStatusFilter] = useGemerkt<'all' | InvoiceStatus | 'overdue'>('rechnungen', 'statusFilter', 'all');
+  const [taxSphereFilter, setTaxSphereFilter] = useGemerkt<'all' | TaxSphere>('rechnungen', 'taxSphereFilter', 'all');
   const { sortBy, sortDirection, handleSort } = useSortableColumns<InvoiceSortField>('date', 'desc'); // neueste zuerst
 
   // Selection state
@@ -990,6 +992,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
               </button>
             )}
           </div>
+          <FilterZuruecksetzen liste="rechnungen" />
 
           {/* Status Filter */}
           <select

@@ -49,8 +49,10 @@ import type {
   SepaCollectionItem,
   SepaRunHistory,
   TaxSphere,
-  Transaction
+  Transaction,
+  UnterlagenArt
 } from '../types';
+import { artText, ORDNER_UNTERLAGEN, unterlagenOrdner } from '../utils/unterlagen';
 import { SKR42_STRUCTURE } from '../data/taxSpheres';
 import { getInitialFolders } from '../data/initialFolders';
 import { DEFAULT_CALENDAR_CATEGORIES } from '../data/initialEvents';
@@ -1039,6 +1041,26 @@ export function erzeugeTestverein(): TestvereinDatei {
   for (const m of members.filter(x => x.entryDate >= '2025-01-01').slice(0, 3)) {
     vereinsDokument(`doc-antrag-${m.memberNumber}`, `Aufnahmeantrag ${name(m)}`, m.entryDate, 'folder-aufnahmeantraege', 'mitglieder', [`Mitgliedsnummer ${m.memberNumber}`, `Eintritt zum ${deutsch(m.entryDate)}, Abteilung ${m.department}`], { memberId: m.id, memberName: name(m) });
   }
+
+  // Unterlagen am Mitglied (Paket U): Lizenzen mit verschiedenen Fristen (eine
+  // abgelaufen, eine läuft bald ab, eine lange gültig), ein Erste-Hilfe-Nachweis,
+  // ein Einverständnis ohne Frist; dazu zwei Führungszeugnis-Vermerke, einer
+  // davon bald fällig. „Bald“ gilt vom Stand 20.11.2026 aus (90 Tage).
+  folders.push(unterlagenOrdner(folders, zeitstempel('2022-01-05')));
+  const unterlage = (m: Member, art: UnterlagenArt, titel: string, ausgestellt: string, bis?: string) =>
+    vereinsDokument(
+      `doc-unterlage-${m.memberNumber}-${art}`, titel, ausgestellt, ORDNER_UNTERLAGEN.id, 'mitglieder',
+      [`${artText(art)} für ${name(m)} (${m.memberNumber})`, `Ausgestellt am ${deutsch(ausgestellt)}${bis ? `, gültig bis ${deutsch(bis)}` : ''}.`],
+      { memberId: m.id, memberName: name(m), memberDocType: art, issuedAt: ausgestellt, ...(bis ? { validUntil: bis } : {}) }
+    );
+  unterlage(trainer.Fußball, 'trainerlizenz', 'C-Lizenz Fußball', '2023-02-01', '2027-01-31');
+  unterlage(trainer.Fußball, 'erste_hilfe', 'Erste-Hilfe-Kurs (9 Unterrichtseinheiten)', '2025-03-08', '2027-03-08');
+  unterlage(trainer.Tennis, 'trainerlizenz', 'C-Trainer Tennis Breitensport', '2022-10-01', '2026-09-30');
+  unterlage(trainer['Turnen & Gymnastik'], 'trainerlizenz', 'Übungsleiter-C Breitensport', '2024-06-15', '2028-06-14');
+  const kindMitFoto = members.find(m => m.isMinor && m.status !== 'terminated');
+  if (kindMitFoto) unterlage(kindMitFoto, 'einverstaendnis', 'Einverständnis Fotos und Veröffentlichung', kindMitFoto.entryDate);
+  trainer.Fußball.policeCertificate = { certificateDate: '2022-01-10', inspectedAt: '2022-01-17', relevantConviction: false };
+  trainer['Turnen & Gymnastik'].policeCertificate = { certificateDate: '2024-05-02', inspectedAt: '2024-05-06', relevantConviction: false };
 
   // -------------------------------------------------------------------------
   // Inventar

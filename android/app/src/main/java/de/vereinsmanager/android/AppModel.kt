@@ -59,6 +59,8 @@ import de.vereinsmanager.core.documents.StandardOrdner
 import de.vereinsmanager.core.backup.ImportMode
 import de.vereinsmanager.core.files.DirFileStore
 import de.vereinsmanager.core.files.FileStore
+import de.vereinsmanager.core.members.Fuehrungszeugnis
+import de.vereinsmanager.core.members.Unterlagen
 import de.vereinsmanager.core.members.BulkEdit
 import de.vereinsmanager.core.members.CsvImportReport
 import de.vereinsmanager.core.members.CsvTable
@@ -1411,6 +1413,68 @@ class AppModel(private val appContext: Context) {
 
     fun dokumentAendern(form: DokumentForm, done: (String?) -> Unit) =
         hintergrund({ DokumentStore.aendern(store, form) }) { _, f -> done(f) }
+
+    // ---- Gemerkte Filter (Paket U, T-334) ----
+
+    /** Ein Such- oder Filterwert einer Liste mit seinem Ausgangswert. [filter] = false: zählt nicht (z. B. Sortierung). */
+    private class GemerkterWert(val liste: String, val start: Any?, val filter: Boolean, val zustand: androidx.compose.runtime.MutableState<Any?>)
+
+    private val gemerkteWerte = HashMap<String, GemerkterWert>()
+
+    /**
+     * Wie `remember { mutableStateOf(start) }`, aber hier im AppModel gemerkt: Suche und Filter einer Liste bleiben
+     * stehen, wenn man einen Eintrag öffnet und zurückkommt – solange die App läuft (nicht über einen Neustart).
+     */
+    @Suppress("UNCHECKED_CAST")
+    fun <T> gemerkt(liste: String, feld: String, start: T, filter: Boolean = true): androidx.compose.runtime.MutableState<T> =
+        gemerkteWerte.getOrPut("$liste.$feld") { GemerkterWert(liste, start, filter, mutableStateOf<Any?>(start)) }.zustand
+            as androidx.compose.runtime.MutableState<T>
+
+    /** Weicht in der Liste eine Suche oder ein Filter vom Ausgangswert ab? */
+    fun filterAktiv(liste: String): Boolean = gemerkteWerte.values.any { it.liste == liste && it.filter && it.zustand.value != it.start }
+
+    /** Setzt Suche und Filter der Liste zurück (die Sortierung bleibt). */
+    fun filterZuruecksetzen(liste: String) {
+        gemerkteWerte.values.filter { it.liste == liste && it.filter }.forEach { it.zustand.value = it.start }
+    }
+
+    // ---- Unterlagen am Mitglied (Paket U) ----
+
+    /** Kennzeichen für aufgenommene Seiten einer Unterlage (in [fotoBuchungId]). */
+    val unterlagenFotoZiel = "unterlage"
+
+    /** Unterlagen eines Mitglieds (alle Dokumente mit seiner Kennung), neueste zuerst. */
+    fun unterlagenVon(memberId: String): List<Dokument> =
+        dokumente.filter { it.mitgliedId == memberId }
+            .sortedWith(compareByDescending<Dokument> { it.ausgestelltAm.ifEmpty { it.datum } }.thenBy { it.titel })
+
+    /** Legt die gewählte bzw. fotografierte Datei ([dokEntwurf]) als Unterlage des Mitglieds ab. */
+    fun unterlageSpeichern(memberId: String, art: String, titel: String, ausgestelltAm: String, gueltigBis: String, done: (String?) -> Unit) {
+        val e = dokEntwurf
+        if (e == null) { done("Keine Datei gewählt."); return }
+        val m = members.firstOrNull { it.id == memberId }
+        val name = m?.let { "${it.firstName} ${it.lastName}".trim() }.orEmpty()
+        hintergrund({ Unterlagen.neu(store, dateien, e.bytes, e.name, e.mime, memberId, name, art, titel, ausgestelltAm, gueltigBis) }) { r, f ->
+            if (r != null) dokEntwurf = null
+            done(f)
+        }
+    }
+
+    fun unterlageAendern(id: String, art: String, titel: String, ausgestelltAm: String, gueltigBis: String, done: (String?) -> Unit) =
+        hintergrund({ Unterlagen.aendern(store, id, art, titel, ausgestelltAm, gueltigBis) }) { _, f -> done(f) }
+
+    fun unterlageLoeschen(id: String, done: (String?) -> Unit) =
+        hintergrund({ Unterlagen.loeschen(store, dateien, id) }) { _, f -> done(f) }
+
+    fun fuehrungszeugnis(memberId: String): Fuehrungszeugnis? = Fuehrungszeugnis.aus(store.get("members", memberId)?.get("policeCertificate"))
+
+    /** Setzt den Führungszeugnis-Vermerk (null: löschen). */
+    fun fuehrungszeugnisSetzen(memberId: String, v: Fuehrungszeugnis?, done: (String?) -> Unit) =
+        hintergrund({ Unterlagen.fuehrungszeugnisSetzen(store, memberId, v, java.time.LocalDate.now()) }) { _, f -> done(f) }
+
+    /** „Unterlagen laufen ab“ fürs Dashboard. */
+    fun unterlagenErinnerungen(heute: java.time.LocalDate): List<Unterlagen.Erinnerung> =
+        Unterlagen.erinnerungen(store.all("members"), store.all(Dokumente.DOKUMENTE), heute)
 
     fun dokumenteVerschieben(ids: List<String>, ordnerId: String?, kategorie: String?, done: (Int?, String?) -> Unit) =
         hintergrund({ DokumentStore.verschieben(store, ids, ordnerId, kategorie) }, done)

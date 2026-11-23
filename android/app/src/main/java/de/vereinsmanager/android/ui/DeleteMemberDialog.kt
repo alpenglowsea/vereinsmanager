@@ -32,7 +32,8 @@ import de.vereinsmanager.core.members.SortKey
 fun DeleteMemberDialog(model: AppModel, members: List<Member>, onDismiss: () -> Unit, onDeleted: () -> Unit) {
     val ids = members.map { it.id }
     val (materialCount, docCount) = remember(ids) { model.dependencies(ids) }
-    var docs by remember { mutableStateOf(DocumentChoice.KEEP) }
+    // Vorgewählt: mitlöschen (Paket U, Entscheidung Johannes 22.11.2026; Datenschutz), wie am Desktop
+    var docs by remember { mutableStateOf(DocumentChoice.DELETE) }
     var transfer by remember { mutableStateOf(false) }
     var target by remember { mutableStateOf<Member?>(null) }
     var menu by remember { mutableStateOf(false) }
@@ -54,12 +55,15 @@ fun DeleteMemberDialog(model: AppModel, members: List<Member>, onDismiss: () -> 
                     Text("Sollen ${members.size} Mitglieder wirklich unwiderruflich gelöscht werden? Das Änderungsprotokoll bleibt erhalten.")
                 }
                 if (docCount > 0) {
-                    Text("Verknüpfte Dokumente: $docCount", modifier = Modifier.padding(top = 12.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(docs == DocumentChoice.KEEP, { docs = DocumentChoice.KEEP }); Text("Dokumente behalten")
-                    }
+                    Text(
+                        "Dokumente des Mitglieds (Unterlagen wie Lizenzen, Aufnahmeanträge): $docCount. Aus Datenschutzgründen werden sie in der Regel mitgelöscht.",
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(docs == DocumentChoice.DELETE, { docs = DocumentChoice.DELETE }); Text("Dokumente mitlöschen")
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(docs == DocumentChoice.KEEP, { docs = DocumentChoice.KEEP }); Text("Dokumente behalten")
                     }
                 }
                 if (materialCount > 0) {

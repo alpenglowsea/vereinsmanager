@@ -68,9 +68,9 @@ private fun jahrVon(r: DonationReceipt) = r.date.take(4)
 @Composable
 fun SpendenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, modifier: Modifier = Modifier) {
     val alle = model.spenden
-    var suche by remember { mutableStateOf("") }
-    var art by remember { mutableStateOf<String?>(null) }
-    var jahr by remember { mutableStateOf<String?>(null) }
+    var suche by model.gemerkt("spenden", "suche", "")
+    var art by model.gemerkt<String?>("spenden", "art", null)
+    var jahr by model.gemerkt<String?>("spenden", "jahr", null)
     var gewaehlt by remember { mutableStateOf(setOf<String>()) }
     var exportOffen by remember { mutableStateOf(false) }
     var info by remember { mutableStateOf<String?>(null) }
@@ -116,6 +116,7 @@ fun SpendenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, 
             )
             SuchFeld(suche, { suche = it }, "Spende suchen …", Modifier.padding(top = 12.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                FilterZuruecksetzen(model, "spenden")
                 FilterMenu("Art", ART, art) { art = it }
                 FilterMenu("Jahr", jahre.associateWith { it }, jahr) { jahr = it }
             }

@@ -378,6 +378,23 @@ export const AVAILABLE_DASHBOARD_WIDGETS: DashboardWidgetDefinition[] = [
     defaultEnabled: true,
     defaultOrder: 25,
     tags: ['Dokumente', 'Archiv', 'Satzung', 'Protokolle']
+  },
+  // Paket U: ablaufende Unterlagen am Mitglied. Neu seit 23.11.2026; wird in
+  // gespeicherten Anordnungen ergänzt und angezeigt (siehe ergaenzeNeueWidgets).
+  {
+    id: 'member_documents_expiry',
+    title: 'Unterlagen laufen ab',
+    shortTitle: 'Unterlagen',
+    description: 'Lizenzen und Nachweise von Mitgliedern, die in den nächsten 90 Tagen ablaufen oder abgelaufen sind, dazu fällige Führungszeugnisse.',
+    category: 'members',
+    categoryLabel: 'Mitglieder',
+    iconName: 'ShieldCheck',
+    defaultColSpan: 2,
+    minColSpan: 1,
+    maxColSpan: 4,
+    defaultEnabled: true,
+    defaultOrder: 26,
+    tags: ['Mitglieder', 'Lizenzen', 'Unterlagen', 'Führungszeugnis', 'Fristen']
   }
 ];
 
@@ -390,6 +407,28 @@ export const DEFAULT_DASHBOARD_CONFIG: UserDashboardConfig = {
     colSpan: w.defaultColSpan
   }))
 };
+
+/**
+ * Widgets, die neu hinzugekommen sind, nachdem jemand seine Anordnung
+ * gespeichert hat. Sie werden ans Ende gehängt und (anders als sonst)
+ * gleich angezeigt, weil sie auf Fristen hinweisen. Gleiche Liste am Handy
+ * (Dashboard.NEU_SICHTBAR).
+ */
+export const NEU_SICHTBAR = ['member_documents_expiry'];
+
+/** Ergänzt fehlende Widgets: die aus NEU_SICHTBAR angezeigt, alle anderen ausgeblendet. */
+export function ergaenzeNeueWidgets(config: UserDashboardConfig): UserDashboardConfig {
+  const fehlend = AVAILABLE_DASHBOARD_WIDGETS.filter(w => !config.widgets.some(c => c.id === w.id));
+  if (fehlend.length === 0) return config;
+  const ende = config.widgets.reduce((m, w) => Math.max(m, w.order || 0), 0);
+  return {
+    ...config,
+    widgets: [
+      ...config.widgets,
+      ...fehlend.map((w, i) => ({ id: w.id, enabled: NEU_SICHTBAR.includes(w.id) && w.defaultEnabled, order: ende + (i + 1) * 10, colSpan: w.defaultColSpan }))
+    ]
+  };
+}
 
 export const getPresetConfig = (preset: DashboardPreset): UserDashboardConfig => {
   const base = AVAILABLE_DASHBOARD_WIDGETS.map((w, index) => ({

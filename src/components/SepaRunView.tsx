@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useGemerkt } from '../utils/gemerkteFilter';
+import { FilterZuruecksetzen } from './FilterZuruecksetzen';
 import {
   Member,
   ClubSettings,
@@ -89,9 +91,9 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
 
   // Collection Items State
   const [items, setItems] = useState<SepaCollectionItem[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [validityFilter, setValidityFilter] = useState<'all' | 'valid' | 'invalid'>('all');
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useGemerkt('sepa', 'searchQuery', '');
+  const [validityFilter, setValidityFilter] = useGemerkt<'all' | 'valid' | 'invalid'>('sepa', 'validityFilter', 'all');
+  const [selectedDepartment, setSelectedDepartment] = useGemerkt<string>('sepa', 'selectedDepartment', 'all');
 
   // History State
   const [historyRuns, setHistoryRuns] = useState<SepaRunHistory[]>([]);
@@ -872,6 +874,7 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
                     className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700"
                   />
                 </div>
+                <FilterZuruecksetzen liste="sepa" />
 
                 <select
                   value={selectedDepartment}

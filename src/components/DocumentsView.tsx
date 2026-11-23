@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react';
+import { useGemerkt } from '../utils/gemerkteFilter';
+import { FilterZuruecksetzen } from './FilterZuruecksetzen';
 import { ClubDocument, DocumentCategory, DocumentFolder } from '../types';
 import {
   FileText,
@@ -76,11 +78,11 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
    */
   // Navigation & Filtering State
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<DocumentCategory | 'all'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [formatFilter, setFormatFilter] = useState<FormatFilter>('all');
-  const [yearFilter, setYearFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<SortOption>('date_desc');
+  const [selectedCategory, setSelectedCategory] = useGemerkt<DocumentCategory | 'all'>('dokumente', 'selectedCategory', 'all');
+  const [searchQuery, setSearchQuery] = useGemerkt('dokumente', 'searchQuery', '');
+  const [formatFilter, setFormatFilter] = useGemerkt<FormatFilter>('dokumente', 'formatFilter', 'all');
+  const [yearFilter, setYearFilter] = useGemerkt<string>('dokumente', 'yearFilter', 'all');
+  const [sortBy, setSortBy] = useGemerkt<SortOption>('dokumente', 'sortBy', 'date_desc', false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Sidebar tree toggle state (expanded folder ids)
@@ -713,6 +715,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-slate-700"
               />
             </div>
+            <FilterZuruecksetzen liste="dokumente" />
 
             {/* Format Filter */}
             <select

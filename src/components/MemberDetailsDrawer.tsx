@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { TelefonKnopf } from './TelefonKnopf';
-import { Member, MemberAuditLog, ClubSettings, InventoryItem, MemberInventoryAssignment } from '../types';
+import { Member, MemberAuditLog, ClubSettings, InventoryItem, MemberInventoryAssignment, ClubDocument, DocumentFolder } from '../types';
 import { ExportService } from '../services/exportService';
 import { StorageService } from '../services/storage';
 import { IssuedInventoryModal } from './IssuedInventoryModal';
@@ -32,6 +32,8 @@ import {
   Loader2
 } from 'lucide-react';
 import VeraenderbaresFenster from './VeraenderbaresFenster';
+import { MemberUnterlagen } from './MemberUnterlagen';
+import { unterlagenVon } from '../utils/unterlagen';
 import { bestaetige } from '../utils/dialoge'; import { ausgebbar } from '../utils/inventarRegeln';
 
 interface MemberDetailsDrawerProps {
@@ -43,25 +45,47 @@ interface MemberDetailsDrawerProps {
   onEdit: (member: Member) => void;
   onDelete?: (id: string) => void;
   onSaveMember?: (member: Member) => void;
+  /**
+   * Dokumente und Ordner der App (Paket U). Der Reiter „Unterlagen“ zählt und listet daraus im Speicher, ohne die
+   * Datenbank zu lesen; Änderungen meldet er einzeln zurück.
+   */
+  documents?: ClubDocument[];
+  folders?: DocumentFolder[];
+  onDokumentGespeichert?: (doc: ClubDocument, neuerOrdner?: DocumentFolder) => void;
+  onDokumentGeloescht?: (id: string) => void;
   onClose: () => void;
 }
 
+// Feste leere Listen, damit sich die Vorgabe nicht bei jedem Zeichnen ändert. Wichtig bei auditLogs: Zwei Effekte
+// hängen daran. Mit `auditLogs = []` liefen sie nach jedem Zeichnen erneut, lasen das ganze Änderungsprotokoll und
+// lösten damit das nächste Zeichnen aus – eine Endlosschleife (T-344a).
+const KEIN_PROTOKOLL: MemberAuditLog[] = [];
+const KEINE_DOKUMENTE: ClubDocument[] = [];
+const KEINE_ORDNER: DocumentFolder[] = [];
+
 export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
   member,
-  auditLogs = [],
+  auditLogs = KEIN_PROTOKOLL,
   settings,
   inventory,
   allMembers,
   onEdit,
   onDelete,
   onSaveMember,
+  documents = KEINE_DOKUMENTE,
+  folders = KEINE_ORDNER,
+  onDokumentGespeichert,
+  onDokumentGeloescht,
   onClose,
 }) => {
   /**
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
    */
-  const [tab, setTab] = useState<'details' | 'history' | 'inventory'>('details');
+  const [tab, setTab] = useState<'details' | 'history' | 'inventory' | 'unterlagen'>('details');
+  // Zahl der Unterlagen für den Reiter (Paket U): aus der Dokumentenliste der App, ohne Datenbankzugriff
+  const mitgliedId = member?.id;
+  const unterlagenAnzahl = useMemo(() => (mitgliedId ? unterlagenVon(mitgliedId, documents).length : 0), [mitgliedId, documents]);
   const [copiedIban, setCopiedIban] = useState(false);
   const [logs, setLogs] = useState<MemberAuditLog[]>(auditLogs || []);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -255,14 +279,16 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
     }
   }, [member, auditLogs]);
 
-  // Material-Änderungen schreiben ins Änderungsprotokoll (wie Android);
-  // danach die Historie neu laden, damit der Eintrag sofort zu sehen ist.
+  // Material- und Unterlagen-Änderungen schreiben ins Änderungsprotokoll (wie
+  // Android); danach die Historie neu laden, damit der Eintrag sofort zu sehen
+  // ist. `documents` ändert sich nach jeder gespeicherten oder gelöschten
+  // Unterlage (die App tauscht den Eintrag aus).
   useEffect(() => {
     if (!member || (auditLogs && auditLogs.length > 0)) return;
     StorageService.getAuditLogs()
       .then(allLogs => setLogs(allLogs.filter(l => l.memberId === member.id)))
       .catch(() => {});
-  }, [memberAssignments, member, auditLogs]);
+  }, [memberAssignments, member, auditLogs, documents]);
 
   if (!member) return null;
 
@@ -588,6 +614,16 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
           </button>
           <button
             type="button"
+            onClick={() => setTab('unterlagen')}
+            className={`py-3 border-b-2 flex items-center gap-1.5 transition-colors ${
+              tab === 'unterlagen' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            Unterlagen ({unterlagenAnzahl})
+          </button>
+          <button
+            type="button"
             onClick={() => setTab('history')}
             className={`py-3 border-b-2 flex items-center gap-1.5 transition-colors ${
               tab === 'history' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent hover:text-slate-900 dark:hover:text-white'
@@ -870,6 +906,17 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
           )}
 
           {/* Tab 2: HISTORIE (AUDIT LOG TAB) */}
+          {tab === 'unterlagen' && (
+            <MemberUnterlagen
+              member={member}
+              onSaveMember={onSaveMember}
+              documents={documents}
+              folders={folders}
+              onDokumentGespeichert={onDokumentGespeichert}
+              onDokumentGeloescht={onDokumentGeloescht}
+            />
+          )}
+
           {tab === 'history' && (
             <div className="space-y-4">
               <div className="p-3.5 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-800 dark:bg-blue-950/40 dark:border-blue-900/50 dark:text-blue-200">
