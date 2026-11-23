@@ -219,7 +219,11 @@ fun DokumenteScreen(
                     Column(Modifier.weight(1f).padding(start = 12.dp)) {
                         Text(d.titel.ifEmpty { d.dateiName }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Text(
-                            listOf(if (d.datum.isEmpty()) "ohne Datum" else deDate(d.datum), groesse(d.groesse), Kategorie.titel(d.kategorie)).joinToString(" · "),
+                            listOf(
+                                if (d.datum.isEmpty()) "ohne Datum" else deDate(d.datum),
+                                if (d.dateiId == null && d.archiv != null) "Jahresarchiv ${d.archiv!!.jahr}" else groesse(d.groesse),
+                                Kategorie.titel(d.kategorie),
+                            ).joinToString(" · "),
                             style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                         if (filter.aktiv && d.ordnerId != null) {
@@ -493,6 +497,9 @@ fun DokumentDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onAnze
             }
         }
         Spacer(Modifier.height(8.dp))
+        // Datei im Jahresarchiv (R4c): „Aus Archiv anzeigen“ holt sie nur zum Ansehen
+        val archiv = d.archiv
+        if (d.dateiId == null && archiv != null) ArchivHinweis(model, archiv, "Die Datei", onAnzeigen, Modifier.padding(bottom = 8.dp))
         DetailKarte("Datei") {
             zeile("Dateiname", d.dateiName)
             zeile("Ordner", if (d.ordnerId == null) "(ohne Ordner)" else Dokumente.pfadText(model.ordner, d.ordnerId))

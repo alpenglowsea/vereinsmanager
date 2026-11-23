@@ -11,6 +11,7 @@ enum class SchnappGrund(val kuerzel: String, val text: String) {
     MANUELL("manuell", "Von Hand"),
     VOR_IMPORT("import", "Vor dem Einspielen einer Sicherung"),
     VOR_LOESCHEN("loeschen", "Vor dem Löschen aller Daten"),
+    VOR_ARCHIV("archiv", "Vor dem Auslagern ins Jahresarchiv"),
 }
 
 data class SchnappEintrag(val name: String, val zeit: LocalDateTime, val grund: SchnappGrund)

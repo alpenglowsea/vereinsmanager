@@ -176,6 +176,49 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Runde 2, R4c — Jahresarchiv am Handy
+
+- **Rechenkern** `android/core/.../backup/Jahresarchiv.kt`, Gegenstück zu
+  `src/services/jahresarchiv.ts`. Er kann dasselbe:
+  - auswählen (gleiche Regeln, erst ab dem Vorvorjahr);
+  - Archiv schreiben (gleicher Aufbau wie das Sicherungspaket, auf Wunsch
+    mit Passwort);
+  - prüfen, auslagern, eine Datei anzeigen, alles zurückholen.
+
+  Archive werden als Datenstrom gelesen und geschrieben; im Speicher liegt
+  nur `archiv.json`.
+- **Austausch Desktop ↔ Handy:** Beide wählen für denselben Bestand dieselben
+  Dateien aus, vergeben dieselben Pfade und schreiben dasselbe
+  Inhaltsverzeichnis. Die Prüfdateien in
+  `android/core/src/test/resources/jahresarchiv/` hat der Desktop-Code aus dem
+  Testverein erzeugt: ein Teilbestand und das Archiv 2024 dazu.
+- **Einstellungen → Datensicherung → „Jahresarchiv“** mit „Jahr archivieren …“
+  und „Jahresarchiv zurückholen …“. Der Ablauf hat vier Schritte wie am
+  Desktop:
+  1. Jahr wählen.
+  2. Vorschau und Passwort (vorgewählt), dann speichern.
+  3. Die gespeicherte Datei noch einmal wählen; die App prüft jede Datei.
+  4. Auslagern.
+
+  Vor dem Auslagern legt die App einen Schnappschuss an (neuer Grund „Vor dem
+  Auslagern ins Jahresarchiv“).
+- **Vermerk an Beleg, Dokument und Gegenstand** mit „Aus Archiv anzeigen …“.
+  Ein geöffnetes Archiv bleibt bis zum Beenden der App offen. In der
+  Dokumentenliste steht „Jahresarchiv <Jahr>“ statt der Größe.
+- **Neue Datei hebt den Vermerk auf:** Das gilt für einen neuen Beleg, ein neu
+  erzeugtes Rechnungs- oder Spenden-PDF und ein neues Foto.
+- **Dabei gefunden und behoben (Inventarfotos):**
+  - Fotos, die mit einer Sicherung vom Desktop kamen, liegen am Handy als Datei
+    vor. Sie wurden nie angezeigt, weil das Handy nur am Handy aufgenommene
+    Fotos kannte. Jetzt zeigen Detailansicht und Formular beide.
+  - Bekam ein solcher Gegenstand am Handy ein neues Foto, blieb die alte Datei
+    stehen. Beim nächsten Ausgeben einer JSON-Sicherung hätte sie das neue Foto
+    überschrieben. Jetzt ersetzt das neue Foto die alte Datei, und
+    „Foto entfernen“ entfernt beide.
+- Rechnungs- und Spenden-Vorschau am Handy: Liegt das PDF im Jahresarchiv und
+  ist das Archiv nicht geöffnet, wird es wie bisher neu erzeugt.
+- Tests: 13 neu in `JahresarchivTest.kt`.
+
 ### Runde 2, R4b — Jahresarchiv am Desktop bedienen
 
 - **Einstellungen → Datensicherung → „Jahresarchiv“** mit zwei Knöpfen:

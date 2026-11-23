@@ -180,6 +180,8 @@ object Belege {
                 if (alt?.get("notes") == null) d["notes"] = s("Buchungsbeleg für $partner".trim())
                 // Wenn die Daten alt (Data-URL) sind, darf sie nicht neben der neuen Datei stehen bleiben.
                 d.remove("dataUrl")
+                // Neue Datei: ein Vermerk „im Jahresarchiv“ gilt nicht mehr (R4c, wie Desktop)
+                d.remove("archiv")
                 store.put(DOKUMENTE, docId, JsonObject(d))
                 (store.get(ORDNER, ordnerId)?.text("name")) ?: ""
             }

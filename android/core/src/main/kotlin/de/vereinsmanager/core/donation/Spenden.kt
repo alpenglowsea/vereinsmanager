@@ -316,6 +316,7 @@ object Spenden {
                     if (buchungId != null) d["transactionId"] = s(buchungId!!) else d.remove("transactionId")
                     if (json["memberId"] != null) d["memberId"] = json["memberId"]!! else d.remove("memberId")
                     d.remove("dataUrl")
+                    d.remove("archiv") // neue Datei: Vermerk „im Jahresarchiv“ gilt nicht mehr (R4c)
                     store.put(DOKUMENTE, id, JsonObject(d))
                     json["documentId"] = s(id)
                     dokId = id

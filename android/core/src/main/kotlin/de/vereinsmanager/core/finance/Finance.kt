@@ -79,7 +79,11 @@ data class Konto(
 }
 
 /** Angaben zum angehängten Beleg; die Bilddaten selbst werden hier bewusst nicht gehalten. */
-data class BelegInfo(val name: String, val typ: String, val groesse: Long)
+data class BelegInfo(
+    val name: String, val typ: String, val groesse: Long,
+    /** Datei liegt im Jahresarchiv (R4c); dann gibt es keine Datei im Speicher. */
+    val archiv: de.vereinsmanager.core.backup.ArchivVermerk? = null,
+)
 
 /** Eine Teilbuchung einer aufgeteilten Buchung. */
 data class Teilbuchung(
@@ -144,7 +148,7 @@ data class Buchung(
                 sphaere = doc.s("sphere"), sparte = doc.s("department"), nummernkreis = doc.s("mainCategory"),
                 konto = doc.s("subCategory"), skrKonto = doc.s("skrAccount"), kategorie = doc.s("category"),
                 ust = doc.int("vatRate"), notiz = doc.s("notes"), teile = teile,
-                beleg = r?.let { BelegInfo(it.s("name"), it.s("type"), it.s("size").toLongOrNull() ?: 0L) },
+                beleg = r?.let { BelegInfo(it.s("name"), it.s("type"), it.s("size").toLongOrNull() ?: 0L, de.vereinsmanager.core.backup.ArchivVermerk.aus(it["archiv"])) },
             )
         }
     }

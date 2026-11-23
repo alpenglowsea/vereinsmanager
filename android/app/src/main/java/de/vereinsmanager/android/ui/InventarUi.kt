@@ -83,6 +83,18 @@ private fun FotoAnzeige(foto: String, modifier: Modifier = Modifier) {
     bild?.let { Image(it, contentDescription = "Foto des Gegenstands", modifier = modifier.fillMaxWidth().heightIn(max = 240.dp).clip(RoundedCornerShape(20.dp)), contentScale = ContentScale.Fit) }
 }
 
+/**
+ * Foto aus dem Gegenstand (`photoUrl`, am Handy aufgenommen) oder aus dem Dateispeicher (`photoFileId`, so kommen
+ * Fotos aus einer Sicherung des Desktops an). Vorher wurden nur die ersten angezeigt.
+ */
+@Composable
+private fun ArtikelFotoAnzeige(model: AppModel, foto: String, fotoDatei: String, modifier: Modifier = Modifier) {
+    val url by produceState(foto, foto, fotoDatei) {
+        value = if (foto.isNotEmpty() || fotoDatei.isEmpty()) foto else withContext(Dispatchers.IO) { model.artikelFotoAusDatei(fotoDatei) ?: "" }
+    }
+    FotoAnzeige(url, modifier)
+}
+
 // ---------------------------------------------------------------- Liste
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -363,7 +375,24 @@ fun InventarDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onDele
             }
         }
         Spacer(Modifier.height(8.dp))
-        if (a.foto.isNotEmpty()) DetailKarte("Foto") { FotoAnzeige(a.foto) }
+        val fotoArchiv = a.fotoArchiv
+        if (a.foto.isNotEmpty() || a.fotoDatei.isNotEmpty()) {
+            DetailKarte("Foto") { ArtikelFotoAnzeige(model, a.foto, a.fotoDatei) }
+        } else if (fotoArchiv != null) {
+            // Foto im Jahresarchiv (R4c): nur zum Ansehen holen, nicht wieder ablegen
+            DetailKarte("Foto") {
+                var ausArchiv by remember(a.id) { mutableStateOf("") }
+                var archivFehler by remember(a.id) { mutableStateOf<String?>(null) }
+                if (ausArchiv.isNotEmpty()) {
+                    FotoAnzeige(ausArchiv)
+                } else {
+                    ArchivHinweis(model, fotoArchiv, "Das Foto", {
+                        model.artikelFotoAusArchiv(fotoArchiv) { url, f -> if (url != null) ausArchiv = url else archivFehler = f }
+                    })
+                }
+                archivFehler?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            }
+        }
         DetailKarte("Gegenstand") {
             zeile("Art", Inventar.ARTEN[a.art] ?: a.art)
             zeile("Sparte", a.sparte)
@@ -523,7 +552,13 @@ fun InventarFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifie
                 }
                 1 -> {
                     Text("Foto", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, color = sc.primary)
-                    FotoAnzeige(f.foto, Modifier.padding(vertical = 6.dp))
+                    ArtikelFotoAnzeige(model, f.foto, f.fotoDatei, Modifier.padding(vertical = 6.dp))
+                    if (f.foto.isEmpty() && f.fotoDatei.isEmpty() && vorhanden?.fotoArchiv != null) {
+                        Text(
+                            "Das bisherige Foto liegt im Jahresarchiv ${vorhanden.fotoArchiv!!.jahr}. Ein neues Foto ersetzt diesen Vermerk.",
+                            style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant,
+                        )
+                    }
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         KompaktKnopf("Foto aufnehmen", {
                             try { kamera.launch(model.artikelFotoZiel()) } catch (e: Exception) { fehler = "Die Kamera lässt sich nicht starten: ${e.message ?: "keine Kamera-App gefunden"}" }
@@ -531,7 +566,7 @@ fun InventarFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifie
                         KompaktKnopf("Aus Galerie", {
                             try { galerie.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) } catch (e: Exception) { fehler = "Die Galerie lässt sich nicht öffnen." }
                         }, enabled = !model.busy)
-                        if (f.foto.isNotEmpty()) KompaktKnopf("Foto entfernen", { f = f.copy(foto = "") })
+                        if (f.foto.isNotEmpty() || f.fotoDatei.isNotEmpty()) KompaktKnopf("Foto entfernen", { f = f.copy(foto = "", fotoDatei = "") })
                     }
                     pruef["foto"]?.let { Text(it, color = sc.error, style = MaterialTheme.typography.bodySmall) }
                     Text("Standort und Zuständigkeit", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, color = sc.primary, modifier = Modifier.padding(top = 14.dp))

@@ -47,6 +47,10 @@ data class Artikel(
     val naechstePruefung: String,
     /** „Ausgemustert am“ (JJJJ-MM-TT), Feld `retiredAt`; nur bei Zustand „discarded“ (R4, wie Desktop). */
     val ausgemustertAm: String = "",
+    /** Foto als Datei im Dateispeicher (`photoFileId`), so kommen Fotos aus einer Sicherung an; leer = keins. */
+    val fotoDatei: String = "",
+    /** Das Foto liegt im Jahresarchiv (`photoArchiv`, R4c). */
+    val fotoArchiv: de.vereinsmanager.core.backup.ArchivVermerk? = null,
 ) {
     val ausgemustert get() = zustand == "discarded"
 
@@ -70,7 +74,8 @@ data class Artikel(
                 zeitwert = z(o, "currentValue"), lieferant = t(o, "supplier"), zustaendig = t(o, "responsiblePerson"),
                 einsatz = t(o, "assignedTo"), seriennummer = t(o, "serialNumber"), notizen = t(o, "notes"), foto = t(o, "photoUrl"),
                 letztePruefung = t(o, "lastCheckedDate"), naechstePruefung = t(o, "nextInspectionDate"),
-                ausgemustertAm = t(o, "retiredAt"),
+                ausgemustertAm = t(o, "retiredAt"), fotoDatei = t(o, "photoFileId"),
+                fotoArchiv = de.vereinsmanager.core.backup.ArchivVermerk.aus(o["photoArchiv"]),
             )
         }
     }
@@ -101,12 +106,14 @@ data class ArtikelForm(
     val foto: String = "",
     /** „Ausgemustert am“; nur bei Zustand „discarded“ beachtet. Leer = heute bzw. bisheriges Datum. */
     val ausgemustertAm: String = "",
+    /** Kennung des Fotos im Dateispeicher (aus einer Sicherung); leer = keins oder entfernt. */
+    val fotoDatei: String = "",
 ) {
     companion object {
         fun von(a: Artikel) = ArtikelForm(
             a.id, a.art, a.name, a.nummer, a.menge.toString(), a.einheit, a.zustand, a.sparte, a.standort, a.zustaendig, a.einsatz,
             a.seriennummer, a.kaufdatum, a.kaufpreis?.let { BuchungRegeln.betragText(it) } ?: "", a.zeitwert?.let { BuchungRegeln.betragText(it) } ?: "",
-            a.lieferant, a.letztePruefung, a.naechstePruefung, a.notizen, a.foto, a.ausgemustertAm,
+            a.lieferant, a.letztePruefung, a.naechstePruefung, a.notizen, a.foto, a.ausgemustertAm, a.fotoDatei,
         )
     }
 }
@@ -272,7 +279,19 @@ object Inventar {
         setzen(m, "notes", f.notizen)
         setzen(m, "lastCheckedDate", f.letztePruefung)
         setzen(m, "nextInspectionDate", f.naechstePruefung)
-        if (f.foto.isEmpty()) m.remove("photoUrl") else m["photoUrl"] = JsonPrimitive(f.foto)
+        // Foto: entweder im Eintrag (photoUrl, am Handy aufgenommen) oder als Datei (photoFileId, aus einer Sicherung).
+        // Ein neues Foto ersetzt beide und hebt den Vermerk „im Jahresarchiv“ auf (R4c); sonst würde beim nächsten
+        // Ausgeben der Sicherung die alte Datei das neue Foto überschreiben.
+        if (f.foto.isNotEmpty()) {
+            if (f.foto != base?.let { t(it, "photoUrl") }) {
+                m.remove("photoFileId")
+                m.remove("photoArchiv")
+            }
+            m["photoUrl"] = JsonPrimitive(f.foto)
+        } else {
+            m.remove("photoUrl")
+            if (f.fotoDatei.isEmpty()) m.remove("photoFileId")
+        }
         if (base == null) m["createdAt"] = JsonPrimitive(stamp)
         m["updatedAt"] = JsonPrimitive(stamp)
         JsonObject(m).also { store.put(AREA, id, it) }

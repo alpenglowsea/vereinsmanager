@@ -249,6 +249,7 @@ object Rechnungen {
                     if (buchungId != null) d["transactionId"] = s(buchungId) else d.remove("transactionId")
                     if (f.empfaengerArt == "member" && f.empfaengerId.isNotEmpty()) { d["memberId"] = s(f.empfaengerId); d["memberName"] = s(f.name.trim()) } else { d.remove("memberId"); d.remove("memberName") }
                     d.remove("dataUrl")
+                    d.remove("archiv") // neue Datei: Vermerk „im Jahresarchiv“ gilt nicht mehr (R4c)
                     store.put(DOKUMENTE, id, JsonObject(d))
                     m["documentId"] = s(id)
                     dokId = id

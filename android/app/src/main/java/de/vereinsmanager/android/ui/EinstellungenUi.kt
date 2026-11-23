@@ -137,6 +137,7 @@ fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
                 }
                 2 -> {
                     SicherungKarte(model)
+                    JahresarchivKarte(model)
                     SchnappschussKarte(model)
                     LoeschenKarte(model)
                 }

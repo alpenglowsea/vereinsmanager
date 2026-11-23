@@ -121,7 +121,13 @@ fun BelegAbschnitt(model: AppModel, buchung: Buchung, onAnzeigen: () -> Unit, mi
         val beleg = buchung.beleg
         if (beleg != null) {
             Text("${beleg.name} (${groesse(beleg.groesse)})")
-            Button(onClick = onAnzeigen, enabled = !model.busy, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Anzeigen") }
+            val archiv = beleg.archiv
+            if (archiv != null && model.belegImArchiv(buchung.id)) {
+                // Beleg im Jahresarchiv (R4c): ansehen über das Archiv; Ersetzen hebt den Vermerk auf
+                ArchivHinweis(model, archiv, "Der Beleg", onAnzeigen, Modifier.padding(top = 8.dp))
+            } else {
+                Button(onClick = onAnzeigen, enabled = !model.busy, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Anzeigen") }
+            }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 KompaktKnopf("Ersetzen", { wahl = true }, Modifier.weight(1f), enabled = !model.busy)
                 KompaktKnopf("Entfernen", { entfernen = true }, Modifier.weight(1f), enabled = !model.busy)

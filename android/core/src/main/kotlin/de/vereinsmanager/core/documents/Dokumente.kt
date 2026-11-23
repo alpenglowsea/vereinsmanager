@@ -43,6 +43,8 @@ data class Dokument(
     val kategorie: String, val ordnerId: String?, val datum: String, val tags: List<String>, val notiz: String,
     val buchungId: String, val buchungNummer: String, val mitgliedId: String, val mitgliedName: String,
     val istBeleg: Boolean, val hochgeladen: String,
+    /** Datei liegt im Jahresarchiv (R4c); dann ist [dateiId] null. */
+    val archiv: de.vereinsmanager.core.backup.ArchivVermerk? = null,
 ) {
     companion object {
         fun from(o: JsonObject) = Dokument(
@@ -56,6 +58,7 @@ data class Dokument(
             buchungNummer = o.text("transactionDocNumber").orEmpty(), mitgliedId = o.text("memberId").orEmpty(),
             mitgliedName = o.text("memberName").orEmpty(),
             istBeleg = (o["isReceipt"] as? JsonPrimitive)?.booleanOrNull ?: false, hochgeladen = o.text("uploadDate").orEmpty(),
+            archiv = de.vereinsmanager.core.backup.ArchivVermerk.aus(o["archiv"]),
         )
     }
 }

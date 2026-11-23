@@ -35,6 +35,15 @@ import de.vereinsmanager.core.backup.BackupPaket
 import de.vereinsmanager.core.backup.Einlagerung
 import de.vereinsmanager.core.backup.PaketImport
 import de.vereinsmanager.core.backup.Dateiverwaltung
+import de.vereinsmanager.core.backup.ArchivErgebnis
+import de.vereinsmanager.core.backup.ArchivFehler
+import de.vereinsmanager.core.backup.ArchivJahr
+import de.vereinsmanager.core.backup.ArchivKopf
+import de.vereinsmanager.core.backup.ArchivPlan
+import de.vereinsmanager.core.backup.ArchivPruefung
+import de.vereinsmanager.core.backup.ArchivVermerk
+import de.vereinsmanager.core.backup.BackupPasswortException
+import de.vereinsmanager.core.backup.Jahresarchiv
 import de.vereinsmanager.core.documents.Dokument
 import de.vereinsmanager.core.meeting.Sitzung
 import de.vereinsmanager.core.meeting.SitzungForm
@@ -691,8 +700,8 @@ class AppModel(private val appContext: Context) {
     /** Nicht im Hauptstrang aufrufen: kopiert die Datei. */
     fun belegDatei(buchungId: String): BelegDatei? {
         val b = store.get("transactions", buchungId) ?: return null
-        val id = Belege.dateiId(b) ?: return null
         val name = ((b["receipt"] as? JsonObject)?.get("name") as? JsonPrimitive)?.contentOrNull ?: "Beleg"
+        val id = Belege.dateiId(b) ?: return Jahresarchiv.vermerk("transactions", b)?.let { archivDatei(it, name) }
         val kopf = dateien.open(id)?.use { s -> ByteArray(16).let { k -> k.copyOf(maxOf(s.read(k), 0)) } } ?: return null
         val endung = Dateityp.erkennen(kopf) ?: "bin"
         val ordner = cacheOrdner("belege")
@@ -702,6 +711,166 @@ class AppModel(private val appContext: Context) {
         }
         ordner.listFiles()?.filter { it != ziel }?.forEach { it.delete() }
         return BelegDatei(ziel, Dateityp.mimeZu(endung) ?: "application/octet-stream", name)
+    }
+
+    // ---- Jahresarchiv (R4c) ----
+
+    /**
+     * In dieser Sitzung geöffnete Jahresarchive: Kennung → (Datei, Passwort). Nur im Arbeitsspeicher; nach dem
+     * Beenden der App muss das Archiv neu gewählt werden. Damit lassen sich mehrere Belege nacheinander ansehen.
+     */
+    private val offeneArchive = HashMap<String, Pair<Uri, CharArray?>>()
+
+    fun archivOffen(kennung: String): Boolean = synchronized(offeneArchive) { kennung in offeneArchive }
+
+    /** Hat die Buchung nur noch den Vermerk (keine Datei im Speicher)? */
+    fun belegImArchiv(buchungId: String): Boolean {
+        val b = store.get("transactions", buchungId) ?: return false
+        return Belege.dateiId(b) == null && Jahresarchiv.vermerk("transactions", b) != null
+    }
+
+    /**
+     * Öffnet ein Jahresarchiv für „Aus Archiv anzeigen“. [erwartet]: der Vermerk, für den es gesucht wird (prüft, dass
+     * es das richtige Archiv ist). [done] bekommt den Fehlertext (null = geöffnet) und ob ein Passwort gebraucht wird.
+     */
+    fun archivOeffnen(uri: Uri, passwort: String, erwartet: ArchivVermerk?, done: (String?, Boolean) -> Unit) {
+        busy = true
+        thread {
+            var fehler: String? = null
+            var pw = false
+            try {
+                val p = passwort.takeIf { it.isNotEmpty() }?.toCharArray()
+                val kopf = appContext.contentResolver.openInputStream(uri)!!.use { Jahresarchiv.kopfLesen(it, p) }
+                if (erwartet != null && kopf.kennung != erwartet.kennung) {
+                    throw ArchivFehler("Das ist nicht das passende Archiv. Gesucht: ${erwartet.datei} (Jahr ${erwartet.jahr}), gewählt: Archiv ${kopf.jahr} von „${kopf.verein}“.")
+                }
+                synchronized(offeneArchive) { offeneArchive[kopf.kennung] = uri to p }
+            } catch (e: BackupPasswortException) {
+                pw = true
+                fehler = if (e.fehlt) null else "Das Passwort stimmt nicht."
+            } catch (e: Exception) {
+                fehler = e.message ?: e::class.simpleName
+            }
+            post { busy = false; done(fehler, pw) }
+        }
+    }
+
+    /** Eine Datei aus einem geöffneten Jahresarchiv im Zwischenspeicher (zum Anzeigen). Nicht im Hauptstrang aufrufen. */
+    private fun archivDatei(v: ArchivVermerk, name: String): BelegDatei {
+        val (uri, pw) = synchronized(offeneArchive) { offeneArchive[v.kennung] }
+            ?: throw IllegalStateException("Die Datei liegt im Jahresarchiv ${v.jahr}. Bitte zuerst „Aus Archiv anzeigen“ wählen und die Archivdatei auswählen.")
+        val endung = Dateityp.endungZu(v.typ)
+            ?: name.substringAfterLast('.', "").lowercase().filter { it.isLetterOrDigit() }.take(8).ifEmpty { "bin" }
+        val ordner = cacheOrdner("archiv")
+        val ziel = File(ordner, "${v.sha256.take(24)}.$endung")
+        if (!ziel.isFile || ziel.length() != v.groesse) {
+            val tmp = File(ordner, ziel.name + ".tmp")
+            try {
+                appContext.contentResolver.openInputStream(uri)!!.use { i -> FileOutputStream(tmp).use { o -> Jahresarchiv.dateiLesen(i, pw, v, o) } }
+                if (ziel.exists()) ziel.delete()
+                if (!tmp.renameTo(ziel)) throw java.io.IOException("Die Datei ließ sich nicht ablegen.")
+            } finally {
+                tmp.delete()
+            }
+        }
+        ordner.listFiles()?.filter { it != ziel }?.forEach { it.delete() }
+        val mime = v.typ.takeIf { it.contains('/') } ?: Dateityp.mimeZu(endung) ?: "application/octet-stream"
+        return BelegDatei(ziel, mime, name)
+    }
+
+    /** Das Foto eines Gegenstands aus dem geöffneten Jahresarchiv als Data-URL (nur zum Anzeigen, nicht gespeichert). */
+    fun artikelFotoAusArchiv(v: ArchivVermerk, done: (String?, String?) -> Unit) {
+        thread {
+            var url: String? = null
+            var fehler: String? = null
+            try {
+                val d = archivDatei(v, "Foto")
+                url = "data:${d.mime};base64," + android.util.Base64.encodeToString(d.datei.readBytes(), android.util.Base64.NO_WRAP)
+            } catch (e: Exception) {
+                fehler = e.message ?: e::class.simpleName
+            }
+            post { done(url, fehler) }
+        }
+    }
+
+    /** Ein Foto aus dem Dateispeicher (so kommen Inventarfotos aus einer Sicherung an) als Data-URL. Nicht im Hauptstrang aufrufen. */
+    fun artikelFotoAusDatei(fileId: String): String? {
+        val bytes = dateien.open(fileId)?.use { it.readBytes() } ?: return null
+        val mime = Dateityp.erkennen(bytes.copyOf(minOf(bytes.size, 16)))?.let { Dateityp.mimeZu(it) } ?: "image/jpeg"
+        return "data:$mime;base64," + android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+    }
+
+    fun archivJahre(done: (List<ArchivJahr>?, String?) -> Unit) =
+        hintergrund({ Jahresarchiv.jahre(store, dateien, java.time.LocalDate.now()) }, done)
+
+    fun archivPlan(jahr: Int, done: (ArchivPlan?, String?) -> Unit) = hintergrund({ Jahresarchiv.plan(store, dateien, jahr) }, done)
+
+    fun archivDateiname(jahr: Int): String = Jahresarchiv.dateiname(clubName, jahr)
+
+    /** Schreibt das Archiv in die gewählte Datei. Am Bestand ändert sich dabei nichts. */
+    fun archivSchreiben(uri: Uri, jahr: Int, passwort: String, done: (ArchivKopf?, String?) -> Unit) = hintergrund({
+        val out = BufferedOutputStream(appContext.contentResolver.openOutputStream(uri, "wt")!!, 64 * 1024)
+        try {
+            Jahresarchiv.erstellen(
+                store, dateien, jahr, clubName.ifEmpty { "Verein" }, java.util.UUID.randomUUID().toString(), out,
+                passwort.takeIf { it.isNotEmpty() }?.toCharArray(),
+            )
+        } catch (e: Exception) {
+            leereDateiLoeschen(uri)
+            throw e
+        }
+    }, done)
+
+    /**
+     * Liest ein gespeichertes Archiv ganz und prüft jede Datei. [done]: Kopf und Prüfung, Fehlertext, ob ein Passwort gebraucht wird.
+     */
+    fun archivPruefen(uri: Uri, passwort: String, done: (Pair<ArchivKopf, ArchivPruefung>?, String?, Boolean) -> Unit) {
+        busy = true
+        thread {
+            var r: Pair<ArchivKopf, ArchivPruefung>? = null
+            var fehler: String? = null
+            var pw = false
+            try {
+                val p = passwort.takeIf { it.isNotEmpty() }?.toCharArray()
+                r = appContext.contentResolver.openInputStream(uri)!!.use { Jahresarchiv.pruefen(it, p) }
+                synchronized(offeneArchive) { offeneArchive[r!!.first.kennung] = uri to p }
+            } catch (e: BackupPasswortException) {
+                pw = true
+                fehler = if (e.fehlt) null else "Das Passwort stimmt nicht."
+            } catch (e: Exception) {
+                fehler = e.message ?: e::class.simpleName
+            }
+            post { busy = false; done(r, fehler, pw) }
+        }
+    }
+
+    /** Wie viele Einträge zeigen auf das Archiv mit [kennung]? */
+    fun archivVerweise(kennung: String): Int = Jahresarchiv.verweise(store, kennung)
+
+    /** Nimmt die Dateien aus dem Bestand (vorher ein Schnappschuss des ganzen Bestands, wie beim Einspielen). */
+    fun archivAnwenden(kopf: ArchivKopf, done: (ArchivErgebnis?, String?) -> Unit) = hintergrund({
+        sicherheitskopie(SchnappGrund.VOR_ARCHIV)
+        Jahresarchiv.anwenden(store, dateien, kopf)
+    }, done)
+
+    /** Holt alle Dateien des Archivs zurück. [done]: Ergebnis, Fehlertext, ob ein Passwort gebraucht wird. */
+    fun archivZurueckholen(uri: Uri, passwort: String, done: (Pair<ArchivKopf, ArchivErgebnis>?, String?, Boolean) -> Unit) {
+        busy = true
+        thread {
+            var r: Pair<ArchivKopf, ArchivErgebnis>? = null
+            var fehler: String? = null
+            var pw = false
+            try {
+                val p = passwort.takeIf { it.isNotEmpty() }?.toCharArray()
+                r = appContext.contentResolver.openInputStream(uri)!!.use { Jahresarchiv.zurueckholen(store, dateien, it, p) }
+            } catch (e: BackupPasswortException) {
+                pw = true
+                fehler = if (e.fehlt) null else "Das Passwort stimmt nicht."
+            } catch (e: Exception) {
+                fehler = e.message ?: e::class.simpleName
+            }
+            post { reload(); busy = false; done(r, fehler, pw) }
+        }
     }
 
     // ---- Einstellungen und Beitragslauf ----
@@ -886,7 +1055,13 @@ class AppModel(private val appContext: Context) {
     fun artikelNeu(): ArtikelForm = Inventar.neu(inventar)
     fun artikelFormular(a: Artikel): ArtikelForm = ArtikelForm.von(a)
     fun artikelPruefen(f: ArtikelForm): Map<String, String> = Inventar.pruefen(f, inventar)
-    fun artikelSpeichern(f: ArtikelForm, done: (Artikel?, String?) -> Unit) = hintergrund({ Artikel.from(Inventar.speichern(store, f)) }, done)
+    fun artikelSpeichern(f: ArtikelForm, done: (Artikel?, String?) -> Unit) = hintergrund({
+        // Ersetztes oder entferntes Foto aus einer Sicherung (Datei im Speicher): Datei löschen, wenn sie niemand mehr braucht
+        val alteDatei = f.id?.let { store.get(Inventar.AREA, it) }?.let { (it["photoFileId"] as? JsonPrimitive)?.contentOrNull }
+        val a = Artikel.from(Inventar.speichern(store, f))
+        if (!alteDatei.isNullOrEmpty() && alteDatei !in Dateiverwaltung.referenziert(store)) dateien.delete(alteDatei)
+        a
+    }, done)
     fun artikelGeprueft(id: String, done: (String?) -> Unit) = hintergrund({ Inventar.geprueft(store, id) }) { _, e -> done(e) }
     fun artikelLoeschen(ids: List<String>, done: (LoeschErgebnis?, String?) -> Unit) = hintergrund({ Inventar.loeschen(store, ids) }, done)
     fun artikelSammel(ids: List<String>, a: SammelAenderung, done: (Int?, String?) -> Unit) = hintergrund({ Inventar.sammelAendern(store, ids, a) }, done)
@@ -983,7 +1158,8 @@ class AppModel(private val appContext: Context) {
             "spende" -> Spenden.alle(store).firstOrNull { it.id == id }?.documentId
             else -> null
         }
-        if (doc != null) dokumentDatei(doc)?.let { return it }
+        // Liegt das abgelegte PDF im Jahresarchiv und ist das Archiv nicht geöffnet, wird es wie bisher neu erzeugt.
+        if (doc != null) (try { dokumentDatei(doc) } catch (e: IllegalStateException) { null })?.let { return it }
         val bytes: ByteArray
         val name: String
         when (art) {
@@ -1251,7 +1427,7 @@ class AppModel(private val appContext: Context) {
     /** Die Datei eines Dokuments im Zwischenspeicher (zum Anzeigen oder Weitergeben). Nicht im Hauptstrang aufrufen. */
     fun dokumentDatei(docId: String): BelegDatei? {
         val d = store.get("documents", docId)?.let { Dokument.from(it) } ?: return null
-        val id = d.dateiId ?: return null
+        val id = d.dateiId ?: return d.archiv?.let { archivDatei(it, d.dateiName.ifEmpty { d.titel }) }
         val kopf = dateien.open(id)?.use { s -> ByteArray(16).let { k -> k.copyOf(maxOf(s.read(k), 0)) } } ?: return null
         val endung = d.dateiName.substringAfterLast('.', "").lowercase().filter { it.isLetterOrDigit() }.take(8)
             .ifEmpty { Dateityp.erkennen(kopf) ?: "bin" }

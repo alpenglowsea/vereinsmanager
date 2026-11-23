@@ -376,8 +376,14 @@ zu einer PDF (längere Seite höchstens 1600 Pixel, JPEG-Qualität 75, eine Seit
 
 ## 9. Jahresarchiv (Format 1.0.0) – Stand 22.11.2026
 
-**Status:** Am Desktop ist der Rechenkern umgesetzt und getestet (`src/services/jahresarchiv.ts`, R4a): auswählen, schreiben,
-zurücklesen, prüfen, auslagern, einzeln anzeigen, zurückholen. Die Bedienung am Desktop folgt in R4b, Android in R4c.
+**Status:** An beiden Fassungen umgesetzt: Desktop `src/services/jahresarchiv.ts` (R4a, Bedienung R4b), Android
+`android/core/.../backup/Jahresarchiv.kt` (R4c). Beide wählen dieselben Dateien aus, vergeben dieselben Pfade und lesen die
+Archive der anderen (Prüfdateien des Desktops in `android/core/src/test/resources/jahresarchiv/`, `JahresarchivTest.kt`).
+
+**Android, Speicherform:** Am Handy liegen die Dateien meist im Dateispeicher (`fileId`, `photoFileId`), am Handy
+aufgenommene Inventarfotos als Data-URL in `photoUrl`; beides wird archiviert. Nach dem Auslagern steht am Handy dieselbe
+Form wie am Desktop (`dataUrl: ""` und `archiv`, bzw. `photoArchiv` ohne Foto-Feld); `fileId`/`photoFileId` entfallen.
+Beim Zurückholen kommen die Dateien wieder in den Dateispeicher, auch Inventarfotos (`photoFileId`).
 
 **Wozu:** Belege, Rechnungs- und Spenden-PDFs sowie Fotos ausgemusterter Gegenstände eines abgeschlossenen Jahres
 wandern aus dem Bestand in eine eigene Datei. Die Einträge selbst (Buchung, Rechnung, Spende, Gegenstand) bleiben
@@ -454,8 +460,8 @@ Archiv, `sha256` prüft sie, `datei` ist der vorgeschlagene Name (nur zur Anzeig
 
 **In der Sicherung** reist der Vermerk unverändert mit (JSON 1.2.3 wie oben; im Paket 1.3.0 steht für solche Einträge
 kein `file`, der Vermerk bleibt). Damit zeigen beide Fassungen nach dem Einspielen „im Jahresarchiv 2024“. Ältere
-Programmstände, die den Vermerk nicht kennen, sehen nur einen Eintrag ohne Datei. **Android** muss die Felder `archiv` und
-`photoArchiv` beim Einspielen, Bearbeiten und Sichern unverändert behalten (R4c).
+Programmstände, die den Vermerk nicht kennen, sehen nur einen Eintrag ohne Datei. Android behält die Felder `archiv` und
+`photoArchiv` beim Einspielen, Bearbeiten und Sichern unverändert (R4c, geprüft in `JahresarchivTest`).
 
 ### Regeln beim Auslagern und Zurückholen
 
@@ -467,3 +473,5 @@ Programmstände, die den Vermerk nicht kennen, sehen nur einen Eintrag ohne Date
    veränderte Datei wird abgelehnt.
 4. Die App löscht nie Textdaten und nie eine Archivdatei. Vernichten darf der Verein das Archiv nach Ablauf der Fristen
    selbst.
+5. Bekommt ein archivierter Eintrag wieder eine Datei (neuer Beleg, neues Foto, neu erzeugtes Rechnungs- oder Spenden-PDF),
+   entfällt der Vermerk; maßgeblich ist dann die Datei im Bestand. Beide Fassungen machen das beim Speichern.

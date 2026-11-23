@@ -74,7 +74,7 @@ object BackupPaket {
     private const val BELEG_ORDNER = "Buchhaltungsbelege & Finanzen"
 
     /** Ordnerpfade aus den Ordner-Datensätzen; doppelte Namen unter demselben Elternordner werden unterschieden. */
-    private class OrdnerPfade(ordner: List<JsonObject>) {
+    internal class OrdnerPfade(ordner: List<JsonObject>) {
         private val nachId = ordner.associateBy { it.text("id") ?: "" }
         private val fertig = HashMap<String, String>()
         private val inArbeit = HashSet<String>()
@@ -97,7 +97,7 @@ object BackupPaket {
     }
 
     /** Vergibt die Pfade im ZIP; dieselbe Datei (Kennung) bekommt immer denselben Pfad. */
-    private class Ablage {
+    internal class Ablage {
         val pfadVonId = LinkedHashMap<String, String>()
         private val namen = HashMap<String, MutableSet<String>>()
         fun pfad(id: String, wo: () -> Pair<String, String>): String = pfadVonId.getOrPut(id) {
@@ -123,7 +123,7 @@ object BackupPaket {
         return if (e == null) name else "$name.$e"
     }
 
-    private fun verzeichnisUndName(art: Art, ziel: JsonObject, rekord: JsonObject, ordner: OrdnerPfade, files: FileStore, id: String): Pair<String, String> =
+    internal fun verzeichnisUndName(art: Art, ziel: JsonObject, rekord: JsonObject, ordner: OrdnerPfade, files: FileStore, id: String): Pair<String, String> =
         when (art) {
             Art.DOKUMENT -> {
                 val verz = "dokumente/" + (ordner.pfad(rekord.text("folderId")) ?: OHNE_ORDNER)
@@ -183,19 +183,8 @@ object BackupPaket {
         val json = BackupFile(roh.app, VERSION, roh.exportedAt, daten).toJsonText().toByteArray(Charsets.UTF_8)
 
         val zeit = now.toInstant().toEpochMilli()
-        fun parameter(name: String) = ZipParameters().also { p ->
-            p.setFileNameInZip(name)
-            p.setCompressionMethod(CompressionMethod.DEFLATE)
-            p.setCompressionLevel(CompressionLevel.FAST)
-            p.setLastModifiedFileTime(zeit)
-            if (passwort != null) {
-                p.setEncryptFiles(true)
-                p.setEncryptionMethod(EncryptionMethod.AES)
-                p.setAesKeyStrength(AesKeyStrength.KEY_STRENGTH_256)
-                p.setAesVersion(AesVersion.TWO)
-            }
-        }
-        val zos = if (passwort != null) ZipOutputStream(out, passwort, Charsets.UTF_8) else ZipOutputStream(out, Charsets.UTF_8)
+        fun parameter(name: String) = zipParameter(name, zeit, passwort != null)
+        val zos = zipAusgabe(out, passwort)
         zos.use {
             it.putNextEntry(parameter(JSON_NAME))
             it.write(json)
@@ -208,6 +197,26 @@ object BackupPaket {
         }
         return PaketBericht(ablage.pfadVonId.size, fehlend)
     }
+
+    /** Einstellungen eines ZIP-Eintrags: Deflate, mit Passwort AES-256 (WinZip AE-2). Auch für das Jahresarchiv. */
+    internal fun zipParameter(name: String, zeit: Long, verschluesseln: Boolean) = ZipParameters().also { p ->
+        p.setFileNameInZip(name)
+        p.setCompressionMethod(CompressionMethod.DEFLATE)
+        p.setCompressionLevel(CompressionLevel.FAST)
+        p.setLastModifiedFileTime(zeit)
+        if (verschluesseln) {
+            p.setEncryptFiles(true)
+            p.setEncryptionMethod(EncryptionMethod.AES)
+            p.setAesKeyStrength(AesKeyStrength.KEY_STRENGTH_256)
+            p.setAesVersion(AesVersion.TWO)
+        }
+    }
+
+    internal fun zipAusgabe(out: OutputStream, passwort: CharArray?): ZipOutputStream =
+        if (passwort != null) ZipOutputStream(out, passwort, Charsets.UTF_8) else ZipOutputStream(out, Charsets.UTF_8)
+
+    internal fun zipEingabe(input: InputStream, passwort: CharArray?): ZipInputStream =
+        if (passwort != null) ZipInputStream(input, passwort, Charsets.UTF_8) else ZipInputStream(input, Charsets.UTF_8)
 
     // ---------------------------------------------------------------- Lesen
 
@@ -234,7 +243,7 @@ object BackupPaket {
     fun lesen(input: InputStream, passwort: CharArray?, files: FileStore, neueId: () -> String = { neueKennung(files) }): PaketGelesen {
         val angelegt = mutableListOf<String>()
         try {
-            val zis = if (passwort != null) ZipInputStream(input, passwort, Charsets.UTF_8) else ZipInputStream(input, Charsets.UTF_8)
+            val zis = zipEingabe(input, passwort)
             val erster = zis.nextEntry ?: throw BackupFormatException("Das Paket ist leer.")
             if (erster.fileName != JSON_NAME) {
                 throw BackupFormatException("Das ist kein VereinsManager-Paket ($JSON_NAME fehlt an erster Stelle).")
@@ -277,7 +286,7 @@ object BackupPaket {
         }
     }
 
-    private fun uebersetzen(e: Throwable, ohnePasswort: Boolean): Throwable = when {
+    internal fun uebersetzen(e: Throwable, ohnePasswort: Boolean): Throwable = when {
         e is ZipException && e.type == ZipException.Type.WRONG_PASSWORD -> BackupPasswortException(fehlt = ohnePasswort)
         e is ZipException && e.type == ZipException.Type.CHECKSUM_MISMATCH -> BackupFormatException("Das Paket ist beschädigt (Prüfsumme stimmt nicht).")
         e is ZipException -> if (e.message?.contains("verification", ignoreCase = true) == true || e.message?.contains("password", ignoreCase = true) == true)
