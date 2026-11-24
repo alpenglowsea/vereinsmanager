@@ -162,17 +162,6 @@ fun SpendenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Unit, 
     if (exportOffen) ExportAuswahl("${shown.size} angezeigte Bestätigungen exportieren als:", spendenExport(model, exporter, shown, "angezeigte"), { exportOffen = false })
 }
 
-@Composable
-internal fun KpiKachel(titel: String, wert: String, unten: String, modifier: Modifier) {
-    Card(modifier) {
-        Column(Modifier.padding(10.dp)) {
-            Text(titel, style = MaterialTheme.typography.labelMedium)
-            Text(wert, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
-            Text(unten, style = MaterialTheme.typography.bodySmall)
-        }
-    }
-}
-
 private fun spendenExport(model: AppModel, exporter: Exporter, liste: List<DonationReceipt>, wort: String): List<Pair<String, () -> Unit>> {
     val heute = LocalDate.now()
     val verein = Export.dateiname(model.vereinsname())

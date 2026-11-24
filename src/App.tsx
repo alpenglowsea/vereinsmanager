@@ -117,6 +117,7 @@ import {
   ScrollText
 } from 'lucide-react';
 
+import { lokalesHeute } from './utils/mitgliedRegeln';
 /** Die Menüpunkte der Navigationsleiste. */
 type ActiveTab =
   | 'dashboard'
@@ -704,7 +705,7 @@ export default function App() {
     const newTxStub: Transaction = {
       id: `tx-${Date.now()}`,
       documentNumber: nextDocNumber,
-      date: new Date().toISOString().split('T')[0],
+      date: lokalesHeute(),
       amount: 0,
       type: 'expense',
       sphere: 'ideell',

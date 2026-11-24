@@ -33,6 +33,7 @@ import {
 } from '../services/receiptScannerService';
 
 import VeraenderbaresFenster from './VeraenderbaresFenster';
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 interface ReceiptCameraScannerModalProps {
   onClose: () => void;
   // If provided, saves scanned document directly to the documents archive
@@ -420,7 +421,7 @@ export const ReceiptCameraScannerModal: React.FC<ReceiptCameraScannerModalProps>
           fileSize: receipt.size,
           dataUrl: receipt.dataUrl,
           category: 'belege',
-          date: new Date().toISOString().split('T')[0],
+          date: lokalesHeute(),
           uploadDate: new Date().toISOString(),
           tags: ['scan', 'digitalisiert', uploadedPdf ? 'pdf' : 'foto'],
           notes: `Eingescannt/Hochgeladen über Beleg-Scanner am ${new Date().toLocaleString('de-DE')}`,

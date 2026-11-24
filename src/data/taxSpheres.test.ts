@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   SKR42_STRUCTURE,
   SPENDEN_HAUPTKONTO_CODE,
-  ALL_ACCOUNT_CATEGORIES,
   getAllSkr42MainCategories,
   getAllSkr42SubCategories
 } from './taxSpheres';
@@ -54,11 +53,12 @@ describe('SKR42_STRUCTURE', () => {
     expect(subs).toEqual(spenden.subCategories);
   });
 
-  it('ALL_ACCOUNT_CATEGORIES enthält keine Kategorie doppelt je Typ', () => {
-    const incomeSet = new Set(ALL_ACCOUNT_CATEGORIES.income);
-    const expenseSet = new Set(ALL_ACCOUNT_CATEGORIES.expense);
-    expect(incomeSet.size).toBe(ALL_ACCOUNT_CATEGORIES.income.length);
-    expect(expenseSet.size).toBe(ALL_ACCOUNT_CATEGORIES.expense.length);
+  it('enthält keine Kontobezeichnung doppelt je Typ', () => {
+    // vorher über die ungenutzte Konstante ALL_ACCOUNT_CATEGORIES geprüft (entfernt, Code-Prüfung 24.11.2026)
+    for (const typ of ['income', 'expense'] as const) {
+      const labels = SKR42_STRUCTURE.filter(m => m.type === typ).flatMap(m => m.subCategories.map(s => s.label));
+      expect(new Set(labels).size).toBe(labels.length);
+    }
   });
 
   it('kein Skr42MainCategory-Eintrag trägt mehr eine Sphäre', () => {

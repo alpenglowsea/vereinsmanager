@@ -10,7 +10,6 @@ import {
   Meeting,
   MeetingAgendaItem,
   MeetingDigitalSignature,
-  MeetingProtocolType,
   MeetingResolution,
   MeetingStatus,
   MeetingType
@@ -42,11 +41,6 @@ export const ERGEBNISSE: Record<MeetingResolution['result'], string> = {
   accepted: 'Angenommen',
   rejected: 'Abgelehnt',
   deferred: 'Vertagt'
-};
-
-export const PROTOKOLLARTEN: Record<MeetingProtocolType, string> = {
-  results: 'Ergebnisprotokoll',
-  verbatim: 'Verlaufsprotokoll'
 };
 
 export const ROLLE_LEITUNG = 'Versammlungsleiter';

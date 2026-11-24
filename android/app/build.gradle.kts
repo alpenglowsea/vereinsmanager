@@ -38,7 +38,7 @@ android {
 
 dependencies {
     implementation(project(":core"))
-    implementation("com.google.zxing:core:3.5.3") // nur für Probe B2 (GiroCode)
+    implementation("com.google.zxing:core:3.5.3") // GiroCode (QR-Code) auf Rechnungs-PDFs
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)

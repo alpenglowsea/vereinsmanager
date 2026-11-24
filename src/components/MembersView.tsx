@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { bestaetige } from '../utils/dialoge';
 
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 export type MemberSortField =
   | 'number'
   | 'name'
@@ -855,7 +856,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
     try {
       setIsExporting(true);
       const safeClub = (settings.clubName || 'Verein').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_');
-      const filename = `mitglieder_${safeClub}_${new Date().toISOString().split('T')[0]}.csv`;
+      const filename = `mitglieder_${safeClub}_${lokalesHeute()}.csv`;
       const result = await ExportService.exportMembersCSV(filteredMembers, filename);
       if (result.cancelled) {
         setExportStatus({
@@ -894,7 +895,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
     try {
       setIsExporting(true);
       const safeClub = (settings.clubName || 'Verein').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_');
-      const filename = `mitgliederliste_${safeClub}_${new Date().toISOString().split('T')[0]}.pdf`;
+      const filename = `mitgliederliste_${safeClub}_${lokalesHeute()}.pdf`;
       const result = await ExportService.exportMembersPDF(filteredMembers, settings, 'Mitgliederliste', filename);
       if (result.cancelled) {
         setExportStatus({

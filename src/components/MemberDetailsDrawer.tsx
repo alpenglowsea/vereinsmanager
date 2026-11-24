@@ -34,6 +34,7 @@ import {
 import VeraenderbaresFenster from './VeraenderbaresFenster';
 import { MemberUnterlagen } from './MemberUnterlagen';
 import { unterlagenVon } from '../utils/unterlagen';
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 import { bestaetige } from '../utils/dialoge'; import { ausgebbar } from '../utils/inventarRegeln';
 
 interface MemberDetailsDrawerProps {
@@ -101,7 +102,7 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
   const [isAddingAssignment, setIsAddingAssignment] = useState(false);
   const [newAssignmentItem, setNewAssignmentItem] = useState('');
   const [newQuantity, setNewQuantity] = useState(1);
-  const [newIssueDate, setNewIssueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newIssueDate, setNewIssueDate] = useState(lokalesHeute());
   const [newHasContribution, setNewHasContribution] = useState(false);
   const [newContributionAmount, setNewContributionAmount] = useState('');
   const [newNotes, setNewNotes] = useState('');
@@ -167,7 +168,7 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
       unit: inv?.unit || 'Stk.',
       hasContribution: Boolean(newHasContribution),
       contributionAmount: parsedContrib,
-      issueDate: newIssueDate || new Date().toISOString().split('T')[0],
+      issueDate: newIssueDate || lokalesHeute(),
       status: 'issued',
       notes: newNotes.trim() || undefined,
       createdAt: new Date().toISOString(),
@@ -193,7 +194,7 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
     const updated: MemberInventoryAssignment = {
       ...item,
       status: isNowReturned ? 'returned' : 'issued',
-      returnDate: isNowReturned ? new Date().toISOString().split('T')[0] : undefined,
+      returnDate: isNowReturned ? lokalesHeute() : undefined,
       updatedAt: new Date().toISOString()
     };
     await handleUpdateAssignment(updated);

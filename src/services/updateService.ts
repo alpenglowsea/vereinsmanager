@@ -1,12 +1,13 @@
 import { AppUpdateInfo } from '../types';
 
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 export const CURRENT_APP_VERSION = (import.meta as any).env?.VITE_APP_VERSION || '1.1.0';
 
 // Ersatzangaben, wenn GitHub zu einer neuen Version keine Beschreibung liefert
 const MOCK_LATEST_RELEASE = {
   version: CURRENT_APP_VERSION,
   title: 'Neue Version des VereinsManagers',
-  date: new Date().toISOString().split('T')[0],
+  date: lokalesHeute(),
   // Keine erfundenen Inhalte: was eine neue Version bringt, steht auf GitHub
   notes: ['Die Änderungen stehen auf der GitHub-Seite der Version.'],
   githubUrl: 'https://github.com/alpenglowsea/vereinsmanager/releases',
@@ -229,7 +230,7 @@ export class UpdateService {
           latestVersion: tagVersion,
           isUpdateAvailable: isNewer,
           releaseTitle: `VereinsManager v${tagVersion}`,
-          releaseDate: new Date().toISOString().split('T')[0],
+          releaseDate: lokalesHeute(),
           releaseNotes: [
             `Veröffentlichte Version v${tagVersion} auf GitHub (${repo})`,
             'Enthält die neuesten Fehlerbehebungen und Verbesserungen.'

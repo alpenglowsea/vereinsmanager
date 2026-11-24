@@ -177,10 +177,10 @@ export const SepaService = {
     if (typeof date === 'string') {
       if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
       const d = new Date(date);
-      if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
-      return new Date().toISOString().split('T')[0];
+      if (!isNaN(d.getTime())) return lokalesHeute(d);
+      return lokalesHeute();
     }
-    return date.toISOString().split('T')[0];
+    return lokalesHeute(date);
   },
 
   /**

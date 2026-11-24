@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import type { ClubDocument, Member } from '../types';
 import {
   ablaufStatus,
-  anzahlUnterlagen,
   artText,
   artVon,
   erinnerungen,
@@ -108,7 +107,7 @@ describe('Unterlagen: Erinnerungen fürs Dashboard', () => {
 
   it('Unterlagen eines Mitglieds, Anzahl, Arten', () => {
     expect(unterlagenVon('m1', docs).map(d => d.id)).toEqual(['erste-hilfe-bald', 'lizenz-abgelaufen', 'ohne-datum', 'weit-weg']);
-    expect(anzahlUnterlagen(['m1', 'm3'], docs)).toBe(5);
+    expect(unterlagenVon('m1', docs).length + unterlagenVon('m3', docs).length).toBe(5);
     expect(artText('erste_hilfe')).toBe('Erste-Hilfe-Nachweis');
     expect(artText(undefined)).toBe('Sonstiges');
     expect(artVon({ id: 'doc-antrag-M-0001', tags: [] })).toBe('aufnahmeantrag');

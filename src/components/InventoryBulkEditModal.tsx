@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 
 import VeraenderbaresFenster from './VeraenderbaresFenster';
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 interface InventoryBulkEditModalProps {
   selectedItems: InventoryItem[];
   departments: string[];
@@ -61,7 +62,7 @@ export const InventoryBulkEditModal: React.FC<InventoryBulkEditModalProps> = ({
   const [supplier, setSupplier] = useState<string>('');
 
   const [applyLastChecked, setApplyLastChecked] = useState(false);
-  const [lastCheckedDate, setLastCheckedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [lastCheckedDate, setLastCheckedDate] = useState<string>(lokalesHeute());
 
   const [applyNextInspection, setApplyNextInspection] = useState(false);
   const [nextInspectionDate, setNextInspectionDate] = useState<string>('');

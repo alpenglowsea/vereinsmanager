@@ -392,7 +392,7 @@ export function convertRowsToTransactions(
  * Generate a ready-to-use CSV Sample Template with SKR 42 example rows
  * Suitable for opening in Google Sheets, Microsoft Excel, LibreOffice or Apple Numbers
  */
-export function generateSampleTransactionCSVTemplate(settings: ClubSettings, accounts: FinancialAccount[]): string {
+export function generateSampleTransactionCSVTemplate(accounts: FinancialAccount[]): string {
   const headers = [
     'Datum',
     'Belegnummer',

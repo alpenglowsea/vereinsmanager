@@ -74,6 +74,18 @@ import {
   ArchiveRestore
 } from 'lucide-react';
 
+import { lokalesHeute } from '../utils/mitgliedRegeln';
+import { vergissGeoeffneteArchive } from './ArchivDateiLaden';
+import { vergissAlleFilter } from '../utils/gemerkteFilter';
+
+/**
+ * Nach dem Austausch des Bestands (Löschen, Sicherung, Schnappschuss) gehören geöffnete
+ * Jahresarchive und gemerkte Filter zum alten Bestand und werden vergessen (Prüfung 24.11.2026, A4).
+ */
+function vergissMerker(): void {
+  vergissGeoeffneteArchive();
+  vergissAlleFilter();
+}
 /**
  * Freiwillige Unterstützung des Projekts (Tab "Projekt unterstützen").
  * ---------------------------------------------------------------------------
@@ -853,7 +865,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setExportLaeuft(true);
     try {
       const klartext = await StorageService.exportFullBackup();
-      const dateStr = new Date().toISOString().split('T')[0];
+      const dateStr = lokalesHeute();
       const safeClub = (formData.clubName || 'Verein').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_');
       const grundname = `VereinsManager_Sicherung_${safeClub}_${dateStr}${passwort ? '_verschluesselt' : ''}`;
 
@@ -981,6 +993,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
     try {
       const result = await StorageService.importFullBackup(importVorschau.text, 'live', art);
+      vergissMerker();
       setImportVorschau(null);
       setImportFehler(null);
       onDataReload?.();
@@ -1022,6 +1035,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const wipeAllBestaetigt = async () => {
     try {
       await StorageService.clearAllData();
+      vergissMerker();
       onDataReload?.();
       setStatusMsg({ type: 'success', text: 'Alle lokalen Daten wurden gelöscht.' });
     } catch (err: any) {
@@ -1110,6 +1124,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     try {
       const res = await SnapshotService.restoreSnapshot(snapId);
       if (res.success && res.counts) {
+        vergissMerker();
         onDataReload?.();
         setStatusMsg({
           type: 'success',

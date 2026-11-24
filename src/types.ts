@@ -606,7 +606,6 @@ export interface CalendarEvent {
   participants: EventParticipant[];
   maxParticipants?: number;
   color?: string; // Optional custom hex color override
-  createdById?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -766,7 +765,6 @@ export interface ClubInvoice {
 
   // Archivierung & Vorlage
   documentId?: string; // ID in der Dokumentenverwaltung
-  customTemplateUsed?: boolean;
   /** Kleinunternehmer nach § 19 UStG: keine Umsatzsteuer, Hinweis auf der Rechnung (D-05, wie Android) */
   smallBusiness?: boolean;
   notes?: string;
@@ -868,7 +866,6 @@ export interface MeetingAttendee {
 
 export interface MeetingDigitalSignature {
   id: string;
-  signatoryId?: string; // ID des Teilnehmers oder Mitglieds
   name: string;
   role: string; // "Versammlungsleiter" | "Schriftführer" | "Unterzeichner"
   signatureDataUrl: string; // Base64 PNG der Unterschrift
@@ -906,8 +903,7 @@ export interface Meeting {
   attendees: MeetingAttendee[];
   generalNotes?: string;
 
-  // Vorlagen & Dokumentenablage
-  customTemplateUsed?: boolean;
+  // Unterschriften & Dokumentenablage
   signedAt?: string;
   signatures?: MeetingDigitalSignature[]; // Digital erfasste Signaturen (Versammlungsleiter, Schriftführer, etc.)
   documentId?: string; // Referenz auf archiviertes PDF in der Dokumentenverwaltung

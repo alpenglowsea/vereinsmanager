@@ -178,8 +178,3 @@ export function erinnerungen(members: Member[], documents: ClubDocument[], heute
   return aus.sort((a, b) => a.datum.localeCompare(b.datum) || a.memberName.localeCompare(b.memberName) || a.text.localeCompare(b.text));
 }
 
-/** Zahl der Unterlagen (Dokumente) eines oder mehrerer Mitglieder, z. B. für die Rückfrage beim Löschen. */
-export const anzahlUnterlagen = (ids: string[], documents: ClubDocument[]): number => {
-  const s = new Set(ids);
-  return documents.filter(d => d.memberId && s.has(d.memberId)).length;
-};

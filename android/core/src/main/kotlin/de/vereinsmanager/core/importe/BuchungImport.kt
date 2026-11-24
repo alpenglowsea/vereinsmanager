@@ -145,13 +145,6 @@ object BuchungImport {
         return e
     }
 
-    /** Warnungen, die den Import nicht verhindern. */
-    fun warnungen(f: BuchungForm): List<String> {
-        val w = ArrayList<String>()
-        if (f.art != "transfer" && f.skrKonto.isEmpty()) w.add("Kein Konto (SKR) gewählt.")
-        return w
-    }
-
     /**
      * Wandelt die Zeilen der Datei in Vorschau-Zeilen um. Nichts wird weggelassen: Was nicht lesbar ist, bleibt als Zeile
      * mit Fehler stehen und lässt sich in der Vorschau korrigieren.

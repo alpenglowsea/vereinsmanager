@@ -21,7 +21,6 @@ data class TerminLesung(val termine: List<JsonObject>, val hinweise: List<String
 
 /** Austausch mit anderen Kalendern: iCal (.ics) und Tabellen (CSV). */
 object Austausch {
-    private val ICS_ZEIT = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss")
     private val ICS_UTC = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
     private val BERLIN = ZoneId.of("Europe/Berlin")
     private const val UID_ENDUNG = "@vereinsmanager.lokal"

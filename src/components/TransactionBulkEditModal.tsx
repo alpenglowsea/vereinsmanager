@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 
 import VeraenderbaresFenster from './VeraenderbaresFenster';
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 interface TransactionBulkEditModalProps {
   selectedTransactions: Transaction[];
   accounts: FinancialAccount[];
@@ -56,7 +57,7 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
   const [partner, setPartner] = useState<string>('');
 
   const [applyDate, setApplyDate] = useState(false);
-  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState<string>(lokalesHeute());
 
   const [applyNotes, setApplyNotes] = useState(false);
   const [notesAction, setNotesAction] = useState<'append' | 'replace'>('append');

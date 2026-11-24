@@ -36,6 +36,7 @@ import { usePagination } from '../hooks/usePagination';
 import { ermittleSeitenStatus, wechsleSeite, waehleAlleGefilterten } from '../utils/tableSelection';
 import { bestaetige } from '../utils/dialoge';
 
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 type ContactSortField =
   | 'number'
   | 'name'
@@ -591,7 +592,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
         : filteredContacts;
     ExportService.exportContactsCSV(
       toExport,
-      `kontakte_${new Date().toISOString().split('T')[0]}.csv`
+      `kontakte_${lokalesHeute()}.csv`
     );
   };
 

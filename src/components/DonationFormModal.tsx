@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 
 import VeraenderbaresFenster from './VeraenderbaresFenster';
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 interface DonationFormModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -71,7 +72,7 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
 }) => {
   const [type, setType] = useState<DonationType>('money');
   const [receiptNumber, setReceiptNumber] = useState(nextReceiptNumber);
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(lokalesHeute());
   const [donorSource, setDonorSource] = useState<'member' | 'external'>('member');
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
   const [donorName, setDonorName] = useState('');
@@ -149,7 +150,7 @@ export const DonationFormModal: React.FC<DonationFormModalProps> = ({
       // Reset for new receipt
       setType('money');
       setReceiptNumber(nextReceiptNumber);
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(lokalesHeute());
       setDonorSource('member');
       if (members.length > 0) {
         const m = members[0];

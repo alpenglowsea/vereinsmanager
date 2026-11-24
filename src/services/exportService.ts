@@ -1,4 +1,4 @@
-import { statusText, typText, zahlweiseText, zahlartText, MANDATSFOLGE_TEXT } from '../utils/mitgliedRegeln';
+import { statusText, typText, zahlweiseText, zahlartText, MANDATSFOLGE_TEXT, lokalesHeute } from '../utils/mitgliedRegeln';
 import {
   berechneEuer,
   buchungsCsvZeilen,
@@ -150,7 +150,7 @@ export const ExportService = {
     });
 
     const pdfBlob = doc.output('blob');
-    const targetFilename = filename || `mitglieder_${new Date().toISOString().split('T')[0]}.pdf`;
+    const targetFilename = filename || `mitglieder_${lokalesHeute()}.pdf`;
     return await saveBlobWithLocationPicker(pdfBlob, targetFilename, {
       description: 'PDF-Dokument (*.pdf)',
       mimeType: 'application/pdf',
@@ -418,7 +418,7 @@ export const ExportService = {
       }
     });
 
-    const targetFile = filename || `buchungsjournal_${new Date().toISOString().split('T')[0]}.pdf`;
+    const targetFile = filename || `buchungsjournal_${lokalesHeute()}.pdf`;
     void savePdfAs(doc, targetFile);
   },
 
@@ -527,7 +527,7 @@ export const ExportService = {
       }
     });
 
-    const targetFile = filename || `inventarliste_${new Date().toISOString().split('T')[0]}.pdf`;
+    const targetFile = filename || `inventarliste_${lokalesHeute()}.pdf`;
     void savePdfAs(doc, targetFile);
   },
 
@@ -680,7 +680,7 @@ export const ExportService = {
       doc.text(`Kassenprüfer / 1. Vorsitzender`, 120, finalY + 22);
     }
 
-    void savePdfAs(doc, `EStG_GuV_${yearFilter || 'gesamt'}_${new Date().toISOString().split('T')[0]}.pdf`);
+    void savePdfAs(doc, `EStG_GuV_${yearFilter || 'gesamt'}_${lokalesHeute()}.pdf`);
   },
 
   // 6. Export Contacts to CSV
@@ -814,7 +814,7 @@ export const ExportService = {
       }
     });
 
-    void savePdfAs(doc, `kontakte_${new Date().toISOString().split('T')[0]}.pdf`);
+    void savePdfAs(doc, `kontakte_${lokalesHeute()}.pdf`);
   },
 
   // 14. Export Issued Inventory (Materialausgabe an Mitglieder) to CSV
@@ -849,7 +849,7 @@ export const ExportService = {
 
     const csv = Papa.unparse(data, { delimiter: ';' });
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    return saveBlobWithLocationPicker(blob, filename || `ausgeteilte_gegenstaende_${new Date().toISOString().split('T')[0]}.csv`, {
+    return saveBlobWithLocationPicker(blob, filename || `ausgeteilte_gegenstaende_${lokalesHeute()}.csv`, {
       description: 'CSV-Tabelle (*.csv)',
       mimeType: 'text/csv',
       extension: '.csv'
@@ -961,7 +961,7 @@ export const ExportService = {
     });
 
     const pdfBlob = doc.output('blob');
-    return saveBlobWithLocationPicker(pdfBlob, filename || `ausgeteilte_gegenstaende_${new Date().toISOString().split('T')[0]}.pdf`, {
+    return saveBlobWithLocationPicker(pdfBlob, filename || `ausgeteilte_gegenstaende_${lokalesHeute()}.pdf`, {
       description: 'PDF-Dokument (*.pdf)',
       mimeType: 'application/pdf',
       extension: '.pdf'

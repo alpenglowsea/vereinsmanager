@@ -17,6 +17,8 @@ import { BackupPasswordDialog } from './BackupPasswordDialog';
 import { istVerschluesselt, entschluessleSicherung } from '../services/backupCrypto';
 import { istPaket, istPaketVerschluesselt, lesePaket, paketFehlerText, paketHinweis } from '../services/backupPaket';
 
+import { vergissGeoeffneteArchive } from './ArchivDateiLaden';
+import { vergissAlleFilter } from '../utils/gemerkteFilter';
 /**
  * Erscheint beim Start, wenn auf diesem Gerät noch kein Verein eingerichtet
  * ist (siehe StorageService.brauchtEinrichtung): ganz frisch oder nach
@@ -154,6 +156,9 @@ export const EinrichtungsModal: React.FC<EinrichtungsModalProps> = ({ onFertig }
     setImporting(true);
     try {
       await StorageService.importFullBackup(importVorschau.text, 'live', art);
+      // geöffnete Archive und gemerkte Filter gehörten zum vorigen Bestand (A4)
+      vergissGeoeffneteArchive();
+      vergissAlleFilter();
       setImportVorschau(null);
       onFertig();
     } catch (err: any) {

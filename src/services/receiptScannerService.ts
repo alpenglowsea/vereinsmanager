@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import { ReceiptAttachment } from '../types';
 
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 export type ScannerFilterType = 'original' | 'document' | 'grayscale' | 'contrast';
 
 export interface ScannedPage {
@@ -215,7 +216,7 @@ export async function generatePdfFromScannedPages(
   const pdfDataUrl = doc.output('datauristring');
   const size = getBase64Size(pdfDataUrl);
   const docNumClean = (metadata.documentNumber || 'BELEG').replace(/[^a-zA-Z0-9_-]/g, '_');
-  const filename = `Beleg_${docNumClean}_${new Date().toISOString().split('T')[0]}.pdf`;
+  const filename = `Beleg_${docNumClean}_${lokalesHeute()}.pdf`;
 
   return {
     name: filename,
@@ -235,7 +236,7 @@ export function generateImageReceipt(
 ): ReceiptAttachment {
   const size = getBase64Size(page.processedDataUrl);
   const docNumClean = (metadata.documentNumber || 'BELEG').replace(/[^a-zA-Z0-9_-]/g, '_');
-  const filename = `Beleg_${docNumClean}_${new Date().toISOString().split('T')[0]}.jpg`;
+  const filename = `Beleg_${docNumClean}_${lokalesHeute()}.jpg`;
 
   return {
     name: filename,

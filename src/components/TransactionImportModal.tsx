@@ -143,7 +143,7 @@ export const TransactionImportModal: FC<TransactionImportModalProps> = ({
   };
 
   const handleDownloadSample = () => {
-    const sampleCSV = generateSampleTransactionCSVTemplate(settings, accounts);
+    const sampleCSV = generateSampleTransactionCSVTemplate(accounts);
     const blob = new Blob([sampleCSV], { type: 'text/csv;charset=utf-8;' });
     void saveBlobAs(blob, `buchungen_vorlage_skr42_${settings.clubName.replace(/\s+/g, '_')}.csv`);
   };

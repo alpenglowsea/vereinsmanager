@@ -29,10 +29,6 @@ data class BackupFile(
 
     fun single(area: String): JsonObject? = data[area] as? JsonObject
 
-    /** Ausdrücklich enthaltene Einträge je Listen-Bereich, zum Anzeigen im Vergleich. */
-    fun counts(): Map<String, Int> =
-        BackupAreas.LISTS.mapNotNull { a -> list(a)?.let { a to it.size } }.toMap()
-
     @OptIn(ExperimentalSerializationApi::class)
     fun toJsonText(): String {
         val dataObj = JsonObject(BackupAreas.ALL.mapNotNull { k -> data[k]?.let { k to it } }.toMap())

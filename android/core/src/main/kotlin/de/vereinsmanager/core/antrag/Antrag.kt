@@ -50,8 +50,6 @@ data class AntragEinstellungen(
     val beitraege: Map<String, BeitragsVorgabe>,
     val datenschutz: String,
     val satzung: String,
-    /** Kennung des Dokuments mit der eigenen Leervorlage; leer = das App-eigene leere Formular */
-    val vorlageDokId: String = "",
     /** Kennung des hinterlegten Satzungs-PDFs (leer = keins); das neue Mitglied kann es in Schritt 4 öffnen */
     val satzungDokId: String = "",
     /** Kennung des hinterlegten Datenschutz-Vordrucks (leer = keiner) */
@@ -97,10 +95,10 @@ object AntragEinstellungenStore {
     const val K_BEITRAEGE = "membershipFeeDefaults"
     const val K_DATENSCHUTZ = "applicationPrivacyText"
     const val K_SATZUNG = "applicationStatuteText"
-    const val K_VORLAGE = "applicationTemplateDocId"
     const val K_SATZUNG_DOK = "applicationStatuteDocId"
     const val K_DATENSCHUTZ_DOK = "applicationPrivacyDocId"
     const val ORDNER_ID = "folder-aufnahmeantraege"
+    /** Höchstgröße einer Beilage (Satzung, Datenschutz-Vordruck) */
     const val MAX_VORLAGE = 10 * 1024 * 1024
 
     private fun t(o: JsonObject?, k: String) = (o?.get(k) as? JsonPrimitive)?.takeIf { it !is JsonNull }?.contentOrNull ?: ""
@@ -116,7 +114,7 @@ object AntragEinstellungenStore {
             beitraege[art] = BeitragsVorgabe(betrag, periode ?: vorgabe.periode)
         }
         return AntragEinstellungen(
-            beitraege, t(settings, K_DATENSCHUTZ).ifBlank { std.datenschutz }, t(settings, K_SATZUNG).ifBlank { std.satzung }, t(settings, K_VORLAGE),
+            beitraege, t(settings, K_DATENSCHUTZ).ifBlank { std.datenschutz }, t(settings, K_SATZUNG).ifBlank { std.satzung },
             satzungDokId = t(settings, K_SATZUNG_DOK), datenschutzDokId = t(settings, K_DATENSCHUTZ_DOK),
         )
     }
@@ -159,45 +157,6 @@ object AntragEinstellungenStore {
         if (store.get(Dokumente.ORDNER, ORDNER_ID) == null) StandardOrdner.anlegenFehlende(store)
         if (store.get(Dokumente.ORDNER, ORDNER_ID) != null) return ORDNER_ID
         return Dokumente.ordner(store).firstOrNull { it.name == "Digitale Aufnahmeanträge" }?.id.orEmpty()
-    }
-
-    /** Das Dokument mit der eigenen Leervorlage, wenn es (noch) existiert. */
-    fun vorlage(store: DocumentStore): Dokument? {
-        val id = lesen(store).vorlageDokId.ifEmpty { return null }
-        return store.get(Dokumente.DOKUMENTE, id)?.let { Dokument.from(it) }
-    }
-
-    /** Die Bytes der eigenen Leervorlage; null, wenn keine hinterlegt oder die Datei fehlt. */
-    fun vorlageBytes(store: DocumentStore, files: FileStore): ByteArray? {
-        val d = vorlage(store) ?: return null
-        val id = d.dateiId ?: return null
-        return files.open(id)?.use { it.readBytes() }
-    }
-
-    /**
-     * Hinterlegt eine eigene Leervorlage (PDF). Sie liegt als Dokument im Ordner „Digitale Aufnahmeanträge“ und ist damit in der Sicherung.
-     * Eine frühere Vorlage wird ersetzt.
-     */
-    fun vorlageSetzen(store: DocumentStore, files: FileStore, bytes: ByteArray, dateiName: String, heute: LocalDate): Dokument {
-        if (bytes.size < 8 || String(bytes, 0, 5, Charsets.ISO_8859_1) != "%PDF-") throw DokumentException("Das ist keine PDF-Datei.")
-        if (bytes.size > MAX_VORLAGE) throw DokumentException("Die Datei ist zu groß (höchstens ${MAX_VORLAGE / 1024 / 1024} MB).")
-        val alt = vorlage(store)
-        val form = DokumentForm(
-            id = DokumentStore.neueId(), titel = "Eigene Antragsvorlage (leeres Formular)", kategorie = "mitglieder",
-            ordnerId = ordnerKennung(store, files), datum = heute.toString(), tags = "Vorlage, Aufnahmeantrag",
-            notiz = "Wird in der App als leeres Antragsformular angeboten.",
-        )
-        val neu = DokumentStore.neu(store, files, bytes, dateiName.ifBlank { "Antragsvorlage.pdf" }, "application/pdf", form)
-        aendern(store) { it[K_VORLAGE] = JsonPrimitive(neu.id) }
-        if (alt != null) DokumentStore.loeschen(store, files, listOf(alt.id))
-        return neu
-    }
-
-    /** Entfernt die eigene Leervorlage (das Dokument wird gelöscht); danach gilt wieder das App-eigene Formular. */
-    fun vorlageEntfernen(store: DocumentStore, files: FileStore) {
-        val alt = vorlage(store)
-        aendern(store) { it.remove(K_VORLAGE) }
-        if (alt != null) DokumentStore.loeschen(store, files, listOf(alt.id))
     }
 
     /** Zwei PDFs, die der Verein hinterlegt und die das neue Mitglied in Schritt 4 des Antrags öffnen kann. */

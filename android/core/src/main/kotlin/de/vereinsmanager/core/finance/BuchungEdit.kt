@@ -137,10 +137,6 @@ object BuchungRegeln {
             ?: (if (nummernkreis.isNotEmpty()) Skr42.findMain(nummernkreis, skr) else null)
             ?: (if (konto.isNotEmpty()) Skr42.findMainForSub(konto, skr) else null)
 
-    /** Konten (Unterkonten) des gewählten Nummernkreises. */
-    fun unterkonten(nummernkreis: String, konto: String, skr: List<Skr42Main>): List<Skr42Sub> =
-        hauptkonto(nummernkreis, konto, skr)?.subCategories ?: emptyList()
-
     /** Nach Wechsel des Nummernkreises: erstes Konto, dessen Nummer und Umsatzsteuer-Vorgabe. */
     fun mitNummernkreis(f: BuchungForm, main: Skr42Main): BuchungForm {
         val sub = main.subCategories.firstOrNull()

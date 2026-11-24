@@ -13,6 +13,7 @@ import {
 import { CATEGORY_CONFIG } from './DocumentViewerModal';
 
 import VeraenderbaresFenster from './VeraenderbaresFenster';
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 interface DocumentUploadModalProps {
   isOpen?: boolean;
   onClose: () => void;
@@ -71,7 +72,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const handleFiles = async (files: FileList | File[]) => {
     setErrorMsg(null);
     const newItems: UploadQueueItem[] = [];
-    const today = new Date().toISOString().split('T')[0];
+    const today = lokalesHeute();
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -194,7 +195,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         dataUrl: item.dataUrl,
         category: item.category,
         folderId: item.folderId || undefined,
-        date: item.date || new Date().toISOString().split('T')[0],
+        date: item.date || lokalesHeute(),
         uploadDate: new Date().toISOString(),
         tags: item.tags,
         notes: item.notes || undefined,

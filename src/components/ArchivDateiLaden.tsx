@@ -18,7 +18,7 @@ import { BackupPasswordDialog } from './BackupPasswordDialog';
  */
 const geoeffnet = new Map<string, GelesenesArchiv>();
 
-/** Nur für Tests und „Alle lokalen Daten löschen“: vergisst geöffnete Archive. */
+/** Vergisst geöffnete Archive: nach Löschen, Einspielen einer Sicherung oder eines Schnappschusses (Einstellungen, Einrichtung). */
 export function vergissGeoeffneteArchive(): void {
   geoeffnet.clear();
 }

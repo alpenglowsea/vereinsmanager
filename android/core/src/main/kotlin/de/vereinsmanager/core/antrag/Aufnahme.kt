@@ -5,7 +5,6 @@ import de.vereinsmanager.core.documents.DokumentStore
 import de.vereinsmanager.core.documents.Dokumente
 import de.vereinsmanager.core.files.Dateinamen
 import de.vereinsmanager.core.files.FileStore
-import de.vereinsmanager.core.members.Iban
 import de.vereinsmanager.core.members.MemberForm
 import de.vereinsmanager.core.members.MemberRules
 import de.vereinsmanager.core.members.MemberStore
@@ -87,7 +86,4 @@ object Aufnahme {
         }
         return AufnahmeErgebnis(mid, nummer.trim(), dok.id)
     }
-
-    /** Die IBAN zur Anzeige in Vierergruppen. */
-    fun ibanAnzeige(iban: String) = Iban.gruppiert(iban)
 }

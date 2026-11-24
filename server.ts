@@ -2,7 +2,6 @@ import express from "express";
 import compression from "compression";
 import path from "path";
 import fs from "node:fs";
-import { RateLimiter } from "./src/utils/rateLimit";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -46,75 +45,12 @@ app.use((_req, res, next) => {
   next();
 });
 
-// ---------------------------------------------------------------------------
-// Ratenbegrenzung
-// ---------------------------------------------------------------------------
-//
-// Der Server nimmt nur von diesem einen Rechner Anfragen an (siehe HOST
-// oben). Diese Ratenbegrenzung greift zusätzlich — unabhängig davon, WER
-// aufruft.
-//
-//   allgemein — schützt den Server davor, unter Last zusammenzubrechen
-const MINUTE = 60_000;
-
-const bremseAllgemein = new RateLimiter({ limit: 120, windowMs: 5 * MINUTE });
-
-// Die Kennung des Absenders. Da der Server nur auf 127.0.0.1 lauscht, ist das
-// in der Praxis immer dieselbe Adresse — die Zählung dient trotzdem als
-// zusätzliche Bremse. Sie wird nur im Arbeitsspeicher gezählt und nirgends
-// gespeichert.
-const absender = (req: express.Request): string => req.ip || "unbekannt";
-
-const bremse =
-  (limiter: RateLimiter, was: string) =>
-  (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const ergebnis = limiter.check(absender(req));
-    if (ergebnis.allowed) {
-      next();
-      return;
-    }
-    res.setHeader("Retry-After", String(ergebnis.retryAfterSeconds));
-    // 429 ist der dafür vorgesehene Statuscode. Wichtig, dass es nicht 500
-    // ist: Sonst hielte der Betreiber eine wirksame Bremse für einen Defekt.
-    res.status(429).json({
-      success: false,
-      error: `Zu viele Anfragen (${was}). Bitte in ${Math.ceil(
-        ergebnis.retryAfterSeconds / 60
-      )} Minute(n) noch einmal versuchen.`,
-      retryAfterSeconds: ergebnis.retryAfterSeconds,
-    });
-  };
-
-// Gilt für alles unter /api.
-app.use("/api", (req, res, next) => {
-  bremse(bremseAllgemein, "allgemein")(req, res, next);
-});
-
-// Body parser for JSON and large payloads (PDF / Image Base64)
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-
-// Hinweis zum Fehlerbericht: Der Versand läuft bewusst NICHT über diesen
-// Server, sondern direkt aus dem App-Fenster (SettingsView). Der Mail-Dienst
-// FormSubmit nimmt nur Anfragen an, die aus einer Webseite kommen — vom
-// Server aus wird er mit "Make sure you open this page through a web server"
-// abgewiesen.
+// Der Server liefert nur die Oberfläche aus; API-Adressen gibt es keine
+// mehr. Die frühere Ratenbegrenzung für /api und die Annahme großer
+// Anfragen sind deshalb entfernt (Code-Prüfung 24.11.2026).
 
 // Vite middleware & SPA serving
 async function startServer() {
-  // Ein /api/-Aufruf, den es nicht gibt, muss als solcher erkennbar sein.
-  // Ohne diese Zeilen fiele er unten in die SPA-Weiche und bekäme die
-  // HTML-Startseite zurück; in der App käme dann die verwirrende Meldung
-  // an, die Antwort des Servers sei kein gültiges JSON. Diese Weiche muss
-  // hinter allen echten /api/-Routen und vor der Auslieferung der
-  // Oberfläche stehen.
-  app.use("/api", (req, res) => {
-    res.status(404).json({
-      success: false,
-      error: `Unbekannter Server-Endpunkt: ${req.method} ${req.originalUrl}`,
-    });
-  });
-
   if (process.env.NODE_ENV !== "production") {
     // Vite wird bewusst erst HIER geladen und nicht oben als normaler
     // Import. Vite ist ein reines Entwicklungswerkzeug und steckt im

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 
 import VeraenderbaresFenster from './VeraenderbaresFenster';
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 interface MemberBulkEditModalProps {
   selectedMembers: Member[];
   departments: string[];
@@ -60,7 +61,7 @@ export const MemberBulkEditModal: React.FC<MemberBulkEditModalProps> = ({
   const [feeAmount, setFeeAmount] = useState<number>(120);
 
   const [applyEntryDate, setApplyEntryDate] = useState(false);
-  const [entryDate, setEntryDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [entryDate, setEntryDate] = useState<string>(lokalesHeute());
 
   const [applyExitDate, setApplyExitDate] = useState(false);
   const [exitDate, setExitDate] = useState<string>('');

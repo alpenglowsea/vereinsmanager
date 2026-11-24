@@ -40,6 +40,8 @@ import { erstlastschriftMitglieder, verbuchbarePosten } from '../services/beitra
 import { melde, bestaetige } from '../utils/dialoge';
 
 import VeraenderbaresFenster from './VeraenderbaresFenster';
+import { plusTage } from '../utils/dashboardRegeln';
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 interface SepaRunViewProps {
   members: Member[];
   settings: ClubSettings;
@@ -69,12 +71,8 @@ export const SepaRunView: React.FC<SepaRunViewProps> = ({
     Math.ceil(currentMonth / 3) as 1 | 2 | 3 | 4
   );
   
-  // Default execution date: 5 banking days ahead
-  const defaultExecDate = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 5);
-    return d.toISOString().split('T')[0];
-  }, []);
+  // Vorgeschlagenes Ausführungsdatum: heute (Ortszeit) plus 5 Kalendertage
+  const defaultExecDate = useMemo(() => plusTage(lokalesHeute(), 5), []);
 
   const [executionDate, setExecutionDate] = useState<string>(defaultExecDate);
   // Rückfragen beim Verbuchen (statt window.confirm) und danach zur Mandatsfolge (D-22)

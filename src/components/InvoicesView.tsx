@@ -39,6 +39,7 @@ import { ermittleSeitenStatus, wechsleSeite, waehleAlleGefilterten } from '../ut
 import { saveBlobAs, savePdfAs } from '../utils/fileExportHelper';
 import { bestaetige } from '../utils/dialoge';
 
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 type InvoiceSortField =
   | 'status'
   | 'invoiceNumber'
@@ -561,7 +562,9 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
       } else if (sortBy === 'status') {
         comparison = STATUS_SORT_ORDER[a.status] - STATUS_SORT_ORDER[b.status];
       } else if (sortBy === 'sphere') {
-        comparison = SPHERE_SORT_ORDER[a.taxSphere] - SPHERE_SORT_ORDER[b.taxSphere];
+        // Rechnungen ohne Sphäre (ältere Daten) ans Ende; vorher ergab das „keine Zahl“ und eine wirre Reihenfolge (A3)
+        const rang = (x?: TaxSphere) => (x ? SPHERE_SORT_ORDER[x] : 99);
+        comparison = rang(a.taxSphere) - rang(b.taxSphere);
       } else if (sortBy === 'amount') {
         comparison = (a.totalAmount || 0) - (b.totalAmount || 0);
       } else if (sortBy === 'deliveryDate') {
@@ -671,7 +674,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
 
     const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    void saveBlobAs(blob, `rechnungen_${new Date().toISOString().split('T')[0]}.csv`);
+    void saveBlobAs(blob, `rechnungen_${lokalesHeute()}.csv`);
   };
 
   // Status Badge Helper

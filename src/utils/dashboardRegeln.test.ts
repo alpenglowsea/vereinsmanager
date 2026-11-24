@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { CalendarEvent, ClubDocument, ClubInvoice, FinancialAccount, Member, Meeting, Transaction } from '../types';
 import { wgbGrenze } from '../services/buchungsBerichte';
-import { alter, dokumente, finanzen, gemeinnuetzigText, mitglieder, rechnungen, sepa, sitzungen, termine } from './dashboardRegeln';
+import { alter, dokumente, finanzen, gemeinnuetzigText, mitglieder, plusTage, rechnungen, sepa, sitzungen, termine } from './dashboardRegeln';
 
 // Gleiche Beispieldaten und Erwartungen wie Android DashboardTest
 const heute = '2026-11-14';
@@ -160,5 +160,18 @@ describe('Dashboard: Anzeige wie Android (P27)', () => {
     expect(gemeinnuetzigText('   ')).toBeNull();
     expect(gemeinnuetzigText('')).toBeNull();
     expect(gemeinnuetzigText(undefined)).toBeNull();
+  });
+});
+
+// Prüfung 24.11.2026, A1: Fälligkeit im Rechnungsformular. Vorher ergab 20.03. + 14 Tage den 02.04.,
+// weil über die Sommerzeit-Umstellung hinweg Orts- und Weltzeit gemischt wurden.
+describe('plusTage (Fälligkeit von Rechnungen)', () => {
+  it('zählt Kalendertage, auch über die Zeitumstellungen und Monats-/Jahresgrenzen', () => {
+    expect(plusTage('2026-03-20', 14)).toBe('2026-04-03');
+    expect(plusTage('2026-03-28', 14)).toBe('2026-04-11');
+    expect(plusTage('2027-03-20', 30)).toBe('2027-04-19');
+    expect(plusTage('2026-10-20', 14)).toBe('2026-11-03');
+    expect(plusTage('2026-12-25', 14)).toBe('2027-01-08');
+    expect(plusTage('2028-02-27', 2)).toBe('2028-02-29');
   });
 });

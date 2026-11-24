@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 
 import VeraenderbaresFenster from './VeraenderbaresFenster';
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 interface DocumentEditModalProps {
   // Nicht optional: Der Elternteil rendert diesen Dialog nur, wenn ein
   // Dokument ausgewählt ist. Damit entfällt ein früher Ausstieg, der
@@ -72,7 +73,7 @@ export const DocumentEditModal: React.FC<DocumentEditModalProps> = ({
         title: title.trim(),
         category,
         folderId: folderId || undefined,
-        date: date || new Date().toISOString().split('T')[0],
+        date: date || lokalesHeute(),
         tags,
         notes: notes.trim() || undefined,
         memberId: memberId || undefined,

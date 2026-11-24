@@ -1,6 +1,6 @@
 import { nummerVergeben } from '../utils/nummern';
 import { leseVorgaben, vorgabeFuer } from '../utils/beitragsVorgaben';
-import { kontoinhaberNachName } from '../utils/mitgliedRegeln';
+import { kontoinhaberNachName, lokalesHeute } from '../utils/mitgliedRegeln';
 import type { ClubSettings } from '../types';
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -101,7 +101,7 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
     },
     phone: member?.phone || '',
     email: member?.email || '',
-    entryDate: member?.entryDate || new Date().toISOString().split('T')[0],
+    entryDate: member?.entryDate || lokalesHeute(),
     exitDate: member?.exitDate || '',
     status: member?.status || 'active',
     department: member?.department || departments[0] || 'Fußball',
@@ -115,7 +115,7 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
       bic: member?.bankDetails?.bic || '',
       bankName: member?.bankDetails?.bankName || '',
       accountHolder: member?.bankDetails?.accountHolder || '',
-      mandateDate: member?.bankDetails?.mandateDate || (member?.paymentMethod === 'sepa' ? new Date().toISOString().split('T')[0] : ''),
+      mandateDate: member?.bankDetails?.mandateDate || (member?.paymentMethod === 'sepa' ? lokalesHeute() : ''),
       mandateReference: member?.bankDetails?.mandateReference || `MANDAT-${nextMemberNumber}-${new Date().getFullYear()}`,
       monthlyDueDay: member?.bankDetails?.monthlyDueDay ?? 1,
       // Neue Mitglieder beginnen mit einer Erstlastschrift (D-21, wie Android)
@@ -181,7 +181,7 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
         feeAmount: 0,
         feePeriod: 'none',
         paymentMethod: 'exempt',
-        exitDate: prev.exitDate || new Date().toISOString().split('T')[0]
+        exitDate: prev.exitDate || lokalesHeute()
       }));
     } else {
       setFormData(prev => ({
@@ -201,7 +201,7 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
         feeAmount: 0,
         feePeriod: 'none',
         paymentMethod: 'exempt',
-        exitDate: prev.exitDate || new Date().toISOString().split('T')[0]
+        exitDate: prev.exitDate || lokalesHeute()
       }));
     } else if (newType === 'honorary') {
       setFormData(prev => ({
@@ -387,7 +387,7 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
           dataUrl: attachedApplicationFile.dataUrl,
           category: 'mitglieder',
           folderId: null,
-          date: formData.entryDate || new Date().toISOString().split('T')[0],
+          date: formData.entryDate || lokalesHeute(),
           uploadDate: new Date().toISOString(),
           tags: ['Aufnahmeantrag', 'Mitgliedsantrag', formData.department, formData.memberNumber],
           notes: `Händisch ausgefüllter Aufnahmeantrag von ${formData.firstName} ${formData.lastName}. Automatisch beim Anlegen/Bearbeiten des Mitglieds abgelegt.`,

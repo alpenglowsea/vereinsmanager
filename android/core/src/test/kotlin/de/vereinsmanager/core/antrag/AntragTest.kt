@@ -151,22 +151,6 @@ class AntragTest {
 
     private val pdfBytes = "%PDF-1.4\nbeispiel\n%%EOF".toByteArray()
 
-    @Test fun eigeneVorlageHinterlegenErsetzenEntfernen() {
-        val st = InMemoryDocumentStore(); val fs = InMemoryFileStore()
-        assertNull(AntragEinstellungenStore.vorlageBytes(st, fs))
-        val d1 = AntragEinstellungenStore.vorlageSetzen(st, fs, pdfBytes, "mein-antrag.pdf", heute)
-        assertEquals("folder-aufnahmeantraege", d1.ordnerId)
-        assertEquals(pdfBytes.toList(), AntragEinstellungenStore.vorlageBytes(st, fs)!!.toList())
-        val zweite = "%PDF-1.7\nzweite".toByteArray()
-        AntragEinstellungenStore.vorlageSetzen(st, fs, zweite, "neu.pdf", heute)
-        assertEquals(zweite.toList(), AntragEinstellungenStore.vorlageBytes(st, fs)!!.toList())
-        assertEquals(1, Dokumente.dokumente(st).size) // die alte ist weg
-        AntragEinstellungenStore.vorlageEntfernen(st, fs)
-        assertNull(AntragEinstellungenStore.vorlageBytes(st, fs)); assertEquals(0, Dokumente.dokumente(st).size)
-        try { AntragEinstellungenStore.vorlageSetzen(st, fs, "kein pdf".toByteArray(), "x.pdf", heute); fail() } catch (x: Exception) { assertTrue(x.message!!.contains("PDF")) }
-        assertEquals(0, Dokumente.dokumente(st).size)
-    }
-
     @Test fun zweiteFassungAmSelbenTagWirdGezaehlt() {
         val st = InMemoryDocumentStore(); val fs = InMemoryFileStore()
         val sa = AntragEinstellungenStore.Beilage.SATZUNG; val ds = AntragEinstellungenStore.Beilage.DATENSCHUTZ

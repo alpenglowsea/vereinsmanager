@@ -176,6 +176,46 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Code-Prüfung, Paket 1 — Datumsfehler, Kleinigkeiten, toter Code
+
+Aus der Durchsicht des ganzen Codes am 24.11.2026 (Bericht
+`code-pruefung-2026-11-24.md` im Projekt). Keine neuen Funktionen.
+
+- **Fälligkeit von Rechnungen am Desktop** (A1): Reichte das Zahlungsziel
+  über die Umstellung auf Sommerzeit Ende März, lag das Fälligkeitsdatum
+  einen Tag zu früh (20.03. + 14 Tage ergab 02.04. statt 03.04.). Das Datum
+  wird jetzt als reines Kalenderdatum gerechnet (`plusTage`), wie am Handy.
+  Nebenbei: Ein geleertes Rechnungsdatum löste vorher einen Fehler aus.
+- **„Heute“ in Ortszeit** (A2): An 42 Stellen am Desktop entstand das
+  heutige Datum aus der Weltzeit. Zwischen Mitternacht und 1 Uhr (Sommerzeit
+  2 Uhr) schlug die App deshalb den Vortag vor, in Formularen, Dateinamen und
+  beim SEPA-Ausführungsdatum. Jetzt überall `lokalesHeute()`. Die
+  SEPA-Datumsumwandlung `formatDate` rechnet ebenfalls in Ortszeit.
+- **Rechnungsliste** (A3): Die Sortierung nach Sphäre stellt Rechnungen ohne
+  Sphäre ans Ende, statt die Reihenfolge durcheinanderzubringen.
+- **Nach Löschen und Einspielen** (A4): Geöffnete Jahresarchive und gemerkte
+  Filter werden vergessen nach „Alle lokalen Daten löschen“, nach dem
+  Einspielen einer Sicherung (Einstellungen und Einrichtung) und nach dem
+  Wiederherstellen eines Schnappschusses.
+- **Toter Code entfernt:**
+  - Desktop:
+    - Ratenbegrenzung, Annahme großer Anfragen und `/api`-Weiche im Server;
+      API-Adressen gibt es nicht mehr. Dazu `src/utils/rateLimit.ts` samt
+      10 Tests.
+    - `PROTOKOLLARTEN`, `SEITEN_NAMEN`, `ALL_ACCOUNT_CATEGORIES` (dessen
+      Test prüft die Regel jetzt direkt am Kontenrahmen),
+      `anzahlUnterlagen`.
+    - die Felder `createdById`, `customTemplateUsed` (2×) und `signatoryId`,
+      ein ungenutzter Parameter.
+  - Handy:
+    - eigene Leervorlage des Aufnahmeantrags (ohne Oberfläche, ersetzt durch
+      Briefpapier und Beilagen) samt Test.
+    - `KpiKachel`, zehn Nacht-Farben, `ibanAnzeige`, `unterkonten`,
+      `counts`, `ICS_ZEIT`, `BuchungImport.warnungen`.
+  - Veralteter Kommentar zu zxing (wird für den GiroCode gebraucht).
+- Tests: Desktop −10 (Ratenbegrenzung) +1 (`plusTage` über die
+  Zeitumstellung), jetzt 551. Android −1 (Leervorlage), jetzt 715.
+
 ### Runde 2, U — Unterlagen am Mitglied, Führungszeugnis, Filter bleiben stehen
 
 - **Unterlagen am Mitglied** (Desktop und Handy): Am Mitglied gibt es den

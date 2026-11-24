@@ -550,17 +550,6 @@ export const findSkr42MainForSub = (subNameOrCode: string): Skr42MainCategory | 
   );
 };
 
-/**
- * Flache Kategorie-Listen für einfache Dropdowns (z.B. Bankimport), die nur
- * nach Einnahme/Ausgabe unterscheiden. Bis Fassung 1.x hieß das
- * SPHERE_CATEGORIES und filterte zusätzlich nach Sphäre — entfallen aus dem
- * gleichen Grund wie getSkr42MainCategories()/getSkr42SubCategories() oben.
- */
-export const ALL_ACCOUNT_CATEGORIES: { income: string[]; expense: string[] } = {
-  income: SKR42_STRUCTURE.filter(m => m.type === 'income').flatMap(m => m.subCategories.map(s => s.label)),
-  expense: SKR42_STRUCTURE.filter(m => m.type === 'expense').flatMap(m => m.subCategories.map(s => s.label))
-};
-
 export const DEFAULT_DEPARTMENTS = [
   'Fußball',
   'Tennis',

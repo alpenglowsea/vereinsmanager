@@ -5,6 +5,7 @@ import { createZip, ZipEntry } from '../utils/zipWriter';
 import { createXlsx, XlsxCell } from '../utils/xlsxWriter';
 import { saveBlobWithLocationPicker, FileSaveResult } from '../utils/fileExportHelper';
 
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 /**
  * Sammel-Export für Zuwendungsbestätigungen: Liste als CSV oder Excel sowie
  * alle PDFs in einer ZIP-Datei. Es wird nichts verändert oder gelöscht.
@@ -150,7 +151,7 @@ export function zipDateiname(settings: ClubSettings, anzahl: number): string {
   return `Zuwendungsbestaetigungen_${verein}_${anzahl}_Stueck.zip`;
 }
 
-const tabelleDatum = () => new Date().toISOString().slice(0, 10);
+const tabelleDatum = () => lokalesHeute();
 
 export async function exportiereSpendenCsv(receipts: DonationReceipt[], settings: ClubSettings): Promise<FileSaveResult> {
   const blob = new Blob(['﻿' + baueSpendenCsv(receipts)], { type: 'text/csv;charset=utf-8;' });

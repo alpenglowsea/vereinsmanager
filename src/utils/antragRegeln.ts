@@ -194,7 +194,6 @@ export const SEITE_MITGLIEDSCHAFT = 2;
 export const SEITE_ZAHLUNG = 3;
 export const SEITE_ERKLAERUNG = 4;
 export const SEITE_ZUSAMMENFASSUNG = 5;
-export const SEITEN_NAMEN = ['', 'Person', 'Mitgliedschaft', 'Zahlung', 'Erklärungen', 'Prüfen'];
 
 /** JJJJ-MM-TT als gültiges Datum; sonst null. */
 export function datum(t: string): string | null {

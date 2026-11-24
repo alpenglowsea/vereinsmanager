@@ -15,6 +15,7 @@ import { ExportService } from '../services/exportService';
 import { bestaetige } from '../utils/dialoge';
 
 import VeraenderbaresFenster from './VeraenderbaresFenster';
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 interface IssuedInventoryModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -109,7 +110,7 @@ export const IssuedInventoryModal: React.FC<IssuedInventoryModalProps> = ({
     const updated: MemberInventoryAssignment = {
       ...item,
       status: isNowReturned ? 'returned' : 'issued',
-      returnDate: isNowReturned ? new Date().toISOString().split('T')[0] : undefined,
+      returnDate: isNowReturned ? lokalesHeute() : undefined,
       updatedAt: new Date().toISOString()
     };
     onUpdateAssignment(updated);

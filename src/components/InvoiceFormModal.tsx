@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 
 import VeraenderbaresFenster from './VeraenderbaresFenster';
+import { plusTage } from '../utils/dashboardRegeln';
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 interface InvoiceFormModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -77,8 +79,8 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
 }) => {
   // Form State
   const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(lokalesHeute());
+  const [deliveryDate, setDeliveryDate] = useState(lokalesHeute());
   const [dueDate, setDueDate] = useState('');
   const [paymentTermsDays, setPaymentTermsDays] = useState(14);
   const [status, setStatus] = useState<ClubInvoice['status']>('open');
@@ -166,15 +168,14 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
     } else {
       // New Invoice Defaults
       setInvoiceNumber(nextInvoiceNumber);
-      const today = new Date().toISOString().split('T')[0];
+      const today = lokalesHeute();
       setDate(today);
       setDeliveryDate(today);
 
       const terms = templateSettings.defaultPaymentTermsDays || 14;
       setPaymentTermsDays(terms);
-      const due = new Date();
-      due.setDate(due.getDate() + terms);
-      setDueDate(due.toISOString().split('T')[0]);
+      // Kalendertage ohne Zeitzone; vorher rutschte das Datum über die Sommerzeit-Umstellung um einen Tag (Prüfung 24.11.2026, A1)
+      setDueDate(plusTage(lokalesHeute(), terms));
 
       setStatus('open');
       setTaxSphere('wirtschaftlich');
@@ -239,11 +240,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
   // Recalculate due date when date or terms change
   const handlePaymentTermsChange = (days: number) => {
     setPaymentTermsDays(days);
-    if (date) {
-      const d = new Date(date);
-      d.setDate(d.getDate() + days);
-      setDueDate(d.toISOString().split('T')[0]);
-    }
+    if (date) setDueDate(plusTage(date, days));
   };
 
   // Close suggestions popover when clicking outside
@@ -683,10 +680,8 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
                 value={date}
                 onChange={(e) => {
                   setDate(e.target.value);
-                  if (paymentTermsDays > 0) {
-                    const d = new Date(e.target.value);
-                    d.setDate(d.getDate() + paymentTermsDays);
-                    setDueDate(d.toISOString().split('T')[0]);
+                  if (paymentTermsDays > 0 && e.target.value) {
+                    setDueDate(plusTage(e.target.value, paymentTermsDays));
                   }
                 }}
                 className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-white"

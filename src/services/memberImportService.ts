@@ -3,6 +3,7 @@ import { ordneSpaltenZu, leseDatum, leseBetrag, SpaltenRegel } from '../utils/im
 import { naechsteNummerImSchema } from '../utils/nummern';
 import { leseVorgaben, vorgabeFuer } from '../utils/beitragsVorgaben';
 
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 export interface ColumnMapping {
   memberNumber?: string;
   firstName?: string;
@@ -314,7 +315,7 @@ export function convertRowsToMembers(
   existingMembers: Member[],
   settings: ClubSettings,
   defaultDepartment?: string,
-  heute: string = new Date().toISOString().slice(0, 10)
+  heute: string = lokalesHeute()
 ): ParsedMemberRow[] {
   const existingMapByNumber = new Map<string, Member>();
   const existingMapByName = new Map<string, Member>();

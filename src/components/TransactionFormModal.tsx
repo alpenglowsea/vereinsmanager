@@ -48,6 +48,7 @@ import { melde } from '../utils/dialoge';
 import VeraenderbaresFenster from './VeraenderbaresFenster';
 import { imArchiv } from '../services/jahresarchiv';
 
+import { lokalesHeute } from '../utils/mitgliedRegeln';
 interface TransactionFormModalProps {
   transaction: Transaction | null;
   accounts: FinancialAccount[];
@@ -162,7 +163,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
 
   const [formData, setFormData] = useState<Transaction>({
     id: transaction?.id || `tx-${Date.now()}`,
-    date: transaction?.date || new Date().toISOString().split('T')[0],
+    date: transaction?.date || lokalesHeute(),
     amount: transaction ? Math.abs(transaction.amount) : 0,
     type: transaction?.type || 'expense',
     accountId: transaction?.accountId || accounts[0]?.id || 'acc-1',

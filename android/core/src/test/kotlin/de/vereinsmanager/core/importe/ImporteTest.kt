@@ -135,7 +135,7 @@ class ImporteTest {
         assertTrue(z[0].form.notiz.contains("Import: Bankauszug"))
         assertEquals("k1", z[0].form.kontoId)
         assertTrue(z.all { BuchungImport.fehler(it.form, konten).isEmpty() })
-        assertTrue(z.all { it.form.skrKonto.isEmpty() && BuchungImport.warnungen(it.form).isNotEmpty() })
+        assertTrue(z.all { it.form.skrKonto.isEmpty() }) // ohne Konto: die Importansicht zählt diese Zeilen als „ohne Konto“
     }
 
     @Test fun nichtLesbaresDatumBleibtAlsFehlerzeileStehen() {
