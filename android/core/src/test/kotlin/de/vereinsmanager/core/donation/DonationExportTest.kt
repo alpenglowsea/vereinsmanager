@@ -91,4 +91,25 @@ class DonationExportTest {
     @Test fun csvDateiHatByteOrderMark() {
         assertTrue(DonationExport.csvDateiInhalt(listOf(r1)).startsWith("﻿"))
     }
+
+    // C4 (Code-Prüfung 24.11.2026): Excel wie am Desktop, mit dem eigenen Excel-Leser zurückgelesen
+    @Test fun excelLaesstSichZuruecklesen() {
+        val bytes = DonationExport.baueXlsx(listOf(r1, r2))
+        val t = de.vereinsmanager.core.importe.Xlsx.lesen(bytes)
+        assertEquals(DonationExport.SPALTEN, t.headers)
+        val (a, b) = t.rows
+        // Datum als echtes Excel-Datum (der Leser liefert es als JJJJ-MM-TT), Betrag als Zahl
+        assertEquals("2026-03-05", a["Datum der Zuwendung"]); assertEquals("1234,5", a["Betrag / Wert (EUR)"])
+        assertEquals("Müller, Hans \"Hansi\"", a["Spender"]); assertEquals("Zeile1 Zeile2", a["Notizen"])
+        // Freistellungsdatum: Freitext bleibt Text, ein echtes Datum wird Datum
+        assertEquals("24.07.2025", a["Freistellungsbescheid vom"]); assertEquals("2023-02-01", b["Freistellungsbescheid vom"])
+        // Eine Formel im Namen bleibt Text (inlineStr), wird also nicht ausgeführt
+        assertEquals("=SUMME(A1)", b["Spender"]); assertEquals("50", b["Betrag / Wert (EUR)"])
+        val sheet = String(java.util.zip.ZipInputStream(bytes.inputStream()).use { z ->
+            generateSequence { z.nextEntry }.first { it.name == "xl/worksheets/sheet1.xml" }; z.readBytes()
+        }, Charsets.UTF_8)
+        assertTrue(sheet.contains("t=\"inlineStr\"><is><t xml:space=\"preserve\">=SUMME(A1)</t>"))
+        assertTrue(sheet.contains("state=\"frozen\"") && sheet.contains("<autoFilter ref=\"A1:Y3\"/>"))
+    }
 }
+

@@ -1910,6 +1910,13 @@ export default function App() {
                   setSettingsActiveTab('club');
                   setActiveTab('settings');
                 }}
+                documents={documents}
+                onProtokollAbgelegt={async (m, doc) => {
+                  // Nur die geänderten Einträge austauschen; Ordner neu lesen, falls ein Standardordner angelegt wurde (C3)
+                  setMeetings(prev => prev.map(x => (x.id === m.id ? m : x)));
+                  setDocuments(prev => [...prev.filter(d => d.id !== doc.id), doc]);
+                  setFolders(await StorageService.getFolders());
+                }}
                 />
             )}
 

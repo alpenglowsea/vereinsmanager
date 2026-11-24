@@ -79,6 +79,27 @@ object DonationExport {
     }
 
     /** Die Datei bekommt zusätzlich ein Byte-Order-Mark, damit Excel die Umlaute richtig liest. */
+    /**
+     * Die Liste als Excel-Datei (.xlsx), wie Desktop `baueSpendenXlsx` (Code-Prüfung C4): Betrag als Zahl mit zwei Nachkommastellen,
+     * Zuwendungsdatum und Freistellungsdatum als echtes Datum, wenn sie eines sind (das Freistellungsdatum ist in den Stammdaten
+     * Freitext und bleibt sonst Text), alles andere als Text.
+     */
+    fun baueXlsx(receipts: List<DonationReceipt>): ByteArray {
+        val zeilen = baueTabelle(receipts).map { zeile ->
+            zeile.mapIndexed { i, v ->
+                when {
+                    i == COL_MONEY -> de.vereinsmanager.core.export.XlsxZelle.Betrag(v as BigDecimal)
+                    i in COL_DATES -> v.toString().let { t ->
+                        if (Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(t)) de.vereinsmanager.core.export.XlsxZelle.Datum(t)
+                        else if (t.isNotEmpty()) de.vereinsmanager.core.export.XlsxZelle.Text(t) else null
+                    }
+                    else -> de.vereinsmanager.core.export.XlsxZelle.Text(v.toString())
+                }
+            }
+        }
+        return de.vereinsmanager.core.export.XlsxSchreiber.schreiben("Zuwendungsbestätigungen", SPALTEN, zeilen)
+    }
+
     fun csvDateiInhalt(receipts: List<DonationReceipt>): String = "﻿" + baueCsv(receipts)
 
     /** Umlaute ausschreiben und alles Unsichere durch _ ersetzen – für Dateinamen. */

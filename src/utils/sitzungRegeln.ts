@@ -7,6 +7,7 @@
  * Funktionen auf, damit Desktop und Handy dieselben Entscheidungen treffen.
  */
 import {
+  ClubDocument,
   Meeting,
   MeetingAgendaItem,
   MeetingDigitalSignature,
@@ -470,3 +471,46 @@ export function mailText(m: Meeting, art: MailArt, verein: string): string {
   }
   return z.join('\n').trimEnd();
 }
+
+// ---------- Protokoll im Dokumentenarchiv ablegen (Code-Prüfung C3, wie Android Sitzungen.archivieren)
+
+/** Standardordner für das abgelegte Protokoll je Sitzungsart (wie Android `archivOrdnerId`). */
+export const protokollOrdnerId = (art: MeetingType | string): string =>
+  art === 'general_assembly' || art === 'extraordinary_assembly' ? 'folder-jhv' : art === 'board' ? 'folder-vorstand' : 'folder-protokolle';
+
+/** Dateiname wie Android `dateiname("Protokoll", s)`. */
+export const protokollDateiname = (m: Pick<Meeting, 'title' | 'date'>): string => {
+  const sicher = (m.title || '').replace(/[^A-Za-z0-9äöüÄÖÜß_-]+/g, '_').replace(/^_+|_+$/g, '') || 'Sitzung';
+  return `Protokoll_${m.date}_${sicher}.pdf`;
+};
+
+/** Liegt das Protokoll schon im Archiv? Nur, wenn das vermerkte Dokument noch existiert. */
+export const protokollImArchiv = (m: Pick<Meeting, 'documentId'>, documents: Pick<ClubDocument, 'id'>[]): boolean =>
+  !!m.documentId && documents.some(d => d.id === m.documentId);
+
+/** Warum das Protokoll (noch) nicht abgelegt werden kann; null = es geht. Texte wie Android. */
+export function protokollAblageFehler(m: Pick<Meeting, 'signatures' | 'documentId'>, documents: Pick<ClubDocument, 'id'>[]): string | null {
+  if (!vollstaendigUnterschrieben(m)) return 'Ins Archiv kommt nur ein Protokoll mit beiden Unterschriften.';
+  if (protokollImArchiv(m, documents)) return 'Das Protokoll liegt schon im Archiv.';
+  return null;
+}
+
+/** Das Dokument für das unterschriebene Protokoll; Titel, Kategorie und Schlagworte wie Android. */
+export function protokollDokument(m: Meeting, dataUrl: string, folderId: string | null, jetzt: string): ClubDocument {
+  return {
+    id: `doc-prot-${m.id}-${Date.parse(jetzt).toString(36)}`,
+    title: `Protokoll: ${m.title} vom ${deutsch(m.date)}`,
+    fileName: protokollDateiname(m),
+    fileType: 'application/pdf',
+    fileSize: Math.round((dataUrl.length - dataUrl.indexOf(',') - 1) * 0.75),
+    dataUrl,
+    category: 'protokolle',
+    folderId,
+    date: m.date,
+    uploadDate: jetzt,
+    tags: ['Protokoll', SITZUNGSARTEN[m.type as MeetingType] ?? 'Sitzung'],
+    createdAt: jetzt,
+    updatedAt: jetzt
+  };
+}
+

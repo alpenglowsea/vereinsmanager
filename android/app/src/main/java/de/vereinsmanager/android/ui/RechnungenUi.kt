@@ -84,6 +84,7 @@ fun RechnungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
     var status by model.gemerkt<String?>("rechnungen", "status", null)
     var jahr by model.gemerkt<String?>("rechnungen", "jahr", null)
     var gewaehlt by remember { mutableStateOf(setOf<String>()) }
+    var loeschen by remember { mutableStateOf(false) }
     var exportOffen by remember { mutableStateOf(false) }
     var info by remember { mutableStateOf<String?>(null) }
     val exporter = rememberExporter(model) { info = it }
@@ -137,6 +138,7 @@ fun RechnungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                 Text("${gewaehlt.size} gewählt", style = MaterialTheme.typography.labelLarge)
                 KompaktKnopf("Alle angezeigten", { gewaehlt = shown.map { it.id }.toSet() })
                 KompaktKnopf("Keine", { gewaehlt = emptySet() })
+                KompaktKnopf("Löschen", { loeschen = true }, enabled = !model.busy)
                 ExportMenue("Exportieren", rechnungenExport(model, exporter, shown.filter { it.id in gewaehlt }, "gewählte"), kompakt = true)
             }
         }
@@ -170,6 +172,21 @@ fun RechnungenScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
         }
     }
     if (exportOffen) ExportAuswahl("${shown.size} angezeigte Rechnungen exportieren als:", rechnungenExport(model, exporter, shown, "angezeigte"), { exportOffen = false })
+    if (loeschen) {
+        // Sammellöschen wie am Desktop (C2): PDFs gehen mit, verknüpfte Buchungen bleiben
+        AlertDialog(
+            onDismissRequest = { loeschen = false },
+            title = { Text(if (gewaehlt.size == 1) "1 Rechnung löschen?" else "${gewaehlt.size} Rechnungen löschen?") },
+            text = { Text("Die gewählten Rechnungen werden unwiderruflich gelöscht. Ihre PDFs werden mitgelöscht, verknüpfte Buchungen bleiben stehen.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    loeschen = false
+                    model.rechnungenLoeschen(gewaehlt.toList()) { f -> if (f == null) gewaehlt = emptySet() else info = f }
+                }) { Text("Löschen") }
+            },
+            dismissButton = { TextButton(onClick = { loeschen = false }) { Text("Abbrechen") } },
+        )
+    }
 }
 
 private fun rechnungenExport(model: AppModel, exporter: Exporter, liste: List<Rechnung>, wort: String): List<Pair<String, () -> Unit>> {

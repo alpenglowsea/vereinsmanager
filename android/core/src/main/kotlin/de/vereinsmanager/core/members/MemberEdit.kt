@@ -96,6 +96,16 @@ object MemberRules {
         else -> f.copy(type = type, status = if (f.status == "terminated") "active" else f.status)
     }
 
+    /**
+     * Betrag und Zahlweise aus der Beitragsvorgabe der Mitgliedsart (Einstellungen → Aufnahmeantrag), wie am Desktop (D-94,
+     * Code-Prüfung C1). Nur für neue Mitglieder: beim Anlegen und wenn dort die Art wechselt. Arten ohne Vorgabe (Ehrenmitglied,
+     * ausgetreten) bleiben unverändert; „beitragsfrei“ wird dabei wieder zu Lastschrift.
+     */
+    fun mitVorgabe(f: MemberForm, vorgaben: Map<String, de.vereinsmanager.core.antrag.BeitragsVorgabe>): MemberForm {
+        val v = vorgaben[f.type] ?: return f
+        return f.copy(fee = formatFee(v.wert), feePeriod = v.periode, paymentMethod = if (f.paymentMethod == "exempt") "sepa" else f.paymentMethod)
+    }
+
     fun setFeePeriod(f: MemberForm, period: String): MemberForm =
         if (period == "none") {
             f.copy(feePeriod = period, fee = "0", paymentMethod = "exempt")

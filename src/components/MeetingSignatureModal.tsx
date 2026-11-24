@@ -11,9 +11,11 @@ import {
   User,
   ShieldCheck,
   Smartphone,
-  MousePointer
+  MousePointer,
+  Archive
 } from 'lucide-react';
-import { Meeting, ClubSettings, MeetingTemplateSettings } from '../types';
+import { Meeting, ClubSettings, MeetingTemplateSettings, ClubDocument } from '../types';
+import { StorageService } from '../services/storage';
 import { MeetingPdfService, Briefpapier } from '../services/meetingPdfService';
 import { savePdfAs } from '../utils/fileExportHelper';
 import { bestaetige } from '../utils/dialoge';
@@ -25,7 +27,9 @@ import {
   pruefeUnterschrift,
   schriftUnterschrift,
   unterschreibe,
-  unterschriftenEntfernen
+  unterschriftenEntfernen,
+  vollstaendigUnterschrieben,
+  protokollImArchiv
 } from '../utils/sitzungRegeln';
 
 interface MeetingSignatureModalProps {
@@ -36,7 +40,14 @@ interface MeetingSignatureModalProps {
   templateSettings?: MeetingTemplateSettings;
   briefpapier?: Briefpapier | null;
   onSaveMeeting: (updatedMeeting: Meeting) => Promise<void>;
+  /** Dokumente der App, um zu erkennen, ob das Protokoll schon im Archiv liegt (C3). */
+  documents?: ClubDocument[];
+  /** Das Protokoll wurde im Dokumentenarchiv abgelegt: neue Sitzung und neues Dokument an die App melden. */
+  onProtokollAbgelegt?: (meeting: Meeting, doc: ClubDocument) => void;
 }
+
+// Feste leere Liste, damit sich die Vorgabe nicht bei jedem Zeichnen ändert
+const KEINE_DOKUMENTE: ClubDocument[] = [];
 
 export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
   isOpen,
@@ -45,7 +56,9 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
   clubSettings,
   templateSettings,
   briefpapier,
-  onSaveMeeting
+  onSaveMeeting,
+  documents = KEINE_DOKUMENTE,
+  onProtokollAbgelegt
 }) => {
   const [activeRole, setActiveRole] = useState<'chairperson' | 'minuteKeeper'>('chairperson');
   // Die Unterschriften kommen immer aus der gespeicherten Sitzung (die Liste
@@ -59,6 +72,8 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
   const [hasDrawnStroke, setHasDrawnStroke] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState<string | null>(null);
+  const [legtAb, setLegtAb] = useState(false);
+  const [ablage, setAblage] = useState<{ text: string; ok: boolean } | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
@@ -261,6 +276,30 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
       console.error('Failed to export protocol PDF:', err);
     } finally {
       setIsExporting(null);
+    }
+  };
+
+  /**
+   * Unterschriebenes Protokoll (mit den digitalen Unterschriften, wie Android) im Dokumentenarchiv ablegen (C3).
+   * Die Regeln stehen in `protokollAblageFehler`; die Speicherfunktion prüft sie noch einmal.
+   */
+  const handleProtokollAblegen = async () => {
+    if (!clubSettings) return;
+    setLegtAb(true);
+    setAblage(null);
+    try {
+      const doc = await MeetingPdfService.generateProtocolPdf(meeting, clubSettings, templateSettings, {
+        includeDigitalSignatures: true,
+        briefpapier
+      });
+      const ergebnis = await StorageService.protokollAblegen(meeting.id, doc.output('datauristring'));
+      onProtokollAbgelegt?.(ergebnis.meeting, ergebnis.doc);
+      setAblage({ text: 'Das Protokoll liegt jetzt im Dokumentenarchiv.', ok: true });
+    } catch (err) {
+      console.error('Protokoll ablegen fehlgeschlagen:', err);
+      setAblage({ text: err instanceof Error ? err.message : 'Das Protokoll konnte nicht abgelegt werden.', ok: false });
+    } finally {
+      setLegtAb(false);
     }
   };
 
@@ -550,6 +589,26 @@ export const MeetingSignatureModal: React.FC<MeetingSignatureModalProps> = ({
                 </p>
               </button>
             </div>
+            {/* Ablage im Dokumentenarchiv (C3, wie Android „Im Archiv ablegen“): nur mit beiden Unterschriften, nur einmal */}
+            {vollstaendigUnterschrieben({ signatures }) &&
+              (protokollImArchiv(meeting, documents) ? (
+                <p className="text-xs text-emerald-700 flex items-center gap-1.5 dark:text-emerald-400">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Liegt im Dokumentenarchiv unter „Protokolle &amp; Niederschriften“.</span>
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleProtokollAblegen}
+                  disabled={legtAb || Boolean(isExporting)}
+                  className="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-800 flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-100"
+                  title="Legt das unterschriebene Protokoll als PDF im Dokumentenarchiv ab"
+                >
+                  <Archive className="w-3.5 h-3.5" />
+                  <span>{legtAb ? 'Wird abgelegt …' : 'Im Archiv ablegen'}</span>
+                </button>
+              ))}
+            {ablage && !ablage.ok && <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">{ablage.text}</p>}
           </div>
         </div>
 

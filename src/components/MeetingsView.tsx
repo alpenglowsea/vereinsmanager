@@ -30,7 +30,8 @@ import {
   MeetingTemplateSettings,
   ClubSettings,
   Member,
-  InvoiceTemplateSettings
+  InvoiceTemplateSettings,
+  ClubDocument
 } from '../types';
 import { MeetingPdfService, briefpapierFuerSitzungen } from '../services/meetingPdfService';
 import { MeetingFormModal } from './MeetingFormModal';
@@ -66,6 +67,9 @@ interface MeetingsViewProps {
   /** Rechnungsvorlage: ihr Briefpapier gilt auch für Sitzungen (D-123) */
   invoiceTemplateSettings?: InvoiceTemplateSettings;
   onOpenBriefpapier?: () => void;
+  /** Dokumente der App und Rückmeldung nach dem Ablegen eines Protokolls (C3) */
+  documents?: ClubDocument[];
+  onProtokollAbgelegt?: (meeting: Meeting, doc: ClubDocument) => void;
 }
 
 export const MeetingsView: React.FC<MeetingsViewProps> = ({
@@ -78,6 +82,8 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
   onSaveTemplate,
   invoiceTemplateSettings,
   onOpenBriefpapier,
+  documents,
+  onProtokollAbgelegt,
 }) => {
   /**
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
@@ -1166,6 +1172,11 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
           onSaveMeeting={async (updatedMeeting) => {
             await onSaveMeeting(updatedMeeting);
             setSignatureModalMeeting(updatedMeeting);
+          }}
+          documents={documents}
+          onProtokollAbgelegt={(m, doc) => {
+            setSignatureModalMeeting(m);
+            onProtokollAbgelegt?.(m, doc);
           }}
         />
       )}

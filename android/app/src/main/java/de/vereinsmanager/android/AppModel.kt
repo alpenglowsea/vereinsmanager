@@ -1145,6 +1145,10 @@ class AppModel(private val appContext: Context) {
     fun rechnungLoeschen(id: String, buchungMit: Boolean, done: (String?) -> Unit) =
         hintergrund({ Rechnungen.loeschen(store, dateien, id, buchungMit) }) { _, f -> done(f) }
 
+    /** Sammellöschen (C2): Rechnungen und ihre PDFs; verknüpfte Buchungen bleiben wie am Desktop. */
+    fun rechnungenLoeschen(ids: List<String>, done: (String?) -> Unit) =
+        hintergrund({ Rechnungen.loeschenMehrere(store, dateien, ids) }) { _, f -> done(f) }
+
     /** Schreibt das PDF einer Rechnung frisch aus den gespeicherten Angaben. */
     fun rechnungPdfSchreiben(r: Rechnung, out: java.io.OutputStream) {
         out.write(rechnungsPdfBytes(r, Absender.lesen(store.get("settings", "main")), vorlage))

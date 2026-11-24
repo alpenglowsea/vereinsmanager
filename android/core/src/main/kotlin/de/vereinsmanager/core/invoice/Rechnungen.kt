@@ -356,4 +356,12 @@ object Rechnungen {
         r.dokumentId?.let { DokumentStore.loeschen(store, files, listOf(it)) }
         if (buchungMitLoeschen) r.buchungId?.let { if (store.get(Finance.BUCHUNGEN, it) != null) Belege.buchungLoeschen(store, files, it) }
     }
+
+    /**
+     * Sammellöschen wie am Desktop (Code-Prüfung C2): Die Rechnungen und ihre abgelegten PDFs werden gelöscht, verknüpfte
+     * Buchungen bleiben stehen. Unbekannte Kennungen werden übergangen.
+     */
+    fun loeschenMehrere(store: Speicher, files: FileStore, ids: Collection<String>) {
+        for (id in ids) loeschen(store, files, id, buchungMitLoeschen = false)
+    }
 }

@@ -48,6 +48,25 @@ class MemberEditTest {
         assertTrue(f.dataPrivacyConsent)
     }
 
+    // C1 (Code-Prüfung 24.11.2026): wie Desktop MemberFormModal mit beitragsVorgaben
+    @Test fun beitragAusDenVorgabenDerArt() {
+        val vorgaben = mapOf(
+            "full" to de.vereinsmanager.core.antrag.BeitragsVorgabe("18", "monthly"),
+            "youth" to de.vereinsmanager.core.antrag.BeitragsVorgabe("12,50", "quarterly"),
+        )
+        val f = MemberRules.mitVorgabe(neu(), vorgaben)
+        assertEquals(listOf("18", "monthly", "sepa"), listOf(f.fee, f.feePeriod, f.paymentMethod))
+        val jugend = MemberRules.mitVorgabe(MemberRules.setType(f, "youth", heute), vorgaben)
+        assertEquals(listOf("12,5", "quarterly"), listOf(jugend.fee, jugend.feePeriod))
+        // Ehrenmitglied: keine Vorgabe, bleibt beitragsfrei; zurück zu „youth“ macht aus „beitragsfrei“ wieder Lastschrift
+        val ehren = MemberRules.mitVorgabe(MemberRules.setType(jugend, "honorary", heute), vorgaben)
+        assertEquals(listOf("0", "none", "exempt"), listOf(ehren.fee, ehren.feePeriod, ehren.paymentMethod))
+        val wieder = MemberRules.mitVorgabe(MemberRules.setType(ehren, "youth", heute), vorgaben)
+        assertEquals(listOf("12,5", "quarterly", "sepa"), listOf(wieder.fee, wieder.feePeriod, wieder.paymentMethod))
+        // Art ohne eigene Vorgabe im Map (z. B. „family“ fehlt): unverändert
+        assertEquals(wieder.copy(type = "family"), MemberRules.mitVorgabe(wieder.copy(type = "family"), vorgaben))
+    }
+
     @Test fun statusGekuendigtSetztAllesAufBeitragsfrei() {
         val f = MemberRules.setStatus(neu(), "terminated", heute)
         assertEquals("ausgetreten", f.type)

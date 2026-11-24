@@ -83,6 +83,7 @@ import {
   ergaenzeStammdaten
 } from './backupContents';
 
+import { protokollAblageFehler, protokollDokument, protokollOrdnerId } from '../utils/sitzungRegeln';
 /**
  * Wurde dieses Gerät schon mit einem Verein eingerichtet (neu angelegt oder
  * eine Sicherung importiert)? Entscheidet, ob beim Start
@@ -2188,6 +2189,25 @@ export const StorageService = {
 
   async getMeeting(id: string): Promise<Meeting | null> {
     return getItemFromStore<Meeting>(STORES.MEETINGS, id);
+  },
+
+  /**
+   * Legt das unterschriebene Protokoll als PDF im Dokumentenarchiv ab und vermerkt das Dokument an der Sitzung
+   * (Code-Prüfung C3, wie Android `Sitzungen.archivieren`). Ordner je Sitzungsart; fehlt er, wird er wie bei den
+   * anderen Standardordnern neu angelegt. Wirft mit verständlichem Text, wenn es nicht geht.
+   */
+  async protokollAblegen(meetingId: string, dataUrl: string): Promise<{ meeting: Meeting; doc: ClubDocument }> {
+    const m = await getItemFromStore<Meeting>(STORES.MEETINGS, meetingId);
+    if (!m) throw new Error('Die Sitzung gibt es nicht mehr.');
+    const dokumente = await getAllFromStore<ClubDocument>(STORES.DOCUMENTS);
+    const fehler = protokollAblageFehler(m, dokumente);
+    if (fehler) throw new Error(fehler);
+    const folderId = (await this.standardOrdner(protokollOrdnerId(m.type))) || null;
+    const jetzt = new Date().toISOString();
+    const doc = protokollDokument(m, dataUrl, folderId, jetzt);
+    await putItemToStore(STORES.DOCUMENTS, doc);
+    const meeting = await this.saveMeeting({ ...m, documentId: doc.id });
+    return { meeting, doc };
   },
 
   async saveMeeting(meeting: Meeting): Promise<Meeting> {

@@ -167,6 +167,7 @@ private fun spendenExport(model: AppModel, exporter: Exporter, liste: List<Donat
     val verein = Export.dateiname(model.vereinsname())
     return listOf(
         "CSV – ${liste.size} $wort Bestätigungen" to { exporter.csv("zuwendungen_${verein}_$heute.csv") { DonationExport.csvDateiInhalt(liste) } },
+        "Excel – ${liste.size} $wort Bestätigungen" to { exporter.xlsx("zuwendungen_${verein}_$heute.xlsx") { DonationExport.baueXlsx(liste) } },
         "ZIP mit PDFs – ${liste.size} $wort Bestätigungen" to {
             exporter.zipSchreiber(DonationExport.zipDateiname(model.vereinsname(), liste.size)) { out -> model.spendenZipSchreiben(liste, out) }
         },

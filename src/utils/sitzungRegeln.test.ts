@@ -25,7 +25,12 @@ import {
   statistik,
   stimmenUngeprueft,
   unterschreibe,
-  unterschriftenEntfernen
+  unterschriftenEntfernen,
+  protokollAblageFehler,
+  protokollDateiname,
+  protokollDokument,
+  protokollImArchiv,
+  protokollOrdnerId
 } from './sitzungRegeln';
 
 const beschluss = (o: Partial<MeetingResolution> = {}): MeetingResolution => ({
@@ -243,3 +248,43 @@ describe('Hinweis: Stimmen ohne Teilnehmer (T-192)', () => {
     expect(stimmenUngeprueft(sitzung({ totalEligibleVoters: undefined, attendees: [], agenda: [] }))).toBe(false);
   });
 });
+
+// C3 (Code-Prüfung 24.11.2026): wie Android Sitzungen.archivieren / archivOrdnerId / dateiname
+describe('Protokoll im Dokumentenarchiv ablegen', () => {
+  it('Ordner je Sitzungsart und Dateiname wie am Handy', () => {
+    expect(['general_assembly', 'extraordinary_assembly', 'board', 'committee', 'other'].map(protokollOrdnerId)).toEqual([
+      'folder-jhv', 'folder-jhv', 'folder-vorstand', 'folder-protokolle', 'folder-protokolle'
+    ]);
+    expect(protokollDateiname({ title: 'Jahreshauptversammlung 2026 / Teil 1', date: '2026-03-14' })).toBe('Protokoll_2026-03-14_Jahreshauptversammlung_2026_Teil_1.pdf');
+    expect(protokollDateiname({ title: '***', date: '2026-03-14' })).toBe('Protokoll_2026-03-14_Sitzung.pdf');
+  });
+
+  it('nur mit beiden Unterschriften und nur einmal', () => {
+    const jetzt = new Date(2026, 10, 14, 10, 0);
+    const eins = unterschreibe(sitzung({ status: 'review' }), ROLLE_LEITUNG, unterschrift, jetzt);
+    expect(protokollAblageFehler(eins, [])).toBe('Ins Archiv kommt nur ein Protokoll mit beiden Unterschriften.');
+    const zwei = unterschreibe(eins, ROLLE_SCHRIFT, unterschrift, jetzt);
+    expect(protokollAblageFehler(zwei, [])).toBeNull();
+    const abgelegt = { ...zwei, documentId: 'doc-x' };
+    expect(protokollImArchiv(abgelegt, [{ id: 'doc-x' }])).toBe(true);
+    expect(protokollAblageFehler(abgelegt, [{ id: 'doc-x' }])).toBe('Das Protokoll liegt schon im Archiv.');
+    // Dokument inzwischen gelöscht: wieder ablegbar
+    expect(protokollAblageFehler(abgelegt, [{ id: 'anderes' }])).toBeNull();
+  });
+
+  it('Dokument mit Titel, Kategorie und Schlagworten wie am Handy', () => {
+    const d = protokollDokument(sitzung(), 'data:application/pdf;base64,QUJDRA==', 'folder-vorstand', '2026-11-24T10:00:00.000Z');
+    expect(d).toMatchObject({
+      title: 'Protokoll: Vorstandssitzung November vom 13.11.2026',
+      fileName: 'Protokoll_2026-11-13_Vorstandssitzung_November.pdf',
+      fileType: 'application/pdf',
+      fileSize: 6,
+      category: 'protokolle',
+      folderId: 'folder-vorstand',
+      date: '2026-11-13',
+      tags: ['Protokoll', 'Vorstandssitzung']
+    });
+    expect(d.id.startsWith('doc-prot-m1-')).toBe(true);
+  });
+});
+

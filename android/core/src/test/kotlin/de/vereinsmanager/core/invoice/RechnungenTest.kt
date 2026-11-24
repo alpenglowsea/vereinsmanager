@@ -285,6 +285,22 @@ class RechnungenTest {
         assertEquals("238", str(u.store.get(Finance.BUCHUNGEN, bid), "amount"))
     }
 
+    // C2 (Code-Prüfung 24.11.2026): Sammellöschen wie am Desktop
+    @Test fun sammelLoeschenNimmtPdfsMitUndLaesstBuchungenStehen() {
+        val u = umgebung()
+        val a = form(u, "100" to 19)
+        Rechnungen.speichern(u.store, u.files, a, RechnungOptionen(), pdf, jetzt)
+        val ba = Rechnungen.bezahlen(u.store, a.id, angaben, jetzt)!!
+        val b = form(u, "50" to 0).copy(id = "zweite", nummer = "RE-2026-051")
+        Rechnungen.speichern(u.store, u.files, b, RechnungOptionen(), pdf, jetzt)
+        val c = form(u, "10" to 0).copy(id = "dritte", nummer = "RE-2026-052")
+        Rechnungen.speichern(u.store, u.files, c, RechnungOptionen(pdfAblegen = false), null, jetzt)
+        Rechnungen.loeschenMehrere(u.store, u.files, listOf(a.id, "zweite", "gibt-es-nicht"))
+        assertEquals(listOf("dritte"), Rechnungen.alle(u.store).map { it.id })
+        assertEquals(0, u.store.count("documents")); assertEquals(0, u.files.ids().size)
+        assertNotNull(u.store.get(Finance.BUCHUNGEN, ba))
+    }
+
     @Test fun loeschenEntferntPdfUndWahlweiseBuchung() {
         val u = umgebung()
         val f = form(u, "100" to 19)

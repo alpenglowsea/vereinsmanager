@@ -163,7 +163,9 @@ fun MemberFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
     val existing = remember(id) { id?.let { i -> model.members.firstOrNull { it.id == i } } }
     var f by remember(id) {
         mutableStateOf(
-            existing?.let { MemberRules.von(it) } ?: MemberRules.neu(model.naechsteNummer(), model.departments, LocalDate.now()),
+            existing?.let { MemberRules.von(it) }
+                // Neues Mitglied: Beitrag und Zahlweise aus der Vorgabe für Vollmitglieder (wie am Desktop, C1)
+                ?: MemberRules.mitVorgabe(MemberRules.neu(model.naechsteNummer(), model.departments, LocalDate.now()), model.antragEinstellungen().beitraege),
         )
     }
     var tab by remember { mutableStateOf(FormTab.BASIS) }
@@ -246,7 +248,10 @@ fun MemberFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(vertical = 6.dp),
                     ) else Auswahl("Sparte", departmentOptions, f.department) { f = f.copy(department = it) }
                     Auswahl("Status", STATUS_FORM, f.status) { f = MemberRules.setStatus(f, it, today) }
-                    Auswahl("Mitgliedschaftstyp", TYPE_FORM, f.type) { f = MemberRules.setType(f, it, today) }
+                    Auswahl("Mitgliedschaftstyp", TYPE_FORM, f.type) {
+                        // Bei einem neuen Mitglied kommen Betrag und Zahlweise aus der Vorgabe der Art; bestehende behalten ihren Beitrag (D-94)
+                        f = MemberRules.setType(f, it, today).let { g -> if (existing == null) MemberRules.mitVorgabe(g, model.antragEinstellungen().beitraege) else g }
+                    }
                     DatumFeld("Eintrittsdatum *", f.entryDate, errors["entryDate"]) { f = f.copy(entryDate = it) }
                     DatumFeld(
                         if (f.status == "terminated") "Austrittsdatum (wirksam zum)" else "Austrittsdatum (optional)",

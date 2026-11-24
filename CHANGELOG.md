@@ -176,6 +176,40 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Code-Prüfung, Paket Gleichstand — vier Lücken zwischen Desktop und Handy
+
+Aus dem Abgleich der Funktionen im Bericht `code-pruefung-2026-11-24.md`
+(Punkte C1 bis C4). Je Plattform eine fehlende Funktion nachgezogen.
+
+- **Beitragsvorgaben im Mitgliedsformular am Handy** (C1): Die Beiträge je
+  Mitgliedsart aus den Einstellungen (Aufnahmeantrag → Beiträge) wurden am
+  Handy bisher nur im Aufnahmeantrag genutzt. Jetzt füllt auch das
+  Mitgliedsformular Beitrag und Zahlungsweise vor: beim neuen Mitglied und
+  beim Wechsel der Mitgliedsart, wie am Desktop. Steht die Zahlungsart auf
+  „beitragsfrei“, wird sie auf SEPA gestellt. Bei einem bestehenden Mitglied
+  ändert ein Artwechsel den Beitrag nicht, damit individuelle Beiträge nicht
+  überschrieben werden.
+- **Rechnungen gesammelt löschen am Handy** (C2): Die Mehrfachauswahl gab es
+  schon, es fehlte der Knopf „Löschen“. Nach einer Rückfrage werden die
+  gewählten Rechnungen samt PDF gelöscht; verknüpfte Buchungen bleiben
+  stehen, wie beim gesammelten Löschen am Desktop.
+- **Sitzungsprotokoll ins Dokumentenarchiv am Desktop** (C3): Im
+  Unterschriftendialog eines vollständig unterschriebenen Protokolls gibt es
+  den Knopf „Im Archiv ablegen“. Das PDF mit den digitalen Unterschriften
+  landet im Archivordner „Protokolle & Niederschriften“, Unterordner
+  „Jahreshauptversammlungen (JHV)“ bzw. „Vorstandssitzungen“ je nach
+  Sitzungsart, mit Titel „Protokoll: … vom …“ und den Schlagworten
+  Protokoll und Sitzungsart. Die Sitzung merkt sich das Dokument, ein
+  zweites Ablegen wird verhindert. Das Handy konnte das schon.
+- **Zuwendungsbestätigungen als Excel am Handy** (C4): Neben CSV und ZIP
+  gibt es „Excel – … Bestätigungen“. Gleicher Aufbau wie am Desktop:
+  25 Spalten, Beträge als Zahl, Daten als echtes Datum, fixierte Kopfzeile
+  mit Filter. Inhalte, die mit „=“ beginnen, bleiben Text und werden von
+  Excel nicht als Formel ausgeführt. Dafür neuer Excel-Schreiber
+  `core/export/Xlsx.kt` (Gegenstück zu `xlsxWriter.ts`).
+- Tests: Desktop +3 (Protokollablage: Ordner, Dateiname, Regeln), jetzt 554.
+  Android +3 (Vorgaben, Sammellöschen, Excel zurückgelesen), jetzt 718.
+
 ### Code-Prüfung, Paket 1 — Datumsfehler, Kleinigkeiten, toter Code
 
 Aus der Durchsicht des ganzen Codes am 24.11.2026 (Bericht

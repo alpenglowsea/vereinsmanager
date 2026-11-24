@@ -17,6 +17,7 @@ class Exporter(
     val xml: (dateiname: String, inhalt: () -> String) -> Unit,
     val zipSchreiber: (dateiname: String, schreiber: (java.io.OutputStream) -> Unit) -> Unit = { _, _ -> },
     val ics: (dateiname: String, inhalt: () -> String) -> Unit = { _, _ -> },
+    val xlsx: (dateiname: String, inhalt: () -> ByteArray) -> Unit = { _, _ -> },
 ) {
     fun pdf(dateiname: String, tabelle: () -> PdfTabelle) = pdfSchreiber(dateiname) { out -> PdfWriter.schreiben(tabelle(), out) }
 }
@@ -28,6 +29,7 @@ fun rememberExporter(model: AppModel, onResult: (String) -> Unit): Exporter {
     var wartendPdf by remember { mutableStateOf<((java.io.OutputStream) -> Unit)?>(null) }
     var wartendZip by remember { mutableStateOf<((java.io.OutputStream) -> Unit)?>(null) }
     var wartendIcs by remember { mutableStateOf<(() -> String)?>(null) }
+    var wartendXlsx by remember { mutableStateOf<(() -> ByteArray)?>(null) }
     val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         val p = wartendCsv
         wartendCsv = null
@@ -58,13 +60,22 @@ fun rememberExporter(model: AppModel, onResult: (String) -> Unit): Exporter {
         if (uri != null && p != null) model.exportiere(uri, { out -> out.write(p().toByteArray(Charsets.UTF_8)) }, "Kalenderdatei gespeichert.", onResult)
         else onResult("Export abgebrochen.")
     }
-    return remember(csvLauncher, pdfLauncher, xmlLauncher, zipLauncher, icsLauncher) {
+    val xlsxLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+    ) { uri ->
+        val p = wartendXlsx
+        wartendXlsx = null
+        if (uri != null && p != null) model.exportiere(uri, { out -> out.write(p()) }, "Excel-Datei gespeichert.", onResult)
+        else onResult("Export abgebrochen.")
+    }
+    return remember(csvLauncher, pdfLauncher, xmlLauncher, zipLauncher, icsLauncher, xlsxLauncher) {
         Exporter(
             csv = { name, f -> wartendCsv = f; csvLauncher.launch(name) },
             pdfSchreiber = { name, f -> wartendPdf = f; pdfLauncher.launch(name) },
             xml = { name, f -> wartendXml = f; xmlLauncher.launch(name) },
             zipSchreiber = { name, f -> wartendZip = f; zipLauncher.launch(name) },
             ics = { name, f -> wartendIcs = f; icsLauncher.launch(name) },
+            xlsx = { name, f -> wartendXlsx = f; xlsxLauncher.launch(name) },
         )
     }
 }
