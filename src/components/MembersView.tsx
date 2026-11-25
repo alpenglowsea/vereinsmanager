@@ -31,6 +31,7 @@ import {
 import { bestaetige } from '../utils/dialoge';
 
 import { lokalesHeute } from '../utils/mitgliedRegeln';
+import { leseArten, artName } from '../utils/mitgliedsarten';
 export type MemberSortField =
   | 'number'
   | 'name'
@@ -151,16 +152,6 @@ const MEMBER_COLUMN_LABELS: Record<string, string> = {
   monthlyDueDay: 'Fälligkeitstag'
 };
 
-const MEMBERSHIP_TYPE_LABELS: Record<string, string> = {
-  full: 'Vollmitglied',
-  reduced: 'Ermäßigt',
-  youth: 'Jugend / Kinder',
-  family: 'Familie',
-  supporting: 'Förderer / Sponsor',
-  honorary: 'Ehrenmitglied',
-  ausgetreten: 'Ausgetreten',
-  terminated: 'Gekündigt'
-};
 
 const GENDER_LABELS: Record<string, string> = {
   m: 'männlich',
@@ -195,6 +186,8 @@ export const MembersView: React.FC<MembersViewProps> = ({
   onOpenImport,
   onNavigateToSepa,
 }) => {
+  // Mitgliedsarten aus den Einstellungen (seit 25.11.2026 bearbeitbar); gemerkt, damit die sortierte Liste nicht bei jedem Zeichnen neu entsteht
+  const arten = useMemo(() => leseArten(settings.membershipTypes), [settings.membershipTypes]);
   /**
    * Klick auf einen ändernden Knopf. Ohne Schreibrecht wird nicht die
    * Aktion ausgeführt, sondern der Hinweis gezeigt.
@@ -708,7 +701,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
       } else if (sortBy === 'phone') {
         comparison = (a.phone || '').localeCompare(b.phone || '');
       } else if (sortBy === 'membershipType') {
-        comparison = (MEMBERSHIP_TYPE_LABELS[a.membershipType] || '').localeCompare(MEMBERSHIP_TYPE_LABELS[b.membershipType] || '');
+        comparison = artName(arten, a.membershipType).localeCompare(artName(arten, b.membershipType));
       } else if (sortBy === 'gender') {
         comparison = (a.gender || '').localeCompare(b.gender || '');
       } else if (sortBy === 'birthDate') {
@@ -740,7 +733,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
       }
       return sortAsc ? comparison : -comparison;
     });
-  }, [members, searchQuery, statusFilter, deptFilter, typeFilter, paymentFilter, sortBy, sortAsc]);
+  }, [members, arten, searchQuery, statusFilter, deptFilter, typeFilter, paymentFilter, sortBy, sortAsc]);
 
   // Paginated members for display
   const paginatedMembers = useMemo(() => {
@@ -799,7 +792,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
 
   const handleExportSelectedCSV = () => {
     const toExport = selectedMembers.length > 0 ? selectedMembers : filteredMembers;
-    ExportService.exportMembersCSV(toExport, `mitglieder_${toExport.length}_ausgewaehlt.csv`);
+    ExportService.exportMembersCSV(toExport, `mitglieder_${toExport.length}_ausgewaehlt.csv`, arten);
   };
 
   const handleExportSelectedPDF = () => {
@@ -857,7 +850,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
       setIsExporting(true);
       const safeClub = (settings.clubName || 'Verein').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_');
       const filename = `mitglieder_${safeClub}_${lokalesHeute()}.csv`;
-      const result = await ExportService.exportMembersCSV(filteredMembers, filename);
+      const result = await ExportService.exportMembersCSV(filteredMembers, filename, arten);
       if (result.cancelled) {
         setExportStatus({
           type: 'info',
@@ -933,8 +926,6 @@ export const MembersView: React.FC<MembersViewProps> = ({
         return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">AKTIV</span>;
       case 'passive':
         return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">PASSIV</span>;
-      case 'honorary':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">EHREN</span>;
       case 'suspended':
         return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200">RUHEND</span>;
       case 'terminated':
@@ -1310,7 +1301,6 @@ export const MembersView: React.FC<MembersViewProps> = ({
             <option value="all">Alle Status</option>
             <option value="active">🟢 Aktiv</option>
             <option value="passive">⚪ Passiv</option>
-            <option value="honorary">⭐ Ehrenmitglieder</option>
             <option value="suspended">🟡 Ruhend</option>
             <option value="terminated">🔴 Gekündigt</option>
           </select>
@@ -1334,11 +1324,13 @@ export const MembersView: React.FC<MembersViewProps> = ({
             className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-800 dark:text-slate-200"
           >
             <option value="all">Alle Typen</option>
-            <option value="full">Vollmitglied</option>
-            <option value="youth">Jugend / Kinder</option>
-            <option value="reduced">Ermäßigt</option>
-            <option value="family">Familie</option>
-            <option value="supporting">Förderer / Sponsor</option>
+            {/* Alle Arten aus den Einstellungen, auch Ehrenmitglied (fehlte bis 25.11.2026);
+                gelöschte nur, solange noch Mitglieder so eingetragen sind */}
+            {arten
+              .filter(a => !a.geloescht || members.some(m => m.membershipType === a.id))
+              .map(a => (
+                <option key={a.id} value={a.id}>{artName(arten, a.id)}</option>
+              ))}
           </select>
 
           {/* Payment Method */}
@@ -1546,7 +1538,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
                   ),
                   membershipType: (
                     <td key="membershipType" data-col-content="membershipType" className="px-4 py-3 text-slate-600 text-xs truncate dark:text-slate-300">
-                      {MEMBERSHIP_TYPE_LABELS[member.membershipType] || member.membershipType}
+                      {artName(arten, member.membershipType)}
                     </td>
                   ),
                   gender: (
@@ -1728,6 +1720,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
         <MemberBulkEditModal
           selectedMembers={selectedMembers}
           departments={settings.departments}
+          arten={arten}
           onSave={handleBulkUpdate}
           onClose={() => setIsBulkEditOpen(false)}
         />

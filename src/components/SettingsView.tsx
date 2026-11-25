@@ -1,6 +1,9 @@
 import { spartenVerwendung, spartenSperrText } from '../utils/loeschRegeln';
 import React, { useState, useEffect, useRef } from 'react';
-import { ClubSettings, Address, BoardMember, ColorSchemeId, FontChoiceId, InvoiceTemplateSettings } from '../types';
+import { ClubSettings, Address, BoardMember, ColorSchemeId, FontChoiceId, InvoiceTemplateSettings, Member } from '../types';
+
+// Feste leere Liste als Vorgabe (eine neue [] je Zeichnen löste früher Endlosschleifen aus)
+const KEINE_MITGLIEDER: Member[] = [];
 import { COLOR_SCHEMES, FONT_CHOICES, DEFAULT_COLOR_SCHEME, DEFAULT_FONT_CHOICE } from '../utils/appearance';
 import { StorageService } from '../services/storage';
 import { SnapshotService, AutoSnapshot } from '../services/snapshotService';
@@ -14,7 +17,9 @@ import { istPaket, istPaketVerschluesselt, lesePaket, paketFehlerText, paketHinw
 import { BereichsVergleich, ImportArt, SicherungsKopf } from '../services/backupContents';
 import { openExternalUrl } from '../utils/externalLink';
 import { VORSTAND_FUNKTIONEN, vorsitzAus, kasseAus, vorstandHinweise, vorstandFehler, vorstandBereinigt } from '../utils/vorstand';
-import { VORGABE_ARTEN, VORGABE_PERIODEN, VorgabeArt, VorgabePeriode, leseVorgaben } from '../utils/beitragsVorgaben';
+import { VorgabePeriode, leseVorgaben, vorgabeArten } from '../utils/beitragsVorgaben';
+import { MitgliedsArt, artenZumSpeichern, leseArten, pruefeArten } from '../utils/mitgliedsarten';
+import { MitgliedsartenKarte, VorgabenEingabe } from './MitgliedsartenKarte';
 import { spartenNameFehler, ersetzeSparte, ersetzeSparteInBuchung, ersetzeInListe } from '../utils/sparteUmbenennen';
 import { BestaetigungsDialog } from './BestaetigungsDialog';
 import { UnterschriftFeld } from './UnterschriftFeld';
@@ -106,6 +111,8 @@ interface SettingsViewProps {
   /** Briefpapier geändert (Karte „Briefpapier“): neue Rechnungsvorlage an die App */
   onBriefpapierGeaendert?: (vorlage: InvoiceTemplateSettings) => void;
   onSaveSettings: (settings: ClubSettings) => void;
+  /** Alle Mitglieder: Anzahl je Mitgliedsart und Verschieben beim Löschen einer Art */
+  members?: Member[];
   /** Daten neu laden; `leise`: ohne Ladebildschirm, die Seite bleibt stehen (T-82). */
   onDataReload?: (leise?: boolean) => void;
   currentTheme: 'light' | 'dark' | 'system';
@@ -172,14 +179,12 @@ const ohneAlteAnzeigeFelder = (s: ClubSettings): ClubSettings => {
   return kopie as unknown as ClubSettings;
 };
 
-type VorgabenEingabe = Record<VorgabeArt, { amount: string; period: VorgabePeriode }>;
-
-/** Beitragsvorgaben als Eingabetexte (Komma statt Punkt). */
+/** Beitragsvorgaben als Eingabetexte (Komma statt Punkt), für alle Arten mit Vorgabe. */
 const vorgabenAlsEingabe = (s: ClubSettings): VorgabenEingabe => {
-  const v = leseVorgaben(s.membershipFeeDefaults);
-  const e = {} as VorgabenEingabe;
-  for (const { art } of VORGABE_ARTEN) {
-    e[art] = { amount: String(v[art].amount).replace('.', ','), period: v[art].period };
+  const v = leseVorgaben(s.membershipFeeDefaults, leseArten(s.membershipTypes));
+  const e: VorgabenEingabe = {};
+  for (const [art, w] of Object.entries(v)) {
+    e[art] = { amount: String(w.amount).replace('.', ','), period: w.period };
   }
   return e;
 };
@@ -207,6 +212,7 @@ type SettingsTab = 'general' | 'club' | 'backup' | 'support' | 'bugreport';
 export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
   onSaveSettings,
+  members = KEINE_MITGLIEDER,
   onBriefpapierGeaendert,
   onDataReload,
   currentTheme,
@@ -251,7 +257,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // Beitragsvorgaben je Mitgliedsart (D-94), als Texte, damit „7,50“ tippbar ist
   const [vorgaben, setVorgaben] = useState<VorgabenEingabe>(() => vorgabenAlsEingabe(settings));
-  const [vorgabenFehler, setVorgabenFehler] = useState<Partial<Record<VorgabeArt, string>>>({});
+  // Mitgliedsarten (25.11.2026): Entwurf, Fehler (`name.<id>`, `beitrag.<id>`, `liste`) und beim Löschen vorgemerkte Umzüge
+  const [arten, setArten] = useState<MitgliedsArt[]>(() => leseArten(settings.membershipTypes));
+  const [artenFehler, setArtenFehler] = useState<Record<string, string>>({});
+  const [verschiebungen, setVerschiebungen] = useState<Record<string, string>>({});
   // Texte des Aufnahmeantrags (P29); leer oder Standard wird nicht gespeichert
   const [antragTexte, setAntragTexte] = useState(() => {
     const e = leseAntragEinstellungen(settings);
@@ -305,6 +314,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setClubAddress(parseClubAddress(settings.clubAddress || settings.address));
     setBoardMembers(getInitialBoardMembers(settings));
     setVorgaben(vorgabenAlsEingabe(settings));
+    setArten(leseArten(settings.membershipTypes));
     const e = leseAntragEinstellungen(settings);
     setAntragTexte({ datenschutz: e.datenschutz, satzung: e.satzung });
   }, [settings, currentTheme]);
@@ -503,24 +513,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     // doppelten Einträge (wie Android, Vorstand.kt).
     const fehlerVorstand = vorstandFehler(boardMembers);
     setVorstandFehlerListe(fehlerVorstand);
-    // Beitragsvorgaben prüfen: Betrag 0 oder mehr, Komma oder Punkt
-    const fehlerVorgaben: Partial<Record<VorgabeArt, string>> = {};
-    const vorgabenWerte = {} as Record<VorgabeArt, { amount: number; period: VorgabePeriode }>;
-    for (const { art } of VORGABE_ARTEN) {
-      const roh = vorgaben[art].amount.trim().replace(',', '.');
+    // Mitgliedsarten und Beitragsvorgaben prüfen: Namen, Betrag 0 oder mehr (Komma oder Punkt)
+    const fehlerArten: Record<string, string> = { ...pruefeArten(arten) };
+    const vorgabenWerte: Record<string, { amount: number; period: VorgabePeriode }> = {};
+    for (const { id: art } of vorgabeArten(arten)) {
+      const eingabe = vorgaben[art] ?? { amount: '0', period: 'monthly' as VorgabePeriode };
+      const roh = eingabe.amount.trim().replace(',', '.');
       const zahl = Number(roh);
       if (!roh || !Number.isFinite(zahl) || zahl < 0) {
-        fehlerVorgaben[art] = 'Bitte einen Betrag von 0 oder mehr eingeben.';
+        fehlerArten[`beitrag.${art}`] = 'Bitte einen Betrag von 0 oder mehr eingeben.';
       } else {
-        vorgabenWerte[art] = { amount: Math.round(zahl * 100) / 100, period: vorgaben[art].period };
+        vorgabenWerte[art] = { amount: Math.round(zahl * 100) / 100, period: eingabe.period };
       }
     }
-    setVorgabenFehler(fehlerVorgaben);
-    if (Object.keys(fehlerVorstand).length > 0 || Object.keys(fehlerVorgaben).length > 0) {
+    setArtenFehler(fehlerArten);
+    if (Object.keys(fehlerVorstand).length > 0 || Object.keys(fehlerArten).length > 0) {
       setClubSaveFehler(
         Object.keys(fehlerVorstand).length > 0
           ? 'Nicht gespeichert: Bitte die rot markierten Angaben beim Vorstand prüfen.'
-          : 'Nicht gespeichert: Bitte die rot markierten Beitragsvorgaben prüfen.'
+          : 'Nicht gespeichert: Bitte die rot markierten Angaben bei den Mitgliedsarten prüfen.'
       );
       return;
     }
@@ -542,6 +553,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       treasurer: kasseAus(vorstand),
       boardMembers: vorstand,
       membershipFeeDefaults: vorgabenWerte,
+      membershipTypes: artenZumSpeichern(arten),
       ...antragTexteZumSpeichern(antragTexte.datenschutz, antragTexte.satzung),
     };
     setFormData(updated);
@@ -549,6 +561,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
     try {
       await onSaveSettings(updated);
+      // Beim Löschen einer Art vorgemerkte Umzüge jetzt ausführen (mit Eintrag in der Historie)
+      const umzuege = Object.entries(verschiebungen);
+      if (umzuege.length > 0) {
+        for (const [von, nach] of umzuege) {
+          // Kette auflösen (A → B, und B wurde danach selbst nach C verschoben: A → C)
+          let ziel = nach;
+          for (let i = 0; i < umzuege.length && verschiebungen[ziel]; i++) ziel = verschiebungen[ziel];
+          const ids = members.filter(m => m.membershipType === von).map(m => m.id);
+          if (ids.length) await StorageService.bulkUpdateMembers(ids, { membershipType: ziel });
+        }
+        setVerschiebungen({});
+        onDataReload?.(true);
+      }
       setIsSavingClub(false);
       setClubSaveSuccess(true);
       setClubSaveFeedbackText('Vereinsstammdaten erfolgreich gespeichert!');
@@ -1024,7 +1049,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleWipeAll = () => {
     setRueckfrage({
       titel: 'Alle Daten löschen?',
-      text: 'Alle Mitglieder, Buchungen, Konten und übrigen Daten auf diesem Gerät werden gelöscht. Das lässt sich nicht rückgängig machen. Legen Sie vorher eine Datensicherung an.',
+      text: 'Alle Mitglieder, Buchungen, Konten und übrigen Daten auf diesem Gerät werden gelöscht, auch alle Schnappschüsse. Das lässt sich nicht rückgängig machen. Wer den Stand behalten will, speichert vorher eine Datensicherung („Erst Datensicherung speichern“).',
       bestaetigenText: 'Endgültig löschen',
       gefahr: true,
       bestaetigungsWort: 'LÖSCHEN',
@@ -2315,49 +2340,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             />
           </div>
 
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-4">
-            <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Beitragsvorgaben je Mitgliedsart</h3>
-              <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Wird beim Anlegen eines neuen Mitglieds vorgeschlagen, sobald Sie die Mitgliedsart wählen, und lässt sich dort ändern. Bestehende Mitglieder bleiben unverändert. Ehrenmitglieder zahlen keinen Beitrag.
-              </p>
-            </div>
-            <div className="space-y-2">
-              {VORGABE_ARTEN.map(({ art, label }) => (
-                <div key={art} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-start">
-                  <div className="sm:col-span-6 text-xs font-semibold text-slate-700 dark:text-slate-300 pt-2">{label}</div>
-                  <div className="sm:col-span-3">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={vorgaben[art].amount}
-                        onChange={e => setVorgaben(prev => ({ ...prev, [art]: { ...prev[art], amount: e.target.value } }))}
-                        aria-label={`Beitrag ${label}`}
-                        className={`w-full pl-3 pr-7 py-2 bg-white dark:bg-slate-800 border rounded-xl text-xs text-right text-slate-900 dark:text-white ${
-                          vorgabenFehler[art] ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700'
-                        }`}
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">€</span>
-                    </div>
-                    {vorgabenFehler[art] && <p className="text-2xs text-rose-600 dark:text-rose-400 mt-0.5">{vorgabenFehler[art]}</p>}
-                  </div>
-                  <div className="sm:col-span-3">
-                    <select
-                      value={vorgaben[art].period}
-                      onChange={e => setVorgaben(prev => ({ ...prev, [art]: { ...prev[art], period: e.target.value as VorgabePeriode } }))}
-                      aria-label={`Zahlweise ${label}`}
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white"
-                    >
-                      {VORGABE_PERIODEN.map(pp => (
-                        <option key={pp.period} value={pp.period}>{pp.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <MitgliedsartenKarte
+            arten={arten}
+            onArten={setArten}
+            vorgaben={vorgaben}
+            onVorgaben={setVorgaben}
+            fehler={artenFehler}
+            members={members}
+            verschiebungen={verschiebungen}
+            onVerschiebungen={setVerschiebungen}
+          />
 
           <BriefpapierKarte onGeaendert={onBriefpapierGeaendert} />
 
@@ -2463,10 +2455,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
               <div className="space-y-1">
                 <h4 className="text-xs sm:text-sm font-bold text-emerald-900 dark:text-emerald-200">
-                  Automatischer Update-Schutz & Datensicherheit aktiv
+                  Schnappschüsse: Sicherheitsnetz auf diesem Gerät
                 </h4>
                 <p className="text-2xs sm:text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed">
-                  Ihre Daten sind vor und nach Versions-Updates optimal geschützt. Bei jedem App-Start und vor Aktualisierungen werden isolierte Sicherheits-Snapshots in einer geschützten Datenbank angelegt. Ein unbeabsichtigtes Überschreiben bei Updates ist technisch ausgeschlossen.
+                  Einmal am Tag beim Start und vor riskanten Schritten (Einspielen einer Sicherung, Auslagern eines Jahresarchivs) legt die App einen Schnappschuss an: eine vollständige Kopie des Bestands auf diesem Gerät. Behalten werden die 3 letzten täglichen und die 2 letzten anderen. Eine Datensicherung als Datei ersetzen sie nicht; die liegt außerhalb der App.
                 </p>
               </div>
             </div>
@@ -2511,7 +2503,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div className="p-6 text-center bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
                   <Archive className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Noch keine Snapshots gespeichert. Sobald Daten eingegeben werden, legt das System automatisch Sicherungen an.
+                    Noch keine Snapshots gespeichert. Der erste entsteht beim nächsten Start, sobald Daten vorhanden sind.
                   </p>
                 </div>
               ) : (
@@ -2726,9 +2718,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <span>Alle lokalen Daten löschen</span>
               </h4>
               <p className="text-2xs text-rose-800 dark:text-rose-300">
-                Löscht den gesamten lokalen Datenbestand dieses Geräts vollständig: Mitglieder, Buchungen, Belege, Vereinsstammdaten, Vorlagen und alle automatischen Sicherheitskopien. Das Gerätepasswort bleibt erhalten.
+                Löscht den gesamten lokalen Datenbestand dieses Geräts vollständig: Mitglieder, Buchungen, Belege, Vereinsstammdaten, Vorlagen und alle Schnappschüsse. Danach lässt sich nichts mehr wiederherstellen, außer aus einer Datensicherung, die Sie vorher als Datei gespeichert haben.
               </p>
               <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleExportBackup}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-rose-100 text-rose-800 border border-rose-300 dark:bg-slate-900 dark:hover:bg-rose-950/40 dark:text-rose-200 dark:border-rose-800 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Erst Datensicherung speichern</span>
+                </button>
                 <button
                   type="button"
                   onClick={handleWipeAll}

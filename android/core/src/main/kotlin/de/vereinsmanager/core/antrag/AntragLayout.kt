@@ -26,7 +26,9 @@ object AntragLayout {
 
     private fun deutsch(iso: String): String = AntragRegeln.datum(iso)?.let { "%02d.%02d.%04d".format(it.dayOfMonth, it.monthValue, it.year) } ?: iso
 
+    /** Periode „none“: beitragsfreie Art (wie Desktop). */
     fun beitragText(v: BeitragsVorgabe): String {
+        if (v.periode == "none") return "beitragsfrei"
         val betrag = java.text.DecimalFormat("#,##0.00", java.text.DecimalFormatSymbols(java.util.Locale.GERMANY)).format(v.wert)
         return "$betrag € ${AntragEinstellungen.PERIODEN[v.periode] ?: v.periode}"
     }
@@ -187,7 +189,7 @@ object AntragLayout {
         t.abschnitt("3. Gewünschte Mitgliedschaft")
         if (t.leer) {
             t.zeile("Sparte / Abteilung" to "", "Eintrittsdatum" to "")
-            for ((art, name) in AntragEinstellungen.ARTEN) {
+            for ((art, name) in e.artenAuswahl) {
                 t.platz(5.0)
                 t.kaestchen(L, t.y + 3.0, false)
                 t.text("$name – ${beitragText(e.beitrag(art))}", L + 5.0, t.y + 2.8, 8.5)
@@ -197,7 +199,7 @@ object AntragLayout {
             t.zeile("Bisheriger Verein (freiwillig)" to "", "Bemerkung (freiwillig)" to "")
         } else {
             t.zeile("Sparte / Abteilung" to k.sparte, "Eintrittsdatum" to deutsch(k.eintritt))
-            t.zeile("Mitgliedsart" to (AntragEinstellungen.ARTEN[k.mitgliedsart] ?: k.mitgliedsart), "Mitgliedsbeitrag" to beitragText(e.beitrag(k.mitgliedsart)))
+            t.zeile("Mitgliedsart" to e.artName(k.mitgliedsart), "Mitgliedsbeitrag" to beitragText(e.beitrag(k.mitgliedsart)))
             if (k.vorverein.isNotBlank() || k.notiz.isNotBlank()) t.zeile("Bisheriger Verein" to k.vorverein, "Bemerkung" to k.notiz)
         }
 

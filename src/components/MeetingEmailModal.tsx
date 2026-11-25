@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { leseArten, artName } from '../utils/mitgliedsarten';
 import {
   X,
   Mail,
@@ -90,7 +91,7 @@ export const MeetingEmailModal: React.FC<MeetingEmailModalProps> = ({
             id: m.id,
             name: `${m.firstName} ${m.lastName}`,
             email: cleanEmail,
-            role: m.membershipType || 'Mitglied',
+            role: artName(leseArten(clubSettings?.membershipTypes), m.membershipType),
             source: 'member',
             selected: true
           });

@@ -78,6 +78,7 @@ import de.vereinsmanager.core.export.Export
 import de.vereinsmanager.core.members.Member
 import de.vereinsmanager.core.members.MemberFilter
 import de.vereinsmanager.core.members.MemberLabels
+import de.vereinsmanager.core.members.Mitgliedsarten
 import de.vereinsmanager.core.members.MemberList
 import de.vereinsmanager.core.members.SortKey
 import java.text.NumberFormat
@@ -177,7 +178,7 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                     FilterZuruecksetzen(model, "mitglieder")
                     FilterMenu("Status", MemberLabels.STATUS, filter.status) { filter = filter.copy(status = it) }
                     FilterMenu("Sparte", deptOptions, filter.department) { filter = filter.copy(department = it) }
-                    FilterMenu("Typ", MemberLabels.TYPE_FILTER, filter.type) { filter = filter.copy(type = it) }
+                    FilterMenu("Typ", Mitgliedsarten.filter(model.arten, model.members), filter.type) { filter = filter.copy(type = it) }
                     FilterMenu("Zahlart", MemberLabels.PAYMENT, filter.payment) { filter = filter.copy(payment = it) }
                 }
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -199,7 +200,7 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                 KompaktKnopf("Löschen", { deleteOpen = true })
                 KompaktKnopf("CSV", {
                     val auswahl = model.members.filter { it.id in selected }
-                    exporter.csv("mitglieder_${auswahl.size}_ausgewaehlt.csv") { Export.mitgliederCsv(auswahl) }
+                    exporter.csv("mitglieder_${auswahl.size}_ausgewaehlt.csv") { Export.mitgliederCsv(auswahl, model.arten) }
                 })
                 KompaktKnopf("PDF", {
                     val auswahl = model.members.filter { it.id in selected }
@@ -213,7 +214,7 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
         LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 96.dp)) {
             itemsIndexed(shown, key = { _, m -> m.id }) { i, m ->
                 MemberRow(
-                    m, nr = i, erste = i == 0, letzte = i == shown.lastIndex, selecting = selecting, checked = m.id in selected,
+                    m, Mitgliedsarten.name(model.arten, m.type), nr = i, erste = i == 0, letzte = i == shown.lastIndex, selecting = selecting, checked = m.id in selected,
                     onLongClick = { if (m.id !in selected) selected = selected + m.id; info = "" },
                 ) {
                     if (selecting) {
@@ -234,7 +235,7 @@ fun MemberListScreen(model: AppModel, onOpen: (String) -> Unit, onNew: () -> Uni
                 TextButton({
                     exportOpen = false
                     val liste = shown
-                    exporter.csv("mitglieder_${Export.dateiname(model.vereinsname())}_$heute.csv") { Export.mitgliederCsv(liste) }
+                    exporter.csv("mitglieder_${Export.dateiname(model.vereinsname())}_$heute.csv") { Export.mitgliederCsv(liste, model.arten) }
                 }) { Text("CSV (Tabelle)") }
             },
             dismissButton = {
@@ -280,13 +281,12 @@ internal fun StatKachel(titel: String, zahl: String, unter: String?, flaeche: Co
     }
 }
 
-/** Das farbige Status-Schild (Aktiv, Passiv, Ehrenmitglied …) – in der Liste und in der Detailansicht gleich. */
+/** Das farbige Status-Schild (Aktiv, Passiv, Ruhend, Gekündigt) – in der Liste und in der Detailansicht gleich. */
 @Composable
 internal fun StatusSchild(status: String) {
     val s = MaterialTheme.colorScheme
     val (flaeche, text) = when (status) {
         "active" -> s.primaryContainer to s.onPrimaryContainer
-        "honorary" -> s.tertiaryContainer to s.onTertiaryContainer
         "terminated", "suspended" -> s.errorContainer to s.onErrorContainer
         else -> s.secondaryContainer to s.onSecondaryContainer
     }
@@ -324,7 +324,7 @@ internal fun TabChip(text: String, selected: Boolean, onClick: () -> Unit) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MemberRow(m: Member, nr: Int, erste: Boolean, letzte: Boolean, selecting: Boolean, checked: Boolean, onLongClick: () -> Unit, onClick: () -> Unit) {
+private fun MemberRow(m: Member, artName: String, nr: Int, erste: Boolean, letzte: Boolean, selecting: Boolean, checked: Boolean, onLongClick: () -> Unit, onClick: () -> Unit) {
     val s = MaterialTheme.colorScheme
     // Karten liegen dicht übereinander: nur die erste und die letzte haben große Rundungen oben bzw. unten.
     val form = RoundedCornerShape(topStart = if (erste) 28.dp else 10.dp, topEnd = if (erste) 28.dp else 10.dp, bottomStart = if (letzte) 28.dp else 10.dp, bottomEnd = if (letzte) 28.dp else 10.dp)
@@ -341,7 +341,7 @@ private fun MemberRow(m: Member, nr: Int, erste: Boolean, letzte: Boolean, selec
                 val line = listOf(
                     m.number.takeIf { it.isNotEmpty() }?.let { "Nr. $it" },
                     m.department.takeIf { it.isNotEmpty() },
-                    MemberLabels.TYPE_FILTER[m.type],
+                    artName,
                 ).filterNotNull().joinToString(" · ")
                 if (line.isNotEmpty()) Text(line, style = MaterialTheme.typography.bodySmall, color = s.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val fee = if (m.paymentMethod == "exempt" || m.feePeriod == "none") "beitragsfrei"
@@ -408,7 +408,7 @@ private fun MemberDetailPage(
                 Text(name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     StatusSchild(m.status)
-                    MemberLabels.TYPE_DETAIL[m.type]?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    Mitgliedsarten.name(model.arten, m.type).let { Text(it, style = MaterialTheme.typography.bodyMedium, color = sc.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 }
             }
         }

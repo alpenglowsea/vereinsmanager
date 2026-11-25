@@ -11,7 +11,8 @@ const mitglied = (o: Partial<Member> = {}): Member =>
 describe('Deutsche Begriffe (D-29)', () => {
   it('übersetzt die Kennungen', () => {
     expect(statusText('active')).toBe('Aktiv');
-    expect(typText('full')).toBe('Vollmitglied (Erwachsene)');
+    expect(typText('full')).toBe('Vollmitglied');
+    expect(typText('art-x', [{ id: 'art-x', name: 'Senioren' }])).toBe('Senioren');
     expect(zahlweiseText('half_yearly')).toBe('Halbjährlich');
     expect(zahlartText('sepa')).toBe('SEPA-Lastschrift');
     expect(statusText(undefined)).toBe('–');

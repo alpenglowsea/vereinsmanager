@@ -25,7 +25,7 @@ object MemberStore {
                 val log = MemberAudit.angelegt(neu, now)
                 store.put(LOG, text(log, "id"), log)
             } else {
-                val log = MemberAudit.geaendert(alt, neu, now)
+                val log = MemberAudit.geaendert(alt, neu, now, arten = Mitgliedsarten.lesen(store))
                 store.put(AREA, form.id, neu)
                 if (log != null) store.put(LOG, text(log, "id"), log)
             }
@@ -123,12 +123,13 @@ object MemberStore {
         var changed = 0
         var unchanged = 0
         var skipped = 0
+        val arten = Mitgliedsarten.lesen(store)
         for (id in ids) {
             val alt = store.get(AREA, id) ?: throw IllegalArgumentException("Mitglied nicht gefunden.")
-            val res = MemberBulk.anwenden(MemberRules.von(Member.from(alt)), edit, now.toLocalDate())
+            val res = MemberBulk.anwenden(MemberRules.von(Member.from(alt)), edit, now.toLocalDate(), arten)
             if (res.feeSkipped) skipped++
             val neu = MemberDocument.build(res.form, alt, now)
-            val log = MemberAudit.geaendert(alt, neu, now, sammel = true)
+            val log = MemberAudit.geaendert(alt, neu, now, sammel = true, arten = arten)
             if (log == null) {
                 unchanged++
             } else {

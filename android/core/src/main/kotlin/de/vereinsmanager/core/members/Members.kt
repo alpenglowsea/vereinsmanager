@@ -13,20 +13,11 @@ import java.util.Locale
 /** Beschriftungen der festen Auswahlwerte (wie in der Desktop-Fassung, Funktionsinventar Mitglieder). */
 object MemberLabels {
     val STATUS = linkedMapOf(
-        "active" to "Aktiv", "passive" to "Passiv", "honorary" to "Ehrenmitglied",
+        // „Ehrenmitglied“ ist seit 25.11.2026 kein Status mehr, sondern eine Mitgliedsart (Mitgliedsarten.kt)
+        "active" to "Aktiv", "passive" to "Passiv",
         "suspended" to "Ruhend", "terminated" to "Gekündigt",
     )
-    /** Für den Typ-Filter. Entscheidung 7: vollständig, also auch Ehrenmitglied und Ausgetreten. */
-    val TYPE_FILTER = linkedMapOf(
-        "full" to "Vollmitglied", "youth" to "Jugend/Kinder", "reduced" to "Ermäßigt", "family" to "Familie",
-        "supporting" to "Förderer/Sponsor", "honorary" to "Ehrenmitglied", "ausgetreten" to "Ausgetreten",
-    )
-    /** Für die Detailansicht. */
-    val TYPE_DETAIL = linkedMapOf(
-        "full" to "Vollmitglied", "youth" to "Jugend/Kind", "reduced" to "Ermäßigt", "family" to "Familienbeitrag",
-        "supporting" to "Fördermitglied/Sponsor", "honorary" to "Ehrenmitglied", "ausgetreten" to "Ausgetreten",
-        "terminated" to "Ausgetreten",
-    )
+    // Die Namen der Mitgliedsarten kommen seit 25.11.2026 aus den Einstellungen: Mitgliedsarten.name / Mitgliedsarten.filter
     /** Entscheidung 7: auch Beitragsfrei. */
     val PAYMENT = linkedMapOf(
         "sepa" to "SEPA-Lastschrift", "transfer" to "Überweisung", "cash" to "Bargeld",

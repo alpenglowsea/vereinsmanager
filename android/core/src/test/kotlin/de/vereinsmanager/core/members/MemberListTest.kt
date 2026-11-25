@@ -106,9 +106,10 @@ class MemberListTest {
     }
 
     @Test fun beschriftungen() {
-        assertEquals("Ehrenmitglied", MemberLabels.TYPE_FILTER["honorary"])
+        assertEquals("Ehrenmitglied", Mitgliedsarten.name(Mitgliedsarten.STANDARD, "honorary"))
         assertEquals("Beitragsfrei", MemberLabels.PAYMENT["exempt"])
         assertEquals("viertelj.", MemberLabels.FEE_PERIOD_SHORT["quarterly"])
-        assertEquals(5, MemberLabels.STATUS.size)
+        // Ehrenmitglied ist seit 25.11.2026 kein Status mehr
+        assertEquals(4, MemberLabels.STATUS.size)
     }
 }

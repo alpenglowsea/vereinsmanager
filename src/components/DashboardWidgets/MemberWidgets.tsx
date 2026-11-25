@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { mitglieder as mitgliederDaten, tageBis } from '../../utils/dashboardRegeln';
 import { heuteIso } from '../../utils/kalenderRegeln';
+import { MitgliedsArt, STANDARD_ARTEN, artName } from '../../utils/mitgliedsarten';
 
 // 1. Members KPI Widget
 interface MembersKpiWidgetProps {
@@ -217,10 +218,12 @@ export const BirthdaysWidget: React.FC<BirthdaysWidgetProps> = ({ members, onNav
 // 5. Recent Members Widget
 interface RecentMembersWidgetProps {
   members: Member[];
+  /** Mitgliedsarten aus den Einstellungen; zeigte vorher die interne Kennung („full“) */
+  arten?: readonly MitgliedsArt[];
   onNavigate: (tab: string) => void;
 }
 
-export const RecentMembersWidget: React.FC<RecentMembersWidgetProps> = ({ members, onNavigate }) => {
+export const RecentMembersWidget: React.FC<RecentMembersWidgetProps> = ({ members, arten = STANDARD_ARTEN, onNavigate }) => {
   // Nur aktuelle Mitglieder, jüngstes Eintrittsdatum zuerst (wie Android)
   const heute = heuteIso();
   const recent = useMemo(() => mitgliederDaten(members, heute).neueste, [members, heute]);
@@ -260,7 +263,7 @@ export const RecentMembersWidget: React.FC<RecentMembersWidgetProps> = ({ member
                   {m.firstName} {m.lastName}
                 </span>
                 <span className="text-2xs text-slate-400 block">
-                  {m.department || 'Hauptverein'} • {m.membershipType || 'Vollmitglied'}
+                  {m.department || 'Hauptverein'} • {artName(arten, m.membershipType)}
                 </span>
               </div>
               <span className="font-mono text-2xs text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-700 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-600">

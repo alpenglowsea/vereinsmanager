@@ -243,6 +243,12 @@ export const JahresarchivDialog: React.FC<Props> = ({ modus, verein, onSchliesse
     setLaeuft(true);
     setFehler(null);
     try {
+      // Vor dem Auslagern ein Schnappschuss (wie am Handy): Er enthält die
+      // Dateien noch, falls mit der Archivdatei später etwas nicht stimmt.
+      if (modus === 'archivieren') {
+        const { SnapshotService } = await import('../services/snapshotService');
+        await SnapshotService.createSnapshot('manual', `Vor dem Auslagern des Jahresarchivs ${geprueft.archiv.kopf.jahr}`);
+      }
       // Frisch laden: zwischen Prüfen und Ausführen könnte sich etwas geändert haben
       const aktuell = await ladeBestand();
       const jetzt = new Date().toISOString();

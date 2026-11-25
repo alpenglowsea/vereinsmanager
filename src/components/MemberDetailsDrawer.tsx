@@ -35,6 +35,7 @@ import VeraenderbaresFenster from './VeraenderbaresFenster';
 import { MemberUnterlagen } from './MemberUnterlagen';
 import { unterlagenVon } from '../utils/unterlagen';
 import { lokalesHeute } from '../utils/mitgliedRegeln';
+import { leseArten, artName } from '../utils/mitgliedsarten';
 import { bestaetige } from '../utils/dialoge'; import { ausgebbar } from '../utils/inventarRegeln';
 
 interface MemberDetailsDrawerProps {
@@ -330,8 +331,6 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
         return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">🟢 Aktiv</span>;
       case 'passive':
         return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100">⚪ Passiv</span>;
-      case 'honorary':
-        return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">⭐ Ehrenmitglied</span>;
       case 'suspended':
         return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200">🟡 Ruhend</span>;
       case 'terminated':
@@ -339,20 +338,8 @@ export const MemberDetailsDrawer: React.FC<MemberDetailsDrawerProps> = ({
     }
   };
 
-  const getMembershipTypeLabel = (type: Member['membershipType']) => {
-    switch (type) {
-      case 'full': return 'Vollmitglied';
-      case 'youth': return 'Jugend / Kind';
-      case 'reduced': return 'Ermäßigt';
-      case 'family': return 'Familienbeitrag';
-      case 'supporting': return 'Fördermitglied / Sponsor';
-      case 'honorary': return 'Ehrenmitglied';
-      case 'ausgetreten':
-      case 'terminated':
-        return 'Ausgetreten';
-      default: return 'Mitglied';
-    }
-  };
+  // Name der Mitgliedsart aus den Einstellungen (seit 25.11.2026 bearbeitbar)
+  const getMembershipTypeLabel = (type: Member['membershipType']) => artName(leseArten(settings?.membershipTypes), type);
 
   const handleExportStammblatt = () => {
     ExportService.exportMemberStammblattPDF(member, settings);

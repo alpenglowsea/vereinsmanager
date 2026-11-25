@@ -209,9 +209,18 @@ class MemberCsvTest {
             // Bewusste Abweichung (20.11.2026, wie die Buchungsimporte): "1.000" ist 1000 € mit Hinweis, nicht 1 €.
             val rohBeitrag = mapping[ImportField.BEITRAG]?.let { table.rows[idx][it] }
             val mehrdeutig = MemberCsv.betragMehrdeutig(rohBeitrag)
-            if (mehrdeutig) assertEquals("$tag Beitrag (Tausender)", 0, MemberCsv.betrag(rohBeitrag).compareTo(f.feeValue))
-            else if (!statusUeberschrieben) assertEquals("$tag Beitrag", 0, BigDecimal(s(e, "feeAmount")).compareTo(f.feeValue))
-            assertEquals("$tag Zahlweise", str(e, "feePeriod"), f.feePeriod)
+            // Seit 25.11.2026 (wie der heutige Desktop): Ohne Beitrag in der Datei gilt die Beitragsvorgabe der Art samt Zahlweise.
+            // Die Referenzdatei stammt aus der Zeit der festen 60/80/120 €; für diese Zeilen gilt deshalb die Vorgabe.
+            val vorgabe = if (MemberCsv.betrag(rohBeitrag).signum() == 0 && f.status == "active")
+                de.vereinsmanager.core.antrag.AntragEinstellungen.STANDARD_BEITRAEGE[f.type]?.takeIf { !Mitgliedsarten.beitragsfrei(Mitgliedsarten.STANDARD, f.type) } else null
+            if (vorgabe != null) {
+                assertEquals("$tag Beitrag (Vorgabe)", 0, vorgabe.wert.compareTo(f.feeValue))
+                assertEquals("$tag Zahlweise (Vorgabe)", vorgabe.periode, f.feePeriod)
+            } else {
+                if (mehrdeutig) assertEquals("$tag Beitrag (Tausender)", 0, MemberCsv.betrag(rohBeitrag).compareTo(f.feeValue))
+                else if (!statusUeberschrieben) assertEquals("$tag Beitrag", 0, BigDecimal(s(e, "feeAmount")).compareTo(f.feeValue))
+                assertEquals("$tag Zahlweise", str(e, "feePeriod"), f.feePeriod)
+            }
             assertEquals("$tag Zahlart", str(e, "paymentMethod"), f.paymentMethod)
             assertEquals("$tag IBAN", str(e, "iban"), f.iban)
             assertEquals("$tag BIC", str(e, "bic"), f.bic)
@@ -225,7 +234,7 @@ class MemberCsvTest {
                 assertEquals("$tag Mandatsreferenz", str(e, "mandateReference"), f.mandateReference)
             }
             assertEquals("$tag Notizen", str(e, "notes"), f.notes)
-            assertEquals("$tag Warnungen", (e["warnings"] as JsonArray).map { (it as JsonPrimitive).content }, r.warnings.filterNot { mehrdeutig && it.contains("Tausenderpunkt") })
+            assertEquals("$tag Warnungen", (e["warnings"] as JsonArray).map { (it as JsonPrimitive).content }, r.warnings.filterNot { (mehrdeutig && it.contains("Tausenderpunkt")) || (vorgabe != null && it.startsWith("Kein Beitrag in der Datei")) })
             if (mehrdeutig) assertTrue("$tag Hinweis Tausender", r.warnings.any { it.contains("Tausenderpunkt") })
             if (explicitNumber) {
                 assertEquals("$tag Dublette", e["existingMemberId"]?.takeIf { it !is JsonNull }?.let { (it as JsonPrimitive).content }, r.duplicateOf)
@@ -326,10 +335,19 @@ class MemberCsvTest {
     @Test fun beitragsVorgabenNachTyp() {
         val m = mapOf(ImportField.VORNAME to "V", ImportField.NACHNAME to "N", ImportField.TYP to "T", ImportField.STATUS to "S")
         fun fee(typ: String, st: String) = MemberCsv.umwandeln(listOf(mapOf("V" to "A", "N" to "B", "T" to typ, "S" to st)), m, emptyList(), abteilungen, null, heute)[0].form.fee
-        assertEquals("60", fee("Jugend", "aktiv"))
-        assertEquals("80", fee("Student", "aktiv"))
-        assertEquals("120", fee("Voll", "aktiv"))
+        // Seit 25.11.2026 die Beitragsvorgaben aus den Einstellungen (Startwerte 10/12/18 € monatlich), wie am Desktop
+        assertEquals("10", fee("Jugend", "aktiv"))
+        assertEquals("12", fee("Student", "aktiv"))
+        assertEquals("18", fee("Voll", "aktiv"))
         assertEquals("0", fee("Ehren", "aktiv"))
+        // „Ehrenmitglied“ in der Status-Spalte: Art Ehrenmitglied, Status aktiv
+        val e = MemberCsv.umwandeln(listOf(mapOf("V" to "A", "N" to "B", "T" to "Voll", "S" to "Ehrenmitglied")), m, emptyList(), abteilungen, null, heute)[0].form
+        assertEquals("honorary" to "active", e.type to e.status)
+        // Eigene Art per genauem Namen, Vorgabe dieser Art
+        val arten = Mitgliedsarten.STANDARD + MitgliedsArt("art-sen", "Senioren")
+        val vorgaben = mapOf("art-sen" to de.vereinsmanager.core.antrag.BeitragsVorgabe("7,5", "quarterly"))
+        val s = MemberCsv.umwandeln(listOf(mapOf("V" to "A", "N" to "B", "T" to "senioren", "S" to "")), m, emptyList(), abteilungen, null, heute, arten, vorgaben)[0].form
+        assertEquals(listOf("art-sen", "7,5", "quarterly"), listOf(s.type, s.fee, s.feePeriod))
     }
 
     // ---- Schreiben in den Speicher ----

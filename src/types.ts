@@ -1,8 +1,13 @@
 export type Gender = 'm' | 'w' | 'd' | 'none';
 
-export type MembershipStatus = 'active' | 'passive' | 'honorary' | 'terminated' | 'suspended';
+// „Ehrenmitglied“ ist seit 25.11.2026 kein Status mehr, sondern eine Mitgliedsart
+// (ältere Bestände werden beim Start umgestellt, siehe utils/mitgliedsarten).
+export type MembershipStatus = 'active' | 'passive' | 'terminated' | 'suspended';
 
-export type MembershipType = 'full' | 'reduced' | 'youth' | 'family' | 'supporting' | 'honorary' | 'ausgetreten' | 'terminated';
+// Kennung einer Mitgliedsart aus den Einstellungen (`membershipTypes`), z. B.
+// 'full', 'youth' oder eine eigene wie 'art-…'; dazu die Austrittsvermerke
+// 'ausgetreten' und 'terminated'. Seit 25.11.2026 frei, vorher feste Liste.
+export type MembershipType = string;
 
 export type PaymentMethod = 'sepa' | 'transfer' | 'cash' | 'standing_order' | 'exempt';
 
@@ -307,7 +312,10 @@ export interface ClubSettings {
   // Hinterlegte Unterschrift für Zuwendungsbestätigungen (D-41), Format wie Android:
   // Linienzüge mit Punkten [x, y] auf 0..1 bezogen, aspect = Breite / Höhe der Zeichenfläche.
   signature?: { aspect: number; strokes: number[][][] };
-  membershipFeeDefaults?: Partial<Record<'full' | 'reduced' | 'youth' | 'family' | 'supporting', { amount: number | string; period: string }>>;
+  membershipFeeDefaults?: Record<string, { amount: number | string; period: string }>;
+  // Mitgliedsarten (25.11.2026), gelesen über utils/mitgliedsarten (`leseArten`);
+  // fehlt das Feld, gelten die sechs bisherigen Arten. Gleiches Feld wie Android.
+  membershipTypes?: { id: string; name: string; beitragsfrei?: boolean; unter18?: boolean; imAntrag?: boolean; geloescht?: boolean }[];
   // Aufnahmeantrag am Gerät (P29), gleiche Felder wie Android (AntragEinstellungenStore):
   // eigene Texte (fehlen sie, gilt der Standardtext) und die Dokumente mit Satzung
   // und Datenschutz-Vordruck, die das neue Mitglied im Antrag öffnen kann.

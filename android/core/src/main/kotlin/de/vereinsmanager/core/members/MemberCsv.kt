@@ -255,25 +255,18 @@ object MemberCsv {
         val l = v.lowercase(Locale.ROOT).trim()
         return when {
             "passiv" in l -> "passive"
-            "ehren" in l -> "honorary"
+            // „Ehrenmitglied“ ist seit 25.11.2026 kein Status mehr: Status aktiv, die Art liest mitgliedstyp
+            "ehren" in l -> "active"
             "ruhend" in l || "ausgesetzt" in l -> "suspended"
             "gekündigt" in l || "austritt" in l || "ausgetreten" in l || "beendet" in l -> "terminated"
             else -> "active"
         }
     }
 
-    fun mitgliedstyp(v: String?, age: Long?): String {
-        if (v.isNullOrEmpty()) return if (age != null && age < 18) "youth" else "full"
-        val l = v.lowercase(Locale.ROOT).trim()
-        return when {
-            "jugend" in l || "kind" in l || "schüler" in l || "youth" in l -> "youth"
-            "ermäßigt" in l || "student" in l || "senior" in l || "azubi" in l -> "reduced"
-            "familie" in l -> "family"
-            "förder" in l || "sponsor" in l -> "supporting"
-            "ehren" in l -> "honorary"
-            else -> "full"
-        }
-    }
+    /** Art aus dem Text der Datei; Regeln in [Mitgliedsarten.ausText] (gleich wie Desktop `artAusText`). */
+    fun mitgliedstyp(v: String?, age: Long?, arten: List<MitgliedsArt> = Mitgliedsarten.STANDARD): String = Mitgliedsarten.ausText(arten, v, age)
+
+    private val PERIODEN_TEXT = mapOf("monthly" to "monatlich", "quarterly" to "vierteljährlich", "half_yearly" to "halbjährlich", "yearly" to "jährlich")
 
     fun zahlungsart(v: String?, iban: String?): String {
         if (iban != null && iban.trim().length >= 10) return "sepa"
@@ -308,6 +301,8 @@ object MemberCsv {
     fun umwandeln(
         rows: List<Map<String, String>>, mapping: ColumnMapping, existing: List<Member>,
         departments: List<String>, defaultDepartment: String?, today: LocalDate,
+        arten: List<MitgliedsArt> = Mitgliedsarten.STANDARD,
+        vorgaben: Map<String, de.vereinsmanager.core.antrag.BeitragsVorgabe> = de.vereinsmanager.core.antrag.AntragEinstellungen.STANDARD_BEITRAEGE,
     ): List<ImportRow> {
         val byNumber = HashMap<String, Member>()
         val byName = HashMap<String, Member>()
@@ -369,7 +364,10 @@ object MemberCsv {
             else dept = defaultDepartment?.takeIf { it.isNotEmpty() } ?: departments.firstOrNull() ?: "Hauptverein"
 
             val statusV = status(cell(ImportField.STATUS))
-            val typeV = mitgliedstyp(cell(ImportField.TYP), age)
+            // Art: genauer Name aus den Einstellungen, sonst Stichwort, sonst Alter/Vorgabe (wie Desktop).
+            // Steht „Ehrenmitglied“ in der Status-Spalte, wird es zur Art.
+            val typText = if ("ehren" in cell(ImportField.STATUS).lowercase(Locale.ROOT)) "Ehrenmitglied" else cell(ImportField.TYP)
+            val typeV = mitgliedstyp(typText, age, arten)
             if (mapped(ImportField.STATUS)) present.add("status")
             if (mapped(ImportField.TYP)) present.add("type")
 
@@ -377,11 +375,23 @@ object MemberCsv {
             if (cell(ImportField.BEITRAG).isNotBlank() && de.vereinsmanager.core.importe.Tabellen.betrag(cell(ImportField.BEITRAG)) == null) warnings.add("Beitrag „${cell(ImportField.BEITRAG)}“ ist nicht lesbar.")
             if (betragMehrdeutig(cell(ImportField.BEITRAG))) warnings.add("Beitrag „${cell(ImportField.BEITRAG)}“ als ${MemberRules.formatFee(fee)} € gelesen (Tausenderpunkt) – bitte prüfen.")
             if (fee.signum() > 0) present.add("fee")
-            if (fee.signum() == 0 && statusV == "active" && typeV != "honorary") {
-                fee = when (typeV) { "youth" -> BigDecimal("60"); "reduced" -> BigDecimal("80"); else -> BigDecimal("120") }
-            }
-            val period = zahlweise(cell(ImportField.ZAHLWEISE))
+            var period = zahlweise(cell(ImportField.ZAHLWEISE))
             if (mapped(ImportField.ZAHLWEISE)) present.add("feePeriod")
+            // Ohne Beitrag in der Datei: Vorgabe der Mitgliedsart aus den Einstellungen (wie Desktop; vorher feste 60/80/120 €)
+            if (fee.signum() == 0 && statusV == "active") {
+                val v = vorgaben[typeV]?.takeIf { !Mitgliedsarten.beitragsfrei(arten, typeV) }
+                if (v != null) {
+                    fee = v.wert
+                    if (cell(ImportField.ZAHLWEISE).isNotBlank() && period != v.periode) {
+                        val betragText = String.format(Locale.GERMANY, "%,.2f", v.wert)
+                        warnings.add(
+                            "Kein Beitrag in der Datei: Vorgabe $betragText € ${PERIODEN_TEXT[v.periode]} übernommen; " +
+                                "die Zahlungsweise der Datei (${PERIODEN_TEXT[period] ?: period}) wurde dafür ersetzt.",
+                        )
+                    }
+                    period = v.periode
+                }
+            }
 
             val iban = cell(ImportField.IBAN).replace(Regex("\\s"), "").uppercase(Locale.ROOT)
             val bic = cell(ImportField.BIC).replace(Regex("\\s"), "").uppercase(Locale.ROOT)

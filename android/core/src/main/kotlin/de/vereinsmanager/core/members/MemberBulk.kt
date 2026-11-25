@@ -41,10 +41,10 @@ object MemberBulk {
      * (Entscheidung 4): Typ und Status zuerst, dann Zahlweise und Zahlungsart, danach der Beitrag. Ist der Beitrag
      * für dieses Mitglied gesperrt (gekündigt, ausgetreten, beitragsfrei), wird er nicht gesetzt ([BulkResult.feeSkipped]).
      */
-    fun anwenden(start: MemberForm, e: BulkEdit, today: LocalDate): BulkResult {
+    fun anwenden(start: MemberForm, e: BulkEdit, today: LocalDate, arten: List<MitgliedsArt> = Mitgliedsarten.STANDARD): BulkResult {
         var f = start
-        if (e.type != null) f = MemberRules.setType(f, e.type, today)
-        if (e.status != null) f = MemberRules.setStatus(f, e.status, today)
+        if (e.type != null) f = MemberRules.setType(f, e.type, today, arten)
+        if (e.status != null) f = MemberRules.setStatus(f, e.status, today, arten)
         if (e.feePeriod != null) f = MemberRules.setFeePeriod(f, e.feePeriod)
         if (e.paymentMethod != null) f = MemberRules.setPayment(f, e.paymentMethod)
         var skipped = false

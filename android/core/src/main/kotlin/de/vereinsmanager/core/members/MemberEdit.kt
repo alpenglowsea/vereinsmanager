@@ -82,17 +82,19 @@ object MemberRules {
 
     private fun feeFree(f: MemberForm) = f.copy(fee = "0", feePeriod = "none", paymentMethod = "exempt")
 
-    fun setStatus(f: MemberForm, status: String, today: LocalDate): MemberForm =
+    /** [arten]: Mitgliedsarten aus den Einstellungen (seit 25.11.2026); beim Wiedereintritt gilt die erste. */
+    fun setStatus(f: MemberForm, status: String, today: LocalDate, arten: List<MitgliedsArt> = Mitgliedsarten.STANDARD): MemberForm =
         if (status == "terminated") {
             feeFree(f).copy(status = status, type = "ausgetreten", exitDate = f.exitDate.ifEmpty { today.toString() })
         } else {
-            f.copy(status = status, type = if (f.type == "ausgetreten" || f.type == "terminated") "full" else f.type)
+            f.copy(status = status, type = if (Mitgliedsarten.istAustritt(f.type)) Mitgliedsarten.standard(arten) else f.type)
         }
 
-    fun setType(f: MemberForm, type: String, today: LocalDate): MemberForm = when (type) {
-        "ausgetreten", "terminated" ->
+    /** Eine beitragsfreie Art (bisher fest: Ehrenmitglied) setzt Beitrag 0, keine Zahlweise, beitragsfrei. */
+    fun setType(f: MemberForm, type: String, today: LocalDate, arten: List<MitgliedsArt> = Mitgliedsarten.STANDARD): MemberForm = when {
+        Mitgliedsarten.istAustritt(type) ->
             feeFree(f).copy(type = type, status = "terminated", exitDate = f.exitDate.ifEmpty { today.toString() })
-        "honorary" -> feeFree(f).copy(type = type)
+        Mitgliedsarten.beitragsfrei(arten, type) -> feeFree(f).copy(type = type)
         else -> f.copy(type = type, status = if (f.status == "terminated") "active" else f.status)
     }
 
@@ -153,9 +155,11 @@ object MemberRules {
     fun setIban(f: MemberForm, v: String) = f.copy(iban = v.uppercase(Locale.ROOT).replace(Regex("\\s"), ""))
 
     /** Neues Mitglied mit den Vorgaben des Desktops. */
-    fun neu(number: String, departments: List<String>, today: LocalDate): MemberForm = MemberForm(
+    fun neu(number: String, departments: List<String>, today: LocalDate, arten: List<MitgliedsArt> = Mitgliedsarten.STANDARD): MemberForm = MemberForm(
         id = "mem-${System.currentTimeMillis()}",
         number = number,
+        // Erste Art der Liste aus den Einstellungen (bisher fest „Vollmitglied“)
+        type = Mitgliedsarten.standard(arten),
         entryDate = today.toString(),
         // Ohne angelegte Sparte bleibt das Feld leer (kein erfundener Vorschlag); das Formular weist darauf hin.
         department = departments.firstOrNull() ?: "",
@@ -338,14 +342,14 @@ object MemberAudit {
     }
 
     /** Lesbare Anzeige für das Protokoll: deutsche Bezeichnungen statt Kennungen, Beträge und Daten deutsch. */
-    private fun anzeige(feld: String, v: JsonElement?): JsonPrimitive {
+    private fun anzeige(feld: String, v: JsonElement?, arten: List<MitgliedsArt> = Mitgliedsarten.STANDARD): JsonPrimitive {
         val roh = (v as? JsonPrimitive)?.contentOrNull ?: ""
         if (feld != "dataPrivacyConsent" && v.leer()) return JsonPrimitive("–")
         val text = when (feld) {
             "status" -> MemberLabels.STATUS[roh]
             "paymentMethod" -> MemberLabels.PAYMENT[roh]
             "feePeriod" -> MemberLabels.FEE_PERIOD[roh]
-            "membershipType" -> MemberLabels.TYPE_DETAIL[roh]
+            "membershipType" -> Mitgliedsarten.name(arten, roh)
             "gender" -> MemberLabels.GENDER[roh]
             "feeAmount" -> roh.toBigDecimalOrNull()?.let { Zeit.euro(it) }
             "entryDate", "exitDate", "birthDate" -> Zeit.deutsch(roh)
@@ -428,10 +432,13 @@ object MemberAudit {
      * [sammel]: Sammelbearbeitung; dort zählen auch Datenschutz-Einwilligung und Fälligkeitstag, und die
      * Bankverbindung wird nicht als Block gezeigt.
      */
-    fun geaendert(alt: JsonObject, neu: JsonObject, now: ZonedDateTime = ZonedDateTime.now(), sammel: Boolean = false): JsonObject? {
+    fun geaendert(
+        alt: JsonObject, neu: JsonObject, now: ZonedDateTime = ZonedDateTime.now(), sammel: Boolean = false,
+        arten: List<MitgliedsArt> = Mitgliedsarten.STANDARD,
+    ): JsonObject? {
         val changes = ArrayList<JsonObject>()
         for ((k, label) in FELDER) {
-            if (!gleich(alt[k], neu[k])) changes.add(aenderung(k, label, anzeige(k, alt[k]), anzeige(k, neu[k])))
+            if (!gleich(alt[k], neu[k])) changes.add(aenderung(k, label, anzeige(k, alt[k], arten), anzeige(k, neu[k], arten)))
         }
         if (sammel && !gleich(alt["dataPrivacyConsent"] ?: JsonPrimitive(true), neu["dataPrivacyConsent"] ?: JsonPrimitive(true))) {
             changes.add(

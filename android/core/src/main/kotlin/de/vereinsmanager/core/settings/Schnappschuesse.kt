@@ -10,6 +10,7 @@ enum class SchnappGrund(val kuerzel: String, val text: String) {
     AUTOMATISCH("auto", "Automatisch"),
     MANUELL("manuell", "Von Hand"),
     VOR_IMPORT("import", "Vor dem Einspielen einer Sicherung"),
+    /** Nur noch in älteren Schnappschüssen: Seit 25.11.2026 löscht „Alle Daten löschen“ auch die Schnappschüsse. */
     VOR_LOESCHEN("loeschen", "Vor dem Löschen aller Daten"),
     VOR_ARCHIV("archiv", "Vor dem Auslagern ins Jahresarchiv"),
 }
@@ -25,8 +26,9 @@ data class SchnappEintrag(val name: String, val zeit: LocalDateTime, val grund: 
  * So verdrängt eine Woche automatischer Sicherungen nie die Kopie, die vor einem Import oder Löschen angelegt wurde.
  */
 object Schnappschuesse {
-    const val MAX_AUTOMATISCH = 7
-    const val MAX_ANDERE = 5
+    // Höchstens 5 insgesamt (Wunsch Johannes, 25.11.2026; vorher 7 + 5), gleiche Zahlen wie am Desktop
+    const val MAX_AUTOMATISCH = 3
+    const val MAX_ANDERE = 2
     const val ABSTAND_STUNDEN = 20L
     private val STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
     private val NAME = Regex("""schnappschuss_(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})_([a-z]+)\.zip""")

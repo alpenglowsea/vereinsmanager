@@ -254,11 +254,11 @@ class EinstellungenTest {
         val auto = (1..10).map { Schnappschuesse.dateiname(jetzt.minusDays(it.toLong()), SchnappGrund.AUTOMATISCH) }
         val vorImport = Schnappschuesse.dateiname(jetzt.minusDays(30), SchnappGrund.VOR_IMPORT) // uralt, muss trotzdem bleiben
         val weg = Schnappschuesse.ueberzaehlige(auto + vorImport)
-        assertEquals(3, weg.size)
-        assertEquals(auto.takeLast(3).toSet(), weg.toSet())
+        assertEquals(7, weg.size)
+        assertEquals(auto.takeLast(7).toSet(), weg.toSet())
         assertFalse(vorImport in weg)
         val viele = (1..7).map { Schnappschuesse.dateiname(jetzt.minusHours(it.toLong()), SchnappGrund.MANUELL) }
-        assertEquals(setOf(viele[5], viele[6]), Schnappschuesse.ueberzaehlige(viele).toSet())
+        assertEquals(viele.drop(2).toSet(), Schnappschuesse.ueberzaehlige(viele).toSet())
         assertTrue(Schnappschuesse.ueberzaehlige(listOf("fremd.zip")).isEmpty())
     }
 

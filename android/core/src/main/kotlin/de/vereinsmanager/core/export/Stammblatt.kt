@@ -63,7 +63,7 @@ object Stammblatt {
         )
         val rhythmus = when (m.feePeriod) { "yearly" -> "Jährlich"; "half_yearly" -> "Halbjährlich"; "quarterly" -> "Vierteljährlich"; "none" -> "Beitragsfrei"; else -> "Monatlich" }
         val zahlung = listOf(
-            listOf("Mitgliedschaftstyp:", MemberLabels.TYPE_DETAIL[m.type] ?: m.type, "Beitragshöhe:", "${Export.fixed2(m.fee).replace('.', ',')} €"),
+            listOf("Mitgliedschaftstyp:", de.vereinsmanager.core.members.Mitgliedsarten.name(de.vereinsmanager.core.members.Mitgliedsarten.lesen(settings), m.type), "Beitragshöhe:", "${Export.fixed2(m.fee).replace('.', ',')} €"),
             listOf("Zahlungsrhythmus:", rhythmus, "Zahlungsmethode:", MemberLabels.PAYMENT[m.paymentMethod] ?: m.paymentMethod),
             listOf("Kontoinhaber:", o(t(bank, "accountHolder")), "Kreditinstitut:", o(t(bank, "bankName"))),
             listOf("IBAN:", o(Iban.gruppiert(t(bank, "iban"))), "BIC:", o(t(bank, "bic"))),

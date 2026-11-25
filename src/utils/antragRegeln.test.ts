@@ -254,7 +254,10 @@ describe('Aufnahmeantrag: PDF-Aufbau wie Android', () => {
     const seiten = antragSeiten(null, verein, eigen, '', heute);
     imRahmen(seiten);
     const t = texte(seiten);
-    expect(t.some(x => x.startsWith('Kinder und Jugendliche') && x.endsWith('7,50 € vierteljährlich'))).toBe(true);
+    // Seit 25.11.2026 steht hier der Name der Art aus den Einstellungen
+    expect(t.some(x => x.startsWith('Jugend / Kinder') && x.endsWith('7,50 € vierteljährlich'))).toBe(true);
+    // Ehrenmitglied ist nicht im Antrag wählbar
+    expect(t.some(x => x.startsWith('Ehrenmitglied'))).toBe(false);
     expect(t.some(x => x.startsWith('Vollmitglied') && x.endsWith('18,00 € monatlich'))).toBe(true);
     expect(t.some(x => x.startsWith('2. Gesetzlicher Vertreter (nur bei Minderjährigen'))).toBe(true);
     expect(t).toContain('Bitte in Druckbuchstaben ausfüllen und unterschreiben.');

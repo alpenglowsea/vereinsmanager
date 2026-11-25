@@ -72,7 +72,7 @@ describe('Snapshots: alle löschen', () => {
     await SnapshotService.deleteAllSnapshots();
 
     expect(protokoll.geoeffnet).toEqual(['VereinsManager_SnapshotsDB_v1']);
-    expect(protokoll.geleert).toEqual(['snapshots']);
+    expect(protokoll.geleert).toEqual(['snapshots', 'snapshot_daten']);
     expect(protokoll.geschlossen).toBe(true);
   });
 

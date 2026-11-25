@@ -1,4 +1,5 @@
 import { statusText, typText, zahlweiseText, zahlartText, MANDATSFOLGE_TEXT, lokalesHeute } from '../utils/mitgliedRegeln';
+import { MitgliedsArt, STANDARD_ARTEN, leseArten } from '../utils/mitgliedsarten';
 import {
   berechneEuer,
   buchungsCsvZeilen,
@@ -29,7 +30,7 @@ import { FileSaveResult, saveBlobAs, saveBlobWithLocationPicker, savePdfAs } fro
 
 export const ExportService = {
   // 1. Export Members to CSV with location picker & fallback
-  async exportMembersCSV(members: Member[], filename = 'mitgliederliste.csv'): Promise<FileSaveResult> {
+  async exportMembersCSV(members: Member[], filename = 'mitgliederliste.csv', arten: readonly MitgliedsArt[] = STANDARD_ARTEN): Promise<FileSaveResult> {
     const data = members.map(m => ({
       'Mitgliedsnummer': m.memberNumber,
       'Nachname': m.lastName,
@@ -45,9 +46,9 @@ export const ExportService = {
       'E-Mail': m.email,
       'Eintrittsdatum': m.entryDate,
       'Austrittsdatum': m.exitDate || '',
-      'Status': m.status === 'active' ? 'Aktiv' : m.status === 'passive' ? 'Passiv' : m.status === 'honorary' ? 'Ehrenmitglied' : m.status === 'terminated' ? 'Gekündigt' : 'Ruhend',
+      'Status': m.status === 'active' ? 'Aktiv' : m.status === 'passive' ? 'Passiv' : m.status === 'terminated' ? 'Gekündigt' : 'Ruhend',
       'Abteilung': m.department,
-      'Mitgliedschaftstyp': m.membershipType === 'full' ? 'Vollmitglied' : m.membershipType === 'reduced' ? 'Ermäßigt' : m.membershipType === 'youth' ? 'Jugend' : m.membershipType === 'family' ? 'Familie' : m.membershipType === 'supporting' ? 'Fördermitglied' : m.membershipType === 'honorary' ? 'Ehrenmitglied' : m.membershipType === 'ausgetreten' || m.membershipType === 'terminated' ? 'Ausgetreten' : m.membershipType,
+      'Mitgliedschaftstyp': typText(m.membershipType, arten),
       'Beitrag (EUR)': m.feeAmount.toFixed(2),
       'Zahlungsweise': m.feePeriod === 'monthly' ? 'Monatlich' : m.feePeriod === 'quarterly' ? 'Vierteljährlich' : m.feePeriod === 'half_yearly' ? 'Halbjährlich' : m.feePeriod === 'none' ? 'Beitragsfrei' : 'Jährlich',
       'Zahlungsmethode': m.paymentMethod === 'exempt' ? 'Beitragsfrei' : m.paymentMethod === 'sepa' ? 'SEPA-Lastschrift' : m.paymentMethod === 'transfer' ? 'Überweisung' : m.paymentMethod === 'cash' ? 'Bar' : 'Dauerauftrag',
@@ -96,7 +97,7 @@ export const ExportService = {
       m.memberNumber,
       `${m.lastName}, ${m.firstName}`,
       m.department,
-      m.status === 'active' ? 'Aktiv' : m.status === 'passive' ? 'Passiv' : m.status === 'honorary' ? 'Ehre' : m.status === 'terminated' ? 'Gekündigt' : 'Ruhend',
+      m.status === 'active' ? 'Aktiv' : m.status === 'passive' ? 'Passiv' : m.status === 'terminated' ? 'Gekündigt' : 'Ruhend',
       m.phone || '–',
       m.email || '–',
       `${m.address.zip} ${m.address.city}`,
@@ -225,7 +226,7 @@ export const ExportService = {
     doc.text('2. Beitrags- & Zahlungsmodalitäten', 16, currentY1 + 5);
 
     const paymentData = [
-      ['Mitgliedschaftstyp:', typText(member.membershipType), 'Beitragshöhe:', `${member.feeAmount.toFixed(2).replace('.', ',')} €`],
+      ['Mitgliedschaftstyp:', typText(member.membershipType, leseArten(settings.membershipTypes)), 'Beitragshöhe:', `${member.feeAmount.toFixed(2).replace('.', ',')} €`],
       ['Zahlungsrhythmus:', zahlweiseText(member.feePeriod), 'Zahlungsmethode:', zahlartText(member.paymentMethod)],
       ['Kontoinhaber:', member.bankDetails.accountHolder || '–', 'Kreditinstitut:', member.bankDetails.bankName || '–'],
       ['IBAN:', member.bankDetails.iban || '–', 'BIC:', member.bankDetails.bic || '–'],

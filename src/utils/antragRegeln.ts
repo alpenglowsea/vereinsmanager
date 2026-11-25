@@ -15,6 +15,7 @@ import type { ClubSettings, Gender, Member, MembershipType } from '../types';
 import type { Unterschrift } from './unterschrift';
 import { ibanFehler, bicFehler, emailFehler } from './kontaktRegeln';
 import { leseVorgaben, BeitragsVorgabe, VorgabeArt, VorgabePeriode } from './beitragsVorgaben';
+import { MitgliedsArt, STANDARD_ARTEN, antragsArten, leseArten, unter18Art, artName as artNameAusListe } from './mitgliedsarten';
 import { nummerVergeben } from './nummern';
 
 export interface Antrag {
@@ -69,15 +70,15 @@ const istSepa = (a: Antrag) => a.zahlungsart === 'sepa';
 
 // ---------- Auswahllisten und Texte (wie Android)
 
-/** Die Mitgliedsarten, die im Antrag zur Wahl stehen, mit Beschreibung für das neue Mitglied. */
-export const ANTRAG_ARTEN: { art: VorgabeArt; label: string }[] = [
-  { art: 'full', label: 'Vollmitglied (Erwachsene)' },
-  { art: 'reduced', label: 'Ermäßigt (Schüler, Studierende, Auszubildende, Rentner)' },
-  { art: 'youth', label: 'Kinder und Jugendliche' },
-  { art: 'family', label: 'Familienbeitrag' },
-  { art: 'supporting', label: 'Fördermitglied (passiv)' }
-];
-export const artName = (art: string) => ANTRAG_ARTEN.find(a => a.art === art)?.label ?? art;
+/**
+ * Die Mitgliedsarten, die im Antrag zur Wahl stehen: seit 25.11.2026 aus den
+ * Einstellungen (Schalter „im Aufnahmeantrag wählbar“), mit ihrem Namen.
+ */
+export const antragArtenListe = (arten: readonly MitgliedsArt[] = STANDARD_ARTEN): { art: VorgabeArt; label: string }[] =>
+  antragsArten(arten).map(a => ({ art: a.id, label: a.name }));
+export const artName = (art: string, arten: readonly MitgliedsArt[] = STANDARD_ARTEN) => artNameAusListe(arten, art);
+/** Erste Art im Antrag: Vorgabe für einen neuen Antrag. */
+export const antragStartArt = (arten: readonly MitgliedsArt[] = STANDARD_ARTEN): VorgabeArt => antragsArten(arten)[0]?.id ?? 'full';
 
 export const PERIODEN_NAME: Record<VorgabePeriode, string> = {
   monthly: 'monatlich',
@@ -111,7 +112,9 @@ export const SEPA_TEXT =
 /** „{verein}“ durch den Vereinsnamen ersetzen. */
 export const mitVerein = (text: string, verein: string) => text.split('{verein}').join(verein.trim() || 'dem Verein');
 
-export function beitragText(v: BeitragsVorgabe): string {
+/** Ohne Vorgabe (beitragsfreie Art, z. B. wenn Ehrenmitglied im Antrag wählbar ist): „beitragsfrei“. */
+export function beitragText(v: BeitragsVorgabe | null | undefined): string {
+  if (!v) return 'beitragsfrei';
   const betrag = v.amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return `${betrag} € ${PERIODEN_NAME[v.period] ?? v.period}`;
 }
@@ -119,6 +122,8 @@ export function beitragText(v: BeitragsVorgabe): string {
 // ---------- Einstellungen (in den Vereinsdaten, gleiche Felder wie Android)
 
 export interface AntragEinstellungen {
+  /** Mitgliedsarten aus den Einstellungen (seit 25.11.2026) */
+  arten: MitgliedsArt[];
   beitraege: Record<VorgabeArt, BeitragsVorgabe>;
   datenschutz: string;
   satzung: string;
@@ -131,8 +136,10 @@ export interface AntragEinstellungen {
 const text = (v: unknown) => (typeof v === 'string' ? v : '');
 
 export function leseAntragEinstellungen(s: Partial<ClubSettings> | null | undefined): AntragEinstellungen {
+  const arten = leseArten(s?.membershipTypes);
   return {
-    beitraege: leseVorgaben(s?.membershipFeeDefaults),
+    arten,
+    beitraege: leseVorgaben(s?.membershipFeeDefaults, arten),
     datenschutz: text(s?.applicationPrivacyText).trim() ? text(s?.applicationPrivacyText) : STANDARD_DATENSCHUTZ,
     satzung: text(s?.applicationStatuteText).trim() ? text(s?.applicationStatuteText) : STANDARD_SATZUNG,
     satzungDokId: text(s?.applicationStatuteDocId),
@@ -236,8 +243,15 @@ export function kontoinhaberMussUnterschreiben(a: Antrag, heute: string): boolea
   return true;
 }
 
-/** Eine Mitgliedsart zum Alter; null, wenn das Alter unbekannt ist oder keine Änderung nahelegt. */
-export const vorschlagArt = (jahre: number | null): VorgabeArt | null => (jahre !== null && jahre < 18 ? 'youth' : null);
+/**
+ * Eine Mitgliedsart zum Alter: bei unter 18 die Art mit „für unter 18-Jährige
+ * vorschlagen“, wenn sie im Antrag wählbar ist; sonst null.
+ */
+export function vorschlagArt(jahre: number | null, arten: readonly MitgliedsArt[] = STANDARD_ARTEN): VorgabeArt | null {
+  if (jahre === null || jahre >= 18) return null;
+  const jung = unter18Art(arten);
+  return jung && antragsArten(arten).some(a => a.id === jung) ? jung : null;
+}
 
 /**
  * Vorschlag für den Kontoinhaber, wenn das Feld noch leer ist: bei unter 18
@@ -250,7 +264,7 @@ export const kontoinhaberVorschlag = (a: Antrag, heute: string): string =>
 const leer = (u: Unterschrift | null) => !u || u.strokes.length === 0;
 
 /** Fehlermeldungen je Feld für eine Seite; leer, wenn alles in Ordnung ist. Seite 5 prüft alles. */
-export function fehler(seite: number, a: Antrag, heute: string, sparten: string[]): Record<string, string> {
+export function fehler(seite: number, a: Antrag, heute: string, sparten: string[], arten: readonly MitgliedsArt[] = STANDARD_ARTEN): Record<string, string> {
   const f: Record<string, string> = {};
   const alle = seite === SEITE_ZUSAMMENFASSUNG;
   if (seite === SEITE_PERSON || alle) {
@@ -269,7 +283,7 @@ export function fehler(seite: number, a: Antrag, heute: string, sparten: string[
   }
   if (seite === SEITE_MITGLIEDSCHAFT || alle) {
     if (!a.sparte.trim() || (sparten.length > 0 && !sparten.includes(a.sparte))) f.sparte = 'Bitte eine Sparte wählen.';
-    if (!ANTRAG_ARTEN.some(x => x.art === a.mitgliedsart)) f.mitgliedsart = 'Bitte eine Mitgliedsart wählen.';
+    if (!antragsArten(arten).some(x => x.id === a.mitgliedsart)) f.mitgliedsart = 'Bitte eine Mitgliedsart wählen.';
     if (!datum(a.eintritt)) f.eintritt = 'Bitte das Eintrittsdatum eingeben.';
   }
   if ((seite === SEITE_ZAHLUNG || alle) && istSepa(a)) {
@@ -294,8 +308,8 @@ export function fehler(seite: number, a: Antrag, heute: string, sparten: string[
 }
 
 /** Erste Seite mit einem Fehler; null, wenn der Antrag vollständig ist. */
-export function ersteFehlerSeite(a: Antrag, heute: string, sparten: string[]): number | null {
-  for (let s = SEITE_PERSON; s <= SEITE_ERKLAERUNG; s++) if (Object.keys(fehler(s, a, heute, sparten)).length) return s;
+export function ersteFehlerSeite(a: Antrag, heute: string, sparten: string[], arten: readonly MitgliedsArt[] = STANDARD_ARTEN): number | null {
+  for (let s = SEITE_PERSON; s <= SEITE_ERKLAERUNG; s++) if (Object.keys(fehler(s, a, heute, sparten, arten)).length) return s;
   return null;
 }
 
@@ -312,7 +326,8 @@ export function dubletten<M extends Pick<Member, 'firstName' | 'lastName' | 'ema
 // ---------- Aufnahme
 
 /** Das Mitglied zum Antrag. Es wird nichts erfunden. */
-export function mitgliedAusAntrag(a: Antrag, nummer: string, vorgabe: BeitragsVorgabe, heute: string, id: string, jetzt: string): Member {
+/** `vorgabe` null: beitragsfreie Art (Beitrag 0, keine Zahlweise, beitragsfrei). */
+export function mitgliedAusAntrag(a: Antrag, nummer: string, vorgabe: BeitragsVorgabe | null, heute: string, id: string, jetzt: string): Member {
   const minder = minderjaehrig(a, heute);
   const sepa = istSepa(a);
   const nr = nummer.trim();
@@ -332,9 +347,9 @@ export function mitgliedAusAntrag(a: Antrag, nummer: string, vorgabe: BeitragsVo
     status: 'active',
     department: a.sparte,
     membershipType: a.mitgliedsart as MembershipType,
-    feeAmount: vorgabe.amount,
-    feePeriod: vorgabe.period,
-    paymentMethod: sepa ? 'sepa' : 'transfer',
+    feeAmount: vorgabe ? vorgabe.amount : 0,
+    feePeriod: vorgabe ? vorgabe.period : 'none',
+    paymentMethod: !vorgabe ? 'exempt' : sepa ? 'sepa' : 'transfer',
     bankDetails: {
       iban: sepa ? a.iban.replace(/\s+/g, '').toUpperCase() : '',
       bic: sepa ? a.bic.trim().toUpperCase() : '',
@@ -359,9 +374,16 @@ export function mitgliedAusAntrag(a: Antrag, nummer: string, vorgabe: BeitragsVo
 }
 
 /** Prüft, ob die Aufnahme möglich ist; Text des ersten Problems oder null. */
-export function aufnahmeFehler(a: Antrag, nummer: string, heute: string, sparten: string[], members: Pick<Member, 'id' | 'memberNumber'>[]): string | null {
-  const s = ersteFehlerSeite(a, heute, sparten);
-  if (s !== null) return Object.values(fehler(s, a, heute, sparten))[0];
+export function aufnahmeFehler(
+  a: Antrag,
+  nummer: string,
+  heute: string,
+  sparten: string[],
+  members: Pick<Member, 'id' | 'memberNumber'>[],
+  arten: readonly MitgliedsArt[] = STANDARD_ARTEN
+): string | null {
+  const s = ersteFehlerSeite(a, heute, sparten, arten);
+  if (s !== null) return Object.values(fehler(s, a, heute, sparten, arten))[0];
   if (!nummer.trim()) return 'Bitte eine Mitgliedsnummer eingeben.';
   if (nummerVergeben(nummer, members.map(m => ({ id: m.id, nummer: m.memberNumber })), undefined)) {
     return `Die Mitgliedsnummer „${nummer.trim()}“ ist bereits vergeben.`;

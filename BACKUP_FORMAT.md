@@ -506,3 +506,40 @@ wird der 28.02.) wird berechnet und nicht gespeichert.
 **Startseite:** neue Kachel `member_documents_expiry` in `dashboardConfig`. Fehlt sie in einer gespeicherten Anordnung,
 hängen beide Fassungen sie beim Lesen hinten an, sichtbar.
 
+
+## 11. Mitgliedsarten – Stand 25.11.2026 (ohne neue Formatversion)
+
+Die Mitgliedsarten sind in den Einstellungen bearbeitbar. Gespeichert in `settings` unter `membershipTypes`, in der
+Reihenfolge der Anzeige; die erste nicht gelöschte Art ist die Vorgabe für neue Mitglieder:
+
+```json
+"membershipTypes": [
+  { "id": "full", "name": "Vollmitglied", "imAntrag": true },
+  { "id": "youth", "name": "Jugend / Kinder", "unter18": true, "imAntrag": true },
+  { "id": "honorary", "name": "Ehrenmitglied", "beitragsfrei": true },
+  { "id": "art-mj3k9x2a", "name": "Senioren", "imAntrag": true },
+  { "id": "family", "name": "Familie", "geloescht": true }
+]
+```
+
+| Feld | Inhalt |
+| --- | --- |
+| `id` | Kennung; steht am Mitglied in `members[].membershipType`. Die bisherigen Arten behalten `full`, `reduced`, `youth`, `family`, `supporting`, `honorary`; neue heißen `art-…`. |
+| `name` | Anzeigename, höchstens 60 Zeichen, unter den nicht gelöschten Arten eindeutig (ohne Groß-/Kleinschreibung). |
+| `beitragsfrei` | Wahl der Art setzt Beitrag 0, Zahlweise `none`, Zahlart `exempt`. |
+| `unter18` | Wird für unter 18-Jährige vorgeschlagen (Aufnahmeantrag, Import). Höchstens eine Art. |
+| `imAntrag` | Im Aufnahmeantrag wählbar. |
+| `geloescht` | Gelöscht; bleibt in der Liste, damit Mitglieder dieser Art ihren Namen behalten („Familie (gelöscht)“). |
+
+Nur gesetzte Schalter werden geschrieben (`true`). Fehlt `membershipTypes` oder enthält es keine nicht gelöschte Art,
+gelten die sechs bisherigen Arten (wie in der ersten Zeile der Tabelle). `ausgetreten` und `terminated` sind keine Arten,
+sondern Austrittsvermerke, und stehen nie in der Liste. Eine Kennung am Mitglied, die es in der Liste nicht gibt (etwa aus
+der Sicherung eines anderen Geräts), wird mit der Kennung angezeigt; nichts geht verloren.
+
+`membershipFeeDefaults` (Beitragsvorgaben) ist wie bisher nach Kennung geordnet und gilt jetzt für jede nicht gelöschte,
+nicht beitragsfreie Art; eine Art ohne Eintrag beginnt mit 0 € monatlich.
+
+**„Ehrenmitglied“ ist kein Status mehr.** `members[].status` kennt nur noch `active`, `passive`, `suspended`,
+`terminated`. Ein Mitglied mit `status: "honorary"` (ältere Bestände und Sicherungen) stellen beide Fassungen beim Start
+und nach dem Einspielen um: `status: "active"`, `membershipType: "honorary"` (außer bei einem Austrittsvermerk); der
+Beitrag bleibt unverändert.

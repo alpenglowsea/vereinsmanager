@@ -25,9 +25,12 @@ import {
 
 import VeraenderbaresFenster from './VeraenderbaresFenster';
 import { lokalesHeute } from '../utils/mitgliedRegeln';
+import { MitgliedsArt, STANDARD_ARTEN, aktiveArten, standardArt } from '../utils/mitgliedsarten';
 interface MemberBulkEditModalProps {
   selectedMembers: Member[];
   departments: string[];
+  /** Mitgliedsarten aus den Einstellungen (seit 25.11.2026 bearbeitbar). */
+  arten?: readonly MitgliedsArt[];
   onSave: (updates: MemberBulkUpdates) => Promise<void>;
   onClose: () => void;
 }
@@ -35,6 +38,7 @@ interface MemberBulkEditModalProps {
 export const MemberBulkEditModal: React.FC<MemberBulkEditModalProps> = ({
   selectedMembers,
   departments,
+  arten = STANDARD_ARTEN,
   onSave,
   onClose
 }) => {
@@ -52,7 +56,7 @@ export const MemberBulkEditModal: React.FC<MemberBulkEditModalProps> = ({
   const [status, setStatus] = useState<MembershipStatus>('active');
 
   const [applyMembershipType, setApplyMembershipType] = useState(false);
-  const [membershipType, setMembershipType] = useState<MembershipType>('full');
+  const [membershipType, setMembershipType] = useState<MembershipType>(() => standardArt(arten));
 
   const [applyDepartment, setApplyDepartment] = useState(false);
   const [department, setDepartment] = useState<string>(departments[0] || 'Gesamtverein');
@@ -369,11 +373,10 @@ export const MemberBulkEditModal: React.FC<MemberBulkEditModalProps> = ({
               </div>
 
               {applyStatus && (
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2 animate-in fade-in duration-100">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 animate-in fade-in duration-100">
                   {[
                     { val: 'active', label: '🟢 Aktiv' },
                     { val: 'passive', label: '⚪ Passiv' },
-                    { val: 'honorary', label: '⭐ Ehrenmitglied' },
                     { val: 'suspended', label: '🟡 Ruhend' },
                     { val: 'terminated', label: '🔴 Gekündigt' }
                   ].map(opt => (
@@ -462,12 +465,9 @@ export const MemberBulkEditModal: React.FC<MemberBulkEditModalProps> = ({
                       onChange={e => setMembershipType(e.target.value as MembershipType)}
                       className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
                     >
-                      <option value="full">Vollmitglied</option>
-                      <option value="youth">Jugend / Kinder</option>
-                      <option value="reduced">Ermäßigt (Schüler/Student)</option>
-                      <option value="family">Familienbeitrag</option>
-                      <option value="supporting">Förderer / Sponsor</option>
-                      <option value="honorary">Ehrenmitglied</option>
+                      {aktiveArten(arten).map(a => (
+                        <option key={a.id} value={a.id}>{a.beitragsfrei ? `${a.name} (beitragsfrei)` : a.name}</option>
+                      ))}
                     </select>
                   </div>
                 )}

@@ -235,7 +235,7 @@ fun MemberAnalyticsScreen(model: AppModel, modifier: Modifier = Modifier) {
         }
 
         Kachel("Verteilung nach Mitgliedschaftstyp") {
-            MemberAnalytics.typen(members).forEach { a -> BalkenZeile(a.bezeichnung, "${a.anzahl} (${a.prozent} %)", a.prozent, MaterialTheme.colorScheme.secondary) }
+            MemberAnalytics.typen(members, model.arten).forEach { a -> BalkenZeile(a.bezeichnung, "${a.anzahl} (${a.prozent} %)", a.prozent, MaterialTheme.colorScheme.secondary) }
         }
 
         Kachel("Zahlungswege und Lastschrifteinzug") {

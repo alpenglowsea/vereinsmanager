@@ -13,7 +13,7 @@ import type { ClubSettings } from '../types';
 import type { Unterschrift } from '../utils/unterschrift';
 import { formatClubAddress } from '../utils/clubAddress';
 import {
-  ANTRAG_ARTEN,
+  antragArtenListe,
   Antrag,
   AntragEinstellungen,
   GESCHLECHTER,
@@ -276,7 +276,7 @@ export function antragSeiten(
   t.abschnitt('3. Gewünschte Mitgliedschaft');
   if (t.leer) {
     t.zeile(['Sparte / Abteilung', ''], ['Eintrittsdatum', '']);
-    for (const { art, label } of ANTRAG_ARTEN) {
+    for (const { art, label } of antragArtenListe(e.arten)) {
       t.platz(5);
       t.kaestchen(L, t.y + 3, false);
       t.text(`${label} – ${beitragText(e.beitraege[art])}`, L + 5, t.y + 2.8, 8.5);
@@ -286,7 +286,7 @@ export function antragSeiten(
     t.zeile(['Bisheriger Verein (freiwillig)', ''], ['Bemerkung (freiwillig)', '']);
   } else {
     t.zeile(['Sparte / Abteilung', k.sparte], ['Eintrittsdatum', deutsch(k.eintritt)]);
-    t.zeile(['Mitgliedsart', artName(k.mitgliedsart)], ['Mitgliedsbeitrag', beitragText(e.beitraege[k.mitgliedsart])]);
+    t.zeile(['Mitgliedsart', artName(k.mitgliedsart, e.arten)], ['Mitgliedsbeitrag', beitragText(e.beitraege[k.mitgliedsart])]);
     if (k.vorverein.trim() || k.notiz.trim()) t.zeile(['Bisheriger Verein', k.vorverein], ['Bemerkung', k.notiz]);
   }
 

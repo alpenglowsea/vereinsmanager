@@ -140,6 +140,7 @@ import de.vereinsmanager.core.members.BulkReport
 import de.vereinsmanager.core.members.DeleteReport
 import de.vereinsmanager.core.members.DocumentChoice
 import de.vereinsmanager.core.members.Member
+import de.vereinsmanager.core.members.Mitgliedsarten
 import de.vereinsmanager.core.members.MemberForm
 import de.vereinsmanager.core.members.MemberRules
 import de.vereinsmanager.core.members.MemberStore
@@ -238,6 +239,12 @@ class AppModel(private val appContext: Context) {
         private set
     var message by mutableStateOf("")
 
+    /** Mitgliedsarten aus den Einstellungen (seit 25.11.2026 bearbeitbar). */
+    var arten by mutableStateOf(Mitgliedsarten.STANDARD)
+        private set
+    /** Einmaliger Hinweis nach der Umstellung „Ehrenmitglied“ von Status auf Art; die Hauptseite zeigt ihn als Fenster. */
+    var ehrenHinweis by mutableStateOf<String?>(null)
+
     /** Zählt jede neue Meldung, damit auch zweimal derselbe Text wieder als Fenster erscheint. */
     var meldungNr by mutableStateOf(0)
     var busy by mutableStateOf(false)
@@ -261,6 +268,13 @@ class AppModel(private val appContext: Context) {
     /** Liest Mitglieder und Vereinsdaten neu aus dem Speicher. */
     fun reload() {
         stand += 1
+        // „Ehrenmitglied“ als Status → als Mitgliedsart (einmalig je Bestand; auch nach dem Einspielen einer älteren Sicherung)
+        val umgestellt = try { Mitgliedsarten.ehrenStatusUmstellen(store) } catch (e: Exception) { 0 }
+        if (umgestellt > 0) {
+            ehrenHinweis = (if (umgestellt == 1) "Ein Mitglied hatte" else "$umgestellt Mitglieder hatten") +
+                " den Status „Ehrenmitglied“. Den gibt es nicht mehr; Ehrenmitglied ist jetzt eine Mitgliedsart. " +
+                "Status ist jetzt „Aktiv“, Art „Ehrenmitglied“. Der Beitrag ist unverändert geblieben – bitte prüfen, ob das so stimmt."
+        }
         members = store.all("members").map { Member.from(it) }
         konten = Finance.konten(store)
         buchungen = Finance.buchungen(store)
@@ -288,6 +302,7 @@ class AppModel(private val appContext: Context) {
         val settings = store.get("settings", "main")
         clubName = (settings?.get("clubName") as? JsonPrimitive)?.contentOrNull ?: ""
         departments = Sparten.lesen(settings)
+        arten = Mitgliedsarten.lesen(settings)
     }
 
     /** Erkennt Paket (ZIP) und JSON-Sicherung und ob ein Passwort nötig ist. */
@@ -414,12 +429,12 @@ class AppModel(private val appContext: Context) {
     }
 
     /**
-     * Löscht alle Daten und Dateien. Vorher wird ein Schnappschuss angelegt; gelingt das nicht, wird nichts gelöscht.
-     * Der Schnappschuss bleibt im App-Ordner liegen (bis die App deinstalliert wird oder neuere ihn verdrängen).
+     * Löscht alle Daten und Dateien, auch die Schnappschüsse (seit 25.11.2026, wie am Desktop): „alle Daten“ heißt alles,
+     * etwa vor dem Weitergeben des Geräts. Wer den Stand behalten will, gibt vorher eine Sicherung aus; die Karte bietet das an.
      */
     fun alleDatenLoeschen(done: (String?) -> Unit) = hintergrund({
-        schnappschussSchreiben(SchnappGrund.VOR_LOESCHEN)
         Zuruecksetzen.alles(store, dateien)
+        schnappDir.listFiles().orEmpty().forEach { it.delete() }
         prefs.edit().putBoolean("standardOrdner", false).apply()
     }) { _, f -> done(f) }
 
@@ -1301,10 +1316,22 @@ class AppModel(private val appContext: Context) {
 
     fun antragEinstellungen(): AntragEinstellungen = AntragEinstellungenStore.lesen(store)
 
-    fun antragEinstellungenSpeichern(e: AntragEinstellungen, done: (String?) -> Unit) {
-        val f = AntragEinstellungenStore.pruefen(e)
+    /**
+     * Mitgliedsarten, Beiträge und Antragstexte speichern (Einstellungen → Allgemein) und danach die beim Löschen einer Art
+     * vorgemerkten Umzüge ausführen (über die Sammelbearbeitung, also mit Eintrag in der Historie). Ketten (A → B, B → C) werden aufgelöst.
+     */
+    fun mitgliedsartenSpeichern(e: AntragEinstellungen, umzuege: Map<String, String>, done: (String?) -> Unit) {
+        val f = AntragEinstellungenStore.pruefen(e) + Mitgliedsarten.pruefen(e.arten)
         if (f.isNotEmpty()) { done(f.values.first()); return }
-        hintergrund({ AntragEinstellungenStore.speichern(store, e) }) { _, fehler -> done(fehler) }
+        hintergrund({
+            AntragEinstellungenStore.speichern(store, e)
+            for ((von, nach) in umzuege) {
+                var ziel = nach
+                repeat(umzuege.size) { umzuege[ziel]?.let { ziel = it } }
+                val ids = store.all(MemberStore.AREA).map { Member.from(it) }.filter { it.type == von }.map { it.id }
+                if (ids.isNotEmpty()) MemberStore.sammelAendern(store, ids, BulkEdit(type = ziel))
+            }
+        }) { _, fehler -> done(fehler) }
     }
 
     /** Das hinterlegte PDF (Satzung oder Datenschutz-Vordruck) des Antrags; null, wenn keins hinterlegt ist. */

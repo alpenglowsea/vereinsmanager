@@ -28,7 +28,7 @@ import de.vereinsmanager.android.AppModel
 import de.vereinsmanager.core.backup.ImportMode
 
 @Composable
-fun SicherungKarte(model: AppModel, modifier: Modifier = Modifier) {
+fun SicherungKarte(model: AppModel, modifier: Modifier = Modifier, exportAnfrage: Boolean = false, onExportAnfrage: () -> Unit = {}) {
     var pending by remember { mutableStateOf<Uri?>(null) }
     var pendingEncrypted by remember { mutableStateOf(false) }
     var importPassword by remember { mutableStateOf("") }
@@ -36,6 +36,8 @@ fun SicherungKarte(model: AppModel, modifier: Modifier = Modifier) {
     var exportPassword by remember { mutableStateOf("") }
     var exportDialog by remember { mutableStateOf(false) }
     var exportPaket by remember { mutableStateOf(true) }
+    // „Erst Datensicherung speichern“ aus der Karte „Alle Daten löschen“ öffnet dasselbe Fenster wie „Sicherung ausgeben“
+    androidx.compose.runtime.LaunchedEffect(exportAnfrage) { if (exportAnfrage) { exportDialog = true; onExportAnfrage() } }
 
     val openLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {

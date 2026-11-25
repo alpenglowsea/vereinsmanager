@@ -70,12 +70,7 @@ object Export {
         "DSGVO-Einwilligung", "Notizen",
     )
 
-    private fun statusText(s: String) = when (s) { "active" -> "Aktiv"; "passive" -> "Passiv"; "honorary" -> "Ehrenmitglied"; "terminated" -> "Gekündigt"; else -> "Ruhend" }
-
-    private fun typText(t: String) = when (t) {
-        "full" -> "Vollmitglied"; "reduced" -> "Ermäßigt"; "youth" -> "Jugend"; "family" -> "Familie"
-        "supporting" -> "Fördermitglied"; "honorary" -> "Ehrenmitglied"; "ausgetreten", "terminated" -> "Ausgetreten"; else -> t
-    }
+    private fun statusText(s: String) = when (s) { "active" -> "Aktiv"; "passive" -> "Passiv"; "terminated" -> "Gekündigt"; else -> "Ruhend" }
 
     private fun periodeText(p: String) = when (p) {
         "monthly" -> "Monatlich"; "quarterly" -> "Vierteljährlich"; "half_yearly" -> "Halbjährlich"; "none" -> "Beitragsfrei"; else -> "Jährlich"
@@ -85,12 +80,13 @@ object Export {
         "exempt" -> "Beitragsfrei"; "sepa" -> "SEPA-Lastschrift"; "transfer" -> "Überweisung"; "cash" -> "Bar"; else -> "Dauerauftrag"
     }
 
-    fun mitgliederZeile(m: Member): List<String> {
+    /** [arten]: Mitgliedsarten aus den Einstellungen (seit 25.11.2026); daraus der Name der Art. */
+    fun mitgliederZeile(m: Member, arten: List<de.vereinsmanager.core.members.MitgliedsArt> = de.vereinsmanager.core.members.Mitgliedsarten.STANDARD): List<String> {
         val gender = when (m.gender) { "m" -> "Männlich"; "w" -> "Weiblich"; "d" -> "Divers"; else -> "Keine Angabe" }
         val consent = (m.raw["dataPrivacyConsent"] as? JsonPrimitive)?.content == "true"
         return listOf(
             m.number, m.lastName, m.firstName, gender, m.birthDate, m.street, m.houseNumber, m.zip, m.city, m.country,
-            m.phone, m.email, m.entryDate, m.exitDate, statusText(m.status), m.department, typText(m.type), fixed2(m.fee),
+            m.phone, m.email, m.entryDate, m.exitDate, statusText(m.status), m.department, de.vereinsmanager.core.members.Mitgliedsarten.name(arten, m.type), fixed2(m.fee),
             periodeText(m.feePeriod), zahlartText(m.paymentMethod),
             Iban.gruppiert(sub(m.raw, "bankDetails", "iban")), sub(m.raw, "bankDetails", "bic"), sub(m.raw, "bankDetails", "bankName"),
             sub(m.raw, "bankDetails", "accountHolder"), sub(m.raw, "bankDetails", "mandateDate"), sub(m.raw, "bankDetails", "mandateReference"),
@@ -98,10 +94,11 @@ object Export {
         )
     }
 
-    fun mitgliederCsv(members: List<Member>): String = Csv.schreiben(MITGLIEDER_KOPF, members.map { mitgliederZeile(it) })
+    fun mitgliederCsv(members: List<Member>, arten: List<de.vereinsmanager.core.members.MitgliedsArt> = de.vereinsmanager.core.members.Mitgliedsarten.STANDARD): String =
+        Csv.schreiben(MITGLIEDER_KOPF, members.map { mitgliederZeile(it, arten) })
 
     fun mitgliederPdf(members: List<Member>, verein: String, heute: LocalDate, titel: String = "Mitgliederliste"): PdfTabelle {
-        fun status(s: String) = when (s) { "active" -> "Aktiv"; "passive" -> "Passiv"; "honorary" -> "Ehre"; "terminated" -> "Gekündigt"; else -> "Ruhend" }
+        fun status(s: String) = when (s) { "active" -> "Aktiv"; "passive" -> "Passiv"; "terminated" -> "Gekündigt"; else -> "Ruhend" }
         fun periode(p: String) = when (p) { "yearly" -> "J."; "none" -> "Frei"; "quarterly" -> "Q."; "half_yearly" -> "H."; else -> "M." }
         fun zahlung(p: String) = when (p) { "exempt" -> "Frei"; "sepa" -> "SEPA"; "transfer" -> "Überw."; else -> "Bar" }
         return PdfTabelle(

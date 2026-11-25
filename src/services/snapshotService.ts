@@ -1,6 +1,14 @@
 import { StorageService } from './storage';
 import { CURRENT_APP_VERSION } from './updateService';
+import { schnappschussGruppe, schnappschuesseZuLoeschen, taeglicherFaellig } from '../utils/schnappschussRegeln';
 
+/**
+ * Kopfdaten eines Schnappschusses: das, was die Liste in den Einstellungen
+ * zeigt. Der eigentliche Inhalt (die vollständige Sicherung samt Dateien)
+ * liegt seit dem 25.11.2026 in einem eigenen Speicher und wird nur beim
+ * Wiederherstellen geladen. Vorher stand er im selben Datensatz, und Liste wie
+ * Aufräumen luden bei jedem Aufruf alle Kopien vollständig in den Speicher.
+ */
 export interface AutoSnapshot {
   id: string;
   timestamp: string;
@@ -18,13 +26,13 @@ export interface AutoSnapshot {
     documentsCount: number;
     donationsCount: number;
   };
-  data: string; // JSON String der Datensicherung
 }
 
 const SNAPSHOTS_DB_NAME = 'VereinsManager_SnapshotsDB_v1';
 const SNAPSHOTS_STORE = 'snapshots';
-const SNAPSHOTS_DB_VERSION = 1;
-const MAX_SNAPSHOTS = 12;
+/** Inhalt je Schnappschuss: { id, data } mit der Sicherung als Text. */
+const DATEN_STORE = 'snapshot_daten';
+const SNAPSHOTS_DB_VERSION = 2;
 
 function openSnapshotsDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -37,31 +45,60 @@ function openSnapshotsDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(SNAPSHOTS_STORE)) {
         db.createObjectStore(SNAPSHOTS_STORE, { keyPath: 'id' });
       }
+      if (!db.objectStoreNames.contains(DATEN_STORE)) {
+        db.createObjectStore(DATEN_STORE, { keyPath: 'id' });
+        // Umzug aus Version 1: Inhalt aus den Kopfdaten in den eigenen Speicher.
+        // Der Cursor liest die alten Schnappschüsse einzeln, nie alle zugleich.
+        const tx = req.transaction;
+        if (tx && (event.oldVersion || 0) >= 1) {
+          const daten = tx.objectStore(DATEN_STORE);
+          const cur = tx.objectStore(SNAPSHOTS_STORE).openCursor();
+          cur.onsuccess = () => {
+            const c = cur.result;
+            if (!c) return;
+            const alt = c.value as AutoSnapshot & { data?: string };
+            if (typeof alt.data === 'string') {
+              daten.put({ id: alt.id, data: alt.data });
+              const { data: _weg, ...kopf } = alt;
+              c.update(kopf);
+            }
+            c.continue();
+          };
+        }
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
 
-export class SnapshotService {
-  private static lastSnapshotTime = 0;
+/** Liest nur die Kopfdaten aller Schnappschüsse (klein), neueste zuerst. */
+async function leseKopfdaten(db: IDBDatabase): Promise<AutoSnapshot[]> {
+  return new Promise<AutoSnapshot[]>((resolve, reject) => {
+    const req = db.transaction(SNAPSHOTS_STORE, 'readonly').objectStore(SNAPSHOTS_STORE).getAll();
+    req.onsuccess = () => {
+      const snaps = (req.result || []) as AutoSnapshot[];
+      snaps.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      resolve(snaps);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
 
+export class SnapshotService {
   /**
-   * Erstellt einen automatischen Sicherheits-Snapshot der aktuellen Datenbank.
-   * Läuft in einer komplett isolierten IndexedDB-Instanz, sodass er auch bei Versionswechseln
-   * oder Browser-Updates niemals versehentlich überschrieben wird.
+   * Legt einen Schnappschuss an: eine vollständige Kopie des Bestands in einer
+   * eigenen Datenbank. Seit 25.11.2026 nur noch einmal am Tag beim Start
+   * (`startup`, siehe `taeglichAnlegen`) und vor riskanten Schritten
+   * (`manual`: Einspielen, Wiederherstellen, Auslagern, „Jetzt anlegen“).
+   * Behalten werden die 3 letzten täglichen und die 2 letzten anderen.
    */
   public static async createSnapshot(
     reason: 'pre_update' | 'periodic' | 'manual' | 'startup',
     label?: string
   ): Promise<AutoSnapshot | null> {
     try {
-      // Throttle automatic periodic snapshots to at most once every 5 minutes (except manual/pre_update)
       const now = Date.now();
-      if (reason === 'periodic' && now - this.lastSnapshotTime < 5 * 60 * 1000) {
-        return null;
-      }
-
       const jsonBackup = await StorageService.exportFullBackup();
       const parsed = JSON.parse(jsonBackup);
       const data = parsed.data || {};
@@ -76,7 +113,7 @@ export class SnapshotService {
       const documentsCount = data.documents?.length || 0;
       const donationsCount = data.donations?.length || 0;
 
-      // Only save if there is actually data in the database
+      // Nur speichern, wenn es überhaupt Daten gibt
       const totalRecords = membersCount + transactionsCount + contactsCount + invoicesCount + meetingsCount;
       if (totalRecords === 0 && reason !== 'manual') {
         return null;
@@ -89,10 +126,8 @@ export class SnapshotService {
             generatedLabel = `Sicherheits-Snapshot vor Update (${CURRENT_APP_VERSION})`;
             break;
           case 'startup':
-            generatedLabel = `Automatischer Start-Snapshot`;
-            break;
           case 'periodic':
-            generatedLabel = `Laufende Datensicherung`;
+            generatedLabel = `Täglicher Snapshot`;
             break;
           case 'manual':
           default:
@@ -103,7 +138,7 @@ export class SnapshotService {
 
       const snapshot: AutoSnapshot = {
         id: `snap-${now}-${Math.random().toString(36).substring(2, 6)}`,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(now).toISOString(),
         version: CURRENT_APP_VERSION,
         reason,
         label: generatedLabel,
@@ -117,39 +152,39 @@ export class SnapshotService {
           inventoryCount,
           documentsCount,
           donationsCount
-        },
-        data: jsonBackup
+        }
       };
 
       const db = await openSnapshotsDB();
       await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(SNAPSHOTS_STORE, 'readwrite');
-        const store = tx.objectStore(SNAPSHOTS_STORE);
-        store.put(snapshot);
+        const tx = db.transaction([SNAPSHOTS_STORE, DATEN_STORE], 'readwrite');
+        tx.objectStore(DATEN_STORE).put({ id: snapshot.id, data: jsonBackup });
+        tx.objectStore(SNAPSHOTS_STORE).put(snapshot);
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
       });
 
-      this.lastSnapshotTime = now;
-
-      // Prune old snapshots beyond limit
       await this.pruneSnapshots();
-
-      // Mirror metadata in localStorage for fast UI inspection
-      try {
-        localStorage.setItem('vm_last_snapshot_meta', JSON.stringify({
-          id: snapshot.id,
-          timestamp: snapshot.timestamp,
-          label: snapshot.label,
-          records: totalRecords
-        }));
-      } catch (err) {
-        console.warn('Kenndaten des letzten Snapshots konnten nicht vermerkt werden:', err);
-      }
-
       return snapshot;
     } catch (err) {
       console.warn('[SnapshotService] Fehler beim Erstellen des Snapshots:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Beim Start: legt den täglichen Schnappschuss an, wenn der letzte tägliche
+   * älter als 20 Stunden ist (wie am Handy). Liest dafür nur Kopfdaten.
+   */
+  public static async taeglichAnlegen(jetzt: Date = new Date()): Promise<AutoSnapshot | null> {
+    try {
+      const db = await openSnapshotsDB();
+      const liste = await leseKopfdaten(db);
+      if (!taeglicherFaellig(liste, jetzt)) return null;
+      return await this.createSnapshot('startup');
+    } catch (err) {
+      console.warn('[SnapshotService] Täglicher Snapshot nicht möglich:', err);
       return null;
     }
   }
@@ -159,18 +194,7 @@ export class SnapshotService {
    */
   public static async getSnapshots(): Promise<AutoSnapshot[]> {
     try {
-      const db = await openSnapshotsDB();
-      return new Promise<AutoSnapshot[]>((resolve, reject) => {
-        const tx = db.transaction(SNAPSHOTS_STORE, 'readonly');
-        const store = tx.objectStore(SNAPSHOTS_STORE);
-        const req = store.getAll();
-        req.onsuccess = () => {
-          const snaps = (req.result || []) as AutoSnapshot[];
-          snaps.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-          resolve(snaps);
-        };
-        req.onerror = () => reject(req.error);
-      });
+      return await leseKopfdaten(await openSnapshotsDB());
     } catch (err) {
       console.warn('[SnapshotService] Fehler beim Lesen der Snapshots:', err);
       return [];
@@ -194,23 +218,22 @@ export class SnapshotService {
   }> {
     try {
       const db = await openSnapshotsDB();
-      const snapshot = await new Promise<AutoSnapshot | null>((resolve, reject) => {
-        const tx = db.transaction(SNAPSHOTS_STORE, 'readonly');
-        const store = tx.objectStore(SNAPSHOTS_STORE);
-        const req = store.get(snapshotId);
-        req.onsuccess = () => resolve(req.result || null);
-        req.onerror = () => reject(req.error);
+      const [snapshot, inhalt] = await new Promise<[AutoSnapshot | null, string | null]>((resolve, reject) => {
+        const tx = db.transaction([SNAPSHOTS_STORE, DATEN_STORE], 'readonly');
+        const kopf = tx.objectStore(SNAPSHOTS_STORE).get(snapshotId);
+        const daten = tx.objectStore(DATEN_STORE).get(snapshotId);
+        tx.oncomplete = () => resolve([kopf.result || null, (daten.result && daten.result.data) || null]);
+        tx.onerror = () => reject(tx.error);
       });
 
-      if (!snapshot || !snapshot.data) {
+      if (!snapshot || !inhalt) {
         return { success: false, error: 'Snapshot nicht gefunden oder leer.' };
       }
 
-      // Prior to restoring, take a pre-restore safety snapshot of the current state
-      await this.createSnapshot('manual', 'Sicherheits-Backup vor Snapshot-Wiederherstellung');
-
-      // Import the full backup
-      const counts = await StorageService.importFullBackup(snapshot.data);
+      // Die Sicherheitskopie des jetzigen Stands legt importFullBackup selbst an
+      // („Sicherheitskopie vor dem Einspielen …“). Eine zweite hier verdrängte
+      // bei nur 2 behaltenen Kopien „vor Änderungen“ alle anderen.
+      const counts = await StorageService.importFullBackup(inhalt);
 
       return {
         success: true,
@@ -235,9 +258,9 @@ export class SnapshotService {
     try {
       const db = await openSnapshotsDB();
       await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(SNAPSHOTS_STORE, 'readwrite');
-        const store = tx.objectStore(SNAPSHOTS_STORE);
-        store.delete(snapshotId);
+        const tx = db.transaction([SNAPSHOTS_STORE, DATEN_STORE], 'readwrite');
+        tx.objectStore(SNAPSHOTS_STORE).delete(snapshotId);
+        tx.objectStore(DATEN_STORE).delete(snapshotId);
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
       });
@@ -250,7 +273,7 @@ export class SnapshotService {
    * Löscht ALLE Snapshots.
    *
    * Wird von "Alle lokalen Daten löschen" aufgerufen. Ohne diesen Schritt
-   * blieben bis zu zwölf vollständige Kopien des Datenbestands zurück.
+   * blieben bis zu fünf vollständige Kopien des Datenbestands zurück.
    *
    * Anders als `deleteSnapshot` schluckt diese Funktion Fehler bewusst NICHT:
    * Wer "alles löschen" wählt, muss erfahren, wenn etwas stehen geblieben ist.
@@ -262,8 +285,9 @@ export class SnapshotService {
     const db = await openSnapshotsDB();
     try {
       await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(SNAPSHOTS_STORE, 'readwrite');
+        const tx = db.transaction([SNAPSHOTS_STORE, DATEN_STORE], 'readwrite');
         tx.objectStore(SNAPSHOTS_STORE).clear();
+        tx.objectStore(DATEN_STORE).clear();
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
         tx.onabort = () => reject(tx.error);
@@ -274,20 +298,28 @@ export class SnapshotService {
   }
 
   /**
-   * Begrenzt die Anzahl der Snapshots auf MAX_SNAPSHOTS
+   * Behält die 3 letzten täglichen und die 2 letzten anderen Schnappschüsse
+   * (Regel in `schnappschussRegeln.ts`). Liest nur Kopfdaten.
    */
   private static async pruneSnapshots(): Promise<void> {
     try {
-      const snaps = await this.getSnapshots();
-      if (snaps.length > MAX_SNAPSHOTS) {
-        const toDelete = snaps.slice(MAX_SNAPSHOTS);
-        const db = await openSnapshotsDB();
-        const tx = db.transaction(SNAPSHOTS_STORE, 'readwrite');
-        const store = tx.objectStore(SNAPSHOTS_STORE);
-        toDelete.forEach(s => store.delete(s.id));
-      }
+      const db = await openSnapshotsDB();
+      const weg = schnappschuesseZuLoeschen(await leseKopfdaten(db));
+      if (weg.length === 0) return;
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction([SNAPSHOTS_STORE, DATEN_STORE], 'readwrite');
+        weg.forEach(id => {
+          tx.objectStore(SNAPSHOTS_STORE).delete(id);
+          tx.objectStore(DATEN_STORE).delete(id);
+        });
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
     } catch (e) {
       console.warn('[SnapshotService] Fehler beim Aufräumen alter Snapshots:', e);
     }
   }
 }
+
+/** Für die Anzeige: „täglich“ oder „vor einer Änderung“. */
+export const snapshotArt = (s: Pick<AutoSnapshot, 'reason'>) => (schnappschussGruppe(s.reason) === 'taeglich' ? 'täglich' : 'vor einer Änderung');

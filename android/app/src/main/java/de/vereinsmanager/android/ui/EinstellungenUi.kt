@@ -44,6 +44,7 @@ fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
     var meldung by remember { mutableStateOf<String?>(null) }
     var unterschreiben by remember { mutableStateOf(false) }
     var sigMeldung by remember { mutableStateOf<String?>(null) }
+    var sicherungAnfrage by remember { mutableStateOf(false) }
     val fehler = Vereinsdaten.pruefen(f)
     fun fehlerFuer(k: String) = if (zeigeFehler) fehler[k] else null
     val vorstandFehler = Vorstand.pruefen(vorstand)
@@ -133,10 +134,10 @@ fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
                 }
                 }
                 2 -> {
-                    SicherungKarte(model)
+                    SicherungKarte(model, exportAnfrage = sicherungAnfrage, onExportAnfrage = { sicherungAnfrage = false })
                     JahresarchivKarte(model)
                     SchnappschussKarte(model)
-                    LoeschenKarte(model)
+                    LoeschenKarte(model, onSicherung = { sicherungAnfrage = true })
                 }
                 3 -> UnterstuetzenKarte()
                 else -> FehlerMeldenKarte()

@@ -54,6 +54,8 @@ import de.vereinsmanager.core.members.FormTab
 import de.vereinsmanager.core.members.MemberForm
 import de.vereinsmanager.core.members.MemberLabels
 import de.vereinsmanager.core.members.MemberRules
+import de.vereinsmanager.core.members.MitgliedsArt
+import de.vereinsmanager.core.members.Mitgliedsarten
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -64,15 +66,23 @@ internal val TAB_NAMES = linkedMapOf(
 )
 internal val GENDERS = linkedMapOf("none" to "Keine Angabe", "m" to "Männlich", "w" to "Weiblich", "d" to "Divers")
 internal val RELATIONS = linkedMapOf("Mutter" to "Mutter", "Vater" to "Vater", "Gesetzlicher Vormund" to "Gesetzlicher Vormund")
+// „Ehrenmitglied“ ist seit 25.11.2026 kein Status mehr, sondern eine Mitgliedsart
 internal val STATUS_FORM = linkedMapOf(
-    "active" to "Aktiv", "passive" to "Passiv", "honorary" to "Ehrenmitglied", "suspended" to "Ruhend",
+    "active" to "Aktiv", "passive" to "Passiv", "suspended" to "Ruhend",
     "terminated" to "Gekündigt / Ausgetreten",
 )
-internal val TYPE_FORM = linkedMapOf(
-    "full" to "Vollmitglied (Erwachsene)", "youth" to "Jugend / Kind", "reduced" to "Ermäßigt (Student/Rentner)",
-    "family" to "Familienbeitrag", "supporting" to "Fördermitglied / Sponsor", "honorary" to "Ehrenmitglied (beitragsfrei)",
-    "ausgetreten" to "Ausgetreten",
-)
+
+/**
+ * Auswahl der Mitgliedsarten aus den Einstellungen: alle nicht gelöschten (beitragsfreie mit Hinweis), dazu die Art des
+ * Mitglieds, falls sie gelöscht oder unbekannt ist (bleibt wählbar, bis man eine andere wählt), und „Ausgetreten“.
+ */
+internal fun typAuswahl(arten: List<MitgliedsArt>, aktuell: String?): Map<String, String> {
+    val m = LinkedHashMap<String, String>()
+    for (a in Mitgliedsarten.aktive(arten)) m[a.id] = if (a.beitragsfrei) "${a.name} (beitragsfrei)" else a.name
+    if (aktuell != null && !Mitgliedsarten.istAustritt(aktuell) && aktuell !in m) m[aktuell] = Mitgliedsarten.name(arten, aktuell)
+    m["ausgetreten"] = "Ausgetreten"
+    return m
+}
 internal val PERIOD_FORM = linkedMapOf(
     "monthly" to "Monatlich", "quarterly" to "Vierteljährlich (Quartal)", "half_yearly" to "Halbjährlich",
     "yearly" to "Jährlich", "none" to "Beitragsfrei (0,00 €)",
@@ -164,8 +174,10 @@ fun MemberFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
     var f by remember(id) {
         mutableStateOf(
             existing?.let { MemberRules.von(it) }
-                // Neues Mitglied: Beitrag und Zahlweise aus der Vorgabe für Vollmitglieder (wie am Desktop, C1)
-                ?: MemberRules.mitVorgabe(MemberRules.neu(model.naechsteNummer(), model.departments, LocalDate.now()), model.antragEinstellungen().beitraege),
+                // Neues Mitglied: erste Art der Liste mit ihrer Vorgabe (beitragsfreie Art: beitragsfrei), wie am Desktop (C1)
+                ?: MemberRules.neu(model.naechsteNummer(), model.departments, LocalDate.now(), model.arten)
+                    .let { MemberRules.setType(it, it.type, LocalDate.now(), model.arten) }
+                    .let { MemberRules.mitVorgabe(it, model.antragEinstellungen().beitraege) },
         )
     }
     var tab by remember { mutableStateOf(FormTab.BASIS) }
@@ -247,10 +259,10 @@ fun MemberFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier:
                         "Es ist noch keine Sparte angelegt. Legen Sie zuerst unter Einstellungen → Verein eine an; danach lässt sie sich hier wählen.",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(vertical = 6.dp),
                     ) else Auswahl("Sparte", departmentOptions, f.department) { f = f.copy(department = it) }
-                    Auswahl("Status", STATUS_FORM, f.status) { f = MemberRules.setStatus(f, it, today) }
-                    Auswahl("Mitgliedschaftstyp", TYPE_FORM, f.type) {
+                    Auswahl("Status", STATUS_FORM, f.status) { f = MemberRules.setStatus(f, it, today, model.arten) }
+                    Auswahl("Mitgliedschaftstyp", typAuswahl(model.arten, f.type), f.type) {
                         // Bei einem neuen Mitglied kommen Betrag und Zahlweise aus der Vorgabe der Art; bestehende behalten ihren Beitrag (D-94)
-                        f = MemberRules.setType(f, it, today).let { g -> if (existing == null) MemberRules.mitVorgabe(g, model.antragEinstellungen().beitraege) else g }
+                        f = MemberRules.setType(f, it, today, model.arten).let { g -> if (existing == null) MemberRules.mitVorgabe(g, model.antragEinstellungen().beitraege) else g }
                     }
                     DatumFeld("Eintrittsdatum *", f.entryDate, errors["entryDate"]) { f = f.copy(entryDate = it) }
                     DatumFeld(

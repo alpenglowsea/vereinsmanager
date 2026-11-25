@@ -1,7 +1,8 @@
-import { Member, Gender, MembershipStatus, MembershipType, PaymentMethod, FeePeriod, ClubSettings } from '../types';
+import { Member, Gender, MembershipStatus, PaymentMethod, FeePeriod, ClubSettings } from '../types';
 import { ordneSpaltenZu, leseDatum, leseBetrag, SpaltenRegel } from '../utils/importRegeln';
 import { naechsteNummerImSchema } from '../utils/nummern';
 import { leseVorgaben, vorgabeFuer } from '../utils/beitragsVorgaben';
+import { leseArten, artAusText } from '../utils/mitgliedsarten';
 
 import { lokalesHeute } from '../utils/mitgliedRegeln';
 export interface ColumnMapping {
@@ -251,31 +252,18 @@ function normalizeGender(val?: string): Gender {
   return 'none';
 }
 
-// Status normalizer
+// Status normalizer. „Ehrenmitglied“ ist seit 25.11.2026 kein Status mehr,
+// sondern eine Art: Der Status wird „Aktiv“, die Art liest artAusText.
 function normalizeStatus(val?: string): MembershipStatus {
   if (!val) return 'active';
   const l = val.toLowerCase().trim();
   if (l.includes('passiv')) return 'passive';
-  if (l.includes('ehren')) return 'honorary';
+  if (l.includes('ehren')) return 'active';
   if (l.includes('ruhend') || l.includes('ausgesetzt')) return 'suspended';
   if (l.includes('gekündigt') || l.includes('austritt') || l.includes('ausgetreten') || l.includes('beendet')) return 'terminated';
   return 'active';
 }
 
-// Membership Type normalizer
-function normalizeMembershipType(val?: string, age?: number): MembershipType {
-  if (!val) {
-    if (age !== undefined && age < 18) return 'youth';
-    return 'full';
-  }
-  const l = val.toLowerCase().trim();
-  if (l.includes('jugend') || l.includes('kind') || l.includes('schüler') || l.includes('youth')) return 'youth';
-  if (l.includes('ermäßigt') || l.includes('student') || l.includes('senior') || l.includes('azubi')) return 'reduced';
-  if (l.includes('familie')) return 'family';
-  if (l.includes('förder') || l.includes('sponsor')) return 'supporting';
-  if (l.includes('ehren')) return 'honorary';
-  return 'full';
-}
 
 // Payment method normalizer
 function normalizePaymentMethod(val?: string, iban?: string): PaymentMethod {
@@ -335,7 +323,8 @@ export function convertRowsToMembers(
       if (n) vergeben.push(n);
     });
   }
-  const vorgaben = leseVorgaben(settings.membershipFeeDefaults);
+  const arten = leseArten(settings.membershipTypes);
+  const vorgaben = leseVorgaben(settings.membershipFeeDefaults, arten);
 
   return rows.map((row, index) => {
     const warnings: string[] = [];
@@ -404,7 +393,10 @@ export function convertRowsToMembers(
     else department = defaultDepartment || settings.departments[0] || 'Hauptverein';
 
     const status = normalizeStatus(zelle('status') || undefined);
-    const membershipType = normalizeMembershipType(zelle('membershipType') || undefined, age);
+    // Art: genauer Name aus den Einstellungen, sonst Stichwort, sonst Alter/Vorgabe.
+    // Steht „Ehrenmitglied“ nur in der Status-Spalte, wird es zur Art.
+    const typText = /ehren/i.test(zelle('status')) ? 'Ehrenmitglied' : zelle('membershipType');
+    const membershipType = artAusText(arten, typText || undefined, age);
     if (zelle('status')) vorhanden.add('status');
     if (zelle('membershipType')) vorhanden.add('membershipType');
 

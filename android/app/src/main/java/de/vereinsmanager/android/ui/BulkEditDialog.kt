@@ -91,8 +91,8 @@ fun BulkEditDialog(model: AppModel, members: List<Member>, onDismiss: () -> Unit
                 Haken("Status", status != null, { status = if (it) "active" else null }) {
                     Auswahl("", STATUS_FORM, status ?: "active") { status = it }
                 }
-                Haken("Mitgliedstyp", type != null, { type = if (it) "full" else null }) {
-                    Auswahl("", TYPE_FORM, type ?: "full") { type = it }
+                Haken("Mitgliedstyp", type != null, { type = if (it) de.vereinsmanager.core.members.Mitgliedsarten.standard(model.arten) else null }) {
+                    Auswahl("", typAuswahl(model.arten, null), type ?: de.vereinsmanager.core.members.Mitgliedsarten.standard(model.arten)) { type = it }
                 }
                 Haken("Sparte", dept != null, { dept = if (it) (model.departments.firstOrNull() ?: "") else null }) {
                     Auswahl("", model.departments.associateWith { it }, dept ?: "") { dept = it }

@@ -158,8 +158,8 @@ fun SchnappschussKarte(model: AppModel) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Schnappschüsse (automatische Sicherung)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
             Text(
-                "Die App legt beim Start höchstens einmal am Tag eine vollständige Sicherung im geschützten App-Speicher an (die letzten 7 bleiben). " +
-                    "Dazu kommen die Sicherungen, die vor dem Einspielen einer Sicherung, vor dem Löschen aller Daten und von Hand entstehen (die letzten 5 bleiben). " +
+                "Die App legt beim Start höchstens einmal am Tag eine vollständige Sicherung im geschützten App-Speicher an (die letzten 3 bleiben). " +
+                    "Dazu kommen die Sicherungen, die vor dem Einspielen einer Sicherung, vor dem Auslagern eines Jahresarchivs und von Hand entstehen (die letzten 2 bleiben). " +
                     "Sie ersetzen keine Sicherung auf einem anderen Gerät: Wird die App deinstalliert oder das Handy zurückgesetzt, sind sie weg. Sie sind nicht verschlüsselt.",
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -223,7 +223,7 @@ fun SchutzKarte() {
 
 /** „Alle Daten löschen“ mit Bestätigungswort; vorher wird ein Schnappschuss angelegt. */
 @Composable
-fun LoeschenKarte(model: AppModel) {
+fun LoeschenKarte(model: AppModel, onSicherung: () -> Unit) {
     var dialog by remember { mutableStateOf(false) }
     var eingabe by remember { mutableStateOf("") }
     var meldung by remember { mutableStateOf<String?>(null) }
@@ -231,10 +231,11 @@ fun LoeschenKarte(model: AppModel) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Alle Daten löschen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
             Text(
-                "Entfernt Mitglieder, Finanzen, Belege, Dokumente, Einstellungen und alles andere von diesem Gerät. " +
-                    "Vorher entsteht ein Schnappschuss, mit dem sich der Stand wiederherstellen lässt – solange die App installiert bleibt.",
+                "Entfernt Mitglieder, Finanzen, Belege, Dokumente, Einstellungen, Schnappschüsse und alles andere von diesem Gerät. " +
+                    "Danach lässt sich nichts mehr wiederherstellen, außer aus einer Sicherung, die Sie vorher als Datei ausgegeben haben.",
                 style = MaterialTheme.typography.bodySmall,
             )
+            OutlinedButton(onClick = onSicherung, enabled = !model.busy) { Text("Erst Datensicherung speichern …") }
             OutlinedButton(onClick = { eingabe = ""; dialog = true }, enabled = !model.busy) { Text("Alle Daten löschen …") }
             if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodySmall)
         }
@@ -245,14 +246,14 @@ fun LoeschenKarte(model: AppModel) {
             title = { Text("Wirklich alles löschen?") },
             text = {
                 Column {
-                    Text("Das lässt sich nur über den Schnappschuss rückgängig machen, den die App vorher anlegt. Zur Bestätigung bitte ${Zuruecksetzen.BESTAETIGUNG} eintippen.")
+                    Text("Das lässt sich nicht rückgängig machen, auch die Schnappschüsse werden gelöscht. Wer den Stand behalten will, gibt vorher eine Sicherung aus. Zur Bestätigung bitte ${Zuruecksetzen.BESTAETIGUNG} eintippen.")
                     Feld("Bestätigung", eingabe, { eingabe = it })
                 }
             },
             confirmButton = {
                 TextButton(enabled = Zuruecksetzen.bestaetigt(eingabe) && !model.busy, onClick = {
                     dialog = false
-                    model.alleDatenLoeschen { e -> meldung = e?.let { "Nicht gelöscht: $it" } ?: "Alle Daten wurden gelöscht. Der Stand davor liegt unter „Schnappschüsse“." }
+                    model.alleDatenLoeschen { e -> meldung = e?.let { "Nicht gelöscht: $it" } ?: "Alle Daten wurden gelöscht." }
                 }) { Text("Endgültig löschen", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { dialog = false }) { Text("Abbrechen") } },

@@ -57,14 +57,12 @@ object MemberAnalytics {
             .map { SpartenZeile(it.key.ifEmpty { "(ohne Sparte)" }, it.value, prozent(it.value, cur.size), soll[it.key] ?: BigDecimal.ZERO) }
     }
 
-    private val TYPEN = linkedMapOf(
-        "full" to "Vollmitglied (Erwachsene)", "youth" to "Jugend / Kinder", "reduced" to "Ermäßigt (Student/Rentner)",
-        "family" to "Familienbeitrag", "supporting" to "Fördermitglied / Sponsor", "honorary" to "Ehrenmitglied", "ausgetreten" to "Ausgetreten",
-    )
-
-    /** Anzahl je Mitgliedschaftstyp über alle Mitglieder. Abweichung: Prozent bezogen auf alle Mitglieder (am Desktop auf die aktuellen, daher teils über 100 %). */
-    fun typen(members: List<Member>): List<Anteil> =
-        TYPEN.map { (k, l) -> members.count { it.type == k }.let { n -> Anteil(k, l, n, prozent(n, members.size)) } }
+    /**
+     * Anzahl je Mitgliedschaftstyp über alle Mitglieder. Abweichung: Prozent bezogen auf alle Mitglieder (am Desktop auf die aktuellen, daher teils über 100 %).
+     * Seit 25.11.2026 aus den Einstellungen: alle nicht gelöschten Arten, gelöschte und unbekannte nur mit Mitgliedern, „Ausgetreten“ am Ende (wie Desktop).
+     */
+    fun typen(members: List<Member>, arten: List<MitgliedsArt> = Mitgliedsarten.STANDARD): List<Anteil> =
+        Mitgliedsarten.filter(arten, members).map { (k, l) -> members.count { it.type == k }.let { n -> Anteil(k, l, n, prozent(n, members.size)) } }
 
     private val ZAHLWEGE = linkedMapOf(
         "sepa" to "SEPA-Lastschrift", "transfer" to "Überweisung / Selbstzahler", "standing_order" to "Dauerauftrag", "cash" to "Barzahlung",

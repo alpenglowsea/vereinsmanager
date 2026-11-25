@@ -301,7 +301,9 @@ class AntragTest {
         val seiten = AntragLayout.bauen(null, verein, e, "", heute, mass)
         imRahmen(seiten)
         val t = texte(seiten)
-        assertTrue(t.any { it.startsWith("Kinder und Jugendliche") && it.endsWith("7,50 € vierteljährlich") })
+        // Seit 25.11.2026 der Name der Art aus den Einstellungen (wie Desktop); Ehrenmitglied ist nicht im Antrag wählbar
+        assertTrue(t.any { it.startsWith("Jugend / Kinder") && it.endsWith("7,50 € vierteljährlich") })
+        assertFalse(t.any { it.startsWith("Ehrenmitglied") })
         assertTrue(t.any { it.startsWith("Vollmitglied") && it.endsWith("18,00 € monatlich") })
         assertTrue(t.any { it.startsWith("2. Gesetzlicher Vertreter (nur bei Minderjährigen") })
         assertTrue(t.contains("Bitte in Druckbuchstaben ausfüllen und unterschreiben."))

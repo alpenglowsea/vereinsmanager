@@ -11,8 +11,10 @@
  * Johannes 18.11.2026) und bei der Aufnahme neuer Mitglieder (P29).
  */
 import type { FeePeriod, MembershipType } from '../types';
+import { MitgliedsArt, STANDARD_ARTEN, aktiveArten } from './mitgliedsarten';
 
-export type VorgabeArt = 'full' | 'reduced' | 'youth' | 'family' | 'supporting';
+/** Kennung einer Mitgliedsart (seit 25.11.2026 frei, siehe utils/mitgliedsarten). */
+export type VorgabeArt = string;
 export type VorgabePeriode = Exclude<FeePeriod, 'none'>;
 
 export interface BeitragsVorgabe {
@@ -22,15 +24,8 @@ export interface BeitragsVorgabe {
 
 export type BeitragsVorgaben = Record<VorgabeArt, BeitragsVorgabe>;
 
-/** Die Mitgliedsarten mit Vorgabe, in der Reihenfolge der Anzeige. */
-export const VORGABE_ARTEN: { art: VorgabeArt; label: string }[] = [
-  // Wie die Auswahl im Mitgliedsformular, Reihenfolge ebenso
-  { art: 'full', label: 'Vollmitglied (Erwachsene)' },
-  { art: 'youth', label: 'Jugend / Kind' },
-  { art: 'reduced', label: 'Ermäßigt (Student/Rentner)' },
-  { art: 'family', label: 'Familienbeitrag' },
-  { art: 'supporting', label: 'Fördermitglied / Sponsor' }
-];
+/** Die Arten mit Vorgabe: alle nicht gelöschten, nicht beitragsfreien, in der Reihenfolge der Liste. */
+export const vorgabeArten = (arten: readonly MitgliedsArt[] = STANDARD_ARTEN) => aktiveArten(arten).filter(a => !a.beitragsfrei);
 
 export const VORGABE_PERIODEN: { period: VorgabePeriode; label: string }[] = [
   { period: 'monthly', label: 'monatlich' },
@@ -39,7 +34,7 @@ export const VORGABE_PERIODEN: { period: VorgabePeriode; label: string }[] = [
   { period: 'yearly', label: 'jährlich' }
 ];
 
-/** Startwerte wie in der Android-Fassung. */
+/** Startwerte wie in der Android-Fassung. Eine neu angelegte Art beginnt mit 0 € monatlich. */
 export const STANDARD_VORGABEN: BeitragsVorgaben = {
   full: { amount: 18, period: 'monthly' },
   reduced: { amount: 12, period: 'monthly' },
@@ -56,25 +51,26 @@ function betragAus(roh: unknown): number | null {
 }
 
 /**
- * Liest die gespeicherten Vorgaben; Fehlendes oder Unbrauchbares wird mit den
- * Startwerten ergänzt (wie Android).
+ * Liest die gespeicherten Vorgaben für alle Arten mit Vorgabe; Fehlendes oder
+ * Unbrauchbares wird mit den Startwerten ergänzt (wie Android).
  */
-export function leseVorgaben(roh: unknown): BeitragsVorgaben {
+export function leseVorgaben(roh: unknown, arten: readonly MitgliedsArt[] = STANDARD_ARTEN): BeitragsVorgaben {
   const quelle = (typeof roh === 'object' && roh !== null ? roh : {}) as Record<string, unknown>;
   const ergebnis = {} as BeitragsVorgaben;
-  for (const { art } of VORGABE_ARTEN) {
+  for (const { id: art } of vorgabeArten(arten)) {
     const eintrag = (typeof quelle[art] === 'object' && quelle[art] !== null ? quelle[art] : {}) as Record<string, unknown>;
     const betrag = betragAus(eintrag.amount);
     const periode = typeof eintrag.period === 'string' && PERIODEN.has(eintrag.period) ? (eintrag.period as VorgabePeriode) : null;
+    const start = STANDARD_VORGABEN[art] ?? { amount: 0, period: 'monthly' as VorgabePeriode };
     ergebnis[art] = {
-      amount: betrag ?? STANDARD_VORGABEN[art].amount,
-      period: periode ?? STANDARD_VORGABEN[art].period
+      amount: betrag ?? start.amount,
+      period: periode ?? start.period
     };
   }
   return ergebnis;
 }
 
-/** Vorgabe für eine Mitgliedsart; null bei Arten ohne Vorgabe (Ehrenmitglied, ausgetreten). */
+/** Vorgabe für eine Mitgliedsart; null bei Arten ohne Vorgabe (beitragsfrei, gelöscht, ausgetreten). */
 export function vorgabeFuer(vorgaben: BeitragsVorgaben, art: MembershipType): BeitragsVorgabe | null {
-  return (VORGABE_ARTEN as { art: string }[]).some(a => a.art === art) ? vorgaben[art as VorgabeArt] : null;
+  return Object.prototype.hasOwnProperty.call(vorgaben, art) ? vorgaben[art] : null;
 }

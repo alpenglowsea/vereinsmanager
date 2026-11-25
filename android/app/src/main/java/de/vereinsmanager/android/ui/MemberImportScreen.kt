@@ -171,7 +171,10 @@ private fun VorschauSchritt(
 ) {
     var fehler by remember { mutableStateOf("") }
     val rows: List<ImportRow> = remember(t, mapping, defaultDept, model.members) {
-        MemberCsv.umwandeln(t.rows, mapping, model.members, model.departments, defaultDept.ifEmpty { null }, LocalDate.now())
+        MemberCsv.umwandeln(
+            t.rows, mapping, model.members, model.departments, defaultDept.ifEmpty { null }, LocalDate.now(),
+            model.arten, model.antragEinstellungen().beitraege,
+        )
     }
     val gewaehlt = rows.filter { it.index !in abgewaehlt }
     val dubletten = gewaehlt.count { it.isDuplicate }

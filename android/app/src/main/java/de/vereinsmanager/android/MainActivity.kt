@@ -399,6 +399,15 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // Einmaliger Hinweis nach der Umstellung „Ehrenmitglied“ von Status auf Mitgliedsart (25.11.2026)
+                model.ehrenHinweis?.let { t ->
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { model.ehrenHinweis = null },
+                        title = { androidx.compose.material3.Text("Ehrenmitglieder umgestellt") },
+                        text = { androidx.compose.material3.Text(t) },
+                        confirmButton = { androidx.compose.material3.TextButton(onClick = { model.ehrenHinweis = null }) { androidx.compose.material3.Text("OK") } },
+                    )
+                }
                 if (page is Page.AntragAusfuellen) {
                     // Das neue Mitglied sieht nur den Antrag: kein Menü, keine Kopfzeile, keine Zurück-Taste.
                     AntragAusfuellenScreen(

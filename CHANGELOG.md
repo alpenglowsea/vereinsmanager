@@ -176,6 +176,72 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Mitgliedsarten bearbeitbar, Ehrenmitglied als Art, leichtere Schnappschüsse
+
+Wünsche und Entscheidungen von Johannes vom 25.11.2026, an Desktop und Handy.
+
+**Mitgliedsarten in den Einstellungen**
+- Neue Karte „Mitgliedsarten“ (Desktop: Einstellungen → Vereinsstammdaten;
+  Handy: Einstellungen → Allgemein). Sie ersetzt „Beitragsvorgaben je
+  Mitgliedsart“ bzw. „Beiträge je Mitgliedsart“. Arten umbenennen, neu
+  anlegen, in der Reihenfolge verschieben, Beitragsvorgabe je Art. Die erste
+  Art ist die Vorgabe für neue Mitglieder.
+- Drei Schalter je Art statt fester Regeln: **beitragsfrei** (bisher nur
+  Ehrenmitglied), **unter 18 vorschlagen** (bisher Jugend; höchstens eine
+  Art), **im Aufnahmeantrag** (bisher alle außer Ehrenmitglied).
+- **Löschen:** Hat die Art Mitglieder, fragt die App, in welche Art sie
+  verschoben werden sollen; Löschen ohne Verschieben bleibt möglich. Das
+  Verschieben geschieht erst beim Speichern, über die Sammelbearbeitung (also
+  mit Eintrag in der Historie). Eine gelöschte Art bleibt mit ihrem Namen
+  erhalten („Familie (gelöscht)“), damit Mitglieder ohne Verschieben ihren
+  Namen behalten, und lässt sich wiederherstellen.
+- Am Mitglied steht weiter die Kennung der Art, nicht der Name. Bestehende
+  Mitglieder und alte Sicherungen bleiben gültig; ein neuer Name gilt überall
+  zugleich. Format: `BACKUP_FORMAT.md` Abschnitt 11, Sicherungsversion
+  unverändert.
+- Die Namen kommen jetzt überall aus dieser Liste: Mitgliederliste, Filter,
+  Sortierung, Detailansicht, Formular, Sammelbearbeitung, Statistik,
+  Startseite, Stammblatt, CSV und PDF, Historie, Sitzungs-Mail, Import,
+  Aufnahmeantrag samt leerem Formular. Vorher standen sie an rund zehn
+  Stellen je Fassung, nicht einheitlich („Jugend / Kind“, „Kinder und
+  Jugendliche“ …). Die Startseiten-Kachel „Neue Mitglieder“ und die
+  Empfängerliste der Sitzungs-Mail zeigten am Desktop sogar die interne
+  Kennung („full“).
+- **Aufnahmeantrag:** zeigt den Namen der Art. Die längeren Beschreibungen
+  von früher („Ermäßigt (Schüler, Studierende, Auszubildende, Rentner)“)
+  stehen dort nicht mehr; wer sie will, benennt die Art entsprechend.
+- **Import am Handy:** Ohne Beitrag in der Datei gilt jetzt die
+  Beitragsvorgabe der Art, wie am Desktop (vorher feste 60/80/120 €). Eine
+  eigene Art wird am genauen Namen erkannt.
+
+**„Ehrenmitglied“ ist kein Status mehr, sondern eine Mitgliedsart**
+- Aus den Status-Auswahlen entfernt (Formular, Sammelbearbeitung, Filter).
+- Bestehende Mitglieder mit diesem Status stellen beide Fassungen beim Start
+  und nach dem Einspielen einer Sicherung um: Status „Aktiv“, Art
+  „Ehrenmitglied“. **Der Beitrag bleibt unverändert**, damit niemandem still
+  eine Lastschrift wegfällt; die App meldet einmal, wie viele es waren.
+- Behoben: Am Desktop fehlte „Ehrenmitglied“ im Filter nach Typ.
+- Testverein: Die zwei Ehrenmitglieder haben jetzt Status „Aktiv“ (zwei
+  Zeilen in `Testverein.json`; sonst unverändert, nachgeprüft).
+
+**Schnappschüsse**
+- Desktop: kein Schnappschuss mehr nach jeder Änderung (bisher bei Arbeit
+  alle 5 Minuten eine vollständige Kopie samt Belegen). Jetzt einmal am Tag
+  beim Start und vor riskanten Schritten: Einspielen einer Sicherung,
+  Auslagern eines Jahresarchivs. Liste und Aufräumen lesen nur noch Datum
+  und Anzahl; vorher luden sie jedes Mal alle Kopien vollständig in den
+  Speicher. Vorhandene Schnappschüsse ziehen beim ersten Start einmal um
+  (Datenbankversion 2).
+- An beiden Fassungen höchstens 5: die 3 letzten täglichen und die 2 letzten
+  anderen (Handy vorher 7 + 5, Desktop 12).
+- Beim Wiederherstellen entstand am Desktop eine doppelte Sicherheitskopie;
+  jetzt eine.
+- **„Alle Daten löschen“** löscht an beiden Fassungen auch die Schnappschüsse
+  (das Handy legte vorher einen an, der liegen blieb). Davor bietet die App
+  „Erst Datensicherung speichern“ an.
+
+- Tests: Desktop +9, jetzt 564. Android +7, jetzt 727.
+
 ### Nachbesserung Handy — Speichern-Leiste in den Einstellungen, Plus-Knopf
 
 Aus der Prüfung vom 25.11.2026 (T-376) und den Wünschen von Johannes.

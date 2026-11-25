@@ -32,7 +32,8 @@ object Aufnahme {
             phone = a.telefon.trim(), email = a.email.trim().lowercase(), entryDate = a.eintritt, status = "active",
             department = a.sparte, type = a.mitgliedsart,
             fee = MemberRules.formatFee(vorgabe.wert), feePeriod = vorgabe.periode,
-            paymentMethod = if (a.sepa) "sepa" else "transfer",
+            // Beitragsfreie Art (Vorgabe mit Zahlweise „none“): beitragsfrei, wie Desktop
+            paymentMethod = if (vorgabe.periode == "none") "exempt" else if (a.sepa) "sepa" else "transfer",
             iban = if (a.sepa) a.iban.filterNot { it.isWhitespace() }.uppercase() else "", bic = if (a.sepa) a.bic.trim().uppercase() else "",
             bankName = if (a.sepa) a.bankname.trim() else "", accountHolder = if (a.sepa) a.kontoinhaber.trim() else "",
             mandateDate = if (a.sepa) heute.toString() else "", mandateReference = if (a.sepa) "MANDAT-${nummer.trim()}-${heute.year}" else "",
@@ -45,8 +46,9 @@ object Aufnahme {
 
     /** Prüft, ob die Aufnahme möglich ist; Text des ersten Problems oder null. */
     fun pruefen(store: DocumentStore, a: Antrag, nummer: String, vorgabe: BeitragsVorgabe, heute: LocalDate, sparten: List<String>): String? {
-        AntragRegeln.ersteFehlerSeite(a, heute, sparten)?.let { s ->
-            return AntragRegeln.fehler(s, a, heute, sparten).values.first()
+        val arten = de.vereinsmanager.core.members.Mitgliedsarten.lesen(store)
+        AntragRegeln.ersteFehlerSeite(a, heute, sparten, arten)?.let { s ->
+            return AntragRegeln.fehler(s, a, heute, sparten, arten).values.first()
         }
         val andere = store.all(MemberStore.AREA).mapNotNull { (it["memberNumber"] as? kotlinx.serialization.json.JsonPrimitive)?.content }
         return MemberRules.validate(mitgliedForm(a, nummer, vorgabe, heute, "pruefung"), andere).values.firstOrNull()

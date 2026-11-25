@@ -5,6 +5,7 @@
 
 import { naechsteJahresNummer, naechsteKontaktNummer, naechsteNummerImSchema } from './utils/nummern';
 import { useState, useEffect, useRef } from 'react';
+import { leseArten } from './utils/mitgliedsarten';
 import {
   Member,
   Transaction,
@@ -346,6 +347,15 @@ export default function App() {
     try {
       if (leise !== true) setLoading(true);
       await StorageService.init();
+      // „Ehrenmitglied“ als Status → als Mitgliedsart (einmalig je Bestand; auch nach dem Einspielen einer älteren Sicherung)
+      const ehrenUmgestellt = await StorageService.ehrenStatusUmstellen();
+      if (ehrenUmgestellt > 0) {
+        void melde(
+          `${ehrenUmgestellt === 1 ? 'Ein Mitglied hatte' : `${ehrenUmgestellt} Mitglieder hatten`} den Status „Ehrenmitglied“. ` +
+            'Den gibt es nicht mehr; Ehrenmitglied ist jetzt eine Mitgliedsart. Status ist jetzt „Aktiv“, Art „Ehrenmitglied“. ' +
+            'Der Beitrag ist unverändert geblieben – bitte prüfen, ob das so stimmt.'
+        );
+      }
       const [
         loadedMembers,
         loadedTransactions,
@@ -1945,6 +1955,7 @@ export default function App() {
             {activeTab === 'settings' && (
               <SettingsView
                 settings={settings}
+                members={members}
                 onSaveSettings={handleSaveSettings}
                 onBriefpapierGeaendert={setInvoiceTemplateSettings}
                 onDataReload={(leise?: boolean) => loadData(leise)}
@@ -2044,6 +2055,7 @@ export default function App() {
           nextMemberNumber={nextMemberNumber}
           existingMembers={members}
           beitragsVorgaben={settings.membershipFeeDefaults}
+          arten={leseArten(settings.membershipTypes)}
           onSave={handleSaveMember}
           onClose={() => {
             setMemberFormOpen(false);

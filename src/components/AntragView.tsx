@@ -17,7 +17,8 @@ import { AlertTriangle, Building2, CheckCircle2, CreditCard, FileText, Loader2, 
 import type { ClubDocument, ClubSettings, Member } from '../types';
 import type { Unterschrift } from '../utils/unterschrift';
 import {
-  ANTRAG_ARTEN,
+  antragArtenListe,
+  antragStartArt,
   Antrag,
   BEZIEHUNGEN,
   GESCHLECHTER,
@@ -181,7 +182,7 @@ const Uebersicht: React.FC<{ a: Antrag; settings: ClubSettings; heute: string }>
       )}
       <Abschnitt titel="Mitgliedschaft">
         <Zeile name="Sparte" wert={a.sparte} />
-        <Zeile name="Mitgliedsart" wert={artName(a.mitgliedsart)} />
+        <Zeile name="Mitgliedsart" wert={artName(a.mitgliedsart, e.arten)} />
         <Zeile name="Beitrag" wert={beitragText(e.beitraege[a.mitgliedsart])} />
         <Zeile name="Eintritt" wert={deutsch(a.eintritt)} />
         <Zeile name="Frühere Vereine" wert={a.vorverein} />
@@ -238,7 +239,7 @@ export const AntragAusfuellen: React.FC<{
   const sparten = sparteListe(settings);
   const einst = leseAntragEinstellungen(settings);
   const verein = settings.clubName || '';
-  const [a, setA] = useState<Antrag>(() => neuerAntrag({ eintritt: heute, sparte: sparten.length === 1 ? sparten[0] : '' }));
+  const [a, setA] = useState<Antrag>(() => neuerAntrag({ eintritt: heute, sparte: sparten.length === 1 ? sparten[0] : '', mitgliedsart: antragStartArt(einst.arten) }));
   const [seite, setSeite] = useState(SEITE_PERSON);
   // Höchster bisher erreichter Schritt: bis dorthin lassen sich die Reiter frei anklicken
   const [erreicht, setErreicht] = useState(SEITE_PERSON);
@@ -250,10 +251,10 @@ export const AntragAusfuellen: React.FC<{
 
   const satzungDok = einst.satzungDokId ? dokumente.find(d => d.id === einst.satzungDokId) : undefined;
   const datenschutzDok = einst.datenschutzDokId ? dokumente.find(d => d.id === einst.datenschutzDokId) : undefined;
-  const f = zeigeFehler ? fehlerAuf(seite, a, heute, sparten) : {};
+  const f = zeigeFehler ? fehlerAuf(seite, a, heute, sparten, einst.arten) : {};
   const minder = minderjaehrig(a, heute);
   const set = (w: Partial<Antrag>) => setA(prev => ({ ...prev, ...w }));
-  const reiterHatFehler = (s: number) => zeigeFehler && s !== SEITE_ZUSAMMENFASSUNG && s <= erreicht && Object.keys(fehlerAuf(s, a, heute, sparten)).length > 0;
+  const reiterHatFehler = (s: number) => zeigeFehler && s !== SEITE_ZUSAMMENFASSUNG && s <= erreicht && Object.keys(fehlerAuf(s, a, heute, sparten, einst.arten)).length > 0;
 
   // Die Escape-Taste tut nichts: Verlassen nur über „Abbrechen (Vereinsvertreter)“.
   useEffect(() => {
@@ -267,8 +268,8 @@ export const AntragAusfuellen: React.FC<{
   /** Beim Verlassen eines Schritts: Vorschläge eintragen, die sich aus ihm ergeben. */
   const mitVorschlaegen = (von: number, x: Antrag): Antrag => {
     let neu = x;
-    if (von === SEITE_PERSON && neu.mitgliedsart === 'full') {
-      const v = vorschlagArt(alter(neu.geburtsdatum, heute));
+    if (von === SEITE_PERSON && neu.mitgliedsart === antragStartArt(einst.arten)) {
+      const v = vorschlagArt(alter(neu.geburtsdatum, heute), einst.arten);
       if (v) neu = { ...neu, mitgliedsart: v };
     }
     // Kontoinhaber vorschlagen; bei unter 18 der gesetzliche Vertreter (T-258)
@@ -286,7 +287,7 @@ export const AntragAusfuellen: React.FC<{
 
   const weiter = () => {
     if (seite === SEITE_ZUSAMMENFASSUNG) {
-      const erste = ersteFehlerSeite(a, heute, sparten);
+      const erste = ersteFehlerSeite(a, heute, sparten, einst.arten);
       if (erste !== null) {
         setZeigeFehler(true);
         gehe(erste);
@@ -296,7 +297,7 @@ export const AntragAusfuellen: React.FC<{
       setAbgegeben(true);
       return;
     }
-    if (Object.keys(fehlerAuf(seite, a, heute, sparten)).length) {
+    if (Object.keys(fehlerAuf(seite, a, heute, sparten, einst.arten)).length) {
       setZeigeFehler(true);
       return;
     }
@@ -316,7 +317,7 @@ export const AntragAusfuellen: React.FC<{
     if (ja) onAbbruch();
   };
 
-  const vorschlag = vorschlagArt(alter(a.geburtsdatum, heute));
+  const vorschlag = vorschlagArt(alter(a.geburtsdatum, heute), einst.arten);
   const offeneFehler = Object.keys(f).length > 0;
   const reiter: { nr: number; titel: string; icon: React.ReactNode }[] = [
     { nr: SEITE_PERSON, titel: '1. Person', icon: <User className="w-4 h-4" /> },
@@ -470,14 +471,14 @@ export const AntragAusfuellen: React.FC<{
                     <Auswahl
                       label="Mitgliedsart *"
                       wert={a.mitgliedsart}
-                      optionen={ANTRAG_ARTEN.map(x => ({ wert: x.art, label: x.label }))}
+                      optionen={antragArtenListe(einst.arten).map(x => ({ wert: x.art, label: x.label }))}
                       onChange={v => set({ mitgliedsart: v as Antrag['mitgliedsart'] })}
                       fehler={f.mitgliedsart}
                     />
                   </div>
                   {vorschlag && a.mitgliedsart !== vorschlag && (
                     <div className="flex flex-wrap items-center gap-3 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3">
-                      <span>Hinweis: Für Personen unter 18 Jahren gibt es die Art „{artName(vorschlag)}“.</span>
+                      <span>Hinweis: Für Personen unter 18 Jahren gibt es die Art „{artName(vorschlag, einst.arten)}“.</span>
                       <button type="button" onClick={() => set({ mitgliedsart: vorschlag })} className="font-bold underline">
                         Diese Art übernehmen
                       </button>
@@ -677,11 +678,12 @@ export const AntragPruefen: React.FC<{
   const [meldung, setMeldung] = useState('');
   const [busy, setBusy] = useState(false);
   const doppelt = useMemo(() => dubletten(a, members), [a, members]);
-  const offen = fehlerAuf(SEITE_ZUSAMMENFASSUNG, a, heute, sparten);
+  const artenListe = leseAntragEinstellungen(settings).arten;
+  const offen = fehlerAuf(SEITE_ZUSAMMENFASSUNG, a, heute, sparten, artenListe);
   const ersterOffen = Object.values(offen)[0];
 
   const aufnehmen = async () => {
-    const problem = aufnahmeFehler(a, nummer, heute, sparten, members);
+    const problem = aufnahmeFehler(a, nummer, heute, sparten, members, artenListe);
     if (problem) {
       setMeldung(problem);
       return;

@@ -54,6 +54,8 @@ import de.vereinsmanager.core.antrag.AntragLayout
 import de.vereinsmanager.core.antrag.AntragEinstellungenStore
 import de.vereinsmanager.core.antrag.AntragRegeln
 import de.vereinsmanager.core.antrag.BeitragsVorgabe
+import de.vereinsmanager.core.members.MitgliedsArt
+import de.vereinsmanager.core.members.Mitgliedsarten
 import de.vereinsmanager.core.donation.Unterschrift
 import de.vereinsmanager.core.members.Iban
 import java.time.LocalDate
@@ -126,7 +128,7 @@ private fun AntragUebersicht(a: Antrag, e: AntragEinstellungen, heute: LocalDate
     }
     Abschnitt("Mitgliedschaft") {
         Zeile("Sparte", a.sparte)
-        Zeile("Mitgliedsart", AntragEinstellungen.ARTEN[a.mitgliedsart] ?: a.mitgliedsart)
+        Zeile("Mitgliedsart", e.artName(a.mitgliedsart))
         Zeile("Beitrag", AntragLayout.beitragText(e.beitrag(a.mitgliedsart)))
         Zeile("Eintritt", if (a.eintritt.isNotBlank()) deDate(a.eintritt) else "")
         Zeile("Frühere Vereine", a.vorverein)
@@ -154,7 +156,7 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
     val einst = remember { model.antragEinstellungen() }
     val sparten = remember(model.departments) { model.departments.ifEmpty { listOf("Hauptverein") } }
     val verein = model.vereinsname()
-    var a by remember { mutableStateOf(Antrag(eintritt = heute.toString(), sparte = sparten.singleOrNull() ?: "")) }
+    var a by remember { mutableStateOf(Antrag(eintritt = heute.toString(), sparte = sparten.singleOrNull() ?: "", mitgliedsart = einst.startArt)) }
     var seite by remember { mutableStateOf(AntragRegeln.SEITE_PERSON) }
     // Kontoinhaber von Hand geändert? Bis dahin folgt das Feld dem Vorschlag (T-265)
     var inhaberVonHand by remember { mutableStateOf(false) }
@@ -166,7 +168,7 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
     // Gesperrt: Die Zurück-Geste tut nichts.
     BackHandler(enabled = true) { if (ansicht != null) ansicht = null }
 
-    val fehler = if (zeigeFehler) AntragRegeln.fehler(seite, a, heute, sparten) else emptyMap()
+    val fehler = if (zeigeFehler) AntragRegeln.fehler(seite, a, heute, sparten, einst.arten) else emptyMap()
     val minder = AntragRegeln.minderjaehrig(a, heute)
     val satzungDok = remember(model.dokumente, model.stand) { model.antragBeilage(AntragEinstellungenStore.Beilage.SATZUNG) }
     val datenschutzDok = remember(model.dokumente, model.stand) { model.antragBeilage(AntragEinstellungenStore.Beilage.DATENSCHUTZ) }
@@ -263,12 +265,12 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
                             Ueberschrift("Mitgliedschaft")
                             Auswahl("Sparte *", sparten.associateWith { it }, a.sparte) { a = a.copy(sparte = it) }
                             if (fehler["sparte"] != null) Text(fehler["sparte"]!!, color = MaterialTheme.colorScheme.error)
-                            Auswahl("Mitgliedsart *", AntragEinstellungen.ARTEN, a.mitgliedsart) { a = a.copy(mitgliedsart = it) }
+                            Auswahl("Mitgliedsart *", einst.artenAuswahl, a.mitgliedsart) { a = a.copy(mitgliedsart = it) }
                             if (fehler["mitgliedsart"] != null) Text(fehler["mitgliedsart"]!!, color = MaterialTheme.colorScheme.error)
-                            val vorschlag = AntragRegeln.vorschlagArt(AntragRegeln.alter(a.geburtsdatum, heute))
+                            val vorschlag = AntragRegeln.vorschlagArt(AntragRegeln.alter(a.geburtsdatum, heute), einst.arten)
                             if (vorschlag != null && a.mitgliedsart != vorschlag) {
                                 Text(
-                                    "Hinweis: Für Personen unter 18 Jahren gibt es die Art „${AntragEinstellungen.ARTEN[vorschlag]}“.",
+                                    "Hinweis: Für Personen unter 18 Jahren gibt es die Art „${einst.artName(vorschlag)}“.",
                                     style = MaterialTheme.typography.bodyMedium,
                                 )
                                 TextButton(onClick = { a = a.copy(mitgliedsart = vorschlag) }) { Text("Diese Art übernehmen") }
@@ -346,15 +348,15 @@ fun AntragAusfuellenScreen(model: AppModel, onFertig: () -> Unit, onAbbruch: () 
                     ) { Text("Zurück") }
                     Button(
                         onClick = {
-                            val f = AntragRegeln.fehler(seite, a, heute, sparten)
+                            val f = AntragRegeln.fehler(seite, a, heute, sparten, einst.arten)
                             if (f.isNotEmpty()) { zeigeFehler = true; return@Button }
                             zeigeFehler = false
                             if (seite == AntragRegeln.SEITE_ZUSAMMENFASSUNG) {
                                 model.antragWartet = a
                                 abgegeben = true
                             } else {
-                                if (seite == AntragRegeln.SEITE_PERSON && a.mitgliedsart == "full") {
-                                    AntragRegeln.vorschlagArt(AntragRegeln.alter(a.geburtsdatum, heute))?.let { a = a.copy(mitgliedsart = it) }
+                                if (seite == AntragRegeln.SEITE_PERSON && a.mitgliedsart == einst.startArt) {
+                                    AntragRegeln.vorschlagArt(AntragRegeln.alter(a.geburtsdatum, heute), einst.arten)?.let { a = a.copy(mitgliedsart = it) }
                                 }
                                 // Vorschlag bei jedem Weg auf die Zahlungsseite neu, solange nicht von Hand geändert
                                 // (oder das Feld leer ist); bei unter 18 der Vertreter (T-258, T-265)
@@ -401,7 +403,7 @@ fun AntragPruefenScreen(model: AppModel, onAufgenommen: (String) -> Unit, onVerw
     var meldung by remember { mutableStateOf<String?>(null) }
     var verwerfenFrage by remember { mutableStateOf(false) }
     val dubletten = remember(a, model.members) { AntragRegeln.dubletten(a, model.members) }
-    val offen = AntragRegeln.fehler(AntragRegeln.SEITE_ZUSAMMENFASSUNG, a, heute, sparten)
+    val offen = AntragRegeln.fehler(AntragRegeln.SEITE_ZUSAMMENFASSUNG, a, heute, sparten, einst.arten)
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("Antrag prüfen", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 4.dp))
@@ -467,16 +469,30 @@ class AntragEntwurf(start: AntragEinstellungen) {
     var beitraege: Map<String, BeitragsVorgabe> by mutableStateOf(start.beitraege)
     var datenschutz: String by mutableStateOf(start.datenschutz)
     var satzung: String by mutableStateOf(start.satzung)
+    /** Mitgliedsarten (seit 25.11.2026 bearbeitbar) */
+    var arten: List<MitgliedsArt> by mutableStateOf(start.arten)
+    /** Beim Löschen einer Art vorgemerkte Umzüge (von → nach); ausgeführt beim Speichern. */
+    var verschiebungen: Map<String, String> by mutableStateOf(emptyMap())
     var zeigeFehler: Boolean by mutableStateOf(false)
     var meldung: String? by mutableStateOf(null)
-    val aktuell: AntragEinstellungen get() = start.copy(beitraege = beitraege, datenschutz = datenschutz, satzung = satzung)
-    val fehler: Map<String, String> get() = AntragEinstellungenStore.pruefen(aktuell)
-    val geaendert: Boolean get() = beitraege != start.beitraege || datenschutz != start.datenschutz || satzung != start.satzung
+    /** Vorgaben nur für nicht gelöschte, nicht beitragsfreie Arten (wie Desktop). */
+    val aktuell: AntragEinstellungen get() {
+        val mitVorgabe = Mitgliedsarten.aktive(arten).filter { !it.beitragsfrei }.map { it.id }
+        return start.copy(
+            beitraege = mitVorgabe.associateWith { beitraege[it] ?: BeitragsVorgabe("0", "monthly") },
+            datenschutz = datenschutz, satzung = satzung, arten = arten,
+        )
+    }
+    val fehler: Map<String, String> get() = AntragEinstellungenStore.pruefen(aktuell) + Mitgliedsarten.pruefen(arten)
+    val geaendert: Boolean get() = aktuell.beitraege != start.beitraege || datenschutz != start.datenschutz || satzung != start.satzung ||
+        arten != start.arten || verschiebungen.isNotEmpty()
 
     fun speichern(model: AppModel) {
-        if (fehler.isNotEmpty()) { zeigeFehler = true; meldung = "Bitte die markierten Beträge prüfen."; return }
+        if (fehler.isNotEmpty()) { zeigeFehler = true; meldung = "Bitte die markierten Angaben prüfen."; return }
         val neu = aktuell
-        model.antragEinstellungenSpeichern(neu) { f -> if (f == null) { start = neu; zeigeFehler = false; meldung = "Gespeichert." } else meldung = f }
+        model.mitgliedsartenSpeichern(neu, verschiebungen) { f ->
+            if (f == null) { start = neu; beitraege = neu.beitraege; verschiebungen = emptyMap(); zeigeFehler = false; meldung = "Gespeichert." } else meldung = f
+        }
     }
 }
 
@@ -486,36 +502,12 @@ fun rememberAntragEntwurf(model: AppModel): AntragEntwurf = remember { AntragEnt
 /** Beiträge je Mitgliedsart, Texte im Antrag und das leere Formular – als Karten in den Einstellungen. Gespeichert wird über die Leiste unten. */
 @Composable
 fun AntragEinstellungenKarten(model: AppModel, e: AntragEntwurf) {
-    val beitraege = e.beitraege
-    val fehler = e.fehler
-    val zeigeFehler = e.zeigeFehler
     var meldung by remember { mutableStateOf<String?>(null) }
     var info by remember { mutableStateOf<String?>(null) }
     val exporter = rememberExporter(model) { info = it }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        WieseKarte(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Beiträge je Mitgliedsart", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
-                Text(
-                    "Diese Werte zeigt der Aufnahmeantrag dem neuen Mitglied und trägt sie beim Aufnehmen als Beitrag ein. Meist einmal bei der Ersteinrichtung festlegen.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                AntragEinstellungen.ARTEN.forEach { (art, name) ->
-                    val v = beitraege[art] ?: BeitragsVorgabe("", "monthly")
-                    Text(name, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
-                        Box(Modifier.weight(1f)) {
-                            Feld("Betrag in €", v.betrag, { e.beitraege = beitraege + (art to v.copy(betrag = it)) },
-                                error = if (zeigeFehler) fehler["beitrag.$art"] else null, keyboard = KeyboardType.Decimal)
-                        }
-                        Box(Modifier.weight(1f)) {
-                            AuswahlFeld("Zahlweise", AntragEinstellungen.PERIODEN, v.periode) { e.beitraege = beitraege + (art to v.copy(periode = it)) }
-                        }
-                    }
-                }
-            }
-        }
+        MitgliedsartenKarte(model, e)
         WieseKarte(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Texte im Antrag", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
@@ -627,3 +619,140 @@ private fun AuswahlFeld(label: String, options: Map<String, String>, value: Stri
         }
     }
 }
+
+/**
+ * Mitgliedsarten bearbeiten (Wunsch Johannes, 25.11.2026), wie am Desktop: Name, Beitragsvorgabe, drei Schalter, Reihenfolge,
+ * neue Art, löschen mit Vorschlag zum Verschieben. Gilt erst mit „Speichern“ in der Leiste unten.
+ */
+@Composable
+private fun MitgliedsartenKarte(model: AppModel, e: AntragEntwurf) {
+    val aktiv = Mitgliedsarten.aktive(e.arten)
+    val geloeschte = e.arten.filter { it.geloescht }
+    val fehler = if (e.zeigeFehler) e.fehler else emptyMap()
+    var neuName by remember { mutableStateOf("") }
+    var loeschFrage by remember { mutableStateOf<Pair<String, String>?>(null) } // Art, Ziel
+    fun anzahl(id: String): Int {
+        var n = if (e.verschiebungen.containsKey(id)) 0 else Mitgliedsarten.anzahl(model.members, id)
+        for ((von, nach) in e.verschiebungen) if (nach == id) n += Mitgliedsarten.anzahl(model.members, von)
+        return n
+    }
+    fun aendern(id: String, f: (MitgliedsArt) -> MitgliedsArt) { e.arten = e.arten.map { if (it.id == id) f(it) else it } }
+    fun loeschen(id: String, ziel: String?) {
+        e.arten = Mitgliedsarten.loeschen(e.arten, id)
+        if (ziel != null) e.verschiebungen = e.verschiebungen + (id to ziel)
+        loeschFrage = null
+    }
+    WieseKarte(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Mitgliedsarten", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+            Text(
+                "Die Arten, die Ihr Verein führt, mit ihrem Beitrag. Der Beitrag wird beim Anlegen eines neuen Mitglieds und im Aufnahmeantrag vorgeschlagen; " +
+                    "bestehende Mitglieder bleiben unverändert. Die erste Art ist die Vorgabe für neue Mitglieder. Ein neuer Name gilt überall in der App.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Text(
+                "beitragsfrei: zahlt keinen Beitrag (z. B. Ehrenmitglied) · unter 18 vorschlagen: wird Kindern und Jugendlichen vorgeschlagen (nur eine Art) · " +
+                    "im Aufnahmeantrag: im Antrag wählbar",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            aktiv.forEachIndexed { i, a ->
+                val n = anzahl(a.id)
+                androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                Feld("Name", a.name, { t -> aendern(a.id) { it.copy(name = t.take(60)) } }, error = fehler["name.${a.id}"])
+                Text(
+                    (if (n == 1) "1 Mitglied" else "$n Mitglieder") + if (i == 0) " · Vorgabe für neue Mitglieder" else "",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (!a.beitragsfrei) {
+                    val v = e.beitraege[a.id] ?: BeitragsVorgabe("0", "monthly")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+                        Box(Modifier.weight(1f)) {
+                            Feld("Betrag in €", v.betrag, { e.beitraege = e.beitraege + (a.id to v.copy(betrag = it)) },
+                                error = fehler["beitrag.${a.id}"], keyboard = KeyboardType.Decimal)
+                        }
+                        Box(Modifier.weight(1f)) {
+                            AuswahlFeld("Zahlweise", AntragEinstellungen.PERIODEN, v.periode) { e.beitraege = e.beitraege + (a.id to v.copy(periode = it)) }
+                        }
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(a.beitragsfrei, { an -> aendern(a.id) { it.copy(beitragsfrei = an) } })
+                    Text("beitragsfrei", style = MaterialTheme.typography.bodyMedium)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(a.unter18, { an -> e.arten = e.arten.map { x -> if (x.id == a.id) x.copy(unter18 = an) else if (an) x.copy(unter18 = false) else x } })
+                    Text("unter 18 vorschlagen", style = MaterialTheme.typography.bodyMedium)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(a.imAntrag, { an -> aendern(a.id) { it.copy(imAntrag = an) } })
+                    Text("im Aufnahmeantrag", style = MaterialTheme.typography.bodyMedium)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = { e.arten = Mitgliedsarten.verschieben(e.arten, a.id, -1) }, enabled = i > 0) { Text("▲ nach oben") }
+                    TextButton(onClick = { e.arten = Mitgliedsarten.verschieben(e.arten, a.id, 1) }, enabled = i < aktiv.lastIndex) { Text("▼ nach unten") }
+                    TextButton(
+                        onClick = { if (n == 0) loeschen(a.id, null) else loeschFrage = a.id to (aktiv.firstOrNull { it.id != a.id }?.id ?: "") },
+                        enabled = aktiv.size > 1,
+                    ) { Text("Löschen", color = if (aktiv.size > 1) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+            }
+            fehler["liste"]?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.weight(1f)) { Feld("Neue Art, z. B. Senioren", neuName, { neuName = it.take(60) }) }
+                OutlinedButton(onClick = {
+                    val n = Mitgliedsarten.neu(e.arten, neuName)
+                    e.arten = e.arten + n
+                    e.beitraege = e.beitraege + (n.id to BeitragsVorgabe("0", "monthly"))
+                    neuName = ""
+                }, enabled = neuName.isNotBlank()) { Text("Hinzufügen") }
+            }
+            if (geloeschte.isNotEmpty()) {
+                Text("Gelöschte Arten", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp))
+                geloeschte.forEach { a ->
+                    val n = Mitgliedsarten.anzahl(model.members, a.id)
+                    val ziel = e.verschiebungen[a.id]
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            a.name + when {
+                                ziel != null -> " – ${if (n == 1) "1 Mitglied wird" else "$n Mitglieder werden"} beim Speichern nach „${Mitgliedsarten.name(e.arten, ziel)}“ verschoben"
+                                n > 0 -> " – ${if (n == 1) "1 Mitglied" else "$n Mitglieder"} noch so eingetragen"
+                                else -> ""
+                            },
+                            style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = {
+                            e.arten = Mitgliedsarten.wiederherstellen(e.arten, a.id)
+                            e.verschiebungen = e.verschiebungen - a.id
+                        }) { Text("Wiederherstellen") }
+                    }
+                }
+            }
+        }
+    }
+    loeschFrage?.let { (id, ziel) ->
+        val art = e.arten.firstOrNull { it.id == id } ?: return@let
+        val n = anzahl(id)
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { loeschFrage = null },
+            title = { Text("„${art.name}“ löschen?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        (if (n == 1) "Ein Mitglied ist" else "$n Mitglieder sind") + " als „${art.name}“ eingetragen. Sollen sie in eine andere Art verschoben werden? " +
+                            "Ohne Verschieben behalten sie die Art; sie heißt dann „${art.name} (gelöscht)“. Das Verschieben geschieht beim Speichern.",
+                    )
+                    AuswahlFeld("Verschieben nach", Mitgliedsarten.aktive(e.arten).filter { it.id != id }.associate { it.id to it.name }, ziel) { loeschFrage = id to it }
+                }
+            },
+            confirmButton = { TextButton(onClick = { loeschen(id, ziel) }) { Text("Verschieben und löschen") } },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { loeschFrage = null }) { Text("Abbrechen") }
+                    TextButton(onClick = { loeschen(id, null) }) { Text("Ohne Verschieben") }
+                }
+            },
+        )
+    }
+}
+

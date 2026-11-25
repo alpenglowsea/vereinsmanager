@@ -9,6 +9,8 @@ import de.vereinsmanager.core.documents.StandardOrdner
 import de.vereinsmanager.core.donation.Unterschrift
 import de.vereinsmanager.core.files.FileStore
 import de.vereinsmanager.core.members.Member
+import de.vereinsmanager.core.members.MitgliedsArt
+import de.vereinsmanager.core.members.Mitgliedsarten
 import de.vereinsmanager.core.sepa.SepaService
 import de.vereinsmanager.core.settings.Vereinsdaten
 import de.vereinsmanager.core.store.DocumentStore
@@ -54,18 +56,19 @@ data class AntragEinstellungen(
     val satzungDokId: String = "",
     /** Kennung des hinterlegten Datenschutz-Vordrucks (leer = keiner) */
     val datenschutzDokId: String = "",
+    /** Mitgliedsarten aus den Einstellungen (seit 25.11.2026 bearbeitbar) */
+    val arten: List<MitgliedsArt> = Mitgliedsarten.STANDARD,
 ) {
-    fun beitrag(art: String): BeitragsVorgabe = beitraege[art] ?: STANDARD_BEITRAEGE.getValue("full")
+    /** Vorgabe der Art; ohne Vorgabe (beitragsfreie Art) 0 € und Zahlweise „none“. */
+    fun beitrag(art: String): BeitragsVorgabe = beitraege[art] ?: BeitragsVorgabe("0", "none")
+
+    /** Die Arten, die im Antrag zur Wahl stehen (Schalter „im Aufnahmeantrag“), mit ihrem Namen. Wie Desktop `antragArtenListe`. */
+    val artenAuswahl: Map<String, String> get() = Mitgliedsarten.antragsArten(arten).associate { it.id to it.name }
+    fun artName(art: String) = Mitgliedsarten.name(arten, art)
+    /** Erste Art im Antrag: Vorgabe für einen neuen Antrag. */
+    val startArt: String get() = Mitgliedsarten.antragsArten(arten).firstOrNull()?.id ?: "full"
 
     companion object {
-        /** Die Mitgliedsarten, die im Antrag zur Wahl stehen (wie am Desktop), mit Beschreibung für das neue Mitglied. */
-        val ARTEN = linkedMapOf(
-            "full" to "Vollmitglied (Erwachsene)",
-            "reduced" to "Ermäßigt (Schüler, Studierende, Auszubildende, Rentner)",
-            "youth" to "Kinder und Jugendliche",
-            "family" to "Familienbeitrag",
-            "supporting" to "Fördermitglied (passiv)",
-        )
         val PERIODEN = linkedMapOf("monthly" to "monatlich", "quarterly" to "vierteljährlich", "half_yearly" to "halbjährlich", "yearly" to "jährlich")
         /** Startwerte wie am Desktop; der Verein ändert sie in den Einstellungen. */
         val STANDARD_BEITRAEGE: Map<String, BeitragsVorgabe> = linkedMapOf(
@@ -106,8 +109,11 @@ object AntragEinstellungenStore {
     fun lesen(settings: JsonObject?): AntragEinstellungen {
         val std = AntragEinstellungen.standard()
         val b = settings?.get(K_BEITRAEGE) as? JsonObject
+        val arten = Mitgliedsarten.lesen(settings)
         val beitraege = LinkedHashMap<String, BeitragsVorgabe>()
-        for ((art, vorgabe) in std.beitraege) {
+        // Vorgaben für alle nicht gelöschten, nicht beitragsfreien Arten (wie Desktop `leseVorgaben`); neue Arten starten mit 0 € monatlich
+        for (art in Mitgliedsarten.aktive(arten).filter { !it.beitragsfrei }.map { it.id }) {
+            val vorgabe = AntragEinstellungen.STANDARD_BEITRAEGE[art] ?: BeitragsVorgabe("0", "monthly")
             val o = b?.get(art) as? JsonObject
             val betrag = t(o, "amount").ifEmpty { vorgabe.betrag }
             val periode = t(o, "period").takeIf { it in AntragEinstellungen.PERIODEN }
@@ -115,7 +121,7 @@ object AntragEinstellungenStore {
         }
         return AntragEinstellungen(
             beitraege, t(settings, K_DATENSCHUTZ).ifBlank { std.datenschutz }, t(settings, K_SATZUNG).ifBlank { std.satzung },
-            satzungDokId = t(settings, K_SATZUNG_DOK), datenschutzDokId = t(settings, K_DATENSCHUTZ_DOK),
+            satzungDokId = t(settings, K_SATZUNG_DOK), datenschutzDokId = t(settings, K_DATENSCHUTZ_DOK), arten = arten,
         )
     }
 
@@ -144,7 +150,10 @@ object AntragEinstellungenStore {
     /** Speichert Beiträge und Texte. Ein Text, der dem Standard entspricht, wird nicht gespeichert (dann gilt künftig ein besserer Standard). */
     fun speichern(store: DocumentStore, e: AntragEinstellungen) {
         pruefen(e).values.firstOrNull()?.let { throw IllegalArgumentException(it) }
+        Mitgliedsarten.pruefen(e.arten).values.firstOrNull()?.let { throw IllegalArgumentException(it) }
         aendern(store) { m ->
+            // Mitgliedsarten im selben Schritt (seit 25.11.2026, Feld `membershipTypes` wie am Desktop)
+            m[Mitgliedsarten.SCHLUESSEL] = Mitgliedsarten.json(e.arten.map { it.copy(name = it.name.trim()) })
             m[K_BEITRAEGE] = JsonObject(e.beitraege.mapValues { (_, v) ->
                 JsonObject(linkedMapOf<String, JsonElement>("amount" to JsonPrimitive(v.wert.setScale(2, java.math.RoundingMode.HALF_UP)), "period" to JsonPrimitive(v.periode)))
             })
@@ -252,13 +261,17 @@ object AntragRegeln {
     fun kontoinhaberVorschlag(a: Antrag, heute: LocalDate): String =
         if (minderjaehrig(a, heute) && a.vertreterName.isNotBlank()) a.vertreterName.trim() else a.name
 
-    /** Eine Mitgliedsart zum Alter; null, wenn das Alter unbekannt ist oder keine Änderung nahelegt. */
-    fun vorschlagArt(alter: Int?): String? = if (alter != null && alter < 18) "youth" else null
+    /** Bei unter 18: die Art mit „unter 18 vorschlagen“, wenn sie im Antrag wählbar ist; sonst null (wie Desktop). */
+    fun vorschlagArt(alter: Int?, arten: List<MitgliedsArt> = Mitgliedsarten.STANDARD): String? {
+        if (alter == null || alter >= 18) return null
+        val jung = Mitgliedsarten.unter18Art(arten) ?: return null
+        return jung.takeIf { j -> Mitgliedsarten.antragsArten(arten).any { it.id == j } }
+    }
 
     private fun plausibleEmail(e: String) = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$").matches(e.trim())
 
     /** Fehlermeldungen je Feld für eine Seite; leer, wenn alles in Ordnung ist. Seite 5 prüft alles. */
-    fun fehler(seite: Int, a: Antrag, heute: LocalDate, sparten: List<String>): Map<String, String> {
+    fun fehler(seite: Int, a: Antrag, heute: LocalDate, sparten: List<String>, arten: List<MitgliedsArt> = Mitgliedsarten.STANDARD): Map<String, String> {
         val f = LinkedHashMap<String, String>()
         val alle = seite == SEITE_ZUSAMMENFASSUNG
         if (seite == SEITE_PERSON || alle) {
@@ -278,7 +291,7 @@ object AntragRegeln {
         }
         if (seite == SEITE_MITGLIEDSCHAFT || alle) {
             if (a.sparte.isBlank() || (sparten.isNotEmpty() && a.sparte !in sparten)) f["sparte"] = "Bitte eine Sparte wählen."
-            if (a.mitgliedsart !in AntragEinstellungen.ARTEN) f["mitgliedsart"] = "Bitte eine Mitgliedsart wählen."
+            if (Mitgliedsarten.antragsArten(arten).none { it.id == a.mitgliedsart }) f["mitgliedsart"] = "Bitte eine Mitgliedsart wählen."
             if (datum(a.eintritt) == null) f["eintritt"] = "Bitte das Eintrittsdatum eingeben."
         }
         if (seite == SEITE_ZAHLUNG || alle) {
@@ -305,8 +318,8 @@ object AntragRegeln {
     }
 
     /** Erste Seite mit einem Fehler; null, wenn der Antrag vollständig ist. */
-    fun ersteFehlerSeite(a: Antrag, heute: LocalDate, sparten: List<String>): Int? =
-        (SEITE_PERSON..SEITE_ERKLAERUNG).firstOrNull { fehler(it, a, heute, sparten).isNotEmpty() }
+    fun ersteFehlerSeite(a: Antrag, heute: LocalDate, sparten: List<String>, arten: List<MitgliedsArt> = Mitgliedsarten.STANDARD): Int? =
+        (SEITE_PERSON..SEITE_ERKLAERUNG).firstOrNull { fehler(it, a, heute, sparten, arten).isNotEmpty() }
 
     /** Mitglieder, die dem Antrag auffällig ähneln (gleicher Vor- und Nachname oder gleiche E-Mail-Adresse). */
     fun dubletten(a: Antrag, members: List<Member>): List<Member> {

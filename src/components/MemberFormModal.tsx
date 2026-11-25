@@ -1,6 +1,7 @@
 import { nummerVergeben } from '../utils/nummern';
 import { leseVorgaben, vorgabeFuer } from '../utils/beitragsVorgaben';
 import { kontoinhaberNachName, lokalesHeute } from '../utils/mitgliedRegeln';
+import { MitgliedsArt, STANDARD_ARTEN, aktiveArten, artName, istAustritt, istBeitragsfrei, standardArt } from '../utils/mitgliedsarten';
 import type { ClubSettings } from '../types';
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -48,6 +49,8 @@ interface MemberFormModalProps {
   existingMembers?: Member[];
   /** Beitragsvorgaben je Mitgliedsart aus den Einstellungen (D-94). */
   beitragsVorgaben?: ClubSettings['membershipFeeDefaults'];
+  /** Mitgliedsarten aus den Einstellungen (seit 25.11.2026 bearbeitbar). */
+  arten?: readonly MitgliedsArt[];
   onSave: (member: Member, attachedDoc?: ClubDocument) => void | Promise<void>;
   onClose: () => void;
 }
@@ -72,11 +75,15 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
   nextMemberNumber,
   existingMembers = [],
   beitragsVorgaben,
+  arten = STANDARD_ARTEN,
   onSave,
   onClose
 }) => {
   // Beitragsvorgaben je Mitgliedsart; fehlen sie, gelten die Startwerte
-  const vorgaben = leseVorgaben(beitragsVorgaben);
+  const vorgaben = leseVorgaben(beitragsVorgaben, arten);
+  // Neues Mitglied startet mit der ersten Art der Liste und ihrer Vorgabe
+  const startArt = standardArt(arten);
+  const startVorgabe = vorgabeFuer(vorgaben, startArt);
   const [activeTab, setActiveTab] = useState<'base' | 'contact' | 'membership' | 'payment' | 'notes'>('base');
 
   const [formData, setFormData] = useState<Member>({
@@ -105,11 +112,11 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
     exitDate: member?.exitDate || '',
     status: member?.status || 'active',
     department: member?.department || departments[0] || 'Fußball',
-    membershipType: member?.membershipType || 'full',
-    // Neues Mitglied: Vorgabe für Vollmitglieder (die Art, mit der das Formular startet)
-    feeAmount: member?.feeAmount ?? vorgaben.full.amount,
-    feePeriod: member?.feePeriod || vorgaben.full.period,
-    paymentMethod: member?.paymentMethod || 'sepa',
+    membershipType: member?.membershipType || startArt,
+    // Neues Mitglied: Vorgabe der Art, mit der das Formular startet (beitragsfrei: 0, keine Zahlweise)
+    feeAmount: member?.feeAmount ?? startVorgabe?.amount ?? 0,
+    feePeriod: member?.feePeriod || startVorgabe?.period || 'none',
+    paymentMethod: member?.paymentMethod || (startVorgabe ? 'sepa' : 'exempt'),
     bankDetails: {
       iban: member?.bankDetails?.iban || '',
       bic: member?.bankDetails?.bic || '',
@@ -187,13 +194,13 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
       setFormData(prev => ({
         ...prev,
         status: newStatus,
-        membershipType: prev.membershipType === 'ausgetreten' || prev.membershipType === 'terminated' ? 'full' : prev.membershipType
+        membershipType: istAustritt(prev.membershipType) ? startArt : prev.membershipType
       }));
     }
   };
 
   const handleMembershipTypeChange = (newType: MembershipType) => {
-    if (newType === 'ausgetreten' || newType === 'terminated') {
+    if (istAustritt(newType)) {
       setFormData(prev => ({
         ...prev,
         membershipType: newType,
@@ -203,7 +210,7 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
         paymentMethod: 'exempt',
         exitDate: prev.exitDate || lokalesHeute()
       }));
-    } else if (newType === 'honorary') {
+    } else if (istBeitragsfrei(arten, newType)) {
       setFormData(prev => ({
         ...prev,
         membershipType: newType,
@@ -930,7 +937,6 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
                     >
                       <option value="active">🟢 Aktiv</option>
                       <option value="passive">⚪ Passiv</option>
-                      <option value="honorary">⭐ Ehrenmitglied</option>
                       <option value="suspended">🟡 Ruhend</option>
                       <option value="terminated">🔴 Gekündigt / Ausgetreten</option>
                     </select>
@@ -945,12 +951,13 @@ export const MemberFormModal: React.FC<MemberFormModalProps> = ({
                       onChange={e => handleMembershipTypeChange(e.target.value as MembershipType)}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:border-slate-700 dark:bg-slate-800"
                     >
-                      <option value="full">Vollmitglied (Erwachsene)</option>
-                      <option value="youth">Jugend / Kind</option>
-                      <option value="reduced">Ermäßigt (Student/Rentner)</option>
-                      <option value="family">Familienbeitrag</option>
-                      <option value="supporting">Fördermitglied / Sponsor</option>
-                      <option value="honorary">Ehrenmitglied (beitragsfrei)</option>
+                      {aktiveArten(arten).map(a => (
+                        <option key={a.id} value={a.id}>{a.beitragsfrei ? `${a.name} (beitragsfrei)` : a.name}</option>
+                      ))}
+                      {/* Gelöschte oder unbekannte Art des Mitglieds bleibt wählbar, bis man eine andere wählt */}
+                      {!istAustritt(formData.membershipType) && !aktiveArten(arten).some(a => a.id === formData.membershipType) && (
+                        <option value={formData.membershipType}>{artName(arten, formData.membershipType)}</option>
+                      )}
                       <option value="ausgetreten">Ausgetreten</option>
                     </select>
                   </div>

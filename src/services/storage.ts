@@ -57,6 +57,7 @@ import { customCategoryService } from './customCategoryService';
 import { planeBelegOrdner, planeUnterordner, belegArtVon, sollEinsortiertWerden, BelegArt } from '../utils/belegOrdner';
 import { wendeSammelAn } from '../utils/buchungSammel';
 import { wendeSammelRegelnAn, lokalesHeute } from '../utils/mitgliedRegeln';
+import { leseArten, artName, ohneEhrenStatus } from '../utils/mitgliedsarten';
 import { beitragsBuchungen } from './beitragsBuchung';
 import { pruefeSammel, wendeSammelAn as wendeInventarSammelAn } from '../utils/inventarRegeln';
 import { MaterialEintrag, materialEntfernt, materialGespeichert } from '../utils/materialProtokoll';
@@ -119,8 +120,6 @@ const LIVE_DB_NAME = 'VereinsManager_LiveDB_v1';
 const ALTE_DEMO_DB_NAME = 'VereinsManager_DemoDB_v1';
 // 10: Bereiche der früheren Online-Anträge entfernt (D-04)
 const DB_VERSION = 10;
-
-let isImportingBackup = false;
 
 /**
  * Entfernt die Bereiche der früheren Online-Anträge samt Inhalt (D-04,
@@ -344,20 +343,6 @@ function openDB(dbNameOverride?: string): Promise<IDBDatabase> {
   });
 }
 
-let snapshotTimer: any = null;
-function triggerAutoSnapshot() {
-  if (isImportingBackup) return;
-  if (snapshotTimer) clearTimeout(snapshotTimer);
-  snapshotTimer = setTimeout(async () => {
-    try {
-      const { SnapshotService } = await import('./snapshotService');
-      await SnapshotService.createSnapshot('periodic');
-    } catch (err) {
-      console.warn('Automatische Datensicherung fehlgeschlagen - es entsteht KEIN Snapshot:', err);
-    }
-  }, 4000);
-}
-
 async function getAllFromStore<T>(storeName: string, dbNameOverride?: string): Promise<T[]> {
   const prefix = getStorePrefix();
   try {
@@ -406,7 +391,6 @@ async function saveAllToStore<T extends { id: string }>(storeName: string, items
       items.forEach(item => store.put(item));
       tx.oncomplete = () => {
         // Do NOT mirror large collections into localStorage. localStorage has a strict 5MB quota.
-        if (items.length > 0 && !isImportingBackup) triggerAutoSnapshot();
         resolve();
       };
       tx.onerror = () => reject(tx.error);
@@ -420,7 +404,6 @@ async function saveAllToStore<T extends { id: string }>(storeName: string, items
     } catch (err) {
       console.warn('Ausweichspeicherung in localStorage fehlgeschlagen - diese Daten sind nicht gesichert:', err);
     }
-    if (items.length > 0 && !isImportingBackup) triggerAutoSnapshot();
   }
 }
 
@@ -529,17 +512,13 @@ async function putItemToStore<T extends { id: string }>(storeName: string, item:
       if (idx >= 0) items[idx] = item;
       else items.push(item);
       await saveAllToStore(storeName, items, dbNameOverride);
-      if (!isImportingBackup) triggerAutoSnapshot();
       return;
     }
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite');
       const store = tx.objectStore(storeName);
       store.put(item);
-      tx.oncomplete = () => {
-        if (!isImportingBackup) triggerAutoSnapshot();
-        resolve();
-      };
+      tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
   } catch (err) {
@@ -549,7 +528,6 @@ async function putItemToStore<T extends { id: string }>(storeName: string, item:
     if (idx >= 0) items[idx] = item;
     else items.push(item);
     await saveAllToStore(storeName, items, dbNameOverride);
-    if (!isImportingBackup) triggerAutoSnapshot();
   }
 }
 
@@ -560,17 +538,13 @@ async function deleteItemFromStore(storeName: string, id: string): Promise<void>
       const items = await getAllFromStore<{ id: string }>(storeName);
       const filtered = items.filter(i => i.id !== id);
       await saveAllToStore(storeName, filtered);
-      triggerAutoSnapshot();
       return;
     }
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite');
       const store = tx.objectStore(storeName);
       store.delete(id);
-      tx.oncomplete = () => {
-        triggerAutoSnapshot();
-        resolve();
-      };
+      tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
   } catch (err) {
@@ -578,7 +552,6 @@ async function deleteItemFromStore(storeName: string, id: string): Promise<void>
     const items = await getAllFromStore<{ id: string }>(storeName);
     const filtered = items.filter(i => i.id !== id);
     await saveAllToStore(storeName, filtered);
-    triggerAutoSnapshot();
   }
 }
 
@@ -649,14 +622,34 @@ export const StorageService = {
 
       // 6. Automatischen Sicherheits-Snapshot im Hintergrund anstoßen
       try {
+        // Täglicher Schnappschuss: nur, wenn der letzte älter als 20 Stunden ist
         const { SnapshotService } = await import('./snapshotService');
-        await SnapshotService.createSnapshot('startup');
+        await SnapshotService.taeglichAnlegen();
       } catch (err) {
         console.warn('Start-Snapshot konnte nicht angelegt werden:', err);
       }
     } catch (err) {
       console.warn('Initialisierung Live-DB:', err);
     }
+  },
+
+  /**
+   * „Ehrenmitglied“ ist seit 25.11.2026 kein Status mehr, sondern eine
+   * Mitgliedsart. Stellt Mitglieder mit diesem Status um (Status „Aktiv“, Art
+   * „Ehrenmitglied“, Beitrag unverändert) und gibt die Anzahl zurück. Läuft
+   * beim Start und nach dem Einspielen; ist nichts zu tun, schreibt es nichts.
+   * Gleiche Regel am Handy: `Mitgliedsarten.ehrenStatusUmstellen`.
+   */
+  async ehrenStatusUmstellen(): Promise<number> {
+    const alle = await getAllFromStore<Member>(STORES.MEMBERS);
+    let n = 0;
+    for (const m of alle) {
+      const neu = ohneEhrenStatus(m);
+      if (!neu) continue;
+      await putItemToStore(STORES.MEMBERS, { ...neu, updatedAt: new Date().toISOString() });
+      n++;
+    }
+    return n;
   },
 
   /**
@@ -916,6 +909,7 @@ export const StorageService = {
     author = BEARBEITER
   ): Promise<{ updatedCount: number; updatedMembers: Member[]; gesperrt: { name: string; felder: string[] }[] }> {
     const allMembers = await this.getMembers();
+    const arten = leseArten((await this.getSettings()).membershipTypes);
     const idSet = new Set(ids);
     const now = new Date().toISOString();
     const updatedMembersList: Member[] = [];
@@ -938,7 +932,6 @@ export const StorageService = {
     const statusTranslations: Record<string, string> = {
       active: 'Aktiv',
       passive: 'Passiv',
-      honorary: 'Ehrenmitglied',
       suspended: 'Ruhend',
       terminated: 'Gekündigt'
     };
@@ -959,22 +952,12 @@ export const StorageService = {
       none: 'beitragsfrei'
     };
 
-    const typeTranslations: Record<string, string> = {
-      full: 'Vollmitglied',
-      youth: 'Jugend / Kinder',
-      reduced: 'Ermäßigt',
-      family: 'Familie',
-      supporting: 'Förderer / Sponsor',
-      honorary: 'Ehrenmitglied',
-      ausgetreten: 'Ausgetreten'
-    };
-
     const formatVal = (field: string, val: any) => {
       if (val === undefined || val === null || val === '') return '–';
       if (field === 'status') return statusTranslations[val] || val;
       if (field === 'paymentMethod') return paymentTranslations[val] || val;
       if (field === 'feePeriod') return periodTranslations[val] || val;
-      if (field === 'membershipType') return typeTranslations[val] || val;
+      if (field === 'membershipType') return artName(arten, val);
       if (field === 'feeAmount') return `${Number(val).toFixed(2)} €`;
       if (field === 'dataPrivacyConsent') return val ? 'Zugestimmt' : 'Nicht erteilt';
       return String(val);
@@ -989,7 +972,7 @@ export const StorageService = {
       // Art, Status, Zahlweise, Zahlungsart, Beitrag und Austritt nach den
       // Regeln des Formulars (D-27, wie Android). Vorher setzte die
       // Sammelbearbeitung z. B. „gekündigt“, ließ aber Beitrag und Lastschrift stehen.
-      const regel = wendeSammelRegelnAn(memberCopy, updates, lokalesHeute());
+      const regel = wendeSammelRegelnAn(memberCopy, updates, lokalesHeute(), arten);
       const geregelt = regel.mitglied;
       if (regel.uebersprungen.length > 0) {
         gesperrt.push({ name: `${memberCopy.firstName} ${memberCopy.lastName}`.trim(), felder: regel.uebersprungen });
@@ -2341,11 +2324,12 @@ export const StorageService = {
     const members = await getAllFromStore<Member>(STORES.MEMBERS);
     const heute = lokalesHeute();
     const sparten = (settings.departments || []).length ? settings.departments : ['Hauptverein'];
-    const problem = aufnahmeFehler(a, nummer, heute, sparten, members);
+    const einst = leseAntragEinstellungen(settings);
+    const problem = aufnahmeFehler(a, nummer, heute, sparten, members, einst.arten);
     if (problem) throw new Error(problem);
 
     const jetzt = new Date().toISOString();
-    const vorgabe = leseAntragEinstellungen(settings).beitraege[a.mitgliedsart];
+    const vorgabe = einst.beitraege[a.mitgliedsart] ?? null;
     const member = mitgliedAusAntrag(a, nummer, vorgabe, heute, `mem-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`, jetzt);
     const ordner = await this.standardOrdner(ORDNER_ANTRAEGE);
     const dok: ClubDocument = {
@@ -2602,7 +2586,6 @@ export const StorageService = {
 
     // Free up any bloated localStorage entries before importing
     purgeBloatedLocalStorage();
-    isImportingBackup = true;
 
     try {
       const {
@@ -2791,8 +2774,8 @@ export const StorageService = {
         art
       };
     } finally {
-      isImportingBackup = false;
-      triggerAutoSnapshot();
+      // Seit 25.11.2026 entsteht nach dem Einspielen kein automatischer
+      // Schnappschuss mehr; die Kopie des alten Stands steht oben.
     }
   },
 
@@ -2814,30 +2797,12 @@ export const StorageService = {
   },
 
   async clearAllData(): Promise<void> {
-    // Beim Leeren darf kein neuer Snapshot entstehen: Jeder Schreibvorgang
-    // unten würde sonst die 4-Sekunden-Uhr der automatischen Snapshots
-    // anstoßen, und der Snapshot käme erst NACH dem Löschen der alten. Eine
-    // schon laufende Uhr wird deshalb verworfen. (Dieselbe Sperre nutzt der
-    // Import einer Sicherung.)
-    if (snapshotTimer) {
-      clearTimeout(snapshotTimer);
-      snapshotTimer = null;
-    }
-    const sperreVorher = isImportingBackup;
-    isImportingBackup = true;
-    try {
-      await this.leereAlleBereiche();
-      // Auch die automatischen Sicherheitskopien (Snapshots) gehören zu "alle
-      // Daten": Sie enthalten den vollständigen Bestand.
-      const { SnapshotService } = await import('./snapshotService');
-      await SnapshotService.deleteAllSnapshots();
-    } finally {
-      isImportingBackup = sperreVorher;
-      if (snapshotTimer) {
-        clearTimeout(snapshotTimer);
-        snapshotTimer = null;
-      }
-    }
+    await this.leereAlleBereiche();
+    // Auch die Schnappschüsse gehören zu "alle Daten": Sie enthalten den
+    // vollständigen Bestand. Wer den Stand behalten will, speichert vorher eine
+    // Datensicherung (die Einstellungen bieten das vor dem Löschen an).
+    const { SnapshotService } = await import('./snapshotService');
+    await SnapshotService.deleteAllSnapshots();
   },
 
   /**

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { leseArten } from '../utils/mitgliedsarten';
 import {
   Member,
   Transaction,
@@ -233,7 +234,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       case 'upcoming_birthdays':
         return <BirthdaysWidget members={members} onNavigate={onNavigate} />;
       case 'recent_members':
-        return <RecentMembersWidget members={members} onNavigate={onNavigate} />;
+        return <RecentMembersWidget members={members} arten={leseArten(settings.membershipTypes)} onNavigate={onNavigate} />;
       case 'demographics_distribution':
         return <DemographicsWidget members={members} onNavigate={onNavigate} />;
       case 'total_liquidity':

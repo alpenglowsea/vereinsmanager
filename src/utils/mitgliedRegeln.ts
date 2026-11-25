@@ -2,7 +2,8 @@
  * Regeln rund um Mitglieder und Beitragseinzug (P13 bis P15), nach dem
  * Vorbild der Android-Fassung. Ohne Datenbank, damit sie sich prüfen lassen.
  */
-import type { FeePeriod, Member, MemberBulkUpdates, MembershipStatus, MembershipType, PaymentMethod } from '../types';
+import type { FeePeriod, Member, MemberBulkUpdates, MembershipStatus, PaymentMethod } from '../types';
+import { MitgliedsArt, STANDARD_ARTEN, artName, istAustritt, istBeitragsfrei, standardArt } from './mitgliedsarten';
 
 // ---------------------------------------------------------------------------
 // Deutsche Begriffe (D-29: das Stammblatt zeigte ACTIVE, FULL, SEPA …)
@@ -11,20 +12,8 @@ import type { FeePeriod, Member, MemberBulkUpdates, MembershipStatus, Membership
 export const STATUS_TEXT: Record<MembershipStatus, string> = {
   active: 'Aktiv',
   passive: 'Passiv',
-  honorary: 'Ehrenmitglied',
   terminated: 'Gekündigt / ausgetreten',
   suspended: 'Ruhend'
-};
-
-export const TYP_TEXT: Record<MembershipType, string> = {
-  full: 'Vollmitglied (Erwachsene)',
-  youth: 'Jugend / Kind',
-  reduced: 'Ermäßigt (Student/Rentner)',
-  family: 'Familienbeitrag',
-  supporting: 'Fördermitglied / Sponsor',
-  honorary: 'Ehrenmitglied (beitragsfrei)',
-  ausgetreten: 'Ausgetreten',
-  terminated: 'Ausgetreten'
 };
 
 export const ZAHLWEISE_TEXT: Record<FeePeriod, string> = {
@@ -52,7 +41,8 @@ const text = <K extends string>(tabelle: Record<K, string>, wert: string | undef
   wert && wert in tabelle ? tabelle[wert as K] : wert || '–';
 
 export const statusText = (s: string | undefined) => text(STATUS_TEXT, s);
-export const typText = (s: string | undefined) => text(TYP_TEXT, s);
+/** Name der Mitgliedsart aus den Einstellungen (seit 25.11.2026 bearbeitbar). */
+export const typText = (s: string | undefined, arten: readonly MitgliedsArt[] = STANDARD_ARTEN) => artName(arten, s);
 export const zahlweiseText = (s: string | undefined) => text(ZAHLWEISE_TEXT, s);
 export const zahlartText = (s: string | undefined) => text(ZAHLART_TEXT, s);
 
@@ -97,19 +87,21 @@ function austreten(m: Member, heute: string): Member {
 export function wendeSammelRegelnAn(
   alt: Member,
   u: Pick<MemberBulkUpdates, 'membershipType' | 'status' | 'feePeriod' | 'paymentMethod' | 'feeAmount' | 'exitDate'>,
-  heute: string
+  heute: string,
+  arten: readonly MitgliedsArt[] = STANDARD_ARTEN
 ): { mitglied: Member; uebersprungen: string[] } {
   let m: Member = { ...alt };
   const uebersprungen: string[] = [];
 
   if (u.membershipType !== undefined && u.membershipType !== m.membershipType) {
-    if (u.membershipType === 'ausgetreten' || u.membershipType === 'terminated') m = { ...austreten(m, heute), membershipType: u.membershipType };
-    else if (u.membershipType === 'honorary') m = { ...m, membershipType: 'honorary', feeAmount: 0, feePeriod: 'none', paymentMethod: 'exempt' };
+    if (istAustritt(u.membershipType)) m = { ...austreten(m, heute), membershipType: u.membershipType };
+    // Beitragsfreie Art (z. B. Ehrenmitglied): Beitrag 0, keine Zahlweise, beitragsfrei
+    else if (istBeitragsfrei(arten, u.membershipType)) m = { ...m, membershipType: u.membershipType, feeAmount: 0, feePeriod: 'none', paymentMethod: 'exempt' };
     else m = { ...m, membershipType: u.membershipType, status: m.status === 'terminated' ? 'active' : m.status };
   }
   if (u.status !== undefined && u.status !== m.status) {
     if (u.status === 'terminated') m = austreten(m, heute);
-    else m = { ...m, status: u.status, membershipType: m.membershipType === 'ausgetreten' || m.membershipType === 'terminated' ? 'full' : m.membershipType };
+    else m = { ...m, status: u.status, membershipType: istAustritt(m.membershipType) ? standardArt(arten) : m.membershipType };
   }
   if (u.feePeriod !== undefined && u.feePeriod !== m.feePeriod) {
     if (zahlweiseGesperrt(m)) uebersprungen.push('Zahlweise');

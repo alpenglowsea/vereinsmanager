@@ -309,7 +309,8 @@ export function erzeugeTestverein(): TestvereinDatei {
       email: minderjaehrig ? '' : mail(vorname, nachname),
       entryDate: eintritt,
       ...(austritt ? { exitDate: austritt } : {}),
-      status: austritt ? 'terminated' : ehren ? 'honorary' : passiv ? 'passive' : 'active',
+      // Ehrenmitglied ist seit 25.11.2026 nur noch eine Art, kein Status
+      status: austritt ? 'terminated' : passiv ? 'passive' : 'active',
       department: sparte,
       membershipType: typ,
       feeAmount: beitrag,
@@ -372,7 +373,8 @@ export function erzeugeTestverein(): TestvereinDatei {
   const erwachsen = (m: Member) => !m.isMinor;
   const aktivAm = (m: Member, d: string) => m.entryDate <= d && (!m.exitDate || m.exitDate >= d);
   // Vorstand und Übungsleiter: erwachsene, aktive Mitglieder ohne Austritt.
-  const kandidaten = members.filter(m => erwachsen(m) && !m.exitDate && m.status === 'active');
+  // Ehrenmitglieder waren bis 25.11.2026 Status „honorary“ und fielen dadurch heraus; so bleibt die Auswahl gleich
+  const kandidaten = members.filter(m => erwachsen(m) && !m.exitDate && m.status === 'active' && m.membershipType !== 'honorary');
   const ausSparte = (s: Sparte, n = 0) => {
     const m = kandidaten.filter(x => x.department === s)[n];
     if (!m) throw new Error(`Zu wenige Mitglieder in der Sparte ${s}.`);
@@ -1159,7 +1161,7 @@ export function erzeugeTestverein(): TestvereinDatei {
 
   const trikotsatz = inventory[2];
   const leihschlaeger = inventory[6];
-  const fussballer = members.filter(m => m.department === 'Fußball' && !m.exitDate && !m.isMinor && m.status === 'active');
+  const fussballer = members.filter(m => m.department === 'Fußball' && !m.exitDate && !m.isMinor && m.status === 'active' && m.membershipType !== 'honorary');
   const tennisJugend = members.filter(m => m.department === 'Tennis' && m.isMinor);
   const ausgabe = (id: string, m: Member, a: InventoryItem, von: string, zurueck?: string, eigenanteil?: number): MemberInventoryAssignment => ({
     id,

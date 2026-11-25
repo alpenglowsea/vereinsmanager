@@ -3,6 +3,7 @@ import { useGemerkt } from '../utils/gemerkteFilter';
 import { FilterZuruecksetzen } from './FilterZuruecksetzen';
 import { prozente } from '../utils/mitgliedRegeln';
 import { Member, ClubSettings } from '../types';
+import { leseArten, artName, istAustritt } from '../utils/mitgliedsarten';
 import {
   Users,
   PieChart as PieIcon,
@@ -332,15 +333,21 @@ export const MemberAnalyticsView: React.FC<MemberAnalyticsViewProps> = ({ member
   // Import) auf "terminated" setzen, nur auf "ausgetreten" — die Auswahlliste
   // im Formular bietet "terminated" gar nicht erst an. Die Kachel zeigte
   // deshalb immer eine zweite, leere "Ausgetreten"-Kachel. Entfernt.
-  const typeMap: Record<string, { label: string; count: number; color: string }> = {
-    full: { label: 'Vollmitglied (Erwachsene)', count: 0, color: 'bg-blue-500' },
-    youth: { label: 'Jugend / Kinder', count: 0, color: 'bg-emerald-500' },
-    reduced: { label: 'Ermäßigt (Student/Rentner)', count: 0, color: 'bg-amber-500' },
-    family: { label: 'Familienbeitrag', count: 0, color: 'bg-indigo-500' },
-    supporting: { label: 'Fördermitglied / Sponsor', count: 0, color: 'bg-purple-500' },
-    honorary: { label: 'Ehrenmitglied', count: 0, color: 'bg-emerald-600' },
-    ausgetreten: { label: 'Ausgetreten', count: 0, color: 'bg-rose-500' }
-  };
+  //
+  // Seit 25.11.2026 kommen die Arten aus den Einstellungen: alle nicht
+  // gelöschten, dazu gelöschte und unbekannte, solange Mitglieder so
+  // eingetragen sind; „Ausgetreten“ am Ende.
+  const arten = leseArten(settings?.membershipTypes);
+  const FARBEN = ['bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-indigo-500', 'bg-purple-500', 'bg-emerald-600', 'bg-sky-500', 'bg-orange-500', 'bg-teal-500', 'bg-pink-500'];
+  const typeMap: Record<string, { label: string; count: number; color: string }> = {};
+  const typKennungen = [
+    ...arten.filter(a => !a.geloescht || members.some(m => m.membershipType === a.id)).map(a => a.id),
+    ...members.map(m => m.membershipType).filter(id => id && !istAustritt(id) && !arten.some(a => a.id === id))
+  ];
+  typKennungen.forEach((id, i) => {
+    if (!typeMap[id]) typeMap[id] = { label: artName(arten, id), count: 0, color: FARBEN[i % FARBEN.length] };
+  });
+  typeMap.ausgetreten = { label: 'Ausgetreten', count: 0, color: 'bg-rose-500' };
   members.forEach((m) => {
     if (typeMap[m.membershipType]) {
       typeMap[m.membershipType].count++;
