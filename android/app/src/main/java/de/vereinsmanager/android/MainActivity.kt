@@ -240,8 +240,7 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         bottomBar = {
-                            // Reserviert nur den Platz der Leiste; die Leiste selbst liegt unten über dem Inhalt (siehe unten),
-                            // damit der Mittelknopf über sie hinausragen kann, ohne dass ein Streifen entsteht.
+                            // Reserviert den Platz der Leiste; die Leiste selbst liegt unten über dem Inhalt (siehe unten).
                             if (!breit && oberste && !tastatur) Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars).height(LeistenHoehe))
                         },
                     ) { inner ->
@@ -387,7 +386,7 @@ class MainActivity : ComponentActivity() {
                           if (!breit && schnellOffen) SchnellMenue(onWahl = ::schnell, onZu = { schnellOffen = false })
                       }
                     }
-                    // Die Navigationsleiste liegt über dem Inhalt: Ihr Mittelknopf ragt nach oben hinaus, und der Inhalt scheint daneben durch.
+                    // Die Navigationsleiste liegt unten auf dem reservierten Platz, der Mittelknopf sitzt in ihr.
                     // Sie steht nur auf den obersten Seiten (nicht in Formularen und Detailansichten) und nur am Handy.
                     if (!breit && oberste && !tastatur) NavigationsLeiste(
                         plaetze = leistenZiele(model),

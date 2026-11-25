@@ -176,6 +176,24 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Nachbesserung Handy — Speichern-Leiste in den Einstellungen, Plus-Knopf
+
+Aus der Prüfung vom 25.11.2026 (T-376) und den Wünschen von Johannes.
+
+- **Einstellungen: feste Speichern-Leiste.** Der Knopf für Beiträge und
+  Antragstexte stand mitten in der Seite (zwischen „Satzung und
+  Datenschutz-Vordruck“ und „Leeres Antragsformular“) und wurde übersehen;
+  der Knopf für die Vereinsdaten stand am Ende einer langen Seite. Jetzt
+  erscheint in den Reitern „Allgemein“ und „Verein“ unten eine Leiste
+  „Ungespeicherte Änderungen – Speichern“, sobald etwas geändert ist. Sie
+  bleibt beim Blättern stehen und zeigt danach „Gespeichert.“ oder den
+  Fehler. Der Reiter trägt dann einen Punkt („Allgemein •“). Die beiden
+  alten Knöpfe sind entfallen.
+- **Plus-Knopf in der Navigationsleiste:** sitzt jetzt in der Leiste
+  (52 statt 64 dp) und ragt nicht mehr über sie hinaus. Vorher überdeckte
+  der überstehende Teil den Inhalt darüber, denn freigehalten war nur die
+  Höhe der Leiste selbst.
+
 ### Code-Prüfung, Paket C5/C6 — Kontakte beim Buchen, Serientermine
 
 Entscheidung Johannes vom 24.11.2026: alle drei Teile umsetzen.

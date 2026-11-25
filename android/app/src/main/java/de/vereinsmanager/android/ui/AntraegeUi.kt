@@ -457,19 +457,39 @@ fun AntragPruefenScreen(model: AppModel, onAufgenommen: (String) -> Unit, onVerw
 
 // ------------------------------------------------------------------ Einstellungen
 
-/** Beiträge je Mitgliedsart, Texte im Antrag und das leere Formular – als Karten in den Einstellungen. */
-@Composable
-fun AntragEinstellungenKarten(model: AppModel) {
-    val start = remember { model.antragEinstellungen() }
-    var beitraege by remember { mutableStateOf(start.beitraege) }
-    var datenschutz by remember { mutableStateOf(start.datenschutz) }
-    var satzung by remember { mutableStateOf(start.satzung) }
-    var meldung by remember { mutableStateOf<String?>(null) }
-    var zeigeFehler by remember { mutableStateOf(false) }
-    val aktuell = start.copy(beitraege = beitraege, datenschutz = datenschutz, satzung = satzung)
-    val fehler = de.vereinsmanager.core.antrag.AntragEinstellungenStore.pruefen(aktuell)
-    val geaendert = beitraege != start.beitraege || datenschutz != start.datenschutz || satzung != start.satzung
+/**
+ * Entwurf der Beiträge und Antragstexte. Liegt im Einstellungsbildschirm, damit dessen feste Speichern-Leiste
+ * unten (sichtbar, sobald etwas geändert ist) ihn speichern kann; vorher stand der Knopf mitten in der Seite
+ * und wurde übersehen (T-376).
+ */
+class AntragEntwurf(start: AntragEinstellungen) {
+    var start: AntragEinstellungen by mutableStateOf(start)
+    var beitraege: Map<String, BeitragsVorgabe> by mutableStateOf(start.beitraege)
+    var datenschutz: String by mutableStateOf(start.datenschutz)
+    var satzung: String by mutableStateOf(start.satzung)
+    var zeigeFehler: Boolean by mutableStateOf(false)
+    var meldung: String? by mutableStateOf(null)
+    val aktuell: AntragEinstellungen get() = start.copy(beitraege = beitraege, datenschutz = datenschutz, satzung = satzung)
+    val fehler: Map<String, String> get() = AntragEinstellungenStore.pruefen(aktuell)
+    val geaendert: Boolean get() = beitraege != start.beitraege || datenschutz != start.datenschutz || satzung != start.satzung
 
+    fun speichern(model: AppModel) {
+        if (fehler.isNotEmpty()) { zeigeFehler = true; meldung = "Bitte die markierten Beträge prüfen."; return }
+        val neu = aktuell
+        model.antragEinstellungenSpeichern(neu) { f -> if (f == null) { start = neu; zeigeFehler = false; meldung = "Gespeichert." } else meldung = f }
+    }
+}
+
+@Composable
+fun rememberAntragEntwurf(model: AppModel): AntragEntwurf = remember { AntragEntwurf(model.antragEinstellungen()) }
+
+/** Beiträge je Mitgliedsart, Texte im Antrag und das leere Formular – als Karten in den Einstellungen. Gespeichert wird über die Leiste unten. */
+@Composable
+fun AntragEinstellungenKarten(model: AppModel, e: AntragEntwurf) {
+    val beitraege = e.beitraege
+    val fehler = e.fehler
+    val zeigeFehler = e.zeigeFehler
+    var meldung by remember { mutableStateOf<String?>(null) }
     var info by remember { mutableStateOf<String?>(null) }
     val exporter = rememberExporter(model) { info = it }
 
@@ -486,11 +506,11 @@ fun AntragEinstellungenKarten(model: AppModel) {
                     Text(name, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
                         Box(Modifier.weight(1f)) {
-                            Feld("Betrag in €", v.betrag, { beitraege = beitraege + (art to v.copy(betrag = it)) },
+                            Feld("Betrag in €", v.betrag, { e.beitraege = beitraege + (art to v.copy(betrag = it)) },
                                 error = if (zeigeFehler) fehler["beitrag.$art"] else null, keyboard = KeyboardType.Decimal)
                         }
                         Box(Modifier.weight(1f)) {
-                            AuswahlFeld("Zahlweise", AntragEinstellungen.PERIODEN, v.periode) { beitraege = beitraege + (art to v.copy(periode = it)) }
+                            AuswahlFeld("Zahlweise", AntragEinstellungen.PERIODEN, v.periode) { e.beitraege = beitraege + (art to v.copy(periode = it)) }
                         }
                     }
                 }
@@ -504,20 +524,13 @@ fun AntragEinstellungenKarten(model: AppModel) {
                         "von jemandem prüfen, der sich mit Vereins- und Datenschutzrecht auskennt.",
                     style = MaterialTheme.typography.bodySmall,
                 )
-                Feld("Einwilligung zur Datenverarbeitung", datenschutz, { datenschutz = it }, singleLine = false)
-                TextButton(onClick = { datenschutz = AntragEinstellungen.STANDARD_DATENSCHUTZ }) { Text("Standardtext wiederherstellen") }
-                Feld("Anerkennung der Satzung", satzung, { satzung = it }, singleLine = false)
-                TextButton(onClick = { satzung = AntragEinstellungen.STANDARD_SATZUNG }) { Text("Standardtext wiederherstellen") }
+                Feld("Einwilligung zur Datenverarbeitung", e.datenschutz, { e.datenschutz = it }, singleLine = false)
+                TextButton(onClick = { e.datenschutz = AntragEinstellungen.STANDARD_DATENSCHUTZ }) { Text("Standardtext wiederherstellen") }
+                Feld("Anerkennung der Satzung", e.satzung, { e.satzung = it }, singleLine = false)
+                TextButton(onClick = { e.satzung = AntragEinstellungen.STANDARD_SATZUNG }) { Text("Standardtext wiederherstellen") }
             }
         }
         BeilagenKarte(model, onMeldung = { meldung = it })
-        Button(
-            onClick = {
-                if (fehler.isNotEmpty()) { zeigeFehler = true; return@Button }
-                model.antragEinstellungenSpeichern(aktuell) { f -> meldung = f ?: "Gespeichert." }
-            },
-            enabled = geaendert && !model.busy, modifier = Modifier.fillMaxWidth(),
-        ) { Text("Beiträge und Texte speichern") }
         WieseKarte(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Leeres Antragsformular", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)

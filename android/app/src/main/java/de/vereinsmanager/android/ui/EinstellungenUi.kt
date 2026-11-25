@@ -48,6 +48,11 @@ fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
     fun fehlerFuer(k: String) = if (zeigeFehler) fehler[k] else null
     val vorstandFehler = Vorstand.pruefen(vorstand)
     val geaendert = f != model.vereinsdaten || vorstand != model.vorstand
+    val antrag = rememberAntragEntwurf(model)
+    fun vereinSpeichern() {
+        if (fehler.isNotEmpty() || vorstandFehler.isNotEmpty()) { zeigeFehler = true; meldung = "Bitte die markierten Felder prüfen." }
+        else model.vereinSpeichern(f, vorstand.takeIf { it != model.vorstand }) { e -> meldung = e ?: "Gespeichert." }
+    }
 
     var tab by rememberSaveable { mutableIntStateOf(0) }
     // Sprung aus dem Beitragslauf: zum Reiter „Verein“ wechseln; das gesuchte Feld holt sich selbst den Cursor.
@@ -59,17 +64,17 @@ fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
             model.einstellungenFokus = null
         }
     }
-    val tabs = listOf("Allgemein", "Verein" + if (geaendert) " •" else "", "Datensicherung", "Unterstützen", "Fehler melden")
+    val tabs = listOf("Allgemein" + if (antrag.geaendert) " •" else "", "Verein" + if (geaendert) " •" else "", "Datensicherung", "Unterstützen", "Fehler melden")
     Column(modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             tabs.forEachIndexed { i, t -> TabChip(t, tab == i, { tab = i }) }
         }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             when (tab) {
                 0 -> {
                 LeisteAnpassenKarte(model)
                 BriefpapierKarte(model)
-                AntragEinstellungenKarten(model)
+                AntragEinstellungenKarten(model, antrag)
                 WieseKarte(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Unterschrift für Zuwendungsbestätigungen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
@@ -126,14 +131,6 @@ fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
                         Feld("Gemeinnützige Zwecke", f.zweck, { f = f.copy(zweck = it) }, singleLine = false, hinweis = "Steht so auf der Bestätigung")
                     }
                 }
-                if (meldung != null) Text(meldung!!, color = if (meldung == "Gespeichert.") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
-                Button(
-                    onClick = {
-                        if (fehler.isNotEmpty() || vorstandFehler.isNotEmpty()) { zeigeFehler = true; meldung = null }
-                        else model.vereinSpeichern(f, vorstand.takeIf { it != model.vorstand }) { e -> meldung = e ?: "Gespeichert." }
-                    },
-                    enabled = !model.busy && geaendert, modifier = Modifier.fillMaxWidth(),
-                ) { Text("Speichern") }
                 }
                 2 -> {
                     SicherungKarte(model)
@@ -145,6 +142,12 @@ fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
                 else -> FehlerMeldenKarte()
             }
         }
+        // Feste Leiste unten: erscheint, sobald im Reiter etwas geändert ist, und bleibt beim Blättern stehen.
+        // Danach kurz die Meldung („Gespeichert.“ oder Fehler).
+        when (tab) {
+            0 -> SpeichernLeiste(antrag.geaendert, antrag.meldung, !model.busy, { antrag.meldung = null }) { antrag.speichern(model) }
+            1 -> SpeichernLeiste(geaendert, meldung, !model.busy, { meldung = null }) { vereinSpeichern() }
+        }
     }
     if (unterschreiben) {
         UnterschriftDialog(
@@ -153,3 +156,24 @@ fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
         )
     }
 }
+
+/** Leiste am unteren Rand der Einstellungen: „Ungespeicherte Änderungen“ mit Speichern, oder die letzte Meldung. */
+@Composable
+private fun SpeichernLeiste(geaendert: Boolean, meldung: String?, aktiv: Boolean, onMeldungWeg: () -> Unit, onSpeichern: () -> Unit) {
+    if (!geaendert && meldung == null) return
+    val sc = MaterialTheme.colorScheme
+    androidx.compose.material3.Surface(color = sc.surfaceContainerHigh, tonalElevation = 3.dp, shadowElevation = 6.dp, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            val ok = meldung == "Gespeichert."
+            Text(
+                meldung ?: "Ungespeicherte Änderungen",
+                style = MaterialTheme.typography.bodyMedium,
+                color = when { meldung == null -> sc.onSurface; ok -> sc.primary; else -> sc.error },
+                modifier = Modifier.weight(1f),
+            )
+            if (geaendert) Button(onClick = onSpeichern, enabled = aktiv) { Text("Speichern") }
+            else androidx.compose.material3.TextButton(onClick = onMeldungWeg) { Text("OK") }
+        }
+    }
+}
+
