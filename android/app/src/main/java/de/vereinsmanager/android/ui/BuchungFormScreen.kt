@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -29,6 +30,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import de.vereinsmanager.android.AppModel
+import de.vereinsmanager.core.contacts.Kontakt
+import de.vereinsmanager.core.contacts.Kontakte
 import de.vereinsmanager.core.finance.Buchung
 import de.vereinsmanager.core.finance.BuchungForm
 import de.vereinsmanager.core.finance.BuchungRegeln
@@ -46,6 +49,9 @@ fun BuchungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
     var versucht by remember { mutableStateOf(false) }
     var schrittRoh by remember { mutableStateOf(0) }
     var speicherFehler by remember { mutableStateOf<String?>(null) }
+    // C5: Zahlungspartner als neuen Kontakt anlegen (Dialog) und Hinweis nach der Vorbelegung
+    var kontaktDialog by remember { mutableStateOf(false) }
+    var vorbelegtHinweis by remember { mutableStateOf<String?>(null) }
     // Nach dem ersten Speichern-Versuch wird laufend neu geprüft: Behobene Fehler verschwinden sofort.
     val fehler = if (versucht) BuchungRegeln.pruefen(f, model.konten) else emptyMap()
     val skr = Skr42.standard
@@ -88,13 +94,31 @@ fun BuchungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
                     Feld("Belegnummer *", f.belegNummer, { f = f.copy(belegNummer = it) }, fehler["belegNummer"])
                     Feld("Buchungstext *", f.text, { f = f.copy(text = it) }, fehler["text"])
                     if (f.art != "transfer") {
-                        Feld("Zahlungspartner *", f.partner, { f = f.copy(partner = it) }, fehler["partner"])
+                        Feld("Zahlungspartner *", f.partner, { f = f.copy(partner = it); vorbelegtHinweis = null }, fehler["partner"])
                         val q = f.partner.trim()
                         val treffer = if (q.length < 2) emptyList()
                         else vorschlaege.filter { it.contains(q, ignoreCase = true) && !it.equals(q, ignoreCase = true) }.take(5)
                         if (treffer.isNotEmpty()) {
                             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                treffer.forEach { AssistChip(onClick = { f = f.copy(partner = it) }, label = { Text(it) }) }
+                                treffer.forEach { name ->
+                                    AssistChip(onClick = {
+                                        // Ein Kontakt als Spender oder Sponsor belegt bei Einnahmen Sphäre und Konto vor (wie Desktop)
+                                        val k = model.kontakte.firstOrNull { it.anzeigeName.trim() == name }
+                                        val neu = if (k == null) f.copy(partner = name) else BuchungRegeln.vorbelegung(f.copy(partner = name), k.typen, skr)
+                                        vorbelegtHinweis = if (neu.skrKonto != f.skrKonto || neu.sphaere != f.sphaere)
+                                            "Sphäre und Konto wurden für ${if ("donor" in k!!.typen) "den Spender" else "den Sponsor"} vorbelegt (Schritt „Zuordnung“)." else null
+                                        f = neu
+                                    }, label = { Text(name) })
+                                }
+                            }
+                        }
+                        vorbelegtHinweis?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = sc.primary) }
+                        val bekannt = Kontakte.bekannt(model.kontakte, q) ||
+                            model.members.any { "${it.firstName} ${it.lastName}".trim().equals(q, ignoreCase = true) }
+                        if (q.length >= 3 && !bekannt) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("„$q“ ist noch nicht im Kontaktbuch.", style = MaterialTheme.typography.bodySmall, color = sc.onSurfaceVariant, modifier = Modifier.weight(1f))
+                                TextButton(onClick = { kontaktDialog = true }, enabled = !model.busy) { Text("Als Kontakt anlegen") }
                             }
                         }
                     }
@@ -166,6 +190,57 @@ fun BuchungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
             }
         }, !model.busy)
     }
+    if (kontaktDialog) {
+        KontaktAusBuchungDialog(model, f.partner.trim(), if (f.art == "income") "sponsor" else "supplier", onDismiss = { kontaktDialog = false }) { k ->
+            kontaktDialog = false
+            f = f.copy(partner = k.anzeigeName)
+        }
+    }
+}
+
+/**
+ * Kurzer Dialog: den Zahlungspartner als Kontakt anlegen, ohne die Buchung zu verlassen (C5). Vorgewählt wie am
+ * Desktop: Sponsor bei Einnahmen, Lieferant bei Ausgaben. Weitere Angaben (Adresse, Bank …) später unter Kontakte.
+ */
+@Composable
+private fun KontaktAusBuchungDialog(model: AppModel, name: String, typ: String, onDismiss: () -> Unit, onSaved: (Kontakt) -> Unit) {
+    var art by remember { mutableStateOf("legal") }
+    var text by remember { mutableStateOf(name) }
+    var typen by remember { mutableStateOf(listOf(typ)) }
+    var fehler by remember { mutableStateOf<String?>(null) }
+    val basis = remember { model.kontaktNeu() }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Als Kontakt anlegen") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TabChip("Firma / Organisation", art == "legal") { art = "legal" }
+                    TabChip("Privatperson", art == "natural") { art = "natural" }
+                }
+                Feld(if (art == "legal") "Firmen- oder Organisationsname *" else "Vor- und Nachname *", text, { text = it; fehler = null })
+                Text("Kontakttypen *", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+                Kontakte.TYPEN.forEach { (k, v) ->
+                    val an = k in typen
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(an, { typen = if (an) typen - k else typen + k; fehler = null })
+                        Text(v)
+                    }
+                }
+                Text("Adresse, Bankverbindung und weitere Angaben später unter Kontakte.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                fehler?.let { Fehlertext(it) }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val form = Kontakte.mitName(basis.copy(typen = typen), art, text)
+                val e = model.kontaktPruefen(form)
+                if (e.isNotEmpty()) fehler = e.values.first()
+                else model.kontaktSpeichern(form) { k, err -> if (k != null) onSaved(k) else fehler = "Speichern fehlgeschlagen: $err" }
+            }, enabled = !model.busy) { Text("Anlegen") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
+    )
 }
 
 @Composable

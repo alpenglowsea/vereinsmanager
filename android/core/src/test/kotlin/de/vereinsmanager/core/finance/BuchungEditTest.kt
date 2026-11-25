@@ -281,4 +281,22 @@ class BuchungEditTest {
         assertEquals(listOf("tx-2"), Finance.buchungen(store).map { it.id })
         assertNotNull(store.get("transactions", "tx-2"))
     }
+
+    // C5: gleiche Konten wie Desktop `kontaktVorbelegung`
+    @Test
+    fun vorbelegungNachKontakt() {
+        val ein = BuchungRegeln.mitArt(gut(), "income")
+        val spende = BuchungRegeln.vorbelegung(ein, listOf("donor"))
+        assertEquals(listOf("ideell", "40400 - Spenden, Schenkungen & Zuwendungen", "40400 - Spenden & Zuwendungen allgemein", "40400", "0"),
+            listOf(spende.sphaere, spende.nummernkreis, spende.konto, spende.skrKonto, spende.ust.toString()))
+        val sponsor = BuchungRegeln.vorbelegung(ein, listOf("supplier", "sponsor"))
+        assertEquals(listOf("wirtschaftlich", "44000", "19"), listOf(sponsor.sphaere, sponsor.skrKonto, sponsor.ust.toString()))
+        assertEquals("40400", BuchungRegeln.vorbelegung(ein, listOf("sponsor", "donor")).skrKonto)
+        // Keine Änderung: Ausgabe, anderer Typ, Splittbuchung
+        assertEquals(gut(), BuchungRegeln.vorbelegung(gut(), listOf("donor")))
+        assertEquals(ein, BuchungRegeln.vorbelegung(ein, listOf("supplier")))
+        val geteilt = ein.copy(aufgeteilt = true)
+        assertEquals(geteilt, BuchungRegeln.vorbelegung(geteilt, listOf("donor")))
+    }
 }
+

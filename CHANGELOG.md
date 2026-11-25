@@ -176,6 +176,42 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Code-Prüfung, Paket C5/C6 — Kontakte beim Buchen, Serientermine
+
+Entscheidung Johannes vom 24.11.2026: alle drei Teile umsetzen.
+
+- **Fehler am Desktop: Spender und Sponsoren landeten auf dem falschen
+  Konto.** Wählte man in einer Einnahme einen Kontakt, der als Spender oder
+  Sponsor eingetragen ist, trug das Buchungsformular Namen ein, die es im
+  Kontenrahmen nicht gibt („Spenden und Zuwendungen“, „Sponsoring
+  Einnahmen“). Die Kontonummer blieb auf dem ersten Einnahmekonto stehen
+  (40000 „Echte Mitgliedsbeiträge“), bei Sponsoren fehlten die 19 %
+  Umsatzsteuer. Die Finanz-Auswertung zählte solche Spenden deshalb nicht als
+  Spenden. Jetzt: Spender → ideeller Bereich, Konto 40400 „Spenden &
+  Zuwendungen allgemein“; Sponsor → wirtschaftlicher Geschäftsbetrieb, Konto
+  44000 „Sponsoring & Werbung allgemein“ (19 %). Ist ein Kontakt beides,
+  gilt Spender. Nicht bei Ausgaben und Splittbuchungen. Regel
+  `kontaktVorbelegung` in `kontaktRegeln.ts`. **Schon gespeicherte
+  Buchungen werden nicht berichtigt.**
+- **Handy, Vorbelegung (C5):** dieselbe Regel (`BuchungRegeln.vorbelegung`).
+  Sie greift beim Antippen eines Kontakt-Vorschlags unter „Zahlungspartner“.
+  Ein Hinweis nennt, dass Sphäre und Konto im Schritt „Zuordnung“ vorbelegt
+  wurden.
+- **Handy, Kontakt aus der Buchung anlegen (C5):** Steht unter
+  „Zahlungspartner“ ein Name, den es weder als Kontakt noch als Mitglied
+  gibt, erscheint „Als Kontakt anlegen“. Ein kurzer Dialog fragt Firma oder
+  Privatperson, Name und Kontakttypen (vorgewählt wie am Desktop: Sponsor
+  bei Einnahmen, Lieferant bei Ausgaben). Die Buchung bleibt dabei offen.
+  Weitere Angaben folgen später unter Kontakte. Den Namen einer
+  Privatperson teilt die App wie der Desktop: erstes Wort Vorname, der Rest
+  Nachname.
+- **Gelöschten Serientermin zurückholen (C6):** gab es schon an beiden
+  Fassungen (Termin bearbeiten → Wiederholung → „Ausgenommene Tage“ →
+  „Wieder aufnehmen“ bzw. ×). Der Prüfbericht hatte das übersehen. Entfernt
+  wurde nur die ungenutzte Hilfsfunktion `ohneAusnahme`.
+- Tests: Desktop +1 (Vorbelegung), jetzt 555. Android +2 (Vorbelegung,
+  Kontakt aus Buchung), jetzt 720.
+
 ### Code-Prüfung, Paket Gleichstand — vier Lücken zwischen Desktop und Handy
 
 Aus dem Abgleich der Funktionen im Bericht `code-pruefung-2026-11-24.md`

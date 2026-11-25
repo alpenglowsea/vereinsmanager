@@ -161,6 +161,25 @@ object Kontakte {
     fun neu(store: DocumentStore, typ: String? = null): KontaktForm =
         KontaktForm(id = neueId(), nummer = naechsteNummer(alle(store)), typen = listOfNotNull(typ))
 
+    /**
+     * Name aus dem Zahlungspartner einer Buchung ins Formular (C5, wie Desktop `ContactFormModal`):
+     * Firma → ganzer Name; Privatperson → erstes Wort Vorname, der Rest Nachname (ein Wort: nur Nachname).
+     */
+    fun mitName(f: KontaktForm, art: String, name: String): KontaktForm {
+        val teile = name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        return when {
+            art == "legal" -> f.copy(art = art, firma = name.trim(), vorname = "", nachname = "")
+            teile.size > 1 -> f.copy(art = art, firma = "", vorname = teile.first(), nachname = teile.drop(1).joinToString(" "))
+            else -> f.copy(art = art, firma = "", vorname = "", nachname = teile.firstOrNull().orEmpty())
+        }
+    }
+
+    /** Ist der Name schon als Kontakt (Anzeigename oder Firma) bekannt? Ohne Rücksicht auf Groß-/Kleinschreibung. */
+    fun bekannt(kontakte: List<Kontakt>, name: String): Boolean {
+        val n = name.trim()
+        return n.isNotEmpty() && kontakte.any { it.anzeigeName.trim().equals(n, ignoreCase = true) || it.firma.trim().equals(n, ignoreCase = true) }
+    }
+
     fun von(k: Kontakt): KontaktForm {
         val bekannt = k.rechtsform in RECHTSFORMEN
         return KontaktForm(

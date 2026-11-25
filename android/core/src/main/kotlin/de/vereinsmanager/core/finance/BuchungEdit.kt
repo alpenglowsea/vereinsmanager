@@ -154,6 +154,24 @@ object BuchungRegeln {
     fun teilMitKonto(t: TeilForm, sub: Skr42Sub) = t.copy(konto = sub.label, skrKonto = sub.code, ust = sub.vatRateDefault)
 
     /**
+     * Beim Wählen eines Kontakts in einer Einnahme (C5, wie Desktop `kontaktVorbelegung`):
+     * Spender → ideeller Bereich, Konto 40400 „Spenden & Zuwendungen allgemein“;
+     * Sponsor → wirtschaftlicher Geschäftsbetrieb, Konto 44000 „Sponsoring & Werbung allgemein“.
+     * Ist der Kontakt beides, gilt Spender. Ausgaben, Umbuchungen und Splittbuchungen bleiben, wie sie sind.
+     */
+    fun vorbelegung(f: BuchungForm, typen: List<String>, skr: List<Skr42Main> = Skr42.standard): BuchungForm {
+        if (f.art != "income" || f.aufgeteilt) return f
+        val (sphaere, code) = when {
+            "donor" in typen -> "ideell" to "40400"
+            "sponsor" in typen -> "wirtschaftlich" to "44000"
+            else -> return f
+        }
+        val main = skr.firstOrNull { it.type == "income" && it.code == code && !it.isCustom } ?: return f
+        val sub = main.subCategories.firstOrNull { it.code == code } ?: return f
+        return mitKonto(mitNummernkreis(f.copy(sphaere = sphaere), main), sub)
+    }
+
+    /**
      * Wechsel der Buchungsart. Passt der gewählte Nummernkreis nicht zur neuen Art (Einnahme/Ausgabe),
      * springt das Formular auf den ersten passenden. (Der Desktop lässt ihn stehen; hier ist das
      * Formular dadurch nie in einem Zustand, den man erst mühsam korrigieren muss.)

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { einzelnAusSerie, einzelTermine, mitAusnahme, ohneAusnahme, plusMonate, monatVerschieben, serienTage, normiereSerie, vorkommen, besondereTage, pruefeTermin, ohneDoppelteTeilnehmer, einladungsText, serieText, wochentag } from './kalenderRegeln';
+import { einzelnAusSerie, einzelTermine, mitAusnahme, plusMonate, monatVerschieben, serienTage, normiereSerie, vorkommen, besondereTage, pruefeTermin, ohneDoppelteTeilnehmer, einladungsText, serieText, wochentag } from './kalenderRegeln';
 import type { CalendarEvent, EventParticipant, Member } from '../types';
 
 const termin = (o: Partial<CalendarEvent>): CalendarEvent =>
@@ -87,12 +87,11 @@ describe('Einladung (D-114)', () => {
 });
 
 describe('Ausgenommene Tage (EXDATE)', () => {
-  it('ein Tag fällt aus, „Ende nach n Mal“ zählt ihn mit; zurücknehmen geht', () => {
+  it('ein Tag fällt aus, „Ende nach n Mal“ zählt ihn mit', () => {
     const t = termin({ startDate: '2026-11-02', endDate: '2026-11-02', recurrence: { frequency: 'weekly', interval: 1, daysOfWeek: [1], endType: 'count', count: 3 } });
     const mit = mitAusnahme(t, '2026-11-09');
     expect(vorkommen([mit], '2026-11-01', '2026-12-31').map(v => v.date)).toEqual(['2026-11-02', '2026-11-16']);
     expect(serieText(mit.recurrence)).toBe('wöchentlich (Mo), 3 Mal, ohne 09.11.2026');
-    expect(ohneAusnahme(mit, '2026-11-09').recurrence!.exceptionDates).toBeUndefined();
   });
 });
 

@@ -49,6 +49,8 @@ import VeraenderbaresFenster from './VeraenderbaresFenster';
 import { imArchiv } from '../services/jahresarchiv';
 
 import { lokalesHeute } from '../utils/mitgliedRegeln';
+import { kontaktVorbelegung } from '../utils/kontaktRegeln';
+
 interface TransactionFormModalProps {
   transaction: Transaction | null;
   accounts: FinancialAccount[];
@@ -290,23 +292,19 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     contactRef?: ClubContact;
     memberRef?: Member;
   }) => {
+    // Spender/Sponsor in einer Einnahme: Sphäre und Konto vorbelegen (C5, Regel in
+    // kontaktRegeln.ts). Bei einer Splittbuchung tragen die Teile die Konten; dort nichts.
+    const vorbelegung = s.contactRef && !isSplitBooking ? kontaktVorbelegung(s.contactRef.types, formData.type, skr42) : null;
+    if (vorbelegung) setSelectedMainCatId(vorbelegung.mainId);
     setFormData(prev => {
       const updated = { ...prev, partner: s.name };
-      if (s.contactRef) {
-        const c = s.contactRef;
-        if (prev.type === 'income') {
-          if (c.types.includes('donor')) {
-            updated.sphere = 'ideell';
-            updated.mainCategory = 'Spenden und Zuwendungen';
-            updated.subCategory = 'Spenden / Zuwendungen';
-            updated.category = 'Spenden / Zuwendungen';
-          } else if (c.types.includes('sponsor')) {
-            updated.sphere = 'wirtschaftlich';
-            updated.mainCategory = 'Werbung und Sponsoring';
-            updated.subCategory = 'Sponsoring Einnahmen';
-            updated.category = 'Sponsoring Einnahmen';
-          }
-        }
+      if (vorbelegung && prev.type === 'income') {
+        updated.sphere = vorbelegung.sphere;
+        updated.mainCategory = vorbelegung.mainCategory;
+        updated.subCategory = vorbelegung.subCategory;
+        updated.category = vorbelegung.subCategory;
+        updated.skrAccount = vorbelegung.skrAccount;
+        updated.vatRate = vorbelegung.vatRate;
       }
       return updated;
     });

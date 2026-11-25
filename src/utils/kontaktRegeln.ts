@@ -1,7 +1,8 @@
 /**
  * Regeln für Kontakte (P16), wie die Android-Fassung (`kontakte-1`).
  */
-import type { ClubContact, Transaction } from '../types';
+import type { ClubContact, ContactType, Skr42MainCategory, Skr42SubCategory, TaxSphere, Transaction } from '../types';
+import { SKR42_STRUCTURE } from '../data/taxSpheres';
 import { istAusgabe, istUmbuchung } from '../services/buchungsBerichte';
 
 const klein = (s: string | undefined | null) => (s || '').toLowerCase().trim();
@@ -71,4 +72,44 @@ export function emailFehler(eingabe: string): string | null {
   const e = (eingabe || '').trim();
   if (!e) return null;
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e) ? null : 'Die E-Mail-Adresse sieht nicht richtig aus.';
+}
+
+/** Was beim Wählen eines Kontakts in einer Einnahme vorbelegt wird (C5, wie Android `BuchungRegeln.vorbelegung`). */
+export interface KontaktVorbelegung {
+  sphere: TaxSphere;
+  mainId: string;
+  mainCategory: string;
+  subCategory: string;
+  skrAccount: string;
+  vatRate: Skr42SubCategory['vatRateDefault'];
+}
+
+/**
+ * Spender → ideeller Bereich, Konto 40400 „Spenden & Zuwendungen allgemein“;
+ * Sponsor → wirtschaftlicher Geschäftsbetrieb, Konto 44000 „Sponsoring &
+ * Werbung allgemein“. Ist der Kontakt beides, gilt Spender. Nur bei
+ * Einnahmen; sonst null. Vorher trug das Formular Namen ein, die es im
+ * Kontenrahmen nicht gibt („Spenden und Zuwendungen“); die Finanz-Auswertung
+ * zählte solche Spenden deshalb nicht als Spenden.
+ */
+export function kontaktVorbelegung(
+  types: ContactType[] | undefined,
+  art: Transaction['type'],
+  skr: readonly Skr42MainCategory[] = SKR42_STRUCTURE
+): KontaktVorbelegung | null {
+  if (art !== 'income') return null;
+  const t = types || [];
+  const ziel: [TaxSphere, string] | null = t.includes('donor') ? ['ideell', '40400'] : t.includes('sponsor') ? ['wirtschaftlich', '44000'] : null;
+  if (!ziel) return null;
+  const main = skr.find(m => m.type === 'income' && m.code === ziel[1] && !m.isCustom);
+  const sub = main?.subCategories.find(s => s.code === ziel[1]);
+  if (!main || !sub) return null;
+  return {
+    sphere: ziel[0],
+    mainId: main.id,
+    mainCategory: `${main.code} - ${main.name}`,
+    subCategory: sub.label,
+    skrAccount: sub.code,
+    vatRate: sub.vatRateDefault
+  };
 }

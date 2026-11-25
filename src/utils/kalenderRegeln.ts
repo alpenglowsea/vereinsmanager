@@ -393,16 +393,6 @@ export function einzelTermine(events: CalendarEvent[], serienId: string): Calend
   return events.filter(x => x.seriesOrigin?.eventId === serienId);
 }
 
-/** Nimmt eine Ausnahme wieder zurück. */
-export function ohneAusnahme(e: CalendarEvent, datum: string): CalendarEvent {
-  if (!e.recurrence) return e;
-  const liste = (e.recurrence.exceptionDates || []).filter(d => d !== datum);
-  const r = { ...e.recurrence };
-  if (liste.length) r.exceptionDates = liste;
-  else delete r.exceptionDates;
-  return { ...e, recurrence: r, updatedAt: new Date().toISOString() };
-}
-
 /** E-Mail-Adressen der Teilnehmer (nur gültig aussehende, ohne Doppelte). */
 export function empfaenger(e: CalendarEvent): string[] {
   return [...new Set((e.participants || []).map(p => (p.memberEmail || '').trim()).filter(m => m.includes('@')))];

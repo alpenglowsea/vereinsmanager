@@ -242,4 +242,22 @@ class KontakteTest {
     }
 
     @Test fun leerDefaultsNull() = assertNull(Kontakte.von(buildJsonObject { put("id", "x") }).ansprech)
+
+    // C5: Kontakt aus dem Zahlungspartner einer Buchung
+    @Test
+    fun kontaktAusBuchung() {
+        val s = InMemoryDocumentStore()
+        val firma = Kontakte.mitName(Kontakte.neu(s, "sponsor"), "legal", "  Autohaus Meier GmbH ")
+        assertEquals(listOf("legal", "Autohaus Meier GmbH", "", ""), listOf(firma.art, firma.firma, firma.vorname, firma.nachname))
+        assertEquals(listOf("sponsor"), firma.typen)
+        val person = Kontakte.mitName(firma, "natural", "Anna Maria  Schulz")
+        assertEquals(listOf("natural", "", "Anna", "Maria Schulz"), listOf(person.art, person.firma, person.vorname, person.nachname))
+        assertEquals("Schulz", Kontakte.mitName(firma, "natural", "Schulz").nachname)
+        val k = Kontakte.speichern(s, person)
+        assertEquals("Anna Maria Schulz", k.anzeigeName)
+        assertTrue(Kontakte.bekannt(Kontakte.alle(s), "anna maria schulz "))
+        assertFalse(Kontakte.bekannt(Kontakte.alle(s), "Anna"))
+        assertFalse(Kontakte.bekannt(Kontakte.alle(s), "  "))
+    }
 }
+
