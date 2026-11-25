@@ -185,6 +185,39 @@ export function artAusText(arten: readonly MitgliedsArt[], text: string | undefi
   return jung ?? standardArt(arten);
 }
 
+/** Eintrag in der Historie der Mitglieder einer Art (Kennung `id`): Zusammenfassung und Mitgliedschaftstyp alt → neu. */
+export interface ArtHistorie {
+  id: string;
+  summary: string;
+  alt: string;
+  neu: string;
+}
+
+/**
+ * Welche Historieneinträge beim Speichern der Arten entstehen (Wunsch Johannes
+ * T-402): für eine Art, die ohne Verschieben gelöscht wurde, und für eine, die
+ * wiederhergestellt wurde. Wer verschoben wird, bekommt seinen Eintrag über die
+ * Sammelbearbeitung. Gleiche Regel am Handy: `Mitgliedsarten.historie`.
+ */
+export function historieBeimSpeichern(
+  vorher: readonly MitgliedsArt[],
+  nachher: readonly MitgliedsArt[],
+  verschiebungen: Readonly<Record<string, string>>
+): ArtHistorie[] {
+  const liste: ArtHistorie[] = [];
+  for (const a of nachher) {
+    const v = findeArt(vorher, a.id);
+    if (!v) continue;
+    const name = a.name.trim();
+    if (a.geloescht && !v.geloescht && !verschiebungen[a.id]) {
+      liste.push({ id: a.id, summary: `Mitgliedsart „${name}“ gelöscht (ohne Verschieben)`, alt: v.name, neu: `${name} (gelöscht)` });
+    } else if (!a.geloescht && v.geloescht) {
+      liste.push({ id: a.id, summary: `Mitgliedsart „${name}“ wiederhergestellt`, alt: `${v.name} (gelöscht)`, neu: name });
+    }
+  }
+  return liste;
+}
+
 /**
  * „Ehrenmitglied“ war bis 25.11.2026 auch ein Status. Jetzt ist es nur noch
  * eine Art: Status wird „Aktiv“, Art „Ehrenmitglied“. Der Beitrag bleibt, wie

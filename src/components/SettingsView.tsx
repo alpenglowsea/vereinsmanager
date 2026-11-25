@@ -5,7 +5,7 @@ import { ClubSettings, Address, BoardMember, ColorSchemeId, FontChoiceId, Invoic
 // Feste leere Liste als Vorgabe (eine neue [] je Zeichnen löste früher Endlosschleifen aus)
 const KEINE_MITGLIEDER: Member[] = [];
 import { COLOR_SCHEMES, FONT_CHOICES, DEFAULT_COLOR_SCHEME, DEFAULT_FONT_CHOICE } from '../utils/appearance';
-import { StorageService } from '../services/storage';
+import { StorageService, BEARBEITER } from '../services/storage';
 import { SnapshotService, AutoSnapshot } from '../services/snapshotService';
 import { CURRENT_APP_VERSION } from '../services/updateService';
 import { BackupImportDialog } from './BackupImportDialog';
@@ -18,7 +18,7 @@ import { BereichsVergleich, ImportArt, SicherungsKopf } from '../services/backup
 import { openExternalUrl } from '../utils/externalLink';
 import { VORSTAND_FUNKTIONEN, vorsitzAus, kasseAus, vorstandHinweise, vorstandFehler, vorstandBereinigt } from '../utils/vorstand';
 import { VorgabePeriode, leseVorgaben, vorgabeArten } from '../utils/beitragsVorgaben';
-import { MitgliedsArt, artenZumSpeichern, leseArten, pruefeArten } from '../utils/mitgliedsarten';
+import { MitgliedsArt, artenZumSpeichern, historieBeimSpeichern, leseArten, pruefeArten } from '../utils/mitgliedsarten';
 import { MitgliedsartenKarte, VorgabenEingabe } from './MitgliedsartenKarte';
 import { spartenNameFehler, ersetzeSparte, ersetzeSparteInBuchung, ersetzeInListe } from '../utils/sparteUmbenennen';
 import { BestaetigungsDialog } from './BestaetigungsDialog';
@@ -283,6 +283,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     gefahr?: boolean;
     bestaetigungsWort?: string;
     aktion: () => void | Promise<void>;
+    /** Zusätzlicher Knopf; die Rückfrage bleibt dabei offen (T-409: erst Datensicherung speichern). */
+    alternativ?: { text: string; aktion: () => void };
   } | null>(null);
 
   // Dynamic Board Members State
@@ -560,7 +562,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setBoardMembers(vorstand.length > 0 ? vorstand : getInitialBoardMembers({ ...updated, boardMembers: [] }));
 
     try {
+      // Historie für Arten, die ohne Verschieben gelöscht oder die wiederhergestellt wurden (T-402); vor dem Speichern ermittelt
+      // Vergleich mit dem gespeicherten Stand (frisch gelesen, nicht dem beim Öffnen übergebenen)
+      const historie = historieBeimSpeichern(leseArten((await StorageService.getSettings()).membershipTypes), arten, verschiebungen);
       await onSaveSettings(updated);
+      if (historie.length > 0) {
+        const jetzt = new Date().toISOString();
+        for (const h of historie) {
+          for (const m of members.filter(x => x.membershipType === h.id)) {
+            await StorageService.protokolliereAmMitglied(
+              m.id,
+              { summary: h.summary, changes: [{ field: 'membershipType', label: 'Mitgliedschaftstyp', oldValue: h.alt, newValue: h.neu }] },
+              jetzt,
+              BEARBEITER
+            );
+          }
+        }
+      }
       // Beim Löschen einer Art vorgemerkte Umzüge jetzt ausführen (mit Eintrag in der Historie)
       const umzuege = Object.entries(verschiebungen);
       if (umzuege.length > 0) {
@@ -1049,11 +1067,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleWipeAll = () => {
     setRueckfrage({
       titel: 'Alle Daten löschen?',
-      text: 'Alle Mitglieder, Buchungen, Konten und übrigen Daten auf diesem Gerät werden gelöscht, auch alle Schnappschüsse. Das lässt sich nicht rückgängig machen. Wer den Stand behalten will, speichert vorher eine Datensicherung („Erst Datensicherung speichern“).',
+      text: 'Alle Mitglieder, Buchungen, Konten und übrigen Daten auf diesem Gerät werden gelöscht, auch alle Schnappschüsse. Das lässt sich nicht rückgängig machen. Wer den Stand behalten will, speichert vorher eine Datensicherung („Erst Datensicherung speichern“); dieses Fenster bleibt dabei offen.',
       bestaetigenText: 'Endgültig löschen',
       gefahr: true,
       bestaetigungsWort: 'LÖSCHEN',
-      aktion: wipeAllBestaetigt
+      aktion: wipeAllBestaetigt,
+      // Öffnet das Sicherungsfenster über dieser Rückfrage (es wird später gezeichnet, liegt also oben)
+      alternativ: { text: 'Erst Datensicherung speichern', aktion: handleExportBackup }
     });
   };
 
@@ -2718,17 +2738,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <span>Alle lokalen Daten löschen</span>
               </h4>
               <p className="text-2xs text-rose-800 dark:text-rose-300">
-                Löscht den gesamten lokalen Datenbestand dieses Geräts vollständig: Mitglieder, Buchungen, Belege, Vereinsstammdaten, Vorlagen und alle Schnappschüsse. Danach lässt sich nichts mehr wiederherstellen, außer aus einer Datensicherung, die Sie vorher als Datei gespeichert haben.
+                Löscht den gesamten lokalen Datenbestand dieses Geräts vollständig: Mitglieder, Buchungen, Belege, Vereinsstammdaten, Vorlagen und alle Schnappschüsse. Danach lässt sich nichts mehr wiederherstellen, außer aus einer Datensicherung, die Sie vorher als Datei gespeichert haben. Die Rückfrage bietet das an.
               </p>
               <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={handleExportBackup}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-rose-100 text-rose-800 border border-rose-300 dark:bg-slate-900 dark:hover:bg-rose-950/40 dark:text-rose-200 dark:border-rose-800 text-xs font-bold rounded-xl transition-colors cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Erst Datensicherung speichern</span>
-                </button>
                 <button
                   type="button"
                   onClick={handleWipeAll}
@@ -3365,6 +3377,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             setRueckfrage(null);
             await aktion();
           }}
+          alternativText={rueckfrage.alternativ?.text}
+          onAlternative={rueckfrage.alternativ?.aktion}
         />
       )}
 

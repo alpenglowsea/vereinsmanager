@@ -163,6 +163,40 @@ object Mitgliedsarten {
         return jung ?: standard(liste)
     }
 
+    /** Eintrag in der Historie der Mitglieder einer Art: Zusammenfassung und Mitgliedschaftstyp alt → neu. */
+    data class Historie(val id: String, val summary: String, val alt: String, val neu: String)
+
+    /**
+     * Welche Historieneinträge beim Speichern der Arten entstehen (Wunsch Johannes, T-402): für eine Art, die ohne Verschieben
+     * gelöscht, und für eine, die wiederhergestellt wurde. Verschobene Mitglieder bekommen ihren Eintrag über die Sammelbearbeitung.
+     * Gleiche Regel wie Desktop `historieBeimSpeichern`.
+     */
+    fun historie(vorher: List<MitgliedsArt>, nachher: List<MitgliedsArt>, verschiebungen: Map<String, String>): List<Historie> =
+        nachher.mapNotNull { a ->
+            val v = finde(vorher, a.id) ?: return@mapNotNull null
+            val name = a.name.trim()
+            when {
+                a.geloescht && !v.geloescht && a.id !in verschiebungen ->
+                    Historie(a.id, "Mitgliedsart „$name“ gelöscht (ohne Verschieben)", v.name, "$name (gelöscht)")
+                !a.geloescht && v.geloescht -> Historie(a.id, "Mitgliedsart „$name“ wiederhergestellt", "${v.name} (gelöscht)", name)
+                else -> null
+            }
+        }
+
+    /** Schreibt die Einträge aus [historie] in die Historie aller Mitglieder der jeweiligen Art. */
+    fun historieSchreiben(store: DocumentStore, eintraege: List<Historie>, now: java.time.ZonedDateTime = java.time.ZonedDateTime.now()) {
+        if (eintraege.isEmpty()) return
+        store.transaction {
+            for (h in eintraege) {
+                for (doc in store.all(MemberStore.AREA)) {
+                    if ((doc["membershipType"] as? JsonPrimitive)?.contentOrNull != h.id) continue
+                    val l = MemberAudit.mitgliedsart(doc, now, h.summary, h.alt, h.neu)
+                    store.put(MemberStore.LOG, (l["id"] as JsonPrimitive).content, l)
+                }
+            }
+        }
+    }
+
     /**
      * „Ehrenmitglied“ war bis 25.11.2026 auch ein Status. Jetzt nur noch eine Art: Status „Aktiv“, Art „Ehrenmitglied“.
      * Der Beitrag bleibt (keine Lastschrift fällt still weg). Arbeitet auf den gespeicherten Dokumenten, damit Felder anderer

@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   STANDARD_ARTEN, leseArten, standardArt, artName, istBeitragsfrei, unter18Art, antragsArten, pruefeArten,
-  neueArt, artLoeschen, artWiederherstellen, artVerschieben, anzahlMitglieder, artAusText, ohneEhrenStatus, artenZumSpeichern
+  neueArt, artLoeschen, artWiederherstellen, artVerschieben, anzahlMitglieder, artAusText, ohneEhrenStatus, artenZumSpeichern,
+  historieBeimSpeichern
 } from './mitgliedsarten';
 
 describe('Mitgliedsarten', () => {
@@ -81,5 +82,15 @@ describe('Mitgliedsarten', () => {
   it('Status „Ehrenmitglied“ wird zur Art; der Beitrag bleibt', () => {
     expect(ohneEhrenStatus({ status: 'honorary', membershipType: 'full', feeAmount: 20 })).toEqual({ status: 'active', membershipType: 'honorary', feeAmount: 20 });
     expect(ohneEhrenStatus({ status: 'active', membershipType: 'honorary' })).toBeNull();
+  });
+
+  it('Historie: gelöscht ohne Verschieben und wiederhergestellt; nicht beim Verschieben', () => {
+    const vorher = artLoeschen(leseArten(undefined), 'supporting');
+    const nachher = artWiederherstellen(artLoeschen(artLoeschen(vorher, 'family'), 'youth'), 'supporting');
+    expect(historieBeimSpeichern(vorher, nachher, { youth: 'reduced' })).toEqual([
+      { id: 'family', summary: 'Mitgliedsart „Familie“ gelöscht (ohne Verschieben)', alt: 'Familie', neu: 'Familie (gelöscht)' },
+      { id: 'supporting', summary: 'Mitgliedsart „Fördermitglied“ wiederhergestellt', alt: 'Fördermitglied (gelöscht)', neu: 'Fördermitglied' }
+    ]);
+    expect(historieBeimSpeichern(vorher, vorher, {})).toEqual([]);
   });
 });

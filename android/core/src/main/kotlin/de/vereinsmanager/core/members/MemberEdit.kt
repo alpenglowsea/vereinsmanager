@@ -410,6 +410,10 @@ object MemberAudit {
         ),
     )
 
+    /** Eintrag bei gelöschter oder wiederhergestellter Mitgliedsart (T-402): Mitgliedschaftstyp alt → neu, wie am Desktop. */
+    fun mitgliedsart(m: JsonObject, now: ZonedDateTime, summary: String, alt: String, neu: String) =
+        eintrag(m, now, "update", summary, listOf(aenderung("membershipType", "Mitgliedschaftstyp", JsonPrimitive(alt), JsonPrimitive(neu))))
+
     /** Eintrag für eine Materialausgabe, -rückgabe usw.; [aenderungen] sind (Bezeichnung, alt, neu). */
     fun material(m: JsonObject, now: ZonedDateTime, summary: String, aenderungen: List<Triple<String, String, String>> = emptyList()) =
         eintrag(

@@ -61,6 +61,10 @@ class EinstellungenTest {
         val v = Sparten.verwendung(s, "Tennis")
         assertEquals(1, v.mitglieder); assertEquals(2, v.buchungen); assertEquals(1, v.inventar)
         assertEquals("1 Mitglied, 2 Buchungen, 1 Inventargegenstand", v.text())
+        // Alle auf einmal: dieselben Zahlen wie einzeln
+        val alle = Sparten.verwendungAlle(s, Sparten.lesen(s))
+        assertEquals(Sparten.lesen(s).associateWith { Sparten.verwendung(s, it) }, alle)
+        assertEquals(0, alle.getValue("Chor").gesamt)
         val msg = fehler { Sparten.loeschen(s, "Tennis", jetzt) }
         assertTrue(msg, msg.contains("noch verwendet") && msg.contains("1 Mitglied"))
         assertEquals(listOf("Fußball", "Tennis", "Chor"), Sparten.lesen(s))

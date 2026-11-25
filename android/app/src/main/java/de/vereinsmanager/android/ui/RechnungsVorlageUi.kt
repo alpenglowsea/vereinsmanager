@@ -107,7 +107,7 @@ fun RechnungsVorlageScreen(model: AppModel, onDone: () -> Unit, modifier: Modifi
 fun BriefpapierKarte(model: AppModel) {
     val ctx = LocalContext.current
     val v = model.vorlage
-    var rand by remember(v.randOben) { mutableStateOf(v.randOben.toString()) }
+    var rand by androidx.compose.runtime.saveable.rememberSaveable(v.randOben) { mutableStateOf(v.randOben.toString()) }
     var meldung by remember { mutableStateOf<String?>(null) }
     val randZahl = rand.toIntOrNull()
     val randFehler = if (randZahl == null || randZahl !in 0..200) "Bitte eine Zahl von 0 bis 200 eingeben." else null
@@ -123,13 +123,12 @@ fun BriefpapierKarte(model: AppModel) {
             }
         }
     }
-    val vorschau = remember(v.briefpapier) {
-        if (!v.hatBriefpapier) null else try {
-            val bytes = android.util.Base64.decode(v.briefpapier.substringAfter("base64,", ""), android.util.Base64.DEFAULT)
-            val o = android.graphics.BitmapFactory.Options().apply { inSampleSize = 4 }
-            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)?.asImageBitmap()
-        } catch (e: Exception) { null }
-    }
+    // Das Briefpapier liegt als Text (Base64) in den Einstellungen, oft mehrere MB. Entschlüsseln und Bild lesen lief früher
+    // bei jedem Öffnen des Reiters „Allgemein“ im Hauptfaden und hielt den Wechsel auf. Jetzt im Hintergrund und gemerkt.
+    // `.value` statt `by`: so ist `vorschau` ein gewöhnlicher Wert, und die Prüfung auf null unten gilt auch für die Anzeige.
+    val vorschau = androidx.compose.runtime.produceState(briefpapierGemerkt(v.briefpapier), v.briefpapier) {
+        if (value == null && v.hatBriefpapier) value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { briefpapierLesen(v.briefpapier) }
+    }.value
     WieseKarte(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Briefpapier (Rechnungen und Anträge)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
@@ -160,4 +159,20 @@ fun BriefpapierKarte(model: AppModel) {
             if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodySmall)
         }
     }
+}
+
+/** Zuletzt gelesenes Briefpapier (derselbe Text ⇒ dasselbe Bild), damit ein Reiterwechsel es nicht neu liest. */
+private var briefpapierZuletzt: Pair<String, androidx.compose.ui.graphics.ImageBitmap?>? = null
+
+private fun briefpapierGemerkt(text: String): androidx.compose.ui.graphics.ImageBitmap? =
+    briefpapierZuletzt?.takeIf { it.first === text }?.second
+
+private fun briefpapierLesen(text: String): androidx.compose.ui.graphics.ImageBitmap? {
+    val bild = try {
+        val bytes = android.util.Base64.decode(text.substringAfter("base64,", ""), android.util.Base64.DEFAULT)
+        val o = android.graphics.BitmapFactory.Options().apply { inSampleSize = 4 }
+        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)?.asImageBitmap()
+    } catch (e: Exception) { null }
+    briefpapierZuletzt = text to bild
+    return bild
 }

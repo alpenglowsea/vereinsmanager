@@ -100,7 +100,7 @@ export const MeetingEmailModal: React.FC<MeetingEmailModalProps> = ({
     }
 
     return list;
-  }, [meeting, members]);
+  }, [meeting, members, clubSettings?.membershipTypes]);
 
   const [recipients, setRecipients] = useState<RecipientOption[]>(initialRecipients);
   // Kein Bedienelement vorhanden: Der Wert steht beim Öffnen fest und lässt

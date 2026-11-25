@@ -54,6 +54,16 @@ object Sparten {
         return SpartenVerwendung(zaehle("members"), zaehle("transactions"), zaehle(MemberMaterial.INVENTORY))
     }
 
+    /**
+     * Wie [verwendung], aber für alle [namen] auf einmal: jeder Bereich wird nur einmal gelesen statt einmal je Sparte.
+     * Für die Karte in den Einstellungen, die das im Hintergrund rechnet.
+     */
+    fun verwendungAlle(store: DocumentStore, namen: List<String>): Map<String, SpartenVerwendung> {
+        fun zaehle(bereich: String): Map<String, Int> = store.all(bereich).groupingBy { text(it, "department") }.eachCount()
+        val m = zaehle("members"); val t = zaehle("transactions"); val i = zaehle(MemberMaterial.INVENTORY)
+        return namen.associateWith { SpartenVerwendung(m[it] ?: 0, t[it] ?: 0, i[it] ?: 0) }
+    }
+
     private fun schreiben(store: DocumentStore, liste: List<String>, now: ZonedDateTime) {
         val alt = store.get(Vereinsdaten.BEREICH, Vereinsdaten.ID)
         val m = LinkedHashMap<String, JsonElement>(alt ?: JsonObject(emptyMap()))

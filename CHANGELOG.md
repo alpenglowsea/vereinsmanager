@@ -176,6 +176,55 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Handy: Einstellungen zeichnen nur noch sichtbare Karten
+
+Aus T-419: „Allgemein“ und „Verein“ öffneten sich weiter verzögert, die
+anderen drei Reiter sofort. Gemeinsam ist den beiden die Zahl der
+Eingabefelder (je rund 20, darunter zwei lange Texte), die beim Wechsel alle
+auf einmal aufgebaut wurden.
+- Die Reiter sind jetzt eine Liste (`LazyColumn`), die nur zeichnet, was zu
+  sehen ist; weitere Karten entstehen beim Blättern. Jeder Reiter merkt sich
+  seine Position.
+- Die Antrags-Karten sind dafür einzelne Listeneinträge
+  (`antragEinstellungenKarten`). Eingaben, die nur in einer Karte stehen
+  (neue Art, neue Sparte, oberer Rand), bleiben beim Wegblättern erhalten.
+- „Datensicherung“, „Unterstützen“ und „Fehler melden“ bleiben je ein
+  Eintrag (dort greifen Karten ineinander; sie waren schon schnell).
+- Sprung aus dem Beitragslauf zur Gläubiger-ID: blättert jetzt erst zur
+  Karte „Lastschrifteinzug“.
+
+### Handy: Einstellungen schneller, „Löschen“ bei den Mitgliedsarten einzeilig
+
+Aus der Prüfung vom 25.11.2026.
+- **Reiterwechsel in den Einstellungen:** Zwei Karten haben beim Öffnen ihres
+  Reiters im Hauptfaden gerechnet und den Wechsel damit aufgehalten.
+  - „Verein“ → Sparten: Für jede Sparte wurden alle Mitglieder, Buchungen und
+    Inventargegenstände gelesen und gezählt (bei 3 Sparten also neunmal).
+    Jetzt einmal je Bereich (`Sparten.verwendungAlle`) und im Hintergrund;
+    der Hinweis „In Verwendung …“ erscheint einen Augenblick später.
+  - „Allgemein“ → Briefpapier: Die Vorschau wurde bei jedem Öffnen aus dem
+    gespeicherten Text (Base64, oft mehrere MB) neu entschlüsselt und als Bild
+    gelesen. Jetzt im Hintergrund und gemerkt, solange es dasselbe ist.
+- **Mitgliedsarten:** „▲ nach oben“ / „▼ nach unten“ sind schmale
+  Pfeilknöpfe wie bei den Sparten; „Löschen“ steht einzeilig daneben.
+- Tests: Android ein Prüffall mehr im bestehenden Sparten-Test (weiter 728).
+
+### Nachtrag Mitgliedsarten: Historie, Sicherung in der Rückfrage, Warnung
+
+Aus der Prüfung vom 25.11.2026 (T-396, T-402, T-409).
+- **Historie:** Eine Art ohne Verschieben zu löschen oder wiederherzustellen
+  schreibt jetzt bei jedem betroffenen Mitglied einen Eintrag
+  („Mitgliedsart „Familie“ gelöscht (ohne Verschieben)“, Mitgliedschaftstyp
+  Familie → Familie (gelöscht), und umgekehrt), an beiden Fassungen.
+  Verschobene Mitglieder bekamen ihren Eintrag schon über die
+  Sammelbearbeitung.
+- **„Alle Daten löschen“:** „Erst Datensicherung speichern“ steht jetzt in
+  der Rückfrage selbst statt auf der Karte; die Rückfrage bleibt dabei offen.
+  Desktop und Handy.
+- **ESLint:** Die siebte Warnung (`MeetingEmailModal`, fehlende Abhängigkeit
+  der Mitgliedsarten) ist behoben; wieder 6.
+- Tests: Desktop +1 (565), Android +1 (728).
+
 ### Mitgliedsarten bearbeitbar, Ehrenmitglied als Art, leichtere Schnappschüsse
 
 Wünsche und Entscheidungen von Johannes vom 25.11.2026, an Desktop und Handy.

@@ -440,7 +440,8 @@ class AppModel(private val appContext: Context) {
 
     // ---- Sparten und Vorstand ----
 
-    fun spartenVerwendung(name: String): SpartenVerwendung = Sparten.verwendung(store, name)
+    /** Liest Mitglieder, Buchungen und Inventar – nicht im Hauptfaden aufrufen (die Einstellungen tun es im Hintergrund). */
+    fun spartenVerwendungAlle(namen: List<String>): Map<String, SpartenVerwendung> = Sparten.verwendungAlle(store, namen)
 
     fun spartenHinzufuegen(name: String, done: (String?) -> Unit) =
         hintergrund({ Sparten.hinzufuegen(store, name) }) { _, f -> done(f) }
@@ -1324,7 +1325,10 @@ class AppModel(private val appContext: Context) {
         val f = AntragEinstellungenStore.pruefen(e) + Mitgliedsarten.pruefen(e.arten)
         if (f.isNotEmpty()) { done(f.values.first()); return }
         hintergrund({
+            // Historie für ohne Verschieben gelöschte und wiederhergestellte Arten (T-402); vor dem Speichern ermittelt
+            val historie = Mitgliedsarten.historie(Mitgliedsarten.lesen(store), e.arten, umzuege)
             AntragEinstellungenStore.speichern(store, e)
+            Mitgliedsarten.historieSchreiben(store, historie)
             for ((von, nach) in umzuege) {
                 var ziel = nach
                 repeat(umzuege.size) { umzuege[ziel]?.let { ziel = it } }

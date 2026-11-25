@@ -118,5 +118,28 @@ class MitgliedsartenTest {
         val kaputt = e.copy(arten = arten.map { it.copy(name = "gleich") })
         assertTrue(runCatching { de.vereinsmanager.core.antrag.AntragEinstellungenStore.speichern(s, kaputt) }.isFailure)
     }
-}
 
+    @Test
+    fun historieBeimLoeschenOhneVerschiebenUndWiederherstellen() {
+        val vorher = Mitgliedsarten.loeschen(Mitgliedsarten.STANDARD, "supporting")
+        val nachher = Mitgliedsarten.wiederherstellen(Mitgliedsarten.loeschen(Mitgliedsarten.loeschen(vorher, "family"), "youth"), "supporting")
+        val h = Mitgliedsarten.historie(vorher, nachher, mapOf("youth" to "reduced"))
+        assertEquals(
+            listOf(
+                Mitgliedsarten.Historie("family", "Mitgliedsart „Familie“ gelöscht (ohne Verschieben)", "Familie", "Familie (gelöscht)"),
+                Mitgliedsarten.Historie("supporting", "Mitgliedsart „Fördermitglied“ wiederhergestellt", "Fördermitglied (gelöscht)", "Fördermitglied"),
+            ),
+            h,
+        )
+        assertTrue(Mitgliedsarten.historie(vorher, vorher, emptyMap()).isEmpty())
+        // Einträge landen bei genau den Mitgliedern der Art
+        val s = InMemoryDocumentStore()
+        s.put(MemberStore.AREA, "m1", settings("""{"id":"m1","firstName":"A","lastName":"B","membershipType":"family"}"""))
+        s.put(MemberStore.AREA, "m2", settings("""{"id":"m2","membershipType":"full"}"""))
+        Mitgliedsarten.historieSchreiben(s, h)
+        val logs = s.all(MemberStore.LOG)
+        assertEquals(1, logs.size)
+        assertEquals("m1", (logs[0]["memberId"] as JsonPrimitive).content)
+        assertEquals("Familie (gelöscht)", ((logs[0]["changes"] as kotlinx.serialization.json.JsonArray)[0] as JsonObject)["newValue"].let { (it as JsonPrimitive).content })
+    }
+}

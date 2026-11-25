@@ -87,12 +87,17 @@ fun VorstandKarte(liste: List<Vorstandsmitglied>, onChange: (List<Vorstandsmitgl
 /** Die Sparten; Änderungen wirken sofort (anders als der Rest der Seite). */
 @Composable
 fun SpartenKarte(model: AppModel) {
-    var neu by remember { mutableStateOf("") }
+    var neu by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
     var meldung by remember { mutableStateOf<String?>(null) }
     var umbenennen by remember { mutableStateOf<String?>(null) }
     var neuerName by remember { mutableStateOf("") }
     var dialogFehler by remember { mutableStateOf<String?>(null) }
     val liste = model.departments
+    // Zählen heißt: alle Mitglieder, Buchungen und Inventar lesen. Das lief früher beim Öffnen des Reiters im Hauptfaden,
+    // einmal je Sparte und Bereich, und hielt den Reiterwechsel spürbar auf. Jetzt im Hintergrund; bis dahin null.
+    val verwendung by androidx.compose.runtime.produceState<Map<String, de.vereinsmanager.core.settings.SpartenVerwendung>?>(null, model.stand, liste) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { model.spartenVerwendungAlle(liste) }
+    }
 
     WieseKarte(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -103,11 +108,11 @@ fun SpartenKarte(model: AppModel) {
             )
             if (liste.isEmpty()) Text("Noch keine Sparte angelegt.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             liste.forEachIndexed { i, name ->
-                val v = remember(model.stand, name) { model.spartenVerwendung(name) }
+                val v = verwendung?.get(name)
                 HorizontalDivider()
                 Column {
                     Text(name, fontWeight = FontWeight.Medium)
-                    if (v.gesamt > 0) Text("In Verwendung: ${v.text()}. Löschen ist erst möglich, wenn nichts mehr diese Sparte nutzt.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                    if (v != null && v.gesamt > 0) Text("In Verwendung: ${v.text()}. Löschen ist erst möglich, wenn nichts mehr diese Sparte nutzt.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
                     else if (liste.size == 1) Text("Die letzte Sparte lässt sich nicht löschen.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         KompaktKnopf("▲", { model.spartenVerschieben(name, -1) }, Modifier.width(44.dp), enabled = i > 0 && !model.busy)
@@ -232,10 +237,9 @@ fun LoeschenKarte(model: AppModel, onSicherung: () -> Unit) {
             Text("Alle Daten löschen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
             Text(
                 "Entfernt Mitglieder, Finanzen, Belege, Dokumente, Einstellungen, Schnappschüsse und alles andere von diesem Gerät. " +
-                    "Danach lässt sich nichts mehr wiederherstellen, außer aus einer Sicherung, die Sie vorher als Datei ausgegeben haben.",
+                    "Danach lässt sich nichts mehr wiederherstellen, außer aus einer Sicherung, die Sie vorher als Datei ausgegeben haben. Die Rückfrage bietet das an.",
                 style = MaterialTheme.typography.bodySmall,
             )
-            OutlinedButton(onClick = onSicherung, enabled = !model.busy) { Text("Erst Datensicherung speichern …") }
             OutlinedButton(onClick = { eingabe = ""; dialog = true }, enabled = !model.busy) { Text("Alle Daten löschen …") }
             if (meldung != null) Text(meldung!!, style = MaterialTheme.typography.bodySmall)
         }
@@ -246,7 +250,9 @@ fun LoeschenKarte(model: AppModel, onSicherung: () -> Unit) {
             title = { Text("Wirklich alles löschen?") },
             text = {
                 Column {
-                    Text("Das lässt sich nicht rückgängig machen, auch die Schnappschüsse werden gelöscht. Wer den Stand behalten will, gibt vorher eine Sicherung aus. Zur Bestätigung bitte ${Zuruecksetzen.BESTAETIGUNG} eintippen.")
+                    Text("Das lässt sich nicht rückgängig machen, auch die Schnappschüsse werden gelöscht. Wer den Stand behalten will, gibt vorher eine Sicherung aus; dieses Fenster bleibt dabei offen. Zur Bestätigung bitte ${Zuruecksetzen.BESTAETIGUNG} eintippen.")
+                    // T-409: direkt hier, ohne die Rückfrage zu schließen
+                    OutlinedButton(onClick = onSicherung, enabled = !model.busy, modifier = Modifier.padding(vertical = 8.dp)) { Text("Erst Datensicherung speichern …") }
                     Feld("Bestätigung", eingabe, { eingabe = it })
                 }
             },

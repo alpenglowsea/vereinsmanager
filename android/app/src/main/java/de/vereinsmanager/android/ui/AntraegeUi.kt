@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -38,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -499,15 +502,14 @@ class AntragEntwurf(start: AntragEinstellungen) {
 @Composable
 fun rememberAntragEntwurf(model: AppModel): AntragEntwurf = remember { AntragEntwurf(model.antragEinstellungen()) }
 
-/** Beiträge je Mitgliedsart, Texte im Antrag und das leere Formular – als Karten in den Einstellungen. Gespeichert wird über die Leiste unten. */
-@Composable
-fun AntragEinstellungenKarten(model: AppModel, e: AntragEntwurf) {
-    var meldung by remember { mutableStateOf<String?>(null) }
-    var info by remember { mutableStateOf<String?>(null) }
-    val exporter = rememberExporter(model) { info = it }
-
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        MitgliedsartenKarte(model, e)
+/**
+ * Beiträge je Mitgliedsart, Texte im Antrag, Beilagen und das leere Formular – als einzelne Einträge der Liste im Reiter
+ * „Allgemein“. Einzeln, damit die Liste nur zeichnet, was zu sehen ist (siehe `EinstellungenScreen`). Gespeichert wird
+ * über die Leiste unten.
+ */
+fun LazyListScope.antragEinstellungenKarten(model: AppModel, e: AntragEntwurf) {
+    item(key = "mitgliedsarten") { MitgliedsartenKarte(model, e) }
+    item(key = "antragstexte") {
         WieseKarte(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Texte im Antrag", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
@@ -522,7 +524,15 @@ fun AntragEinstellungenKarten(model: AppModel, e: AntragEntwurf) {
                 TextButton(onClick = { e.satzung = AntragEinstellungen.STANDARD_SATZUNG }) { Text("Standardtext wiederherstellen") }
             }
         }
+    }
+    item(key = "beilagen") {
+        var meldung by remember { mutableStateOf<String?>(null) }
         BeilagenKarte(model, onMeldung = { meldung = it })
+        meldung?.let { HinweisFenster(it) { meldung = null } }
+    }
+    item(key = "leeresFormular") {
+        var info by remember { mutableStateOf<String?>(null) }
+        val exporter = rememberExporter(model) { info = it }
         WieseKarte(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Leeres Antragsformular", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
@@ -536,10 +546,13 @@ fun AntragEinstellungenKarten(model: AppModel, e: AntragEntwurf) {
                 ) { Text("Leeres Antragsformular als PDF speichern") }
             }
         }
+        info?.let { HinweisFenster(it) { info = null } }
     }
-    (meldung ?: info)?.let { text ->
-        Aktionsdialog(titel = "Hinweis", onDismiss = { meldung = null; info = null }, inhalt = { Text(text) }, aktionen = { TextButton(onClick = { meldung = null; info = null }) { Text("OK") } })
-    }
+}
+
+@Composable
+private fun HinweisFenster(text: String, onOk: () -> Unit) {
+    Aktionsdialog(titel = "Hinweis", onDismiss = onOk, inhalt = { Text(text) }, aktionen = { TextButton(onClick = onOk) { Text("OK") } })
 }
 
 /** Satzung und Datenschutz-Vordruck als PDF hinterlegen; das neue Mitglied öffnet sie in Schritt 4 des Antrags. */
@@ -629,7 +642,7 @@ private fun MitgliedsartenKarte(model: AppModel, e: AntragEntwurf) {
     val aktiv = Mitgliedsarten.aktive(e.arten)
     val geloeschte = e.arten.filter { it.geloescht }
     val fehler = if (e.zeigeFehler) e.fehler else emptyMap()
-    var neuName by remember { mutableStateOf("") }
+    var neuName by rememberSaveable { mutableStateOf("") }
     var loeschFrage by remember { mutableStateOf<Pair<String, String>?>(null) } // Art, Ziel
     fun anzahl(id: String): Int {
         var n = if (e.verschiebungen.containsKey(id)) 0 else Mitgliedsarten.anzahl(model.members, id)
@@ -687,13 +700,14 @@ private fun MitgliedsartenKarte(model: AppModel, e: AntragEntwurf) {
                     Checkbox(a.imAntrag, { an -> aendern(a.id) { it.copy(imAntrag = an) } })
                     Text("im Aufnahmeantrag", style = MaterialTheme.typography.bodyMedium)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(onClick = { e.arten = Mitgliedsarten.verschieben(e.arten, a.id, -1) }, enabled = i > 0) { Text("▲ nach oben") }
-                    TextButton(onClick = { e.arten = Mitgliedsarten.verschieben(e.arten, a.id, 1) }, enabled = i < aktiv.lastIndex) { Text("▼ nach unten") }
+                // Wie bei den Sparten: schmale Pfeilknöpfe, damit „Löschen“ in derselben Zeile Platz hat.
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    KompaktKnopf("▲", { e.arten = Mitgliedsarten.verschieben(e.arten, a.id, -1) }, Modifier.width(44.dp), enabled = i > 0)
+                    KompaktKnopf("▼", { e.arten = Mitgliedsarten.verschieben(e.arten, a.id, 1) }, Modifier.width(44.dp), enabled = i < aktiv.lastIndex)
                     TextButton(
                         onClick = { if (n == 0) loeschen(a.id, null) else loeschFrage = a.id to (aktiv.firstOrNull { it.id != a.id }?.id ?: "") },
                         enabled = aktiv.size > 1,
-                    ) { Text("Löschen", color = if (aktiv.size > 1) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant) }
+                    ) { Text("Löschen", maxLines = 1, softWrap = false, color = if (aktiv.size > 1) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
             fehler["liste"]?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
