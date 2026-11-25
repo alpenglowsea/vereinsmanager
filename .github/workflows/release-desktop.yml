@@ -1,4 +1,4 @@
-name: "VereinsManager Desktop Release"
+name: "VereinsManager Release (Desktop und Handy)"
 
 on:
   push:
@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release Version (z. B. v1.1.0)'
+        description: 'Release Version (z. B. v2.0.0), muss zur Versionsnummer im Code passen'
         required: true
-        default: 'v1.1.0'
+        default: 'v2.0.0'
       veroeffentlichen:
         description: 'Als Release veröffentlichen? "nein" = nur bauen, Pakete hängen am Lauf'
         required: true
@@ -23,7 +23,38 @@ env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
 
 jobs:
+  # ------------------------------------------------------------------
+  # Passt die Marke zur Versionsnummer im Code?
+  #
+  # Die Nummer steht an vier Stellen (Desktop dreimal, Handy einmal). Weicht
+  # eine ab, meldet die App später eine falsche Version, und die
+  # Versionsprüfung vergleicht falsch. Deshalb bricht der Bau hier ab, bevor
+  # irgendetwas gebaut oder veröffentlicht wird.
+  # ------------------------------------------------------------------
+  pruefen:
+    runs-on: ubuntu-latest
+    env:
+      VM_MARKE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Versionsnummern vergleichen
+        run: |
+          set -e
+          SOLL="${VM_MARKE#v}"
+          echo "Marke: $VM_MARKE  ->  erwartete Version: $SOLL"
+          case "$VM_MARKE" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "::error::Die Marke muss die Form v2.0.0 haben, ist aber '$VM_MARKE'."; exit 1;; esac
+          FEHLER=0
+          pruefe() {
+            if [ "$2" != "$SOLL" ]; then echo "::error::$1 hat Version '$2', die Marke verlangt '$SOLL'."; FEHLER=1; else echo "OK  $1: $2"; fi
+          }
+          pruefe package.json "$(node -p "require('./package.json').version")"
+          pruefe src-tauri/tauri.conf.json "$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          pruefe src-tauri/Cargo.toml "$(sed -n 's/^version = "\(.*\)"/\1/p' src-tauri/Cargo.toml | head -1)"
+          pruefe android/app/build.gradle.kts "$(sed -n 's/^val vmVersion = "\(.*\)"/\1/p' android/app/build.gradle.kts)"
+          exit $FEHLER
+
   release:
+    needs: pruefen
     permissions:
       contents: write
     env:
@@ -169,32 +200,39 @@ jobs:
           tagName: ${{ env.VM_VEROEFFENTLICHEN == 'ja' && env.VM_MARKE || '' }}
           releaseName: ${{ env.VM_VEROEFFENTLICHEN == 'ja' && format('VereinsManager {0}', env.VM_MARKE) || '' }}
           releaseBody: |
-            ## VereinsManager Desktop — Vorabversion
+            ## VereinsManager ${{ env.VM_MARKE }}
 
-            **Das ist eine Vorabversion.** Die Anwendung wird noch entwickelt;
-            Fehler sind zu erwarten, und einzelne Funktionen können sich von
-            Fassung zu Fassung ändern. Für den Echtbetrieb eines Vereins ist sie
-            noch nicht gedacht.
+            Kostenlose Vereinsverwaltung für gemeinnützige Vereine, vollständig lokal:
+            Ihre Daten bleiben auf Ihrem Rechner bzw. Handy.
 
-            Ein Standalone-Paket für alle Betriebssysteme, vollständig lokal.
+            > **Frühe Fassung.** Die App wird noch entwickelt und ist bisher nur in einem
+            > Verein im Einsatz. Legen Sie regelmäßig eine Datensicherung an
+            > (Einstellungen → Datensicherung).
 
-            ### Downloads:
-            - **Windows**: `.exe` (Installer)
-            - **macOS**: `.dmg` (Apple Silicon: M1 und neuer)
-            - **Linux**: `.AppImage` (vor dem ersten Start als ausführbar kennzeichnen, siehe `DESKTOP_RELEASE.md`)
+            ### Downloads
+            - **Windows:** `…_x64-setup.exe` (Installationsprogramm)
+            - **macOS:** `….dmg` (Apple Silicon: M1 und neuer)
+            - **Linux:** `….AppImage` (vor dem ersten Start als ausführbar kennzeichnen, siehe `DESKTOP_RELEASE.md`)
+            - **Android:** `…_android.apk` (ab Android 8)
 
-            *Keine Installation von Node.js oder Webservern erforderlich. Einfach herunterladen und per Doppelklick starten.*
+            ### Hinweise zur Installation
+            Die Programme sind (noch) nicht bei Microsoft oder Apple registriert. Deshalb warnen die Systeme:
+            - **Windows** zeigt „Der Computer wurde durch Windows geschützt“: auf **„Weitere Informationen“** und dann **„Trotzdem ausführen“** klicken.
+            - **macOS** verweigert den ersten Start: Rechtsklick auf die App → **„Öffnen“**, dann bestätigen. Hilft das nicht: Systemeinstellungen → Datenschutz & Sicherheit → **„Dennoch öffnen“**.
+            - **Android** fragt, ob Apps aus dieser Quelle (z. B. dem Browser) installiert werden dürfen: einmal erlauben.
 
-            Das Programm bringt einen kleinen Anwendungsserver mit, der
-            ausschließlich auf diesem einen Rechner lauscht (`127.0.0.1`) und
-            aus dem Netzwerk nicht erreichbar ist. Dadurch funktioniert auch
-            in der Desktop-Fassung der Fehlerbericht-Knopf in den
-            Einstellungen.
+            Wer schon eine ältere Fassung hat: vorher eine Datensicherung anlegen.
+
+            Die Desktop-Fassung bringt einen kleinen Anwendungsserver mit, der
+            ausschließlich auf diesem Rechner lauscht (`127.0.0.1`) und aus dem
+            Netzwerk nicht erreichbar ist. Nach draußen verbindet sich die App nur,
+            wenn Sie selbst auf „Jetzt prüfen“ (Versionsprüfung) klicken.
           releaseDraft: false
-          # Als Vorabversion gekennzeichnet: GitHub zeigt sie dann nicht als
-          # "Latest release" an, und niemand lädt sie versehentlich in dem
-          # Glauben herunter, das sei die fertige Fassung.
-          prerelease: true
+          # Reguläre Veröffentlichung (Entscheidung Johannes, 25.11.2026). Bis
+          # dahin stand hier "prerelease: true". Die Versionsprüfung der App
+          # fragt aber nur nach der neuesten regulären Version und hätte so nie
+          # etwas gefunden. Dass es eine frühe Fassung ist, steht im Text oben.
+          prerelease: false
           args: ${{ matrix.args }}
 
       # ------------------------------------------------------------------
@@ -222,3 +260,95 @@ jobs:
             src-tauri/target/*/release/bundle/**/*.AppImage
             src-tauri/target/*/release/bundle/**/*.dmg
             src-tauri/target/*/release/bundle/**/*.exe
+
+  # ------------------------------------------------------------------
+  # Handy: signierte APK bauen und an dieselbe Veröffentlichung hängen
+  #
+  # Wartet auf den Desktop-Bau, weil der die Veröffentlichung anlegt. Läuft
+  # auch, wenn ein Desktop-System scheitert (dann fehlt nur dessen Datei).
+  #
+  # Der Signierschlüssel kommt aus vier Secrets (Einstellungen des
+  # Repositorys → Secrets and variables → Actions), siehe DESKTOP_RELEASE.md:
+  #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORT,
+  #   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORT
+  # Er wird nur für die Dauer des Baus in einem temporären Ordner abgelegt.
+  # ------------------------------------------------------------------
+  android:
+    needs: [pruefen, release]
+    if: ${{ !cancelled() && needs.pruefen.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VM_VEROEFFENTLICHEN: ${{ github.event_name != 'workflow_dispatch' && 'ja' || github.event.inputs.veroeffentlichen }}
+      VM_MARKE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: android
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Signierschlüssel bereitstellen
+        env:
+          SCHLUESSEL: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$SCHLUESSEL" ]; then
+            echo "::error::Das Secret ANDROID_KEYSTORE_BASE64 fehlt. Anleitung: DESKTOP_RELEASE.md, Abschnitt „Handy: Signierschlüssel“."
+            exit 1
+          fi
+          echo "$SCHLUESSEL" | base64 -d > "$RUNNER_TEMP/vereinsmanager.jks"
+          echo "VM_ANDROID_KEYSTORE=$RUNNER_TEMP/vereinsmanager.jks" >> "$GITHUB_ENV"
+
+      # Erst die Tests des Kerns, dann die Release-Fassung. Scheitert ein Test,
+      # wird nichts veröffentlicht.
+      - name: Tests und Release-Fassung bauen
+        env:
+          VM_ANDROID_KEYSTORE_PASSWORT: ${{ secrets.ANDROID_KEYSTORE_PASSWORT }}
+          VM_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          VM_ANDROID_KEY_PASSWORT: ${{ secrets.ANDROID_KEY_PASSWORT }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :core:test :app:assembleRelease
+
+      # Eine signierte Fassung heißt app-release.apk; eine unsignierte hieße
+      # app-release-unsigned.apk und ließe sich nicht installieren.
+      - name: APK benennen
+        run: |
+          set -e
+          QUELLE=app/build/outputs/apk/release/app-release.apk
+          if [ ! -f "$QUELLE" ]; then
+            echo "::error::Keine signierte APK entstanden. Vorhanden:"; ls -l app/build/outputs/apk/release/ || true
+            exit 1
+          fi
+          ZIEL="$RUNNER_TEMP/VereinsManager_${VM_MARKE#v}_android.apk"
+          cp "$QUELLE" "$ZIEL"
+          echo "VM_APK=$ZIEL" >> "$GITHUB_ENV"
+          ls -l "$ZIEL"
+
+      - name: Schlüssel wieder entfernen
+        if: always()
+        run: rm -f "$RUNNER_TEMP/vereinsmanager.jks"
+
+      - name: APK an die Veröffentlichung hängen
+        if: env.VM_VEROEFFENTLICHEN == 'ja'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$VM_MARKE" "$VM_APK" --clobber
+
+      - name: APK an den Lauf hängen (nur beim Testbau)
+        if: env.VM_VEROEFFENTLICHEN != 'ja'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vereinsmanager-android
+          if-no-files-found: error
+          retention-days: 7
+          path: ${{ env.VM_APK }}

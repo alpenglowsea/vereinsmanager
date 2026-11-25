@@ -176,6 +176,58 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Version 2.0.0: gemeinsame Nummer, signierte Handy-Fassung auf GitHub
+
+Entscheidungen vom 25.11.2026: Versionssprung auf 2.0.0 (die alten
+1.x-Veröffentlichungen stammen aus der Zeit vor dem Umbau), reguläre
+Veröffentlichung statt Vorabversion, Desktop für Windows, macOS und Linux.
+- **Eine Nummer für Desktop und Handy:** 2.0.0 in `package.json`,
+  `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` und
+  `android/app/build.gradle.kts` (`vmVersion`; vorher Handy „1.0“). Die
+  laufende Nummer für Android wird daraus berechnet (2.0.0 → 20000).
+- **Bauablauf** (`release-desktop.yml`, jetzt „VereinsManager Release
+  (Desktop und Handy)“):
+  - neuer erster Schritt `pruefen`: bricht ab, wenn die Marke nicht zur
+    Nummer an allen vier Stellen passt;
+  - Veröffentlichung regulär (`prerelease: false`), sonst fände die
+    Versionsprüfung sie nicht; neuer Text mit Installationshinweisen für
+    Windows, macOS und Android;
+  - neuer Teil `android`: Kern-Tests, signierte Release-APK, an dieselbe
+    Veröffentlichung gehängt (beim Testbau an den Lauf). Der Schlüssel kommt
+    aus vier Secrets und liegt nur während des Baus auf dem Bau-Rechner.
+- **Gradle:** Signierung über Umgebungsvariablen; ohne sie wie bisher.
+- **Versionsprüfung am Desktop:** sucht die Installationsdatei des eigenen
+  Systems (.exe, .dmg, .AppImage) statt nur der Windows-Datei.
+- **Anleitung:** `DESKTOP_RELEASE.md` mit Versionsnummer, Signierschlüssel,
+  Secrets, Umstieg auf dem eigenen Handy, Testbau und Veröffentlichen.
+- Tests: Desktop +1 (572).
+
+### Versionsprüfung nur auf Klick (Desktop und Handy); Einstellungen-Reiter werden behalten
+
+Wunsch vom 25.11.2026: Ohne Klick oder Tippen geht nichts nach draußen.
+- **Desktop, Versionskachel in der Seitenleiste:** fragte bisher bei jedem
+  Start von selbst bei GitHub nach (bis zu vier Abfragen, zuletzt sogar die
+  `package.json` im Hauptzweig). Jetzt nur über „Jetzt prüfen“ im
+  aufgeklappten Fenster, eine einzige Abfrage nach der neuesten
+  *veröffentlichten* Version. Die Kachel zeigte vorher ungeprüft „Aktuell &
+  geprüft“; jetzt „Klicken: nach Updates suchen“ und nach der Prüfung das
+  Ergebnis. Eigene Meldungen für „keine Verbindung“, „nichts
+  veröffentlicht“ und „zu viele Abfragen“.
+- **Handy:** neue Karte „Version“ unter Einstellungen → Allgemein, gleiche
+  Regeln und Texte. Dafür braucht die App jetzt die Berechtigung
+  `INTERNET` (vorher hatte sie keine einzige); benutzt wird sie nur dort.
+- Gemeinsame Regeln: `src/utils/versionspruefung.ts` und
+  `android/core/.../settings/Versionspruefung.kt`, je 6 Tests mit denselben
+  Fällen. `AppUpdateInfo` und der nie einstellbare Repository-Schlüssel
+  `vm_github_repo` sind entfernt.
+- **Einstellungen am Handy:** Die Liste aus dem vorigen Paket ruckelte beim
+  Blättern (T-421) und ist zurückgenommen. Stattdessen wird jeder Reiter
+  beim ersten Besuch aufgebaut und danach unsichtbar behalten; jeder weitere
+  Wechsel ist nur noch ein Umschalten. Der erste Aufbau kommt ein Bild
+  später, damit der angetippte Reiter sofort als gewählt erscheint. Beim
+  Wechsel wird der Cursor aus dem alten Reiter genommen.
+- Tests: Desktop +6 (571), Android +6 (734).
+
 ### Handy: Einstellungen zeichnen nur noch sichtbare Karten
 
 Aus T-419: „Allgemein“ und „Verein“ öffneten sich weiter verzögert, die

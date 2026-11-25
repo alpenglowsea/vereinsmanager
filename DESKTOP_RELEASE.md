@@ -1,29 +1,113 @@
-# 🖥️ VereinsManager Desktop-Apps erstellen (Windows .exe, Mac .dmg, Linux .AppImage)
+# 🖥️📱 VereinsManager veröffentlichen (Windows, macOS, Linux und Android)
 
-Mit der integrierten **Tauri + GitHub Actions** Pipeline können Sie vollautomatisch fertige Installationsdateien für Windows, macOS und Linux erzeugen lassen, ohne selbst Build-Tools auf Ihrem PC installieren zu müssen.
+Der Bauablauf **„VereinsManager Release (Desktop und Handy)“** auf GitHub
+(`.github/workflows/release-desktop.yml`) erzeugt die Installationsdateien
+für alle drei Desktop-Systeme und die Android-App und hängt sie an eine
+Veröffentlichung. Auf dem eigenen Rechner muss dafür nichts installiert sein.
 
 ---
 
-## 🚀 So erstellen Sie einen neuen Desktop-Release auf GitHub:
+## 🔢 Versionsnummer
 
-### Methode 1: Über ein Versions-Tag (Empfohlen)
-Sobald Sie einen neuen Versionsstand freigeben möchten, erstellen Sie einfach einen Git-Tag (z. B. `v1.1.0`):
+Desktop und Handy haben **eine gemeinsame Nummer** (seit 2.0.0, Entscheidung
+25.11.2026). Sie steht an vier Stellen, die vor jeder Veröffentlichung
+gleichziehen müssen:
+
+| Datei | Zeile |
+|---|---|
+| `package.json` | `"version": "2.0.0",` |
+| `src-tauri/tauri.conf.json` | `"version": "2.0.0",` |
+| `src-tauri/Cargo.toml` | `version = "2.0.0"` |
+| `android/app/build.gradle.kts` | `val vmVersion = "2.0.0"` |
+
+(`package-lock.json` zieht `npm install` von selbst nach.)
+
+Die Marke heißt dann `v2.0.0`. Passt eine der vier Stellen nicht, bricht der
+Bau im ersten Schritt ab und sagt, welche. Die laufende Nummer, die Android
+zusätzlich verlangt, rechnet die App selbst aus (2.0.0 → 20000, 2.1.3 → 20103).
+
+Muster: Fehlerbehebungen erhöhen die letzte Zahl (2.0.1), neue Funktionen die
+mittlere (2.1.0).
+
+---
+
+## 📱 Handy: Signierschlüssel (einmalig)
+
+Android installiert eine App nur mit Unterschrift, und ein Update nur mit
+**derselben** Unterschrift. Der Schlüssel dafür wird einmal angelegt und dann
+für immer benutzt.
+
+> ⚠️ **Geht der Schlüssel oder sein Passwort verloren, lässt sich keine
+> spätere Fassung mehr über die installierte spielen.** Jeder Nutzer müsste die
+> App deinstallieren (dabei gehen die Daten auf dem Handy verloren) und seine
+> Datensicherung neu einspielen. Deshalb: Schlüsseldatei und Passwort an zwei
+> getrennten, sicheren Orten aufbewahren (z. B. Passwortmanager und ein
+> verschlüsselter USB-Stick). **Nie ins Repository.**
+
+### 1. Schlüssel anlegen (Android Studio)
+1. Projekt `android` in Android Studio öffnen.
+2. Menü **Build → Generate Signed App Bundle or APK…** → **APK** → *Next*.
+3. Bei *Key store path* auf **Create new…**:
+   - *Key store path:* ein Ort **außerhalb** des Repository-Ordners, z. B. `Dokumente\VereinsManager-Schluessel\vereinsmanager.jks`
+   - *Password* / *Confirm:* ein langes Passwort (das „Keystore-Passwort“)
+   - *Alias:* `vereinsmanager`
+   - *Key → Password:* dasselbe oder ein zweites Passwort (das „Key-Passwort“)
+   - *Validity (years):* `50`
+   - *Certificate:* bei *First and Last Name* den Vereins- oder eigenen Namen; der Rest darf leer bleiben
+   - *OK*
+4. Den Assistenten danach mit *Cancel* schließen; gebaut wird auf GitHub.
+
+### 2. Schlüssel als Text kopieren (Windows PowerShell)
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$HOME\Documents\VereinsManager-Schluessel\vereinsmanager.jks")) | Set-Clipboard
+```
+(Pfad anpassen.) Der Schlüssel steht jetzt als langer Text in der Zwischenablage.
+
+### 3. Secrets bei GitHub hinterlegen
+Repository → **Settings → Secrets and variables → Actions → New repository secret**, viermal:
+
+| Name | Inhalt |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | der Text aus Schritt 2 (einfügen) |
+| `ANDROID_KEYSTORE_PASSWORT` | das Keystore-Passwort |
+| `ANDROID_KEY_ALIAS` | `vereinsmanager` |
+| `ANDROID_KEY_PASSWORT` | das Key-Passwort |
+
+GitHub zeigt Secrets nach dem Speichern nie wieder an, auch nicht in den
+Protokollen des Baus. Der Bau legt den Schlüssel nur für seine Dauer in einen
+temporären Ordner und löscht ihn danach.
+
+### Umstieg auf dem eigenen Handy
+Die Fassung, die Android Studio mit dem grünen Pfeil installiert, trägt eine
+andere Unterschrift (den Entwicklungsschlüssel von Android Studio). Die erste
+Release-Fassung lässt sich deshalb **nicht darüber** installieren:
+1. In der alten App eine Datensicherung anlegen und vom Handy wegkopieren.
+2. Alte App deinstallieren.
+3. Release-APK installieren, Sicherung einspielen.
+
+Danach installiert jede weitere Release-Fassung ohne Umweg über die alte.
+
+---
+
+## 🚀 Veröffentlichen
+
+### Erst ausprobieren (Testbau)
+1. Repository → **Actions** → links **„VereinsManager Release (Desktop und Handy)“** → rechts **„Run workflow“**.
+2. *Release Version:* `v2.0.0`, *Als Release veröffentlichen?:* **`nein`** → *Run workflow*.
+3. Nach dem Lauf (etwa 20 Minuten) unten unter **„Artifacts“** die ZIP-Dateien laden: je Desktop-System eine und `vereinsmanager-android`.
+4. Ausprobieren. Die Android-Fassung ist dabei die echte Release-Fassung (verdichtet und optimiert), also genau das, was Nutzer bekämen.
+
+### Dann veröffentlichen
+Entweder wie oben mit *Als Release veröffentlichen?:* **`ja`**, oder über eine Marke:
 
 ```bash
-git tag v1.1.0
-git push origin v1.1.0
+git tag v2.0.0
+git push origin v2.0.0
 ```
 
----
-
-### Methode 2: Direkt über die GitHub-Weboberfläche (1-Klick)
-1. Öffnen Sie Ihr Repository auf GitHub.
-2. Klicken Sie oben auf den Tab **Actions**.
-3. Wählen Sie in der linken Seitenleiste den Workflow **„VereinsManager Desktop Release“** aus.
-4. Klicken Sie rechts auf **„Run workflow“**. Dort stehen zwei Felder:
-   - *Release Version* — die Versionsnummer, z. B. `v1.1.0`
-   - *Als Release veröffentlichen?* — `ja` oder `nein`
-5. Bestätigen Sie mit **„Run workflow“**.
+Es entsteht eine reguläre Veröffentlichung (keine „Vorabversion“): Die
+Versionsprüfung in der App fragt nach der neuesten regulären Version und fände
+eine Vorabversion nicht.
 
 ---
 
@@ -31,10 +115,10 @@ git push origin v1.1.0
 
 Steht das zweite Feld auf **`nein`** (so ist es voreingestellt), entsteht im
 Repository nichts: **kein Release, keine Marke.** Gebaut wird trotzdem für alle
-drei Betriebssysteme.
+drei Betriebssysteme und das Handy.
 
 Die fertigen Pakete finden Sie anschließend in der Übersicht des Laufs ganz
-unten unter **„Artifacts“**, eine ZIP-Datei je Betriebssystem. Sie werden
+unten unter **„Artifacts“**, eine ZIP-Datei je Betriebssystem und eine für Android. Sie werden
 sieben Tage aufbewahrt und dann von selbst gelöscht.
 
 Dafür ist das gedacht: eine Änderung ausprobieren, ohne den Anwendern eine
@@ -46,7 +130,7 @@ Fassung vorzusetzen, die noch gar keine sein soll. Erst wenn sich eine
 > Linux“ weiter unten.
 
 Wird der Bau dagegen durch das Veröffentlichen einer Marke ausgelöst
-(Methode 1), entsteht immer ein Release. Die Frage stellt sich dort nicht.
+(`git push origin v2.0.0`), entsteht immer ein Release. Die Frage stellt sich dort nicht.
 
 ---
 
@@ -57,9 +141,10 @@ bei warmem Zwischenspeicher weniger):
 1. Öffnen Sie Ihr Repository auf GitHub und klicken Sie rechts auf **Releases**.
 2. Dort finden Sie die fertigen Pakete zum Direkt-Download:
    - 🪟 **Windows:**
-     - `VereinsManager_1.1.0_x64-setup.exe` (NSIS-Installer: Installiert wahlweise für alle Benutzer in `C:\Programme\VereinsManager` oder lokal)
-   - 🍏 **macOS:** `VereinsManager_1.1.0_aarch64.dmg` (Apple Silicon: M1 und neuer)
-   - 🐧 **Linux:** `VereinsManager_1.1.0_amd64.AppImage`
+     - `VereinsManager_2.0.0_x64-setup.exe` (NSIS-Installer: Installiert wahlweise für alle Benutzer in `C:\Programme\VereinsManager` oder lokal)
+   - 🍏 **macOS:** `VereinsManager_2.0.0_aarch64.dmg` (Apple Silicon: M1 und neuer)
+   - 🐧 **Linux:** `VereinsManager_2.0.0_amd64.AppImage`
+   - 📱 **Android:** `VereinsManager_2.0.0_android.apk`
 
 Je Betriebssystem gibt es genau ein Paket. (Die Dateinamen sind aus dem Muster
 von Tauri abgeleitet; der genaue Name steht nach dem ersten Lauf im Release.)
@@ -90,8 +175,8 @@ Ohne Terminal: **Rechtsklick → Eigenschaften → Zugriffsrechte → Haken bei
 Mit Terminal:
 
 ```bash
-chmod +x VereinsManager_1.1.0_amd64.AppImage
-./VereinsManager_1.1.0_amd64.AppImage
+chmod +x VereinsManager_2.0.0_amd64.AppImage
+./VereinsManager_2.0.0_amd64.AppImage
 ```
 
 Dieser Handgriff ist bei **jedem neuen Download** erneut nötig.

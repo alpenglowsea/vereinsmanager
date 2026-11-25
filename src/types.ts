@@ -633,20 +633,6 @@ export interface SpecialCalendarItem {
   details: string;
 }
 
-export interface AppUpdateInfo {
-  currentVersion: string;
-  latestVersion: string;
-  isUpdateAvailable: boolean;
-  releaseTitle?: string;
-  releaseDate?: string;
-  releaseNotes?: string[];
-  githubUrl?: string;
-  downloadUrls?: {
-    windows?: string;
-    mac?: string;
-    linux?: string;
-  };
-}
 
 // ----------------------------------------------------
 // KONTAKTVERWALTUNG (NATÜRLICHE & JURISTISCHE PERSONEN)

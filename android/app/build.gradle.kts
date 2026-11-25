@@ -3,6 +3,15 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Versionsnummer, gemeinsam mit dem Desktop (package.json, src-tauri/tauri.conf.json, src-tauri/Cargo.toml).
+// Der Bau auf GitHub bricht ab, wenn sie nicht zur Marke passt (z. B. v2.0.0).
+val vmVersion = "2.0.0"
+
+// Signierschlüssel der Release-Fassung. Er liegt nie im Repository: Beim Bau auf GitHub wird er aus einem Secret
+// abgelegt, Ort und Passwörter kommen über Umgebungsvariablen (siehe .github/workflows/release-desktop.yml und
+// DESKTOP_RELEASE.md). Ohne sie entsteht eine unsignierte Release-Fassung, die sich nicht installieren lässt.
+val vmSchluessel: String? = System.getenv("VM_ANDROID_KEYSTORE")
+
 android {
     namespace = "de.vereinsmanager.android"
     compileSdk {
@@ -13,14 +22,27 @@ android {
         applicationId = "de.vereinsmanager.android"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        // Android verlangt zusätzlich eine ganze Zahl, die mit jeder Fassung steigt: 2.0.0 → 20000, 2.1.3 → 20103.
+        versionCode = vmVersion.split('.').map { it.toInt() }.let { (a, b, c) -> a * 10000 + b * 100 + c }
+        versionName = vmVersion
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        vmSchluessel?.let { pfad ->
+            create("release") {
+                storeFile = file(pfad)
+                storePassword = System.getenv("VM_ANDROID_KEYSTORE_PASSWORT")
+                keyAlias = System.getenv("VM_ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("VM_ANDROID_KEY_PASSWORT")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (vmSchluessel != null) signingConfig = signingConfigs.getByName("release")
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")

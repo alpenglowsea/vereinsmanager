@@ -323,6 +323,7 @@ Nur für den Start aus dem Quellcode:
    * **Windows:** `.exe`-Installer
    * **macOS:** `.dmg` (Apple Silicon: M1 und neuer)
    * **Linux:** `.AppImage` (vor dem ersten Start als ausführbar kennzeichnen — Anleitung in [`DESKTOP_RELEASE.md`](DESKTOP_RELEASE.md))
+   * **Android:** `_android.apk` (ab Android 8; einmal erlauben, dass der Browser Apps installieren darf)
 2. Installieren bzw. starten — die App öffnet ihr eigenes Fenster und bringt den dafür nötigen Server gleich mit. Er lauscht ausschließlich auf diesem Rechner (`127.0.0.1`) und ist aus dem Netzwerk nicht erreichbar.
 
 Details zum Bau eigener Releases: [`DESKTOP_RELEASE.md`](DESKTOP_RELEASE.md).

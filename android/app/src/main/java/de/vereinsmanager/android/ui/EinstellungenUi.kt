@@ -7,9 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
@@ -26,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.vereinsmanager.android.AppModel
@@ -58,114 +57,115 @@ fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
     }
 
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    // Je Reiter eine eigene Listenposition: Wer zurückkommt, steht wieder dort, wo er war.
-    val listen = remember { List(5) { LazyListState() } }
-    // Sprung aus dem Beitragslauf: zum Reiter „Verein“ wechseln und zur Karte „Lastschrifteinzug“ blättern; das gesuchte
-    // Feld holt sich dann selbst den Cursor. (Die Liste zeichnet nur sichtbare Karten, deshalb erst hinblättern.)
+    // Sprung aus dem Beitragslauf: zum Reiter „Verein“ wechseln; das gesuchte Feld holt sich selbst den Cursor.
     val sprung = model.einstellungenFokus
     androidx.compose.runtime.LaunchedEffect(sprung) {
         if (sprung != null) {
             tab = 1
-            listen[1].scrollToItem(SEPA_INDEX)
             kotlinx.coroutines.delay(1500)
             model.einstellungenFokus = null
         }
     }
+    // Jeder Reiter wird beim ersten Besuch aufgebaut und danach behalten (nur unsichtbar), statt bei jedem Wechsel neu.
+    // „Allgemein“ und „Verein“ haben je rund 20 Eingabefelder; das Aufbauen dauert spürbar. So geschieht es einmal je
+    // Öffnen der Einstellungen. Den ersten Aufbau schieben wir um ein Bild nach hinten, damit der angetippte Reiter sofort
+    // als gewählt erscheint und erst danach der Inhalt kommt.
+    val besucht = remember { androidx.compose.runtime.mutableStateListOf<Int>() }
+    val rollen = remember { List(5) { androidx.compose.foundation.ScrollState(0) } }
+    androidx.compose.runtime.LaunchedEffect(tab) {
+        if (tab !in besucht) {
+            androidx.compose.runtime.withFrameNanos { }
+            besucht.add(tab)
+        }
+    }
+    val fokusVerwalter = androidx.compose.ui.platform.LocalFocusManager.current
     val tabs = listOf("Allgemein" + if (antrag.geaendert) " •" else "", "Verein" + if (geaendert) " •" else "", "Datensicherung", "Unterstützen", "Fehler melden")
     Column(modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            tabs.forEachIndexed { i, t -> TabChip(t, tab == i, { tab = i }) }
+            // Beim Wechsel den Cursor aus dem alten Reiter nehmen, sonst bliebe er in einem unsichtbaren Feld (Tastatur offen).
+            tabs.forEachIndexed { i, t -> TabChip(t, tab == i, { if (tab != i) { fokusVerwalter.clearFocus(); tab = i } }) }
         }
-        // Eine Liste, die nur die sichtbaren Karten zeichnet. Vorher wurden beim Wechsel alle Karten eines Reiters auf einmal
-        // aufgebaut – in „Allgemein“ und „Verein“ je rund 20 Eingabefelder; der Reiter erschien erst, wenn alle fertig waren.
-        // „Datensicherung“, „Unterstützen“ und „Fehler melden“ bleiben je ein Eintrag: Dort greifen Karten ineinander
-        // (Löschen-Rückfrage öffnet das Sicherungsfenster der ersten Karte), und sie öffneten sich schon sofort.
-        LazyColumn(
-            Modifier.fillMaxWidth().weight(1f),
-            state = listen[tab],
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            when (tab) {
-                0 -> {
-                    item(key = "leiste") { LeisteAnpassenKarte(model) }
-                    item(key = "briefpapier") { BriefpapierKarte(model) }
-                    antragEinstellungenKarten(model, antrag)
-                    item(key = "unterschrift") {
-                        WieseKarte(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Unterschrift für Zuwendungsbestätigungen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
-                                val u = model.unterschrift
-                                if (u != null) UnterschriftVorschau(u) else Text("Noch keine Unterschrift hinterlegt.", style = MaterialTheme.typography.bodySmall)
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    OutlinedButton(onClick = { unterschreiben = true }, enabled = !model.busy) { Text(if (u == null) "Unterschreiben" else "Neu unterschreiben") }
-                                    if (u != null) OutlinedButton(onClick = { model.unterschriftSpeichern(null) { e -> sigMeldung = e ?: "Unterschrift gelöscht." } }, enabled = !model.busy) { Text("Löschen") }
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().weight(1f)) {
+            besucht.forEach { reiter ->
+                androidx.compose.runtime.key(reiter) {
+                    Column(
+                        Modifier.nurSichtbarWenn(reiter == tab).fillMaxSize().verticalScroll(rollen[reiter]).padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        when (reiter) {
+                            0 -> {
+                            LeisteAnpassenKarte(model)
+                            BriefpapierKarte(model)
+                            AntragEinstellungenKarten(model, antrag)
+                            WieseKarte(Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text("Unterschrift für Zuwendungsbestätigungen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                                    val u = model.unterschrift
+                                    if (u != null) UnterschriftVorschau(u) else Text("Noch keine Unterschrift hinterlegt.", style = MaterialTheme.typography.bodySmall)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        OutlinedButton(onClick = { unterschreiben = true }, enabled = !model.busy) { Text(if (u == null) "Unterschreiben" else "Neu unterschreiben") }
+                                        if (u != null) OutlinedButton(onClick = { model.unterschriftSpeichern(null) { e -> sigMeldung = e ?: "Unterschrift gelöscht." } }, enabled = !model.busy) { Text("Löschen") }
+                                    }
+                                    Text(
+                                        "Die Unterschrift wird mit den Vereinsdaten gespeichert und steht damit auch in jeder Datensicherung. Sie kommt nur ins PDF, wenn Sie das beim jeweiligen Beleg einschalten.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                    if (sigMeldung != null) Text(sigMeldung!!, style = MaterialTheme.typography.bodySmall)
                                 }
-                                Text(
-                                    "Die Unterschrift wird mit den Vereinsdaten gespeichert und steht damit auch in jeder Datensicherung. Sie kommt nur ins PDF, wenn Sie das beim jeweiligen Beleg einschalten.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                                if (sigMeldung != null) Text(sigMeldung!!, style = MaterialTheme.typography.bodySmall)
                             }
-                        }
-                    }
-                    item(key = "schutz") { SchutzKarte() }
-                }
-                1 -> {
-                    item(key = "verein") {
-                        WieseKarte(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Verein", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
-                                Feld("Vereinsname *", f.name, { f = f.copy(name = it) }, error = fehlerFuer("name"))
-                                Feld("Straße", f.strasse, { f = f.copy(strasse = it) })
-                                Feld("Hausnummer", f.hausnummer, { f = f.copy(hausnummer = it) })
-                                Feld("PLZ", f.plz, { f = f.copy(plz = it) })
-                                Feld("Ort", f.ort, { f = f.copy(ort = it) })
-                                Feld("E-Mail", f.email, { f = f.copy(email = it) }, keyboard = androidx.compose.ui.text.input.KeyboardType.Email, hinweis = "Steht im Briefkopf der Rechnungen")
-                                Feld("Telefon", f.telefon, { f = f.copy(telefon = it) }, keyboard = androidx.compose.ui.text.input.KeyboardType.Phone, hinweis = "Wird nur hier gepflegt (wie am Desktop), die App druckt es nirgends")
-                                Feld("Webseite", f.webseite, { f = f.copy(webseite = it) }, keyboard = androidx.compose.ui.text.input.KeyboardType.Uri, hinweis = "Wird nur hier gepflegt (wie am Desktop), die App druckt es nirgends")
-                                Feld("Vereinsregister-Nr.", f.registernummer, { f = f.copy(registernummer = it) }, hinweis = "z. B. VR 12345 – steht in der Fußzeile der Rechnungen")
+                                SchutzKarte()
+                                VersionKarte()
                             }
-                        }
-                    }
-                    item(key = "vorstand") { VorstandKarte(vorstand, { vorstand = it }, if (zeigeFehler) vorstandFehler else emptyMap()) }
-                    item(key = "sparten") { SpartenKarte(model) }
-                    item(key = "sepa") {
-                        WieseKarte(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Lastschrifteinzug (SEPA)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
-                                Feld("Gläubiger-ID", f.glaeubigerId, { f = f.copy(glaeubigerId = it) }, fokus = sprung == "creditorId", hinweis = "z. B. DE98ZZZ09999999999 – bekommt man bei der Bundesbank")
-                                Feld("Vereinskonto IBAN", f.iban, { f = f.copy(iban = it) }, error = fehlerFuer("iban"), fokus = sprung == "creditorIban")
-                                Feld("Vereinskonto BIC", f.bic, { f = f.copy(bic = it) }, error = fehlerFuer("bic"), fokus = sprung == "creditorBic")
-                                val fehlt = model.lastschriftFehlt
-                                if (fehlt != null) Text("Für den Beitragslauf noch nötig: $fehlt", style = MaterialTheme.typography.bodySmall)
+                            1 -> {
+                            WieseKarte(Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text("Verein", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                                    Feld("Vereinsname *", f.name, { f = f.copy(name = it) }, error = fehlerFuer("name"))
+                                    Feld("Straße", f.strasse, { f = f.copy(strasse = it) })
+                                    Feld("Hausnummer", f.hausnummer, { f = f.copy(hausnummer = it) })
+                                    Feld("PLZ", f.plz, { f = f.copy(plz = it) })
+                                    Feld("Ort", f.ort, { f = f.copy(ort = it) })
+                                    Feld("E-Mail", f.email, { f = f.copy(email = it) }, keyboard = androidx.compose.ui.text.input.KeyboardType.Email, hinweis = "Steht im Briefkopf der Rechnungen")
+                                    Feld("Telefon", f.telefon, { f = f.copy(telefon = it) }, keyboard = androidx.compose.ui.text.input.KeyboardType.Phone, hinweis = "Wird nur hier gepflegt (wie am Desktop), die App druckt es nirgends")
+                                    Feld("Webseite", f.webseite, { f = f.copy(webseite = it) }, keyboard = androidx.compose.ui.text.input.KeyboardType.Uri, hinweis = "Wird nur hier gepflegt (wie am Desktop), die App druckt es nirgends")
+                                    Feld("Vereinsregister-Nr.", f.registernummer, { f = f.copy(registernummer = it) }, hinweis = "z. B. VR 12345 – steht in der Fußzeile der Rechnungen")
+                                }
                             }
-                        }
-                    }
-                    item(key = "zuwendung") {
-                        WieseKarte(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Zuwendungsbestätigung (Spendenquittung)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
-                                Feld("Finanzamt", f.finanzamt, { f = f.copy(finanzamt = it) })
-                                Feld("Steuernummer", f.steuernummer, { f = f.copy(steuernummer = it) })
-                                DatumFeld("Freistellungsbescheid vom", f.freistellungsDatum, optional = true) { f = f.copy(freistellungsDatum = it) }
-                                DatumFeld("Feststellung der Satzungszwecke vom", f.feststellungsDatum, optional = true) { f = f.copy(feststellungsDatum = it) }
-                                Feld("Veranlagungszeitraum", f.veranlagungszeitraum, { f = f.copy(veranlagungszeitraum = it) }, hinweis = "z. B. 2022 bis 2024")
-                                Feld("Gemeinnützige Zwecke", f.zweck, { f = f.copy(zweck = it) }, singleLine = false, hinweis = "Steht so auf der Bestätigung")
+                            VorstandKarte(vorstand, { vorstand = it }, if (zeigeFehler) vorstandFehler else emptyMap())
+                            SpartenKarte(model)
+                            WieseKarte(Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text("Lastschrifteinzug (SEPA)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                                    Feld("Gläubiger-ID", f.glaeubigerId, { f = f.copy(glaeubigerId = it) }, fokus = sprung == "creditorId" && tab == 1, hinweis = "z. B. DE98ZZZ09999999999 – bekommt man bei der Bundesbank")
+                                    Feld("Vereinskonto IBAN", f.iban, { f = f.copy(iban = it) }, error = fehlerFuer("iban"), fokus = sprung == "creditorIban" && tab == 1)
+                                    Feld("Vereinskonto BIC", f.bic, { f = f.copy(bic = it) }, error = fehlerFuer("bic"), fokus = sprung == "creditorBic" && tab == 1)
+                                    val fehlt = model.lastschriftFehlt
+                                    if (fehlt != null) Text("Für den Beitragslauf noch nötig: $fehlt", style = MaterialTheme.typography.bodySmall)
+                                }
                             }
+                            WieseKarte(Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text("Zuwendungsbestätigung (Spendenquittung)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                                    Feld("Finanzamt", f.finanzamt, { f = f.copy(finanzamt = it) })
+                                    Feld("Steuernummer", f.steuernummer, { f = f.copy(steuernummer = it) })
+                                    DatumFeld("Freistellungsbescheid vom", f.freistellungsDatum, optional = true) { f = f.copy(freistellungsDatum = it) }
+                                    DatumFeld("Feststellung der Satzungszwecke vom", f.feststellungsDatum, optional = true) { f = f.copy(feststellungsDatum = it) }
+                                    Feld("Veranlagungszeitraum", f.veranlagungszeitraum, { f = f.copy(veranlagungszeitraum = it) }, hinweis = "z. B. 2022 bis 2024")
+                                    Feld("Gemeinnützige Zwecke", f.zweck, { f = f.copy(zweck = it) }, singleLine = false, hinweis = "Steht so auf der Bestätigung")
+                                }
+                            }
+                            }
+                            2 -> {
+                                SicherungKarte(model, exportAnfrage = sicherungAnfrage, onExportAnfrage = { sicherungAnfrage = false })
+                                JahresarchivKarte(model)
+                                SchnappschussKarte(model)
+                                LoeschenKarte(model, onSicherung = { sicherungAnfrage = true })
+                            }
+                            3 -> UnterstuetzenKarte()
+                            else -> FehlerMeldenKarte()
                         }
-                    }
-                }
-                2 -> item(key = "sicherung") {
-                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        SicherungKarte(model, exportAnfrage = sicherungAnfrage, onExportAnfrage = { sicherungAnfrage = false })
-                        JahresarchivKarte(model)
-                        SchnappschussKarte(model)
-                        LoeschenKarte(model, onSicherung = { sicherungAnfrage = true })
                     }
                 }
-                3 -> item(key = "unterstuetzen") { UnterstuetzenKarte() }
-                else -> item(key = "fehler") { FehlerMeldenKarte() }
             }
         }
         // Feste Leiste unten: erscheint, sobald im Reiter etwas geändert ist, und bleibt beim Blättern stehen.
@@ -203,5 +203,13 @@ private fun SpeichernLeiste(geaendert: Boolean, meldung: String?, aktiv: Boolean
     }
 }
 
-/** Stelle der Karte „Lastschrifteinzug“ im Reiter „Verein“ (Verein, Vorstand, Sparten, Lastschrifteinzug, …). */
-private const val SEPA_INDEX = 3
+/**
+ * Für die behaltenen Reiter: Der unsichtbare wird zwar vermessen (das merkt sich Compose, solange sich nichts ändert),
+ * aber nicht gezeigt und nimmt keinen Platz ein. So bleibt er aufgebaut, mit allen Eingaben und der Bildlaufposition.
+ */
+private fun Modifier.nurSichtbarWenn(sichtbar: Boolean): Modifier = this.then(
+    Modifier.layout { messbar, grenzen ->
+        val p = messbar.measure(grenzen)
+        if (sichtbar) layout(p.width, p.height) { p.place(0, 0) } else layout(0, 0) {}
+    }
+)

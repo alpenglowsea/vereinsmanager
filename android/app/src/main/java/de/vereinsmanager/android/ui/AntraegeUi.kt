@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -40,7 +39,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -502,14 +500,15 @@ class AntragEntwurf(start: AntragEinstellungen) {
 @Composable
 fun rememberAntragEntwurf(model: AppModel): AntragEntwurf = remember { AntragEntwurf(model.antragEinstellungen()) }
 
-/**
- * Beiträge je Mitgliedsart, Texte im Antrag, Beilagen und das leere Formular – als einzelne Einträge der Liste im Reiter
- * „Allgemein“. Einzeln, damit die Liste nur zeichnet, was zu sehen ist (siehe `EinstellungenScreen`). Gespeichert wird
- * über die Leiste unten.
- */
-fun LazyListScope.antragEinstellungenKarten(model: AppModel, e: AntragEntwurf) {
-    item(key = "mitgliedsarten") { MitgliedsartenKarte(model, e) }
-    item(key = "antragstexte") {
+/** Beiträge je Mitgliedsart, Texte im Antrag und das leere Formular – als Karten in den Einstellungen. Gespeichert wird über die Leiste unten. */
+@Composable
+fun AntragEinstellungenKarten(model: AppModel, e: AntragEntwurf) {
+    var meldung by remember { mutableStateOf<String?>(null) }
+    var info by remember { mutableStateOf<String?>(null) }
+    val exporter = rememberExporter(model) { info = it }
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        MitgliedsartenKarte(model, e)
         WieseKarte(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Texte im Antrag", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
@@ -524,15 +523,7 @@ fun LazyListScope.antragEinstellungenKarten(model: AppModel, e: AntragEntwurf) {
                 TextButton(onClick = { e.satzung = AntragEinstellungen.STANDARD_SATZUNG }) { Text("Standardtext wiederherstellen") }
             }
         }
-    }
-    item(key = "beilagen") {
-        var meldung by remember { mutableStateOf<String?>(null) }
         BeilagenKarte(model, onMeldung = { meldung = it })
-        meldung?.let { HinweisFenster(it) { meldung = null } }
-    }
-    item(key = "leeresFormular") {
-        var info by remember { mutableStateOf<String?>(null) }
-        val exporter = rememberExporter(model) { info = it }
         WieseKarte(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Leeres Antragsformular", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
@@ -546,13 +537,10 @@ fun LazyListScope.antragEinstellungenKarten(model: AppModel, e: AntragEntwurf) {
                 ) { Text("Leeres Antragsformular als PDF speichern") }
             }
         }
-        info?.let { HinweisFenster(it) { info = null } }
     }
-}
-
-@Composable
-private fun HinweisFenster(text: String, onOk: () -> Unit) {
-    Aktionsdialog(titel = "Hinweis", onDismiss = onOk, inhalt = { Text(text) }, aktionen = { TextButton(onClick = onOk) { Text("OK") } })
+    (meldung ?: info)?.let { text ->
+        Aktionsdialog(titel = "Hinweis", onDismiss = { meldung = null; info = null }, inhalt = { Text(text) }, aktionen = { TextButton(onClick = { meldung = null; info = null }) { Text("OK") } })
+    }
 }
 
 /** Satzung und Datenschutz-Vordruck als PDF hinterlegen; das neue Mitglied öffnet sie in Schritt 4 des Antrags. */
@@ -642,7 +630,7 @@ private fun MitgliedsartenKarte(model: AppModel, e: AntragEntwurf) {
     val aktiv = Mitgliedsarten.aktive(e.arten)
     val geloeschte = e.arten.filter { it.geloescht }
     val fehler = if (e.zeigeFehler) e.fehler else emptyMap()
-    var neuName by rememberSaveable { mutableStateOf("") }
+    var neuName by remember { mutableStateOf("") }
     var loeschFrage by remember { mutableStateOf<Pair<String, String>?>(null) } // Art, Ziel
     fun anzahl(id: String): Int {
         var n = if (e.verschiebungen.containsKey(id)) 0 else Mitgliedsarten.anzahl(model.members, id)

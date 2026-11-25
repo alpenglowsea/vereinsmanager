@@ -7,6 +7,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.width
 import android.content.Intent
 import android.net.Uri
+import kotlinx.coroutines.launch
 import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.horizontalScroll
@@ -385,5 +386,91 @@ internal fun WieseKarte(modifier: Modifier = Modifier, content: @Composable Colu
     val s = MaterialTheme.colorScheme
     Surface(modifier, shape = RoundedCornerShape(24.dp), color = s.surfaceContainerLowest, border = BorderStroke(1.5.dp, s.outlineVariant)) {
         Column(content = content)
+    }
+}
+
+/**
+ * Karte „Version“ (Einstellungen → Allgemein): installierte Version und Versionsprüfung.
+ * Die App verbindet sich nur, wenn der Anwender „Jetzt prüfen“ antippt (Wunsch Johannes, 25.11.2026). Regeln und Texte
+ * wie am Desktop: `Versionspruefung` im Kern.
+ */
+@Composable
+fun VersionKarte() {
+    val context = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val installiert = remember { try { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" } catch (e: Exception) { "?" } }
+    var laeuft by remember { mutableStateOf(false) }
+    var ergebnis by remember { mutableStateOf<de.vereinsmanager.core.settings.Versionspruefung.Ergebnis?>(null) }
+    var meldung by remember { mutableStateOf<String?>(null) }
+    WieseKarte(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Version", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+            Text("Installiert: $installiert", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Die App verbindet sich nur mit GitHub, wenn Sie auf „Jetzt prüfen“ tippen. Gefragt wird nur, welche Version die neueste ist; " +
+                    "Vereinsdaten werden nicht übertragen. GitHub sieht dabei, wie bei jedem Seitenaufruf, die Internetadresse des Handys.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            OutlinedButton(
+                onClick = {
+                    laeuft = true
+                    meldung = null
+                    scope.launch {
+                        val (status, text) = versionAbfragen()
+                        ergebnis = de.vereinsmanager.core.settings.Versionspruefung.auswerten(status, text, installiert, listOf(".apk"))
+                        laeuft = false
+                    }
+                },
+                enabled = !laeuft,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(if (laeuft) "Prüfe …" else if (ergebnis != null) "Erneut prüfen" else "Jetzt prüfen") }
+            val e = ergebnis
+            if (e != null && !laeuft) {
+                Text(
+                    de.vereinsmanager.core.settings.Versionspruefung.text(e, installiert),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = when (e) {
+                        is de.vereinsmanager.core.settings.Versionspruefung.Fehler -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.onSurface
+                    },
+                )
+            }
+            if (e is de.vereinsmanager.core.settings.Versionspruefung.Neuer && !laeuft) {
+                Button(
+                    onClick = {
+                        try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(e.seite))) } catch (x: Exception) { meldung = "Kein Browser gefunden. Adresse: ${e.seite}" }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Zur Download-Seite (GitHub)") }
+                Text(
+                    "Die App aktualisiert sich nicht selbst. Legen Sie vorher eine Datensicherung an (Reiter „Datensicherung“). " +
+                        "Lässt Android die neue Fassung nicht über die alte installieren, muss die alte erst deinstalliert werden; " +
+                        "dabei gehen die Daten auf dem Handy verloren, danach die Sicherung wieder einspielen.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            meldung?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+        }
+    }
+}
+
+/** Die eigentliche Abfrage bei GitHub, im Hintergrund. Liefert HTTP-Status und Text; -1, wenn keine Verbindung zustande kam. */
+private suspend fun versionAbfragen(): Pair<Int, String?> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    try {
+        val c = java.net.URL(de.vereinsmanager.core.settings.Versionspruefung.ABFRAGE_ADRESSE).openConnection() as java.net.HttpURLConnection
+        c.connectTimeout = 8000
+        c.readTimeout = 8000
+        c.useCaches = false
+        c.setRequestProperty("Accept", "application/vnd.github+json")
+        c.setRequestProperty("User-Agent", "VereinsManager-Android")
+        try {
+            val status = c.responseCode
+            val text = (if (status in 200..299) c.inputStream else c.errorStream)?.bufferedReader()?.use { it.readText() }
+            status to text
+        } finally {
+            c.disconnect()
+        }
+    } catch (e: Exception) {
+        -1 to null
     }
 }

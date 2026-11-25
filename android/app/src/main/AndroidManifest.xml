@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Einzige Verbindung nach draußen: die Versionsprüfung (Einstellungen → Allgemein → „Version“), und nur, wenn der
+         Anwender „Jetzt prüfen“ antippt. Sie fragt GitHub nach der neuesten veröffentlichten Version, sonst nichts.
+         Diese Berechtigung muss der Anwender nicht bestätigen (Android vergibt sie bei der Installation). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
