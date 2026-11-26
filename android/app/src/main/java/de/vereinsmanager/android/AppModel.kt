@@ -183,17 +183,18 @@ class AppModel(private val appContext: Context) {
     var members by mutableStateOf<List<Member>>(emptyList())
         private set
     var departments by mutableStateOf<List<String>>(emptyList())
+        private set
 
     /**
      * Der Kontenrahmen des Vereins: mitgelieferter SKR 42 mit eigenen Konten und Anpassungen, aufsteigend nach Nummer
      * (core/skr42/Kontenrahmen.kt). Alle Auswahllisten nehmen diesen, gefiltert mit [kontenAuswahl].
      */
     var kontenrahmen by mutableStateOf<List<de.vereinsmanager.core.skr42.Skr42Main>>(de.vereinsmanager.core.skr42.Skr42.standard)
+        private set
 
     /** Für Auswahllisten: ohne Ausgeblendetes; was die Buchung schon trägt, bleibt. */
     fun kontenAuswahl(nummernkreis: String? = null, konto: String? = null) =
         de.vereinsmanager.core.skr42.Kontenrahmen.nurSichtbare(kontenrahmen, nummernkreis, konto)
-        private set
     var konten by mutableStateOf<List<Konto>>(emptyList())
         private set
     var buchungen by mutableStateOf<List<Buchung>>(emptyList())
