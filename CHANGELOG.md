@@ -176,6 +176,23 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Logo: echt durchsichtig, und als App-Symbol am Handy
+
+- **`public/logo_transparent.png`**: Das „durchsichtige“ Logo hatte das
+  graue Schachbrettmuster, mit dem Bildprogramme Durchsichtigkeit anzeigen,
+  fest ins Bild gemalt, auch blass innerhalb des Wappens. Jetzt ist der
+  Hintergrund wirklich durchsichtig, das Wappen innen reinweiß. Sichtbar wurde
+  das Muster im Dunkelmodus (Logo oben links) und im Browser-Tab.
+- **Android-Symbol**: statt des grünen Android-Männchens das Otter-Logo auf
+  Weiß, so verkleinert, dass das ganze Wappen in jeder Symbolform (rund,
+  abgerundet, eckig) sichtbar bleibt. Dazu eine einfarbige Fassung für
+  „Designte Symbole“. Die Bilder liegen je Bildschirmdichte als
+  `ic_launcher_foreground.png` und `ic_launcher_monochrome.png` in
+  `mipmap-*dpi`; `drawable/ic_launcher_foreground.xml` (das Männchen) ist
+  entfernt.
+- Desktop-Symbole (`src-tauri/icons`) unverändert; sie zeigten das Logo schon
+  auf Weiß.
+
 ### Version 2.0.0: gemeinsame Nummer, signierte Handy-Fassung auf GitHub
 
 Entscheidungen vom 25.11.2026: Versionssprung auf 2.0.0 (die alten
