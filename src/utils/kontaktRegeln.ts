@@ -4,6 +4,7 @@
 import type { ClubContact, ContactType, Skr42MainCategory, Skr42SubCategory, TaxSphere, Transaction } from '../types';
 import { SKR42_STRUCTURE } from '../data/taxSpheres';
 import { istAusgabe, istUmbuchung } from '../services/buchungsBerichte';
+import { standardKonto } from './kontenrahmen';
 
 const klein = (s: string | undefined | null) => (s || '').toLowerCase().trim();
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -101,9 +102,11 @@ export function kontaktVorbelegung(
   const t = types || [];
   const ziel: [TaxSphere, string] | null = t.includes('donor') ? ['ideell', '40400'] : t.includes('sponsor') ? ['wirtschaftlich', '44000'] : null;
   if (!ziel) return null;
-  const main = skr.find(m => m.type === 'income' && m.code === ziel[1] && !m.isCustom);
-  const sub = main?.subCategories.find(s => s.code === ziel[1]);
-  if (!main || !sub) return null;
+  // über die ursprüngliche Nummer: auch wenn der Verein das Konto umnummeriert hat
+  const k = standardKonto(ziel[1], skr);
+  const main = k?.main;
+  const sub = k?.sub;
+  if (!main || !sub || main.type !== 'income' || main.isCustom) return null;
   return {
     sphere: ziel[0],
     mainId: main.id,

@@ -72,7 +72,7 @@ fun FinanzAuswertungScreen(model: AppModel, modifier: Modifier = Modifier) {
     val konto = kontoId?.takeIf { id -> model.konten.any { it.id == id } }
     val filter = AuswFilter(gewaehlt, sphaere, konto)
     val a = remember(model.buchungen, model.konten, model.departments, filter) {
-        Finanzauswertung.berechne(model.buchungen, model.konten, filter, model.departments)
+        Finanzauswertung.berechne(model.buchungen, model.konten, filter, model.departments, spendenkreis = model.spendenkreis)
     }
     val filterText = Finanzauswertung.filterText(filter, model.konten)
     val spartenWahl = remember(model.departments) { linkedMapOf(Finanzauswertung.GESAMT to Finanzauswertung.GESAMT).also { m -> model.departments.forEach { m[it] = it } } }

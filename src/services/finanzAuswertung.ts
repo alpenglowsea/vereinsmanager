@@ -9,7 +9,8 @@
  * Gerechnet wird in ganzen Cent, damit keine Rundungsfehler entstehen.
  */
 import { FinancialAccount, Transaction } from '../types';
-import { SPENDEN_HAUPTKONTO_CODE } from '../data/taxSpheres';
+import { SKR42_STRUCTURE, SPENDEN_HAUPTKONTO_CODE } from '../data/taxSpheres';
+import { standardNummernkreis } from '../utils/kontenrahmen';
 import { istAusgabe, istUmbuchung } from './buchungsBerichte';
 
 export const MONATE = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
@@ -78,7 +79,9 @@ export interface Auswertung {
 
 const zuCent = (euro: number | undefined) => Math.round(Math.abs(Number(euro) || 0) * 100);
 const zuEuro = (c: number) => c / 100;
-const istSpendenkreis = (nk?: string) => (nk || '').split(' - ')[0].trim() === SPENDEN_HAUPTKONTO_CODE;
+/** Heutige Nummer des Spenden-Nummernkreises (der Verein kann ihn umnummerieren; ursprünglich 40400). */
+const spendenkreisNummer = () => standardNummernkreis(SPENDEN_HAUPTKONTO_CODE, SKR42_STRUCTURE)?.code ?? SPENDEN_HAUPTKONTO_CODE;
+const istSpendenkreis = (nk?: string, nummer = spendenkreisNummer()) => (nk || '').split(' - ')[0].trim() === nummer;
 
 /** Zeilen nach Filter. Umbuchungen zählen nicht; aufgeteilte Buchungen Teil für Teil. */
 export function posten(buchungen: Transaction[], f: AuswFilter): Posten[] {

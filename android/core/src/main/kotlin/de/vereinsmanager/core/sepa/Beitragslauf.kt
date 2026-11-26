@@ -228,10 +228,11 @@ object Beitragslauf {
 
     // ---------------------------------------------------------------- Verbuchen
 
+    /** Ursprüngliche Nummer; hat der Verein das Konto umnummeriert, wird auf die neue gebucht (`Kontenrahmen.standardKonto`). */
     const val NUMMERNKREIS_KONTO = "40000"
 
     /** Aus dem Kontenrahmen des Vereins (mit seinen Anpassungen), wie am Desktop. */
-    private fun beitragsKonto(store: DocumentStore) = de.vereinsmanager.core.skr42.Kontenrahmen.wirksam(store).firstNotNullOfOrNull { m -> m.subCategories.firstOrNull { it.code == NUMMERNKREIS_KONTO }?.let { m to it } }
+    private fun beitragsKonto(store: DocumentStore) = de.vereinsmanager.core.skr42.Kontenrahmen.standardKonto(NUMMERNKREIS_KONTO, de.vereinsmanager.core.skr42.Kontenrahmen.wirksam(store))
 
     /**
      * Bucht jeden eingezogenen Posten als Einnahme auf das Konto [kontoId]: Ausführungsdatum als Buchungsdatum, ideeller Bereich,

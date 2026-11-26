@@ -1,20 +1,21 @@
 import React, { useMemo, useState } from 'react';
-import { BookOpen, ChevronDown, ChevronRight, Eye, EyeOff, Pencil, Plus, RotateCcw, Search, Trash2, Check, X } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronRight, Eye, EyeOff, Hash, Pencil, Plus, RotateCcw, Search, Trash2, Check, X } from 'lucide-react';
 import type { Skr42MainCategory, Skr42SubCategory } from '../types';
 import { useSkr42 } from '../hooks/useSkr42';
 import { customCategoryService } from '../services/customCategoryService';
-import { kontoBezeichnung, type Steuersatz } from '../utils/kontenrahmen';
+import { kontoBezeichnung, type KontoAnpassung, type Steuersatz } from '../utils/kontenrahmen';
 import { bestaetige } from '../utils/dialoge';
 import { CreateAccountModal } from './CreateAccountModal';
 
 /**
  * Einstellungen → Vereinsstammdaten → „Kontenrahmen (SKR 42)“: Nummernkreise und Konten ansehen, anlegen, umbenennen,
- * Steuersatz-Vorgabe ändern, aus- und einblenden, selbst angelegte löschen. Auch die mitgelieferten Konten lassen sich
- * anpassen; „Zurücksetzen“ holt den Originalnamen. Gleicher Umfang am Handy (Einstellungen → Verein → Kontenrahmen).
- * Regeln: src/utils/kontenrahmen.ts.
+ * umnummerieren, Steuersatz-Vorgabe ändern, aus- und einblenden, selbst angelegte löschen. Auch die mitgelieferten Konten
+ * lassen sich anpassen; „Zurücksetzen“ holt Nummer, Bezeichnung und Steuersatz des Originals. Gleicher Umfang am Handy
+ * (Einstellungen → Verein → Kontenrahmen). Regeln: src/utils/kontenrahmen.ts.
  */
 
-type Bearbeitung = { art: 'konto' | 'nummernkreis'; code: string; text: string } | null;
+type Art = 'konto' | 'nummernkreis';
+type Bearbeitung = { art: Art; code: string; feld: 'name' | 'nummer'; text: string } | null;
 
 const UST: Steuersatz[] = [0, 7, 19];
 
@@ -68,27 +69,76 @@ export const KontenrahmenKarte: React.FC = () => {
 
   const buchungenText = (n: number) => (n === 1 ? '1 Buchung trägt' : `${n} Buchungen tragen`);
 
-  const umbenennen = async (art: 'konto' | 'nummernkreis', code: string, name: string) => {
+  const derDie = (art: Art, code: string) => `${art === 'konto' ? 'Das Konto' : 'Der Nummernkreis'} ${code}`;
+
+  const umbenennen = async (art: Art, code: string, name: string) => {
     const n = await customCategoryService.zaehleBuchungen(art, code);
     if (
       n > 0 &&
       !(await bestaetige(
-        `${art === 'konto' ? 'Das Konto' : 'Der Nummernkreis'} ${code} steht in ${n} ${n === 1 ? 'Buchung' : 'Buchungen'}. ` +
+        `${derDie(art, code)} steht in ${n} ${n === 1 ? 'Buchung' : 'Buchungen'}. ` +
           `Die neue Bezeichnung „${name.trim()}“ geht auf alle über. Fortfahren?`
       ))
     )
       return;
     await ausfuehren(async () => {
-      const r =
-        art === 'konto'
-          ? await customCategoryService.kontoAendern(code, { name })
-          : await customCategoryService.nummernkreisAendern(code, { name });
+      const r = await customCategoryService.aendern(art, code, { name });
       return `${code} heißt jetzt „${name.trim()}“.` + (r.buchungen ? ` ${buchungenText(r.buchungen)} die neue Bezeichnung.` : '');
     });
   };
 
-  const zuruecksetzen = (art: 'konto' | 'nummernkreis', code: string, original: string) =>
-    umbenennen(art, code, original);
+  /** Neue Nummer: erst prüfen und zählen, dann zurückfragen. Ein Nummernkreis nimmt seine Konten mit. */
+  const umnummerieren = async (art: Art, code: string, nummer: string) => {
+    const neu = nummer.trim();
+    if (neu === code) {
+      setBearbeitung(null);
+      return;
+    }
+    const v = await customCategoryService.vorschau(art, code, { nummer: neu });
+    if (v.fehler) {
+      setMeldung({ text: v.fehler, fehler: true });
+      return;
+    }
+    const abstand = Number(neu) - Number(code);
+    const teile = [`${derDie(art, code)} bekommt die Nummer ${neu}.`];
+    if (art === 'nummernkreis' && v.konten) {
+      teile.push(
+        `${v.konten === 1 ? 'Sein Konto zieht' : `Seine ${v.konten} Konten ziehen`} um ${abstand > 0 ? '+' : ''}${abstand.toLocaleString('de-DE')} mit.`
+      );
+    }
+    if (v.buchungen) teile.push(`${v.buchungen} ${v.buchungen === 1 ? 'Buchung bekommt' : 'Buchungen bekommen'} die neue Nummer.`);
+    if ((art === 'nummernkreis' || v.buchungen > 0) && !(await bestaetige(`${teile.join(' ')} Fortfahren?`))) return;
+    await ausfuehren(async () => {
+      const r = await customCategoryService.aendern(art, code, { nummer: neu });
+      return (
+        `${derDie(art, code)} hat jetzt die Nummer ${r.code}.` +
+        (art === 'nummernkreis' && v.konten ? ` ${v.konten === 1 ? '1 Konto' : `${v.konten} Konten`} umnummeriert.` : '') +
+        (r.buchungen ? ` ${r.buchungen === 1 ? '1 Buchung' : `${r.buchungen} Buchungen`} angepasst.` : '')
+      );
+    });
+  };
+
+  const uebernehmen = (b: NonNullable<Bearbeitung>) =>
+    b.feld === 'name' ? umbenennen(b.art, b.code, b.text) : umnummerieren(b.art, b.code, b.text);
+
+  /** Zurück auf das Original: Nummer, Bezeichnung und Steuersatz, soweit angepasst. Ausgeblendet bleibt, wie es ist. */
+  const zuruecksetzen = async (art: Art, code: string, aenderung: KontoAnpassung) => {
+    const v = await customCategoryService.vorschau(art, code, aenderung);
+    if (v.fehler) {
+      setMeldung({ text: v.fehler, fehler: true });
+      return;
+    }
+    const teile = [`${derDie(art, code)} zurück auf das Original setzen?`];
+    if (aenderung.nummer) {
+      teile.push(`Nummer wieder ${aenderung.nummer}` + (art === 'nummernkreis' && v.konten ? `, ${v.konten === 1 ? 'sein Konto zieht' : `seine ${v.konten} Konten ziehen`} mit.` : '.'));
+    }
+    if (v.buchungen) teile.push(`${v.buchungen} ${v.buchungen === 1 ? 'Buchung wird' : 'Buchungen werden'} angepasst.`);
+    if ((aenderung.nummer || v.buchungen > 0) && !(await bestaetige(teile.join(' ')))) return;
+    await ausfuehren(async () => {
+      const r = await customCategoryService.aendern(art, code, aenderung);
+      return `${derDie(art, r.code)} ist wieder im Original.` + (r.buchungen ? ` ${r.buchungen === 1 ? '1 Buchung' : `${r.buchungen} Buchungen`} angepasst.` : '');
+    });
+  };
 
   const loeschen = async (art: 'konto' | 'nummernkreis', kreis: Skr42MainCategory, konto?: Skr42SubCategory) => {
     const text =
@@ -103,11 +153,12 @@ export const KontenrahmenKarte: React.FC = () => {
     });
   };
 
-  const umschalten = (code: string) =>
+  // nach der Kennung (bleibt beim Umnummerieren gleich), nicht nach der Nummer
+  const umschalten = (id: string) =>
     setOffen(alt => {
       const neu = new Set(alt);
-      if (neu.has(code)) neu.delete(code);
-      else neu.add(code);
+      if (neu.has(id)) neu.delete(id);
+      else neu.add(id);
       return neu;
     });
 
@@ -119,23 +170,31 @@ export const KontenrahmenKarte: React.FC = () => {
     </>
   );
 
-  const namensfeld = (art: 'konto' | 'nummernkreis', code: string) =>
+  const namensfeld = (art: Art, code: string) =>
     bearbeitung && bearbeitung.art === art && bearbeitung.code === code ? (
       <span className="flex items-center gap-1 flex-1 min-w-0">
+        {bearbeitung.feld === 'nummer' && <span className="text-[11px] text-slate-500 shrink-0">Neue Nummer:</span>}
         <input
           autoFocus
-          aria-label={`Neue Bezeichnung für ${code}`}
+          aria-label={bearbeitung.feld === 'nummer' ? `Neue Nummer für ${code}` : `Neue Bezeichnung für ${code}`}
           value={bearbeitung.text}
-          onChange={e => setBearbeitung({ ...bearbeitung, text: e.target.value })}
+          inputMode={bearbeitung.feld === 'nummer' ? 'numeric' : undefined}
+          maxLength={bearbeitung.feld === 'nummer' ? 6 : undefined}
+          onChange={e =>
+            setBearbeitung({ ...bearbeitung, text: bearbeitung.feld === 'nummer' ? e.target.value.replace(/\D/g, '') : e.target.value })
+          }
           onKeyDown={e => {
             if (e.key === 'Enter') {
               e.preventDefault();
-              void umbenennen(art, code, bearbeitung.text);
+              void uebernehmen(bearbeitung);
             } else if (e.key === 'Escape') setBearbeitung(null);
           }}
-          className="flex-1 min-w-0 px-2 py-1 text-xs border border-slate-300 rounded-lg bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+          className={`${bearbeitung.feld === 'nummer' ? 'w-24 font-mono' : 'flex-1'} min-w-0 px-2 py-1 text-xs border border-slate-300 rounded-lg bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-white`}
         />
-        <button type="button" className={knopf} disabled={beschaeftigt} onClick={() => void umbenennen(art, code, bearbeitung.text)} aria-label="Bezeichnung übernehmen" title="Übernehmen">
+        {bearbeitung.feld === 'nummer' && art === 'nummernkreis' && (
+          <span className="text-[11px] text-slate-500 truncate">Die Konten ziehen um denselben Abstand mit.</span>
+        )}
+        <button type="button" className={knopf} disabled={beschaeftigt} onClick={() => void uebernehmen(bearbeitung)} aria-label={bearbeitung.feld === 'nummer' ? 'Nummer übernehmen' : 'Bezeichnung übernehmen'} title="Übernehmen">
           <Check className="w-4 h-4" />
         </button>
         <button type="button" className={knopf} onClick={() => setBearbeitung(null)} aria-label="Abbrechen" title="Abbrechen">
@@ -154,9 +213,10 @@ export const KontenrahmenKarte: React.FC = () => {
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white">Kontenrahmen (SKR 42)</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed max-w-3xl">
-              {kontenrahmen.length} Nummernkreise mit {anzahlKonten} Konten, aufsteigend nach Nummer. Bezeichnung und Steuersatz-Vorgabe lassen
-              sich ändern, auch bei den mitgelieferten Konten. Eine neue Bezeichnung geht auf alle Buchungen des Kontos über. Ausgeblendetes
-              erscheint nicht mehr in der Auswahl; Buchungen darauf bleiben, wie sie sind.
+              {kontenrahmen.length} Nummernkreise mit {anzahlKonten} Konten, aufsteigend nach Nummer. Nummer, Bezeichnung und
+              Steuersatz-Vorgabe lassen sich ändern, auch bei den mitgelieferten Konten. Eine neue Nummer oder Bezeichnung geht auf alle
+              Buchungen über; bekommt ein Nummernkreis eine neue Nummer, ziehen seine Konten mit. Ausgeblendetes erscheint nicht mehr in der
+              Auswahl; Buchungen darauf bleiben, wie sie sind.
             </p>
           </div>
         </div>
@@ -214,19 +274,25 @@ export const KontenrahmenKarte: React.FC = () => {
       <div className="border border-slate-200 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 max-h-[640px] overflow-y-auto">
         {liste.length === 0 && <p className="p-4 text-xs text-slate-500">Nichts gefunden.</p>}
         {liste.map(({ m, konten }) => {
-          const aufgeklappt = offen.has(m.code) || suche.trim() !== '';
+          const aufgeklappt = offen.has(m.id) || suche.trim() !== '';
+          const kreisAngepasst = !!m.originalName || !!m.originalCode;
           return (
             <div key={m.id} className={m.ausgeblendet ? 'opacity-60' : ''}>
               <div className="flex items-center gap-2 px-3 py-2 bg-slate-50/70 dark:bg-slate-800/40">
                 <button
                   type="button"
-                  onClick={() => umschalten(m.code)}
+                  onClick={() => umschalten(m.id)}
                   className="flex items-center gap-2 text-left cursor-pointer"
                   aria-expanded={aufgeklappt}
                   aria-label={`${m.code} ${m.name} ${aufgeklappt ? 'zuklappen' : 'aufklappen'}`}
                 >
                   {aufgeklappt ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
-                  <span className="font-mono text-xs font-bold text-slate-900 dark:text-white w-14">{m.code}</span>
+                  <span
+                    className="font-mono text-xs font-bold text-slate-900 dark:text-white w-14"
+                    title={m.originalCode ? `Ursprünglich ${m.originalCode}` : undefined}
+                  >
+                    {m.code}
+                  </span>
                 </button>
                 {namensfeld('nummernkreis', m.code) ?? (
                   <span className="flex-1 min-w-0 flex items-center gap-2">
@@ -234,18 +300,33 @@ export const KontenrahmenKarte: React.FC = () => {
                     <span className="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">
                       {m.type === 'income' ? 'Einnahmen' : 'Ausgaben'} · {m.subCategories.length} {m.subCategories.length === 1 ? 'Konto' : 'Konten'}
                     </span>
-                    {kennzeichen(m.isCustom, !!m.originalName, m.ausgeblendet)}
+                    {kennzeichen(m.isCustom, kreisAngepasst, m.ausgeblendet)}
                   </span>
                 )}
                 <span className="flex items-center shrink-0">
                   <button type="button" className={knopf} title="Konto in diesem Nummernkreis anlegen" aria-label={`Konto in ${m.code} anlegen`} onClick={() => setAnlegen({ modus: 'sub', kreis: m.code })}>
                     <Plus className="w-4 h-4" />
                   </button>
-                  <button type="button" className={knopf} title="Bezeichnung ändern" aria-label={`Bezeichnung von ${m.code} ändern`} onClick={() => setBearbeitung({ art: 'nummernkreis', code: m.code, text: m.name })}>
+                  <button type="button" className={knopf} title="Nummer ändern (die Konten ziehen mit)" aria-label={`Nummer von ${m.code} ändern`} onClick={() => setBearbeitung({ art: 'nummernkreis', code: m.code, feld: 'nummer', text: m.code })}>
+                    <Hash className="w-4 h-4" />
+                  </button>
+                  <button type="button" className={knopf} title="Bezeichnung ändern" aria-label={`Bezeichnung von ${m.code} ändern`} onClick={() => setBearbeitung({ art: 'nummernkreis', code: m.code, feld: 'name', text: m.name })}>
                     <Pencil className="w-4 h-4" />
                   </button>
-                  {m.originalName && (
-                    <button type="button" className={knopf} disabled={beschaeftigt} title={`Zurück auf „${m.originalName}“`} aria-label={`${m.code} auf den Originalnamen zurücksetzen`} onClick={() => void zuruecksetzen('nummernkreis', m.code, m.originalName!)}>
+                  {kreisAngepasst && (
+                    <button
+                      type="button"
+                      className={knopf}
+                      disabled={beschaeftigt}
+                      title={`Zurück auf das Original${m.originalCode ? ` ${m.originalCode}` : ''}${m.originalName ? ` „${m.originalName}“` : ''}`}
+                      aria-label={`${m.code} auf das Original zurücksetzen`}
+                      onClick={() =>
+                        void zuruecksetzen('nummernkreis', m.code, {
+                          ...(m.originalName ? { name: m.originalName } : {}),
+                          ...(m.originalCode ? { nummer: m.originalCode } : {}),
+                        })
+                      }
+                    >
                       <RotateCcw className="w-4 h-4" />
                     </button>
                   )}
@@ -275,13 +356,18 @@ export const KontenrahmenKarte: React.FC = () => {
                 <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                   {konten.map(s => (
                     <li key={s.code} className={`flex items-center gap-2 pl-10 pr-3 py-1.5 ${s.ausgeblendet ? 'opacity-60' : ''}`}>
-                      <span className="font-mono text-xs text-slate-700 dark:text-slate-300 w-14 shrink-0">{s.code}</span>
+                      <span
+                        className="font-mono text-xs text-slate-700 dark:text-slate-300 w-14 shrink-0"
+                        title={s.originalCode ? `Ursprünglich ${s.originalCode}` : undefined}
+                      >
+                        {s.code}
+                      </span>
                       {namensfeld('konto', s.code) ?? (
                         <span className="flex-1 min-w-0 flex items-center gap-2">
                           <span className="text-xs text-slate-800 dark:text-slate-200 truncate" title={s.originalName ? `Original: ${s.originalName}` : undefined}>
                             {kontoBezeichnung(s)}
                           </span>
-                          {kennzeichen(s.isCustom, !!s.originalName || s.originalVatRate !== undefined, s.ausgeblendet)}
+                          {kennzeichen(s.isCustom, !!s.originalName || s.originalVatRate !== undefined || !!s.originalCode, s.ausgeblendet)}
                         </span>
                       )}
                       <label className="flex items-center gap-1 text-[11px] text-slate-500 shrink-0">
@@ -307,22 +393,25 @@ export const KontenrahmenKarte: React.FC = () => {
                         </select>
                       </label>
                       <span className="flex items-center shrink-0">
-                        <button type="button" className={knopf} title="Bezeichnung ändern" aria-label={`Bezeichnung von Konto ${s.code} ändern`} onClick={() => setBearbeitung({ art: 'konto', code: s.code, text: kontoBezeichnung(s) })}>
+                        <button type="button" className={knopf} title="Nummer ändern" aria-label={`Nummer von Konto ${s.code} ändern`} onClick={() => setBearbeitung({ art: 'konto', code: s.code, feld: 'nummer', text: s.code })}>
+                          <Hash className="w-4 h-4" />
+                        </button>
+                        <button type="button" className={knopf} title="Bezeichnung ändern" aria-label={`Bezeichnung von Konto ${s.code} ändern`} onClick={() => setBearbeitung({ art: 'konto', code: s.code, feld: 'name', text: kontoBezeichnung(s) })}>
                           <Pencil className="w-4 h-4" />
                         </button>
-                        {(s.originalName || s.originalVatRate !== undefined) && (
+                        {(s.originalName || s.originalVatRate !== undefined || s.originalCode) && (
                           <button
                             type="button"
                             className={knopf}
                             disabled={beschaeftigt}
-                            title={`Zurück auf das Original${s.originalName ? ` „${s.originalName}“` : ''}${s.originalVatRate !== undefined ? `, ${s.originalVatRate} %` : ''}`}
+                            title={`Zurück auf das Original${s.originalCode ? ` ${s.originalCode}` : ''}${s.originalName ? ` „${s.originalName}“` : ''}${s.originalVatRate !== undefined ? `, ${s.originalVatRate} %` : ''}`}
                             aria-label={`Konto ${s.code} auf das Original zurücksetzen`}
                             onClick={() =>
-                              void (async () => {
-                                if (s.originalVatRate !== undefined) await customCategoryService.kontoAendern(s.code, { vatRateDefault: s.originalVatRate });
-                                if (s.originalName) await zuruecksetzen('konto', s.code, s.originalName);
-                                else setMeldung({ text: `Konto ${s.code} ist wieder im Original.`, fehler: false });
-                              })()
+                              void zuruecksetzen('konto', s.code, {
+                                ...(s.originalName ? { name: s.originalName } : {}),
+                                ...(s.originalVatRate !== undefined ? { vatRateDefault: s.originalVatRate } : {}),
+                                ...(s.originalCode ? { nummer: s.originalCode } : {}),
+                              })
                             }
                           >
                             <RotateCcw className="w-4 h-4" />
@@ -366,11 +455,11 @@ export const KontenrahmenKarte: React.FC = () => {
         currentType={kontenrahmen.find(m => m.code === anlegen?.kreis)?.type ?? 'income'}
         currentMainCatIdOrCode={anlegen?.kreis || undefined}
         onCreatedMain={m => {
-          setOffen(alt => new Set(alt).add(m.code));
+          setOffen(alt => new Set(alt).add(m.id));
           setMeldung({ text: `Nummernkreis ${m.code} „${m.name}“ angelegt.`, fehler: false });
         }}
         onCreatedSub={(s, m) => {
-          setOffen(alt => new Set(alt).add(m.code));
+          setOffen(alt => new Set(alt).add(m.id));
           setMeldung({ text: `Konto ${s.code} „${kontoBezeichnung(s)}“ in ${m.code} angelegt.`, fehler: false });
         }}
       />

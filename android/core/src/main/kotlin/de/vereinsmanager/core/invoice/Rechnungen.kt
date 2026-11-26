@@ -275,8 +275,9 @@ object Rechnungen {
             "zweckbetrieb" -> "41000" to "41000"
             else -> "44000" to "44000"
         }
-        val m = de.vereinsmanager.core.skr42.Skr42.findMain(haupt, skr) ?: de.vereinsmanager.core.skr42.Skr42.findMain(haupt)!!
-        val sub = m.subCategories.firstOrNull { it.code == konto } ?: de.vereinsmanager.core.skr42.Skr42.findMain(haupt)!!.subCategories.first { it.code == konto }
+        // über die ursprüngliche Nummer: auch wenn der Verein das Konto umnummeriert hat (Kontenrahmen.standardKonto)
+        val (m, sub) = de.vereinsmanager.core.skr42.Kontenrahmen.standardKonto(konto, skr)
+            ?: de.vereinsmanager.core.skr42.Skr42.findMain(haupt)!!.let { it to it.subCategories.first { s -> s.code == konto } }
         // Beschriftung wie am Desktop (rechnungsRegeln.einnahmeKonten); bis 26.11.2026 stand hier der lange Kontoname.
         return KontoVorschlag(BuchungRegeln.nummernkreisText(m), sub.label, sub.code)
     }

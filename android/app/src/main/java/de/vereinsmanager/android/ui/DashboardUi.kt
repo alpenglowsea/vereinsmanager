@@ -124,7 +124,7 @@ private fun gruppiere(liste: List<Kachel>): List<List<Kachel>> {
 /** Rechnet jede Kennzahl erst, wenn eine angezeigte Kachel sie braucht, und dann nur einmal je Stand der Daten. */
 private class DashboardRechner(val model: AppModel, val heute: LocalDate) {
     val mitglieder by lazy { Dashboard.mitglieder(model.members, heute) }
-    val finanzen by lazy { Dashboard.finanzen(model.konten, model.buchungen, heute) }
+    val finanzen by lazy { Dashboard.finanzen(model.konten, model.buchungen, heute, model.spendenkreis) }
     val sepa by lazy { Dashboard.sepa(model.members, model.vereinsdaten) }
     val spenden by lazy { Dashboard.spenden(model.spenden, heute) }
     val rechnungen by lazy { Dashboard.rechnungen(model.rechnungen, heute) }

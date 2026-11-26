@@ -50,6 +50,7 @@ import { imArchiv } from '../services/jahresarchiv';
 
 import { lokalesHeute } from '../utils/mitgliedRegeln';
 import { kontaktVorbelegung } from '../utils/kontaktRegeln';
+import { standardKonto } from '../utils/kontenrahmen';
 
 interface TransactionFormModalProps {
   transaction: Transaction | null;
@@ -74,8 +75,10 @@ interface TransactionFormModalProps {
 const ZWEITE_ZEILE_KONTO = '68500';
 
 function zweiteTeilbuchung(sphere: TaxSphere): TransactionSplit {
-  const main = SKR42_STRUCTURE.find(m => m.subCategories.some(s => s.code === ZWEITE_ZEILE_KONTO));
-  const sub = main?.subCategories.find(s => s.code === ZWEITE_ZEILE_KONTO);
+  // über die ursprüngliche Nummer: auch wenn der Verein 68500 umnummeriert hat
+  const k = standardKonto(ZWEITE_ZEILE_KONTO, SKR42_STRUCTURE);
+  const main = k?.main;
+  const sub = k?.sub;
   return {
     id: `split-${Date.now()}-2`,
     amount: 0,

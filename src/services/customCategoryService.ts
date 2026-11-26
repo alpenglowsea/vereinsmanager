@@ -4,13 +4,12 @@ import { notifySkr42Changed } from '../data/skr42Store';
 import {
   type EigeneKonten, type Skr42Anpassungen, type KontoAnpassung, type NummernkreisAnpassung, type Steuersatz,
   leseEigeneKonten, leseAnpassungen, wirksamerKontenrahmen, ergaenzeAnpassungen, ergaenzeEigene, pruefeNeueNummer,
-  pruefeBezeichnung, mitKontoAnpassung, mitNummernkreisAnpassung, kontoBezeichnung, kontoText, kontoVerwendungen, nummernkreisVerwendungen,
-  buchungenUmbenennen,
+  pruefeBezeichnung, kontoText, kontoVerwendungen, nummernkreisVerwendungen, buchungenAngleichen, planeAenderung, schluessel,
 } from '../utils/kontenrahmen';
 
 /**
- * Der Kontenrahmen des Vereins am Desktop: eigene Nummernkreise und Konten, Anpassungen (Bezeichnung, Steuersatz,
- * ausgeblendet). Die Regeln stehen in `src/utils/kontenrahmen.ts` (wortgleich am Handy).
+ * Der Kontenrahmen des Vereins am Desktop: eigene Nummernkreise und Konten, Anpassungen (Nummer, Bezeichnung,
+ * Steuersatz, ausgeblendet). Die Regeln stehen in `src/utils/kontenrahmen.ts` (wortgleich am Handy).
  *
  * Gespeichert in der Datenbank, im Bereich der Einstellungen unter der Kennung `kontenrahmen` (neben `main`). Getrennt
  * von den Vereinsstammdaten, damit ein Speichern der Stammdaten mit einem älteren Stand die Konten nicht überschreibt.
@@ -223,81 +222,77 @@ class CustomCategoryService {
     const fehler = pruefeNeueNummer(code, 'konto', SKR42_STRUCTURE) ?? pruefeBezeichnung(name);
     if (fehler) throw new Error(fehler);
     const konto: Skr42SubCategory = { code, name, label: kontoText(code, name), vatRateDefault: input.vatRateDefault ?? 0, isCustom: true };
+    // Eigene Konten hängen am festen Schlüssel des Nummernkreises, nicht an seiner heutigen Nummer.
+    const kreisSchluessel = schluessel(kreis);
     if (kreis.isCustom) {
       this.eigene = {
         ...this.eigene,
         customMainCategories: this.eigene.customMainCategories.map(m =>
-          m.code === kreis.code ? { ...m, subCategories: [...m.subCategories, konto] } : m
+          m.code === kreisSchluessel ? { ...m, subCategories: [...m.subCategories, konto] } : m
         ),
       };
     } else {
       this.eigene = {
         ...this.eigene,
-        customSubCategories: [...this.eigene.customSubCategories, { mainCatIdOrCode: kreis.code, subCategory: konto }],
+        customSubCategories: [...this.eigene.customSubCategories, { mainCatIdOrCode: kreisSchluessel, subCategory: konto }],
       };
     }
     await this.sichern();
-    const main = SKR42_STRUCTURE.find(m => m.code === kreis.code)!;
+    const main = SKR42_STRUCTURE.find(m => schluessel(m) === kreisSchluessel)!;
     return { sub: main.subCategories.find(s => s.code === code)!, main };
   }
 
   // ---------------------------------------------------------------------------
-  // Ändern (Bezeichnung, Steuersatz, ausgeblendet) – auch für Standardkonten
+  // Ändern (Nummer, Bezeichnung, Steuersatz, ausgeblendet) – auch für Standardkonten
   // ---------------------------------------------------------------------------
 
-  /** Das Konto ohne Anpassung: aus der mitgelieferten Liste oder den eigenen Konten. */
-  private originalKonto(code: string): Skr42SubCategory | undefined {
-    return (
-      this.standard.flatMap(m => m.subCategories).find(s => s.code === code) ??
-      this.eigene.customMainCategories.flatMap(m => m.subCategories).find(s => s.code === code) ??
-      this.eigene.customSubCategories.find(u => u.subCategory.code === code)?.subCategory
-    );
+  /**
+   * Was eine Änderung bewirken würde, ohne sie auszuführen (für die Rückfrage): Fehlermeldung, wie viele Buchungen
+   * angepasst würden und wie viele Konten eine neue Nummer bekämen.
+   */
+  async vorschau(art: 'konto' | 'nummernkreis', code: string, aenderung: KontoAnpassung): Promise<{ fehler: string | null; buchungen: number; konten: number }> {
+    const plan = planeAenderung(SKR42_STRUCTURE, this.anpassungen, art, code, aenderung);
+    if ('fehler' in plan) return { fehler: plan.fehler, buchungen: 0, konten: 0 };
+    const nachher = wirksamerKontenrahmen(this.standard, this.eigene, plan.anpassungen);
+    const neu = new Map(nachher.flatMap(m => m.subCategories).map(s => [schluessel(s), s.code]));
+    const konten = SKR42_STRUCTURE.flatMap(m => m.subCategories).filter(s => neu.get(schluessel(s)) !== s.code).length;
+    const buchungen = this.speicher ? buchungenAngleichen(await this.speicher.buchungen(), SKR42_STRUCTURE, nachher).length : 0;
+    return { fehler: null, buchungen, konten };
   }
 
   /**
-   * Ändert ein Konto. Eine neue Bezeichnung geht auf alle Buchungen über (auch zurück auf das Original);
-   * Ergebnis: wie viele Buchungen geändert wurden.
+   * Ändert ein Konto oder einen Nummernkreis, gegeben über die heutige Nummer. Neue Nummern und Bezeichnungen gehen auf
+   * alle Buchungen über (auch beim Zurücksetzen). Ergebnis: wie viele Buchungen geändert wurden und die Nummer danach.
    */
-  async kontoAendern(code: string, aenderung: KontoAnpassung): Promise<{ buchungen: number }> {
-    const original = this.originalKonto(code);
-    if (!original) throw new Error(`Das Konto ${code} gibt es nicht.`);
-    if (aenderung.name !== undefined) {
-      const f = pruefeBezeichnung(aenderung.name);
-      if (f) throw new Error(f);
-    }
-    const vorher = SKR42_STRUCTURE.flatMap(m => m.subCategories).find(s => s.code === code);
-    this.anpassungen = mitKontoAnpassung(this.anpassungen, code, aenderung, {
-      name: kontoBezeichnung(original),
-      vatRateDefault: original.vatRateDefault,
-    });
+  async aendern(art: 'konto' | 'nummernkreis', code: string, aenderung: KontoAnpassung): Promise<{ buchungen: number; code: string }> {
+    const plan = planeAenderung(SKR42_STRUCTURE, this.anpassungen, art, code, aenderung);
+    if ('fehler' in plan) throw new Error(plan.fehler);
+    const vorher = SKR42_STRUCTURE.slice(); // `anwenden` ersetzt die Einträge, die alten Objekte bleiben unverändert
+    const key =
+      art === 'konto'
+        ? schluessel(vorher.flatMap(m => m.subCategories).find(s => s.code === code)!)
+        : schluessel(vorher.find(m => m.code === code)!);
+    this.anpassungen = plan.anpassungen;
     await this.sichern();
-    const nachher = SKR42_STRUCTURE.flatMap(m => m.subCategories).find(s => s.code === code);
-    if (vorher && nachher && kontoBezeichnung(vorher) !== kontoBezeichnung(nachher)) {
-      return { buchungen: await this.inBuchungen('konto', code, kontoBezeichnung(nachher)) };
+    let buchungen = 0;
+    if (this.speicher) {
+      const geaendert = buchungenAngleichen(await this.speicher.buchungen(), vorher, SKR42_STRUCTURE);
+      if (geaendert.length) await this.speicher.buchungenSpeichern(geaendert);
+      buchungen = geaendert.length;
     }
-    return { buchungen: 0 };
+    const nachher =
+      art === 'konto'
+        ? SKR42_STRUCTURE.flatMap(m => m.subCategories).find(s => schluessel(s) === key)?.code
+        : SKR42_STRUCTURE.find(m => schluessel(m) === key)?.code;
+    return { buchungen, code: nachher ?? code };
   }
 
-  async nummernkreisAendern(code: string, aenderung: NummernkreisAnpassung): Promise<{ buchungen: number }> {
-    const original = this.standard.find(m => m.code === code) ?? this.eigene.customMainCategories.find(m => m.code === code);
-    if (!original) throw new Error(`Den Nummernkreis ${code} gibt es nicht.`);
-    if (aenderung.name !== undefined) {
-      const f = pruefeBezeichnung(aenderung.name);
-      if (f) throw new Error(f);
-    }
-    const vorher = SKR42_STRUCTURE.find(m => m.code === code)?.name;
-    this.anpassungen = mitNummernkreisAnpassung(this.anpassungen, code, aenderung, { name: original.name });
-    await this.sichern();
-    const nachher = SKR42_STRUCTURE.find(m => m.code === code)?.name;
-    if (nachher && vorher !== nachher) return { buchungen: await this.inBuchungen('nummernkreis', code, nachher) };
-    return { buchungen: 0 };
+  kontoAendern(code: string, aenderung: KontoAnpassung) {
+    return this.aendern('konto', code, aenderung);
   }
 
-  private async inBuchungen(art: 'konto' | 'nummernkreis', code: string, name: string): Promise<number> {
-    if (!this.speicher) return 0;
-    const geaendert = buchungenUmbenennen(await this.speicher.buchungen(), { art, code, name });
-    if (geaendert.length) await this.speicher.buchungenSpeichern(geaendert);
-    return geaendert.length;
+  nummernkreisAendern(code: string, aenderung: NummernkreisAnpassung) {
+    return this.aendern('nummernkreis', code, aenderung);
   }
 
   // ---------------------------------------------------------------------------
@@ -316,15 +311,24 @@ class CustomCategoryService {
   }
 
   public async deleteCustomMainCategory(codeOrId: string) {
-    const kreis = this.eigene.customMainCategories.find(m => m.id === codeOrId || m.code === codeOrId);
-    if (!kreis) throw new Error('Nur selbst angelegte Nummernkreise lassen sich löschen.');
-    for (const s of kreis.subCategories) {
+    // heutige Nummer → fester Schlüssel (der Nummernkreis kann umnummeriert sein)
+    const wirksam = SKR42_STRUCTURE.find(m => m.id === codeOrId || m.code === codeOrId);
+    const key = wirksam ? schluessel(wirksam) : codeOrId;
+    const kreis = this.eigene.customMainCategories.find(m => m.id === codeOrId || m.code === key);
+    if (!kreis || !wirksam) throw new Error('Nur selbst angelegte Nummernkreise lassen sich löschen.');
+    for (const s of wirksam.subCategories) {
       if ((await this.verwendungen(s.code)) > 0) {
         throw new Error(`Der Nummernkreis ${kreis.code} wird in Buchungen verwendet. Blenden Sie ihn stattdessen aus.`);
       }
     }
-    this.eigene = { ...this.eigene, customMainCategories: this.eigene.customMainCategories.filter(m => m !== kreis) };
-    this.anpassungen = { ...this.anpassungen, nummernkreise: ohne(this.anpassungen.nummernkreise, kreis.code) };
+    let konten = this.anpassungen.konten;
+    for (const s of wirksam.subCategories) konten = ohne(konten, schluessel(s));
+    this.eigene = {
+      customMainCategories: this.eigene.customMainCategories.filter(m => m !== kreis),
+      // eigene Konten, die in diesem Nummernkreis hingen, gehen mit
+      customSubCategories: this.eigene.customSubCategories.filter(u => u.mainCatIdOrCode !== kreis.code && u.mainCatIdOrCode !== kreis.id),
+    };
+    this.anpassungen = { nummernkreise: ohne(this.anpassungen.nummernkreise, kreis.code), konten };
     await this.sichern();
   }
 
@@ -333,13 +337,17 @@ class CustomCategoryService {
     if (n > 0) {
       throw new Error(`Das Konto ${subCode} wird in ${n} ${n === 1 ? 'Buchung' : 'Buchungen'} verwendet. Blenden Sie es stattdessen aus.`);
     }
+    // heutige Nummer → fester Schlüssel (das Konto kann umnummeriert sein)
+    const wirksam = SKR42_STRUCTURE.flatMap(m => m.subCategories).find(s => s.code === subCode);
+    if (wirksam && !wirksam.isCustom) throw new Error('Nur selbst angelegte Konten lassen sich löschen.');
+    const key = wirksam ? schluessel(wirksam) : subCode;
     this.eigene = {
       customMainCategories: this.eigene.customMainCategories.map(m =>
-        m.subCategories.some(s => s.code === subCode) ? { ...m, subCategories: m.subCategories.filter(s => s.code !== subCode) } : m
+        m.subCategories.some(s => s.code === key) ? { ...m, subCategories: m.subCategories.filter(s => s.code !== key) } : m
       ),
-      customSubCategories: this.eigene.customSubCategories.filter(u => u.subCategory.code !== subCode),
+      customSubCategories: this.eigene.customSubCategories.filter(u => u.subCategory.code !== key),
     };
-    this.anpassungen = { ...this.anpassungen, konten: ohne(this.anpassungen.konten, subCode) };
+    this.anpassungen = { ...this.anpassungen, konten: ohne(this.anpassungen.konten, key) };
     await this.sichern();
   }
 }

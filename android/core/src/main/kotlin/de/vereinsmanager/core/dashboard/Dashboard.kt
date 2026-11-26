@@ -251,10 +251,10 @@ object Dashboard {
         val kontenAnzahl: Int, val liquiditaet: BigDecimal, val jahr: String, val euer: Euer, val monate: List<MonatsSumme>, val letzte: List<Buchung>,
     )
 
-    fun finanzen(konten: List<Konto>, buchungen: List<Buchung>, heute: LocalDate): FinanzDaten {
+    fun finanzen(konten: List<Konto>, buchungen: List<Buchung>, heute: LocalDate, spendenkreis: String = de.vereinsmanager.core.skr42.Skr42.SPENDEN_HAUPTKONTO_CODE): FinanzDaten {
         val jahr = heute.year.toString()
         val staende = Finance.kontostaende(konten, buchungen)
-        val aus = Finanzauswertung.berechne(buchungen, konten, AuswFilter(jahr = jahr), emptyList(), heute)
+        val aus = Finanzauswertung.berechne(buchungen, konten, AuswFilter(jahr = jahr), emptyList(), heute, spendenkreis)
         val letzte = buchungen.sortedWith(compareByDescending<Buchung> { it.datum }.thenByDescending { it.id }).take(5)
         return FinanzDaten(konten.size, Finance.gesamtLiquiditaet(staende), jahr, Berichte.euer(buchungen, jahr), aus.monate, letzte)
     }

@@ -97,9 +97,12 @@ Für den Austausch gilt:
 - **`settings.customSkr42Accounts`**: die selbst angelegten Nummernkreise und Konten,
   `{ customMainCategories: [...], customSubCategories: [{ mainCatIdOrCode, subCategory }] }`. Das Feld ist freiwillig.
 - **`settings.skr42Anpassungen`** (seit 26.11.2026): Anpassungen des Vereins am Kontenrahmen, auch an den mitgelieferten
-  Konten, immer über die Nummer:
-  `{ nummernkreise: { "<Nummer>": { name?, ausgeblendet? } }, konten: { "<Nummer>": { name?, vatRateDefault?, ausgeblendet? } } }`.
-  Nur abweichende Werte stehen drin; ein Eintrag gleich dem Original fällt weg. Das Feld ist freiwillig.
+  Konten, immer über die **ursprüngliche** Nummer (Schlüssel; mitgeliefert oder beim Anlegen vergeben):
+  `{ nummernkreise: { "<Schlüssel>": { nummer?, name?, ausgeblendet? } }, konten: { "<Schlüssel>": { nummer?, name?, vatRateDefault?, ausgeblendet? } } }`.
+  `nummer` (seit 2.1.0, ebenfalls 26.11.2026) ist die neue Nummer, wenn der Verein umnummeriert hat; der Schlüssel bleibt
+  dabei gleich. Nur abweichende Werte stehen drin; ein Eintrag gleich dem Original fällt weg. Das Feld ist freiwillig.
+  Eine ältere Fassung ohne `nummer` überliest das Feld und zeigt die ursprünglichen Nummern; die Buchungen tragen aber
+  schon die neuen.
 - Beide Felder gelten an **Desktop und Android** gleich (Regeln: `src/utils/kontenrahmen.ts`,
   `android/core/.../skr42/Kontenrahmen.kt`). Am Handy liegen sie so im Dokument `settings/main`; am Desktop liegen sie in
   der Datenbank getrennt von den Stammdaten (Kennung `kontenrahmen`) und werden beim Sichern in `settings` eingefügt.

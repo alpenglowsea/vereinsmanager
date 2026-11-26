@@ -205,6 +205,16 @@ Nummernkreise und Konten stehen immer aufsteigend nach der Nummer.
   schrieben den langen Kontonamen statt der Beschriftung in die Buchung („40001 - Mitgliedsbeiträge Kinder / Jugend
   (Junioren)“ statt „40001 - Mitgliedsbeiträge Kinder & Jugend“); jetzt wie das Buchungsfenster.
 - Tests: Desktop +8 (580), Android +9 (743).
+- **Nummern ändern** (Nachtrag 26.11.2026; Entscheidungen: auch mitgelieferte; bekommt ein Nummernkreis eine neue
+  Nummer, ziehen seine Konten um denselben Abstand mit; die neue Nummer geht auf alle Buchungen über): Knopf „#“ an
+  jedem Nummernkreis und Konto (Desktop), „Nummer ändern“ in den Aktionen (Handy). Erst wird geprüft (Nummer frei,
+  4 bis 6 Ziffern, auch für jedes mitziehende Konto), dann nennt die Rückfrage die Zahl der Buchungen und Konten.
+  „Zurück auf das Original“ setzt auch die Nummer zurück. Gespeichert als `nummer` in `skr42Anpassungen`; Schlüssel
+  bleibt die ursprüngliche Nummer (`originalCode`). Die Vorgaben der App folgen der neuen Nummer: Beitragslauf (40000),
+  Spenden (40450), Spender/Sponsor-Vorbelegung (40400/44000), Rechnung bezahlt (40890/46900/41000/44000), zweite
+  Teilbuchung (68500) und die Spenden-Zählung der Finanz-Auswertung (Nummernkreis 40400). Ein neu angelegtes Konto darf
+  keine Nummer bekommen, die ursprünglich einem anderen gehört (sonst wären Anpassungen nicht mehr eindeutig).
+  Tests: Desktop +3 (583), Android +4 (747).
 
 ### Logo: echt durchsichtig, und als App-Symbol am Handy
 

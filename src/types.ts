@@ -220,6 +220,11 @@ export interface Skr42SubCategory {
   originalName?: string;
   /** Steuersatz vor einer Anpassung durch den Verein; nur gesetzt, wenn angepasst. */
   originalVatRate?: 0 | 7 | 19;
+  /**
+   * Nummer vor einer Umnummerierung durch den Verein; nur gesetzt, wenn umnummeriert. Bleibt der feste Schlüssel des
+   * Kontos (Anpassungen, Vorgaben der App wie „Beiträge auf 40000“), auch wenn `code` eine andere Nummer trägt.
+   */
+  originalCode?: string;
 }
 
 export interface Skr42MainCategory {
@@ -242,6 +247,8 @@ export interface Skr42MainCategory {
   ausgeblendet?: boolean;
   /** Bezeichnung vor einer Anpassung durch den Verein; nur gesetzt, wenn angepasst. */
   originalName?: string;
+  /** Nummer vor einer Umnummerierung durch den Verein (siehe Skr42SubCategory). */
+  originalCode?: string;
 }
 
 export interface TransactionSplit {

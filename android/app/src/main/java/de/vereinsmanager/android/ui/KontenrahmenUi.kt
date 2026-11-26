@@ -42,7 +42,7 @@ import de.vereinsmanager.core.skr42.Skr42Sub
 
 /**
  * Kontenrahmen am Handy (Einstellungen → Verein → „Kontenrahmen“): Nummernkreise und Konten ansehen, anlegen,
- * umbenennen, Steuersatz-Vorgabe ändern, aus- und einblenden, selbst angelegte löschen. Gleicher Umfang und gleiche
+ * umbenennen, umnummerieren, Steuersatz-Vorgabe ändern, aus- und einblenden, selbst angelegte löschen. Gleicher Umfang und gleiche
  * Texte wie am Desktop (KontenrahmenKarte.tsx); Regeln im Kern (Kontenrahmen.kt).
  */
 @Composable
@@ -50,7 +50,8 @@ fun KontenrahmenKarte(model: AppModel) {
     var offen by remember { mutableStateOf(false) }
     val k = model.kontenrahmen
     val anzahl = k.sumOf { it.subCategories.size }
-    val angepasst = k.count { it.originalName != null } + k.sumOf { m -> m.subCategories.count { it.originalName != null || it.originalVatRate != null } }
+    val angepasst = k.count { it.originalName != null || it.originalCode != null } +
+        k.sumOf { m -> m.subCategories.count { it.originalName != null || it.originalVatRate != null || it.originalCode != null } }
     val eigene = k.count { it.isCustom } + k.sumOf { m -> m.subCategories.count { it.isCustom && !m.isCustom } }
     val aus = k.count { it.ausgeblendet } + k.sumOf { m -> m.subCategories.count { it.ausgeblendet } }
     WieseKarte(Modifier.fillMaxWidth()) {
@@ -62,7 +63,7 @@ fun KontenrahmenKarte(model: AppModel) {
                 style = MaterialTheme.typography.bodySmall,
             )
             Text(
-                "Bezeichnung und Steuersatz-Vorgabe lassen sich ändern, auch bei den mitgelieferten Konten. Eine neue Bezeichnung geht auf alle Buchungen des Kontos über. Ausgeblendetes erscheint nicht mehr in der Auswahl; Buchungen darauf bleiben, wie sie sind.",
+                "Nummer, Bezeichnung und Steuersatz-Vorgabe lassen sich ändern, auch bei den mitgelieferten Konten. Eine neue Nummer oder Bezeichnung geht auf alle Buchungen über; bekommt ein Nummernkreis eine neue Nummer, ziehen seine Konten mit. Ausgeblendetes erscheint nicht mehr in der Auswahl; Buchungen darauf bleiben, wie sie sind.",
                 style = MaterialTheme.typography.bodySmall,
             )
             Button(onClick = { offen = true }, modifier = Modifier.fillMaxWidth()) { Text("Kontenrahmen bearbeiten") }
@@ -118,10 +119,11 @@ private fun KontenrahmenAnsicht(model: AppModel, onClose: () -> Unit) {
                 LazyColumn(Modifier.weight(1f)) {
                     if (liste.isEmpty()) item { Text("Nichts gefunden.", Modifier.padding(16.dp)) }
                     for ((m, konten) in liste) {
-                        val zeigen = m.code in aufgeklappt || q.isNotEmpty()
-                        item(key = "k-${m.code}") {
+                        // nach der Kennung (bleibt beim Umnummerieren gleich), nicht nach der Nummer
+                        val zeigen = m.id in aufgeklappt || q.isNotEmpty()
+                        item(key = "k-${m.id}") {
                             Row(
-                                Modifier.fillMaxWidth().clickable { aufgeklappt = if (m.code in aufgeklappt) aufgeklappt - m.code else aufgeklappt + m.code }
+                                Modifier.fillMaxWidth().clickable { aufgeklappt = if (m.id in aufgeklappt) aufgeklappt - m.id else aufgeklappt + m.id }
                                     .padding(horizontal = 16.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
@@ -133,7 +135,8 @@ private fun KontenrahmenAnsicht(model: AppModel, onClose: () -> Unit) {
                                         listOfNotNull(
                                             if (m.type == "income") "Einnahmen" else "Ausgaben",
                                             "${m.subCategories.size} ${if (m.subCategories.size == 1) "Konto" else "Konten"}",
-                                            "eigen".takeIf { m.isCustom }, "angepasst".takeIf { m.originalName != null }, "ausgeblendet".takeIf { m.ausgeblendet },
+                                            "eigen".takeIf { m.isCustom }, "angepasst".takeIf { m.originalName != null || m.originalCode != null },
+                                            "ausgeblendet".takeIf { m.ausgeblendet },
                                         ).joinToString(" · "),
                                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
@@ -142,7 +145,7 @@ private fun KontenrahmenAnsicht(model: AppModel, onClose: () -> Unit) {
                             }
                         }
                         if (zeigen) {
-                            items(konten, key = { "s-${m.code}-${it.code}" }) { s ->
+                            items(konten, key = { "s-${m.id}-${it.code}" }) { s ->
                                 Row(
                                     Modifier.fillMaxWidth().clickable { wahl = Wahl.Konto(m, s) }.padding(start = 34.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -154,16 +157,17 @@ private fun KontenrahmenAnsicht(model: AppModel, onClose: () -> Unit) {
                                         Text(
                                             listOfNotNull(
                                                 "USt ${s.vatRateDefault} %", "eigen".takeIf { s.isCustom },
-                                                "angepasst".takeIf { s.originalName != null || s.originalVatRate != null }, "ausgeblendet".takeIf { s.ausgeblendet },
+                                                "angepasst".takeIf { s.originalName != null || s.originalVatRate != null || s.originalCode != null },
+                                                "ausgeblendet".takeIf { s.ausgeblendet },
                                             ).joinToString(" · "),
                                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
                                 }
                             }
-                            if (konten.isEmpty()) item(key = "leer-${m.code}") { Text("Keine sichtbaren Konten.", Modifier.padding(start = 34.dp, bottom = 8.dp), style = MaterialTheme.typography.bodySmall) }
+                            if (konten.isEmpty()) item(key = "leer-${m.id}") { Text("Keine sichtbaren Konten.", Modifier.padding(start = 34.dp, bottom = 8.dp), style = MaterialTheme.typography.bodySmall) }
                         }
-                        item(key = "t-${m.code}") { HorizontalDivider() }
+                        item(key = "t-${m.id}") { HorizontalDivider() }
                     }
                 }
             }
@@ -176,18 +180,70 @@ private fun KontenrahmenAnsicht(model: AppModel, onClose: () -> Unit) {
         null -> {}
     }
     if (neuerKreis) NummernkreisAnlegenDialog(model) { t -> neuerKreis = false; if (t != null) meldung = t }
-    neuesKontoIn?.let { kreis -> KontoAnlegenDialog(model, kreis) { s, t -> neuesKontoIn = null; if (s != null) aufgeklappt = aufgeklappt + (model.kontenrahmen.firstOrNull { m -> m.subCategories.any { it.code == s.code } }?.code ?: ""); if (t != null) meldung = t } }
+    neuesKontoIn?.let { kreis -> KontoAnlegenDialog(model, kreis) { s, t -> neuesKontoIn = null; if (s != null) aufgeklappt = aufgeklappt + (model.kontenrahmen.firstOrNull { m -> m.subCategories.any { it.code == s.code } }?.id ?: ""); if (t != null) meldung = t } }
     meldung?.let { m ->
         Aktionsdialog(titel = "Kontenrahmen", onDismiss = { meldung = null }, inhalt = { Text(m) }, aktionen = { TextButton(onClick = { meldung = null }, modifier = Modifier.fillMaxWidth()) { Text("OK") } })
     }
 }
 
 private fun buchungenText(n: Int) = if (n == 1) "1 Buchung trägt" else "$n Buchungen tragen"
+/** 9000 → „9.000“ (Tausenderpunkte wie am Desktop). */
+private fun mitPunkten(n: Long): String = (if (n < 0) "-" else "") + kotlin.math.abs(n).toString().reversed().chunked(3).joinToString(".").reversed()
+private fun angepasstText(n: Int) = when (n) { 0 -> ""; 1 -> " 1 Buchung angepasst."; else -> " $n Buchungen angepasst." }
+
+/**
+ * Neue Nummer für ein Konto oder einen Nummernkreis, in zwei Schritten wie am Desktop: erst prüfen (Fehler oder was
+ * sich ändert: Buchungen, mitziehende Konten), dann übernehmen.
+ */
+@Composable
+private fun NummerDialog(model: AppModel, konto: Boolean, code: String, was: String, onAbbrechen: () -> Unit, onFertig: (String?) -> Unit) {
+    var nummer by remember { mutableStateOf(code) }
+    var fehler by remember { mutableStateOf<String?>(null) }
+    var vorschau by remember { mutableStateOf<Kontenrahmen.Vorschau?>(null) }
+    val neu = nummer.trim()
+    Aktionsdialog(titel = "$was: neue Nummer", onDismiss = onAbbrechen, inhalt = {
+        Feld("Neue Nummer", nummer, { nummer = it.filter(Char::isDigit).take(6); vorschau = null; fehler = null }, keyboard = KeyboardType.Number, error = fehler)
+        if (!konto) Text("Die Konten des Nummernkreises ziehen um denselben Abstand mit.", style = MaterialTheme.typography.bodySmall)
+        vorschau?.let { v ->
+            val abstand = (neu.toLongOrNull() ?: 0L) - (code.toLongOrNull() ?: 0L)
+            Text(
+                listOfNotNull(
+                    "$was bekommt die Nummer $neu.",
+                    if (!konto && v.konten > 0) (if (v.konten == 1) "Sein Konto zieht" else "Seine ${v.konten} Konten ziehen") +
+                        " um ${if (abstand > 0) "+" else ""}${mitPunkten(abstand)} mit." else null,
+                    if (v.buchungen > 0) "${v.buchungen} ${if (v.buchungen == 1) "Buchung bekommt" else "Buchungen bekommen"} die neue Nummer." else null,
+                ).joinToString(" "),
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+    }, aktionen = {
+        if (vorschau == null) {
+            Button(onClick = {
+                model.kontenrahmenVorschau(konto, code, nummer = neu) { v, e -> if (e != null || v?.fehler != null) fehler = e ?: v!!.fehler else vorschau = v }
+            }, enabled = !model.busy && neu.isNotEmpty() && neu != code, modifier = Modifier.fillMaxWidth()) { Text("Prüfen") }
+        } else {
+            Button(onClick = {
+                model.kontenrahmenAendern(konto, code, nummer = neu) { r, e ->
+                    if (e != null) { fehler = e; vorschau = null }
+                    else onFertig("$was hat jetzt die Nummer ${r!!.code}." +
+                        (if (!konto && vorschau!!.konten > 0) " ${if (vorschau!!.konten == 1) "1 Konto" else "${vorschau!!.konten} Konten"} umnummeriert." else "") +
+                        angepasstText(r.buchungen))
+                }
+            }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Übernehmen") }
+        }
+        TextButton(onClick = onAbbrechen, modifier = Modifier.fillMaxWidth()) { Text("Abbrechen") }
+    })
+}
 
 /** Aktionen für einen Nummernkreis. [onFertig] bekommt die Rückmeldung oder null (abgebrochen). */
 @Composable
 private fun KreisAktionen(model: AppModel, m: Skr42Main, onNeuesKonto: () -> Unit, onFertig: (String?) -> Unit) {
     var umbenennen by remember { mutableStateOf(false) }
+    var nummer by remember { mutableStateOf(false) }
+    if (nummer) {
+        NummerDialog(model, konto = false, code = m.code, was = "Nummernkreis ${m.code}", onAbbrechen = { nummer = false }, onFertig = onFertig)
+        return
+    }
     var loeschen by remember { mutableStateOf(false) }
     var fehler by remember { mutableStateOf<String?>(null) }
     if (umbenennen) {
@@ -203,13 +259,19 @@ private fun KreisAktionen(model: AppModel, m: Skr42Main, onNeuesKonto: () -> Uni
         return
     }
     Aktionsdialog(titel = "${m.code} ${m.name}", onDismiss = { onFertig(null) }, inhalt = {
+        if (m.originalCode != null) Text("Ursprüngliche Nummer: ${m.originalCode}", style = MaterialTheme.typography.bodySmall)
         if (m.originalName != null) Text("Original: ${m.originalName}", style = MaterialTheme.typography.bodySmall)
     }, aktionen = {
         Button(onClick = onNeuesKonto, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Konto in diesem Nummernkreis anlegen") }
+        OutlinedButton(onClick = { nummer = true }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Nummer ändern") }
         OutlinedButton(onClick = { umbenennen = true }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Bezeichnung ändern") }
-        m.originalName?.let { orig ->
-            OutlinedButton(onClick = { umbenennen = false; model.nummernkreisAendern(m.code, name = orig) { n, e -> onFertig(e ?: ("${m.code} heißt wieder „$orig“." + if ((n ?: 0) > 0) " ${buchungenText(n!!)} die Bezeichnung." else "")) } },
-                enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Zurück auf das Original") }
+        if (m.originalName != null || m.originalCode != null) {
+            // zurück auf Nummer und Bezeichnung des Originals; bei der Nummer ziehen die Konten wieder mit
+            OutlinedButton(onClick = {
+                model.kontenrahmenAendern(false, m.code, nummer = m.originalCode, name = m.originalName) { r, e ->
+                    onFertig(e ?: ("Nummernkreis ${r!!.code} ist wieder im Original." + angepasstText(r.buchungen)))
+                }
+            }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Zurück auf das Original") }
         }
         OutlinedButton(onClick = { model.nummernkreisAendern(m.code, ausgeblendet = !m.ausgeblendet) { _, e -> onFertig(e ?: "Nummernkreis ${m.code} ${if (m.ausgeblendet) "wieder eingeblendet" else "ausgeblendet"}.") } },
             enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text(if (m.ausgeblendet) "Wieder einblenden" else "Ausblenden") }
@@ -222,6 +284,11 @@ private fun KreisAktionen(model: AppModel, m: Skr42Main, onNeuesKonto: () -> Uni
 @Composable
 private fun KontoAktionen(model: AppModel, m: Skr42Main, s: Skr42Sub, onFertig: (String?) -> Unit) {
     var umbenennen by remember { mutableStateOf(false) }
+    var nummer by remember { mutableStateOf(false) }
+    if (nummer) {
+        NummerDialog(model, konto = true, code = s.code, was = "Konto ${s.code}", onAbbrechen = { nummer = false }, onFertig = onFertig)
+        return
+    }
     var loeschen by remember { mutableStateOf(false) }
     var fehler by remember { mutableStateOf<String?>(null) }
     val bez = Kontenrahmen.kontoBezeichnung(s)
@@ -239,6 +306,7 @@ private fun KontoAktionen(model: AppModel, m: Skr42Main, s: Skr42Sub, onFertig: 
     }
     Aktionsdialog(titel = "${s.code} $bez", onDismiss = { onFertig(null) }, inhalt = {
         Text("Nummernkreis ${m.code} ${m.name}", style = MaterialTheme.typography.bodySmall)
+        if (s.originalCode != null) Text("Ursprüngliche Nummer: ${s.originalCode}", style = MaterialTheme.typography.bodySmall)
         if (s.originalName != null) Text("Original: ${s.originalName}", style = MaterialTheme.typography.bodySmall)
         Text("Steuersatz-Vorgabe", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -250,11 +318,12 @@ private fun KontoAktionen(model: AppModel, m: Skr42Main, s: Skr42Sub, onFertig: 
         }
         s.originalVatRate?.let { Text("Original: $it %", style = MaterialTheme.typography.bodySmall) }
     }, aktionen = {
+        OutlinedButton(onClick = { nummer = true }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Nummer ändern") }
         OutlinedButton(onClick = { umbenennen = true }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Bezeichnung ändern") }
-        if (s.originalName != null || s.originalVatRate != null) {
+        if (s.originalName != null || s.originalVatRate != null || s.originalCode != null) {
             OutlinedButton(onClick = {
-                model.kontoAendern(s.code, name = s.originalName ?: bez, ust = s.originalVatRate ?: s.vatRateDefault) { n, e ->
-                    onFertig(e ?: ("Konto ${s.code} ist wieder im Original." + if ((n ?: 0) > 0) " ${buchungenText(n!!)} die Bezeichnung." else ""))
+                model.kontenrahmenAendern(true, s.code, nummer = s.originalCode, name = s.originalName, ust = s.originalVatRate) { r, e ->
+                    onFertig(e ?: ("Konto ${r!!.code} ist wieder im Original." + angepasstText(r.buchungen)))
                 }
             }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) { Text("Zurück auf das Original") }
         }

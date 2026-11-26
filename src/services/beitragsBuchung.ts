@@ -8,13 +8,15 @@
  */
 import type { SepaRunHistory, Transaction } from '../types';
 import { SKR42_STRUCTURE } from '../data/taxSpheres';
+import { kontoText, standardKonto } from '../utils/kontenrahmen';
 
+/** Ursprüngliche Nummer; hat der Verein das Konto umnummeriert, wird auf die neue gebucht (`standardKonto`). */
 export const BEITRAGS_KONTO_CODE = '40000';
 
 export function beitragsKonto(): { mainCategory: string; subCategory: string; skrAccount: string } {
-  const main = SKR42_STRUCTURE.find(m => m.type === 'income' && m.subCategories.some(s => s.code === BEITRAGS_KONTO_CODE));
-  const sub = main?.subCategories.find(s => s.code === BEITRAGS_KONTO_CODE);
-  return { mainCategory: main ? `${main.code} - ${main.name}` : '', subCategory: sub?.label || '', skrAccount: BEITRAGS_KONTO_CODE };
+  const k = standardKonto(BEITRAGS_KONTO_CODE, SKR42_STRUCTURE);
+  if (!k || k.main.type !== 'income') return { mainCategory: '', subCategory: '', skrAccount: BEITRAGS_KONTO_CODE };
+  return { mainCategory: kontoText(k.main.code, k.main.name), subCategory: k.sub.label, skrAccount: k.sub.code };
 }
 
 /** Die zu verbuchenden Posten: ausgewählt, gültig, Betrag über 0. */

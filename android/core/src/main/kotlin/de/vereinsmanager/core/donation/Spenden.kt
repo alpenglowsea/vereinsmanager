@@ -212,11 +212,14 @@ object Spenden {
         return m
     }
 
-    /** Aus dem Kontenrahmen des Vereins (mit seinen Anpassungen), wie am Desktop. */
-    private fun konto(store: DocumentStore): Pair<String, String>? {
-        val haupt = Skr42.mains("income", de.vereinsmanager.core.skr42.Kontenrahmen.wirksam(store)).firstOrNull { it.code == NUMMERNKREIS_CODE } ?: return null
-        val unter = haupt.subCategories.firstOrNull { it.code == KONTO_CODE } ?: return null
-        return BuchungRegeln.nummernkreisText(haupt) to unter.label
+    /**
+     * Aus dem Kontenrahmen des Vereins (mit seinen Anpassungen), wie am Desktop: Nummernkreis-Text, Konto-Text,
+     * Kontonummer. Über die ursprüngliche Nummer 40450, auch wenn der Verein das Konto umnummeriert hat.
+     */
+    private fun konto(store: DocumentStore): Triple<String, String, String>? {
+        val (haupt, unter) = de.vereinsmanager.core.skr42.Kontenrahmen.standardKonto(KONTO_CODE, de.vereinsmanager.core.skr42.Kontenrahmen.wirksam(store)) ?: return null
+        if (haupt.type != "income") return null
+        return Triple(BuchungRegeln.nummernkreisText(haupt), unter.label, unter.code)
     }
 
     private fun buchungsText(f: SpendeForm) = "Spende / Zuwendung: ${f.name.trim()} (${f.nummer.trim()})"
@@ -272,7 +275,7 @@ object Spenden {
                     val bf = BuchungForm(
                         id = id, datum = form.datum, betrag = BuchungRegeln.betragText(betrag), art = "income", kontoId = opt.kontoId,
                         belegNummer = belegNummer(store, form), text = buchungsText(form), partner = form.name.trim(), sphaere = "ideell",
-                        nummernkreis = k.first, konto = k.second, skrKonto = KONTO_CODE, ust = 0,
+                        nummernkreis = k.first, konto = k.second, skrKonto = k.third, ust = 0,
                         notiz = "Zuwendungsbestätigung ${form.nummer} nach amtl. BMF-Muster. ${form.notiz.trim()}".trim(),
                     )
                     store.put(Finance.BUCHUNGEN, id, BuchungDokument.build(bf, null, now))

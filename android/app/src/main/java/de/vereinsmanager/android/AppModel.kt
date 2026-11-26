@@ -192,6 +192,11 @@ class AppModel(private val appContext: Context) {
     var kontenrahmen by mutableStateOf<List<de.vereinsmanager.core.skr42.Skr42Main>>(de.vereinsmanager.core.skr42.Skr42.standard)
         private set
 
+    /** Heutige Nummer des Spenden-Nummernkreises (ursprünglich 40400; der Verein kann ihn umnummerieren). */
+    val spendenkreis: String
+        get() = de.vereinsmanager.core.skr42.Kontenrahmen.standardNummernkreis(de.vereinsmanager.core.skr42.Skr42.SPENDEN_HAUPTKONTO_CODE, kontenrahmen)?.code
+            ?: de.vereinsmanager.core.skr42.Skr42.SPENDEN_HAUPTKONTO_CODE
+
     /** Für Auswahllisten: ohne Ausgeblendetes; was die Buchung schon trägt, bleibt. */
     fun kontenAuswahl(nummernkreis: String? = null, konto: String? = null) =
         de.vereinsmanager.core.skr42.Kontenrahmen.nurSichtbare(kontenrahmen, nummernkreis, konto)
@@ -468,6 +473,29 @@ class AppModel(private val appContext: Context) {
 
     fun nummernkreisAendern(code: String, name: String? = null, ausgeblendet: Boolean? = null, done: (Int?, String?) -> Unit) =
         hintergrund({ de.vereinsmanager.core.skr42.Kontenrahmen.nummernkreisAendern(store, code, name, ausgeblendet).buchungen }, done)
+
+    /**
+     * Allgemeine Änderung (null = unverändert), auch Nummer und Zurücksetzen; [konto] false = Nummernkreis (seine Konten
+     * ziehen bei neuer Nummer mit). [done] bekommt Ergebnis (Buchungen, Nummer danach) oder den Fehler.
+     */
+    fun kontenrahmenAendern(
+        konto: Boolean, code: String, nummer: String? = null, name: String? = null, ust: Int? = null, ausgeblendet: Boolean? = null,
+        done: (de.vereinsmanager.core.skr42.Kontenrahmen.Geaendert?, String?) -> Unit,
+    ) = hintergrund({ de.vereinsmanager.core.skr42.Kontenrahmen.aendern(store, konto, code, nummer, name, ust, ausgeblendet) }, done)
+
+    /** Was eine Änderung bewirken würde (Fehler, Buchungen, Konten mit neuer Nummer); für die Rückfrage. */
+    fun kontenrahmenVorschau(
+        konto: Boolean, code: String, nummer: String? = null, name: String? = null, ust: Int? = null,
+        done: (de.vereinsmanager.core.skr42.Kontenrahmen.Vorschau?, String?) -> Unit,
+    ) {
+        busy = true
+        thread {
+            var r: de.vereinsmanager.core.skr42.Kontenrahmen.Vorschau? = null
+            var f: String? = null
+            try { r = de.vereinsmanager.core.skr42.Kontenrahmen.vorschau(store, konto, code, nummer, name, ust) } catch (e: Exception) { f = e.message ?: e::class.simpleName }
+            post { busy = false; done(r, f) }
+        }
+    }
 
     fun kontoLoeschen(code: String, done: (String?) -> Unit) =
         hintergrund({ de.vereinsmanager.core.skr42.Kontenrahmen.eigenesKontoLoeschen(store, code) }) { _, f -> done(f) }

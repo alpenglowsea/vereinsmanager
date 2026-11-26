@@ -109,22 +109,114 @@ class KontenrahmenTest {
         ]""").jsonArray.map { it.jsonObject }
         fun id(o: JsonObject) = o["id"]!!.jsonPrimitive.content
         fun f(o: JsonObject, k: String) = o[k]!!.jsonPrimitive.content
-        val k = Kontenrahmen.buchungenUmbenennen(tx, true, "50100", "Pauschale")
+        val vorher = Kontenrahmen.wirksam(standard, Kontenrahmen.Eigene(), Kontenrahmen.Anpassungen())
+        fun umbenannt(roh: String) = Kontenrahmen.wirksam(standard, Kontenrahmen.Eigene(), Kontenrahmen.leseAnpassungen(json(roh)))
+        val k = Kontenrahmen.buchungenAngleichen(tx, vorher, umbenannt("""{"konten":{"50100":{"name":"Pauschale"}}}"""))
         assertEquals(listOf("a", "c", "d"), k.map(::id))
         assertEquals("50100 - Pauschale", f(k[0], "subCategory"))
         assertEquals("50100 - Pauschale", f(k[0], "category"))
         assertEquals("50100 - Pauschale", f(k[2]["splits"]!!.jsonArray[1].jsonObject, "subCategory"))
         assertSame(tx[3]["splits"]!!.jsonArray[0], k[2]["splits"]!!.jsonArray[0])
         assertEquals("50100 - Übungsleiter", f(tx[0], "subCategory"))
-        val n = Kontenrahmen.buchungenUmbenennen(tx, false, "50000", "Personalkosten")
+        val nachher = umbenannt("""{"nummernkreise":{"50000":{"name":"Personalkosten"}}}""")
+        val n = Kontenrahmen.buchungenAngleichen(tx, vorher, nachher)
         assertEquals(listOf("a", "b", "c", "d"), n.map(::id))
         assertEquals("40000 - Mitgliedsbeiträge", f(n[3], "mainCategory"))
         assertEquals("50000 - Personalkosten", f(n[3]["splits"]!!.jsonArray[1].jsonObject, "mainCategory"))
-        assertEquals(emptyList<JsonObject>(), Kontenrahmen.buchungenUmbenennen(n, false, "50000", "Personalkosten"))
+        assertEquals(emptyList<JsonObject>(), Kontenrahmen.buchungenAngleichen(n, nachher, nachher))
         assertEquals(3, Kontenrahmen.kontoVerwendungen(tx, "50100"))
         assertEquals(0, Kontenrahmen.kontoVerwendungen(tx, "9001"))
         assertEquals(4, Kontenrahmen.nummernkreisVerwendungen(tx, "50000"))
         assertEquals(1, Kontenrahmen.nummernkreisVerwendungen(tx, "40000"))
+    }
+
+    @Test
+    fun nummeriertUmAuchMitgelieferte() {
+        val a = Kontenrahmen.leseAnpassungen(json("""{"konten":{"50100":{"nummer":"50150","name":"Pauschale"},"50010":{"nummer":"50010"},"40000":{"nummer":"12a"}}}"""))
+        assertEquals(mapOf("50100" to Kontenrahmen.KontoAnpassung(name = "Pauschale", nummer = "50150")), a.konten)
+        val k = Kontenrahmen.wirksam(standard, Kontenrahmen.Eigene(), a)
+        val m = k.first { it.code == "50000" }
+        assertEquals(listOf("50010", "50150"), m.subCategories.map { it.code })
+        val s = m.subCategories[1]
+        assertEquals("50150 - Pauschale", s.label)
+        assertEquals("50100", s.originalCode)
+        assertEquals("50150", Kontenrahmen.standardKonto("50100", k)!!.second.code)
+        assertNull(Kontenrahmen.standardKonto("50150", k))
+        assertEquals(
+            "Die Nummer 50100 gehört ursprünglich zum Konto „Pauschale“ (heute 50150) und bleibt dafür frei. Bitte eine andere wählen.",
+            Kontenrahmen.pruefeNeueNummer("50100", false, k),
+        )
+        assertNull(Kontenrahmen.pruefeNeueNummer("50100", false, k, anlegen = false))
+        assertNull(Kontenrahmen.pruefeNeueNummer("50150", false, k, setOf("50100"), anlegen = false))
+        // in der Sicherung als "nummer"
+        assertEquals("50150", Kontenrahmen.anpassungenAlsJson(a)["konten"]!!.jsonObject["50100"]!!.jsonObject["nummer"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun plantNeueKontonummer() {
+        val vorher = Kontenrahmen.wirksam(standard, eigene, Kontenrahmen.Anpassungen())
+        val leer = Kontenrahmen.Anpassungen()
+        assertEquals("Das Konto 50010 gibt es schon (Löhne).", Kontenrahmen.planeAenderung(vorher, leer, true, "50100", nummer = "50010").fehler)
+        assertEquals("Die Nummer besteht aus 4 bis 6 Ziffern.", Kontenrahmen.planeAenderung(vorher, leer, true, "50100", nummer = "501").fehler)
+        val p = Kontenrahmen.planeAenderung(vorher, leer, true, "50100", nummer = "50110").anpassungen!!
+        assertEquals(mapOf("50100" to Kontenrahmen.KontoAnpassung(nummer = "50110")), p.konten)
+        val nachher = Kontenrahmen.wirksam(standard, eigene, p)
+        val tx = json("""[
+          {"id":"a","skrAccount":"50100","subCategory":"50100 - Übungsleiter","category":"50100 - Übungsleiter","mainCategory":"50000 - Personal"},
+          {"id":"b","subCategory":"50100 - Übungsleiter","category":"50100 - Übungsleiter","mainCategory":"50000 - Personal"},
+          {"id":"c","skrAccount":"50010","subCategory":"50010 - Löhne","category":"50010 - Löhne","mainCategory":"50000 - Personal"}
+        ]""").jsonArray.map { it.jsonObject }
+        val g = Kontenrahmen.buchungenAngleichen(tx, vorher, nachher)
+        assertEquals(
+            listOf(listOf("a", "50110", "50110 - Übungsleiter", "50110 - Übungsleiter"), listOf("b", null, "50110 - Übungsleiter", "50110 - Übungsleiter")),
+            g.map { o -> listOf("id", "skrAccount", "subCategory", "category").map { o[it]?.jsonPrimitive?.content } },
+        )
+        // zurück auf die ursprüngliche Nummer: die Anpassung verschwindet
+        assertTrue(Kontenrahmen.planeAenderung(nachher, p, true, "50110", nummer = "50100").anpassungen!!.konten.isEmpty())
+    }
+
+    @Test
+    fun verschiebtNummernkreisSamtKonten() {
+        val vorher = Kontenrahmen.wirksam(standard, eigene, Kontenrahmen.Anpassungen())
+        val leer = Kontenrahmen.Anpassungen()
+        val p = Kontenrahmen.planeAenderung(vorher, leer, false, "40000", nummer = "41000").anpassungen!!
+        assertEquals(mapOf("40000" to Kontenrahmen.NummernkreisAnpassung(nummer = "41000")), p.nummernkreise)
+        assertEquals(mapOf("40000" to Kontenrahmen.KontoAnpassung(nummer = "41000"), "40005" to Kontenrahmen.KontoAnpassung(nummer = "41005")), p.konten)
+        val nachher = Kontenrahmen.wirksam(standard, eigene, p)
+        assertEquals(listOf("9000", "41000", "50000"), nachher.map { it.code })
+        assertEquals(listOf("41000", "41005"), nachher[1].subCategories.map { it.code })
+        assertEquals("41000", Kontenrahmen.standardNummernkreis("40000", nachher)!!.code)
+        val tx = json("""[{"id":"a","skrAccount":"40005","subCategory":"40005 - Schnupper","category":"40005 - Schnupper","mainCategory":"40000 - Mitgliedsbeiträge"}]""")
+            .jsonArray.map { it.jsonObject }
+        val g = Kontenrahmen.buchungenAngleichen(tx, vorher, nachher)[0]
+        assertEquals(listOf("41005", "41005 - Schnupper", "41000 - Mitgliedsbeiträge"), listOf("skrAccount", "subCategory", "mainCategory").map { g[it]!!.jsonPrimitive.content })
+        assertEquals("Den Nummernkreis 50000 gibt es schon (Personal).", Kontenrahmen.planeAenderung(vorher, leer, false, "9000", nummer = "50000").fehler)
+        assertEquals("Das Konto 9001 käme dabei auf 40000: Das Konto 40000 gibt es schon (Beiträge).",
+            Kontenrahmen.planeAenderung(vorher, leer, false, "9000", nummer = "39999").fehler)
+        assertEquals("Das Konto 9001 käme dabei auf 1000000; Kontonummern haben 4 bis 6 Ziffern. Bitte eine andere Nummer wählen.",
+            Kontenrahmen.planeAenderung(vorher, leer, false, "9000", nummer = "999999").fehler)
+    }
+
+    @Test
+    fun nummernUeberDenSpeicher() {
+        val s = InMemoryDocumentStore()
+        s.put("settings", "main", JsonObject(mapOf("id" to JsonPrimitive("main"))))
+        s.put("transactions", "t1", JsonObject(mapOf("id" to JsonPrimitive("t1"), "skrAccount" to JsonPrimitive("40450"),
+            "subCategory" to JsonPrimitive("40450 - x"), "category" to JsonPrimitive("40450 - x"), "mainCategory" to JsonPrimitive("40400 - x"))))
+        val v = Kontenrahmen.vorschau(s, false, "40400", nummer = "49400")
+        assertNull(v.fehler)
+        assertEquals(1, v.buchungen)
+        assertEquals(Skr42.standard.first { it.code == "40400" }.subCategories.size, v.konten)
+        val r = Kontenrahmen.nummernkreisAendern(s, "40400", nummer = "49400")
+        assertEquals(Kontenrahmen.Geaendert(1, "49400"), r)
+        val b = s.get("transactions", "t1")!!
+        assertEquals("49450", b["skrAccount"]!!.jsonPrimitive.content)
+        assertTrue(b["mainCategory"]!!.jsonPrimitive.content.startsWith("49400 - "))
+        assertEquals("49450", Kontenrahmen.standardKonto("40450", Kontenrahmen.wirksam(s))!!.second.code)
+        // zurück: Nummernkreis auf das Original, die Konten ziehen wieder mit
+        Kontenrahmen.nummernkreisAendern(s, "49400", nummer = "40400")
+        assertTrue(Kontenrahmen.anpassungen(s).konten.isEmpty() && Kontenrahmen.anpassungen(s).nummernkreise.isEmpty())
+        assertEquals("40450", s.get("transactions", "t1")!!["skrAccount"]!!.jsonPrimitive.content)
     }
 
     @Test

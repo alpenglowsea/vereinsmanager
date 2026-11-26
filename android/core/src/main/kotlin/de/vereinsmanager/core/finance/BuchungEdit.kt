@@ -166,8 +166,9 @@ object BuchungRegeln {
             "sponsor" in typen -> "wirtschaftlich" to "44000"
             else -> return f
         }
-        val main = skr.firstOrNull { it.type == "income" && it.code == code && !it.isCustom } ?: return f
-        val sub = main.subCategories.firstOrNull { it.code == code } ?: return f
+        // über die ursprüngliche Nummer: auch wenn der Verein das Konto umnummeriert hat
+        val (main, sub) = de.vereinsmanager.core.skr42.Kontenrahmen.standardKonto(code, skr) ?: return f
+        if (main.type != "income" || main.isCustom) return f
         return mitKonto(mitNummernkreis(f.copy(sphaere = sphaere), main), sub)
     }
 
@@ -201,8 +202,8 @@ object BuchungRegeln {
      * (Bis 18.11.2026 war es 68100, das im Kontenrahmen aber „Büromaterial & Druckkosten“ heißt; Wunsch Johannes.)
      */
     fun neuerTeil(id: String, sphaere: String, skr: List<Skr42Main> = Skr42.standard): TeilForm {
-        val main = Skr42.findMainForSub("68500", skr)
-        val sub = main?.subCategories?.firstOrNull { it.code == "68500" }
+        // über die ursprüngliche Nummer: auch wenn der Verein 68500 umnummeriert hat
+        val (main, sub) = de.vereinsmanager.core.skr42.Kontenrahmen.standardKonto("68500", skr) ?: (null to null)
         return TeilForm(
             id = id, sphaere = sphaere, nummernkreis = main?.let(::nummernkreisText) ?: "",
             konto = sub?.label ?: "", skrKonto = sub?.code ?: "", ust = sub?.vatRateDefault ?: 0,

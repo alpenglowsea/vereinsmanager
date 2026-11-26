@@ -45,10 +45,13 @@ object Finanzauswertung {
     const val GESAMT = "Gesamtverein"
     private val SPHAEREN = setOf("ideell", "vermoegen", "zweckbetrieb", "wirtschaftlich")
 
-    private fun spende(nummernkreis: String) = nummernkreis.substringBefore(" - ").trim() == Skr42.SPENDEN_HAUPTKONTO_CODE
-
-    /** Zeilen der Auswertung nach Filter. Umbuchungen zählen nicht; aufgeteilte Buchungen Teil für Teil. */
-    fun posten(buchungen: List<Buchung>, f: AuswFilter): List<Posten> {
+    /**
+     * Zeilen der Auswertung nach Filter. Umbuchungen zählen nicht; aufgeteilte Buchungen Teil für Teil.
+     * [spendenkreis]: heutige Nummer des Spenden-Nummernkreises (ursprünglich 40400; der Verein kann ihn umnummerieren,
+     * `Kontenrahmen.standardNummernkreis`).
+     */
+    fun posten(buchungen: List<Buchung>, f: AuswFilter, spendenkreis: String = Skr42.SPENDEN_HAUPTKONTO_CODE): List<Posten> {
+        fun spende(nummernkreis: String) = nummernkreis.substringBefore(" - ").trim() == spendenkreis
         val ergebnis = ArrayList<Posten>()
         for (b in buchungen) {
             if (b.istUmbuchung) continue
@@ -136,8 +139,11 @@ object Finanzauswertung {
         return punkte
     }
 
-    fun berechne(buchungen: List<Buchung>, konten: List<Konto>, f: AuswFilter, spartenListe: List<String>, heute: LocalDate = LocalDate.now()): Auswertung {
-        val p = posten(buchungen, f)
+    fun berechne(
+        buchungen: List<Buchung>, konten: List<Konto>, f: AuswFilter, spartenListe: List<String>, heute: LocalDate = LocalDate.now(),
+        spendenkreis: String = Skr42.SPENDEN_HAUPTKONTO_CODE,
+    ): Auswertung {
+        val p = posten(buchungen, f, spendenkreis)
         return Auswertung(f, p, kennzahlen(p), monate(p), verlauf(buchungen, konten, f, heute), sparten(p, spartenListe), p.isEmpty())
     }
 

@@ -6,6 +6,7 @@
 import type { ClubInvoice, ClubSettings, InvoiceItem, PaymentMethod, TaxSphere, Transaction, TransactionSplit } from '../types';
 import { SKR42_STRUCTURE } from '../data/taxSpheres';
 import { istAusgabe } from './buchungsBerichte';
+import { standardKonto } from '../utils/kontenrahmen';
 
 /** Hinweistext für Kleinunternehmer, wenn die Vorlage keinen eigenen hat (wie Android). */
 export const KLEINUNTERNEHMER_HINWEIS = 'Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.';
@@ -117,11 +118,12 @@ export function einnahmeKonten(): EinnahmeKonto[] {
   );
 }
 
-/** Vorschlag für das Einnahmekonto je Sphäre (wie Android; änderbar). */
+/** Vorschlag für das Einnahmekonto je Sphäre (wie Android; änderbar). Ursprüngliche Nummern, siehe `standardKonto`. */
 export function kontoVorschlag(sphere: TaxSphere | undefined): EinnahmeKonto | null {
   const code =
     sphere === 'ideell' ? '40890' : sphere === 'vermoegen' ? '46900' : sphere === 'zweckbetrieb' ? '41000' : '44000';
-  return einnahmeKonten().find(k => k.skrAccount === code) ?? null;
+  const heute = standardKonto(code, SKR42_STRUCTURE)?.sub.code;
+  return heute ? einnahmeKonten().find(k => k.skrAccount === heute) ?? null : null;
 }
 
 export function rechnungsBuchungsText(r: Pick<ClubInvoice, 'invoiceNumber' | 'subject'>): string {

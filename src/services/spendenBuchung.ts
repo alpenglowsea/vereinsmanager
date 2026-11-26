@@ -12,17 +12,18 @@
 import type { DonationReceipt, Transaction } from '../types';
 import { SKR42_STRUCTURE } from '../data/taxSpheres';
 import { istAusgabe } from './buchungsBerichte';
+import { kontoText, standardKonto } from '../utils/kontenrahmen';
 
+/** Ursprüngliche Nummer; hat der Verein das Konto umnummeriert, wird auf die neue gebucht (`standardKonto`). */
 export const SPENDEN_KONTO_CODE = '40450';
 
 /** Nummernkreis, Konto und Kontonummer aus dem Kontenrahmen. */
 export function spendenKonto(): { mainCategory: string; subCategory: string; skrAccount: string } {
-  const main = SKR42_STRUCTURE.find(m => m.subCategories.some(s => s.code === SPENDEN_KONTO_CODE));
-  const sub = main?.subCategories.find(s => s.code === SPENDEN_KONTO_CODE);
+  const k = standardKonto(SPENDEN_KONTO_CODE, SKR42_STRUCTURE);
   return {
-    mainCategory: main ? `${main.code} - ${main.name}` : '',
-    subCategory: sub?.label || '',
-    skrAccount: SPENDEN_KONTO_CODE
+    mainCategory: k ? kontoText(k.main.code, k.main.name) : '',
+    subCategory: k?.sub.label || '',
+    skrAccount: k?.sub.code ?? SPENDEN_KONTO_CODE
   };
 }
 

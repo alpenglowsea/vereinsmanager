@@ -16,6 +16,11 @@ data class Skr42Sub(
     val originalName: String? = null,
     /** Steuersatz vor einer Anpassung durch den Verein; nur gesetzt, wenn angepasst. */
     val originalVatRate: Int? = null,
+    /**
+     * Nummer vor einer Umnummerierung durch den Verein; nur gesetzt, wenn umnummeriert. Bleibt der feste Schlüssel des
+     * Kontos (Anpassungen, Vorgaben der App wie „Beiträge auf 40000“), auch wenn [code] eine andere Nummer trägt.
+     */
+    val originalCode: String? = null,
 )
 
 @Serializable
@@ -31,6 +36,8 @@ data class Skr42Main(
     val ausgeblendet: Boolean = false,
     /** Bezeichnung vor einer Anpassung durch den Verein; nur gesetzt, wenn angepasst. */
     val originalName: String? = null,
+    /** Nummer vor einer Umnummerierung durch den Verein (siehe [Skr42Sub.originalCode]). */
+    val originalCode: String? = null,
 )
 
 /**
