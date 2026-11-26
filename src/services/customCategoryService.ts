@@ -1,436 +1,346 @@
-import { Skr42MainCategory, Skr42SubCategory } from '../types';
+import { Skr42MainCategory, Skr42SubCategory, Transaction } from '../types';
 import { SKR42_STRUCTURE } from '../data/taxSpheres';
 import { notifySkr42Changed } from '../data/skr42Store';
+import {
+  type EigeneKonten, type Skr42Anpassungen, type KontoAnpassung, type NummernkreisAnpassung, type Steuersatz,
+  leseEigeneKonten, leseAnpassungen, wirksamerKontenrahmen, ergaenzeAnpassungen, ergaenzeEigene, pruefeNeueNummer,
+  pruefeBezeichnung, mitKontoAnpassung, mitNummernkreisAnpassung, kontoBezeichnung, kontoText, kontoVerwendungen, nummernkreisVerwendungen,
+  buchungenUmbenennen,
+} from '../utils/kontenrahmen';
 
-const STORAGE_KEY_CUSTOM_ACCOUNTS = 'vm_custom_skr42_accounts';
+/**
+ * Der Kontenrahmen des Vereins am Desktop: eigene Nummernkreise und Konten, Anpassungen (Bezeichnung, Steuersatz,
+ * ausgeblendet). Die Regeln stehen in `src/utils/kontenrahmen.ts` (wortgleich am Handy).
+ *
+ * Gespeichert in der Datenbank, im Bereich der Einstellungen unter der Kennung `kontenrahmen` (neben `main`). Getrennt
+ * von den Vereinsstammdaten, damit ein Speichern der Stammdaten mit einem älteren Stand die Konten nicht überschreibt.
+ *
+ * Bis 26.11.2026 lagen die eigenen Konten im Browserspeicher des Fensters (localStorage), außerhalb der Datenbank.
+ * Unter Linux ging dabei ein frisch angelegtes Konto verloren, als das Fenster direkt nach dem Speichern neu startete.
+ * Beim ersten Start mit dieser Fassung zieht der Bestand von dort in die Datenbank um (`laden`).
+ *
+ * `SKR42_STRUCTURE` bleibt das Array, das die ganze App liest. Es wird bei jeder Änderung aus der mitgelieferten Liste,
+ * den eigenen Konten und den Anpassungen neu zusammengesetzt (an Ort und Stelle, damit alle, die es halten, den neuen
+ * Stand sehen), aufsteigend nach der Nummer sortiert, und `notifySkr42Changed()` meldet es den Masken.
+ */
+
+const ALTER_SCHLUESSEL = 'vm_custom_skr42_accounts';
 
 export interface CustomSubAccountInput {
   mainCatIdOrCode: string;
   code: string;
   name: string;
-  vatRateDefault?: 0 | 7 | 19;
+  vatRateDefault?: Steuersatz;
 }
 
 export interface CustomMainAccountInput {
   code: string;
   name: string;
   type: 'income' | 'expense';
-  initialSubAccount?: {
-    code?: string;
-    name?: string;
-    vatRateDefault?: 0 | 7 | 19;
-  };
+  initialSubAccount?: { code?: string; name?: string; vatRateDefault?: Steuersatz };
 }
 
-interface StoredCustomData {
-  customMainCategories: Skr42MainCategory[];
-  customSubCategories: Array<{
-    mainCatIdOrCode: string;
-    subCategory: Skr42SubCategory;
-  }>;
+/** Wie der Dienst an die Datenbank kommt; `storage.ts` verbindet ihn beim Laden (vermeidet einen Ring der Importe). */
+export interface KontenrahmenSpeicher {
+  lesen(): Promise<{ customSkr42Accounts?: unknown; skr42Anpassungen?: unknown } | null>;
+  schreiben(daten: { customSkr42Accounts: EigeneKonten; skr42Anpassungen: Skr42Anpassungen }): Promise<void>;
+  buchungen(): Promise<Transaction[]>;
+  buchungenSpeichern(buchungen: Transaction[]): Promise<void>;
+}
+
+function ohne<T>(eintraege: Record<string, T>, schluessel: string): Record<string, T> {
+  const kopie = { ...eintraege };
+  delete kopie[schluessel];
+  return kopie;
+}
+
+function alterBrowserspeicher(): unknown {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    const roh = localStorage.getItem(ALTER_SCHLUESSEL);
+    return roh ? JSON.parse(roh) : null;
+  } catch {
+    return null;
+  }
 }
 
 class CustomCategoryService {
-  private initialized = false;
+  /** Die mitgelieferte Liste, unverändert (Kopie vom Programmstart, bevor irgendetwas eingemischt wurde). */
+  private readonly standard: Skr42MainCategory[] = SKR42_STRUCTURE.map(m => ({
+    ...m,
+    subCategories: m.subCategories.map(s => ({ ...s })),
+  }));
+  private eigene: EigeneKonten;
+  private anpassungen: Skr42Anpassungen = { nummernkreise: {}, konten: {} };
+  private speicher: KontenrahmenSpeicher | null = null;
 
   constructor() {
-    this.init();
+    // Bis die Datenbank gelesen ist (`laden`), gilt der alte Browserspeicher; so fehlt beim Start nichts.
+    this.eigene = leseEigeneKonten(alterBrowserspeicher());
+    this.anwenden();
   }
 
-  public init() {
-    if (this.initialized) return;
-    this.syncIntoSkr42Structure();
-    this.initialized = true;
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('storage', (e) => {
-        if (e.key === STORAGE_KEY_CUSTOM_ACCOUNTS) {
-          this.syncIntoSkr42Structure();
-          this.notifyListeners();
-        }
-      });
-    }
+  verbinde(speicher: KontenrahmenSpeicher) {
+    this.speicher = speicher;
   }
 
-  private loadStoredData(): StoredCustomData {
-    if (typeof window === 'undefined') {
-      return { customMainCategories: [], customSubCategories: [] };
+  /** Beim Programmstart: aus der Datenbank lesen; beim ersten Mal den alten Browserspeicher übernehmen. */
+  async laden(): Promise<void> {
+    if (!this.speicher) return;
+    const gespeichert = await this.speicher.lesen();
+    if (gespeichert) {
+      this.eigene = leseEigeneKonten(gespeichert.customSkr42Accounts);
+      this.anpassungen = leseAnpassungen(gespeichert.skr42Anpassungen);
+      this.anwenden();
+      return;
     }
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY_CUSTOM_ACCOUNTS);
-      if (!raw) {
-        return { customMainCategories: [], customSubCategories: [] };
+    const alt = leseEigeneKonten(alterBrowserspeicher());
+    this.eigene = alt;
+    this.anpassungen = { nummernkreise: {}, konten: {} };
+    if (alt.customMainCategories.length || alt.customSubCategories.length) {
+      await this.sichern();
+      try {
+        localStorage.removeItem(ALTER_SCHLUESSEL);
+      } catch {
+        /* nichts zu tun */
       }
-      const parsed = JSON.parse(raw);
-      return {
-        customMainCategories: Array.isArray(parsed.customMainCategories) ? parsed.customMainCategories : [],
-        customSubCategories: Array.isArray(parsed.customSubCategories) ? parsed.customSubCategories : []
-      };
-    } catch (err) {
-      console.error('Failed to load custom SKR42 accounts from localStorage:', err);
-      return { customMainCategories: [], customSubCategories: [] };
-    }
+    } else this.anwenden();
   }
 
-  private saveStoredData(data: StoredCustomData) {
-    if (typeof window === 'undefined') return;
+  /** Nach „Alle Daten löschen“: nur noch die mitgelieferte Liste. */
+  zuruecksetzen() {
+    this.eigene = { customMainCategories: [], customSubCategories: [] };
+    this.anpassungen = { nummernkreise: {}, konten: {} };
     try {
-      localStorage.setItem(STORAGE_KEY_CUSTOM_ACCOUNTS, JSON.stringify(data));
-      this.syncIntoSkr42Structure();
-      this.notifyListeners();
-    } catch (err) {
-      console.error('Failed to save custom SKR42 accounts to localStorage:', err);
+      localStorage.removeItem(ALTER_SCHLUESSEL);
+    } catch {
+      /* nichts zu tun */
     }
+    this.anwenden();
   }
 
-  private notifyListeners() {
-    // Der Weg für React-Masken: ausdrücklich, ohne Umweg über das Fenster,
-    // und auch dann vorhanden, wenn es gar kein Fenster gibt (Tests).
+  private anwenden() {
+    const wirksam = wirksamerKontenrahmen(this.standard, this.eigene, this.anpassungen);
+    SKR42_STRUCTURE.splice(0, SKR42_STRUCTURE.length, ...wirksam);
     notifySkr42Changed();
-
-    // Das Fenster-Ereignis bleibt zusätzlich bestehen. Es kostet nichts und
-    // deckt den Fall ab, dass irgendwo noch etwas darauf horcht — innerhalb
-    // dieses Projekts derzeit nichts mehr, aber ein Verein darf die Software
-    // anpassen, und ein stillschweigend entferntes Ereignis wäre eine
-    // unangenehme Überraschung.
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
       window.dispatchEvent(new CustomEvent('vm_skr42_updated'));
     }
   }
 
-  /**
-   * Merges custom accounts into the in-memory SKR42_STRUCTURE array
-   * so all native lookups, dropdowns, and helpers immediately find them.
-   */
-  public syncIntoSkr42Structure() {
-    const data = this.loadStoredData();
-
-    // 1. Sync custom main categories into SKR42_STRUCTURE
-    for (const customMain of data.customMainCategories) {
-      const existingIdx = SKR42_STRUCTURE.findIndex(
-        m => m.id === customMain.id || m.code === customMain.code
-      );
-      const enriched: Skr42MainCategory = {
-        ...customMain,
-        isCustom: true,
-        subCategories: customMain.subCategories.map(s => ({ ...s, isCustom: true }))
-      };
-      if (existingIdx >= 0) {
-        // Update in place
-        SKR42_STRUCTURE[existingIdx] = enriched;
-      } else {
-        // Append to structure
-        SKR42_STRUCTURE.push(enriched);
-      }
-    }
-
-    // 2. Sync custom sub-categories into existing main categories
-    for (const item of data.customSubCategories) {
-      const main = SKR42_STRUCTURE.find(
-        m => m.id === item.mainCatIdOrCode || m.code === item.mainCatIdOrCode
-      );
-      if (main) {
-        const existingSubIdx = main.subCategories.findIndex(
-          s => s.code === item.subCategory.code || s.label === item.subCategory.label
-        );
-        const enrichedSub: Skr42SubCategory = {
-          ...item.subCategory,
-          isCustom: true
-        };
-        if (existingSubIdx >= 0) {
-          main.subCategories[existingSubIdx] = enrichedSub;
-        } else {
-          main.subCategories.push(enrichedSub);
-        }
-      }
+  /** Erst im Arbeitsspeicher anwenden, dann in die Datenbank schreiben. */
+  private async sichern() {
+    this.anwenden();
+    if (this.speicher) {
+      await this.speicher.schreiben({ customSkr42Accounts: this.eigene, skr42Anpassungen: this.anpassungen });
     }
   }
 
-  public getCustomAccounts(): StoredCustomData {
-    return this.loadStoredData();
+  getCustomAccounts(): EigeneKonten {
+    return JSON.parse(JSON.stringify(this.eigene));
   }
 
-  // -------------------------------------------------------------------------
-  // Datensicherung
-  //
-  // Die eigenen Konten liegen im Browserspeicher (localStorage), nicht in der
-  // Datenbank. Bis November 2026 fehlten sie deshalb in jeder Sicherung: Wer
-  // seinen Bestand auf einen anderen Rechner mitnahm, hatte dort Buchungen
-  // auf Konten, die es nicht mehr gab (D-12). Die Sicherung nimmt sie jetzt
-  // mit (im Bereich `settings`, Feld `customSkr42Accounts`).
-  // -------------------------------------------------------------------------
-
-  /** Bringt den Inhalt einer Sicherung in die erwartete Form; Unbrauchbares fällt heraus. */
-  private ausSicherung(roh: unknown): StoredCustomData {
-    const quelle = (typeof roh === 'object' && roh !== null ? roh : {}) as Record<string, unknown>;
-    const haupt = Array.isArray(quelle.customMainCategories) ? quelle.customMainCategories : [];
-    const unter = Array.isArray(quelle.customSubCategories) ? quelle.customSubCategories : [];
-    return {
-      customMainCategories: haupt.filter(
-        (m): m is Skr42MainCategory =>
-          typeof m === 'object' && m !== null && typeof m.code === 'string' && Array.isArray(m.subCategories)
-      ),
-      customSubCategories: unter.filter(
-        (u): u is StoredCustomData['customSubCategories'][number] =>
-          typeof u === 'object' &&
-          u !== null &&
-          typeof u.mainCatIdOrCode === 'string' &&
-          typeof u.subCategory === 'object' &&
-          u.subCategory !== null &&
-          typeof u.subCategory.code === 'string'
-      )
-    };
+  getAnpassungen(): Skr42Anpassungen {
+    return JSON.parse(JSON.stringify(this.anpassungen));
   }
 
-  /** Entfernt alle eigenen Konten aus dem Kontenrahmen im Arbeitsspeicher. */
-  private entferneEigeneAusStruktur() {
-    for (let i = SKR42_STRUCTURE.length - 1; i >= 0; i--) {
-      const main = SKR42_STRUCTURE[i];
-      if (main.isCustom) {
-        SKR42_STRUCTURE.splice(i, 1);
-        continue;
-      }
-      for (let j = main.subCategories.length - 1; j >= 0; j--) {
-        if (main.subCategories[j].isCustom) main.subCategories.splice(j, 1);
-      }
-    }
+  // ---------------------------------------------------------------------------
+  // Datensicherung (Felder `customSkr42Accounts` und `skr42Anpassungen` der Einstellungen)
+  // Fehlt ein Feld in der Datei (ältere Sicherung), bleibt der vorhandene Stand dazu unangetastet.
+  // ---------------------------------------------------------------------------
+
+  async ersetzeAusSicherung(eigene: unknown, anpassungen?: unknown) {
+    if (eigene !== undefined) this.eigene = leseEigeneKonten(eigene);
+    if (anpassungen !== undefined) this.anpassungen = leseAnpassungen(anpassungen);
+    await this.sichern();
   }
 
-  /**
-   * Einspielen mit „Ersetzen“: Die eigenen Konten aus der Sicherung treten an
-   * die Stelle der vorhandenen.
-   */
-  public ersetzeAusSicherung(roh: unknown) {
-    const daten = this.ausSicherung(roh);
-    this.entferneEigeneAusStruktur();
-    this.saveStoredData(daten);
+  async ergaenzeAusSicherung(eigene: unknown, anpassungen?: unknown) {
+    if (eigene !== undefined) this.eigene = ergaenzeEigene(this.eigene, leseEigeneKonten(eigene));
+    if (anpassungen !== undefined) this.anpassungen = ergaenzeAnpassungen(this.anpassungen, leseAnpassungen(anpassungen));
+    await this.sichern();
   }
 
-  /**
-   * Einspielen mit „Ergänzen“: Vorhandene eigene Konten bleiben, aus der
-   * Sicherung kommt nur hinzu, was es hier noch nicht gibt (gleiche Kontonummer
-   * = schon vorhanden).
-   */
-  public ergaenzeAusSicherung(roh: unknown) {
-    const neu = this.ausSicherung(roh);
-    const daten = this.loadStoredData();
-    for (const main of neu.customMainCategories) {
-      const vorhanden = daten.customMainCategories.some(m => m.id === main.id || m.code === main.code);
-      if (!vorhanden) daten.customMainCategories.push(main);
-    }
-    for (const unter of neu.customSubCategories) {
-      const vorhanden = daten.customSubCategories.some(
-        u => u.mainCatIdOrCode === unter.mainCatIdOrCode && u.subCategory.code === unter.subCategory.code
-      );
-      if (!vorhanden) daten.customSubCategories.push(unter);
-    }
-    this.saveStoredData(daten);
-  }
+  // ---------------------------------------------------------------------------
+  // Anlegen
+  // ---------------------------------------------------------------------------
 
-  /**
-   * Suggests the next available 5-digit SKR 42 account code
-   */
-  public suggestNextCode(
-    type: 'income' | 'expense',
-    parentMainCodeOrId?: string
-  ): string {
-    // If suggesting for subcategory under a specific main category
+  /** Schlägt die nächste freie Nummer vor: im Nummernkreis die höchste + 1, sonst den nächsten freien Tausender. */
+  public suggestNextCode(type: 'income' | 'expense', parentMainCodeOrId?: string): string {
+    const belegt = new Set(SKR42_STRUCTURE.flatMap(m => m.subCategories.map(s => s.code)));
     if (parentMainCodeOrId) {
-      const main = SKR42_STRUCTURE.find(
-        m => m.id === parentMainCodeOrId || m.code === parentMainCodeOrId
-      );
-      if (main && main.subCategories.length > 0) {
-        const numericCodes = main.subCategories
-          .map(s => parseInt(s.code, 10))
-          .filter(n => !isNaN(n))
-          .sort((a, b) => a - b);
-
-        if (numericCodes.length > 0) {
-          const highest = numericCodes[numericCodes.length - 1];
-          // E.g. 40006 -> 40007, or if last is 40090 -> 40091
-          return String(highest + 1);
-        }
-      }
+      const main = SKR42_STRUCTURE.find(m => m.id === parentMainCodeOrId || m.code === parentMainCodeOrId);
       if (main) {
+        const zahlen = main.subCategories.map(s => parseInt(s.code, 10)).filter(n => !isNaN(n));
+        let n = zahlen.length ? Math.max(...zahlen) + 1 : parseInt(main.code, 10);
+        if (!isNaN(n)) {
+          while (belegt.has(String(n))) n++;
+          return String(n);
+        }
         return main.code;
       }
     }
-
-    // Neuer Nummernkreis (Hauptkonto): Bis Fassung 1.x hing der
-    // vorgeschlagene Zahlenbereich von der Sphäre ab. Seit die Sphäre nicht
-    // mehr am Konto hängt (siehe Hinweis bei Skr42MainCategory in
-    // src/types.ts), suchen wir stattdessen die höchste im gesamten
-    // Kontenrahmen bereits vergebene Nummer dieses Typs — Standardkonten und
-    // schon angelegte eigene Konten zusammen — und schlagen den nächsten
-    // freien, runden Tausenderbereich darüber vor.
-    const allCodesOfType = SKR42_STRUCTURE
-      .filter(m => m.type === type)
+    // Neuer Nummernkreis: nächster freier, runder Tausender über der höchsten Nummer dieses Typs.
+    const alle = SKR42_STRUCTURE.filter(m => m.type === type)
       .flatMap(m => [m.code, ...m.subCategories.map(s => s.code)])
       .map(c => parseInt(c, 10))
       .filter(n => !isNaN(n));
-
-    const highest = allCodesOfType.length > 0
-      ? Math.max(...allCodesOfType)
-      : (type === 'income' ? 40000 : 50000);
-
-    let base = Math.ceil((highest + 1) / 1000) * 1000;
-    while (SKR42_STRUCTURE.some(m => m.code === String(base))) {
-      base += 1000;
-    }
-    return String(base);
+    const hoechste = alle.length ? Math.max(...alle) : type === 'income' ? 40000 : 50000;
+    let basis = Math.ceil((hoechste + 1) / 1000) * 1000;
+    while (SKR42_STRUCTURE.some(m => m.code === String(basis)) || belegt.has(String(basis))) basis += 1000;
+    return String(basis);
   }
 
-  /**
-   * Adds a brand new Nummernkreis (main account) with an optional initial account.
-   */
-  public addCustomMainCategory(input: CustomMainAccountInput): Skr42MainCategory {
-    const cleanCode = input.code.trim();
-    const cleanName = input.name.trim();
-
-    if (!cleanCode) throw new Error('Bitte geben Sie eine Kontonummer an.');
-    if (!cleanName) throw new Error('Bitte geben Sie eine Kontobezeichnung an.');
-
-    const data = this.loadStoredData();
-
-    // Check if code already exists
-    const existing = SKR42_STRUCTURE.find(m => m.code === cleanCode);
-    if (existing && !existing.isCustom) {
-      throw new Error(`Der SKR 42 Standard-Nummernkreis mit der Nummer ${cleanCode} existiert bereits (${existing.name}).`);
-    }
-
-    const mainId = `HK-${cleanCode}-CUSTOM`;
-    // Ohne Sphäre am Konto lässt sich der Steuersatz nicht mehr automatisch
-    // herleiten (bis Fassung 1.x: wirtschaftlich->19%, Zweckbetrieb->7%,
-    // sonst 0%). Vorbelegt wird darum vorsichtshalber mit 0% — wer beim
-    // Anlegen einen anderen Satz braucht, trägt ihn im Formular selbst ein.
-    const defaultVat = 0;
-
-    const subCode = input.initialSubAccount?.code?.trim() || cleanCode;
-    const subName = input.initialSubAccount?.name?.trim() || cleanName;
-    const subVat = input.initialSubAccount?.vatRateDefault ?? defaultVat;
-
-    const initialSub: Skr42SubCategory = {
-      code: subCode,
-      name: subName,
-      label: `${subCode} - ${subName}`,
-      vatRateDefault: subVat,
-      isCustom: true
+  /** Neuer Nummernkreis mit einem ersten Konto (gleiche Nummer und Bezeichnung, wenn nicht anders angegeben). */
+  public async addCustomMainCategory(input: CustomMainAccountInput): Promise<Skr42MainCategory> {
+    const code = input.code.trim();
+    const name = input.name.trim();
+    const fehler = pruefeNeueNummer(code, 'nummernkreis', SKR42_STRUCTURE) ?? pruefeBezeichnung(name);
+    if (fehler) throw new Error(fehler);
+    const kontoCode = input.initialSubAccount?.code?.trim() || code;
+    const kontoName = input.initialSubAccount?.name?.trim() || name;
+    const f2 = pruefeNeueNummer(kontoCode, 'konto', SKR42_STRUCTURE);
+    if (f2) throw new Error(f2);
+    const konto: Skr42SubCategory = {
+      code: kontoCode,
+      name: kontoName,
+      label: kontoText(kontoCode, kontoName),
+      vatRateDefault: input.initialSubAccount?.vatRateDefault ?? 0,
+      isCustom: true,
     };
-
-    const newMain: Skr42MainCategory = {
-      id: mainId,
-      code: cleanCode,
-      name: cleanName,
-      type: input.type,
-      subCategories: [initialSub],
-      isCustom: true
-    };
-
-    // Remove if previously saved with same ID/code
-    data.customMainCategories = data.customMainCategories.filter(
-      m => m.code !== cleanCode && m.id !== mainId
-    );
-    data.customMainCategories.push(newMain);
-
-    this.saveStoredData(data);
-    return newMain;
+    const neu: Skr42MainCategory = { id: `HK-${code}-CUSTOM`, code, name, type: input.type, subCategories: [konto], isCustom: true };
+    this.eigene = { ...this.eigene, customMainCategories: [...this.eigene.customMainCategories, neu] };
+    await this.sichern();
+    return SKR42_STRUCTURE.find(m => m.code === code)!;
   }
 
-  /**
-   * Adds a new Konto to an existing or custom Nummernkreis.
-   */
-  public addCustomSubCategory(input: CustomSubAccountInput): { sub: Skr42SubCategory; main: Skr42MainCategory } {
-    const cleanCode = input.code.trim();
-    const cleanName = input.name.trim();
-
-    if (!cleanCode) throw new Error('Bitte geben Sie eine Kontonummer für das Konto an.');
-    if (!cleanName) throw new Error('Bitte geben Sie eine Bezeichnung für das Konto an.');
-
-    const targetMain = SKR42_STRUCTURE.find(
-      m => m.id === input.mainCatIdOrCode || m.code === input.mainCatIdOrCode
-    );
-
-    if (!targetMain) {
-      throw new Error(`Der übergeordnete Nummernkreis '${input.mainCatIdOrCode}' wurde nicht gefunden.`);
-    }
-
-    // Siehe Hinweis in addCustomMainCategory() oben: ohne Sphäre am
-    // übergeordneten Nummernkreis kein automatischer Steuersatz mehr.
-    const defaultVat = 0;
-    const newSub: Skr42SubCategory = {
-      code: cleanCode,
-      name: cleanName,
-      label: `${cleanCode} - ${cleanName}`,
-      vatRateDefault: input.vatRateDefault ?? defaultVat,
-      isCustom: true
-    };
-
-    const data = this.loadStoredData();
-
-    // Check if target is a custom main category
-    const customMain = data.customMainCategories.find(
-      m => m.id === targetMain.id || m.code === targetMain.code
-    );
-
-    if (customMain) {
-      customMain.subCategories = customMain.subCategories.filter(s => s.code !== cleanCode);
-      customMain.subCategories.push(newSub);
+  /** Neues Konto in einem vorhandenen Nummernkreis (Standard oder eigen). */
+  public async addCustomSubCategory(input: CustomSubAccountInput): Promise<{ sub: Skr42SubCategory; main: Skr42MainCategory }> {
+    const code = input.code.trim();
+    const name = input.name.trim();
+    const kreis = SKR42_STRUCTURE.find(m => m.id === input.mainCatIdOrCode || m.code === input.mainCatIdOrCode);
+    if (!kreis) throw new Error(`Den Nummernkreis ${input.mainCatIdOrCode} gibt es nicht.`);
+    const fehler = pruefeNeueNummer(code, 'konto', SKR42_STRUCTURE) ?? pruefeBezeichnung(name);
+    if (fehler) throw new Error(fehler);
+    const konto: Skr42SubCategory = { code, name, label: kontoText(code, name), vatRateDefault: input.vatRateDefault ?? 0, isCustom: true };
+    if (kreis.isCustom) {
+      this.eigene = {
+        ...this.eigene,
+        customMainCategories: this.eigene.customMainCategories.map(m =>
+          m.code === kreis.code ? { ...m, subCategories: [...m.subCategories, konto] } : m
+        ),
+      };
     } else {
-      // It's a standard SKR 42 main category -> store in customSubCategories
-      data.customSubCategories = data.customSubCategories.filter(
-        item => !(item.mainCatIdOrCode === targetMain.code && item.subCategory.code === cleanCode)
-      );
-      data.customSubCategories.push({
-        mainCatIdOrCode: targetMain.code,
-        subCategory: newSub
-      });
+      this.eigene = {
+        ...this.eigene,
+        customSubCategories: [...this.eigene.customSubCategories, { mainCatIdOrCode: kreis.code, subCategory: konto }],
+      };
     }
+    await this.sichern();
+    const main = SKR42_STRUCTURE.find(m => m.code === kreis.code)!;
+    return { sub: main.subCategories.find(s => s.code === code)!, main };
+  }
 
-    this.saveStoredData(data);
-    return { sub: newSub, main: targetMain };
+  // ---------------------------------------------------------------------------
+  // Ändern (Bezeichnung, Steuersatz, ausgeblendet) – auch für Standardkonten
+  // ---------------------------------------------------------------------------
+
+  /** Das Konto ohne Anpassung: aus der mitgelieferten Liste oder den eigenen Konten. */
+  private originalKonto(code: string): Skr42SubCategory | undefined {
+    return (
+      this.standard.flatMap(m => m.subCategories).find(s => s.code === code) ??
+      this.eigene.customMainCategories.flatMap(m => m.subCategories).find(s => s.code === code) ??
+      this.eigene.customSubCategories.find(u => u.subCategory.code === code)?.subCategory
+    );
   }
 
   /**
-   * Deletes a user-created Nummernkreis
+   * Ändert ein Konto. Eine neue Bezeichnung geht auf alle Buchungen über (auch zurück auf das Original);
+   * Ergebnis: wie viele Buchungen geändert wurden.
    */
-  public deleteCustomMainCategory(codeOrId: string) {
-    const data = this.loadStoredData();
-    data.customMainCategories = data.customMainCategories.filter(
-      m => m.id !== codeOrId && m.code !== codeOrId
-    );
-    // Also remove from in-memory SKR42_STRUCTURE
-    const idx = SKR42_STRUCTURE.findIndex(m => m.id === codeOrId || m.code === codeOrId);
-    if (idx >= 0 && SKR42_STRUCTURE[idx].isCustom) {
-      SKR42_STRUCTURE.splice(idx, 1);
+  async kontoAendern(code: string, aenderung: KontoAnpassung): Promise<{ buchungen: number }> {
+    const original = this.originalKonto(code);
+    if (!original) throw new Error(`Das Konto ${code} gibt es nicht.`);
+    if (aenderung.name !== undefined) {
+      const f = pruefeBezeichnung(aenderung.name);
+      if (f) throw new Error(f);
     }
-    this.saveStoredData(data);
+    const vorher = SKR42_STRUCTURE.flatMap(m => m.subCategories).find(s => s.code === code);
+    this.anpassungen = mitKontoAnpassung(this.anpassungen, code, aenderung, {
+      name: kontoBezeichnung(original),
+      vatRateDefault: original.vatRateDefault,
+    });
+    await this.sichern();
+    const nachher = SKR42_STRUCTURE.flatMap(m => m.subCategories).find(s => s.code === code);
+    if (vorher && nachher && kontoBezeichnung(vorher) !== kontoBezeichnung(nachher)) {
+      return { buchungen: await this.inBuchungen('konto', code, kontoBezeichnung(nachher)) };
+    }
+    return { buchungen: 0 };
   }
 
-  /**
-   * Deletes a user-created Konto
-   */
-  public deleteCustomSubCategory(mainCodeOrId: string, subCode: string) {
-    const data = this.loadStoredData();
-    const customMain = data.customMainCategories.find(
-      m => m.id === mainCodeOrId || m.code === mainCodeOrId
-    );
-    if (customMain) {
-      customMain.subCategories = customMain.subCategories.filter(s => s.code !== subCode);
+  async nummernkreisAendern(code: string, aenderung: NummernkreisAnpassung): Promise<{ buchungen: number }> {
+    const original = this.standard.find(m => m.code === code) ?? this.eigene.customMainCategories.find(m => m.code === code);
+    if (!original) throw new Error(`Den Nummernkreis ${code} gibt es nicht.`);
+    if (aenderung.name !== undefined) {
+      const f = pruefeBezeichnung(aenderung.name);
+      if (f) throw new Error(f);
     }
+    const vorher = SKR42_STRUCTURE.find(m => m.code === code)?.name;
+    this.anpassungen = mitNummernkreisAnpassung(this.anpassungen, code, aenderung, { name: original.name });
+    await this.sichern();
+    const nachher = SKR42_STRUCTURE.find(m => m.code === code)?.name;
+    if (nachher && vorher !== nachher) return { buchungen: await this.inBuchungen('nummernkreis', code, nachher) };
+    return { buchungen: 0 };
+  }
 
-    data.customSubCategories = data.customSubCategories.filter(
-      item => !(item.mainCatIdOrCode === mainCodeOrId && item.subCategory.code === subCode)
-    );
+  private async inBuchungen(art: 'konto' | 'nummernkreis', code: string, name: string): Promise<number> {
+    if (!this.speicher) return 0;
+    const geaendert = buchungenUmbenennen(await this.speicher.buchungen(), { art, code, name });
+    if (geaendert.length) await this.speicher.buchungenSpeichern(geaendert);
+    return geaendert.length;
+  }
 
-    const main = SKR42_STRUCTURE.find(m => m.id === mainCodeOrId || m.code === mainCodeOrId);
-    if (main) {
-      const sIdx = main.subCategories.findIndex(s => s.code === subCode);
-      if (sIdx >= 0 && main.subCategories[sIdx].isCustom) {
-        main.subCategories.splice(sIdx, 1);
+  // ---------------------------------------------------------------------------
+  // Löschen (nur eigene, und nur, solange keine Buchung sie verwendet)
+  // ---------------------------------------------------------------------------
+
+  private async verwendungen(code: string): Promise<number> {
+    return this.speicher ? kontoVerwendungen(await this.speicher.buchungen(), code) : 0;
+  }
+
+  /** Wie viele Buchungen ein Konto bzw. Nummernkreis verwenden (für Rückfragen). */
+  async zaehleBuchungen(art: 'konto' | 'nummernkreis', code: string): Promise<number> {
+    if (!this.speicher) return 0;
+    const b = await this.speicher.buchungen();
+    return art === 'konto' ? kontoVerwendungen(b, code) : nummernkreisVerwendungen(b, code);
+  }
+
+  public async deleteCustomMainCategory(codeOrId: string) {
+    const kreis = this.eigene.customMainCategories.find(m => m.id === codeOrId || m.code === codeOrId);
+    if (!kreis) throw new Error('Nur selbst angelegte Nummernkreise lassen sich löschen.');
+    for (const s of kreis.subCategories) {
+      if ((await this.verwendungen(s.code)) > 0) {
+        throw new Error(`Der Nummernkreis ${kreis.code} wird in Buchungen verwendet. Blenden Sie ihn stattdessen aus.`);
       }
     }
+    this.eigene = { ...this.eigene, customMainCategories: this.eigene.customMainCategories.filter(m => m !== kreis) };
+    this.anpassungen = { ...this.anpassungen, nummernkreise: ohne(this.anpassungen.nummernkreise, kreis.code) };
+    await this.sichern();
+  }
 
-    this.saveStoredData(data);
+  public async deleteCustomSubCategory(_mainCodeOrId: string, subCode: string) {
+    const n = await this.verwendungen(subCode);
+    if (n > 0) {
+      throw new Error(`Das Konto ${subCode} wird in ${n} ${n === 1 ? 'Buchung' : 'Buchungen'} verwendet. Blenden Sie es stattdessen aus.`);
+    }
+    this.eigene = {
+      customMainCategories: this.eigene.customMainCategories.map(m =>
+        m.subCategories.some(s => s.code === subCode) ? { ...m, subCategories: m.subCategories.filter(s => s.code !== subCode) } : m
+      ),
+      customSubCategories: this.eigene.customSubCategories.filter(u => u.subCategory.code !== subCode),
+    };
+    this.anpassungen = { ...this.anpassungen, konten: ohne(this.anpassungen.konten, subCode) };
+    await this.sichern();
   }
 }
 

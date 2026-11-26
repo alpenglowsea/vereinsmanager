@@ -176,6 +176,36 @@ nimmt auf. Regeln in `src/utils/antragRegeln.ts`, PDF-Aufbau in
   nicht mehr geschrieben; in älteren Dateien überlesen. Die Datenbank
   entfernt die beiden Bereiche samt Inhalt beim ersten Start (Version 10).
 
+### Kontenrahmen: anpassen, ausblenden, am Handy anlegen; in der Datenbank statt im Browserspeicher
+
+Version **2.1.0** (neue Funktionen; Desktop und Handy).
+
+Wünsche und Fehlermeldung vom 26.11.2026; Entscheidungen: änderbar sind Bezeichnung, Steuersatz-Vorgabe und
+„ausgeblendet“, auch bei den mitgelieferten Konten; eine neue Bezeichnung geht auf alle Buchungen des Kontos über;
+Nummernkreise und Konten stehen immer aufsteigend nach der Nummer.
+- **Gemeinsame Regeln** an beiden Fassungen mit denselben Prüffällen: `src/utils/kontenrahmen.ts` (7 Tests),
+  `android/core/.../skr42/Kontenrahmen.kt` (9 Tests, dazu Speicher und Sicherung).
+- **Desktop, Speicherort:** Eigene Konten lagen im Browserspeicher des Fensters (localStorage), nicht in der Datenbank.
+  Jetzt in der Datenbank (Bereich Einstellungen, Kennung `kontenrahmen`); der alte Bestand zieht beim ersten Start um.
+  Unter Linux sprang die App nach dem Anlegen eines Kontos einmal ins Dashboard zurück, und das Konto fehlte danach.
+  Die Ursache ist nicht sicher geklärt (beim zweiten Versuch klappte es); der neue Speicherort macht das Konto
+  unabhängig davon, ob das Fenster direkt danach neu startet.
+- **Desktop, Einstellungen → Vereinsstammdaten → „Kontenrahmen (SKR 42)“** (`KontenrahmenKarte.tsx`): Suche,
+  Nummernkreise aufklappen, Bezeichnung ändern (mit Rückfrage, die die Zahl der Buchungen nennt), Steuersatz-Vorgabe,
+  aus-/einblenden, zurück auf das Original, selbst angelegte löschen (nur, solange keine Buchung sie verwendet),
+  neuer Nummernkreis, neues Konto.
+- **Handy:** Einstellungen → Verein → Karte „Kontenrahmen“ mit Vollbildseite (`KontenrahmenUi.kt`), gleicher Umfang;
+  im Buchungsformular „+ Neues Konto anlegen“. Alle Auswahllisten (Buchung, Teilbuchung, Sammelbearbeitung, Rechnung
+  bezahlt, Importe) nutzen den Kontenrahmen des Vereins statt der mitgelieferten Liste. Beitragslauf und Spenden buchen
+  ebenfalls mit den angepassten Bezeichnungen (wie am Desktop).
+- **Ausblenden:** Ausgeblendetes fehlt in allen Auswahllisten an beiden Fassungen; was eine Buchung schon trägt, bleibt
+  darin wählbar.
+- **Sicherung:** neues Feld `settings.skr42Anpassungen` (BACKUP_FORMAT.md); `customSkr42Accounts` jetzt auch am Handy.
+- **Nebenbei behoben:** Die Sammelbearbeitung am Desktop und der Kontovorschlag beim Bezahlen einer Rechnung am Handy
+  schrieben den langen Kontonamen statt der Beschriftung in die Buchung („40001 - Mitgliedsbeiträge Kinder / Jugend
+  (Junioren)“ statt „40001 - Mitgliedsbeiträge Kinder & Jugend“); jetzt wie das Buchungsfenster.
+- Tests: Desktop +8 (580), Android +9 (743).
+
 ### Logo: echt durchsichtig, und als App-Symbol am Handy
 
 - **`public/logo_transparent.png`**: Das „durchsichtige“ Logo hatte das

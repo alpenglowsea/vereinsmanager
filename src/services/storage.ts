@@ -2485,12 +2485,15 @@ export const StorageService = {
       dashboardConfig,
       calendarEvents,
       calendarCategories,
-      // Die eigenen SKR-42-Konten liegen im Browserspeicher, nicht in der
-      // Datenbank, und fehlten deshalb bis November 2026 in der Sicherung
-      // (D-12). Sie reisen im Bereich `settings` mit: Die Android-Fassung
-      // kennt das Feld nicht, behält unbekannte Felder der Einstellungen
-      // aber bei.
-      settings: { ...settings, customSkr42Accounts: customCategoryService.getCustomAccounts() }
+      // Der Kontenrahmen des Vereins (eigene Konten, Anpassungen) liegt in der
+      // Datenbank getrennt von den Stammdaten (Kennung `kontenrahmen`) und
+      // reist in der Sicherung als zwei Felder der Einstellungen mit, genau
+      // wie die Android-Fassung ihn speichert (BACKUP_FORMAT.md, Abschnitt 3).
+      settings: {
+        ...settings,
+        customSkr42Accounts: customCategoryService.getCustomAccounts(),
+        skr42Anpassungen: customCategoryService.getAnpassungen()
+      }
     };
 
     const backup = {
@@ -2707,21 +2710,21 @@ export const StorageService = {
         const { bereinigt: settingsMitKonten } = ohneVeralteteSmtpFelder(
           settings as Record<string, unknown>
         );
-        // Eigene SKR-42-Konten (D-12) gehören nicht in die Vereinsstammdaten
-        // der Datenbank, sondern in den Browserspeicher; siehe
-        // customCategoryService. Fehlt das Feld (ältere Sicherung oder eine
-        // Sicherung vom Handy, die nie am Desktop war), bleiben die
-        // vorhandenen eigenen Konten unangetastet.
-        const { customSkr42Accounts: eigeneKonten, ...settingsBereinigt } = settingsMitKonten as Record<
-          string,
-          unknown
-        >;
-        if (eigeneKonten !== undefined) {
+        // Der Kontenrahmen (eigene Konten, Anpassungen) gehört nicht in die
+        // Vereinsstammdaten, sondern in seinen eigenen Eintrag; siehe
+        // customCategoryService. Fehlt ein Feld (ältere Sicherung), bleibt der
+        // vorhandene Stand dazu unangetastet.
+        const {
+          customSkr42Accounts: eigeneKonten,
+          skr42Anpassungen: kontenAnpassungen,
+          ...settingsBereinigt
+        } = settingsMitKonten as Record<string, unknown>;
+        if (eigeneKonten !== undefined || kontenAnpassungen !== undefined) {
           try {
-            if (art === 'ergaenzen') customCategoryService.ergaenzeAusSicherung(eigeneKonten);
-            else customCategoryService.ersetzeAusSicherung(eigeneKonten);
+            if (art === 'ergaenzen') await customCategoryService.ergaenzeAusSicherung(eigeneKonten, kontenAnpassungen);
+            else await customCategoryService.ersetzeAusSicherung(eigeneKonten, kontenAnpassungen);
           } catch (err) {
-            console.warn('Eigene SKR-42-Konten konnten nicht übernommen werden:', err);
+            console.warn('Der Kontenrahmen konnte nicht übernommen werden:', err);
           }
         }
         if (art === 'ergaenzen') {
@@ -2798,6 +2801,9 @@ export const StorageService = {
 
   async clearAllData(): Promise<void> {
     await this.leereAlleBereiche();
+    // Der Kontenrahmen lag mit im geleerten Bereich der Einstellungen; auch im
+    // Arbeitsspeicher gilt danach wieder nur die mitgelieferte Liste.
+    customCategoryService.zuruecksetzen();
     // Auch die Schnappschüsse gehören zu "alle Daten": Sie enthalten den
     // vollständigen Bestand. Wer den Stand behalten will, speichert vorher eine
     // Datensicherung (die Einstellungen bieten das vor dem Löschen an).
@@ -2850,3 +2856,16 @@ export const StorageService = {
   }
 };
 
+// Der Kontenrahmen des Vereins (customCategoryService) liest und schreibt über
+// diese Datenbank; verbunden wird hier, damit der Dienst storage.ts nicht selbst
+// importieren muss (das gäbe einen Ring der Importe).
+const KONTENRAHMEN_ID = 'kontenrahmen';
+customCategoryService.verbinde({
+  lesen: () => getItemFromStore<{ id: string; customSkr42Accounts?: unknown; skr42Anpassungen?: unknown }>(STORES.SETTINGS, KONTENRAHMEN_ID),
+  schreiben: daten => putItemToStore(STORES.SETTINGS, { id: KONTENRAHMEN_ID, ...daten }),
+  buchungen: () => getAllFromStore<Transaction>(STORES.TRANSACTIONS),
+  buchungenSpeichern: async buchungen => {
+    const jetzt = new Date().toISOString();
+    for (const b of buchungen) await putItemToStore(STORES.TRANSACTIONS, { ...b, updatedAt: jetzt });
+  }
+});

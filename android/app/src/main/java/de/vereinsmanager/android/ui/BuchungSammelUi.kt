@@ -22,7 +22,6 @@ import de.vereinsmanager.core.finance.BuchungSammel
 import de.vereinsmanager.core.finance.FinanceLabels
 import de.vereinsmanager.core.finance.SammelBericht
 import de.vereinsmanager.core.finance.SammelKategorie
-import de.vereinsmanager.core.skr42.Skr42
 
 internal fun berichtText(r: SammelBericht): String = buildString {
     append("${r.geaendert} Buchungen geändert")
@@ -36,8 +35,9 @@ internal fun berichtText(r: SammelBericht): String = buildString {
 @Composable
 fun BuchungSammelDialog(model: AppModel, anzahl: Int, ids: List<String>, onDismiss: () -> Unit, onDone: (String) -> Unit) {
     val konten = remember(model.konten) { model.konten.associate { it.id to it.name } }
-    val skr = Skr42.standard
-    val hauptAuswahl = remember { skr.associate { it.code to BuchungRegeln.nummernkreisText(it) } }
+    // Kontenrahmen des Vereins ohne Ausgeblendetes (Einstellungen → Verein → Kontenrahmen)
+    val skr = remember(model.kontenrahmen) { model.kontenAuswahl() }
+    val hauptAuswahl = remember(skr) { skr.associate { it.code to BuchungRegeln.nummernkreisText(it) } }
     val sparten = remember(model.departments) { linkedMapOf("" to "Keine Sparte").also { m -> model.departments.forEach { m[it] = it } } }
 
     var kontoOn by remember { mutableStateOf(false) }

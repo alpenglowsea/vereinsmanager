@@ -322,8 +322,9 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     return getAllSkr42SubCategories(undefined, selectedMainCatId, skr42);
   }, [selectedMainCatId, skr42]);
 
+  // Ausgeblendetes (Einstellungen → Kontenrahmen) fehlt in der Auswahl; was die Buchung schon trägt, bleibt.
   const mainCatOptions: SearchableAccountOption[] = useMemo(() => {
-    return mainCategories.map(main => ({
+    return mainCategories.filter(main => !main.ausgeblendet || main.id === selectedMainCatId).map(main => ({
       value: main.id,
       code: main.code,
       name: main.name,
@@ -331,10 +332,10 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
       group: main.type === 'income' ? 'Einnahmen-Konten (Erträge / Erlöse)' : 'Ausgaben-Konten (Kosten / Aufwand)',
       isCustom: main.isCustom
     }));
-  }, [mainCategories]);
+  }, [mainCategories, selectedMainCatId]);
 
   const subCatOptions: SearchableAccountOption[] = useMemo(() => {
-    return subCategories.map(sub => ({
+    return subCategories.filter(sub => !sub.ausgeblendet || sub.label === formData.subCategory || sub.code === formData.skrAccount).map(sub => ({
       value: sub.label,
       code: sub.code,
       name: sub.name,
@@ -342,7 +343,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
       vatRateDefault: sub.vatRateDefault,
       isCustom: sub.isCustom
     }));
-  }, [subCategories]);
+  }, [subCategories, formData.subCategory, formData.skrAccount]);
 
   // Die Sphäre ist seit der Entkopplung unabhängig vom Konto: Ihre Änderung
   // rührt am gewählten Nummernkreis/Konto nicht mehr — nur noch am

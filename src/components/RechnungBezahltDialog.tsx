@@ -114,7 +114,7 @@ export const RechnungBezahltDialog: React.FC<{
                 <label className="block">
                   <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Einnahmekonto (Kontenrahmen)</span>
                   <select value={skr} onChange={e => setSkr(e.target.value)} className={feld}>
-                    {alleKonten.map(k => (
+                    {alleKonten.filter(k => !k.ausgeblendet || k.skrAccount === skr).map(k => (
                       <option key={k.skrAccount} value={k.skrAccount}>{k.subCategory}</option>
                     ))}
                   </select>

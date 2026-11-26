@@ -183,6 +183,16 @@ class AppModel(private val appContext: Context) {
     var members by mutableStateOf<List<Member>>(emptyList())
         private set
     var departments by mutableStateOf<List<String>>(emptyList())
+
+    /**
+     * Der Kontenrahmen des Vereins: mitgelieferter SKR 42 mit eigenen Konten und Anpassungen, aufsteigend nach Nummer
+     * (core/skr42/Kontenrahmen.kt). Alle Auswahllisten nehmen diesen, gefiltert mit [kontenAuswahl].
+     */
+    var kontenrahmen by mutableStateOf<List<de.vereinsmanager.core.skr42.Skr42Main>>(de.vereinsmanager.core.skr42.Skr42.standard)
+
+    /** Für Auswahllisten: ohne Ausgeblendetes; was die Buchung schon trägt, bleibt. */
+    fun kontenAuswahl(nummernkreis: String? = null, konto: String? = null) =
+        de.vereinsmanager.core.skr42.Kontenrahmen.nurSichtbare(kontenrahmen, nummernkreis, konto)
         private set
     var konten by mutableStateOf<List<Konto>>(emptyList())
         private set
@@ -303,6 +313,7 @@ class AppModel(private val appContext: Context) {
         clubName = (settings?.get("clubName") as? JsonPrimitive)?.contentOrNull ?: ""
         departments = Sparten.lesen(settings)
         arten = Mitgliedsarten.lesen(settings)
+        kontenrahmen = try { de.vereinsmanager.core.skr42.Kontenrahmen.wirksam(store) } catch (e: Exception) { de.vereinsmanager.core.skr42.Skr42.standard }
     }
 
     /** Erkennt Paket (ZIP) und JSON-Sicherung und ob ein Passwort nötig ist. */
@@ -442,6 +453,33 @@ class AppModel(private val appContext: Context) {
 
     /** Liest Mitglieder, Buchungen und Inventar – nicht im Hauptfaden aufrufen (die Einstellungen tun es im Hintergrund). */
     fun spartenVerwendungAlle(namen: List<String>): Map<String, SpartenVerwendung> = Sparten.verwendungAlle(store, namen)
+
+    // ---- Kontenrahmen (Einstellungen → Verein → Kontenrahmen; Anlegen auch aus dem Buchungsformular)
+    fun nummernkreisAnlegen(code: String, name: String, typ: String, ust: Int, done: (de.vereinsmanager.core.skr42.Skr42Main?, String?) -> Unit) =
+        hintergrund({ de.vereinsmanager.core.skr42.Kontenrahmen.neuerNummernkreis(store, code, name, typ, ust = ust) }, done)
+
+    fun kontoAnlegen(nummernkreis: String, code: String, name: String, ust: Int, done: (de.vereinsmanager.core.skr42.Skr42Sub?, String?) -> Unit) =
+        hintergrund({ de.vereinsmanager.core.skr42.Kontenrahmen.neuesKonto(store, nummernkreis, code, name, ust) }, done)
+
+    /** Ändert ein Konto (null = unverändert); [done] bekommt die Zahl der Buchungen mit neuer Bezeichnung oder den Fehler. */
+    fun kontoAendern(code: String, name: String? = null, ust: Int? = null, ausgeblendet: Boolean? = null, done: (Int?, String?) -> Unit) =
+        hintergrund({ de.vereinsmanager.core.skr42.Kontenrahmen.kontoAendern(store, code, name, ust, ausgeblendet).buchungen }, done)
+
+    fun nummernkreisAendern(code: String, name: String? = null, ausgeblendet: Boolean? = null, done: (Int?, String?) -> Unit) =
+        hintergrund({ de.vereinsmanager.core.skr42.Kontenrahmen.nummernkreisAendern(store, code, name, ausgeblendet).buchungen }, done)
+
+    fun kontoLoeschen(code: String, done: (String?) -> Unit) =
+        hintergrund({ de.vereinsmanager.core.skr42.Kontenrahmen.eigenesKontoLoeschen(store, code) }) { _, f -> done(f) }
+
+    fun nummernkreisLoeschen(code: String, done: (String?) -> Unit) =
+        hintergrund({ de.vereinsmanager.core.skr42.Kontenrahmen.eigenenNummernkreisLoeschen(store, code) }) { _, f -> done(f) }
+
+    /** Wie viele Buchungen ein Konto bzw. Nummernkreis tragen (für die Rückfrage vor dem Umbenennen). */
+    fun kontoBuchungen(code: String, nummernkreis: Boolean): Int {
+        val alle = store.all("transactions")
+        return if (nummernkreis) de.vereinsmanager.core.skr42.Kontenrahmen.nummernkreisVerwendungen(alle, code)
+        else de.vereinsmanager.core.skr42.Kontenrahmen.kontoVerwendungen(alle, code)
+    }
 
     fun spartenHinzufuegen(name: String, done: (String?) -> Unit) =
         hintergrund({ Sparten.hinzufuegen(store, name) }) { _, f -> done(f) }

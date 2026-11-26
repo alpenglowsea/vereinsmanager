@@ -268,16 +268,17 @@ object Rechnungen {
     fun buchungsText(r: Rechnung): String = "Rechnung ${r.nummer}" + if (r.betreff.isNotBlank()) ": ${r.betreff}" else ""
 
     /** Vorschlag für Nummernkreis und Konto der Einnahme (der Anwender kann ihn ändern). */
-    fun kontoVorschlag(sphaere: String): KontoVorschlag {
+    fun kontoVorschlag(sphaere: String, skr: List<de.vereinsmanager.core.skr42.Skr42Main> = de.vereinsmanager.core.skr42.Skr42.standard): KontoVorschlag {
         val (haupt, konto) = when (sphaere) {
             "ideell" -> "40800" to "40890"
             "vermoegen" -> "46000" to "46900"
             "zweckbetrieb" -> "41000" to "41000"
             else -> "44000" to "44000"
         }
-        val m = de.vereinsmanager.core.skr42.Skr42.findMain(haupt)!!
-        val sub = m.subCategories.first { it.code == konto }
-        return KontoVorschlag(BuchungRegeln.nummernkreisText(m), "${sub.code} - ${sub.name}", sub.code)
+        val m = de.vereinsmanager.core.skr42.Skr42.findMain(haupt, skr) ?: de.vereinsmanager.core.skr42.Skr42.findMain(haupt)!!
+        val sub = m.subCategories.firstOrNull { it.code == konto } ?: de.vereinsmanager.core.skr42.Skr42.findMain(haupt)!!.subCategories.first { it.code == konto }
+        // Beschriftung wie am Desktop (rechnungsRegeln.einnahmeKonten); bis 26.11.2026 stand hier der lange Kontoname.
+        return KontoVorschlag(BuchungRegeln.nummernkreisText(m), sub.label, sub.code)
     }
 
     private fun eindeutigeBelegNummer(store: Speicher, basis: String): String {

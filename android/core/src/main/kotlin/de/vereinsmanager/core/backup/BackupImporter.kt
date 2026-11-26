@@ -121,10 +121,25 @@ object BackupImporter {
                 if (merged != null) {
                     val m = LinkedHashMap<String, JsonElement>(merged)
                     m["id"] = JsonPrimitive(key)
+                    // Kontenrahmen kontoweise ergänzen wie am Desktop: vorhandene Konten und Anpassungen bleiben, aus der
+                    // Datei kommt nur hinzu, was es hier noch nicht gibt.
+                    val kr = de.vereinsmanager.core.skr42.Kontenrahmen
+                    cleaned[kr.FELD_EIGENE]?.let { neu ->
+                        m[kr.FELD_EIGENE] = kr.eigeneAlsJson(kr.ergaenzeEigene(kr.leseEigene(existing?.get(kr.FELD_EIGENE)), kr.leseEigene(neu)))
+                    }
+                    cleaned[kr.FELD_ANPASSUNGEN]?.let { neu ->
+                        m[kr.FELD_ANPASSUNGEN] = kr.anpassungenAlsJson(kr.ergaenzeAnpassungen(kr.leseAnpassungen(existing?.get(kr.FELD_ANPASSUNGEN)), kr.leseAnpassungen(neu)))
+                    }
                     store.put(area, key, JsonObject(m))
                 }
             } else {
-                store.put(area, key, withId(key, cleaned))
+                // Wie am Desktop: Bringt eine ältere Datei den Kontenrahmen nicht mit, bleibt der vorhandene.
+                val kr = de.vereinsmanager.core.skr42.Kontenrahmen
+                val m = LinkedHashMap<String, JsonElement>(cleaned)
+                for (feld in listOf(kr.FELD_EIGENE, kr.FELD_ANPASSUNGEN)) {
+                    if (m[feld] == null) existing?.get(feld)?.let { m[feld] = it }
+                }
+                store.put(area, key, withId(key, JsonObject(m)))
             }
             return
         }

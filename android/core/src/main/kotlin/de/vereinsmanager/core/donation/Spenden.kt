@@ -212,8 +212,9 @@ object Spenden {
         return m
     }
 
-    private fun konto(): Pair<String, String>? {
-        val haupt = Skr42.mains("income").firstOrNull { it.code == NUMMERNKREIS_CODE } ?: return null
+    /** Aus dem Kontenrahmen des Vereins (mit seinen Anpassungen), wie am Desktop. */
+    private fun konto(store: DocumentStore): Pair<String, String>? {
+        val haupt = Skr42.mains("income", de.vereinsmanager.core.skr42.Kontenrahmen.wirksam(store)).firstOrNull { it.code == NUMMERNKREIS_CODE } ?: return null
         val unter = haupt.subCategories.firstOrNull { it.code == KONTO_CODE } ?: return null
         return BuchungRegeln.nummernkreisText(haupt) to unter.label
     }
@@ -265,7 +266,7 @@ object Spenden {
             store.transaction {
                 // Einnahmebuchung (nur Geldspenden, nur einmal)
                 if (form.art != "goods" && opt.buchungAnlegen && buchungId == null) {
-                    val k = konto() ?: throw IllegalStateException("Das Konto $KONTO_CODE fehlt im Kontenrahmen.")
+                    val k = konto(store) ?: throw IllegalStateException("Das Konto $KONTO_CODE fehlt im Kontenrahmen.")
                     if (store.get(Finance.KONTEN, opt.kontoId) == null) throw IllegalStateException("Bitte ein Konto für die Buchung wählen.")
                     val id = "tx-don-${f.id}-" + Zeit.zufall(4)
                     val bf = BuchungForm(

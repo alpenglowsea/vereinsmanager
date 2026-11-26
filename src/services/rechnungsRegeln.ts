@@ -101,12 +101,19 @@ export interface EinnahmeKonto {
   mainCategory: string;
   subCategory: string;
   skrAccount: string;
+  /** Im Kontenrahmen ausgeblendet: nicht zur Auswahl anbieten (außer es ist schon gewählt). */
+  ausgeblendet?: boolean;
 }
 
 /** Alle Einnahmekonten des Kontenrahmens (mit eigenen Konten) zur Auswahl. */
 export function einnahmeKonten(): EinnahmeKonto[] {
   return SKR42_STRUCTURE.filter(m => m.type === 'income').flatMap(m =>
-    m.subCategories.map(s => ({ mainCategory: `${m.code} - ${m.name}`, subCategory: s.label, skrAccount: s.code }))
+    m.subCategories.map(s => ({
+      mainCategory: `${m.code} - ${m.name}`,
+      subCategory: s.label,
+      skrAccount: s.code,
+      ausgeblendet: !!(m.ausgeblendet || s.ausgeblendet)
+    }))
   );
 }
 

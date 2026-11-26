@@ -10,6 +10,12 @@ data class Skr42Sub(
     val label: String,
     val vatRateDefault: Int,
     val isCustom: Boolean = false,
+    /** Vom Verein ausgeblendet: nicht mehr in den Auswahllisten, alte Buchungen bleiben ([Kontenrahmen]). */
+    val ausgeblendet: Boolean = false,
+    /** Bezeichnung vor einer Anpassung durch den Verein (ohne Nummer); nur gesetzt, wenn angepasst. */
+    val originalName: String? = null,
+    /** Steuersatz vor einer Anpassung durch den Verein; nur gesetzt, wenn angepasst. */
+    val originalVatRate: Int? = null,
 )
 
 @Serializable
@@ -21,6 +27,10 @@ data class Skr42Main(
     val type: String,
     val subCategories: List<Skr42Sub>,
     val isCustom: Boolean = false,
+    /** Vom Verein ausgeblendet ([Kontenrahmen]). */
+    val ausgeblendet: Boolean = false,
+    /** Bezeichnung vor einer Anpassung durch den Verein; nur gesetzt, wenn angepasst. */
+    val originalName: String? = null,
 )
 
 /**
@@ -28,8 +38,8 @@ data class Skr42Main(
  * src/data/taxSpheres.ts der Desktop-Fassung (Datei resources/skr42/skr42.json,
  * mit einem Skript erzeugt, damit sich nichts verschreibt).
  *
- * Eigene Konten des Kassenwarts liegen später in der Datenbank und werden über
- * [withCustom] hinzugemischt; der mitgelieferte Stand bleibt unverändert.
+ * Eigene Konten und Anpassungen des Vereins mischt [Kontenrahmen.wirksam] hinzu; der mitgelieferte Stand bleibt
+ * unverändert. Die App arbeitet mit diesem wirksamen Kontenrahmen (`AppModel.kontenrahmen`).
  */
 object Skr42 {
     /** Hauptkonto "Spenden, Schenkungen & Zuwendungen": Auswertungen zählen es als Spenden. */

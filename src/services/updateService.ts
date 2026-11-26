@@ -1,6 +1,6 @@
 import { ABFRAGE_ADRESSE, installationsEndungen, werteAntwortAus, type Pruefergebnis } from '../utils/versionspruefung';
 
-export const CURRENT_APP_VERSION = (import.meta as any).env?.VITE_APP_VERSION || '2.0.0';
+export const CURRENT_APP_VERSION = (import.meta as any).env?.VITE_APP_VERSION || '2.1.0';
 
 // Bis R2 merkte sich die App eine „installierte Version“ selbst (auch nach
 // einem nur vorgetäuschten Update). Der Schlüssel wird nicht mehr gelesen und

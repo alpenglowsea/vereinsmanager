@@ -133,6 +133,7 @@ fun EinstellungenScreen(model: AppModel, modifier: Modifier = Modifier) {
                             }
                             VorstandKarte(vorstand, { vorstand = it }, if (zeigeFehler) vorstandFehler else emptyMap())
                             SpartenKarte(model)
+                            KontenrahmenKarte(model)
                             WieseKarte(Modifier.fillMaxWidth()) {
                                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text("Lastschrifteinzug (SEPA)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)

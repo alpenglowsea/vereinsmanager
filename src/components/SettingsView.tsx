@@ -82,6 +82,7 @@ import {
 import { lokalesHeute } from '../utils/mitgliedRegeln';
 import { vergissGeoeffneteArchive } from './ArchivDateiLaden';
 import { vergissAlleFilter } from '../utils/gemerkteFilter';
+import { KontenrahmenKarte } from './KontenrahmenKarte';
 
 /**
  * Nach dem Austausch des Bestands (Löschen, Sicherung, Schnappschuss) gehören geöffnete
@@ -1593,6 +1594,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* TAB 2: VEREINSSTAMMDATEN */}
       {activeTab === 'club' && (
+        <>
         <form onSubmit={handleSaveClub} className="space-y-5 animate-in fade-in duration-150">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
           <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
@@ -2448,6 +2450,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
           </div>
         </form>
+        {/* Eigene Karte außerhalb des Formulars: Ihre Änderungen gelten sofort, ohne „Vereinsstammdaten speichern“. */}
+        <div className="mt-5">
+          <KontenrahmenKarte />
+        </div>
+        </>
       )}
 
       {/* TAB 4: DATENSICHERUNG UND IMPORT */}

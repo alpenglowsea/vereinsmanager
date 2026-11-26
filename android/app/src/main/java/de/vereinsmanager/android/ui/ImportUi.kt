@@ -53,7 +53,6 @@ import de.vereinsmanager.core.importe.KontaktZeile
 import de.vereinsmanager.core.importe.Tabellen
 import de.vereinsmanager.core.members.CsvTable
 import de.vereinsmanager.core.members.Zeit
-import de.vereinsmanager.core.skr42.Skr42
 
 /**
  * Erster Schritt beider Importe: Datei wählen (CSV oder Excel) oder Text aus Excel/Google Sheets einfügen.
@@ -367,7 +366,7 @@ private fun ZeileDialog(model: AppModel, start: BuchungForm, onDismiss: () -> Un
             Feld("Belegnummer", f.belegNummer, { f = f.copy(belegNummer = it) }, hinweis = "Leer lassen: wird fortlaufend vergeben.")
             if (f.art != "transfer") Zuordnung(
                 sphaere = f.sphaere, sparte = f.sparte, nummernkreis = f.nummernkreis, konto = f.konto, ust = f.ust, art = f.art,
-                sparten = spartenAuswahl(model, f), skr = Skr42.standard,
+                sparten = spartenAuswahl(model, f), skr = model.kontenAuswahl(f.nummernkreis, f.skrKonto.ifEmpty { f.konto }),
                 onSphaere = { f = f.copy(sphaere = it) }, onSparte = { f = f.copy(sparte = it) },
                 onNummernkreis = { f = BuchungRegeln.mitNummernkreis(f, it) },
                 onKonto = { f = BuchungRegeln.mitKonto(f, it) }, onUst = { f = f.copy(ust = it) },
@@ -392,7 +391,7 @@ private fun SammelKontoDialog(model: AppModel, onDismiss: () -> Unit, onSave: (B
             Auswahl("Für welche Zeilen?", linkedMapOf("expense" to "Ausgaben", "income" to "Einnahmen"), g.art) { g = BuchungRegeln.mitArt(g.copy(nummernkreis = "", konto = "", skrKonto = ""), it) }
             Zuordnung(
                 sphaere = g.sphaere, sparte = g.sparte, nummernkreis = g.nummernkreis, konto = g.konto, ust = g.ust, art = g.art,
-                sparten = spartenAuswahl(model, g), skr = Skr42.standard,
+                sparten = spartenAuswahl(model, g), skr = model.kontenAuswahl(g.nummernkreis, g.skrKonto.ifEmpty { g.konto }),
                 onSphaere = { g = g.copy(sphaere = it) }, onSparte = { g = g.copy(sparte = it) },
                 onNummernkreis = { g = BuchungRegeln.mitNummernkreis(g, it) },
                 onKonto = { g = BuchungRegeln.mitKonto(g, it) }, onUst = { g = g.copy(ust = it) },

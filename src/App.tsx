@@ -40,7 +40,7 @@ import { UserDashboardConfig } from './types/dashboard';
 import { DEFAULT_DASHBOARD_CONFIG } from './data/defaultDashboard';
 import { DEFAULT_MEETING_TEMPLATE } from './data/initialMeetings';
 import { createDocumentFromInvoice, downloadInvoicePdf } from './services/invoicePdfService';
-import './services/customCategoryService';
+import { customCategoryService } from './services/customCategoryService';
 
 // Views
 import { DashboardView } from './components/DashboardView';
@@ -347,6 +347,8 @@ export default function App() {
     try {
       if (leise !== true) setLoading(true);
       await StorageService.init();
+      // Kontenrahmen des Vereins (eigene Konten, Anpassungen) aus der Datenbank; beim ersten Mal aus dem alten Browserspeicher umziehen
+      await customCategoryService.laden();
       // „Ehrenmitglied“ als Status → als Mitgliedsart (einmalig je Bestand; auch nach dem Einspielen einer älteren Sicherung)
       const ehrenUmgestellt = await StorageService.ehrenStatusUmstellen();
       if (ehrenUmgestellt > 0) {

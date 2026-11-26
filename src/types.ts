@@ -214,6 +214,12 @@ export interface Skr42SubCategory {
   label: string; // e.g. '3110 - Laufende Mitgliedsbeiträge'
   vatRateDefault: 0 | 7 | 19;
   isCustom?: boolean;
+  /** Vom Verein ausgeblendet: nicht mehr in den Auswahllisten, alte Buchungen bleiben (src/utils/kontenrahmen.ts). */
+  ausgeblendet?: boolean;
+  /** Bezeichnung vor einer Anpassung durch den Verein (ohne Nummer); nur gesetzt, wenn angepasst. */
+  originalName?: string;
+  /** Steuersatz vor einer Anpassung durch den Verein; nur gesetzt, wenn angepasst. */
+  originalVatRate?: 0 | 7 | 19;
 }
 
 export interface Skr42MainCategory {
@@ -232,6 +238,10 @@ export interface Skr42MainCategory {
   type: 'income' | 'expense';
   subCategories: Skr42SubCategory[];
   isCustom?: boolean;
+  /** Vom Verein ausgeblendet (siehe Skr42SubCategory). */
+  ausgeblendet?: boolean;
+  /** Bezeichnung vor einer Anpassung durch den Verein; nur gesetzt, wenn angepasst. */
+  originalName?: string;
 }
 
 export interface TransactionSplit {

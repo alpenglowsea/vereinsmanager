@@ -348,8 +348,9 @@ fun RechnungDetailScreen(model: AppModel, id: String, onEdit: () -> Unit, onAnse
 /** Fragt Zahldatum, Zahlart und – auf Wunsch – die Einnahmebuchung ab. Der Konto-Vorschlag richtet sich nach der Sphäre. */
 @Composable
 private fun BezahltDialog(model: AppModel, r: Rechnung, onDismiss: () -> Unit, onFertig: (String?) -> Unit) {
-    val vorschlag = remember(r.sphaere) { Rechnungen.kontoVorschlag(r.sphaere) }
-    val skr = remember { Skr42.mains("income") }
+    val vorschlag = remember(r.sphaere, model.kontenrahmen) { Rechnungen.kontoVorschlag(r.sphaere, model.kontenrahmen) }
+    // Kontenrahmen des Vereins: Einnahmen, ohne Ausgeblendetes (der Vorschlag bleibt sichtbar, auch wenn ausgeblendet)
+    val skr = remember(model.kontenrahmen, vorschlag) { Skr42.mains("income", model.kontenAuswahl(vorschlag.nummernkreis, vorschlag.skrKonto)) }
     var datum by remember { mutableStateOf(LocalDate.now().toString()) }
     var zahlart by remember { mutableStateOf("transfer") }
     var buchen by remember { mutableStateOf(model.konten.isNotEmpty() && r.buchungId == null) }

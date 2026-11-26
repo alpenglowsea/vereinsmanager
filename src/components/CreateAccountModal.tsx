@@ -114,13 +114,15 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Das Fenster liegt bei Teilbuchungen innerhalb des Buchungsformulars: Das Absenden darf nicht bis dorthin durchgehen.
+    e.stopPropagation();
     setError(null);
 
     try {
       if (mode === 'main') {
-        const newMain = customCategoryService.addCustomMainCategory({
+        const newMain = await customCategoryService.addCustomMainCategory({
           code: mainCode,
           name: mainName,
           type: mainType,
@@ -146,7 +148,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
           return;
         }
 
-        const { sub, main } = customCategoryService.addCustomSubCategory({
+        const { sub, main } = await customCategoryService.addCustomSubCategory({
           mainCatIdOrCode: targetMain.code,
           code: subCode,
           name: subName,
@@ -166,14 +168,22 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
 
   const handleDeleteMain = async (codeOrId: string) => {
     if (await bestaetige('Möchten Sie diesen selbst angelegten Nummernkreis wirklich löschen?')) {
-      customCategoryService.deleteCustomMainCategory(codeOrId);
+      try {
+        await customCategoryService.deleteCustomMainCategory(codeOrId);
+      } catch (err: any) {
+        setError(err.message || 'Der Nummernkreis konnte nicht gelöscht werden.');
+      }
       reloadCustomData();
     }
   };
 
   const handleDeleteSub = async (mainCode: string, subCode: string) => {
     if (await bestaetige('Möchten Sie dieses selbst angelegte Konto wirklich löschen?')) {
-      customCategoryService.deleteCustomSubCategory(mainCode, subCode);
+      try {
+        await customCategoryService.deleteCustomSubCategory(mainCode, subCode);
+      } catch (err: any) {
+        setError(err.message || 'Das Konto konnte nicht gelöscht werden.');
+      }
       reloadCustomData();
     }
   };

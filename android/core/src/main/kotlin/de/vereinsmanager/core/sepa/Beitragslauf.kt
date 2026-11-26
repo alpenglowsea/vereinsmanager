@@ -230,7 +230,8 @@ object Beitragslauf {
 
     const val NUMMERNKREIS_KONTO = "40000"
 
-    private fun beitragsKonto() = Skr42.standard.firstNotNullOfOrNull { m -> m.subCategories.firstOrNull { it.code == NUMMERNKREIS_KONTO }?.let { m to it } }
+    /** Aus dem Kontenrahmen des Vereins (mit seinen Anpassungen), wie am Desktop. */
+    private fun beitragsKonto(store: DocumentStore) = de.vereinsmanager.core.skr42.Kontenrahmen.wirksam(store).firstNotNullOfOrNull { m -> m.subCategories.firstOrNull { it.code == NUMMERNKREIS_KONTO }?.let { m to it } }
 
     /**
      * Bucht jeden eingezogenen Posten als Einnahme auf das Konto [kontoId]: Ausführungsdatum als Buchungsdatum, ideeller Bereich,
@@ -245,7 +246,7 @@ object Beitragslauf {
         if (store.get(Finance.KONTEN, kontoId) == null) throw IllegalStateException("Das Konto gibt es nicht mehr.")
         val aktiv = lauf.aktive
         if (aktiv.isEmpty()) throw IllegalStateException("Der Lauf enthält keine Posten zum Verbuchen.")
-        val (haupt, unter) = beitragsKonto() ?: throw IllegalStateException("Das Konto 40000 fehlt im Kontenrahmen.")
+        val (haupt, unter) = beitragsKonto(store) ?: throw IllegalStateException("Das Konto 40000 fehlt im Kontenrahmen.")
         val vergeben = store.all(Finance.BUCHUNGEN).mapNotNull { it.t("documentNumber") }.toMutableSet()
         var summe = BigDecimal.ZERO
         for (i in aktiv) {

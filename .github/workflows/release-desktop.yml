@@ -9,7 +9,7 @@ on:
       version:
         description: 'Release Version (z. B. v2.0.0), muss zur Versionsnummer im Code passen'
         required: true
-        default: 'v2.0.0'
+        default: 'v2.1.0'
       veroeffentlichen:
         description: 'Als Release veröffentlichen? "nein" = nur bauen, Pakete hängen am Lauf'
         required: true

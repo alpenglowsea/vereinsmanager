@@ -6,6 +6,7 @@ import {
   TransactionBulkUpdates
 } from '../types';
 import { TAX_SPHERES, SKR42_STRUCTURE, DEFAULT_DEPARTMENTS } from '../data/taxSpheres';
+import { useSkr42 } from '../hooks/useSkr42';
 import { SearchableAccountSelect, SearchableAccountOption } from './SearchableAccountSelect';
 import {
   X,
@@ -72,7 +73,12 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
   // Nummernkreise sind seit der DATEV-SKR42-Umstellung unabhängig von der
   // Sphäre (die Sphäre wird je Buchung über KOST1 vergeben, nicht über das
   // Konto) — die Liste wird darum nicht mehr nach Sphäre gefiltert.
-  const availableMainCategories = SKR42_STRUCTURE;
+  // Ausgeblendetes (Einstellungen → Kontenrahmen) wird nicht mehr angeboten.
+  const kontenrahmen = useSkr42();
+  const availableMainCategories = useMemo(
+    () => kontenrahmen.filter(m => !m.ausgeblendet).map(m => ({ ...m, subCategories: m.subCategories.filter(s => !s.ausgeblendet) })),
+    [kontenrahmen]
+  );
 
   // Options for Nummernkreis
   const mainAccountOptions: SearchableAccountOption[] = useMemo(() => {
@@ -87,13 +93,13 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
   // Options for Konto
   const subAccountOptions: SearchableAccountOption[] = useMemo(() => {
     if (selectedMainCode) {
-      const parent = SKR42_STRUCTURE.find(m => m.code === selectedMainCode);
+      const parent = availableMainCategories.find(m => m.code === selectedMainCode);
       if (parent) {
         return parent.subCategories.map(s => ({
           value: s.code,
           code: s.code,
           name: s.name,
-          label: `${s.code} - ${s.name}`,
+          label: s.label,
           vatRateDefault: s.vatRateDefault
         }));
       }
@@ -106,7 +112,7 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
           value: s.code,
           code: s.code,
           name: s.name,
-          label: `${s.code} - ${s.name} (${m.name})`,
+          label: `${s.label} (${m.name})`,
           group: `${m.code} - ${m.name}`,
           vatRateDefault: s.vatRateDefault
         });
@@ -170,9 +176,11 @@ export const TransactionBulkEditModal: React.FC<TransactionBulkEditModalProps> =
         updates.mainCategory = `${mainCat.code} - ${mainCat.name}`;
       }
       if (subCat) {
-        updates.subCategory = `${subCat.code} - ${subCat.name}`;
+        // Wie das Buchungsfenster: die Beschriftung des Kontos („40001 - Mitgliedsbeiträge Kinder & Jugend“). Bis
+        // 26.11.2026 stand hier der lange Kontoname, sodass dasselbe Konto in Buchungen zwei verschiedene Texte trug.
+        updates.subCategory = subCat.label;
         updates.skrAccount = subCat.code;
-        updates.category = subCat.name;
+        updates.category = subCat.label;
       } else if (mainCat) {
         updates.category = mainCat.name;
       }

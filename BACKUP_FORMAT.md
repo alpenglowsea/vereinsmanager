@@ -94,12 +94,20 @@ Für den Austausch gilt:
 
 ### Ergänzungen vom 16.11.2026 (ohne neue Formatversion)
 
-- **`settings.customSkr42Accounts`** (nur Desktop): die selbst angelegten SKR-42-Konten,
+- **`settings.customSkr42Accounts`**: die selbst angelegten Nummernkreise und Konten,
   `{ customMainCategories: [...], customSubCategories: [{ mainCatIdOrCode, subCategory }] }`. Das Feld ist freiwillig.
-  Beim Einspielen am Desktop: „Ersetzen“ ersetzt die eigenen Konten, „Ergänzen“ nimmt Fehlendes hinzu (gleiche
-  Kontonummer = vorhanden); fehlt das Feld, bleiben die vorhandenen eigenen Konten unangetastet. Die Android-Fassung
-  kennt das Feld nicht und führt keine eigenen Konten; sie behält unbekannte Felder der Einstellungen bei (im Code
-  nachgesehen, nicht auf dem Gerät geprüft).
+- **`settings.skr42Anpassungen`** (seit 26.11.2026): Anpassungen des Vereins am Kontenrahmen, auch an den mitgelieferten
+  Konten, immer über die Nummer:
+  `{ nummernkreise: { "<Nummer>": { name?, ausgeblendet? } }, konten: { "<Nummer>": { name?, vatRateDefault?, ausgeblendet? } } }`.
+  Nur abweichende Werte stehen drin; ein Eintrag gleich dem Original fällt weg. Das Feld ist freiwillig.
+- Beide Felder gelten an **Desktop und Android** gleich (Regeln: `src/utils/kontenrahmen.ts`,
+  `android/core/.../skr42/Kontenrahmen.kt`). Am Handy liegen sie so im Dokument `settings/main`; am Desktop liegen sie in
+  der Datenbank getrennt von den Stammdaten (Kennung `kontenrahmen`) und werden beim Sichern in `settings` eingefügt.
+  Beim Einspielen: „Ersetzen“ ersetzt den Kontenrahmen, „Ergänzen“ nimmt fehlende Konten und Anpassungen hinzu (gleiche
+  Nummer = vorhanden). Fehlt ein Feld in der Datei (ältere Sicherung), bleibt der vorhandene Stand dazu unangetastet,
+  an beiden Fassungen.
+- Buchungen tragen Nummernkreis und Konto als Text („40000 - Bezeichnung“) und die Nummer (`skrAccount`). Eine neue
+  Bezeichnung schreibt die App beim Umbenennen in alle Buchungen des Kontos bzw. Nummernkreises, samt Teilbuchungen.
 - **`accounts[].order`** ist die maßgebliche Reihenfolge der Konten (0, 1, 2 …), an Desktop und Android. Die frühere
   Desktop-Liste im Browserspeicher (`vm_accounts_order`) gilt nicht mehr.
 

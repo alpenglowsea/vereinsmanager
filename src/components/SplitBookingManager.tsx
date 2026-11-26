@@ -68,8 +68,11 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
   // Kontenrahmen ist seit der Entkopplung von Konto und Sphäre für jede
   // Teilbuchung gleich, unabhängig von deren Sphäre (siehe Hinweis bei
   // Skr42MainCategory in src/types.ts).
-  const getMainCatOptions = (): SearchableAccountOption[] => {
-    const mains = getAllSkr42MainCategories(undefined, skr42);
+  // Ausgeblendetes (Einstellungen → Kontenrahmen) fehlt; was die Teilbuchung schon trägt (`behalten`), bleibt.
+  const getMainCatOptions = (behalten?: string): SearchableAccountOption[] => {
+    const mains = getAllSkr42MainCategories(undefined, skr42).filter(
+      m => !m.ausgeblendet || [m.id, m.code, `${m.code} - ${m.name}`].includes(behalten ?? '')
+    );
     return mains.map(main => ({
       value: main.id,
       code: main.code,
@@ -81,8 +84,10 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
   };
 
   // Helper to generate account options for a given main category
-  const getSubCatOptions = (mainCatId?: string): SearchableAccountOption[] => {
-    const subs = getAllSkr42SubCategories(undefined, mainCatId, skr42);
+  const getSubCatOptions = (mainCatId?: string, behalten?: string): SearchableAccountOption[] => {
+    const subs = getAllSkr42SubCategories(undefined, mainCatId, skr42).filter(
+      s => !s.ausgeblendet || s.label === behalten || s.code === behalten
+    );
     return subs.map(sub => ({
       value: sub.label,
       code: sub.code,
@@ -219,8 +224,8 @@ export const SplitBookingManager: React.FC<SplitBookingManagerProps> = ({
       {/* Split Rows List */}
       <div className="space-y-3">
         {splits.map((split, index) => {
-          const mainOptions = getMainCatOptions();
-          const subOptions = getSubCatOptions(split.mainCategory);
+          const mainOptions = getMainCatOptions(split.mainCategory);
+          const subOptions = getSubCatOptions(split.mainCategory, split.skrAccount || split.subCategory);
 
           // Find current main category ID
           const currentMain = SKR42_STRUCTURE.find(

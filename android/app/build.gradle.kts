@@ -5,7 +5,7 @@ plugins {
 
 // Versionsnummer, gemeinsam mit dem Desktop (package.json, src-tauri/tauri.conf.json, src-tauri/Cargo.toml).
 // Der Bau auf GitHub bricht ab, wenn sie nicht zur Marke passt (z. B. v2.0.0).
-val vmVersion = "2.0.0"
+val vmVersion = "2.1.0"
 
 // Signierschlüssel der Release-Fassung. Er liegt nie im Repository: Beim Bau auf GitHub wird er aus einem Secret
 // abgelegt, Ort und Passwörter kommen über Umgebungsvariablen (siehe .github/workflows/release-desktop.yml und

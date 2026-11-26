@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Skr42MainCategory } from '../types';
+import { nurSichtbare } from '../utils/kontenrahmen';
 
 interface SkrKontoAuswahlProps {
   /** Kontonummer (SKR 42), leer = kein Konto. */
@@ -19,7 +20,8 @@ interface SkrKontoAuswahlProps {
  * `useSkr42()` kommt.
  */
 export const SkrKontoAuswahl: React.FC<SkrKontoAuswahlProps> = ({ value, typ, skr, onChange, leerText = '– kein Konto –', className, title }) => {
-  const kreise = skr.filter(m => !typ || m.type === typ);
+  // Ausgeblendetes (Einstellungen → Kontenrahmen) fehlt; das gewählte Konto bleibt sichtbar.
+  const kreise = nurSichtbare(skr, { konto: value }).filter(m => !typ || m.type === typ);
   return (
     <select value={value} onChange={e => onChange(e.target.value)} className={className} title={title}>
       <option value="">{leerText}</option>

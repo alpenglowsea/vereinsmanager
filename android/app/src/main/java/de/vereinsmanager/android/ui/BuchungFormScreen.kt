@@ -38,7 +38,6 @@ import de.vereinsmanager.core.finance.BuchungRegeln
 import de.vereinsmanager.core.finance.FinanceLabels
 import de.vereinsmanager.core.finance.Geld
 import de.vereinsmanager.core.finance.TeilForm
-import de.vereinsmanager.core.skr42.Skr42
 import java.math.BigDecimal
 
 /** Anlegen (id == null) und Bearbeiten einer Buchung. Alle Regeln stecken im Kern ([BuchungRegeln]). */
@@ -54,7 +53,15 @@ fun BuchungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
     var vorbelegtHinweis by remember { mutableStateOf<String?>(null) }
     // Nach dem ersten Speichern-Versuch wird laufend neu geprüft: Behobene Fehler verschwinden sofort.
     val fehler = if (versucht) BuchungRegeln.pruefen(f, model.konten) else emptyMap()
-    val skr = Skr42.standard
+    // Kontenrahmen des Vereins (mit eigenen Konten und Anpassungen); Ausgeblendetes fehlt, außer die Buchung trägt es schon.
+    val skr = remember(model.kontenrahmen, f.nummernkreis, f.konto, f.skrKonto, f.teile) {
+        de.vereinsmanager.core.skr42.Kontenrahmen.nurSichtbare(
+            model.kontenrahmen,
+            (listOf(f.nummernkreis) + f.teile.map { it.nummernkreis }).filter { it.isNotEmpty() }.toSet(),
+            (listOf(f.konto, f.skrKonto) + f.teile.flatMap { listOf(it.konto, it.skrKonto) }).filter { it.isNotEmpty() }.toSet(),
+        )
+    }
+    var neuesKonto by remember { mutableStateOf(false) }
 
     val kontoAuswahl = remember(model.konten) { model.konten.associate { it.id to it.name } }
     val sparten = remember(model.departments, f.sparte, f.teile) {
@@ -135,6 +142,7 @@ fun BuchungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
                             onSphaere = { f = f.copy(sphaere = it) }, onSparte = { f = f.copy(sparte = it) },
                             onNummernkreis = { f = BuchungRegeln.mitNummernkreis(f, it) },
                             onKonto = { f = BuchungRegeln.mitKonto(f, it) }, onUst = { f = f.copy(ust = it) },
+                            onNeuesKonto = { neuesKonto = true },
                         )
                     } else {
                         f.teile.forEachIndexed { i, t ->
@@ -189,6 +197,17 @@ fun BuchungFormScreen(model: AppModel, id: String?, onDone: () -> Unit, modifier
                 model.saveBuchung(f) { err -> if (err == null) onDone() else speicherFehler = "Speichern fehlgeschlagen: $err" }
             }
         }, !model.busy)
+    }
+    // Wie am Desktop: ein Konto direkt aus der Buchung anlegen; danach ist es samt Nummernkreis gewählt.
+    if (neuesKonto) {
+        val kreis = BuchungRegeln.hauptkonto(f.nummernkreis, f.konto, skr)?.code.orEmpty()
+        KontoAnlegenDialog(model, kreis) { sub, _ ->
+            neuesKonto = false
+            if (sub != null) {
+                val main = model.kontenrahmen.firstOrNull { m -> m.subCategories.any { it.code == sub.code } }
+                f = BuchungRegeln.mitKonto(if (main != null) BuchungRegeln.mitNummernkreis(f, main) else f, sub)
+            }
+        }
     }
     if (kontaktDialog) {
         KontaktAusBuchungDialog(model, f.partner.trim(), if (f.art == "income") "sponsor" else "supplier", onDismiss = { kontaktDialog = false }) { k ->
@@ -256,6 +275,7 @@ internal fun Zuordnung(
     onSphaere: (String) -> Unit, onSparte: (String) -> Unit,
     onNummernkreis: (de.vereinsmanager.core.skr42.Skr42Main) -> Unit,
     onKonto: (de.vereinsmanager.core.skr42.Skr42Sub) -> Unit, onUst: (Int) -> Unit,
+    onNeuesKonto: (() -> Unit)? = null,
 ) {
     val haupt = BuchungRegeln.hauptkonto(nummernkreis, konto, skr)
     // Passende Nummernkreise zuerst; ein gespeicherter Wert, den der Kontenrahmen nicht kennt, bleibt wählbar.
@@ -273,6 +293,7 @@ internal fun Zuordnung(
     Auswahl("Sparte", sparten, sparte, onChange = onSparte)
     Auswahl("Nummernkreis (SKR 42)", kreise, haupt?.id ?: nummernkreis) { k -> skr.firstOrNull { it.id == k }?.let(onNummernkreis) }
     Auswahl("Konto (SKR 42)", kontoMap, konto) { k -> subs.firstOrNull { it.label == k }?.let(onKonto) }
+    if (onNeuesKonto != null) TextButton(onClick = onNeuesKonto) { Text("+ Neues Konto anlegen") }
     Text("Umsatzsteuer", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 4.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         BuchungRegeln.UST_SAETZE.forEach { FilterChip(ust == it, { onUst(it) }, { Text("$it %") }) }
